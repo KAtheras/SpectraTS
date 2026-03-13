@@ -325,7 +325,7 @@ body.is-embedded .page-shell {
   min-height: var(--filter-control-height);
   padding: 2px;
   border-radius: 18px;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 0.75fr) minmax(0, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 3px;
 }
 
