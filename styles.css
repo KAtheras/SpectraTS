@@ -176,6 +176,18 @@ body.is-embedded .page-shell {
   gap: 10px;
 }
 
+.app-topbar-left,
+.app-topbar-right {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.app-topbar-right {
+  margin-left: auto;
+}
+
 .panel {
   border: 1px solid var(--panel-border);
   background: var(--panel);
@@ -1026,6 +1038,11 @@ textarea {
   .app-topbar {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .app-topbar-right {
+    margin-left: 0;
+    justify-content: flex-start;
   }
 
   .panel-modal {
