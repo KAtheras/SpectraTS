@@ -207,6 +207,7 @@
     const sessionToken = loadSessionToken();
     const response = await fetch(url, {
       method: settings.method || "GET",
+      credentials: "same-origin",
       headers: {
         "Content-Type": "application/json; charset=utf-8",
         ...(sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}),
@@ -1238,13 +1239,19 @@
     const formData = new FormData(refs.loginForm);
     const username = String(formData.get("username") || "").trim();
     const password = String(formData.get("password") || "");
+    setAuthFeedback("Signing in...", false);
 
     try {
       const payload = await requestAuth("login", { username, password });
+      if (!payload.sessionToken) {
+        throw new Error("Login response was missing a session token.");
+      }
       saveSessionToken(payload.sessionToken || "");
+      setAuthFeedback("Credentials accepted. Loading workspace...", false);
       refs.loginForm.reset();
       await refreshAuthenticatedApp();
     } catch (error) {
+      console.error("Login failed:", error);
       setAuthFeedback(error.message || "Unable to sign in.", true);
     }
   }
@@ -1255,13 +1262,19 @@
     const displayName = String(formData.get("display_name") || "").trim();
     const username = String(formData.get("username") || "").trim();
     const password = String(formData.get("password") || "");
+    setAuthFeedback("Creating admin account...", false);
 
     try {
       const payload = await requestAuth("bootstrap", { displayName, username, password });
+      if (!payload.sessionToken) {
+        throw new Error("Bootstrap response was missing a session token.");
+      }
       saveSessionToken(payload.sessionToken || "");
+      setAuthFeedback("Admin account created. Loading workspace...", false);
       refs.bootstrapForm.reset();
       await refreshAuthenticatedApp();
     } catch (error) {
+      console.error("Bootstrap failed:", error);
       setAuthFeedback(error.message || "Unable to create the admin account.", true);
     }
   }
@@ -1528,7 +1541,10 @@
   }
 
   async function refreshAuthenticatedApp() {
-    await loadPersistentState();
+    const restored = await loadPersistentState();
+    if (!restored) {
+      throw new Error("The app could not load authenticated state.");
+    }
     if (!state.currentUser) {
       throw new Error("Sign-in succeeded, but the session could not be restored.");
     }
