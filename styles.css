@@ -1080,6 +1080,16 @@ textarea {
     grid-template-columns: 1fr;
   }
 
+  .app-frame {
+    max-width: 100%;
+  }
+
+  .panel {
+    width: 100%;
+    max-width: 100%;
+    padding: 16px;
+  }
+
   .entry-helpers-hours {
     height: auto;
     min-height: 0;
@@ -1157,7 +1167,6 @@ textarea {
 
   .panel {
     border-radius: 22px;
-    padding: 18px;
   }
 
   .panel-head,
