@@ -1687,6 +1687,11 @@
     }
 
     if (action === "delete") {
+      const confirmed = window.confirm("Are you sure you want to delete this entry?");
+      if (!confirmed) {
+        return;
+      }
+
       try {
         if (state.storageMode === "remote") {
           await mutatePersistentState("delete_entry", { id });
