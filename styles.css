@@ -101,6 +101,10 @@ body {
   transition: background 180ms ease, color 180ms ease;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 body.is-embedded {
   background: transparent;
 }
