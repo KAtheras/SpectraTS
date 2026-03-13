@@ -298,6 +298,20 @@ body.is-embedded .page-shell {
   gap: 14px;
 }
 
+.add-user-form {
+  grid-template-columns:
+    minmax(0, 1.1fr)
+    minmax(0, 1fr)
+    minmax(0, 1fr)
+    minmax(120px, 0.7fr)
+    minmax(150px, 0.9fr);
+  align-items: end;
+}
+
+.add-user-form .filter-actions {
+  align-self: end;
+}
+
 .entry-form label,
 .filters label {
   display: grid;

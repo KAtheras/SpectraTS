@@ -8,7 +8,7 @@
       name="description"
       content="A standalone timesheet app that can be hosted on Netlify and embedded in WordPress with an iframe."
     />
-    <link rel="stylesheet" href="./styles.css?v=20260313-8" />
+    <link rel="stylesheet" href="./styles.css?v=20260313-9" />
   </head>
   <body>
     <div class="auth-shell" id="auth-shell" hidden>
@@ -309,6 +309,9 @@
               </div>
             </div>
 
+            <div id="user-list" class="catalog-list user-list"></div>
+
+            <p id="user-feedback" class="feedback auth-feedback" aria-live="polite"></p>
             <form id="add-user-form" class="filters add-user-form">
               <label>
                 <span>Name</span>
@@ -333,14 +336,11 @@
                 <button class="button" type="submit">Add team member</button>
               </div>
             </form>
-
-            <p id="user-feedback" class="feedback auth-feedback" aria-live="polite"></p>
-            <div id="user-list" class="catalog-list user-list"></div>
           </section>
         </div>
       </div>
     </div>
 
-    <script src="./app.js?v=20260313-8" defer></script>
+    <script src="./app.js?v=20260313-9" defer></script>
   </body>
 </html>
