@@ -221,6 +221,11 @@ body.is-embedded .page-shell {
   width: 100%;
 }
 
+.panel-form {
+  width: 60%;
+  margin-right: auto;
+}
+
 .eyebrow,
 .panel-label {
   margin: 0 0 10px;
@@ -1102,6 +1107,10 @@ textarea {
 
   .filters {
     grid-template-columns: 1fr;
+  }
+
+  .panel-form {
+    width: 60%;
   }
 
   .app-frame {
