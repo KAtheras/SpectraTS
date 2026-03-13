@@ -2,6 +2,16 @@
   publish = "."
 
 [[redirects]]
+  from = "/api/state"
+  to = "/.netlify/functions/state"
+  status = 200
+
+[[redirects]]
+  from = "/api/mutate"
+  to = "/.netlify/functions/mutate"
+  status = 200
+
+[[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200

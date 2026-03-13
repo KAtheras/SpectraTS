@@ -2,6 +2,8 @@
   const STORAGE_KEY = "timesheet-studio.entries.v1";
   const CATALOG_STORAGE_KEY = "timesheet-studio.catalog.v1";
   const THEME_STORAGE_KEY = "timesheet-studio.theme.v1";
+  const STATE_API_PATH = "/api/state";
+  const MUTATE_API_PATH = "/api/mutate";
   const body = document.body;
   const embedded = window.self !== window.top || window.location.search.includes("embed=1");
   const themeMedia = window.matchMedia("(prefers-color-scheme: dark)");
@@ -54,6 +56,7 @@
     },
     editingId: null,
     selectedCatalogClient: "",
+    storageMode: "local",
   };
 
   const QUICK_HOUR_PRESETS = new Set(["0.5", "1", "1.5", "2", "2.5", "3"]);
@@ -109,6 +112,57 @@
     refs.themeToggle.textContent = nextLabel;
     refs.themeToggle.setAttribute("aria-pressed", theme === "dark" ? "true" : "false");
     refs.themeToggle.setAttribute("aria-label", nextLabel);
+  }
+
+  function applyLoadedState(data) {
+    state.catalog = normalizeCatalog(data?.catalog || DEFAULT_CLIENT_PROJECTS);
+    state.entries = Array.isArray(data?.entries) ? data.entries.map(normalizeEntry).filter(Boolean) : [];
+  }
+
+  async function requestJson(url, options) {
+    const settings = options || {};
+    const response = await fetch(url, {
+      method: settings.method || "GET",
+      headers: {
+        "Content-Type": "application/json; charset=utf-8",
+        ...(settings.headers || {}),
+      },
+      body: settings.body,
+    });
+
+    const text = await response.text();
+    const payload = text ? JSON.parse(text) : {};
+
+    if (!response.ok) {
+      throw new Error(payload?.error || "Request failed.");
+    }
+
+    return payload;
+  }
+
+  async function loadPersistentState() {
+    try {
+      const payload = await requestJson(STATE_API_PATH);
+      applyLoadedState(payload);
+      state.storageMode = "remote";
+      return true;
+    } catch (error) {
+      state.storageMode = "local";
+      return false;
+    }
+  }
+
+  async function mutatePersistentState(action, payload) {
+    if (state.storageMode !== "remote") {
+      return null;
+    }
+
+    const result = await requestJson(MUTATE_API_PATH, {
+      method: "POST",
+      body: JSON.stringify({ action, payload }),
+    });
+    applyLoadedState(result);
+    return result;
   }
 
   function openCatalogModal() {
@@ -1114,7 +1168,7 @@
     URL.revokeObjectURL(url);
   }
 
-  refs.form.addEventListener("submit", function (event) {
+  refs.form.addEventListener("submit", async function (event) {
     event.preventDefault();
 
     const existingEntry = state.entries.find((entry) => entry.id === state.editingId);
@@ -1143,17 +1197,24 @@
       return;
     }
 
-    if (state.editingId) {
-      state.entries = state.entries.map((entry) =>
-        entry.id === state.editingId ? nextEntry : entry
-      );
-      feedback("Entry updated.", false);
-    } else {
-      state.entries.unshift(nextEntry);
-      feedback("Entry saved.", false);
+    try {
+      if (state.storageMode === "remote") {
+        await mutatePersistentState("save_entry", { entry: nextEntry });
+      } else if (state.editingId) {
+        state.entries = state.entries.map((entry) =>
+          entry.id === state.editingId ? nextEntry : entry
+        );
+        saveEntries();
+      } else {
+        state.entries.unshift(nextEntry);
+        saveEntries();
+      }
+    } catch (error) {
+      feedback(error.message || "Unable to save entry.", true);
+      return;
     }
 
-    saveEntries();
+    feedback(state.editingId ? "Entry updated." : "Entry saved.", false);
     resetForm();
     render();
   });
@@ -1298,16 +1359,28 @@
 
   refs.exportCsv.addEventListener("click", exportCsv);
 
-  refs.addClientForm.addEventListener("submit", function (event) {
+  refs.addClientForm.addEventListener("submit", async function (event) {
     event.preventDefault();
     const clientNameField = field(refs.addClientForm, "client_name");
     const formUserField = field(refs.form, "user");
     const filterUserField = field(refs.filterForm, "user");
     const filterClientField = field(refs.filterForm, "client");
     const filterProjectField = field(refs.filterForm, "project");
-    const error = addClient(clientNameField.value);
-    if (error) {
-      feedback(error, true);
+    try {
+      if (state.storageMode === "remote") {
+        await mutatePersistentState("add_client", {
+          clientName: clientNameField.value,
+        });
+        state.selectedCatalogClient = clientNameField.value.trim();
+      } else {
+        const error = addClient(clientNameField.value);
+        if (error) {
+          feedback(error, true);
+          return;
+        }
+      }
+    } catch (error) {
+      feedback(error.message || "Unable to add client.", true);
       return;
     }
 
@@ -1326,19 +1399,31 @@
     render();
   });
 
-  refs.addProjectForm.addEventListener("submit", function (event) {
+  refs.addProjectForm.addEventListener("submit", async function (event) {
     event.preventDefault();
     const projectNameField = field(refs.addProjectForm, "project_name");
     const formUserField = field(refs.form, "user");
     const filterUserField = field(refs.filterForm, "user");
     const filterClientField = field(refs.filterForm, "client");
     const filterProjectField = field(refs.filterForm, "project");
-    const error = addProject(
-      state.selectedCatalogClient,
-      projectNameField.value
-    );
-    if (error) {
-      feedback(error, true);
+    try {
+      if (state.storageMode === "remote") {
+        await mutatePersistentState("add_project", {
+          clientName: state.selectedCatalogClient,
+          projectName: projectNameField.value,
+        });
+      } else {
+        const error = addProject(
+          state.selectedCatalogClient,
+          projectNameField.value
+        );
+        if (error) {
+          feedback(error, true);
+          return;
+        }
+      }
+    } catch (error) {
+      feedback(error.message || "Unable to add project.", true);
       return;
     }
 
@@ -1358,7 +1443,7 @@
     render();
   });
 
-  refs.clientList.addEventListener("click", function (event) {
+  refs.clientList.addEventListener("click", async function (event) {
     const editButton = event.target.closest("[data-edit-client]");
     if (editButton) {
       const clientName = editButton.dataset.editClient;
@@ -1367,12 +1452,30 @@
         return;
       }
 
-      const message = renameClient(clientName, nextName);
-      if (message) {
-        feedback(message, message !== "");
-        if (message) {
-          render();
+      try {
+        if (state.storageMode === "remote") {
+          await mutatePersistentState("rename_client", {
+            clientName,
+            nextName,
+          });
+          if (state.selectedCatalogClient === clientName) {
+            state.selectedCatalogClient = nextName.trim();
+          }
+          if (state.filters.client === clientName) {
+            state.filters.client = nextName.trim();
+          }
+        } else {
+          const message = renameClient(clientName, nextName);
+          if (message) {
+            feedback(message, message !== "");
+            if (message) {
+              render();
+            }
+            return;
+          }
         }
+      } catch (error) {
+        feedback(error.message || "Unable to update client.", true);
         return;
       }
 
@@ -1397,9 +1500,28 @@
         return;
       }
 
-      const message = removeClient(clientName);
-      if (message === "Client not found.") {
-        feedback(message, true);
+      let message = "";
+      try {
+        if (state.storageMode === "remote") {
+          const result = await mutatePersistentState("remove_client", {
+            clientName,
+          });
+          message = result?.message || "";
+          if (state.selectedCatalogClient === clientName) {
+            state.selectedCatalogClient = "";
+          }
+          if (state.filters.client === clientName) {
+            state.filters.client = "";
+          }
+        } else {
+          message = removeClient(clientName);
+          if (message === "Client not found.") {
+            feedback(message, true);
+            return;
+          }
+        }
+      } catch (error) {
+        feedback(error.message || "Unable to remove client.", true);
         return;
       }
 
@@ -1429,7 +1551,7 @@
     row.click();
   });
 
-  refs.projectList.addEventListener("click", function (event) {
+  refs.projectList.addEventListener("click", async function (event) {
     const editButton = event.target.closest("[data-edit-project]");
     if (editButton) {
       const projectName = editButton.dataset.editProject;
@@ -1438,12 +1560,31 @@
         return;
       }
 
-      const message = renameProject(state.selectedCatalogClient, projectName, nextName);
-      if (message) {
-        feedback(message, message !== "");
-        if (message) {
-          render();
+      try {
+        if (state.storageMode === "remote") {
+          await mutatePersistentState("rename_project", {
+            clientName: state.selectedCatalogClient,
+            projectName,
+            nextName,
+          });
+          if (
+            state.filters.client === state.selectedCatalogClient &&
+            state.filters.project === projectName
+          ) {
+            state.filters.project = nextName.trim();
+          }
+        } else {
+          const message = renameProject(state.selectedCatalogClient, projectName, nextName);
+          if (message) {
+            feedback(message, message !== "");
+            if (message) {
+              render();
+            }
+            return;
+          }
         }
+      } catch (error) {
+        feedback(error.message || "Unable to update project.", true);
         return;
       }
 
@@ -1468,9 +1609,29 @@
         return;
       }
 
-      const message = removeProject(state.selectedCatalogClient, projectName);
-      if (message === "Project not found.") {
-        feedback(message, true);
+      let message = "";
+      try {
+        if (state.storageMode === "remote") {
+          const result = await mutatePersistentState("remove_project", {
+            clientName: state.selectedCatalogClient,
+            projectName,
+          });
+          message = result?.message || "";
+          if (
+            state.filters.client === state.selectedCatalogClient &&
+            state.filters.project === projectName
+          ) {
+            state.filters.project = "";
+          }
+        } else {
+          message = removeProject(state.selectedCatalogClient, projectName);
+          if (message === "Project not found.") {
+            feedback(message, true);
+            return;
+          }
+        }
+      } catch (error) {
+        feedback(error.message || "Unable to remove project.", true);
         return;
       }
 
@@ -1506,7 +1667,7 @@
     row.click();
   });
 
-  refs.entriesBody.addEventListener("click", function (event) {
+  refs.entriesBody.addEventListener("click", async function (event) {
     const button = event.target.closest("[data-action]");
     if (!button) {
       return;
@@ -1526,11 +1687,21 @@
     }
 
     if (action === "delete") {
-      state.entries = state.entries.filter((item) => item.id !== id);
+      try {
+        if (state.storageMode === "remote") {
+          await mutatePersistentState("delete_entry", { id });
+        } else {
+          state.entries = state.entries.filter((item) => item.id !== id);
+          saveEntries();
+        }
+      } catch (error) {
+        feedback(error.message || "Unable to delete entry.", true);
+        return;
+      }
+
       if (state.editingId === id) {
         resetForm();
       }
-      saveEntries();
       feedback("Entry deleted.", false);
       render();
     }
@@ -1544,12 +1715,17 @@
     }
   });
 
-  syncFormCatalogs({
-    user: "",
-    client: "",
-    project: "",
-  });
-  syncFilterCatalogs(state.filters);
-  resetForm();
-  render();
+  async function initApp() {
+    await loadPersistentState();
+    syncFormCatalogs({
+      user: "",
+      client: "",
+      project: "",
+    });
+    syncFilterCatalogs(state.filters);
+    resetForm();
+    render();
+  }
+
+  initApp();
 })();
