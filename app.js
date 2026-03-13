@@ -157,7 +157,7 @@
     }
 
     const nextLabel = theme === "dark" ? "Light mode" : "Dark mode";
-    refs.themeToggle.textContent = nextLabel;
+    refs.themeToggle.textContent = "Dark/Light";
     refs.themeToggle.setAttribute("aria-pressed", theme === "dark" ? "true" : "false");
     refs.themeToggle.setAttribute("aria-label", nextLabel);
   }
@@ -1393,7 +1393,7 @@
 
     if (isAuthenticated) {
       refs.sessionIndicator.hidden = false;
-      refs.sessionIndicator.textContent = `${state.currentUser.displayName} · ${state.currentUser.role}`;
+      refs.sessionIndicator.textContent = state.currentUser.displayName;
       refs.manageUsers.hidden = state.currentUser.role !== "admin";
       refs.logoutButton.hidden = false;
       refs.openCatalog.hidden = state.currentUser.role !== "admin";

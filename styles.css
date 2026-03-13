@@ -89,6 +89,12 @@ html {
   scroll-behavior: smooth;
 }
 
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 body {
   margin: 0;
   background:
@@ -99,6 +105,7 @@ body {
   color: var(--ink);
   font-family: var(--font-body);
   transition: background 180ms ease, color 180ms ease;
+  overflow-x: hidden;
 }
 
 [hidden] {
@@ -161,6 +168,7 @@ body.is-embedded .page-shell {
 }
 
 .app-frame {
+  width: 100%;
   max-width: 1240px;
   margin: 0 auto;
   display: grid;
@@ -168,24 +176,13 @@ body.is-embedded .page-shell {
 }
 
 .app-topbar {
+  width: 100%;
   max-width: 1240px;
   margin: 0 auto 14px;
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 10px;
-}
-
-.app-topbar-left,
-.app-topbar-right {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.app-topbar-right {
-  margin-left: auto;
 }
 
 .panel {
@@ -1013,6 +1010,23 @@ textarea {
     grid-template-columns: 1fr;
   }
 
+  .app-topbar {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .app-topbar .session-indicator {
+    grid-column: 1 / -1;
+    justify-content: center;
+  }
+
+  .app-topbar .button-ghost {
+    padding: 9px 6px;
+    font-size: 0.78rem;
+    white-space: nowrap;
+  }
+
   .wheel-date-picker {
     grid-template-columns: 1fr;
   }
@@ -1051,13 +1065,7 @@ textarea {
   }
 
   .app-topbar {
-    flex-direction: column;
     align-items: stretch;
-  }
-
-  .app-topbar-right {
-    margin-left: 0;
-    justify-content: flex-start;
   }
 
   .panel-modal {
