@@ -1322,18 +1322,17 @@
     try {
       await requestAuth("logout");
     } catch (error) {
-      feedback(error.message || "Unable to log out.", true);
-      return;
+      console.error("Logout request failed:", error);
     }
 
     saveSessionToken("");
     clearRemoteAppState();
     resetFilters();
     resetForm();
-    setAuthFeedback("", false);
+    setAuthFeedback("Signed out.", false);
     closeUsersModal();
     closeCatalogModal();
-    await loadPersistentState();
+    showAuthShell();
     render();
   }
 
