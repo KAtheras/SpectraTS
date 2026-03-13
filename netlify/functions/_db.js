@@ -123,12 +123,24 @@ async function seedDefaultCatalog(sql) {
 }
 
 function json(statusCode, body, extraHeaders) {
+  const headers = {
+    ...JSON_HEADERS,
+  };
+  const multiValueHeaders = {};
+
+  Object.entries(extraHeaders || {}).forEach(function ([key, value]) {
+    if (key.toLowerCase() === "set-cookie") {
+      multiValueHeaders["Set-Cookie"] = Array.isArray(value) ? value : [value];
+      return;
+    }
+
+    headers[key] = value;
+  });
+
   return {
     statusCode,
-    headers: {
-      ...JSON_HEADERS,
-      ...(extraHeaders || {}),
-    },
+    headers,
+    ...(Object.keys(multiValueHeaders).length ? { multiValueHeaders } : {}),
     body: JSON.stringify(body),
   };
 }
