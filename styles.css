@@ -1123,7 +1123,8 @@ textarea {
   }
 
   .preset-buttons {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 6px;
   }
 
   .chip-button,
