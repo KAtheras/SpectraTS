@@ -1112,11 +1112,13 @@ textarea {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 8px;
+    max-width: 100%;
   }
 
   .app-topbar .session-indicator {
     grid-column: 1 / -1;
     justify-content: center;
+    width: 100%;
   }
 
   .app-topbar-actions {
@@ -1130,6 +1132,8 @@ textarea {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    width: 100%;
+    justify-content: center;
   }
 
   .entry-form .wheel-date-picker {
