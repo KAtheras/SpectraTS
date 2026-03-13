@@ -74,6 +74,7 @@
     editingId: null,
     selectedCatalogClient: "",
     storageMode: "local",
+    sessionToken: loadSessionToken(),
     currentUser: null,
     users: [],
     bootstrapRequired: false,
@@ -117,6 +118,7 @@
   }
 
   function saveSessionToken(token) {
+    state.sessionToken = token || "";
     try {
       if (token) {
         window.localStorage.setItem(SESSION_TOKEN_STORAGE_KEY, token);
@@ -205,7 +207,7 @@
 
   async function requestJson(url, options) {
     const settings = options || {};
-    const sessionToken = loadSessionToken();
+    const sessionToken = state.sessionToken || loadSessionToken();
     const response = await fetch(url, {
       method: settings.method || "GET",
       credentials: "same-origin",
