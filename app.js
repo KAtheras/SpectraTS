@@ -211,6 +211,7 @@
       credentials: "same-origin",
       headers: {
         "Content-Type": "application/json; charset=utf-8",
+        ...(sessionToken ? { "X-Spectra-Session": sessionToken } : {}),
         ...(sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}),
         ...(settings.headers || {}),
       },

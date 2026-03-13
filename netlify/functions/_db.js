@@ -190,8 +190,16 @@ function getBearerToken(event) {
   return match ? match[1] : "";
 }
 
+function getCustomSessionToken(event) {
+  return (
+    event.headers?.["x-spectra-session"] ||
+    event.headers?.["X-Spectra-Session"] ||
+    ""
+  );
+}
+
 function getSessionToken(event) {
-  return getBearerToken(event) || "";
+  return String(getCustomSessionToken(event) || getBearerToken(event) || "").trim();
 }
 
 async function userCount(sql) {
