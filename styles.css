@@ -326,7 +326,8 @@ body.is-embedded .page-shell {
   padding: 2px;
   border-radius: 18px;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 3px;
+  gap: 0;
+  background: var(--surface-strong);
 }
 
 .entry-date-field .wheel-date-picker {
@@ -364,6 +365,20 @@ body.is-embedded .page-shell {
   background-image: none;
   min-width: 0;
   text-align: center;
+  background-color: transparent;
+  border-radius: 0;
+}
+
+.filters .wheel-date-picker select + select {
+  border-left: 1px solid var(--line);
+}
+
+.filters .wheel-date-picker select:first-child {
+  border-radius: 14px 0 0 14px;
+}
+
+.filters .wheel-date-picker select:last-child {
+  border-radius: 0 14px 14px 0;
 }
 
 .wheel-date-picker select:focus {
