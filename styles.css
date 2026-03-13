@@ -308,8 +308,9 @@ body.is-embedded .page-shell {
   align-items: end;
 }
 
-.add-user-form .filter-actions {
+.add-user-form .add-user-button {
   align-self: end;
+  height: 44px;
 }
 
 .entry-form label,
