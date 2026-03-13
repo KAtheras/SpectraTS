@@ -1252,7 +1252,9 @@
       await refreshAuthenticatedApp();
     } catch (error) {
       console.error("Login failed:", error);
-      setAuthFeedback(error.message || "Unable to sign in.", true);
+      const message = error.message || "Unable to sign in.";
+      setAuthFeedback(message, true);
+      window.alert(message);
     }
   }
 
@@ -1275,7 +1277,9 @@
       await refreshAuthenticatedApp();
     } catch (error) {
       console.error("Bootstrap failed:", error);
-      setAuthFeedback(error.message || "Unable to create the admin account.", true);
+      const message = error.message || "Unable to create the admin account.";
+      setAuthFeedback(message, true);
+      window.alert(message);
     }
   }
 
