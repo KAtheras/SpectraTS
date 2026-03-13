@@ -172,22 +172,25 @@ body.modal-open {
   max-width: 100vw;
 }
 
+.shell-inner {
+  max-width: 1240px;
+  margin: 0 auto;
+  width: 100%;
+}
+
 body.is-embedded .page-shell {
   padding: 10px;
 }
 
 .app-frame {
   width: 100%;
-  max-width: 1240px;
-  margin: 0 auto;
   display: grid;
   gap: 18px;
 }
 
 .app-topbar {
   width: 100%;
-  max-width: 1240px;
-  margin: 0 auto 14px;
+  margin: 0 0 14px;
   display: flex;
   align-items: center;
   flex-wrap: wrap;
@@ -1110,7 +1113,7 @@ textarea {
 
   .app-topbar {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 8px;
     max-width: 100%;
   }
@@ -1124,6 +1127,11 @@ textarea {
   .app-topbar-actions {
     display: contents;
     margin-left: 0;
+  }
+
+  .app-topbar > *,
+  .app-topbar-actions > * {
+    min-width: 0;
   }
 
   .app-topbar .button-ghost {
