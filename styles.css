@@ -1122,7 +1122,7 @@ textarea {
 
   .entry-helpers-hours .chip-button {
     flex: 0 0 auto;
-    width: 42px;
+    width: 48px;
   }
 
   .entry-helpers-hours .other-hours {
@@ -1133,7 +1133,7 @@ textarea {
   }
 
   .entry-helpers-hours .other-hours input {
-    width: 54px;
+    width: 64px;
     min-width: 0;
   }
 
