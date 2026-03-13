@@ -87,6 +87,8 @@ body[data-theme="dark"] {
 
 html {
   scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 *,
@@ -1026,6 +1028,10 @@ textarea {
 }
 
 @media (max-width: 640px) {
+  .shell-inner {
+    max-width: 100%;
+  }
+
   .entry-form label {
     min-width: 0;
   }
