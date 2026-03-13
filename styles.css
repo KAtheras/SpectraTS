@@ -1208,6 +1208,33 @@ textarea {
     align-items: stretch;
   }
 
+  .panel-head-logged {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      "title actions"
+      "total total";
+    align-items: center;
+    gap: 8px;
+  }
+
+  .panel-head-logged .panel-head-title-row {
+    display: contents;
+  }
+
+  .panel-head-logged .panel-head-title-row h2 {
+    grid-area: title;
+  }
+
+  .panel-head-logged .panel-head-title-row .filter-total {
+    grid-area: total;
+  }
+
+  .panel-head-logged .panel-head-actions {
+    grid-area: actions;
+    justify-content: flex-end;
+  }
+
   .app-topbar {
     align-items: stretch;
   }
