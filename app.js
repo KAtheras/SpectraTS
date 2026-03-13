@@ -2,6 +2,7 @@
   const STORAGE_KEY = "timesheet-studio.entries.v1";
   const CATALOG_STORAGE_KEY = "timesheet-studio.catalog.v1";
   const THEME_STORAGE_KEY = "timesheet-studio.theme.v1";
+  const SESSION_TOKEN_STORAGE_KEY = "timesheet-studio.session-token.v1";
   const AUTH_API_PATH = "/api/auth";
   const STATE_API_PATH = "/api/state";
   const MUTATE_API_PATH = "/api/mutate";
@@ -104,6 +105,26 @@
     }
   }
 
+  function loadSessionToken() {
+    try {
+      return window.localStorage.getItem(SESSION_TOKEN_STORAGE_KEY) || "";
+    } catch (error) {
+      return "";
+    }
+  }
+
+  function saveSessionToken(token) {
+    try {
+      if (token) {
+        window.localStorage.setItem(SESSION_TOKEN_STORAGE_KEY, token);
+      } else {
+        window.localStorage.removeItem(SESSION_TOKEN_STORAGE_KEY);
+      }
+    } catch (error) {
+      return;
+    }
+  }
+
   function saveThemePreference(theme) {
     try {
       window.localStorage.setItem(THEME_STORAGE_KEY, theme);
@@ -181,10 +202,12 @@
 
   async function requestJson(url, options) {
     const settings = options || {};
+    const sessionToken = loadSessionToken();
     const response = await fetch(url, {
       method: settings.method || "GET",
       headers: {
         "Content-Type": "application/json; charset=utf-8",
+        ...(sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}),
         ...(settings.headers || {}),
       },
       body: settings.body,
@@ -218,6 +241,7 @@
       return true;
     } catch (error) {
       if (error.status === 401) {
+        saveSessionToken("");
         state.storageMode = "remote";
         state.bootstrapRequired = Boolean(error.payload?.bootstrapRequired);
         state.currentUser = null;
@@ -1214,7 +1238,8 @@
     const password = String(formData.get("password") || "");
 
     try {
-      await requestAuth("login", { username, password });
+      const payload = await requestAuth("login", { username, password });
+      saveSessionToken(payload.sessionToken || "");
       refs.loginForm.reset();
       await refreshAuthenticatedApp();
     } catch (error) {
@@ -1230,7 +1255,8 @@
     const password = String(formData.get("password") || "");
 
     try {
-      await requestAuth("bootstrap", { displayName, username, password });
+      const payload = await requestAuth("bootstrap", { displayName, username, password });
+      saveSessionToken(payload.sessionToken || "");
       refs.bootstrapForm.reset();
       await refreshAuthenticatedApp();
     } catch (error) {
@@ -1246,6 +1272,7 @@
       return;
     }
 
+    saveSessionToken("");
     clearRemoteAppState();
     resetFilters();
     resetForm();

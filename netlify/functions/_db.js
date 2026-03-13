@@ -204,6 +204,16 @@ function parseCookies(event) {
   }, {});
 }
 
+function getBearerToken(event) {
+  const header = event.headers?.authorization || event.headers?.Authorization || "";
+  const match = /^Bearer\s+(.+)$/i.exec(String(header).trim());
+  return match ? match[1] : "";
+}
+
+function getSessionToken(event) {
+  return getBearerToken(event) || parseCookies(event)[SESSION_COOKIE] || "";
+}
+
 function isSecureRequest(event) {
   const forwardedProto = event.headers?.["x-forwarded-proto"] || event.headers?.["X-Forwarded-Proto"];
   return forwardedProto === "https";
@@ -511,7 +521,7 @@ async function getSessionContext(sql, event) {
     };
   }
 
-  const token = parseCookies(event)[SESSION_COOKIE];
+  const token = getSessionToken(event);
   if (!token) {
     return {
       bootstrapRequired: false,
@@ -559,18 +569,23 @@ async function createSession(sql, userId, event) {
   `;
 
   return {
-    "Set-Cookie": buildSessionCookie(event, token, expiresAt),
+    token,
+    headers: {
+      "Set-Cookie": buildSessionCookie(event, token, expiresAt),
+    },
   };
 }
 
 async function clearSession(sql, event) {
-  const token = parseCookies(event)[SESSION_COOKIE];
+  const token = getSessionToken(event);
   if (token) {
     await sql`DELETE FROM sessions WHERE token_hash = ${hashToken(token)}`;
   }
 
   return {
-    "Set-Cookie": buildClearedSessionCookie(event),
+    headers: {
+      "Set-Cookie": buildClearedSessionCookie(event),
+    },
   };
 }
 
