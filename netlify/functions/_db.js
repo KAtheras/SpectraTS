@@ -198,8 +198,25 @@ function getCustomSessionToken(event) {
   );
 }
 
-function getSessionToken(event) {
-  return String(getCustomSessionToken(event) || getBearerToken(event) || "").trim();
+function getRequestSessionToken(request) {
+  if (!request || typeof request !== "object") {
+    return "";
+  }
+
+  return String(
+    request.sessionToken ||
+      request.payload?.sessionToken ||
+      ""
+  ).trim();
+}
+
+function getSessionToken(event, request) {
+  return String(
+    getRequestSessionToken(request) ||
+      getCustomSessionToken(event) ||
+      getBearerToken(event) ||
+      ""
+  ).trim();
 }
 
 async function userCount(sql) {
@@ -463,7 +480,7 @@ async function deactivateUser(sql, payload, actingUser) {
   await sql`DELETE FROM sessions WHERE user_id = ${existingUser.id}`;
 }
 
-async function getSessionContext(sql, event) {
+async function getSessionContext(sql, event, request) {
   const users = await userCount(sql);
   if (users === 0) {
     return {
@@ -472,7 +489,7 @@ async function getSessionContext(sql, event) {
     };
   }
 
-  const token = getSessionToken(event);
+  const token = getSessionToken(event, request);
   if (!token) {
     return {
       bootstrapRequired: false,

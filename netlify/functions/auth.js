@@ -29,7 +29,7 @@ exports.handler = async function handler(event) {
   try {
     const sql = await getSql();
     await ensureSchema(sql);
-    const context = await getSessionContext(sql, event);
+    const context = await getSessionContext(sql, event, request);
 
     if (request.action === "session") {
       if (!context.currentUser) {

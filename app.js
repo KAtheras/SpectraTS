@@ -232,9 +232,14 @@
   }
 
   async function requestAuth(action, payload) {
+    const sessionToken = loadSessionToken();
     return requestJson(AUTH_API_PATH, {
       method: "POST",
-      body: JSON.stringify({ action, payload }),
+      body: JSON.stringify({
+        action,
+        payload,
+        ...(sessionToken ? { sessionToken } : {}),
+      }),
     });
   }
 
@@ -284,9 +289,14 @@
       return null;
     }
 
+    const sessionToken = loadSessionToken();
     const result = await requestJson(MUTATE_API_PATH, {
       method: "POST",
-      body: JSON.stringify({ action, payload }),
+      body: JSON.stringify({
+        action,
+        payload,
+        ...(sessionToken ? { sessionToken } : {}),
+      }),
     });
     applyLoadedState(result);
     return result;
