@@ -1550,6 +1550,17 @@
         setUserFeedback("Team member updated.", false);
       } else if (button.dataset.userRole) {
         const nextRole = user.role === "admin" ? "member" : "admin";
+        if (
+          user.role === "admin" &&
+          nextRole !== "admin" &&
+          user.id === state.currentUser?.id &&
+          state.users.filter((candidate) => candidate.role === "admin").length <= 1
+        ) {
+          const message = "At least one admin account is required.";
+          setUserFeedback(message, true);
+          window.alert(message);
+          return;
+        }
         const confirmed = window.confirm(
           `Change ${user.displayName} to ${nextRole === "admin" ? "an admin" : "a member"}?`
         );
