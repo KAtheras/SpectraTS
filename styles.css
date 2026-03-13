@@ -95,6 +95,12 @@ html {
   box-sizing: border-box;
 }
 
+html,
+body {
+  width: 100%;
+  max-width: 100%;
+}
+
 body {
   margin: 0;
   background:
@@ -162,6 +168,8 @@ body.modal-open {
 
 .page-shell {
   padding: 24px;
+  width: 100%;
+  max-width: 100vw;
 }
 
 body.is-embedded .page-shell {
@@ -1062,9 +1070,11 @@ textarea {
   }
 
   .app-topbar .button-ghost {
-    padding: 9px 6px;
-    font-size: 0.78rem;
+    padding: 8px 4px;
+    font-size: 0.7rem;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .wheel-date-picker {
