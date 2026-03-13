@@ -273,8 +273,7 @@
     feedback("", false);
     closeUsersModal();
     closeCatalogModal();
-    refs.authShell.hidden = true;
-    refs.appShell.hidden = false;
+    showAppShell();
     render();
   }
 
@@ -294,6 +293,20 @@
   function setAuthFeedback(message, isError) {
     refs.authFeedback.textContent = message || "";
     refs.authFeedback.dataset.error = isError ? "true" : "false";
+  }
+
+  function showAuthShell() {
+    refs.authShell.hidden = false;
+    refs.appShell.hidden = true;
+    refs.authShell.style.display = "grid";
+    refs.appShell.style.display = "none";
+  }
+
+  function showAppShell() {
+    refs.authShell.hidden = true;
+    refs.appShell.hidden = false;
+    refs.authShell.style.display = "none";
+    refs.appShell.style.display = "block";
   }
 
   function openUsersModal() {
@@ -1221,15 +1234,19 @@
     const isRemoteAuth = state.storageMode === "remote";
     const isAuthenticated = Boolean(state.currentUser);
 
-    refs.authShell.hidden = !isRemoteAuth || isAuthenticated;
-    refs.appShell.hidden = isRemoteAuth && !isAuthenticated;
-
     if (!isRemoteAuth) {
+      showAppShell();
       refs.sessionIndicator.hidden = true;
       refs.manageUsers.hidden = true;
       refs.logoutButton.hidden = true;
       refs.openCatalog.hidden = false;
       return;
+    }
+
+    if (isAuthenticated) {
+      showAppShell();
+    } else {
+      showAuthShell();
     }
 
     refs.loginForm.hidden = state.bootstrapRequired;
