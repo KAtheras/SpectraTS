@@ -1108,18 +1108,25 @@ textarea {
   }
 
   .preset-buttons {
-    grid-template-columns: repeat(8, minmax(0, 1fr));
+    align-items: center;
+    display: flex;
+    flex-wrap: nowrap;
     gap: 3px;
+  }
+
+  .entry-helpers-hours .chip-button {
+    flex: 0 0 auto;
   }
 
   .entry-helpers-hours .other-hours {
     display: inline-flex;
+    flex: 0 0 auto;
     width: auto;
     min-width: 0;
   }
 
   .entry-helpers-hours .other-hours input {
-    width: 100%;
+    width: 44px;
     min-width: 0;
   }
 
@@ -1171,13 +1178,14 @@ textarea {
   }
 
   .preset-buttons {
-    grid-template-columns: repeat(8, minmax(0, 1fr));
+    display: flex;
+    flex-wrap: nowrap;
     gap: 3px;
   }
 
   .chip-button,
   .other-hours input {
-    width: 100%;
+    width: auto;
   }
 
 
