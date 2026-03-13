@@ -189,9 +189,11 @@
   }
 
   function defaultFilterUser() {
-    return state.storageMode === "remote" && state.currentUser?.role !== "admin"
-      ? state.currentUser.displayName
-      : "";
+    if (state.storageMode !== "remote" || !state.currentUser) {
+      return "";
+    }
+
+    return state.currentUser.role !== "admin" ? state.currentUser.displayName : "";
   }
 
   function resetFilters() {
