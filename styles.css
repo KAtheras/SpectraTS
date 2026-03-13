@@ -1023,6 +1023,10 @@ textarea {
 }
 
 @media (max-width: 640px) {
+  .entry-form label {
+    min-width: 0;
+  }
+
   .auth-shell {
     padding: 14px;
   }
@@ -1118,8 +1122,15 @@ textarea {
     text-overflow: ellipsis;
   }
 
-  .wheel-date-picker {
-    grid-template-columns: 1fr;
+  .entry-form .wheel-date-picker {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 4px;
+    padding: 2px;
+  }
+
+  .entry-form .wheel-date-picker select {
+    font-size: 0.76rem;
+    padding: 0 18px 0 8px;
   }
 
   .catalog-create {
