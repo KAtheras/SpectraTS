@@ -1112,7 +1112,12 @@ textarea {
     gap: 3px;
   }
 
-  .entry-helpers-hours .other-hours,
+  .entry-helpers-hours .other-hours {
+    display: inline-flex;
+    width: auto;
+    min-width: 0;
+  }
+
   .entry-helpers-hours .other-hours input {
     width: 100%;
     min-width: 0;
