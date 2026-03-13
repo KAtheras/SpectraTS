@@ -1009,6 +1009,10 @@ textarea {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
+  .entry-form .entry-pill:first-child {
+    display: none;
+  }
+
   .entry-form .entry-pill {
     grid-column: span 1;
   }
