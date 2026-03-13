@@ -644,14 +644,22 @@
 
     setSelectOptionsWithPlaceholder(
       refsForKind.month,
-      MONTH_NAMES.map(function (label, index) {
-        return { value: String(index + 1).padStart(2, "0"), label };
+      Array.from({ length: 12 }, function (_, index) {
+        const value = String(index + 1).padStart(2, "0");
+        return { value, label: value };
       }),
       monthText,
       "MM"
     );
     const yearConfig = yearOptions(yearText || new Date().getFullYear());
-    setSelectOptionsWithPlaceholder(refsForKind.year, yearConfig.options, yearText, "YYYY");
+    setSelectOptionsWithPlaceholder(
+      refsForKind.year,
+      yearConfig.options.map(function (option) {
+        return { value: option, label: option.slice(-2) };
+      }),
+      yearText,
+      "YY"
+    );
     setSelectOptionsWithPlaceholder(
       refsForKind.day,
       Array.from({ length: maxDay }, function (_, index) {

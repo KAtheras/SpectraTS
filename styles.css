@@ -325,9 +325,8 @@ body.is-embedded .page-shell {
   min-height: var(--filter-control-height);
   padding: 2px;
   border-radius: 18px;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 0.7fr) minmax(0, 1fr);
-  gap: 4px;
-  overflow: hidden;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.75fr) minmax(0, 1fr);
+  gap: 3px;
 }
 
 .entry-date-field .wheel-date-picker {
@@ -360,10 +359,11 @@ body.is-embedded .page-shell {
 .filters .wheel-date-picker select {
   height: calc(var(--filter-control-height) - 6px);
   min-height: calc(var(--filter-control-height) - 6px);
-  font-size: 0.78rem;
-  padding: 0 10px;
+  font-size: 0.74rem;
+  padding: 0 8px;
   background-image: none;
   min-width: 0;
+  text-align: center;
 }
 
 .wheel-date-picker select:focus {
