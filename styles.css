@@ -129,6 +129,7 @@ body.modal-open {
 
 .auth-panel {
   width: min(520px, 100%);
+  max-width: calc(100vw - 32px);
   display: grid;
   gap: 18px;
 }
@@ -190,6 +191,7 @@ body.is-embedded .page-shell {
   background: var(--panel);
   backdrop-filter: blur(14px);
   box-shadow: var(--shadow);
+  width: 100%;
 }
 
 .eyebrow,
@@ -1005,6 +1007,14 @@ textarea {
 }
 
 @media (max-width: 640px) {
+  .auth-shell {
+    padding: 14px;
+  }
+
+  .auth-panel {
+    max-width: 100%;
+  }
+
   .entry-form {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
