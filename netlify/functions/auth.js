@@ -54,7 +54,7 @@ exports.handler = async function handler(event) {
         password: request.payload?.password,
         role: "admin",
       });
-      const session = await createSession(sql, user.id, event);
+      const session = await createSession(sql, user.id);
 
       return json(
         200,
@@ -69,7 +69,7 @@ exports.handler = async function handler(event) {
             role: user.role,
           },
         },
-        session.headers
+        undefined
       );
     }
 
@@ -90,7 +90,7 @@ exports.handler = async function handler(event) {
         });
       }
 
-      const session = await createSession(sql, user.id, event);
+      const session = await createSession(sql, user.id);
       return json(
         200,
         {
@@ -104,12 +104,12 @@ exports.handler = async function handler(event) {
             role: user.role,
           },
         },
-        session.headers
+        undefined
       );
     }
 
     if (request.action === "logout") {
-      const session = await clearSession(sql, event);
+      await clearSession(sql, event);
       return json(
         200,
         {
@@ -117,7 +117,7 @@ exports.handler = async function handler(event) {
           authenticated: false,
           currentUser: null,
         },
-        session.headers
+        undefined
       );
     }
 

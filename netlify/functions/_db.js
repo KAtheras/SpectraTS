@@ -7,7 +7,6 @@ const DEFAULT_CLIENT_PROJECTS = {
   ISTO: ["Bright Start", "Bright Directions", "ABLE", "Secure Choice"],
 };
 
-const SESSION_COOKIE = "spectra_session";
 const SESSION_TTL_DAYS = 14;
 
 const JSON_HEADERS = {
@@ -185,25 +184,6 @@ function hashToken(token) {
   return crypto.createHash("sha256").update(token).digest("hex");
 }
 
-function parseCookies(event) {
-  const raw = event.headers?.cookie || event.headers?.Cookie || "";
-  return raw.split(/;\s*/).reduce(function (accumulator, part) {
-    if (!part) {
-      return accumulator;
-    }
-
-    const index = part.indexOf("=");
-    if (index === -1) {
-      return accumulator;
-    }
-
-    const key = decodeURIComponent(part.slice(0, index));
-    const value = decodeURIComponent(part.slice(index + 1));
-    accumulator[key] = value;
-    return accumulator;
-  }, {});
-}
-
 function getBearerToken(event) {
   const header = event.headers?.authorization || event.headers?.Authorization || "";
   const match = /^Bearer\s+(.+)$/i.exec(String(header).trim());
@@ -211,44 +191,7 @@ function getBearerToken(event) {
 }
 
 function getSessionToken(event) {
-  return getBearerToken(event) || parseCookies(event)[SESSION_COOKIE] || "";
-}
-
-function isSecureRequest(event) {
-  const forwardedProto = event.headers?.["x-forwarded-proto"] || event.headers?.["X-Forwarded-Proto"];
-  return forwardedProto === "https";
-}
-
-function buildSessionCookie(event, token, expiresAt) {
-  const parts = [
-    `${SESSION_COOKIE}=${encodeURIComponent(token)}`,
-    "Path=/",
-    "HttpOnly",
-    "SameSite=Lax",
-    `Expires=${new Date(expiresAt).toUTCString()}`,
-  ];
-
-  if (isSecureRequest(event)) {
-    parts.push("Secure");
-  }
-
-  return parts.join("; ");
-}
-
-function buildClearedSessionCookie(event) {
-  const parts = [
-    `${SESSION_COOKIE}=`,
-    "Path=/",
-    "HttpOnly",
-    "SameSite=Lax",
-    "Expires=Thu, 01 Jan 1970 00:00:00 GMT",
-  ];
-
-  if (isSecureRequest(event)) {
-    parts.push("Secure");
-  }
-
-  return parts.join("; ");
+  return getBearerToken(event) || "";
 }
 
 async function userCount(sql) {
@@ -549,7 +492,7 @@ async function getSessionContext(sql, event) {
   };
 }
 
-async function createSession(sql, userId, event) {
+async function createSession(sql, userId) {
   const token = `${crypto.randomUUID()}${crypto.randomBytes(12).toString("hex")}`;
   const expiresAt = new Date(Date.now() + SESSION_TTL_DAYS * 24 * 60 * 60 * 1000);
 
@@ -570,9 +513,6 @@ async function createSession(sql, userId, event) {
 
   return {
     token,
-    headers: {
-      "Set-Cookie": buildSessionCookie(event, token, expiresAt),
-    },
   };
 }
 
@@ -582,11 +522,7 @@ async function clearSession(sql, event) {
     await sql`DELETE FROM sessions WHERE token_hash = ${hashToken(token)}`;
   }
 
-  return {
-    headers: {
-      "Set-Cookie": buildClearedSessionCookie(event),
-    },
-  };
+  return {};
 }
 
 function requireAuth(context) {
@@ -716,7 +652,6 @@ async function loadState(sql, currentUser) {
 }
 
 module.exports = {
-  SESSION_COOKIE,
   clearSession,
   createSession,
   createUserRecord,
