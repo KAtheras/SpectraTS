@@ -1348,21 +1348,21 @@
   }
 
   async function handleLogout() {
+    saveSessionToken("");
+
     try {
       await requestAuth("logout");
     } catch (error) {
       console.error("Logout request failed:", error);
     }
 
-    saveSessionToken("");
     clearRemoteAppState();
     resetFilters();
     resetForm();
     setAuthFeedback("Signed out.", false);
     closeUsersModal();
     closeCatalogModal();
-    showAuthShell();
-    render();
+    window.location.reload();
   }
 
   async function handleAddUser(event) {
