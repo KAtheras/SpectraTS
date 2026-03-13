@@ -186,11 +186,21 @@
               </label>
               <label>
                 <span>From</span>
-                <input type="text" name="from" inputmode="numeric" placeholder="MM/DD/YYYY" />
+                <input type="text" name="from" hidden />
+                <div class="wheel-date-picker wheel-date-picker--compact" data-filter-date="from">
+                  <select id="filter-from-month" aria-label="From month"></select>
+                  <select id="filter-from-day" aria-label="From day"></select>
+                  <select id="filter-from-year" aria-label="From year"></select>
+                </div>
               </label>
               <label>
                 <span>To</span>
-                <input type="text" name="to" inputmode="numeric" placeholder="MM/DD/YYYY" />
+                <input type="text" name="to" hidden />
+                <div class="wheel-date-picker wheel-date-picker--compact" data-filter-date="to">
+                  <select id="filter-to-month" aria-label="To month"></select>
+                  <select id="filter-to-day" aria-label="To day"></select>
+                  <select id="filter-to-year" aria-label="To year"></select>
+                </div>
               </label>
               <label>
                 <span>Search</span>

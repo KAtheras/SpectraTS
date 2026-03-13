@@ -56,6 +56,12 @@
     projectColumnLabel: document.getElementById("project-column-label"),
     userList: document.getElementById("user-list"),
     userFeedback: document.getElementById("user-feedback"),
+    filterFromMonth: document.getElementById("filter-from-month"),
+    filterFromDay: document.getElementById("filter-from-day"),
+    filterFromYear: document.getElementById("filter-from-year"),
+    filterToMonth: document.getElementById("filter-to-month"),
+    filterToDay: document.getElementById("filter-to-day"),
+    filterToYear: document.getElementById("filter-to-year"),
   };
 
   const today = formatDate(new Date());
@@ -564,6 +570,22 @@
     select.value = String(selectedValue);
   }
 
+  function setSelectOptionsWithPlaceholder(select, options, selectedValue, placeholder) {
+    select.innerHTML =
+      `<option value="">${escapeHtml(placeholder)}</option>` +
+      options
+        .map(function (option) {
+          if (typeof option === "string") {
+            return `<option value="${escapeHtml(option)}">${escapeHtml(option)}</option>`;
+          }
+
+          return `<option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>`;
+        })
+        .join("");
+
+    select.value = selectedValue || "";
+  }
+
   function syncEntryDatePicker(value) {
     const safeValue = isValidDateString(value) ? value : today;
     const [yearText, monthText, dayText] = safeValue.split("-");
@@ -592,6 +614,79 @@
     );
 
     field(refs.form, "date").value = nextValue;
+  }
+
+  function filterDateRefs(kind) {
+    return kind === "from"
+      ? {
+          month: refs.filterFromMonth,
+          day: refs.filterFromDay,
+          year: refs.filterFromYear,
+        }
+      : {
+          month: refs.filterToMonth,
+          day: refs.filterToDay,
+          year: refs.filterToYear,
+        };
+  }
+
+  function syncFilterDatePicker(kind, value) {
+    const refsForKind = filterDateRefs(kind);
+    if (!refsForKind.month || !refsForKind.day || !refsForKind.year) {
+      return;
+    }
+
+    const validValue = isValidDateString(value) ? value : "";
+    const [yearText, monthText, dayText] = validValue ? validValue.split("-") : ["", "", ""];
+    const year = Number(yearText);
+    const monthIndex = Number(monthText) - 1;
+    const maxDay = monthText && yearText ? daysInMonth(year, monthIndex) : 31;
+
+    setSelectOptionsWithPlaceholder(
+      refsForKind.month,
+      MONTH_NAMES.map(function (label, index) {
+        return { value: String(index + 1).padStart(2, "0"), label };
+      }),
+      monthText,
+      "MM"
+    );
+    const yearConfig = yearOptions(yearText || new Date().getFullYear());
+    setSelectOptionsWithPlaceholder(refsForKind.year, yearConfig.options, yearText, "YYYY");
+    setSelectOptionsWithPlaceholder(
+      refsForKind.day,
+      Array.from({ length: maxDay }, function (_, index) {
+        return String(index + 1).padStart(2, "0");
+      }),
+      dayText,
+      "DD"
+    );
+  }
+
+  function updateFilterDateFromPicker(kind) {
+    const refsForKind = filterDateRefs(kind);
+    const input = field(refs.filterForm, kind);
+    if (!refsForKind.month || !refsForKind.day || !refsForKind.year || !input) {
+      return;
+    }
+
+    const month = refsForKind.month.value;
+    const day = refsForKind.day.value;
+    const year = refsForKind.year.value;
+    if (!month || !day || !year) {
+      input.value = "";
+      applyFiltersFromForm({ showErrors: false });
+      return;
+    }
+
+    const iso = `${year}-${month}-${day}`;
+    if (!isValidDateString(iso)) {
+      input.value = "";
+      applyFiltersFromForm({ showErrors: false });
+      return;
+    }
+
+    input.value = `${month}/${day}/${year}`;
+    applyFiltersFromForm({ showErrors: false });
   }
 
   function updateEntryDateFromPicker() {
@@ -970,6 +1065,8 @@
     if (selection?.to !== undefined) {
       toField.value = formatDisplayDate(selection.to);
     }
+    syncFilterDatePicker("from", selection?.from || "");
+    syncFilterDatePicker("to", selection?.to || "");
     if (selection?.search !== undefined) {
       searchField.value = selection.search;
     }
@@ -1825,19 +1922,15 @@
   });
 
   ["from", "to"].forEach(function (name) {
-    field(refs.filterForm, name).addEventListener("input", function (event) {
-      const normalized = normalizeDisplayDateInput(event.target.value);
-      if (event.target.value !== normalized) {
-        event.target.value = normalized;
-      }
+    const refsForKind = filterDateRefs(name);
+    if (!refsForKind.month || !refsForKind.day || !refsForKind.year) {
+      return;
+    }
 
-      if (!event.target.value.trim() || event.target.value.trim().length === 10) {
-        applyFiltersFromForm({ showErrors: false });
-      }
-    });
-
-    field(refs.filterForm, name).addEventListener("change", function () {
-      applyFiltersFromForm();
+    [refsForKind.month, refsForKind.day, refsForKind.year].forEach(function (select) {
+      select.addEventListener("change", function () {
+        updateFilterDateFromPicker(name);
+      });
     });
   });
 

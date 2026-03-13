@@ -36,6 +36,7 @@
   --item-bg: rgba(255, 255, 255, 0.62);
   --item-hover-bg: rgba(255, 255, 255, 0.9);
   --entry-control-height: 56px;
+  --filter-control-height: 46px;
   --font-head: Arial, Helvetica, sans-serif;
   --font-body: Arial, Helvetica, sans-serif;
 }
@@ -319,6 +320,14 @@ body.is-embedded .page-shell {
   background: var(--surface);
 }
 
+.filters .wheel-date-picker {
+  height: var(--filter-control-height);
+  min-height: var(--filter-control-height);
+  padding: 3px;
+  border-radius: 18px;
+  grid-template-columns: minmax(72px, 1fr) minmax(56px, 0.6fr) minmax(78px, 0.8fr);
+}
+
 .entry-date-field .wheel-date-picker {
   min-width: 0;
 }
@@ -344,6 +353,14 @@ body.is-embedded .page-shell {
   font-size: 0.96rem;
   font-weight: 700;
   box-shadow: none;
+}
+
+.filters .wheel-date-picker select {
+  height: calc(var(--filter-control-height) - 6px);
+  min-height: calc(var(--filter-control-height) - 6px);
+  font-size: 0.88rem;
+  padding: 0 28px 0 10px;
+  background-image: none;
 }
 
 .wheel-date-picker select:focus {
