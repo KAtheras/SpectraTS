@@ -1348,11 +1348,7 @@
   }
 
   async function handleLogout() {
-    try {
-      await requestAuth("logout");
-    } catch (error) {
-      console.error("Logout request failed:", error);
-    }
+    const sessionToken = loadSessionToken();
 
     saveSessionToken("");
     state.storageMode = "remote";
@@ -1363,6 +1359,18 @@
     closeUsersModal();
     closeCatalogModal();
     render();
+
+    try {
+      await requestJson(AUTH_API_PATH, {
+        method: "POST",
+        body: JSON.stringify({
+          action: "logout",
+          ...(sessionToken ? { sessionToken } : {}),
+        }),
+      });
+    } catch (error) {
+      console.error("Logout request failed:", error);
+    }
   }
 
   async function handleAddUser(event) {
