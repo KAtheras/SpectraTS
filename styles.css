@@ -1059,6 +1059,14 @@ textarea {
     order: 4;
   }
 
+  .entry-form .hours-field {
+    order: 5;
+  }
+
+  .entry-form .notes-actions-row {
+    order: 6;
+  }
+
   .entry-form .hours-field,
   .entry-form .notes-actions-row {
     grid-column: 1 / -1;
@@ -1075,15 +1083,15 @@ textarea {
 
   .entry-helpers-hours .chip-button,
   .entry-helpers-hours .other-hours input {
-    height: 36px;
-    min-height: 36px;
-    font-size: 0.7rem;
-    padding: 0 6px;
+    height: 30px;
+    min-height: 30px;
+    font-size: 0.62rem;
+    padding: 0 4px;
   }
 
   .preset-buttons {
     grid-template-columns: repeat(7, minmax(0, 1fr));
-    gap: 6px;
+    gap: 4px;
   }
 
   .app-topbar {
