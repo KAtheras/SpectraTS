@@ -260,6 +260,18 @@
     }
   }
 
+  function hydrateAuthenticatedState(payload) {
+    applyLoadedState(payload);
+    state.storageMode = "remote";
+    resetFilters();
+    resetForm();
+    setAuthFeedback("", false);
+    feedback("", false);
+    closeUsersModal();
+    closeCatalogModal();
+    render();
+  }
+
   async function mutatePersistentState(action, payload) {
     if (state.storageMode !== "remote") {
       return null;
@@ -1246,10 +1258,13 @@
       if (!payload.sessionToken) {
         throw new Error("Login response was missing a session token.");
       }
+      if (!payload.currentUser) {
+        throw new Error("Login response was missing the current user.");
+      }
       saveSessionToken(payload.sessionToken || "");
       setAuthFeedback("Credentials accepted. Loading workspace...", false);
       refs.loginForm.reset();
-      await refreshAuthenticatedApp();
+      hydrateAuthenticatedState(payload);
     } catch (error) {
       console.error("Login failed:", error);
       const message = error.message || "Unable to sign in.";
@@ -1271,10 +1286,13 @@
       if (!payload.sessionToken) {
         throw new Error("Bootstrap response was missing a session token.");
       }
+      if (!payload.currentUser) {
+        throw new Error("Bootstrap response was missing the current user.");
+      }
       saveSessionToken(payload.sessionToken || "");
       setAuthFeedback("Admin account created. Loading workspace...", false);
       refs.bootstrapForm.reset();
-      await refreshAuthenticatedApp();
+      hydrateAuthenticatedState(payload);
     } catch (error) {
       console.error("Bootstrap failed:", error);
       const message = error.message || "Unable to create the admin account.";
