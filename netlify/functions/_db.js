@@ -198,6 +198,14 @@ function getCustomSessionToken(event) {
   );
 }
 
+function getQuerySessionToken(event) {
+  return (
+    event.queryStringParameters?.sessionToken ||
+    event.multiValueQueryStringParameters?.sessionToken?.[0] ||
+    ""
+  );
+}
+
 function getRequestSessionToken(request) {
   if (!request || typeof request !== "object") {
     return "";
@@ -213,6 +221,7 @@ function getRequestSessionToken(request) {
 function getSessionToken(event, request) {
   return String(
     getRequestSessionToken(request) ||
+      getQuerySessionToken(event) ||
       getCustomSessionToken(event) ||
       getBearerToken(event) ||
       ""

@@ -208,7 +208,12 @@
   async function requestJson(url, options) {
     const settings = options || {};
     const sessionToken = state.sessionToken || loadSessionToken();
-    const response = await fetch(url, {
+    const targetUrl = new URL(url, window.location.origin);
+    if (sessionToken) {
+      targetUrl.searchParams.set("sessionToken", sessionToken);
+    }
+
+    const response = await fetch(targetUrl.toString(), {
       method: settings.method || "GET",
       credentials: "same-origin",
       headers: {
