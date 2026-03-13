@@ -1112,6 +1112,12 @@ textarea {
     gap: 3px;
   }
 
+  .entry-helpers-hours .other-hours,
+  .entry-helpers-hours .other-hours input {
+    width: 100%;
+    min-width: 0;
+  }
+
   .app-topbar .session-indicator {
     width: 100%;
     justify-content: center;
