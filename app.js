@@ -1,8 +1,10 @@
 (function () {
   const STORAGE_KEY = "timesheet-studio.entries.v1";
   const CATALOG_STORAGE_KEY = "timesheet-studio.catalog.v1";
+  const THEME_STORAGE_KEY = "timesheet-studio.theme.v1";
   const body = document.body;
   const embedded = window.self !== window.top || window.location.search.includes("embed=1");
+  const themeMedia = window.matchMedia("(prefers-color-scheme: dark)");
 
   const USERS = ["George Bertzios", "Kaprel Ozsolak"];
   const DEFAULT_CLIENT_PROJECTS = {
@@ -13,6 +15,7 @@
     form: document.getElementById("entry-form"),
     formHeading: document.getElementById("form-heading"),
     cancelEdit: document.getElementById("cancel-edit"),
+    themeToggle: document.getElementById("theme-toggle"),
     openCatalog: document.getElementById("open-catalog"),
     closeCatalog: document.getElementById("close-catalog"),
     catalogModal: document.getElementById("catalog-modal"),
@@ -71,6 +74,41 @@
 
   if (embedded) {
     body.classList.add("is-embedded");
+  }
+
+  function loadThemePreference() {
+    try {
+      const raw = window.localStorage.getItem(THEME_STORAGE_KEY);
+      return raw === "light" || raw === "dark" ? raw : "";
+    } catch (error) {
+      return "";
+    }
+  }
+
+  function saveThemePreference(theme) {
+    try {
+      window.localStorage.setItem(THEME_STORAGE_KEY, theme);
+    } catch (error) {
+      return;
+    }
+  }
+
+  function resolveTheme() {
+    return loadThemePreference() || (themeMedia.matches ? "dark" : "light");
+  }
+
+  function applyTheme(theme) {
+    body.dataset.theme = theme;
+    body.style.colorScheme = theme;
+
+    if (!refs.themeToggle) {
+      return;
+    }
+
+    const nextLabel = theme === "dark" ? "Light mode" : "Dark mode";
+    refs.themeToggle.textContent = nextLabel;
+    refs.themeToggle.setAttribute("aria-pressed", theme === "dark" ? "true" : "false");
+    refs.themeToggle.setAttribute("aria-label", nextLabel);
   }
 
   function openCatalogModal() {
@@ -925,7 +963,7 @@
     if (!filteredEntries.length) {
       refs.entriesBody.innerHTML = `
         <tr>
-          <td colspan="8" class="empty-row">
+          <td colspan="7" class="empty-row">
             <div class="empty-state-panel">
               <strong>No entries match the current filters.</strong>
               <span>Clear the filters or add a new entry to get started.</span>
@@ -944,7 +982,6 @@
             <td>${escapeHtml(entry.user)}</td>
             <td>${escapeHtml(entry.client)}</td>
             <td>${escapeHtml(entry.project)}</td>
-            <td>${escapeHtml(entry.task || "-")}</td>
             <td>${entry.hours.toFixed(2)}</td>
             <td>${escapeHtml(entry.notes || "-")}</td>
             <td class="actions-cell">
@@ -1030,6 +1067,8 @@
     );
   }
 
+  applyTheme(resolveTheme());
+
   function escapeHtml(value) {
     return String(value)
       .replaceAll("&", "&amp;")
@@ -1047,13 +1086,12 @@
     }
 
     const rows = [
-      ["Date", "User", "Client", "Project", "Task", "Hours", "Notes"],
+      ["Date", "User", "Client", "Project", "Hours", "Notes"],
       ...entries.map((entry) => [
         entry.date,
         entry.user,
         entry.client,
         entry.project,
-        entry.task,
         entry.hours,
         entry.notes,
       ]),
@@ -1126,6 +1164,22 @@
   });
 
   refs.openCatalog.addEventListener("click", openCatalogModal);
+
+  if (refs.themeToggle) {
+    refs.themeToggle.addEventListener("click", function () {
+      const nextTheme = body.dataset.theme === "dark" ? "light" : "dark";
+      saveThemePreference(nextTheme);
+      applyTheme(nextTheme);
+    });
+  }
+
+  themeMedia.addEventListener("change", function (event) {
+    if (loadThemePreference()) {
+      return;
+    }
+
+    applyTheme(event.matches ? "dark" : "light");
+  });
 
   if (refs.closeCatalog) {
     refs.closeCatalog.addEventListener("click", function (event) {
