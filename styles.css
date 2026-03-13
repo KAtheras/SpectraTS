@@ -1132,25 +1132,20 @@ textarea {
     gap: 4px;
   }
 
-  .app-topbar {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 8px;
-    max-width: 100%;
-  }
-
   .app-topbar .session-indicator {
-    grid-column: 1 / -1;
-    justify-content: center;
     width: 100%;
+    justify-content: center;
   }
 
   .app-topbar-actions {
-    display: contents;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+    gap: 8px;
+    width: 100%;
     margin-left: 0;
+    justify-items: stretch;
   }
 
-  .app-topbar > *,
   .app-topbar-actions > * {
     min-width: 0;
   }
