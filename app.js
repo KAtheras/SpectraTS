@@ -3,12 +3,14 @@
   const CATALOG_STORAGE_KEY = "timesheet-studio.catalog.v1";
   const THEME_STORAGE_KEY = "timesheet-studio.theme.v1";
   const SESSION_TOKEN_STORAGE_KEY = "timesheet-studio.session-token.v1";
-  const AUTH_API_PATH = "/api/auth";
-  const STATE_API_PATH = "/api/state";
-  const MUTATE_API_PATH = "/api/mutate";
   const body = document.body;
   const embedded = window.self !== window.top || window.location.search.includes("embed=1");
   const themeMedia = window.matchMedia("(prefers-color-scheme: dark)");
+  const isLocalHost =
+    window.location.hostname === "127.0.0.1" || window.location.hostname === "localhost";
+  const AUTH_API_PATH = isLocalHost ? "/api/auth" : "/.netlify/functions/auth";
+  const STATE_API_PATH = isLocalHost ? "/api/state" : "/.netlify/functions/state";
+  const MUTATE_API_PATH = isLocalHost ? "/api/mutate" : "/.netlify/functions/mutate";
 
   const DEFAULT_CLIENT_PROJECTS = {
     ISTO: ["Bright Start", "Bright Directions", "ABLE", "Secure Choice"],
@@ -1527,6 +1529,9 @@
 
   async function refreshAuthenticatedApp() {
     await loadPersistentState();
+    if (!state.currentUser) {
+      throw new Error("Sign-in succeeded, but the session could not be restored.");
+    }
     resetFilters();
     resetForm();
     setAuthFeedback("", false);
