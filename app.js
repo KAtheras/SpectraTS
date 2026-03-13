@@ -261,6 +261,10 @@
   }
 
   function hydrateAuthenticatedState(payload) {
+    if (!payload?.currentUser) {
+      throw new Error("Authenticated state is missing the current user.");
+    }
+
     applyLoadedState(payload);
     state.storageMode = "remote";
     resetFilters();
@@ -269,6 +273,8 @@
     feedback("", false);
     closeUsersModal();
     closeCatalogModal();
+    refs.authShell.hidden = true;
+    refs.appShell.hidden = false;
     render();
   }
 
@@ -1258,13 +1264,10 @@
       if (!payload.sessionToken) {
         throw new Error("Login response was missing a session token.");
       }
-      if (!payload.currentUser) {
-        throw new Error("Login response was missing the current user.");
-      }
       saveSessionToken(payload.sessionToken || "");
       setAuthFeedback("Credentials accepted. Loading workspace...", false);
       refs.loginForm.reset();
-      window.location.reload();
+      hydrateAuthenticatedState(payload);
     } catch (error) {
       console.error("Login failed:", error);
       const message = error.message || "Unable to sign in.";
@@ -1286,13 +1289,10 @@
       if (!payload.sessionToken) {
         throw new Error("Bootstrap response was missing a session token.");
       }
-      if (!payload.currentUser) {
-        throw new Error("Bootstrap response was missing the current user.");
-      }
       saveSessionToken(payload.sessionToken || "");
       setAuthFeedback("Admin account created. Loading workspace...", false);
       refs.bootstrapForm.reset();
-      window.location.reload();
+      hydrateAuthenticatedState(payload);
     } catch (error) {
       console.error("Bootstrap failed:", error);
       const message = error.message || "Unable to create the admin account.";
@@ -1560,23 +1560,6 @@
     feedback("", false);
     render();
     return true;
-  }
-
-  async function refreshAuthenticatedApp() {
-    const restored = await loadPersistentState();
-    if (!restored) {
-      throw new Error("The app could not load authenticated state.");
-    }
-    if (!state.currentUser) {
-      throw new Error("Sign-in succeeded, but the session could not be restored.");
-    }
-    resetFilters();
-    resetForm();
-    setAuthFeedback("", false);
-    feedback("", false);
-    closeUsersModal();
-    closeCatalogModal();
-    render();
   }
 
   function postHeight() {
