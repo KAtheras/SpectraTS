@@ -1005,7 +1005,20 @@ textarea {
 }
 
 @media (max-width: 640px) {
-  .entry-form,
+  .entry-form {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .entry-form .entry-pill {
+    grid-column: span 1;
+  }
+
+  .entry-form .entry-date-field,
+  .entry-form .hours-field,
+  .entry-form .notes-actions-row {
+    grid-column: 1 / -1;
+  }
+
   .filters {
     grid-template-columns: 1fr;
   }
