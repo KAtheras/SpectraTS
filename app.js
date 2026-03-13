@@ -55,6 +55,7 @@
     projectList: document.getElementById("project-list"),
     projectColumnLabel: document.getElementById("project-column-label"),
     userList: document.getElementById("user-list"),
+    userFeedback: document.getElementById("user-feedback"),
   };
 
   const today = formatDate(new Date());
@@ -295,6 +296,15 @@
     refs.authFeedback.dataset.error = isError ? "true" : "false";
   }
 
+  function setUserFeedback(message, isError) {
+    if (!refs.userFeedback) {
+      return;
+    }
+
+    refs.userFeedback.textContent = message || "";
+    refs.userFeedback.dataset.error = isError ? "true" : "false";
+  }
+
   function showAuthShell() {
     refs.authShell.hidden = false;
     refs.appShell.hidden = true;
@@ -310,6 +320,7 @@
   }
 
   function openUsersModal() {
+    setUserFeedback("", false);
     refs.usersModal.hidden = false;
     refs.usersModal.setAttribute("aria-hidden", "false");
     body.classList.add("modal-open");
@@ -1352,12 +1363,15 @@
         role,
       });
     } catch (error) {
-      feedback(error.message || "Unable to add team member.", true);
+      const message = error.message || "Unable to add team member.";
+      setUserFeedback(message, true);
+      window.alert(message);
       return;
     }
 
     refs.addUserForm.reset();
-    feedback("Team member added.", false);
+    field(refs.addUserForm, "role").value = "member";
+    setUserFeedback("Team member added.", false);
     render();
   }
 
@@ -1377,7 +1391,9 @@
     });
 
     if (!user) {
-      feedback("Team member not found.", true);
+      const message = "Team member not found.";
+      setUserFeedback(message, true);
+      window.alert(message);
       return;
     }
 
@@ -1398,7 +1414,7 @@
           username: nextUsername,
           role: user.role,
         });
-        feedback("Team member updated.", false);
+        setUserFeedback("Team member updated.", false);
       } else if (button.dataset.userRole) {
         const nextRole = user.role === "admin" ? "member" : "admin";
         const confirmed = window.confirm(
@@ -1414,7 +1430,7 @@
           username: user.username,
           role: nextRole,
         });
-        feedback(`Role updated for ${user.displayName}.`, false);
+        setUserFeedback(`Role updated for ${user.displayName}.`, false);
       } else if (button.dataset.userPassword) {
         const nextPassword = window.prompt(
           `Enter a new password for ${user.displayName} (minimum 8 characters)`
@@ -1427,7 +1443,7 @@
           userId: user.id,
           password: nextPassword,
         });
-        feedback(`Password updated for ${user.displayName}.`, false);
+        setUserFeedback(`Password updated for ${user.displayName}.`, false);
       } else if (button.dataset.userDeactivate) {
         const confirmed = window.confirm(`Deactivate ${user.displayName}?`);
         if (!confirmed) {
@@ -1437,10 +1453,12 @@
         await mutatePersistentState("deactivate_user", {
           userId: user.id,
         });
-        feedback(`${user.displayName} was deactivated.`, false);
+        setUserFeedback(`${user.displayName} was deactivated.`, false);
       }
     } catch (error) {
-      feedback(error.message || "Unable to update team member.", true);
+      const message = error.message || "Unable to update team member.";
+      setUserFeedback(message, true);
+      window.alert(message);
       return;
     }
 
