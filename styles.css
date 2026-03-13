@@ -221,10 +221,6 @@ body.is-embedded .page-shell {
   width: 100%;
 }
 
-.panel-form {
-  width: 60%;
-  margin-right: auto;
-}
 
 .eyebrow,
 .panel-label {
@@ -1111,6 +1107,7 @@ textarea {
 
   .panel-form {
     width: 60%;
+    margin-right: auto;
   }
 
   .app-frame {
