@@ -1,6 +1,7 @@
 "use strict";
 
 const crypto = require("crypto");
+const { neon } = require("@netlify/neon");
 
 const DEFAULT_CLIENT_PROJECTS = {
   ISTO: ["Bright Start", "Bright Directions", "ABLE", "Secure Choice"],
@@ -14,7 +15,6 @@ const JSON_HEADERS = {
 };
 
 async function getSql() {
-  const { neon } = await import("@netlify/neon");
   return neon();
 }
 
