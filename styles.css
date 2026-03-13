@@ -186,6 +186,14 @@ body.is-embedded .page-shell {
   gap: 10px;
 }
 
+.app-topbar-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-left: auto;
+}
+
 .panel {
   border: 1px solid var(--panel-border);
   background: var(--panel);
@@ -1046,6 +1054,11 @@ textarea {
   .app-topbar .session-indicator {
     grid-column: 1 / -1;
     justify-content: center;
+  }
+
+  .app-topbar-actions {
+    display: contents;
+    margin-left: 0;
   }
 
   .app-topbar .button-ghost {

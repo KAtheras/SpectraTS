@@ -8,7 +8,7 @@
       name="description"
       content="A standalone timesheet app that can be hosted on Netlify and embedded in WordPress with an iframe."
     />
-    <link rel="stylesheet" href="./styles.css?v=20260313-16" />
+    <link rel="stylesheet" href="./styles.css?v=20260313-17" />
   </head>
   <body>
     <div class="auth-shell" id="auth-shell" hidden>
@@ -56,18 +56,20 @@
     <div class="page-shell" id="app-shell" hidden>
       <div class="app-topbar">
         <div class="session-indicator" id="session-indicator" hidden></div>
-        <button class="button button-ghost" id="manage-users" type="button" hidden>
-          Members
-        </button>
-        <button class="button button-ghost" id="open-catalog" type="button">
-          Clients
-        </button>
-        <button class="button button-ghost" id="theme-toggle" type="button">
-          Dark/Light
-        </button>
-        <button class="button button-ghost" id="logout-button" type="button" hidden>
-          Log out
-        </button>
+        <div class="app-topbar-actions">
+          <button class="button button-ghost" id="manage-users" type="button" hidden>
+            Members
+          </button>
+          <button class="button button-ghost" id="open-catalog" type="button">
+            Clients
+          </button>
+          <button class="button button-ghost" id="theme-toggle" type="button">
+            Dark/Light
+          </button>
+          <button class="button button-ghost" id="logout-button" type="button" hidden>
+            Log out
+          </button>
+        </div>
       </div>
 
       <main class="app-frame">
@@ -335,6 +337,6 @@
       </div>
     </div>
 
-    <script src="./app.js?v=20260313-16" defer></script>
+    <script src="./app.js?v=20260313-17" defer></script>
   </body>
 </html>
