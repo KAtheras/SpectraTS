@@ -2,25 +2,36 @@
   const STORAGE_KEY = "timesheet-studio.entries.v1";
   const CATALOG_STORAGE_KEY = "timesheet-studio.catalog.v1";
   const THEME_STORAGE_KEY = "timesheet-studio.theme.v1";
+  const AUTH_API_PATH = "/api/auth";
   const STATE_API_PATH = "/api/state";
   const MUTATE_API_PATH = "/api/mutate";
   const body = document.body;
   const embedded = window.self !== window.top || window.location.search.includes("embed=1");
   const themeMedia = window.matchMedia("(prefers-color-scheme: dark)");
 
-  const USERS = ["George Bertzios", "Kaprel Ozsolak"];
   const DEFAULT_CLIENT_PROJECTS = {
     ISTO: ["Bright Start", "Bright Directions", "ABLE", "Secure Choice"],
   };
 
   const refs = {
+    authShell: document.getElementById("auth-shell"),
+    appShell: document.getElementById("app-shell"),
+    authSubtext: document.getElementById("auth-subtext"),
+    loginForm: document.getElementById("login-form"),
+    bootstrapForm: document.getElementById("bootstrap-form"),
+    authFeedback: document.getElementById("auth-feedback"),
     form: document.getElementById("entry-form"),
     formHeading: document.getElementById("form-heading"),
     cancelEdit: document.getElementById("cancel-edit"),
+    sessionIndicator: document.getElementById("session-indicator"),
+    manageUsers: document.getElementById("manage-users"),
+    logoutButton: document.getElementById("logout-button"),
     themeToggle: document.getElementById("theme-toggle"),
     openCatalog: document.getElementById("open-catalog"),
     closeCatalog: document.getElementById("close-catalog"),
     catalogModal: document.getElementById("catalog-modal"),
+    usersModal: document.getElementById("users-modal"),
+    closeUsers: document.getElementById("close-users"),
     hourPresets: document.getElementById("hour-presets"),
     otherHours: document.getElementById("other-hours"),
     entryDateMonth: document.getElementById("entry-date-month"),
@@ -29,6 +40,7 @@
     submitEntry: document.getElementById("submit-entry"),
     addClientForm: document.getElementById("add-client-form"),
     addProjectForm: document.getElementById("add-project-form"),
+    addUserForm: document.getElementById("add-user-form"),
     filterForm: document.getElementById("filter-form"),
     clearFilters: document.getElementById("clear-filters"),
     exportCsv: document.getElementById("export-csv"),
@@ -39,6 +51,7 @@
     clientList: document.getElementById("client-list"),
     projectList: document.getElementById("project-list"),
     projectColumnLabel: document.getElementById("project-column-label"),
+    userList: document.getElementById("user-list"),
   };
 
   const today = formatDate(new Date());
@@ -57,6 +70,9 @@
     editingId: null,
     selectedCatalogClient: "",
     storageMode: "local",
+    currentUser: null,
+    users: [],
+    bootstrapRequired: false,
   };
 
   const QUICK_HOUR_PRESETS = new Set(["0.5", "1", "1.5", "2", "2.5", "3"]);
@@ -114,9 +130,53 @@
     refs.themeToggle.setAttribute("aria-label", nextLabel);
   }
 
+  function availableUsers() {
+    if (Array.isArray(state.users) && state.users.length) {
+      return state.users
+        .map(function (user) {
+          return user.displayName;
+        })
+        .filter(Boolean);
+    }
+
+    return [];
+  }
+
   function applyLoadedState(data) {
+    state.currentUser = data?.currentUser || null;
+    state.users = Array.isArray(data?.users) ? data.users : [];
+    state.bootstrapRequired = Boolean(data?.bootstrapRequired);
     state.catalog = normalizeCatalog(data?.catalog || DEFAULT_CLIENT_PROJECTS);
     state.entries = Array.isArray(data?.entries) ? data.entries.map(normalizeEntry).filter(Boolean) : [];
+  }
+
+  function clearRemoteAppState() {
+    state.currentUser = null;
+    state.users = [];
+    state.bootstrapRequired = false;
+    state.catalog = normalizeCatalog(DEFAULT_CLIENT_PROJECTS);
+    state.entries = [];
+  }
+
+  function defaultEntryUser() {
+    return state.storageMode === "remote" && state.currentUser ? state.currentUser.displayName : "";
+  }
+
+  function defaultFilterUser() {
+    return state.storageMode === "remote" && state.currentUser?.role !== "admin"
+      ? state.currentUser.displayName
+      : "";
+  }
+
+  function resetFilters() {
+    state.filters = {
+      user: defaultFilterUser(),
+      client: "",
+      project: "",
+      from: "",
+      to: "",
+      search: "",
+    };
   }
 
   async function requestJson(url, options) {
@@ -134,10 +194,20 @@
     const payload = text ? JSON.parse(text) : {};
 
     if (!response.ok) {
-      throw new Error(payload?.error || "Request failed.");
+      const error = new Error(payload?.error || "Request failed.");
+      error.status = response.status;
+      error.payload = payload;
+      throw error;
     }
 
     return payload;
+  }
+
+  async function requestAuth(action, payload) {
+    return requestJson(AUTH_API_PATH, {
+      method: "POST",
+      body: JSON.stringify({ action, payload }),
+    });
   }
 
   async function loadPersistentState() {
@@ -147,7 +217,18 @@
       state.storageMode = "remote";
       return true;
     } catch (error) {
+      if (error.status === 401) {
+        state.storageMode = "remote";
+        state.bootstrapRequired = Boolean(error.payload?.bootstrapRequired);
+        state.currentUser = null;
+        state.users = [];
+        state.entries = [];
+        state.catalog = normalizeCatalog(DEFAULT_CLIENT_PROJECTS);
+        return true;
+      }
+
       state.storageMode = "local";
+      clearRemoteAppState();
       return false;
     }
   }
@@ -165,16 +246,41 @@
     return result;
   }
 
+  function setAuthFeedback(message, isError) {
+    refs.authFeedback.textContent = message || "";
+    refs.authFeedback.dataset.error = isError ? "true" : "false";
+  }
+
+  function openUsersModal() {
+    refs.usersModal.hidden = false;
+    refs.usersModal.setAttribute("aria-hidden", "false");
+    body.classList.add("modal-open");
+    postHeight();
+  }
+
+  function closeUsersModal() {
+    refs.usersModal.hidden = true;
+    refs.usersModal.setAttribute("aria-hidden", "true");
+    if (refs.catalogModal.hidden) {
+      body.classList.remove("modal-open");
+    }
+    postHeight();
+  }
+
   function openCatalogModal() {
     refs.catalogModal.hidden = false;
     refs.catalogModal.setAttribute("aria-hidden", "false");
     body.classList.add("modal-open");
+    postHeight();
   }
 
   function closeCatalogModal() {
     refs.catalogModal.hidden = true;
     refs.catalogModal.setAttribute("aria-hidden", "true");
-    body.classList.remove("modal-open");
+    if (refs.usersModal.hidden) {
+      body.classList.remove("modal-open");
+    }
+    postHeight();
   }
 
   function uniqueValues(values) {
@@ -268,7 +374,7 @@
       user:
         typeof entry.user === "string" && entry.user.trim()
           ? entry.user.trim()
-          : USERS[0],
+          : state.currentUser?.displayName || "",
       date: isValidDateString(entry.date) ? entry.date : today,
       client: normalizedClient,
       project: normalizedProject,
@@ -714,13 +820,15 @@
     const userField = field(refs.form, "user");
     const clientField = field(refs.form, "client");
     const projectField = field(refs.form, "project");
-    const nextUser = selection?.user ?? userField?.value ?? "";
+    const authUsers = availableUsers();
+    const defaultUser = defaultEntryUser();
+    const nextUser = selection?.user ?? userField?.value ?? defaultUser;
     const nextClient = selection?.client ?? clientField?.value ?? "";
     const nextProject = selection?.project ?? projectField?.value ?? "";
     const clients = catalogClientNames();
     const projects = nextClient ? catalogProjectNames(nextClient) : [];
 
-    populateSelect(userField, USERS, "Select team member", nextUser);
+    populateSelect(userField, authUsers, "Select team member", nextUser);
     populateSelect(clientField, clients, "Select client", nextClient);
     populateSelect(
       projectField,
@@ -729,6 +837,12 @@
       nextProject
     );
 
+    if (state.storageMode === "remote" && state.currentUser?.role !== "admin") {
+      userField.value = state.currentUser?.displayName || "";
+      userField.disabled = true;
+    } else {
+      userField.disabled = false;
+    }
     projectField.disabled = !nextClient;
   }
 
@@ -739,11 +853,13 @@
     const fromField = field(refs.filterForm, "from");
     const toField = field(refs.filterForm, "to");
     const searchField = field(refs.filterForm, "search");
-    const nextUser = selection?.user ?? userField?.value ?? "";
+    const authUsers = availableUsers();
+    const defaultUser = defaultFilterUser();
+    const nextUser = selection?.user ?? userField?.value ?? defaultUser;
     const nextClient = selection?.client ?? clientField?.value ?? "";
     const nextProject = selection?.project ?? projectField?.value ?? "";
 
-    populateSelect(userField, USERS, "All users", nextUser);
+    populateSelect(userField, authUsers, "All users", nextUser);
     populateSelect(clientField, clientNames(), "All clients", nextClient);
     populateSelect(
       projectField,
@@ -751,6 +867,13 @@
       "All projects",
       nextProject
     );
+
+    if (state.storageMode === "remote" && state.currentUser?.role !== "admin") {
+      userField.value = state.currentUser?.displayName || "";
+      userField.disabled = true;
+    } else {
+      userField.disabled = false;
+    }
 
     if (selection?.from !== undefined) {
       fromField.value = formatDisplayDate(selection.from);
@@ -767,7 +890,7 @@
     refs.form.reset();
     state.editingId = null;
     syncFormCatalogs({
-      user: "",
+      user: defaultEntryUser(),
       client: "",
       project: "",
     });
@@ -983,6 +1106,267 @@
       : '<p class="empty-state">No projects configured for this client yet.</p>';
   }
 
+  function renderUsersList() {
+    if (!refs.userList) {
+      return;
+    }
+
+    if (!state.users.length) {
+      refs.userList.innerHTML = '<p class="empty-state">No team members yet.</p>';
+      return;
+    }
+
+    refs.userList.innerHTML = state.users
+      .map(function (user) {
+        const roleLabel = user.role === "admin" ? "Admin" : "Member";
+        const roleActionLabel = user.role === "admin" ? "Make member" : "Make admin";
+        const isCurrentUser = state.currentUser?.id === user.id;
+
+        return `
+          <article class="catalog-item user-item">
+            <span class="catalog-item-copy">
+              <span class="catalog-item-title">${escapeHtml(user.displayName)}</span>
+              <span class="user-item-meta">
+                <span>${escapeHtml(user.username)}</span>
+                <span>${escapeHtml(roleLabel)}</span>
+                ${isCurrentUser ? "<span>Current session</span>" : ""}
+              </span>
+            </span>
+            <span class="user-item-actions">
+              <button
+                type="button"
+                class="catalog-edit"
+                data-user-edit="${escapeHtml(user.id)}"
+              >
+                Edit
+              </button>
+              <button
+                type="button"
+                class="catalog-edit"
+                data-user-role="${escapeHtml(user.id)}"
+              >
+                ${escapeHtml(roleActionLabel)}
+              </button>
+              <button
+                type="button"
+                class="catalog-edit"
+                data-user-password="${escapeHtml(user.id)}"
+              >
+                Reset password
+              </button>
+              ${
+                isCurrentUser
+                  ? ""
+                  : `<button
+                      type="button"
+                      class="catalog-delete"
+                      data-user-deactivate="${escapeHtml(user.id)}"
+                    >
+                      Deactivate
+                    </button>`
+              }
+            </span>
+          </article>
+        `;
+      })
+      .join("");
+  }
+
+  function renderAuthUi() {
+    const isRemoteAuth = state.storageMode === "remote";
+    const isAuthenticated = Boolean(state.currentUser);
+
+    refs.authShell.hidden = !isRemoteAuth || isAuthenticated;
+    refs.appShell.hidden = isRemoteAuth && !isAuthenticated;
+
+    if (!isRemoteAuth) {
+      refs.sessionIndicator.hidden = true;
+      refs.manageUsers.hidden = true;
+      refs.logoutButton.hidden = true;
+      refs.openCatalog.hidden = false;
+      return;
+    }
+
+    refs.loginForm.hidden = state.bootstrapRequired;
+    refs.bootstrapForm.hidden = !state.bootstrapRequired;
+    refs.authSubtext.textContent = state.bootstrapRequired
+      ? "Create the first admin account to activate team logins."
+      : "Sign in with your team member credentials to continue.";
+
+    if (isAuthenticated) {
+      refs.sessionIndicator.hidden = false;
+      refs.sessionIndicator.textContent = `${state.currentUser.displayName} · ${state.currentUser.role}`;
+      refs.manageUsers.hidden = state.currentUser.role !== "admin";
+      refs.logoutButton.hidden = false;
+      refs.openCatalog.hidden = state.currentUser.role !== "admin";
+    } else {
+      refs.sessionIndicator.hidden = true;
+      refs.manageUsers.hidden = true;
+      refs.logoutButton.hidden = true;
+      refs.openCatalog.hidden = true;
+    }
+  }
+
+  async function submitLogin(event) {
+    event.preventDefault();
+    const formData = new FormData(refs.loginForm);
+    const username = String(formData.get("username") || "").trim();
+    const password = String(formData.get("password") || "");
+
+    try {
+      await requestAuth("login", { username, password });
+      refs.loginForm.reset();
+      await refreshAuthenticatedApp();
+    } catch (error) {
+      setAuthFeedback(error.message || "Unable to sign in.", true);
+    }
+  }
+
+  async function submitBootstrap(event) {
+    event.preventDefault();
+    const formData = new FormData(refs.bootstrapForm);
+    const displayName = String(formData.get("display_name") || "").trim();
+    const username = String(formData.get("username") || "").trim();
+    const password = String(formData.get("password") || "");
+
+    try {
+      await requestAuth("bootstrap", { displayName, username, password });
+      refs.bootstrapForm.reset();
+      await refreshAuthenticatedApp();
+    } catch (error) {
+      setAuthFeedback(error.message || "Unable to create the admin account.", true);
+    }
+  }
+
+  async function handleLogout() {
+    try {
+      await requestAuth("logout");
+    } catch (error) {
+      feedback(error.message || "Unable to log out.", true);
+      return;
+    }
+
+    clearRemoteAppState();
+    resetFilters();
+    resetForm();
+    setAuthFeedback("", false);
+    closeUsersModal();
+    closeCatalogModal();
+    await loadPersistentState();
+    render();
+  }
+
+  async function handleAddUser(event) {
+    event.preventDefault();
+    const formData = new FormData(refs.addUserForm);
+    const displayName = String(formData.get("display_name") || "").trim();
+    const username = String(formData.get("username") || "").trim();
+    const password = String(formData.get("password") || "");
+    const role = String(formData.get("role") || "member");
+
+    try {
+      await mutatePersistentState("add_user", {
+        displayName,
+        username,
+        password,
+        role,
+      });
+    } catch (error) {
+      feedback(error.message || "Unable to add team member.", true);
+      return;
+    }
+
+    refs.addUserForm.reset();
+    feedback("Team member added.", false);
+    render();
+  }
+
+  async function handleUserListAction(event) {
+    const button = event.target.closest("[data-user-edit], [data-user-role], [data-user-password], [data-user-deactivate]");
+    if (!button) {
+      return;
+    }
+
+    const userId =
+      button.dataset.userEdit ||
+      button.dataset.userRole ||
+      button.dataset.userPassword ||
+      button.dataset.userDeactivate;
+    const user = state.users.find(function (candidate) {
+      return candidate.id === userId;
+    });
+
+    if (!user) {
+      feedback("Team member not found.", true);
+      return;
+    }
+
+    try {
+      if (button.dataset.userEdit) {
+        const nextDisplayName = window.prompt("Team member name", user.displayName);
+        if (nextDisplayName === null) {
+          return;
+        }
+        const nextUsername = window.prompt("Username", user.username);
+        if (nextUsername === null) {
+          return;
+        }
+
+        await mutatePersistentState("update_user", {
+          userId: user.id,
+          displayName: nextDisplayName,
+          username: nextUsername,
+          role: user.role,
+        });
+        feedback("Team member updated.", false);
+      } else if (button.dataset.userRole) {
+        const nextRole = user.role === "admin" ? "member" : "admin";
+        const confirmed = window.confirm(
+          `Change ${user.displayName} to ${nextRole === "admin" ? "an admin" : "a member"}?`
+        );
+        if (!confirmed) {
+          return;
+        }
+
+        await mutatePersistentState("update_user", {
+          userId: user.id,
+          displayName: user.displayName,
+          username: user.username,
+          role: nextRole,
+        });
+        feedback(`Role updated for ${user.displayName}.`, false);
+      } else if (button.dataset.userPassword) {
+        const nextPassword = window.prompt(
+          `Enter a new password for ${user.displayName} (minimum 8 characters)`
+        );
+        if (nextPassword === null) {
+          return;
+        }
+
+        await mutatePersistentState("reset_user_password", {
+          userId: user.id,
+          password: nextPassword,
+        });
+        feedback(`Password updated for ${user.displayName}.`, false);
+      } else if (button.dataset.userDeactivate) {
+        const confirmed = window.confirm(`Deactivate ${user.displayName}?`);
+        if (!confirmed) {
+          return;
+        }
+
+        await mutatePersistentState("deactivate_user", {
+          userId: user.id,
+        });
+        feedback(`${user.displayName} was deactivated.`, false);
+      }
+    } catch (error) {
+      feedback(error.message || "Unable to update team member.", true);
+      return;
+    }
+
+    render();
+  }
+
   function renderFilterState(filteredEntries) {
     const chips = [];
     const totalHours = filteredEntries.reduce((sum, entry) => sum + entry.hours, 0);
@@ -1053,12 +1437,20 @@
   }
 
   function render() {
+    renderAuthUi();
+
+    if (state.storageMode === "remote" && !state.currentUser) {
+      postHeight();
+      return;
+    }
+
     syncFormCatalogs();
     syncFilterCatalogs();
     ensureCatalogSelection();
 
     const filteredEntries = currentEntries();
     renderCatalogAside();
+    renderUsersList();
     renderFilterState(filteredEntries);
     renderTable(filteredEntries);
     postHeight();
@@ -1104,6 +1496,17 @@
     feedback("", false);
     render();
     return true;
+  }
+
+  async function refreshAuthenticatedApp() {
+    await loadPersistentState();
+    resetFilters();
+    resetForm();
+    setAuthFeedback("", false);
+    feedback("", false);
+    closeUsersModal();
+    closeCatalogModal();
+    render();
   }
 
   function postHeight() {
@@ -1224,6 +1627,17 @@
     feedback("", false);
   });
 
+  refs.loginForm.addEventListener("submit", submitLogin);
+  refs.bootstrapForm.addEventListener("submit", submitBootstrap);
+
+  refs.manageUsers.addEventListener("click", function () {
+    openUsersModal();
+  });
+
+  refs.logoutButton.addEventListener("click", function () {
+    handleLogout();
+  });
+
   refs.openCatalog.addEventListener("click", openCatalogModal);
 
   if (refs.themeToggle) {
@@ -1253,6 +1667,17 @@
   refs.catalogModal.addEventListener("click", function (event) {
     if (event.target === refs.catalogModal) {
       closeCatalogModal();
+    }
+  });
+
+  refs.closeUsers.addEventListener("click", function (event) {
+    event.preventDefault();
+    closeUsersModal();
+  });
+
+  refs.usersModal.addEventListener("click", function (event) {
+    if (event.target === refs.usersModal) {
+      closeUsersModal();
     }
   });
 
@@ -1345,19 +1770,14 @@
 
   refs.clearFilters.addEventListener("click", function () {
     refs.filterForm.reset();
-    state.filters = {
-      user: "",
-      client: "",
-      project: "",
-      from: "",
-      to: "",
-      search: "",
-    };
+    resetFilters();
     syncFilterCatalogs(state.filters);
     render();
   });
 
   refs.exportCsv.addEventListener("click", exportCsv);
+  refs.addUserForm.addEventListener("submit", handleAddUser);
+  refs.userList.addEventListener("click", handleUserListAction);
 
   refs.addClientForm.addEventListener("submit", async function (event) {
     event.preventDefault();
@@ -1715,18 +2135,28 @@
   window.addEventListener("resize", postHeight);
   window.addEventListener("load", postHeight);
   window.addEventListener("keydown", function (event) {
-    if (event.key === "Escape" && !refs.catalogModal.hidden) {
+    if (event.key !== "Escape") {
+      return;
+    }
+
+    if (!refs.usersModal.hidden) {
+      closeUsersModal();
+    }
+
+    if (!refs.catalogModal.hidden) {
       closeCatalogModal();
     }
   });
 
   async function initApp() {
     await loadPersistentState();
-    syncFormCatalogs({
-      user: "",
-      client: "",
-      project: "",
-    });
+    resetFilters();
+
+    if (state.storageMode === "remote" && !state.currentUser) {
+      render();
+      return;
+    }
+
     syncFilterCatalogs(state.filters);
     resetForm();
     render();

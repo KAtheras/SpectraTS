@@ -1,15 +1,22 @@
 "use strict";
 
 const {
+  createUserRecord,
+  deactivateUser,
   ensureSchema,
   errorResponse,
   findClient,
   findProject,
+  getSessionContext,
   getSql,
   json,
   loadState,
   normalizeText,
   parseBody,
+  requireAdmin,
+  requireAuth,
+  updateUserPassword,
+  updateUserRecord,
 } = require("./_db");
 
 function normalizeHours(value) {
@@ -17,7 +24,7 @@ function normalizeHours(value) {
   return Number.isFinite(hours) ? hours : NaN;
 }
 
-function validateEntry(entry) {
+function validateEntry(entry, currentUser) {
   if (!entry || typeof entry !== "object") {
     return "Entry payload is required.";
   }
@@ -40,6 +47,10 @@ function validateEntry(entry) {
   const hours = normalizeHours(entry.hours);
   if (!Number.isFinite(hours) || hours <= 0 || hours > 24) {
     return "Hours must be between 0 and 24.";
+  }
+
+  if (currentUser.role !== "admin" && normalizeText(entry.user) !== currentUser.displayName) {
+    return "You can only save entries for your own account.";
   }
 
   return "";
@@ -194,11 +205,23 @@ async function removeProject(sql, payload) {
     : { message: "" };
 }
 
-async function saveEntry(sql, payload) {
+async function saveEntry(sql, payload, currentUser) {
   const entry = payload.entry;
-  const validationError = validateEntry(entry);
+  const validationError = validateEntry(entry, currentUser);
   if (validationError) {
     return errorResponse(400, validationError);
+  }
+
+  if (currentUser.role !== "admin") {
+    const rows = await sql`
+      SELECT user_name
+      FROM entries
+      WHERE id = ${normalizeText(entry.id)}
+      LIMIT 1
+    `;
+    if (rows[0] && rows[0].user_name !== currentUser.displayName) {
+      return errorResponse(403, "You can only update your own entries.");
+    }
   }
 
   await sql`
@@ -241,10 +264,23 @@ async function saveEntry(sql, payload) {
   return null;
 }
 
-async function deleteEntry(sql, payload) {
+async function deleteEntry(sql, payload, currentUser) {
   const id = normalizeText(payload.id);
   if (!id) {
     return errorResponse(400, "Entry id is required.");
+  }
+
+  if (currentUser.role !== "admin") {
+    const rows = await sql`
+      SELECT id
+      FROM entries
+      WHERE id = ${id}
+        AND user_name = ${currentUser.displayName}
+      LIMIT 1
+    `;
+    if (!rows[0]) {
+      return errorResponse(403, "You can only delete your own entries.");
+    }
   }
 
   await sql`DELETE FROM entries WHERE id = ${id}`;
@@ -264,33 +300,84 @@ exports.handler = async function handler(event) {
   try {
     const sql = await getSql();
     await ensureSchema(sql);
+    const context = await getSessionContext(sql, event);
+    const authError = requireAuth(context);
+    if (authError) {
+      return authError;
+    }
 
     let mutationResult = null;
+
     switch (request.action) {
-      case "add_client":
+      case "add_client": {
+        const adminError = requireAdmin(context);
+        if (adminError) return adminError;
         mutationResult = await addClient(sql, request.payload || {});
         break;
-      case "add_project":
+      }
+      case "add_project": {
+        const adminError = requireAdmin(context);
+        if (adminError) return adminError;
         mutationResult = await addProject(sql, request.payload || {});
         break;
-      case "rename_client":
+      }
+      case "rename_client": {
+        const adminError = requireAdmin(context);
+        if (adminError) return adminError;
         mutationResult = await renameClient(sql, request.payload || {});
         break;
-      case "rename_project":
+      }
+      case "rename_project": {
+        const adminError = requireAdmin(context);
+        if (adminError) return adminError;
         mutationResult = await renameProject(sql, request.payload || {});
         break;
-      case "remove_client":
+      }
+      case "remove_client": {
+        const adminError = requireAdmin(context);
+        if (adminError) return adminError;
         mutationResult = await removeClient(sql, request.payload || {});
         break;
-      case "remove_project":
+      }
+      case "remove_project": {
+        const adminError = requireAdmin(context);
+        if (adminError) return adminError;
         mutationResult = await removeProject(sql, request.payload || {});
         break;
+      }
       case "save_entry":
-        mutationResult = await saveEntry(sql, request.payload || {});
+        mutationResult = await saveEntry(sql, request.payload || {}, context.currentUser);
         break;
       case "delete_entry":
-        mutationResult = await deleteEntry(sql, request.payload || {});
+        mutationResult = await deleteEntry(sql, request.payload || {}, context.currentUser);
         break;
+      case "add_user": {
+        const adminError = requireAdmin(context);
+        if (adminError) return adminError;
+        await createUserRecord(sql, request.payload || {});
+        break;
+      }
+      case "update_user": {
+        const adminError = requireAdmin(context);
+        if (adminError) return adminError;
+        const maybeCurrentUser = await updateUserRecord(sql, request.payload || {}, context.currentUser);
+        if (maybeCurrentUser) {
+          context.currentUser = maybeCurrentUser;
+        }
+        break;
+      }
+      case "reset_user_password": {
+        const adminError = requireAdmin(context);
+        if (adminError) return adminError;
+        await updateUserPassword(sql, request.payload || {});
+        break;
+      }
+      case "deactivate_user": {
+        const adminError = requireAdmin(context);
+        if (adminError) return adminError;
+        await deactivateUser(sql, request.payload || {}, context.currentUser);
+        break;
+      }
       default:
         return errorResponse(400, "Unknown mutation action.");
     }
@@ -299,7 +386,7 @@ exports.handler = async function handler(event) {
       return mutationResult;
     }
 
-    const state = await loadState(sql);
+    const state = await loadState(sql, context.currentUser);
     return json(200, {
       ...state,
       message: mutationResult?.message || "",
