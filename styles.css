@@ -1090,6 +1090,8 @@ textarea {
     width: 100%;
     max-width: 100%;
     padding: 16px;
+    width: calc(100vw - (var(--shell-pad) + var(--shell-pad)));
+    margin: 0 auto;
   }
 
   .entry-helpers-hours {
