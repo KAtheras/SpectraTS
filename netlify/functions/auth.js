@@ -10,6 +10,7 @@ const {
   getSessionContext,
   getSql,
   json,
+  loadState,
   normalizeText,
   parseBody,
   verifyPassword,
@@ -31,16 +32,18 @@ exports.handler = async function handler(event) {
     const context = await getSessionContext(sql, event);
 
     if (request.action === "session") {
-      return context.currentUser
-        ? json(200, {
-            bootstrapRequired: false,
-            authenticated: true,
-            currentUser: context.currentUser,
-          })
-        : errorResponse(401, "Not signed in.", {
-            bootstrapRequired: context.bootstrapRequired,
-            authenticated: false,
-          });
+      if (!context.currentUser) {
+        return errorResponse(401, "Not signed in.", {
+          bootstrapRequired: context.bootstrapRequired,
+          authenticated: false,
+        });
+      }
+
+      const state = await loadState(sql, context.currentUser);
+      return json(200, {
+        ...state,
+        authenticated: true,
+      });
     }
 
     if (request.action === "bootstrap") {
@@ -56,21 +59,18 @@ exports.handler = async function handler(event) {
       });
       const session = await createSession(sql, user.id);
 
-      return json(
-        200,
-        {
-          bootstrapRequired: false,
-          authenticated: true,
-          sessionToken: session.token,
-          currentUser: {
-            id: user.id,
-            username: user.username,
-            displayName: user.displayName,
-            role: user.role,
-          },
-        },
-        undefined
-      );
+      const state = await loadState(sql, {
+        id: user.id,
+        username: user.username,
+        displayName: user.displayName,
+        role: user.role,
+      });
+
+      return json(200, {
+        ...state,
+        authenticated: true,
+        sessionToken: session.token,
+      });
     }
 
     if (request.action === "login") {
@@ -91,21 +91,18 @@ exports.handler = async function handler(event) {
       }
 
       const session = await createSession(sql, user.id);
-      return json(
-        200,
-        {
-          bootstrapRequired: false,
-          authenticated: true,
-          sessionToken: session.token,
-          currentUser: {
-            id: user.id,
-            username: user.username,
-            displayName: user.display_name,
-            role: user.role,
-          },
-        },
-        undefined
-      );
+      const state = await loadState(sql, {
+        id: user.id,
+        username: user.username,
+        displayName: user.display_name,
+        role: user.role,
+      });
+
+      return json(200, {
+        ...state,
+        authenticated: true,
+        sessionToken: session.token,
+      });
     }
 
     if (request.action === "logout") {

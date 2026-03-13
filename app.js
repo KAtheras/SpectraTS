@@ -238,7 +238,7 @@
 
   async function loadPersistentState() {
     try {
-      const payload = await requestJson(STATE_API_PATH);
+      const payload = await requestAuth("session");
       applyLoadedState(payload);
       state.storageMode = "remote";
       return true;
