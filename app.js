@@ -1264,7 +1264,7 @@
       saveSessionToken(payload.sessionToken || "");
       setAuthFeedback("Credentials accepted. Loading workspace...", false);
       refs.loginForm.reset();
-      hydrateAuthenticatedState(payload);
+      window.location.reload();
     } catch (error) {
       console.error("Login failed:", error);
       const message = error.message || "Unable to sign in.";
@@ -1292,7 +1292,7 @@
       saveSessionToken(payload.sessionToken || "");
       setAuthFeedback("Admin account created. Loading workspace...", false);
       refs.bootstrapForm.reset();
-      hydrateAuthenticatedState(payload);
+      window.location.reload();
     } catch (error) {
       console.error("Bootstrap failed:", error);
       const message = error.message || "Unable to create the admin account.";
@@ -2223,6 +2223,10 @@
     resetFilters();
 
     if (state.storageMode === "remote" && !state.currentUser) {
+      if (loadSessionToken() && !state.bootstrapRequired) {
+        saveSessionToken("");
+        setAuthFeedback("Your saved session could not be restored. Please sign in again.", true);
+      }
       render();
       return;
     }
