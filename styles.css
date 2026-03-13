@@ -527,6 +527,11 @@ textarea {
   height: var(--entry-control-height);
   min-height: var(--entry-control-height);
   align-content: center;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+  box-shadow: none;
 }
 
 .entry-helpers-hours .chip-button,
@@ -1103,8 +1108,8 @@ textarea {
   .entry-helpers-hours .other-hours input {
     height: 30px;
     min-height: 30px;
-    font-size: 0.58rem;
-    padding: 0 2px;
+    font-size: 0.62rem;
+    padding: 0;
   }
 
   .preset-buttons {
@@ -1112,10 +1117,12 @@ textarea {
     display: flex;
     flex-wrap: nowrap;
     gap: 3px;
+    justify-content: center;
   }
 
   .entry-helpers-hours .chip-button {
     flex: 0 0 auto;
+    width: 42px;
   }
 
   .entry-helpers-hours .other-hours {
@@ -1126,7 +1133,7 @@ textarea {
   }
 
   .entry-helpers-hours .other-hours input {
-    width: 44px;
+    width: 54px;
     min-width: 0;
   }
 
@@ -1181,6 +1188,7 @@ textarea {
     display: flex;
     flex-wrap: nowrap;
     gap: 3px;
+    justify-content: center;
   }
 
   .chip-button,
