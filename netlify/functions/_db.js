@@ -79,7 +79,7 @@ async function ensureSchema(sql) {
       ELSE 1
     END
   `;
-  await sql`UPDATE users SET account_id = ${accountUuid} WHERE account_id IS NULL`;
+  await sql`UPDATE users SET account_id = ${accountUuid}::uuid WHERE account_id IS NULL`;
   await sql`ALTER TABLE users DROP CONSTRAINT IF EXISTS users_level_check`;
   await sql`
     ALTER TABLE users
@@ -127,7 +127,7 @@ async function ensureSchema(sql) {
     ALTER TABLE clients
     ADD COLUMN IF NOT EXISTS account_id UUID REFERENCES accounts(id)
   `;
-  await sql`UPDATE clients SET account_id = ${accountUuid} WHERE account_id IS NULL`;
+  await sql`UPDATE clients SET account_id = ${accountUuid}::uuid WHERE account_id IS NULL`;
   await sql`
     DROP INDEX IF EXISTS clients_name_ci_idx
   `;
@@ -155,7 +155,7 @@ async function ensureSchema(sql) {
     ALTER TABLE projects
     ADD COLUMN IF NOT EXISTS account_id UUID REFERENCES accounts(id)
   `;
-  await sql`UPDATE projects SET account_id = ${accountUuid} WHERE account_id IS NULL`;
+  await sql`UPDATE projects SET account_id = ${accountUuid}::uuid WHERE account_id IS NULL`;
 
   await sql`
     CREATE UNIQUE INDEX IF NOT EXISTS projects_client_name_ci_idx
@@ -177,7 +177,7 @@ async function ensureSchema(sql) {
     ALTER TABLE manager_clients
     ADD COLUMN IF NOT EXISTS account_id UUID REFERENCES accounts(id)
   `;
-  await sql`UPDATE manager_clients SET account_id = ${accountUuid} WHERE account_id IS NULL`;
+  await sql`UPDATE manager_clients SET account_id = ${accountUuid}::uuid WHERE account_id IS NULL`;
 
   await sql`
     CREATE TABLE IF NOT EXISTS manager_projects (
@@ -194,7 +194,7 @@ async function ensureSchema(sql) {
     ALTER TABLE manager_projects
     ADD COLUMN IF NOT EXISTS account_id UUID REFERENCES accounts(id)
   `;
-  await sql`UPDATE manager_projects SET account_id = ${accountUuid} WHERE account_id IS NULL`;
+  await sql`UPDATE manager_projects SET account_id = ${accountUuid}::uuid WHERE account_id IS NULL`;
 
   await sql`
     CREATE TABLE IF NOT EXISTS project_members (
@@ -211,7 +211,7 @@ async function ensureSchema(sql) {
     ALTER TABLE project_members
     ADD COLUMN IF NOT EXISTS account_id UUID REFERENCES accounts(id)
   `;
-  await sql`UPDATE project_members SET account_id = ${accountUuid} WHERE account_id IS NULL`;
+  await sql`UPDATE project_members SET account_id = ${accountUuid}::uuid WHERE account_id IS NULL`;
 
   await sql`
     CREATE TABLE IF NOT EXISTS entries (
@@ -232,7 +232,7 @@ async function ensureSchema(sql) {
     ALTER TABLE entries
     ADD COLUMN IF NOT EXISTS account_id UUID REFERENCES accounts(id)
   `;
-  await sql`UPDATE entries SET account_id = ${accountUuid} WHERE account_id IS NULL`;
+  await sql`UPDATE entries SET account_id = ${accountUuid}::uuid WHERE account_id IS NULL`;
 
   await sql`
     CREATE TABLE IF NOT EXISTS level_labels (
@@ -248,7 +248,7 @@ async function ensureSchema(sql) {
   const labelRows = await sql`
     SELECT level
     FROM level_labels
-    WHERE account_id = ${accountUuid}
+    WHERE account_id = ${accountUuid}::uuid
   `;
   const existingLevels = new Set(labelRows.map((row) => row.level));
   const defaultLabels = {
@@ -264,7 +264,7 @@ async function ensureSchema(sql) {
     if (!existingLevels.has(levelInt)) {
       await sql`
         INSERT INTO level_labels (account_id, level, label)
-        VALUES (${accountUuid}, ${levelInt}, ${label})
+        VALUES (${accountUuid}::uuid, ${levelInt}, ${label})
         ON CONFLICT (account_id, level) DO NOTHING
       `;
     }
@@ -275,7 +275,7 @@ async function ensureSchema(sql) {
     SELECT DISTINCT
       projects.id,
       users.id,
-      ${accountUuid},
+      ${accountUuid}::uuid,
       users.id,
       NOW()
     FROM entries
@@ -284,7 +284,7 @@ async function ensureSchema(sql) {
     JOIN projects ON projects.client_id = clients.id
       AND LOWER(projects.name) = LOWER(entries.project_name)
     WHERE users.is_active = TRUE
-      AND clients.account_id = ${accountUuid}
+      AND clients.account_id = ${accountUuid}::uuid
     ON CONFLICT (project_id, user_id) DO NOTHING
   `;
 
@@ -296,7 +296,7 @@ async function seedDefaultCatalog(sql, accountId) {
   const [{ count }] = await sql`
     SELECT COUNT(*)::INT AS count
     FROM clients
-    WHERE account_id = ${accountId}
+    WHERE account_id = ${accountId}::uuid
   `;
   if (count > 0) {
     return;
@@ -305,7 +305,7 @@ async function seedDefaultCatalog(sql, accountId) {
   for (const [clientName, projects] of Object.entries(DEFAULT_CLIENT_PROJECTS)) {
     const inserted = await sql`
       INSERT INTO clients (account_id, name)
-      VALUES (${accountId}, ${clientName})
+      VALUES (${accountId}::uuid, ${clientName})
       RETURNING id
     `;
 
@@ -313,7 +313,7 @@ async function seedDefaultCatalog(sql, accountId) {
     for (const projectName of projects) {
       await sql`
         INSERT INTO projects (client_id, account_id, name)
-        VALUES (${clientId}, ${accountId}, ${projectName})
+        VALUES (${clientId}, ${accountId}::uuid, ${projectName})
       `;
     }
   }
@@ -473,7 +473,7 @@ async function findUserByUsername(sql, username, accountId) {
         SELECT *
         FROM users
         WHERE LOWER(username) = LOWER(${normalized})
-          AND account_id = ${accountId}
+          AND account_id = ${accountId}::uuid
         LIMIT 1
       `
     : await sql`
@@ -497,7 +497,7 @@ async function findUserById(sql, id, accountId) {
         SELECT *
         FROM users
         WHERE id = ${normalized}
-          AND account_id = ${accountId}
+          AND account_id = ${accountId}::uuid
         LIMIT 1
       `
     : await sql`
@@ -522,7 +522,7 @@ async function findUserByDisplayName(sql, displayName, accountId) {
         FROM users
         WHERE LOWER(display_name) = LOWER(${normalized})
           AND is_active = TRUE
-          AND account_id = ${accountId}
+          AND account_id = ${accountId}::uuid
         LIMIT 1
       `
     : await sql`
@@ -548,7 +548,7 @@ async function listUsers(sql, accountId) {
       created_at AS "createdAt"
     FROM users
     WHERE is_active = TRUE
-      AND account_id = ${accountId}
+      AND account_id = ${accountId}::uuid
     ORDER BY LOWER(display_name), LOWER(username)
   `;
   return rows.map((row) => ({ ...row, level: normalizeLevel(row.level) }));
@@ -559,7 +559,7 @@ async function adminCount(sql, accountId) {
     SELECT COUNT(*)::INT AS count
     FROM users
     WHERE is_active = TRUE AND level >= 6
-      AND account_id = ${accountId}
+      AND account_id = ${accountId}::uuid
   `;
   return rows[0]?.count || 0;
 }
@@ -568,7 +568,7 @@ async function listLevelLabels(sql, accountId) {
   const rows = await sql`
     SELECT level, label
     FROM level_labels
-    WHERE account_id = ${accountId}
+    WHERE account_id = ${accountId}::uuid
     ORDER BY level
   `;
   const labels = {};
@@ -608,7 +608,7 @@ async function createUserRecord(sql, payload) {
     FROM users
     WHERE LOWER(display_name) = LOWER(${displayName})
       AND is_active = TRUE
-      AND account_id = ${accountUuid}
+      AND account_id = ${accountUuid}::uuid
     LIMIT 1
   `;
   if (existingDisplayName[0]) {
@@ -647,7 +647,7 @@ async function createUserRecord(sql, payload) {
       ${user.passwordHash},
       'staff',
       ${user.level},
-      ${user.accountId},
+      ${user.accountId}::uuid,
       TRUE,
       ${user.createdAt},
       ${user.updatedAt}
@@ -679,7 +679,7 @@ async function updateUserRecord(sql, payload, actingUser) {
     FROM users
     WHERE LOWER(username) = LOWER(${username})
       AND id <> ${existingUser.id}
-      AND account_id = ${existingUser.account_id}
+      AND account_id = ${existingUser.account_id}::uuid
     LIMIT 1
   `;
   if (duplicateUsername[0]) {
@@ -692,7 +692,7 @@ async function updateUserRecord(sql, payload, actingUser) {
     WHERE LOWER(display_name) = LOWER(${displayName})
       AND id <> ${existingUser.id}
       AND is_active = TRUE
-      AND account_id = ${existingUser.account_id}
+      AND account_id = ${existingUser.account_id}::uuid
     LIMIT 1
   `;
   if (duplicateDisplayName[0]) {
@@ -899,7 +899,7 @@ async function findClient(sql, clientName, accountId) {
     SELECT id, name
     FROM clients
     WHERE LOWER(name) = LOWER(${normalized})
-      AND account_id = ${accountId}
+      AND account_id = ${accountId}::uuid
     LIMIT 1
   `;
 
@@ -919,7 +919,7 @@ async function findProject(sql, clientName, projectName, accountId) {
     JOIN clients ON clients.id = projects.client_id
     WHERE projects.client_id = ${client.id}
       AND LOWER(projects.name) = LOWER(${normalizedProject})
-      AND projects.account_id = ${accountId}
+      AND projects.account_id = ${accountId}::uuid
     LIMIT 1
   `;
 
@@ -935,7 +935,7 @@ async function listProjects(sql, accountId) {
       projects.created_by AS "createdBy"
     FROM projects
     JOIN clients ON clients.id = projects.client_id
-    WHERE projects.account_id = ${accountId}
+    WHERE projects.account_id = ${accountId}::uuid
     ORDER BY LOWER(clients.name), LOWER(projects.name)
   `;
 }
@@ -948,7 +948,7 @@ async function listManagerClientAssignments(sql, accountId) {
       clients.name AS client
     FROM manager_clients
     JOIN clients ON clients.id = manager_clients.client_id
-    WHERE manager_clients.account_id = ${accountId}
+    WHERE manager_clients.account_id = ${accountId}::uuid
   `;
 }
 
@@ -962,7 +962,7 @@ async function listManagerProjectAssignments(sql, accountId) {
     FROM manager_projects
     JOIN projects ON projects.id = manager_projects.project_id
     JOIN clients ON clients.id = projects.client_id
-    WHERE manager_projects.account_id = ${accountId}
+    WHERE manager_projects.account_id = ${accountId}::uuid
   `;
 }
 
@@ -977,9 +977,9 @@ async function listProjectMembers(sql, accountId) {
     FROM project_members
     JOIN projects ON projects.id = project_members.project_id
     JOIN clients ON clients.id = projects.client_id
-    JOIN users ON users.id = project_members.user_id
+   JOIN users ON users.id = project_members.user_id
     WHERE users.is_active = TRUE
-      AND project_members.account_id = ${accountId}
+      AND project_members.account_id = ${accountId}::uuid
   `;
 }
 
@@ -992,7 +992,7 @@ async function listManagerAssignmentsForUser(sql, managerId, accountId) {
     FROM manager_clients
     JOIN clients ON clients.id = manager_clients.client_id
     WHERE manager_clients.manager_id = ${managerId}
-      AND manager_clients.account_id = ${accountId}
+      AND manager_clients.account_id = ${accountId}::uuid
   `;
   const projectRows = await sql`
     SELECT
@@ -1004,7 +1004,7 @@ async function listManagerAssignmentsForUser(sql, managerId, accountId) {
     JOIN projects ON projects.id = manager_projects.project_id
     JOIN clients ON clients.id = projects.client_id
     WHERE manager_projects.manager_id = ${managerId}
-      AND manager_projects.account_id = ${accountId}
+      AND manager_projects.account_id = ${accountId}::uuid
   `;
   return { clientRows, projectRows };
 }
@@ -1023,7 +1023,7 @@ async function listProjectMembersForUser(sql, userId, accountId) {
     JOIN users ON users.id = project_members.user_id
     WHERE project_members.user_id = ${userId}
       AND users.is_active = TRUE
-      AND project_members.account_id = ${accountId}
+      AND project_members.account_id = ${accountId}::uuid
   `;
 }
 
@@ -1044,7 +1044,7 @@ async function listProjectMembersForProjects(sql, projectIds, accountId) {
     JOIN users ON users.id = project_members.user_id
     WHERE project_members.project_id = ANY(${projectIds})
       AND users.is_active = TRUE
-      AND project_members.account_id = ${accountId}
+      AND project_members.account_id = ${accountId}::uuid
   `;
 }
 
@@ -1053,13 +1053,13 @@ async function getManagerScope(sql, managerId, accountId) {
     SELECT client_id
     FROM manager_clients
     WHERE manager_id = ${managerId}
-      AND account_id = ${accountId}
+      AND account_id = ${accountId}::uuid
   `;
   const projectRows = await sql`
     SELECT project_id
     FROM manager_projects
     WHERE manager_id = ${managerId}
-      AND account_id = ${accountId}
+      AND account_id = ${accountId}::uuid
   `;
   const clientIds = clientRows.map((row) => row.client_id);
   const directProjectIds = projectRows.map((row) => row.project_id);
@@ -1096,7 +1096,7 @@ async function loadState(sql, currentUser) {
       projects.name AS project
     FROM clients
     LEFT JOIN projects ON projects.client_id = clients.id
-    WHERE clients.account_id = ${accountUuid}
+    WHERE clients.account_id = ${accountUuid}::uuid
     ORDER BY LOWER(clients.name), LOWER(projects.name)
   `;
 
@@ -1115,7 +1115,7 @@ async function loadState(sql, currentUser) {
         created_at AS "createdAt",
         updated_at AS "updatedAt"
       FROM entries
-      WHERE account_id = ${accountUuid}
+      WHERE account_id = ${accountUuid}::uuid
       ORDER BY entry_date DESC, created_at DESC
     `;
   } else if (isManager) {
@@ -1140,7 +1140,7 @@ async function loadState(sql, currentUser) {
         JOIN users ON LOWER(users.display_name) = LOWER(entries.user_name)
         WHERE projects.id = ANY(${scope.projectIds})
           AND (users.level <= 2 OR users.id = ${normalizedUser.id})
-          AND entries.account_id = ${accountUuid}
+          AND entries.account_id = ${accountUuid}::uuid
         ORDER BY entries.entry_date DESC, entries.created_at DESC
       `;
     }
@@ -1159,7 +1159,7 @@ async function loadState(sql, currentUser) {
         updated_at AS "updatedAt"
       FROM entries
       WHERE user_name = ${normalizedUser.displayName}
-        AND account_id = ${accountUuid}
+        AND account_id = ${accountUuid}::uuid
       ORDER BY entry_date DESC, created_at DESC
     `;
   }

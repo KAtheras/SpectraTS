@@ -91,7 +91,7 @@ async function updateLevelLabels(sql, payload, accountId) {
   for (const item of updates) {
     await sql`
       INSERT INTO level_labels (account_id, level, label, updated_at)
-      VALUES (${accountId}, ${item.level}, ${item.label}, ${new Date().toISOString()})
+      VALUES (${accountId}::uuid, ${item.level}, ${item.label}, ${new Date().toISOString()})
       ON CONFLICT (account_id, level) DO UPDATE SET
         label = EXCLUDED.label,
         updated_at = EXCLUDED.updated_at
@@ -112,7 +112,7 @@ async function addClient(sql, payload, accountId) {
 
   await sql`
     INSERT INTO clients (account_id, name)
-    VALUES (${accountId}, ${clientName})
+    VALUES (${accountId}::uuid, ${clientName})
   `;
   return null;
 }
@@ -138,7 +138,7 @@ async function addProject(sql, payload, currentUser, accountId) {
 
   await sql`
     INSERT INTO projects (client_id, account_id, name, created_by)
-    VALUES (${client.id}, ${accountId}, ${projectName}, ${currentUser?.id || null})
+    VALUES (${client.id}, ${accountId}::uuid, ${projectName}, ${currentUser?.id || null})
   `;
 
   return null;
@@ -150,7 +150,7 @@ async function managerHasClient(sql, managerId, clientId, accountId) {
     FROM manager_clients
     WHERE manager_id = ${managerId}
       AND client_id = ${clientId}
-      AND account_id = ${accountId}
+      AND account_id = ${accountId}::uuid
     LIMIT 1
   `;
   return Boolean(rows[0]);
@@ -180,7 +180,7 @@ async function assignManagerToClient(sql, payload, currentUser, accountId) {
 
   await sql`
     INSERT INTO manager_clients (manager_id, client_id, account_id, assigned_by)
-    VALUES (${managerId}, ${client.id}, ${accountId}, ${currentUser?.id || null})
+    VALUES (${managerId}, ${client.id}, ${accountId}::uuid, ${currentUser?.id || null})
     ON CONFLICT (manager_id, client_id) DO NOTHING
   `;
   return null;
@@ -202,7 +202,7 @@ async function unassignManagerFromClient(sql, payload, accountId) {
     DELETE FROM manager_clients
     WHERE manager_id = ${managerId}
       AND client_id = ${client.id}
-      AND account_id = ${accountId}
+      AND account_id = ${accountId}::uuid
   `;
   return null;
 }
@@ -227,7 +227,7 @@ async function assignManagerToProject(sql, payload, currentUser, accountId) {
 
   await sql`
     INSERT INTO manager_projects (manager_id, project_id, account_id, assigned_by)
-    VALUES (${managerId}, ${project.id}, ${accountId}, ${currentUser?.id || null})
+    VALUES (${managerId}, ${project.id}, ${accountId}::uuid, ${currentUser?.id || null})
     ON CONFLICT (manager_id, project_id) DO NOTHING
   `;
   return null;
@@ -250,7 +250,7 @@ async function unassignManagerFromProject(sql, payload, accountId) {
     DELETE FROM manager_projects
     WHERE manager_id = ${managerId}
       AND project_id = ${project.id}
-      AND account_id = ${accountId}
+      AND account_id = ${accountId}::uuid
   `;
   return null;
 }
@@ -287,7 +287,7 @@ async function addProjectMember(sql, payload, currentUser, accountId) {
 
   await sql`
     INSERT INTO project_members (project_id, user_id, account_id, assigned_by)
-    VALUES (${project.id}, ${userId}, ${accountId}, ${currentUser.id})
+    VALUES (${project.id}, ${userId}, ${accountId}::uuid, ${currentUser.id})
     ON CONFLICT (project_id, user_id) DO NOTHING
   `;
   return null;
@@ -322,7 +322,7 @@ async function removeProjectMember(sql, payload, currentUser, accountId) {
     DELETE FROM project_members
     WHERE project_id = ${project.id}
       AND user_id = ${userId}
-      AND account_id = ${accountId}
+      AND account_id = ${accountId}::uuid
   `;
   return null;
 }
@@ -353,7 +353,7 @@ async function renameClient(sql, payload, accountId) {
     UPDATE entries
     SET client_name = ${nextName}
     WHERE LOWER(client_name) = LOWER(${client.name})
-      AND account_id = ${accountId}
+      AND account_id = ${accountId}::uuid
   `;
 
   return null;
@@ -387,7 +387,7 @@ async function renameProject(sql, payload, accountId) {
     SET project_name = ${nextName}
     WHERE LOWER(client_name) = LOWER(${clientName})
       AND LOWER(project_name) = LOWER(${project.name})
-      AND account_id = ${accountId}
+      AND account_id = ${accountId}::uuid
   `;
 
   return null;
@@ -404,7 +404,7 @@ async function removeClient(sql, payload, accountId) {
     SELECT COALESCE(SUM(hours)::FLOAT8, 0) AS total
     FROM entries
     WHERE LOWER(client_name) = LOWER(${client.name})
-      AND account_id = ${accountId}
+      AND account_id = ${accountId}::uuid
   `;
   const hoursLogged = rows[0]?.total || 0;
 
@@ -428,7 +428,7 @@ async function removeProject(sql, payload, accountId) {
     FROM entries
     WHERE LOWER(client_name) = LOWER(${clientName})
       AND LOWER(project_name) = LOWER(${project.name})
-      AND account_id = ${accountId}
+      AND account_id = ${accountId}::uuid
   `;
   const hoursLogged = rows[0]?.total || 0;
 
@@ -494,7 +494,7 @@ async function saveEntry(sql, payload, currentUser, accountId) {
       FROM project_members
       WHERE project_id = ${project.id}
         AND user_id = ${targetUser.id}
-        AND account_id = ${accountId}
+        AND account_id = ${accountId}::uuid
       LIMIT 1
     `;
     if (!memberRows[0]) {
@@ -507,7 +507,7 @@ async function saveEntry(sql, payload, currentUser, accountId) {
       SELECT user_name
       FROM entries
       WHERE id = ${normalizeText(entry.id)}
-        AND account_id = ${accountId}
+        AND account_id = ${accountId}::uuid
       LIMIT 1
     `;
     if (rows[0] && rows[0].user_name !== entry.user && isStaff(currentUser)) {
@@ -571,7 +571,7 @@ async function deleteEntry(sql, payload, currentUser, accountId) {
       project_name AS project
     FROM entries
     WHERE id = ${id}
-      AND account_id = ${accountId}
+      AND account_id = ${accountId}::uuid
     LIMIT 1
   `;
   const entry = rows[0];
@@ -613,7 +613,7 @@ async function deleteEntry(sql, payload, currentUser, accountId) {
         FROM project_members
         WHERE project_id = ${project.id}
           AND user_id = ${currentUser.id}
-          AND account_id = ${accountId}
+          AND account_id = ${accountId}::uuid
         LIMIT 1
       `;
       if (!memberRows[0]) {
@@ -726,7 +726,7 @@ exports.handler = async function handler(event) {
           SELECT created_by
           FROM projects
           WHERE id = ${project.id}
-            AND account_id = ${accountId}
+            AND account_id = ${accountId}::uuid
           LIMIT 1
         `;
         const createdBy = projectRow[0]?.created_by || "";
