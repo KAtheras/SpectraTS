@@ -205,6 +205,14 @@ body.is-embedded .page-shell {
   gap: 10px;
 }
 
+.account-name {
+  font-family: var(--font-head);
+  font-weight: 800;
+  font-size: 1.6rem;
+  color: var(--text-strong);
+  line-height: 1.1;
+}
+
 .panel-stack {
   width: 100%;
 }
@@ -301,12 +309,6 @@ body.is-embedded .page-shell {
   font-weight: 700;
   white-space: nowrap;
   line-height: 1.1;
-}
-
-.session-indicator .session-account {
-  font-size: 1rem;
-  font-weight: 800;
-  color: var(--text-strong);
 }
 
 .session-indicator .session-user {

@@ -77,6 +77,7 @@
     formHeading: document.getElementById("form-heading"),
     cancelEdit: document.getElementById("cancel-edit"),
     sessionIndicator: document.getElementById("session-indicator"),
+    accountName: document.getElementById("account-name"),
     manageUsers: document.getElementById("manage-users"),
     logoutButton: document.getElementById("logout-button"),
     themeToggle: document.getElementById("theme-toggle"),
@@ -919,17 +920,22 @@
       : "Sign in with your team member credentials to continue.";
 
     if (isAuthenticated) {
-      refs.sessionIndicator.hidden = false;
       const accountName = state.account?.name || "";
+      if (refs.accountName) {
+        refs.accountName.hidden = false;
+        refs.accountName.textContent = accountName;
+      }
+      refs.sessionIndicator.hidden = false;
       const userName = state.currentUser.displayName || "";
-      refs.sessionIndicator.innerHTML = `
-        <span class="session-account">${escapeHtml(accountName)}</span>
-        <span class="session-user">${escapeHtml(userName)}</span>
-      `;
+      refs.sessionIndicator.innerHTML = `<span class="session-user">${escapeHtml(userName)}</span>`;
       refs.manageUsers.hidden = !isAdmin(state.currentUser);
       refs.logoutButton.hidden = false;
       refs.openCatalog.hidden = !(isAdmin(state.currentUser) || isManager(state.currentUser));
     } else {
+      if (refs.accountName) {
+        refs.accountName.hidden = true;
+        refs.accountName.textContent = "";
+      }
       refs.sessionIndicator.hidden = true;
       refs.sessionIndicator.innerHTML = "";
       refs.manageUsers.hidden = true;
