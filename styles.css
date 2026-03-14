@@ -757,7 +757,10 @@ textarea {
   max-height: min(88vh, 900px);
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  padding: 0;
+}
+
+#members-modal .panel-modal {
+  padding: 22px;
 }
 
 .users-modal-sticky {
