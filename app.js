@@ -498,6 +498,15 @@
     return `${month}/${day}/${year}`;
   }
 
+  function formatDisplayDateShort(value) {
+    if (!isValidDateString(value)) {
+      return "";
+    }
+
+    const [year, month, day] = value.split("-");
+    return `${month}/${day}/${year.slice(-2)}`;
+  }
+
   function normalizeDisplayDateInput(value) {
     const digits = String(value || "").replace(/\D/g, "").slice(0, 8);
 
@@ -545,7 +554,7 @@
     const currentYear = new Date().getFullYear();
     const year = Number(selectedYear) || currentYear;
     const start = 2026;
-    const end = currentYear;
+    const end = currentYear < start ? start : currentYear;
     const clampedYear = Math.min(Math.max(year, start), end);
 
     return {
@@ -1658,7 +1667,7 @@
       .map(
         (entry) => `
           <tr>
-            <td>${escapeHtml(entry.date)}</td>
+            <td>${escapeHtml(formatDisplayDateShort(entry.date))}</td>
             <td>${escapeHtml(entry.user)}</td>
             <td>${escapeHtml(entry.client)}</td>
             <td>${escapeHtml(entry.project)}</td>
@@ -1687,7 +1696,7 @@
     }
 
     syncFormCatalogs();
-    syncFilterCatalogs();
+    syncFilterCatalogs(state.filters);
     ensureCatalogSelection();
 
     const filteredEntries = currentEntries();
