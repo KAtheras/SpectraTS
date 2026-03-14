@@ -48,14 +48,14 @@ exports.handler = async function handler(event) {
 
     if (request.action === "bootstrap") {
       if (!context.bootstrapRequired) {
-        return errorResponse(409, "The admin account has already been created.");
+        return errorResponse(409, "The Global Admin account has already been created.");
       }
 
       const user = await createUserRecord(sql, {
         username: request.payload?.username,
         displayName: request.payload?.displayName,
         password: request.payload?.password,
-        role: "admin",
+        role: "global_admin",
       });
       const session = await createSession(sql, user.id);
 
@@ -75,7 +75,7 @@ exports.handler = async function handler(event) {
 
     if (request.action === "login") {
       if (context.bootstrapRequired) {
-        return errorResponse(409, "Create the admin account first.", {
+        return errorResponse(409, "Create the Global Admin account first.", {
           bootstrapRequired: true,
         });
       }

@@ -721,6 +721,22 @@ textarea {
   overflow: hidden;
 }
 
+.modal-subtext {
+  margin-top: 6px;
+  color: var(--muted);
+  font-family: var(--font-head);
+  font-size: 0.82rem;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px;
+  border-top: 1px solid var(--group-border);
+  background: var(--column-head-bg);
+}
+
 .modal-backdrop {
   position: fixed;
   inset: 0;
@@ -920,6 +936,72 @@ textarea {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+}
+
+.member-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: center;
+}
+
+.member-select {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px 12px;
+  align-items: center;
+  cursor: pointer;
+}
+
+.member-select input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+}
+
+.member-name {
+  font-family: var(--font-head);
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.member-username {
+  grid-column: 2;
+  color: var(--muted);
+  font-family: var(--font-head);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.member-controls {
+  display: grid;
+  gap: 8px;
+  justify-items: end;
+}
+
+.member-role select {
+  min-width: 150px;
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+
+.member-role-label {
+  color: var(--muted);
+  font-family: var(--font-head);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
 }
 
 .catalog-edit {

@@ -331,12 +331,42 @@
               <label>
                 <span>Role</span>
                 <select name="role">
-                  <option value="member">Member</option>
-                  <option value="admin">Admin</option>
+                  <option value="staff">Staff</option>
+                  <option value="manager">Manager</option>
+                  <option value="global_admin">Global Admin</option>
                 </select>
               </label>
               <button class="button add-user-button" type="submit">Add team member</button>
             </form>
+          </section>
+        </div>
+      </div>
+
+      <div class="modal-backdrop" id="members-modal" hidden aria-hidden="true">
+        <div class="modal-shell" role="dialog" aria-modal="true" aria-labelledby="members-modal-title">
+          <section class="panel panel-modal">
+            <div class="panel-head">
+              <div>
+                <h2 id="members-modal-title">Manage Members</h2>
+                <p class="modal-subtext" id="members-modal-subtext"></p>
+              </div>
+              <div class="panel-head-actions">
+                <button class="button button-ghost" id="close-members" type="button">
+                  Close
+                </button>
+              </div>
+            </div>
+
+            <div id="members-list" class="catalog-list member-list"></div>
+            <p id="members-feedback" class="feedback auth-feedback" aria-live="polite"></p>
+            <div class="modal-actions">
+              <button class="button button-ghost" id="members-cancel" type="button">
+                Cancel
+              </button>
+              <button class="button" id="members-confirm" type="button">
+                Save
+              </button>
+            </div>
           </section>
         </div>
       </div>

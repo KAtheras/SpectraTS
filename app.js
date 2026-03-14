@@ -5,6 +5,9 @@
   const SESSION_TOKEN_STORAGE_KEY = "timesheet-studio.session-token.v1";
   const LOCAL_USERS_STORAGE_KEY = "timesheet-studio.local-users.v1";
   const LOCAL_CURRENT_USER_STORAGE_KEY = "timesheet-studio.local-current-user.v1";
+  const LOCAL_ASSIGNMENTS_STORAGE_KEY = "timesheet-studio.local-assignments.v1";
+  const LOCAL_PROJECT_MEMBERS_STORAGE_KEY = "timesheet-studio.local-project-members.v1";
+  const LOCAL_PROJECT_META_STORAGE_KEY = "timesheet-studio.local-project-meta.v1";
   const body = document.body;
   const embedded = window.self !== window.top || window.location.search.includes("embed=1");
   const themeMedia = window.matchMedia("(prefers-color-scheme: dark)");
@@ -36,7 +39,9 @@
     closeCatalog: document.getElementById("close-catalog"),
     catalogModal: document.getElementById("catalog-modal"),
     usersModal: document.getElementById("users-modal"),
+    membersModal: document.getElementById("members-modal"),
     closeUsers: document.getElementById("close-users"),
+    closeMembers: document.getElementById("close-members"),
     hourPresets: document.getElementById("hour-presets"),
     otherHours: document.getElementById("other-hours"),
     entryDateMonth: document.getElementById("entry-date-month"),
@@ -58,6 +63,12 @@
     projectColumnLabel: document.getElementById("project-column-label"),
     userList: document.getElementById("user-list"),
     userFeedback: document.getElementById("user-feedback"),
+    membersList: document.getElementById("members-list"),
+    membersTitle: document.getElementById("members-modal-title"),
+    membersSubtext: document.getElementById("members-modal-subtext"),
+    membersFeedback: document.getElementById("members-feedback"),
+    membersConfirm: document.getElementById("members-confirm"),
+    membersCancel: document.getElementById("members-cancel"),
     filterFromMonth: document.getElementById("filter-from-month"),
     filterFromDay: document.getElementById("filter-from-day"),
     filterFromYear: document.getElementById("filter-from-year"),
@@ -86,6 +97,12 @@
     currentUser: null,
     users: [],
     bootstrapRequired: false,
+    projects: [],
+    assignments: {
+      managerClients: [],
+      managerProjects: [],
+      projectMembers: [],
+    },
   };
 
   const QUICK_HOUR_PRESETS = new Set(["0.5", "1", "1.5", "2", "2.5", "3"]);
@@ -103,6 +120,12 @@
     "Nov",
     "Dec",
   ];
+
+  const memberModalState = {
+    mode: "",
+    client: "",
+    project: "",
+  };
 
   if (embedded) {
     body.classList.add("is-embedded");
@@ -124,14 +147,14 @@
       const normalized = Array.isArray(parsed)
         ? parsed.map(normalizeUser).filter(Boolean)
         : [];
-      return normalized.length
+          return normalized.length
         ? normalized
         : [
             {
               id: crypto.randomUUID(),
               displayName: "Kaprel",
               username: "kaprel",
-              role: "admin",
+              role: "global_admin",
               password: "",
             },
           ];
@@ -141,7 +164,7 @@
           id: crypto.randomUUID(),
           displayName: "Kaprel",
           username: "kaprel",
-          role: "admin",
+          role: "global_admin",
           password: "",
         },
       ];
@@ -171,6 +194,81 @@
       } else {
         window.localStorage.removeItem(LOCAL_CURRENT_USER_STORAGE_KEY);
       }
+    } catch (error) {
+      return;
+    }
+  }
+
+  function projectKey(client, project) {
+    return `${client}::${project}`;
+  }
+
+  function loadLocalAssignments() {
+    try {
+      const raw = window.localStorage.getItem(LOCAL_ASSIGNMENTS_STORAGE_KEY);
+      const parsed = raw ? JSON.parse(raw) : null;
+      const managerClients = Array.isArray(parsed?.managerClients) ? parsed.managerClients : [];
+      const managerProjects = Array.isArray(parsed?.managerProjects) ? parsed.managerProjects : [];
+      return {
+        managerClients,
+        managerProjects,
+      };
+    } catch (error) {
+      return { managerClients: [], managerProjects: [] };
+    }
+  }
+
+  function saveLocalAssignments() {
+    try {
+      window.localStorage.setItem(
+        LOCAL_ASSIGNMENTS_STORAGE_KEY,
+        JSON.stringify({
+          managerClients: state.assignments.managerClients || [],
+          managerProjects: state.assignments.managerProjects || [],
+        })
+      );
+    } catch (error) {
+      return;
+    }
+  }
+
+  function loadLocalProjectMembers() {
+    try {
+      const raw = window.localStorage.getItem(LOCAL_PROJECT_MEMBERS_STORAGE_KEY);
+      const parsed = raw ? JSON.parse(raw) : null;
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+      return [];
+    }
+  }
+
+  function saveLocalProjectMembers() {
+    try {
+      window.localStorage.setItem(
+        LOCAL_PROJECT_MEMBERS_STORAGE_KEY,
+        JSON.stringify(state.assignments.projectMembers || [])
+      );
+    } catch (error) {
+      return;
+    }
+  }
+
+  function loadLocalProjectMeta() {
+    try {
+      const raw = window.localStorage.getItem(LOCAL_PROJECT_META_STORAGE_KEY);
+      const parsed = raw ? JSON.parse(raw) : null;
+      return parsed && typeof parsed === "object" ? parsed : {};
+    } catch (error) {
+      return {};
+    }
+  }
+
+  function saveLocalProjectMeta() {
+    try {
+      window.localStorage.setItem(
+        LOCAL_PROJECT_META_STORAGE_KEY,
+        JSON.stringify(buildProjectMetaMap(state.projects))
+      );
     } catch (error) {
       return;
     }
@@ -235,12 +333,35 @@
     return [];
   }
 
+  function entryUserOptions() {
+    if (!state.currentUser) {
+      return availableUsers();
+    }
+    if (isGlobalAdmin(state.currentUser)) {
+      return availableUsers();
+    }
+    if (isManager(state.currentUser)) {
+      return state.users
+        .filter((user) => isStaff(user) || user.id === state.currentUser.id)
+        .map((user) => user.displayName)
+        .filter(Boolean);
+    }
+    return [state.currentUser.displayName];
+  }
+
   function applyLoadedState(data) {
-    state.currentUser = data?.currentUser || null;
-    state.users = Array.isArray(data?.users) ? data.users : [];
+    state.currentUser = data?.currentUser ? normalizeUser(data.currentUser) : null;
+    state.users = Array.isArray(data?.users)
+      ? data.users.map(normalizeUser).filter(Boolean)
+      : [];
     state.bootstrapRequired = Boolean(data?.bootstrapRequired);
     state.catalog = normalizeCatalog(data?.catalog || DEFAULT_CLIENT_PROJECTS);
     state.entries = Array.isArray(data?.entries) ? data.entries.map(normalizeEntry).filter(Boolean) : [];
+    state.assignments = normalizeAssignments(data?.assignments);
+    const normalizedProjects = normalizeProjects(data?.projects);
+    state.projects = normalizedProjects.length
+      ? normalizedProjects
+      : buildProjectsFromCatalog(state.catalog, {});
   }
 
   function clearRemoteAppState() {
@@ -249,13 +370,30 @@
     state.bootstrapRequired = false;
     state.catalog = normalizeCatalog(DEFAULT_CLIENT_PROJECTS);
     state.entries = [];
+    state.projects = [];
+    state.assignments = {
+      managerClients: [],
+      managerProjects: [],
+      projectMembers: [],
+    };
   }
 
   function initLocalState() {
     state.users = loadLocalUsers();
+    const localAssignments = loadLocalAssignments();
+    const localProjectMembers = loadLocalProjectMembers();
+    state.assignments = {
+      managerClients: Array.isArray(localAssignments.managerClients)
+        ? localAssignments.managerClients
+        : [],
+      managerProjects: Array.isArray(localAssignments.managerProjects)
+        ? localAssignments.managerProjects
+        : [],
+      projectMembers: Array.isArray(localProjectMembers) ? localProjectMembers : [],
+    };
     const storedUserId = loadLocalCurrentUserId();
     const preferredUser = state.users.find((user) => user.id === storedUserId);
-    const adminUser = state.users.find((user) => user.role === "admin");
+    const adminUser = state.users.find((user) => isGlobalAdmin(user));
     state.currentUser = preferredUser || adminUser || state.users[0] || null;
 
     if (!state.currentUser) {
@@ -264,14 +402,38 @@
           id: crypto.randomUUID(),
           displayName: "Kaprel",
           username: "kaprel",
-          role: "admin",
+          role: "global_admin",
           password: "",
         },
       ];
       state.currentUser = state.users[0];
     }
 
+    if (!state.assignments.projectMembers.length && state.entries.length) {
+      const inferred = [];
+      state.entries.forEach(function (entry) {
+        const user = getUserByDisplayName(entry.user);
+        if (!user) {
+          return;
+        }
+        const key = `${user.id}::${entry.client}::${entry.project}`;
+        if (!inferred.some((item) => `${item.userId}::${item.client}::${item.project}` === key)) {
+          inferred.push({
+            userId: user.id,
+            client: entry.client,
+            project: entry.project,
+          });
+        }
+      });
+      state.assignments.projectMembers = inferred;
+    }
+
+    const projectMeta = loadLocalProjectMeta();
+    state.projects = buildProjectsFromCatalog(state.catalog, projectMeta);
+
     saveLocalUsers();
+    saveLocalAssignments();
+    saveLocalProjectMembers();
     saveLocalCurrentUserId(state.currentUser?.id || "");
   }
 
@@ -280,11 +442,11 @@
   }
 
   function defaultFilterUser() {
-    if (state.storageMode !== "remote" || !state.currentUser) {
+    if (!state.currentUser) {
       return "";
     }
 
-    return state.currentUser.role !== "admin" ? state.currentUser.displayName : "";
+    return isStaff(state.currentUser) ? state.currentUser.displayName : "";
   }
 
   function resetFilters() {
@@ -358,6 +520,12 @@
         state.users = [];
         state.entries = [];
         state.catalog = normalizeCatalog(DEFAULT_CLIENT_PROJECTS);
+        state.projects = [];
+        state.assignments = {
+          managerClients: [],
+          managerProjects: [],
+          projectMembers: [],
+        };
         return true;
       }
 
@@ -446,7 +614,7 @@
   function closeUsersModal() {
     refs.usersModal.hidden = true;
     refs.usersModal.setAttribute("aria-hidden", "true");
-    if (refs.catalogModal.hidden) {
+    if (refs.catalogModal.hidden && (!refs.membersModal || refs.membersModal.hidden)) {
       body.classList.remove("modal-open");
     }
     postHeight();
@@ -462,7 +630,32 @@
   function closeCatalogModal() {
     refs.catalogModal.hidden = true;
     refs.catalogModal.setAttribute("aria-hidden", "true");
-    if (refs.usersModal.hidden) {
+    if (refs.usersModal.hidden && (!refs.membersModal || refs.membersModal.hidden)) {
+      body.classList.remove("modal-open");
+    }
+    postHeight();
+  }
+
+  function openMembersModal() {
+    if (!refs.membersModal) {
+      return;
+    }
+    refs.membersFeedback.textContent = "";
+    refs.membersFeedback.dataset.error = "false";
+    refs.membersModal.hidden = false;
+    refs.membersModal.setAttribute("aria-hidden", "false");
+    body.classList.add("modal-open");
+    renderMembersModal();
+    postHeight();
+  }
+
+  function closeMembersModal() {
+    if (!refs.membersModal) {
+      return;
+    }
+    refs.membersModal.hidden = true;
+    refs.membersModal.setAttribute("aria-hidden", "true");
+    if (refs.usersModal.hidden && refs.catalogModal.hidden) {
       body.classList.remove("modal-open");
     }
     postHeight();
@@ -586,7 +779,7 @@
         : displayName
           ? displayName.toLowerCase().replace(/\s+/g, ".")
           : "";
-    const role = user.role === "admin" ? "admin" : "member";
+    const role = normalizeRole(user.role);
     const password = typeof user.password === "string" ? user.password : "";
 
     if (!displayName || !username) {
@@ -600,6 +793,226 @@
       role,
       password,
     };
+  }
+
+  function normalizeRole(value) {
+    const role = typeof value === "string" ? value.trim() : "";
+    if (role === "admin") return "global_admin";
+    if (role === "member") return "staff";
+    if (role === "global_admin" || role === "manager" || role === "staff") {
+      return role;
+    }
+    return "staff";
+  }
+
+  function roleLabel(role) {
+    const normalized = normalizeRole(role);
+    if (normalized === "global_admin") return "Global Admin";
+    if (normalized === "manager") return "Manager";
+    return "Staff";
+  }
+
+  function isGlobalAdmin(user) {
+    return normalizeRole(user?.role) === "global_admin";
+  }
+
+  function isManager(user) {
+    return normalizeRole(user?.role) === "manager";
+  }
+
+  function isStaff(user) {
+    return normalizeRole(user?.role) === "staff";
+  }
+
+  function getUserById(userId) {
+    return state.users.find((user) => user.id === userId) || null;
+  }
+
+  function getUserByDisplayName(name) {
+    const normalized = String(name || "").trim().toLowerCase();
+    return (
+      state.users.find(
+        (user) => user.displayName.toLowerCase() === normalized
+      ) || null
+    );
+  }
+
+  function buildProjectMetaMap(projects) {
+    return (projects || []).reduce(function (acc, project) {
+      if (!project || !project.client || !project.name) {
+        return acc;
+      }
+      acc[projectKey(project.client, project.name)] = project.createdBy || "";
+      return acc;
+    }, {});
+  }
+
+  function normalizeProjects(projects) {
+    if (!Array.isArray(projects)) {
+      return [];
+    }
+    return projects
+      .map(function (project) {
+        const client = typeof project.client === "string" ? project.client.trim() : "";
+        const name = typeof project.name === "string" ? project.name.trim() : "";
+        if (!client || !name) {
+          return null;
+        }
+        return {
+          id: project.id || "",
+          client,
+          name,
+          createdBy: project.createdBy || "",
+        };
+      })
+      .filter(Boolean);
+  }
+
+  function buildProjectsFromCatalog(catalog, projectMeta) {
+    const meta = projectMeta || {};
+    const entries = [];
+    Object.entries(catalog || {}).forEach(function ([client, projects]) {
+      (projects || []).forEach(function (project) {
+        entries.push({
+          id: "",
+          client,
+          name: project,
+          createdBy: meta[projectKey(client, project)] || "",
+        });
+      });
+    });
+    return entries;
+  }
+
+  function normalizeAssignments(assignments) {
+    const managerClients = Array.isArray(assignments?.managerClients)
+      ? assignments.managerClients
+      : [];
+    const managerProjects = Array.isArray(assignments?.managerProjects)
+      ? assignments.managerProjects
+      : [];
+    const projectMembers = Array.isArray(assignments?.projectMembers)
+      ? assignments.projectMembers
+      : [];
+    return {
+      managerClients,
+      managerProjects,
+      projectMembers,
+    };
+  }
+
+  function managerClientAssignments(userId) {
+    return state.assignments.managerClients.filter((item) => item.managerId === userId);
+  }
+
+  function managerProjectAssignments(userId) {
+    return state.assignments.managerProjects.filter((item) => item.managerId === userId);
+  }
+
+  function projectMembersForUser(userId) {
+    return state.assignments.projectMembers.filter((item) => item.userId === userId);
+  }
+
+  function allowedProjectTuples(user) {
+    if (!user) {
+      return [];
+    }
+    if (isGlobalAdmin(user)) {
+      return state.projects.map((project) => ({
+        client: project.client,
+        project: project.name,
+      }));
+    }
+
+    if (isManager(user)) {
+      const clientAssignments = managerClientAssignments(user.id).map((item) => item.client);
+      const projectAssignments = managerProjectAssignments(user.id).map((item) => ({
+        client: item.client,
+        project: item.project,
+      }));
+      const clientProjects = [];
+      clientAssignments.forEach(function (client) {
+        catalogProjectNames(client).forEach(function (project) {
+          clientProjects.push({ client, project });
+        });
+      });
+      return uniqueValues(
+        [...clientProjects, ...projectAssignments].map((item) =>
+          projectKey(item.client, item.project)
+        )
+      ).map((key) => {
+        const [client, project] = key.split("::");
+        return { client, project };
+      });
+    }
+
+    return projectMembersForUser(user.id).map((item) => ({
+      client: item.client,
+      project: item.project,
+    }));
+  }
+
+  function allowedClientsForUser(user) {
+    return uniqueValues(allowedProjectTuples(user).map((item) => item.client)).sort((a, b) =>
+      a.localeCompare(b)
+    );
+  }
+
+  function allowedProjectsForClient(user, client) {
+    return uniqueValues(
+      allowedProjectTuples(user)
+        .filter((item) => item.client === client)
+        .map((item) => item.project)
+    ).sort((a, b) => a.localeCompare(b));
+  }
+
+  function canManagerAccessClient(user, client) {
+    if (!isManager(user)) {
+      return false;
+    }
+    return managerClientAssignments(user.id).some((item) => item.client === client);
+  }
+
+  function canManagerAccessProject(user, client, project) {
+    if (!isManager(user)) {
+      return false;
+    }
+    if (canManagerAccessClient(user, client)) {
+      return true;
+    }
+    return managerProjectAssignments(user.id).some(
+      (item) => item.client === client && item.project === project
+    );
+  }
+
+  function projectCreatedBy(client, project) {
+    return (
+      state.projects.find(
+        (item) => item.client === client && item.name === project
+      )?.createdBy || ""
+    );
+  }
+
+  function isUserAssignedToProject(userId, client, project) {
+    return state.assignments.projectMembers.some(
+      (item) =>
+        item.userId === userId &&
+        item.client === client &&
+        item.project === project
+    );
+  }
+
+  function canUserAccessProject(user, client, project) {
+    if (!user) {
+      return false;
+    }
+    if (isGlobalAdmin(user)) {
+      return true;
+    }
+    if (isManager(user)) {
+      return canManagerAccessProject(user, client, project);
+    }
+    return isUserAssignedToProject(user.id, client, project);
   }
 
   function formatDate(value) {
@@ -852,6 +1265,15 @@
     return Object.keys(state.catalog).sort((a, b) => a.localeCompare(b));
   }
 
+  function visibleCatalogClientNames() {
+    if (!state.currentUser) {
+      return catalogClientNames();
+    }
+    return isGlobalAdmin(state.currentUser)
+      ? catalogClientNames()
+      : allowedClientsForUser(state.currentUser);
+  }
+
   function historicalClientNames() {
     return uniqueValues(state.entries.map((entry) => entry.client)).sort((a, b) =>
       a.localeCompare(b)
@@ -869,6 +1291,16 @@
       ? state.catalog[client] || []
       : Object.values(state.catalog).flat();
     return uniqueValues(configuredProjects).sort((a, b) => a.localeCompare(b));
+  }
+
+  function visibleCatalogProjectNames(client) {
+    if (!state.currentUser) {
+      return catalogProjectNames(client);
+    }
+    if (isGlobalAdmin(state.currentUser)) {
+      return catalogProjectNames(client);
+    }
+    return allowedProjectsForClient(state.currentUser, client);
   }
 
   function projectNames(client) {
@@ -946,6 +1378,12 @@
       a.localeCompare(b)
     );
     saveCatalog();
+    if (state.storageMode === "local" && state.currentUser) {
+      const meta = loadLocalProjectMeta();
+      meta[projectKey(normalizedClient, normalizedProject)] = state.currentUser.id;
+      window.localStorage.setItem(LOCAL_PROJECT_META_STORAGE_KEY, JSON.stringify(meta));
+      state.projects = buildProjectsFromCatalog(state.catalog, meta);
+    }
     return "";
   }
 
@@ -1001,6 +1439,31 @@
 
     saveCatalog();
     saveEntries();
+    if (state.storageMode === "local") {
+      state.assignments.managerClients = state.assignments.managerClients.map((item) =>
+        item.client === normalizedClient ? { ...item, client: normalizedNext } : item
+      );
+      state.assignments.managerProjects = state.assignments.managerProjects.map((item) =>
+        item.client === normalizedClient ? { ...item, client: normalizedNext } : item
+      );
+      state.assignments.projectMembers = state.assignments.projectMembers.map((item) =>
+        item.client === normalizedClient ? { ...item, client: normalizedNext } : item
+      );
+      saveLocalAssignments();
+      saveLocalProjectMembers();
+      const meta = loadLocalProjectMeta();
+      const nextMeta = {};
+      Object.entries(meta).forEach(function ([key, value]) {
+        if (key.startsWith(`${normalizedClient}::`)) {
+          const projectName = key.split("::")[1];
+          nextMeta[projectKey(normalizedNext, projectName)] = value;
+        } else {
+          nextMeta[key] = value;
+        }
+      });
+      window.localStorage.setItem(LOCAL_PROJECT_META_STORAGE_KEY, JSON.stringify(nextMeta));
+      state.projects = buildProjectsFromCatalog(state.catalog, nextMeta);
+    }
     return "";
   }
 
@@ -1062,6 +1525,30 @@
 
     saveCatalog();
     saveEntries();
+    if (state.storageMode === "local") {
+      state.assignments.managerProjects = state.assignments.managerProjects.map((item) =>
+        item.client === normalizedClient && item.project === normalizedProject
+          ? { ...item, project: normalizedNext }
+          : item
+      );
+      state.assignments.projectMembers = state.assignments.projectMembers.map((item) =>
+        item.client === normalizedClient && item.project === normalizedProject
+          ? { ...item, project: normalizedNext }
+          : item
+      );
+      saveLocalAssignments();
+      saveLocalProjectMembers();
+      const meta = loadLocalProjectMeta();
+      const nextMeta = { ...meta };
+      const oldKey = projectKey(normalizedClient, normalizedProject);
+      const newKey = projectKey(normalizedClient, normalizedNext);
+      if (meta[oldKey]) {
+        nextMeta[newKey] = meta[oldKey];
+        delete nextMeta[oldKey];
+      }
+      window.localStorage.setItem(LOCAL_PROJECT_META_STORAGE_KEY, JSON.stringify(nextMeta));
+      state.projects = buildProjectsFromCatalog(state.catalog, nextMeta);
+    }
     return "";
   }
 
@@ -1072,6 +1559,7 @@
     }
 
     const hoursLogged = clientHours(normalizedClient);
+    const projectsForClient = state.catalog[normalizedClient] || [];
     delete state.catalog[normalizedClient];
 
     if (state.filters.client === normalizedClient) {
@@ -1089,6 +1577,25 @@
     }
 
     saveCatalog();
+    if (state.storageMode === "local") {
+      state.assignments.managerClients = state.assignments.managerClients.filter(
+        (item) => item.client !== normalizedClient
+      );
+      state.assignments.managerProjects = state.assignments.managerProjects.filter(
+        (item) => item.client !== normalizedClient
+      );
+      state.assignments.projectMembers = state.assignments.projectMembers.filter(
+        (item) => item.client !== normalizedClient
+      );
+      saveLocalAssignments();
+      saveLocalProjectMembers();
+      const meta = loadLocalProjectMeta();
+      projectsForClient.forEach(function (project) {
+        delete meta[projectKey(normalizedClient, project)];
+      });
+      window.localStorage.setItem(LOCAL_PROJECT_META_STORAGE_KEY, JSON.stringify(meta));
+      state.projects = buildProjectsFromCatalog(state.catalog, meta);
+    }
     return hoursLogged > 0
       ? `Client removed from active catalog. ${hoursLogged.toFixed(2)} logged hours were kept in history.`
       : "";
@@ -1124,13 +1631,35 @@
     }
 
     saveCatalog();
+    if (state.storageMode === "local") {
+      state.assignments.managerProjects = state.assignments.managerProjects.filter(
+        (item) =>
+          !(
+            item.client === normalizedClient &&
+            item.project === normalizedProject
+          )
+      );
+      state.assignments.projectMembers = state.assignments.projectMembers.filter(
+        (item) =>
+          !(
+            item.client === normalizedClient &&
+            item.project === normalizedProject
+          )
+      );
+      saveLocalAssignments();
+      saveLocalProjectMembers();
+      const meta = loadLocalProjectMeta();
+      delete meta[projectKey(normalizedClient, normalizedProject)];
+      window.localStorage.setItem(LOCAL_PROJECT_META_STORAGE_KEY, JSON.stringify(meta));
+      state.projects = buildProjectsFromCatalog(state.catalog, meta);
+    }
     return hoursLogged > 0
       ? `Project removed from active catalog. ${hoursLogged.toFixed(2)} logged hours were kept in history.`
       : "";
   }
 
   function ensureCatalogSelection() {
-    const clients = catalogClientNames();
+    const clients = visibleCatalogClientNames();
     if (!clients.length) {
       state.selectedCatalogClient = "";
       return;
@@ -1145,13 +1674,18 @@
     const userField = field(refs.form, "user");
     const clientField = field(refs.form, "client");
     const projectField = field(refs.form, "project");
-    const authUsers = availableUsers();
+    const authUsers = entryUserOptions();
     const defaultUser = defaultEntryUser();
-    const nextUser = selection?.user ?? userField?.value ?? defaultUser;
-    const nextClient = selection?.client ?? clientField?.value ?? "";
-    const nextProject = selection?.project ?? projectField?.value ?? "";
-    const clients = catalogClientNames();
-    const projects = nextClient ? catalogProjectNames(nextClient) : [];
+    const requestedUser = selection?.user ?? userField?.value ?? defaultUser;
+    const nextUser = authUsers.includes(requestedUser)
+      ? requestedUser
+      : authUsers[0] || "";
+    const requestedClient = selection?.client ?? clientField?.value ?? "";
+    const clients = visibleCatalogClientNames();
+    const nextClient = clients.includes(requestedClient) ? requestedClient : "";
+    const requestedProject = selection?.project ?? projectField?.value ?? "";
+    const projects = nextClient ? visibleCatalogProjectNames(nextClient) : [];
+    const nextProject = projects.includes(requestedProject) ? requestedProject : "";
 
     populateSelect(userField, authUsers, "Select team member", nextUser);
     populateSelect(clientField, clients, "Select client", nextClient);
@@ -1162,8 +1696,8 @@
       nextProject
     );
 
-    if (state.storageMode === "remote" && state.currentUser?.role !== "admin") {
-      userField.value = state.currentUser?.displayName || "";
+    if (state.currentUser && isStaff(state.currentUser)) {
+      userField.value = state.currentUser.displayName || "";
       userField.disabled = true;
     } else {
       userField.disabled = false;
@@ -1178,22 +1712,48 @@
     const fromField = field(refs.filterForm, "from");
     const toField = field(refs.filterForm, "to");
     const searchField = field(refs.filterForm, "search");
-    const authUsers = availableUsers();
+    const authUsers = state.currentUser
+      ? isStaff(state.currentUser)
+        ? [state.currentUser.displayName]
+        : isManager(state.currentUser)
+          ? state.users
+              .filter((user) => isStaff(user) || user.id === state.currentUser.id)
+              .map((user) => user.displayName)
+              .filter(Boolean)
+          : availableUsers()
+      : availableUsers();
     const defaultUser = defaultFilterUser();
-    const nextUser = selection?.user ?? userField?.value ?? defaultUser;
-    const nextClient = selection?.client ?? clientField?.value ?? "";
-    const nextProject = selection?.project ?? projectField?.value ?? "";
+    const requestedUser = selection?.user ?? userField?.value ?? defaultUser;
+    const nextUser = authUsers.includes(requestedUser)
+      ? requestedUser
+      : authUsers[0] || "";
+    const requestedClient = selection?.client ?? clientField?.value ?? "";
+    const allowedClients = state.currentUser
+      ? isGlobalAdmin(state.currentUser)
+        ? clientNames()
+        : allowedClientsForUser(state.currentUser)
+      : clientNames();
+    const nextClient = allowedClients.includes(requestedClient) ? requestedClient : "";
+    const requestedProject = selection?.project ?? projectField?.value ?? "";
+    const allowedProjects = nextClient
+      ? state.currentUser && !isGlobalAdmin(state.currentUser)
+        ? allowedProjectsForClient(state.currentUser, nextClient)
+        : projectNames(nextClient)
+      : state.currentUser && !isGlobalAdmin(state.currentUser)
+        ? []
+        : projectNames(nextClient);
+    const nextProject = allowedProjects.includes(requestedProject) ? requestedProject : "";
 
     populateSelect(userField, authUsers, "All users", nextUser);
-    populateSelect(clientField, clientNames(), "All clients", nextClient);
+    populateSelect(clientField, allowedClients, "All clients", nextClient);
     populateSelect(
       projectField,
-      projectNames(nextClient),
+      allowedProjects,
       nextClient ? "All projects" : "Choose client first",
       nextProject
     );
 
-    if (state.storageMode === "remote" && state.currentUser?.role !== "admin") {
+    if (state.currentUser && isStaff(state.currentUser)) {
       userField.value = state.currentUser?.displayName || "";
       userField.disabled = true;
     } else {
@@ -1281,6 +1841,26 @@
 
     return [...state.entries]
       .filter((entry) => {
+        if (state.storageMode === "local" && state.currentUser) {
+          if (isGlobalAdmin(state.currentUser)) {
+            // Full access.
+          } else if (isManager(state.currentUser)) {
+            if (!canManagerAccessProject(state.currentUser, entry.client, entry.project)) {
+              return false;
+            }
+            const targetUser = getUserByDisplayName(entry.user);
+            if (targetUser && targetUser.id !== state.currentUser.id && !isStaff(targetUser)) {
+              return false;
+            }
+          } else if (isStaff(state.currentUser)) {
+            if (entry.user !== state.currentUser.displayName) {
+              return false;
+            }
+            if (!isUserAssignedToProject(state.currentUser.id, entry.client, entry.project)) {
+              return false;
+            }
+          }
+        }
         if (state.filters.user && entry.user !== state.filters.user) {
           return false;
         }
@@ -1333,7 +1913,8 @@
   }
 
   function renderCatalogAside() {
-    const clients = catalogClientNames();
+    const clients = visibleCatalogClientNames();
+    const canManageClients = isGlobalAdmin(state.currentUser);
 
     if (!clients.length) {
       refs.clientList.innerHTML = '<p class="empty-state">No clients yet.</p>';
@@ -1345,7 +1926,7 @@
 
     ensureCatalogSelection();
     const selectedClient = state.selectedCatalogClient;
-    const projects = catalogProjectNames(selectedClient);
+    const projects = visibleCatalogProjectNames(selectedClient);
 
     refs.clientList.innerHTML = clients
       .map(
@@ -1358,8 +1939,8 @@
           >
             <span class="catalog-item-copy">
               <span class="catalog-item-title">${escapeHtml(client)}</span>
-              <small>${projectCount(client)} ${
-                projectCount(client) === 1 ? "project" : "projects"
+              <small>${visibleCatalogProjectNames(client).length} ${
+                visibleCatalogProjectNames(client).length === 1 ? "project" : "projects"
               }</small>
             </span>
             <span class="catalog-item-actions">
@@ -1368,6 +1949,7 @@
                 class="catalog-edit"
                 aria-label="Edit ${escapeHtml(client)}"
                 data-edit-client="${escapeHtml(client)}"
+                ${disabledButtonAttrs(canManageClients, "Global Admin only.")}
               >
                 Edit
               </button>
@@ -1376,8 +1958,27 @@
                 class="catalog-delete"
                 aria-label="Delete ${escapeHtml(client)}"
                 data-delete-client="${escapeHtml(client)}"
+                ${disabledButtonAttrs(canManageClients, "Global Admin only.")}
               >
                 Remove
+              </button>
+              <button
+                type="button"
+                class="catalog-edit"
+                aria-label="Assign managers to ${escapeHtml(client)}"
+                data-assign-managers="${escapeHtml(client)}"
+                ${disabledButtonAttrs(canManageClients, "Global Admin only.")}
+              >
+                Assign managers
+              </button>
+              <button
+                type="button"
+                class="catalog-edit"
+                aria-label="Unassign managers from ${escapeHtml(client)}"
+                data-unassign-managers="${escapeHtml(client)}"
+                ${disabledButtonAttrs(canManageClients, "Global Admin only.")}
+              >
+                Unassign managers
               </button>
             </span>
           </article>
@@ -1388,17 +1989,51 @@
     refs.projectColumnLabel.textContent = selectedClient
       ? `Projects for ${selectedClient}`
       : "Projects";
+    const canAddClient = isGlobalAdmin(state.currentUser);
+    const clientNameField = field(refs.addClientForm, "client_name");
+    const addClientButton = refs.addClientForm.querySelector("button");
+    if (clientNameField && addClientButton) {
+      clientNameField.disabled = !canAddClient;
+      addClientButton.disabled = !canAddClient;
+      const reason = "Global Admin only.";
+      clientNameField.title = canAddClient ? "" : reason;
+      addClientButton.title = canAddClient ? "" : reason;
+    }
     const projectNameField = field(refs.addProjectForm, "project_name");
-    refs.addProjectForm.querySelector("button").disabled = !selectedClient;
-    projectNameField.disabled = !selectedClient;
+    const canCreateProject =
+      Boolean(selectedClient) &&
+      (isGlobalAdmin(state.currentUser) ||
+        (isManager(state.currentUser) &&
+          canManagerAccessClient(state.currentUser, selectedClient)));
+    const projectButton = refs.addProjectForm.querySelector("button");
+    projectButton.disabled = !canCreateProject;
+    projectButton.title = canCreateProject
+      ? ""
+      : selectedClient
+        ? "Manager must be assigned to this client."
+        : "Choose client first.";
+    projectNameField.disabled = !canCreateProject;
     projectNameField.placeholder = selectedClient
-      ? "Add project"
+      ? canCreateProject
+        ? "Add project"
+        : "Not assigned to this client"
       : "Choose client first";
 
     refs.projectList.innerHTML = projects.length
       ? projects
           .map(
-            (project) => `
+            (project) => {
+              const canEditProject = isGlobalAdmin(state.currentUser);
+              const canDeleteProject =
+                isGlobalAdmin(state.currentUser) ||
+                (isManager(state.currentUser) &&
+                  projectCreatedBy(selectedClient, project) === state.currentUser?.id);
+              const canManageMembers =
+                isGlobalAdmin(state.currentUser) ||
+                (isManager(state.currentUser) &&
+                  canManagerAccessProject(state.currentUser, selectedClient, project));
+
+              return `
               <article
                 class="catalog-item catalog-item-project"
                 data-project="${escapeHtml(project)}"
@@ -1415,6 +2050,7 @@
                     class="catalog-edit"
                     aria-label="Edit ${escapeHtml(project)}"
                     data-edit-project="${escapeHtml(project)}"
+                    ${disabledButtonAttrs(canEditProject, "Global Admin only.")}
                   >
                     Edit
                   </button>
@@ -1423,15 +2059,45 @@
                     class="catalog-delete"
                     aria-label="Delete ${escapeHtml(project)}"
                     data-delete-project="${escapeHtml(project)}"
+                    ${disabledButtonAttrs(
+                      canDeleteProject,
+                      "Managers can only remove projects they created."
+                    )}
                   >
                     Remove
                   </button>
+                  <button
+                    type="button"
+                    class="catalog-edit"
+                    aria-label="Assign members to ${escapeHtml(project)}"
+                    data-assign-members="${escapeHtml(project)}"
+                    ${disabledButtonAttrs(canManageMembers, "Manager access required.")}
+                  >
+                    Add members
+                  </button>
+                  <button
+                    type="button"
+                    class="catalog-edit"
+                    aria-label="Remove members from ${escapeHtml(project)}"
+                    data-remove-members="${escapeHtml(project)}"
+                    ${disabledButtonAttrs(canManageMembers, "Manager access required.")}
+                  >
+                    Remove members
+                  </button>
                 </span>
               </article>
-            `
+            `;
+            }
           )
           .join("")
       : '<p class="empty-state">No projects configured for this client yet.</p>';
+  }
+
+  function disabledButtonAttrs(enabled, title) {
+    if (enabled) {
+      return "";
+    }
+    return `disabled aria-disabled="true" title="${escapeHtml(title)}"`;
   }
 
   function renderUsersList() {
@@ -1446,9 +2112,15 @@
 
     refs.userList.innerHTML = state.users
       .map(function (user) {
-        const roleLabel = user.role === "admin" ? "Admin" : "Member";
-        const roleActionLabel = user.role === "admin" ? "Make member" : "Make admin";
+        const roleLabelText = roleLabel(user.role);
         const isCurrentUser = state.currentUser?.id === user.id;
+        const canManageUsers = isGlobalAdmin(state.currentUser);
+        const canEditUser = canManageUsers;
+        const canChangeRole = canManageUsers;
+        const canResetPassword = canManageUsers;
+        const canDeactivate = canManageUsers && !isCurrentUser;
+        const canAssignManager = canManageUsers && isManager(user);
+        const disabledReason = "Global Admin only.";
 
         return `
           <article class="catalog-item user-item">
@@ -1456,7 +2128,7 @@
               <span class="catalog-item-title">${escapeHtml(user.displayName)}</span>
               <span class="user-item-meta">
                 <span>${escapeHtml(user.username)}</span>
-                <span>${escapeHtml(roleLabel)}</span>
+                <span>${escapeHtml(roleLabelText)}</span>
                 ${isCurrentUser ? "<span>Current session</span>" : ""}
               </span>
             </span>
@@ -1465,6 +2137,7 @@
                 type="button"
                 class="catalog-edit"
                 data-user-edit="${escapeHtml(user.id)}"
+                ${disabledButtonAttrs(canEditUser, disabledReason)}
               >
                 Edit
               </button>
@@ -1472,16 +2145,50 @@
                 type="button"
                 class="catalog-edit"
                 data-user-role="${escapeHtml(user.id)}"
+                ${disabledButtonAttrs(canChangeRole, disabledReason)}
               >
-                ${escapeHtml(roleActionLabel)}
+                Change role
               </button>
               <button
                 type="button"
                 class="catalog-edit"
                 data-user-password="${escapeHtml(user.id)}"
+                ${disabledButtonAttrs(canResetPassword, disabledReason)}
               >
                 Reset password
               </button>
+              ${
+                canAssignManager
+                  ? `<button
+                      type="button"
+                      class="catalog-edit"
+                      data-user-assign-client="${escapeHtml(user.id)}"
+                    >
+                      Assign client
+                    </button>
+                    <button
+                      type="button"
+                      class="catalog-edit"
+                      data-user-unassign-client="${escapeHtml(user.id)}"
+                    >
+                      Unassign client
+                    </button>
+                    <button
+                      type="button"
+                      class="catalog-edit"
+                      data-user-assign-project="${escapeHtml(user.id)}"
+                    >
+                      Assign project
+                    </button>
+                    <button
+                      type="button"
+                      class="catalog-edit"
+                      data-user-unassign-project="${escapeHtml(user.id)}"
+                    >
+                      Unassign project
+                    </button>`
+                  : ""
+              }
               ${
                 isCurrentUser
                   ? ""
@@ -1489,6 +2196,7 @@
                       type="button"
                       class="catalog-delete"
                       data-user-deactivate="${escapeHtml(user.id)}"
+                      ${disabledButtonAttrs(canDeactivate, disabledReason)}
                     >
                       Deactivate
                     </button>`
@@ -1500,6 +2208,136 @@
       .join("");
   }
 
+  function syncUserManagementControls() {
+    if (!refs.addUserForm) {
+      return;
+    }
+    const canManageUsers = isGlobalAdmin(state.currentUser);
+    const reason = "Global Admin only.";
+    refs.addUserForm.querySelectorAll("input, select, button").forEach(function (el) {
+      if (el.tagName === "BUTTON") {
+        el.title = canManageUsers ? "" : reason;
+      } else if (el.tagName === "INPUT" || el.tagName === "SELECT") {
+        el.title = canManageUsers ? "" : reason;
+      }
+      el.disabled = !canManageUsers;
+    });
+  }
+
+  function setMembersFeedback(message, isError) {
+    if (!refs.membersFeedback) {
+      return;
+    }
+    refs.membersFeedback.textContent = message || "";
+    refs.membersFeedback.dataset.error = isError ? "true" : "false";
+  }
+
+  function renderMembersModal() {
+    if (!refs.membersList || !refs.membersTitle || !refs.membersSubtext) {
+      return;
+    }
+    const mode = memberModalState.mode;
+    const client = memberModalState.client;
+    const project = memberModalState.project;
+
+    let title = "Manage Members";
+    let subtext = "";
+    if (mode === "project-add") {
+      title = `Add Members to ${project}`;
+      subtext = "Select staff to add to this project. Global Admins can also change roles here.";
+    } else if (mode === "project-remove") {
+      title = `Remove Members from ${project}`;
+      subtext = "Select staff to remove from this project.";
+    } else if (mode === "client-assign") {
+      title = `Assign Managers to ${client}`;
+      subtext = "Select managers who should have access to every project under this client.";
+    } else if (mode === "client-unassign") {
+      title = `Unassign Managers from ${client}`;
+      subtext = "Select managers to remove from this client.";
+    }
+
+    refs.membersTitle.textContent = title;
+    refs.membersSubtext.textContent = subtext;
+
+    const canChangeRole = isGlobalAdmin(state.currentUser);
+    const rows = state.users.map(function (user) {
+      const currentRole = normalizeRole(user.role);
+      const isAssignedToProject = project
+        ? isUserAssignedToProject(user.id, client, project)
+        : false;
+      const isAssignedToClient = client
+        ? state.assignments.managerClients.some(
+            (item) => item.managerId === user.id && item.client === client
+          )
+        : false;
+
+      let checkboxDisabled = false;
+      let checkboxTitle = "";
+      let show = true;
+
+      if (mode === "project-add") {
+        if (isAssignedToProject) {
+          checkboxDisabled = true;
+          checkboxTitle = "Already assigned.";
+        } else if (!isStaff(user) && !canChangeRole) {
+          checkboxDisabled = true;
+          checkboxTitle = "Managers can only assign staff.";
+        }
+      } else if (mode === "project-remove") {
+        show = isAssignedToProject && isStaff(user);
+      } else if (mode === "client-assign") {
+        if (!isManager(user) && !canChangeRole) {
+          checkboxDisabled = true;
+          checkboxTitle = "Global Admin only.";
+        }
+        if (isAssignedToClient) {
+          checkboxDisabled = true;
+          checkboxTitle = "Already assigned.";
+        }
+      } else if (mode === "client-unassign") {
+        show = isAssignedToClient && isManager(user);
+      }
+
+      if (!show) {
+        return "";
+      }
+
+      const roleSelect = canChangeRole
+        ? `
+          <label class="member-role">
+            <span class="sr-only">Role</span>
+            <select data-role-select="${escapeHtml(user.id)}">
+              <option value="staff"${currentRole === "staff" ? " selected" : ""}>Staff</option>
+              <option value="manager"${currentRole === "manager" ? " selected" : ""}>Manager</option>
+              <option value="global_admin"${currentRole === "global_admin" ? " selected" : ""}>Global Admin</option>
+            </select>
+          </label>
+        `
+        : `<span class="member-role-label">${escapeHtml(roleLabel(user.role))}</span>`;
+
+      return `
+        <article class="catalog-item member-item">
+          <label class="member-select">
+            <input
+              type="checkbox"
+              data-member-id="${escapeHtml(user.id)}"
+              ${checkboxDisabled ? "disabled" : ""}
+              ${checkboxTitle ? `title="${escapeHtml(checkboxTitle)}"` : ""}
+            />
+            <span class="member-name">${escapeHtml(user.displayName)}</span>
+            <span class="member-username">${escapeHtml(user.username)}</span>
+          </label>
+          <div class="member-controls">
+            ${roleSelect}
+          </div>
+        </article>
+      `;
+    });
+
+    const html = rows.filter(Boolean).join("");
+    refs.membersList.innerHTML = html || '<p class="empty-state">No matching members.</p>';
+  }
+
   function renderAuthUi() {
     const isRemoteAuth = state.storageMode === "remote";
     const isAuthenticated = Boolean(state.currentUser);
@@ -1507,9 +2345,9 @@
     if (!isRemoteAuth) {
       showAppShell();
       refs.sessionIndicator.hidden = true;
-      refs.manageUsers.hidden = false;
+      refs.manageUsers.hidden = !isGlobalAdmin(state.currentUser);
       refs.logoutButton.hidden = true;
-      refs.openCatalog.hidden = false;
+      refs.openCatalog.hidden = !(isGlobalAdmin(state.currentUser) || isManager(state.currentUser));
       return;
     }
 
@@ -1522,15 +2360,15 @@
     refs.loginForm.hidden = state.bootstrapRequired;
     refs.bootstrapForm.hidden = !state.bootstrapRequired;
     refs.authSubtext.textContent = state.bootstrapRequired
-      ? "Create the first admin account to activate team logins."
+      ? "Create the first Global Admin account to activate team logins."
       : "Sign in with your team member credentials to continue.";
 
     if (isAuthenticated) {
       refs.sessionIndicator.hidden = false;
       refs.sessionIndicator.textContent = state.currentUser.displayName;
-      refs.manageUsers.hidden = state.currentUser.role !== "admin";
+      refs.manageUsers.hidden = !isGlobalAdmin(state.currentUser);
       refs.logoutButton.hidden = false;
-      refs.openCatalog.hidden = state.currentUser.role !== "admin";
+      refs.openCatalog.hidden = !(isGlobalAdmin(state.currentUser) || isManager(state.currentUser));
     } else {
       refs.sessionIndicator.hidden = true;
       refs.manageUsers.hidden = true;
@@ -1569,7 +2407,7 @@
     const displayName = String(formData.get("display_name") || "").trim();
     const username = String(formData.get("username") || "").trim();
     const password = String(formData.get("password") || "");
-    setAuthFeedback("Creating admin account...", false);
+    setAuthFeedback("Creating Global Admin account...", false);
 
     try {
       const payload = await requestAuth("bootstrap", { displayName, username, password });
@@ -1577,12 +2415,12 @@
         throw new Error("Bootstrap response was missing a session token.");
       }
       saveSessionToken(payload.sessionToken || "");
-      setAuthFeedback("Admin account created. Loading workspace...", false);
+      setAuthFeedback("Global Admin account created. Loading workspace...", false);
       refs.bootstrapForm.reset();
       hydrateAuthenticatedState(payload);
     } catch (error) {
       console.error("Bootstrap failed:", error);
-      const message = error.message || "Unable to create the admin account.";
+      const message = error.message || "Unable to create the Global Admin account.";
       setAuthFeedback(message, true);
       window.alert(message);
     }
@@ -1616,6 +2454,12 @@
 
   async function handleAddUser(event) {
     event.preventDefault();
+    if (!isGlobalAdmin(state.currentUser)) {
+      const message = "Only Global Admins can add team members.";
+      setUserFeedback(message, true);
+      window.alert(message);
+      return;
+    }
     const formData = new FormData(refs.addUserForm);
     const displayName = String(formData.get("display_name") || "").trim();
     const username = String(formData.get("username") || "").trim();
@@ -1654,7 +2498,7 @@
             id: crypto.randomUUID(),
             displayName,
             username,
-            role: role === "admin" ? "admin" : "member",
+            role: normalizeRole(role),
             password,
           },
         ];
@@ -1668,14 +2512,19 @@
     }
 
     refs.addUserForm.reset();
-    field(refs.addUserForm, "role").value = "member";
+    field(refs.addUserForm, "role").value = "staff";
     setUserFeedback("Team member added.", false);
     render();
   }
 
   async function handleUserListAction(event) {
-    const button = event.target.closest("[data-user-edit], [data-user-role], [data-user-password], [data-user-deactivate]");
+    const button = event.target.closest(
+      "[data-user-edit], [data-user-role], [data-user-password], [data-user-deactivate], [data-user-assign-client], [data-user-unassign-client], [data-user-assign-project], [data-user-unassign-project]"
+    );
     if (!button) {
+      return;
+    }
+    if (button.disabled) {
       return;
     }
 
@@ -1683,7 +2532,11 @@
       button.dataset.userEdit ||
       button.dataset.userRole ||
       button.dataset.userPassword ||
-      button.dataset.userDeactivate;
+      button.dataset.userDeactivate ||
+      button.dataset.userAssignClient ||
+      button.dataset.userUnassignClient ||
+      button.dataset.userAssignProject ||
+      button.dataset.userUnassignProject;
     const user = state.users.find(function (candidate) {
       return candidate.id === userId;
     });
@@ -1756,20 +2609,29 @@
         }
         setUserFeedback("Team member updated.", false);
       } else if (button.dataset.userRole) {
-        const nextRole = user.role === "admin" ? "member" : "admin";
+        const nextRoleInput = window.prompt(
+          "Enter role: global_admin, manager, or staff",
+          normalizeRole(user.role)
+        );
+        if (nextRoleInput === null) {
+          return;
+        }
+        const nextRole = normalizeRole(nextRoleInput);
+        if (!["global_admin", "manager", "staff"].includes(nextRole)) {
+          throw new Error("Role must be global_admin, manager, or staff.");
+        }
         if (
-          user.role === "admin" &&
-          nextRole !== "admin" &&
-          user.id === state.currentUser?.id &&
-          state.users.filter((candidate) => candidate.role === "admin").length <= 1
+          isGlobalAdmin(user) &&
+          !isGlobalAdmin({ role: nextRole }) &&
+          state.users.filter((candidate) => isGlobalAdmin(candidate)).length <= 1
         ) {
-          const message = "At least one admin account is required.";
+          const message = "At least one Global Admin account is required.";
           setUserFeedback(message, true);
           window.alert(message);
           return;
         }
         const confirmed = window.confirm(
-          `Change ${user.displayName} to ${nextRole === "admin" ? "an admin" : "a member"}?`
+          `Change ${user.displayName} to ${roleLabel(nextRole)}?`
         );
         if (!confirmed) {
           return;
@@ -1786,6 +2648,15 @@
           state.users = state.users.map((candidate) =>
             candidate.id === user.id ? { ...candidate, role: nextRole } : candidate
           );
+          if (nextRole !== "manager") {
+            state.assignments.managerClients = state.assignments.managerClients.filter(
+              (item) => item.managerId !== user.id
+            );
+            state.assignments.managerProjects = state.assignments.managerProjects.filter(
+              (item) => item.managerId !== user.id
+            );
+            saveLocalAssignments();
+          }
           saveLocalUsers();
         }
         setUserFeedback(`Role updated for ${user.displayName}.`, false);
@@ -1824,15 +2695,164 @@
           });
         } else {
           if (
-            user.role === "admin" &&
-            state.users.filter((candidate) => candidate.role === "admin").length <= 1
+            isGlobalAdmin(user) &&
+            state.users.filter((candidate) => isGlobalAdmin(candidate)).length <= 1
           ) {
-            throw new Error("At least one admin account is required.");
+            throw new Error("At least one Global Admin account is required.");
           }
           state.users = state.users.filter((candidate) => candidate.id !== user.id);
+          state.assignments.managerClients = state.assignments.managerClients.filter(
+            (item) => item.managerId !== user.id
+          );
+          state.assignments.managerProjects = state.assignments.managerProjects.filter(
+            (item) => item.managerId !== user.id
+          );
+          state.assignments.projectMembers = state.assignments.projectMembers.filter(
+            (item) => item.userId !== user.id
+          );
           saveLocalUsers();
+          saveLocalAssignments();
+          saveLocalProjectMembers();
         }
         setUserFeedback(`${user.displayName} was deactivated.`, false);
+      } else if (button.dataset.userAssignClient) {
+        if (!isManager(user)) {
+          throw new Error("Only managers can be assigned to clients.");
+        }
+        const clientName = window.prompt("Assign client", "");
+        if (clientName === null) {
+          return;
+        }
+        const normalized = clientName.trim();
+        if (!normalized) {
+          throw new Error("Client name is required.");
+        }
+        if (!catalogClientNames().some((client) => client.toLowerCase() === normalized.toLowerCase())) {
+          throw new Error("Client not found.");
+        }
+        if (state.storageMode === "remote") {
+          await mutatePersistentState("assign_manager_client", {
+            managerId: user.id,
+            clientName: normalized,
+          });
+        } else {
+          if (
+            !state.assignments.managerClients.some(
+              (item) => item.managerId === user.id && item.client === normalized
+            )
+          ) {
+            state.assignments.managerClients.push({
+              managerId: user.id,
+              client: normalized,
+            });
+          }
+          saveLocalAssignments();
+        }
+        setUserFeedback(`Assigned ${user.displayName} to ${normalized}.`, false);
+      } else if (button.dataset.userUnassignClient) {
+        if (!isManager(user)) {
+          throw new Error("Only managers can be unassigned from clients.");
+        }
+        const clientName = window.prompt("Unassign client", "");
+        if (clientName === null) {
+          return;
+        }
+        const normalized = clientName.trim();
+        if (!normalized) {
+          throw new Error("Client name is required.");
+        }
+        if (state.storageMode === "remote") {
+          await mutatePersistentState("unassign_manager_client", {
+            managerId: user.id,
+            clientName: normalized,
+          });
+        } else {
+          state.assignments.managerClients = state.assignments.managerClients.filter(
+            (item) => !(item.managerId === user.id && item.client === normalized)
+          );
+          saveLocalAssignments();
+        }
+        setUserFeedback(`Unassigned ${user.displayName} from ${normalized}.`, false);
+      } else if (button.dataset.userAssignProject) {
+        if (!isManager(user)) {
+          throw new Error("Only managers can be assigned to projects.");
+        }
+        const clientName = window.prompt("Assign project: client name", "");
+        if (clientName === null) {
+          return;
+        }
+        const projectName = window.prompt("Assign project: project name", "");
+        if (projectName === null) {
+          return;
+        }
+        const client = clientName.trim();
+        const project = projectName.trim();
+        if (!client || !project) {
+          throw new Error("Client and project are required.");
+        }
+        const clientProjects = state.catalog[client] || [];
+        if (!clientProjects.includes(project)) {
+          throw new Error("Project not found.");
+        }
+        if (state.storageMode === "remote") {
+          await mutatePersistentState("assign_manager_project", {
+            managerId: user.id,
+            clientName: client,
+            projectName: project,
+          });
+        } else {
+          if (
+            !state.assignments.managerProjects.some(
+              (item) =>
+                item.managerId === user.id &&
+                item.client === client &&
+                item.project === project
+            )
+          ) {
+            state.assignments.managerProjects.push({
+              managerId: user.id,
+              client,
+              project,
+            });
+          }
+          saveLocalAssignments();
+        }
+        setUserFeedback(`Assigned ${user.displayName} to ${project}.`, false);
+      } else if (button.dataset.userUnassignProject) {
+        if (!isManager(user)) {
+          throw new Error("Only managers can be unassigned from projects.");
+        }
+        const clientName = window.prompt("Unassign project: client name", "");
+        if (clientName === null) {
+          return;
+        }
+        const projectName = window.prompt("Unassign project: project name", "");
+        if (projectName === null) {
+          return;
+        }
+        const client = clientName.trim();
+        const project = projectName.trim();
+        if (!client || !project) {
+          throw new Error("Client and project are required.");
+        }
+        if (state.storageMode === "remote") {
+          await mutatePersistentState("unassign_manager_project", {
+            managerId: user.id,
+            clientName: client,
+            projectName: project,
+          });
+        } else {
+          state.assignments.managerProjects = state.assignments.managerProjects.filter(
+            (item) =>
+              !(
+                item.managerId === user.id &&
+                item.client === client &&
+                item.project === project
+              )
+          );
+          saveLocalAssignments();
+        }
+        setUserFeedback(`Unassigned ${user.displayName} from ${project}.`, false);
       }
     } catch (error) {
       const message = error.message || "Unable to update team member.";
@@ -1928,6 +2948,10 @@
     const filteredEntries = currentEntries();
     renderCatalogAside();
     renderUsersList();
+    syncUserManagementControls();
+    if (refs.membersModal && !refs.membersModal.hidden) {
+      renderMembersModal();
+    }
     renderFilterState(filteredEntries);
     renderTable(filteredEntries);
     postHeight();
@@ -2067,6 +3091,32 @@
     }
 
     try {
+      if (state.storageMode === "local") {
+        const targetUser = getUserByDisplayName(nextEntry.user);
+        if (!targetUser) {
+          feedback("Team member not found.", true);
+          return;
+        }
+        if (!canUserAccessProject(state.currentUser, nextEntry.client, nextEntry.project)) {
+          feedback("You are not assigned to this project.", true);
+          return;
+        }
+        if (isManager(state.currentUser)) {
+          if (targetUser.id !== state.currentUser.id && !isStaff(targetUser)) {
+            feedback("Managers can only edit staff time.", true);
+            return;
+          }
+        } else if (isStaff(state.currentUser)) {
+          if (targetUser.id !== state.currentUser.id) {
+            feedback("You can only save entries for your own account.", true);
+            return;
+          }
+        }
+        if (isStaff(targetUser) && !isUserAssignedToProject(targetUser.id, nextEntry.client, nextEntry.project)) {
+          feedback("Staff member is not assigned to this project.", true);
+          return;
+        }
+      }
       if (state.storageMode === "remote") {
         await mutatePersistentState("save_entry", { entry: nextEntry });
       } else if (state.editingId) {
@@ -2141,11 +3191,32 @@
     closeUsersModal();
   });
 
+  if (refs.closeMembers) {
+    refs.closeMembers.addEventListener("click", function (event) {
+      event.preventDefault();
+      closeMembersModal();
+    });
+  }
+
+  if (refs.membersCancel) {
+    refs.membersCancel.addEventListener("click", function () {
+      closeMembersModal();
+    });
+  }
+
   refs.usersModal.addEventListener("click", function (event) {
     if (event.target === refs.usersModal) {
       closeUsersModal();
     }
   });
+
+  if (refs.membersModal) {
+    refs.membersModal.addEventListener("click", function (event) {
+      if (event.target === refs.membersModal) {
+        closeMembersModal();
+      }
+    });
+  }
 
   document.addEventListener("click", function (event) {
     const closeTrigger = event.target.closest("[data-close-catalog]");
@@ -2243,6 +3314,10 @@
 
   refs.addClientForm.addEventListener("submit", async function (event) {
     event.preventDefault();
+    if (!isGlobalAdmin(state.currentUser)) {
+      feedback("Only Global Admins can add clients.", true);
+      return;
+    }
     const clientNameField = field(refs.addClientForm, "client_name");
     const formUserField = field(refs.form, "user");
     const filterUserField = field(refs.filterForm, "user");
@@ -2283,6 +3358,14 @@
 
   refs.addProjectForm.addEventListener("submit", async function (event) {
     event.preventDefault();
+    const canCreateProject =
+      isGlobalAdmin(state.currentUser) ||
+      (isManager(state.currentUser) &&
+        canManagerAccessClient(state.currentUser, state.selectedCatalogClient));
+    if (!canCreateProject) {
+      feedback("You are not assigned to this client.", true);
+      return;
+    }
     const projectNameField = field(refs.addProjectForm, "project_name");
     const formUserField = field(refs.form, "user");
     const filterUserField = field(refs.filterForm, "user");
@@ -2326,8 +3409,38 @@
   });
 
   refs.clientList.addEventListener("click", async function (event) {
+    const assignManagers = event.target.closest("[data-assign-managers]");
+    if (assignManagers) {
+      if (!isGlobalAdmin(state.currentUser)) {
+        feedback("Only Global Admins can assign managers.", true);
+        return;
+      }
+      memberModalState.mode = "client-assign";
+      memberModalState.client = assignManagers.dataset.assignManagers;
+      memberModalState.project = "";
+      openMembersModal();
+      return;
+    }
+
+    const unassignManagers = event.target.closest("[data-unassign-managers]");
+    if (unassignManagers) {
+      if (!isGlobalAdmin(state.currentUser)) {
+        feedback("Only Global Admins can unassign managers.", true);
+        return;
+      }
+      memberModalState.mode = "client-unassign";
+      memberModalState.client = unassignManagers.dataset.unassignManagers;
+      memberModalState.project = "";
+      openMembersModal();
+      return;
+    }
+
     const editButton = event.target.closest("[data-edit-client]");
     if (editButton) {
+      if (!isGlobalAdmin(state.currentUser)) {
+        feedback("Only Global Admins can edit clients.", true);
+        return;
+      }
       const clientName = editButton.dataset.editClient;
       const nextName = window.prompt("Edit client name", clientName);
       if (nextName === null) {
@@ -2369,6 +3482,10 @@
 
     const deleteButton = event.target.closest("[data-delete-client]");
     if (deleteButton) {
+      if (!isGlobalAdmin(state.currentUser)) {
+        feedback("Only Global Admins can remove clients.", true);
+        return;
+      }
       const clientName = deleteButton.dataset.deleteClient;
       const hoursLogged = clientHours(clientName);
       const confirmed = window.confirm(
@@ -2436,6 +3553,10 @@
   refs.projectList.addEventListener("click", async function (event) {
     const editButton = event.target.closest("[data-edit-project]");
     if (editButton) {
+      if (!isGlobalAdmin(state.currentUser)) {
+        feedback("Only Global Admins can edit projects.", true);
+        return;
+      }
       const projectName = editButton.dataset.editProject;
       const nextName = window.prompt("Edit project name", projectName);
       if (nextName === null) {
@@ -2479,6 +3600,15 @@
     const deleteButton = event.target.closest("[data-delete-project]");
     if (deleteButton) {
       const projectName = deleteButton.dataset.deleteProject;
+      const canDeleteProject =
+        isGlobalAdmin(state.currentUser) ||
+        (isManager(state.currentUser) &&
+          projectCreatedBy(state.selectedCatalogClient, projectName) ===
+            state.currentUser?.id);
+      if (!canDeleteProject) {
+        feedback("Managers can only remove projects they created.", true);
+        return;
+      }
       const hoursLogged = projectHours(state.selectedCatalogClient, projectName);
       const confirmed = window.confirm(
         hoursLogged > 0
@@ -2520,6 +3650,52 @@
       syncFilterCatalogs(state.filters);
       feedback(message || "Project removed from active catalog.", false);
       render();
+      return;
+    }
+
+    const assignMembersButton = event.target.closest("[data-assign-members]");
+    if (assignMembersButton) {
+      if (
+        !isGlobalAdmin(state.currentUser) &&
+        !(
+          isManager(state.currentUser) &&
+          canManagerAccessProject(
+            state.currentUser,
+            state.selectedCatalogClient,
+            assignMembersButton.dataset.assignMembers
+          )
+        )
+      ) {
+        feedback("Manager access required.", true);
+        return;
+      }
+      memberModalState.mode = "project-add";
+      memberModalState.client = state.selectedCatalogClient;
+      memberModalState.project = assignMembersButton.dataset.assignMembers;
+      openMembersModal();
+      return;
+    }
+
+    const removeMembersButton = event.target.closest("[data-remove-members]");
+    if (removeMembersButton) {
+      if (
+        !isGlobalAdmin(state.currentUser) &&
+        !(
+          isManager(state.currentUser) &&
+          canManagerAccessProject(
+            state.currentUser,
+            state.selectedCatalogClient,
+            removeMembersButton.dataset.removeMembers
+          )
+        )
+      ) {
+        feedback("Manager access required.", true);
+        return;
+      }
+      memberModalState.mode = "project-remove";
+      memberModalState.client = state.selectedCatalogClient;
+      memberModalState.project = removeMembersButton.dataset.removeMembers;
+      openMembersModal();
       return;
     }
 
@@ -2578,6 +3754,30 @@
         if (state.storageMode === "remote") {
           await mutatePersistentState("delete_entry", { id });
         } else {
+          const targetUser = getUserByDisplayName(entry.user);
+          if (!targetUser) {
+            feedback("Team member not found.", true);
+            return;
+          }
+          if (!canUserAccessProject(state.currentUser, entry.client, entry.project)) {
+            feedback("You are not assigned to this project.", true);
+            return;
+          }
+          if (isManager(state.currentUser)) {
+            if (targetUser.id !== state.currentUser.id && !isStaff(targetUser)) {
+              feedback("Managers can only edit staff time.", true);
+              return;
+            }
+          } else if (isStaff(state.currentUser)) {
+            if (targetUser.id !== state.currentUser.id) {
+              feedback("You can only delete your own entries.", true);
+              return;
+            }
+            if (!isUserAssignedToProject(state.currentUser.id, entry.client, entry.project)) {
+              feedback("You are not assigned to this project.", true);
+              return;
+            }
+          }
           state.entries = state.entries.filter((item) => item.id !== id);
           saveEntries();
         }
@@ -2594,6 +3794,152 @@
     }
   });
 
+  if (refs.membersConfirm) {
+    refs.membersConfirm.addEventListener("click", async function () {
+      const mode = memberModalState.mode;
+      const client = memberModalState.client;
+      const project = memberModalState.project;
+      const selected = Array.from(
+        refs.membersList.querySelectorAll("input[type='checkbox'][data-member-id]")
+      )
+        .filter((input) => input.checked && !input.disabled)
+        .map((input) => input.dataset.memberId);
+
+      const roleSelections = Array.from(
+        refs.membersList.querySelectorAll("select[data-role-select]")
+      ).reduce(function (acc, select) {
+        acc[select.dataset.roleSelect] = select.value;
+        return acc;
+      }, {});
+
+      if (!selected.length && (mode === "project-add" || mode === "project-remove" || mode === "client-assign" || mode === "client-unassign")) {
+        setMembersFeedback("Select at least one member.", true);
+        return;
+      }
+
+      let skippedNonStaff = 0;
+      try {
+        for (const userId of selected) {
+          const user = getUserById(userId);
+          if (!user) {
+            continue;
+          }
+          const nextRole = roleSelections[userId] || normalizeRole(user.role);
+          if (isGlobalAdmin(state.currentUser) && nextRole !== normalizeRole(user.role)) {
+            if (state.storageMode === "remote") {
+              await mutatePersistentState("update_user", {
+                userId: user.id,
+                displayName: user.displayName,
+                username: user.username,
+                role: nextRole,
+              });
+            } else {
+              state.users = state.users.map((candidate) =>
+                candidate.id === user.id ? { ...candidate, role: nextRole } : candidate
+              );
+              if (nextRole !== "manager") {
+                state.assignments.managerClients = state.assignments.managerClients.filter(
+                  (item) => item.managerId !== user.id
+                );
+                state.assignments.managerProjects = state.assignments.managerProjects.filter(
+                  (item) => item.managerId !== user.id
+                );
+                saveLocalAssignments();
+              }
+              saveLocalUsers();
+            }
+          }
+
+          const effectiveRole = normalizeRole(nextRole || user.role);
+
+          if (mode === "project-add") {
+            if (effectiveRole !== "staff") {
+              skippedNonStaff += 1;
+              continue;
+            }
+            if (state.storageMode === "remote") {
+              await mutatePersistentState("add_project_member", {
+                userId: user.id,
+                clientName: client,
+                projectName: project,
+              });
+            } else {
+              if (!isUserAssignedToProject(user.id, client, project)) {
+                state.assignments.projectMembers.push({
+                  userId: user.id,
+                  client,
+                  project,
+                });
+                saveLocalProjectMembers();
+              }
+            }
+          } else if (mode === "project-remove") {
+            if (state.storageMode === "remote") {
+              await mutatePersistentState("remove_project_member", {
+                userId: user.id,
+                clientName: client,
+                projectName: project,
+              });
+            } else {
+              state.assignments.projectMembers = state.assignments.projectMembers.filter(
+                (item) =>
+                  !(
+                    item.userId === user.id &&
+                    item.client === client &&
+                    item.project === project
+                  )
+              );
+              saveLocalProjectMembers();
+            }
+          } else if (mode === "client-assign") {
+            if (effectiveRole !== "manager") {
+              continue;
+            }
+            if (state.storageMode === "remote") {
+              await mutatePersistentState("assign_manager_client", {
+                managerId: user.id,
+                clientName: client,
+              });
+            } else {
+              if (
+                !state.assignments.managerClients.some(
+                  (item) => item.managerId === user.id && item.client === client
+                )
+              ) {
+                state.assignments.managerClients.push({ managerId: user.id, client });
+                saveLocalAssignments();
+              }
+            }
+          } else if (mode === "client-unassign") {
+            if (state.storageMode === "remote") {
+              await mutatePersistentState("unassign_manager_client", {
+                managerId: user.id,
+                clientName: client,
+              });
+            } else {
+              state.assignments.managerClients = state.assignments.managerClients.filter(
+                (item) => !(item.managerId === user.id && item.client === client)
+              );
+              saveLocalAssignments();
+            }
+          }
+        }
+      } catch (error) {
+        setMembersFeedback(error.message || "Unable to update members.", true);
+        return;
+      }
+
+      const postMessage = skippedNonStaff
+        ? "Only staff can be added to projects; managers were skipped."
+        : "";
+      closeMembersModal();
+      render();
+      if (postMessage) {
+        feedback(postMessage, true);
+      }
+    });
+  }
+
   window.addEventListener("resize", postHeight);
   window.addEventListener("load", postHeight);
   window.addEventListener("keydown", function (event) {
@@ -2607,6 +3953,10 @@
 
     if (!refs.catalogModal.hidden) {
       closeCatalogModal();
+    }
+
+    if (refs.membersModal && !refs.membersModal.hidden) {
+      closeMembersModal();
     }
   });
 
