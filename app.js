@@ -1,14 +1,17 @@
 (function () {
   const THEME_STORAGE_KEY = "timesheet-studio.theme.v1";
-  const SESSION_TOKEN_STORAGE_KEY = "timesheet-studio.session-token.v1";
   const body = document.body;
   const embedded = window.self !== window.top || window.location.search.includes("embed=1");
   const themeMedia = window.matchMedia("(prefers-color-scheme: dark)");
-  const isLocalHost =
-    window.location.hostname === "127.0.0.1" || window.location.hostname === "localhost";
-  const AUTH_API_PATH = isLocalHost ? "/api/auth" : "/.netlify/functions/auth";
-  const STATE_API_PATH = isLocalHost ? "/api/state" : "/.netlify/functions/state";
-  const MUTATE_API_PATH = isLocalHost ? "/api/mutate" : "/.netlify/functions/mutate";
+  const {
+    AUTH_API_PATH,
+    STATE_API_PATH,
+    MUTATE_API_PATH,
+    loadSessionToken,
+    saveSessionToken,
+    requestJson,
+    requestAuth,
+  } = window.api || {};
 
   const DEFAULT_CLIENT_PROJECTS = {
     ISTO: ["Bright Start", "Bright Directions", "ABLE", "Secure Choice"],
@@ -100,6 +103,11 @@
     },
   };
 
+  function persistSessionToken(token) {
+    state.sessionToken = token || "";
+    saveSessionToken(token);
+  }
+
   const QUICK_HOUR_PRESETS = new Set(["0.5", "1", "1.5", "2", "2.5", "3"]);
   const MONTH_NAMES = [
     "Jan",
@@ -138,27 +146,6 @@
 
   function projectKey(client, project) {
     return `${client}::${project}`;
-  }
-
-  function loadSessionToken() {
-    try {
-      return window.localStorage.getItem(SESSION_TOKEN_STORAGE_KEY) || "";
-    } catch (error) {
-      return "";
-    }
-  }
-
-  function saveSessionToken(token) {
-    state.sessionToken = token || "";
-    try {
-      if (token) {
-        window.localStorage.setItem(SESSION_TOKEN_STORAGE_KEY, token);
-      } else {
-        window.localStorage.removeItem(SESSION_TOKEN_STORAGE_KEY);
-      }
-    } catch (error) {
-      return;
-    }
   }
 
   function saveThemePreference(theme) {
@@ -325,7 +312,7 @@
       return true;
     } catch (error) {
       if (error.status === 401) {
-        saveSessionToken("");
+        persistSessionToken("");
         state.bootstrapRequired = Boolean(error.payload?.bootstrapRequired);
         state.currentUser = null;
         state.users = [];
@@ -2031,7 +2018,7 @@
       if (!payload.sessionToken) {
         throw new Error("Login response was missing a session token.");
       }
-      saveSessionToken(payload.sessionToken || "");
+      persistSessionToken(payload.sessionToken || "");
       setAuthFeedback("Credentials accepted. Loading workspace...", false);
       refs.loginForm.reset();
       hydrateAuthenticatedState(payload);
@@ -2056,7 +2043,7 @@
       if (!payload.sessionToken) {
         throw new Error("Bootstrap response was missing a session token.");
       }
-      saveSessionToken(payload.sessionToken || "");
+      persistSessionToken(payload.sessionToken || "");
       setAuthFeedback("Admin account created. Loading workspace...", false);
       refs.bootstrapForm.reset();
       hydrateAuthenticatedState(payload);
@@ -2071,7 +2058,7 @@
   async function handleLogout() {
     const sessionToken = loadSessionToken();
 
-    saveSessionToken("");
+    persistSessionToken("");
     clearRemoteAppState();
     resetFilters();
     resetForm();
@@ -3310,7 +3297,7 @@
 
     if (!state.currentUser) {
       if (loadSessionToken() && !state.bootstrapRequired) {
-        saveSessionToken("");
+        persistSessionToken("");
         setAuthFeedback("Your saved session could not be restored. Please sign in again.", true);
       }
       render();
