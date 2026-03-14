@@ -35,6 +35,31 @@
     closeMembersModal: membersCloseMembersModal,
     renderMembersModal: membersRenderMembersModal,
   } = window.membersModal || {};
+  const {
+    openUsersModal: usersOpenUsersModal,
+    closeUsersModal: usersCloseUsersModal,
+    setUserFeedback: usersSetUserFeedback,
+    renderUsersList: usersRenderUsersList,
+    syncUserManagementControls: usersSyncUserManagementControls,
+  } = window.usersModal || {};
+  const {
+    daysInMonth,
+    yearOptions,
+    setSelectOptions,
+    setSelectOptionsWithPlaceholder,
+    syncEntryDatePicker,
+    filterDateRefs,
+    syncFilterDatePicker,
+    updateEntryDateFromPicker,
+    populateSelect,
+    syncFormCatalogs,
+    syncFilterCatalogs,
+    renderHourSelection,
+    defaultEntryUser,
+    defaultFilterUser,
+    handleHourPresetClick,
+    handleOtherHoursInput,
+  } = window.entryForm || {};
 
   const DEFAULT_CLIENT_PROJECTS = {
     ISTO: ["Bright Start", "Bright Directions", "ABLE", "Secure Choice"],
@@ -257,21 +282,9 @@
     };
   }
 
-  function defaultEntryUser() {
-    return state.currentUser ? state.currentUser.displayName : "";
-  }
-
-  function defaultFilterUser() {
-    if (!state.currentUser) {
-      return "";
-    }
-
-    return isStaff(state.currentUser) ? state.currentUser.displayName : "";
-  }
-
   function resetFilters() {
     state.filters = {
-      user: defaultFilterUser(),
+      user: defaultFilterUser(state, isStaff),
       client: "",
       project: "",
       from: "",
@@ -342,12 +355,7 @@
   }
 
   function setUserFeedback(message, isError) {
-    if (!refs.userFeedback) {
-      return;
-    }
-
-    refs.userFeedback.textContent = message || "";
-    refs.userFeedback.dataset.error = isError ? "true" : "false";
+    usersSetUserFeedback?.({ refs }, message, isError);
   }
 
   function showAuthShell() {
@@ -365,20 +373,11 @@
   }
 
   function openUsersModal() {
-    setUserFeedback("", false);
-    refs.usersModal.hidden = false;
-    refs.usersModal.setAttribute("aria-hidden", "false");
-    body.classList.add("modal-open");
-    postHeight();
+    usersOpenUsersModal?.({ refs, body, postHeight });
   }
 
   function closeUsersModal() {
-    refs.usersModal.hidden = true;
-    refs.usersModal.setAttribute("aria-hidden", "true");
-    if (refs.catalogModal.hidden && (!refs.membersModal || refs.membersModal.hidden)) {
-      body.classList.remove("modal-open");
-    }
-    postHeight();
+    usersCloseUsersModal?.({ refs, body, postHeight });
   }
 
   function openCatalogModal() {
@@ -753,142 +752,8 @@
     return form?.elements?.namedItem(name);
   }
 
-  function daysInMonth(year, monthIndex) {
-    return new Date(year, monthIndex + 1, 0).getDate();
-  }
-
-  function yearOptions(selectedYear, yearsBack) {
-    const currentYear = new Date().getFullYear();
-    const year = Number(selectedYear) || currentYear;
-    const rangeBack = Number.isFinite(Number(yearsBack)) ? Number(yearsBack) : 0;
-    const start = currentYear - Math.max(rangeBack, 0);
-    const end = currentYear;
-    const clampedYear = Math.min(Math.max(year, start), end);
-
-    return {
-      options: Array.from({ length: end - start + 1 }, function (_, index) {
-        return String(start + index);
-      }),
-      selected: String(clampedYear),
-    };
-  }
-
-  function setSelectOptions(select, options, selectedValue) {
-    select.innerHTML = options
-      .map(function (option) {
-        if (typeof option === "string") {
-          return `<option value="${escapeHtml(option)}">${escapeHtml(option)}</option>`;
-        }
-
-        return `<option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>`;
-      })
-      .join("");
-
-    select.value = String(selectedValue);
-  }
-
-  function setSelectOptionsWithPlaceholder(select, options, selectedValue, placeholder) {
-    select.innerHTML =
-      `<option value="">${escapeHtml(placeholder)}</option>` +
-      options
-        .map(function (option) {
-          if (typeof option === "string") {
-            return `<option value="${escapeHtml(option)}">${escapeHtml(option)}</option>`;
-          }
-
-          return `<option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>`;
-        })
-        .join("");
-
-    select.value = selectedValue || "";
-  }
-
-  function syncEntryDatePicker(value) {
-    const safeValue = isValidDateString(value) ? value : today;
-    const [yearText, monthText, dayText] = safeValue.split("-");
-    const year = Number(yearText);
-    const monthIndex = Number(monthText) - 1;
-    const day = Number(dayText);
-    const maxDay = daysInMonth(year, monthIndex);
-    const clampedDay = Math.min(day, maxDay);
-    const nextValue = `${yearText}-${monthText}-${String(clampedDay).padStart(2, "0")}`;
-
-    setSelectOptions(
-      refs.entryDateMonth,
-      MONTH_NAMES.map(function (label, index) {
-        return { value: String(index + 1).padStart(2, "0"), label };
-      }),
-      monthText
-    );
-    const yearConfig = yearOptions(year, 1);
-    setSelectOptions(refs.entryDateYear, yearConfig.options, yearConfig.selected);
-    setSelectOptions(
-      refs.entryDateDay,
-      Array.from({ length: maxDay }, function (_, index) {
-        return String(index + 1).padStart(2, "0");
-      }),
-      String(clampedDay).padStart(2, "0")
-    );
-
-    field(refs.form, "date").value = nextValue;
-  }
-
-  function filterDateRefs(kind) {
-    return kind === "from"
-      ? {
-          month: refs.filterFromMonth,
-          day: refs.filterFromDay,
-          year: refs.filterFromYear,
-        }
-      : {
-          month: refs.filterToMonth,
-          day: refs.filterToDay,
-          year: refs.filterToYear,
-        };
-  }
-
-  function syncFilterDatePicker(kind, value) {
-    const refsForKind = filterDateRefs(kind);
-    if (!refsForKind.month || !refsForKind.day || !refsForKind.year) {
-      return;
-    }
-
-    const validValue = isValidDateString(value) ? value : "";
-    const [yearText, monthText, dayText] = validValue ? validValue.split("-") : ["", "", ""];
-    const year = Number(yearText);
-    const monthIndex = Number(monthText) - 1;
-    const maxDay = monthText && yearText ? daysInMonth(year, monthIndex) : 31;
-
-    setSelectOptionsWithPlaceholder(
-      refsForKind.month,
-      Array.from({ length: 12 }, function (_, index) {
-        const value = String(index + 1).padStart(2, "0");
-        return { value, label: value };
-      }),
-      monthText,
-      "MM"
-    );
-    const yearConfig = yearOptions(yearText || new Date().getFullYear(), 2);
-    setSelectOptionsWithPlaceholder(
-      refsForKind.year,
-      yearConfig.options.map(function (option) {
-        return { value: option, label: option.slice(-2) };
-      }),
-      yearText,
-      "YY"
-    );
-    setSelectOptionsWithPlaceholder(
-      refsForKind.day,
-      Array.from({ length: maxDay }, function (_, index) {
-        return String(index + 1).padStart(2, "0");
-      }),
-      dayText,
-      "DD"
-    );
-  }
-
   function updateFilterDateFromPicker(kind) {
-    const refsForKind = filterDateRefs(kind);
+    const refsForKind = filterDateRefs(refs, kind);
     const input = field(refs.filterForm, kind);
     if (!refsForKind.month || !refsForKind.day || !refsForKind.year || !input) {
       return;
@@ -914,24 +779,6 @@
 
     input.value = `${month}/${day}/${year}`;
     applyFiltersFromForm({ showErrors: false });
-  }
-
-  function updateEntryDateFromPicker() {
-    const year = refs.entryDateYear.value;
-    const month = refs.entryDateMonth.value;
-    const day = refs.entryDateDay.value;
-    const maxDay = daysInMonth(Number(year), Number(month) - 1);
-    const clampedDay = String(Math.min(Number(day), maxDay)).padStart(2, "0");
-
-    setSelectOptions(
-      refs.entryDateDay,
-      Array.from({ length: maxDay }, function (_, index) {
-        return String(index + 1).padStart(2, "0");
-      }),
-      clampedDay
-    );
-
-    field(refs.form, "date").value = `${year}-${month}-${clampedDay}`;
   }
 
   function catalogClientNames() {
@@ -991,24 +838,6 @@
     return catalogProjectNames(client).length;
   }
 
-  function populateSelect(select, options, placeholder, selectedValue) {
-    const finalOptions = uniqueValues([
-      ...(Array.isArray(options) ? options : []),
-      selectedValue || "",
-    ]);
-
-    select.innerHTML =
-      `<option value="">${escapeHtml(placeholder)}</option>` +
-      finalOptions
-        .map(
-          (option) =>
-            `<option value="${escapeHtml(option)}">${escapeHtml(option)}</option>`
-        )
-        .join("");
-
-    select.value = selectedValue && finalOptions.includes(selectedValue) ? selectedValue : "";
-  }
-
   function ensureCatalogSelection() {
     const clients = visibleCatalogClientNames();
     if (!clients.length) {
@@ -1021,138 +850,77 @@
     }
   }
 
-  function syncFormCatalogs(selection) {
-    const userField = field(refs.form, "user");
-    const clientField = field(refs.form, "client");
-    const projectField = field(refs.form, "project");
-    const authUsers = entryUserOptions();
-    const defaultUser = defaultEntryUser();
-    const requestedUser = selection?.user ?? userField?.value ?? defaultUser;
-    const nextUser = authUsers.includes(requestedUser)
-      ? requestedUser
-      : authUsers[0] || "";
-    const requestedClient = selection?.client ?? clientField?.value ?? "";
-    const clients = visibleCatalogClientNames();
-    const nextClient = clients.includes(requestedClient) ? requestedClient : "";
-    const requestedProject = selection?.project ?? projectField?.value ?? "";
-    const projects = nextClient ? visibleCatalogProjectNames(nextClient) : [];
-    const nextProject = projects.includes(requestedProject) ? requestedProject : "";
-
-    populateSelect(userField, authUsers, "Select team member", nextUser);
-    populateSelect(clientField, clients, "Select client", nextClient);
-    populateSelect(
-      projectField,
-      projects,
-      nextClient ? "Select project" : "Choose client first",
-      nextProject
+  function syncFormCatalogsUI(selection) {
+    syncFormCatalogs?.(
+      {
+        refs,
+        state,
+        field,
+        entryUserOptions,
+        visibleCatalogClientNames,
+        visibleCatalogProjectNames,
+        isStaff,
+        populateSelect,
+        uniqueValues,
+        escapeHtml,
+      },
+      selection
     );
-
-    if (state.currentUser && isStaff(state.currentUser)) {
-      userField.value = state.currentUser.displayName || "";
-      userField.disabled = true;
-    } else {
-      userField.disabled = false;
-    }
-    projectField.disabled = !nextClient;
   }
 
-  function syncFilterCatalogs(selection) {
-    const userField = field(refs.filterForm, "user");
-    const clientField = field(refs.filterForm, "client");
-    const projectField = field(refs.filterForm, "project");
-    const fromField = field(refs.filterForm, "from");
-    const toField = field(refs.filterForm, "to");
-    const searchField = field(refs.filterForm, "search");
-    const authUsers = state.currentUser
-      ? isStaff(state.currentUser)
-        ? [state.currentUser.displayName]
-        : isManager(state.currentUser)
-          ? state.users
-              .filter((user) => isStaff(user) || user.id === state.currentUser.id)
-              .map((user) => user.displayName)
-              .filter(Boolean)
-          : availableUsers()
-      : availableUsers();
-    const defaultUser = defaultFilterUser();
-    const requestedUser = selection?.user ?? userField?.value ?? defaultUser;
-    const nextUser = authUsers.includes(requestedUser)
-      ? requestedUser
-      : authUsers[0] || "";
-    const requestedClient = selection?.client ?? clientField?.value ?? "";
-    const allowedClients = state.currentUser
-      ? isAdmin(state.currentUser)
-        ? clientNames()
-        : allowedClientsForUser(state.currentUser)
-      : clientNames();
-    const nextClient = allowedClients.includes(requestedClient) ? requestedClient : "";
-    const requestedProject = selection?.project ?? projectField?.value ?? "";
-    const allowedProjects = nextClient
-      ? state.currentUser && !isAdmin(state.currentUser)
-        ? allowedProjectsForClient(state.currentUser, nextClient)
-        : projectNames(nextClient)
-      : state.currentUser && !isAdmin(state.currentUser)
-        ? []
-        : projectNames(nextClient);
-    const nextProject = allowedProjects.includes(requestedProject) ? requestedProject : "";
-
-    populateSelect(userField, authUsers, "All users", nextUser);
-    populateSelect(clientField, allowedClients, "All clients", nextClient);
-    populateSelect(
-      projectField,
-      allowedProjects,
-      nextClient ? "All projects" : "Choose client first",
-      nextProject
+  function syncFilterCatalogsUI(selection) {
+    syncFilterCatalogs?.(
+      {
+        refs,
+        state,
+        field,
+        isStaff,
+        isManager,
+        availableUsers,
+        defaultFilterUser,
+        allowedClientsForUser,
+        clientNames,
+        allowedProjectsForClient,
+        projectNames,
+        populateSelect,
+        uniqueValues,
+        escapeHtml,
+        formatDisplayDate,
+        syncFilterDatePicker,
+        isAdmin,
+      },
+      selection
     );
-
-    if (state.currentUser && isStaff(state.currentUser)) {
-      userField.value = state.currentUser?.displayName || "";
-      userField.disabled = true;
-    } else {
-      userField.disabled = false;
-    }
-    projectField.disabled = !nextClient;
-
-    if (selection?.from !== undefined) {
-      fromField.value = formatDisplayDate(selection.from);
-    }
-    if (selection?.to !== undefined) {
-      toField.value = formatDisplayDate(selection.to);
-    }
-    syncFilterDatePicker("from", selection?.from || "");
-    syncFilterDatePicker("to", selection?.to || "");
-    if (selection?.search !== undefined) {
-      searchField.value = selection.search;
-    }
   }
 
   function resetForm() {
     refs.form.reset();
     state.editingId = null;
-    syncFormCatalogs({
-      user: defaultEntryUser(),
+    syncFormCatalogsUI({
+      user: defaultEntryUser(state),
       client: "",
       project: "",
     });
-    syncEntryDatePicker(today);
+    syncEntryDatePicker?.({ isValidDateString, today, refs, field, MONTH_NAMES }, today);
     field(refs.form, "hours").value = "";
     refs.otherHours.value = "";
-    renderHourSelection();
+    renderHourSelection?.({ refs, field });
     refs.formHeading.textContent = "Add timesheet entry";
     refs.submitEntry.textContent = "Save";
     refs.cancelEdit.hidden = true;
   }
 
   function setForm(entry) {
-    syncFormCatalogs({
+    syncFormCatalogsUI({
       user: entry.user,
       client: entry.client,
       project: entry.project,
     });
-    syncEntryDatePicker(entry.date);
+    syncEntryDatePicker?.({ isValidDateString, today, refs, field, MONTH_NAMES }, entry.date);
     field(refs.form, "hours").value = entry.hours;
     field(refs.form, "notes").value = entry.notes;
     refs.otherHours.value = QUICK_HOUR_PRESETS.has(String(entry.hours)) ? "" : String(entry.hours);
-    renderHourSelection();
+    renderHourSelection?.({ refs, field });
     state.editingId = entry.id;
     refs.formHeading.textContent = "Edit timesheet entry";
     refs.submitEntry.textContent = "Save";
@@ -1160,13 +928,6 @@
     refs.form.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
-  function renderHourSelection() {
-    const hoursValue = String(field(refs.form, "hours").value || "");
-
-    refs.hourPresets.querySelectorAll("[data-hours]").forEach(function (button) {
-      button.classList.toggle("is-selected", button.dataset.hours === hoursValue);
-    });
-  }
 
   function validateEntry(data) {
     if (!data.user) {
@@ -1279,161 +1040,28 @@
   }
 
   function renderUsersList() {
-    if (!refs.userList) {
-      return;
-    }
-
-    if (!state.users.length) {
-      refs.userList.innerHTML = '<p class="empty-state">No team members yet.</p>';
-      return;
-    }
-
-    refs.userList.innerHTML = state.users
-      .map(function (user) {
-        const roleLabelText = levelLabel(user.level);
-        const isCurrentUser = state.currentUser?.id === user.id;
-        const canManageUsers = isAdmin(state.currentUser);
-        const canEditUser = canManageUsers;
-        const canChangeRole = isGlobalAdmin(state.currentUser);
-        const canResetPassword = canManageUsers;
-        const canDeactivate = canManageUsers && !isCurrentUser;
-        const canAssignManager = canManageUsers && (isManager(user) || isAdmin(user));
-        const disabledReason = "Admin only.";
-        const changeLevelReason = "Level 6 only.";
-
-        return `
-          <article class="catalog-item user-item">
-            <span class="catalog-item-copy">
-              <span class="catalog-item-title">${escapeHtml(user.displayName)}</span>
-              <span class="user-item-meta">
-                <span>${escapeHtml(user.username)}</span>
-                <span>${escapeHtml(roleLabelText)}</span>
-                ${isCurrentUser ? "<span>Current session</span>" : ""}
-              </span>
-            </span>
-            <span class="user-item-actions">
-              <button
-                type="button"
-                class="catalog-edit"
-                data-user-edit="${escapeHtml(user.id)}"
-                ${disabledButtonAttrs(canEditUser, disabledReason)}
-              >
-                Edit
-              </button>
-              <button
-                type="button"
-                class="catalog-edit"
-                data-user-role="${escapeHtml(user.id)}"
-                ${disabledButtonAttrs(canChangeRole, changeLevelReason)}
-              >
-                Change level
-              </button>
-              <button
-                type="button"
-                class="catalog-edit"
-                data-user-password="${escapeHtml(user.id)}"
-                ${disabledButtonAttrs(canResetPassword, disabledReason)}
-              >
-                Reset password
-              </button>
-              ${
-                canAssignManager
-                  ? `<button
-                      type="button"
-                      class="catalog-edit"
-                      data-user-assign-client="${escapeHtml(user.id)}"
-                    >
-                      Assign client
-                    </button>
-                    <button
-                      type="button"
-                      class="catalog-edit"
-                      data-user-unassign-client="${escapeHtml(user.id)}"
-                    >
-                      Unassign client
-                    </button>
-                    <button
-                      type="button"
-                      class="catalog-edit"
-                      data-user-assign-project="${escapeHtml(user.id)}"
-                    >
-                      Assign project
-                    </button>
-                    <button
-                      type="button"
-                      class="catalog-edit"
-                      data-user-unassign-project="${escapeHtml(user.id)}"
-                    >
-                      Unassign project
-                    </button>`
-                  : ""
-              }
-              ${
-                isCurrentUser
-                  ? ""
-                  : `<button
-                      type="button"
-                      class="catalog-delete"
-                      data-user-deactivate="${escapeHtml(user.id)}"
-                      ${disabledButtonAttrs(canDeactivate, disabledReason)}
-                    >
-                      Deactivate
-                    </button>`
-              }
-            </span>
-          </article>
-        `;
-      })
-      .join("");
+    usersRenderUsersList?.({
+      refs,
+      state,
+      levelLabel,
+      isAdmin,
+      isGlobalAdmin,
+      isManager,
+      escapeHtml,
+      disabledButtonAttrs,
+    });
   }
 
   function syncUserManagementControls() {
-    if (!refs.addUserForm) {
-      return;
-    }
-    const canManageUsers = isAdmin(state.currentUser);
-    const canAssignLevel = isGlobalAdmin(state.currentUser);
-    const reason = "Admin only.";
-    const levelField = field(refs.addUserForm, "level");
-    if (levelField) {
-      levelField.innerHTML = [1, 2, 3, 4, 5, 6]
-        .map(
-          (level) =>
-            `<option value="${level}">${escapeHtml(levelLabel(level))}</option>`
-        )
-        .join("");
-      levelField.disabled = !canAssignLevel || !canManageUsers;
-      levelField.title = canAssignLevel && canManageUsers ? "" : "Admin only.";
-      if (!canAssignLevel) {
-        levelField.value = "1";
-      }
-    }
-    refs.addUserForm.querySelectorAll("input, select, button").forEach(function (el) {
-      if (el === levelField) {
-        return;
-      }
-      if (el.tagName === "BUTTON") {
-        el.title = canManageUsers ? "" : reason;
-      } else if (el.tagName === "INPUT" || el.tagName === "SELECT") {
-        el.title = canManageUsers ? "" : reason;
-      }
-      el.disabled = !canManageUsers;
+    usersSyncUserManagementControls?.({
+      refs,
+      state,
+      isAdmin,
+      isGlobalAdmin,
+      levelLabel,
+      escapeHtml,
+      field,
     });
-
-    if (refs.levelLabelsForm) {
-      refs.levelLabelsForm.hidden = !isGlobalAdmin(state.currentUser);
-      refs.levelLabelsForm
-        .querySelectorAll("input[name^='level_']")
-        .forEach(function (input) {
-          const level = Number(input.name.split("_")[1]);
-          input.value = levelLabel(level);
-          input.disabled = !isGlobalAdmin(state.currentUser);
-        });
-      const submitButton = refs.levelLabelsForm.querySelector("button");
-      if (submitButton) {
-        submitButton.disabled = !isGlobalAdmin(state.currentUser);
-      }
-    }
   }
 
   function setMembersFeedback(message, isError) {
@@ -1857,8 +1485,8 @@
       return;
     }
 
-    syncFormCatalogs();
-    syncFilterCatalogs(state.filters);
+    syncFormCatalogsUI({});
+    syncFilterCatalogsUI(state.filters);
     ensureCatalogSelection();
 
     const filteredEntries = currentEntries();
@@ -2109,25 +1737,15 @@
   });
 
   refs.hourPresets.addEventListener("click", function (event) {
-    const button = event.target.closest("[data-hours]");
-    if (!button) {
-      return;
-    }
-
-    const hoursField = field(refs.form, "hours");
-    hoursField.value = button.dataset.hours;
-    refs.otherHours.value = "";
-    renderHourSelection();
+    handleHourPresetClick?.({ refs, field }, event);
   });
 
   refs.otherHours.addEventListener("input", function () {
-    const hoursField = field(refs.form, "hours");
-    hoursField.value = refs.otherHours.value;
-    renderHourSelection();
+    handleOtherHoursInput?.({ refs, field });
   });
 
   ["from", "to"].forEach(function (name) {
-    const refsForKind = filterDateRefs(name);
+    const refsForKind = filterDateRefs(refs, name);
     if (!refsForKind.month || !refsForKind.day || !refsForKind.year) {
       return;
     }
@@ -2139,15 +1757,18 @@
     });
   });
 
-  refs.entryDateMonth.addEventListener("change", updateEntryDateFromPicker);
-  refs.entryDateDay.addEventListener("change", updateEntryDateFromPicker);
-  refs.entryDateYear.addEventListener("change", updateEntryDateFromPicker);
+  const updateEntryDateFromPickerHandler = function () {
+    updateEntryDateFromPicker?.({ refs, field });
+  };
+  refs.entryDateMonth.addEventListener("change", updateEntryDateFromPickerHandler);
+  refs.entryDateDay.addEventListener("change", updateEntryDateFromPickerHandler);
+  refs.entryDateYear.addEventListener("change", updateEntryDateFromPickerHandler);
 
   field(refs.form, "client").addEventListener("change", function () {
     const userField = field(refs.form, "user");
     const clientField = field(refs.form, "client");
     state.selectedCatalogClient = clientField.value || state.selectedCatalogClient;
-    syncFormCatalogs({
+    syncFormCatalogsUI({
       user: userField.value,
       client: clientField.value,
       project: "",
@@ -2158,7 +1779,7 @@
   field(refs.filterForm, "client").addEventListener("change", function () {
     const userField = field(refs.filterForm, "user");
     const clientField = field(refs.filterForm, "client");
-    syncFilterCatalogs({
+    syncFilterCatalogsUI({
       user: userField.value,
       client: clientField.value,
       project: "",
@@ -2184,7 +1805,7 @@
   refs.clearFilters.addEventListener("click", function () {
     refs.filterForm.reset();
     resetFilters();
-    syncFilterCatalogs(state.filters);
+    syncFilterCatalogsUI(state.filters);
     render();
   });
 
@@ -2235,12 +1856,12 @@
     }
 
     refs.addClientForm.reset();
-    syncFormCatalogs({
+    syncFormCatalogsUI({
       user: formUserField.value,
       client: state.selectedCatalogClient,
       project: "",
     });
-    syncFilterCatalogs({
+    syncFilterCatalogsUI({
       user: filterUserField.value,
       client: filterClientField.value,
       project: filterProjectField.value,
@@ -2276,12 +1897,12 @@
 
     const newestProject = projectNameField.value.trim();
     refs.addProjectForm.reset();
-    syncFormCatalogs({
+    syncFormCatalogsUI({
       user: formUserField.value,
       client: state.selectedCatalogClient,
       project: newestProject,
     });
-    syncFilterCatalogs({
+    syncFilterCatalogsUI({
       user: filterUserField.value,
       client: filterClientField.value,
       project: filterProjectField.value,
@@ -2345,7 +1966,7 @@
         return;
       }
 
-      syncFilterCatalogs(state.filters);
+      syncFilterCatalogsUI(state.filters);
       feedback("Client updated.", false);
       render();
       return;
@@ -2387,7 +2008,7 @@
         return;
       }
 
-      syncFilterCatalogs(state.filters);
+      syncFilterCatalogsUI(state.filters);
       feedback(message || "Client removed from active catalog.", false);
       render();
       return;
@@ -2469,7 +2090,7 @@
         return;
       }
 
-      syncFilterCatalogs(state.filters);
+      syncFilterCatalogsUI(state.filters);
       feedback("Project updated.", false);
       render();
       return;
@@ -2517,7 +2138,7 @@
         return;
       }
 
-      syncFilterCatalogs(state.filters);
+      syncFilterCatalogsUI(state.filters);
       feedback(message || "Project removed from active catalog.", false);
       render();
       return;
@@ -2574,7 +2195,7 @@
       return;
     }
 
-    syncFormCatalogs({
+    syncFormCatalogsUI({
       user: field(refs.form, "user").value,
       client: state.selectedCatalogClient,
       project: button.dataset.project,
@@ -2792,7 +2413,7 @@
       return;
     }
 
-    syncFilterCatalogs(state.filters);
+    syncFilterCatalogsUI(state.filters);
     resetForm();
     render();
   }
