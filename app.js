@@ -860,6 +860,7 @@
         visibleCatalogClientNames,
         visibleCatalogProjectNames,
         isStaff,
+        isValidDateString,
         populateSelect,
         uniqueValues,
         escapeHtml,
@@ -888,6 +889,7 @@
         formatDisplayDate,
         syncFilterDatePicker,
         isAdmin,
+        isValidDateString,
       },
       selection
     );
