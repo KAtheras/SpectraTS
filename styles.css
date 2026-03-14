@@ -743,7 +743,8 @@ textarea {
 .panel-modal {
   width: min(1040px, calc(100vw - 32px));
   max-height: min(88vh, 900px);
-  overflow: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .modal-subtext {
@@ -962,7 +963,7 @@ textarea {
 }
 
 .user-list {
-  max-height: 52vh;
+  max-height: none;
 }
 
 .user-item {
