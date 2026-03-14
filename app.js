@@ -671,11 +671,12 @@
     return new Date(year, monthIndex + 1, 0).getDate();
   }
 
-  function yearOptions(selectedYear) {
+  function yearOptions(selectedYear, yearsBack) {
     const currentYear = new Date().getFullYear();
     const year = Number(selectedYear) || currentYear;
-    const start = 2026;
-    const end = currentYear < start ? start : currentYear;
+    const rangeBack = Number.isFinite(Number(yearsBack)) ? Number(yearsBack) : 0;
+    const start = currentYear - Math.max(rangeBack, 0);
+    const end = currentYear;
     const clampedYear = Math.min(Math.max(year, start), end);
 
     return {
@@ -733,7 +734,7 @@
       }),
       monthText
     );
-    const yearConfig = yearOptions(year);
+    const yearConfig = yearOptions(year, 1);
     setSelectOptions(refs.entryDateYear, yearConfig.options, yearConfig.selected);
     setSelectOptions(
       refs.entryDateDay,
@@ -781,7 +782,7 @@
       monthText,
       "MM"
     );
-    const yearConfig = yearOptions(yearText || new Date().getFullYear());
+    const yearConfig = yearOptions(yearText || new Date().getFullYear(), 2);
     setSelectOptionsWithPlaceholder(
       refsForKind.year,
       yearConfig.options.map(function (option) {
