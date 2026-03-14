@@ -757,6 +757,7 @@ textarea {
   max-height: min(88vh, 900px);
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  padding: 0;
 }
 
 .users-modal-sticky {
@@ -991,7 +992,7 @@ textarea {
 
 .user-list {
   max-height: none;
-  padding-top: 12px;
+  padding: 12px 22px 22px;
 }
 
 .user-item {
