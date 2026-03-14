@@ -79,6 +79,7 @@ async function ensureSchema(sql) {
     END
   `;
   await sql`UPDATE users SET account_id = ${accountId} WHERE account_id IS NULL`;
+  await sql`ALTER TABLE users DROP CONSTRAINT IF EXISTS users_level_check`;
   await sql`
     ALTER TABLE users
     ADD CONSTRAINT users_level_check
