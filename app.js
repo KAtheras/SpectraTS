@@ -3,6 +3,8 @@
   const CATALOG_STORAGE_KEY = "timesheet-studio.catalog.v1";
   const THEME_STORAGE_KEY = "timesheet-studio.theme.v1";
   const SESSION_TOKEN_STORAGE_KEY = "timesheet-studio.session-token.v1";
+  const LOCAL_USERS_STORAGE_KEY = "timesheet-studio.local-users.v1";
+  const LOCAL_CURRENT_USER_STORAGE_KEY = "timesheet-studio.local-current-user.v1";
   const body = document.body;
   const embedded = window.self !== window.top || window.location.search.includes("embed=1");
   const themeMedia = window.matchMedia("(prefers-color-scheme: dark)");
@@ -115,6 +117,65 @@
     }
   }
 
+  function loadLocalUsers() {
+    try {
+      const raw = window.localStorage.getItem(LOCAL_USERS_STORAGE_KEY);
+      const parsed = raw ? JSON.parse(raw) : null;
+      const normalized = Array.isArray(parsed)
+        ? parsed.map(normalizeUser).filter(Boolean)
+        : [];
+      return normalized.length
+        ? normalized
+        : [
+            {
+              id: crypto.randomUUID(),
+              displayName: "Kaprel",
+              username: "kaprel",
+              role: "admin",
+              password: "",
+            },
+          ];
+    } catch (error) {
+      return [
+        {
+          id: crypto.randomUUID(),
+          displayName: "Kaprel",
+          username: "kaprel",
+          role: "admin",
+          password: "",
+        },
+      ];
+    }
+  }
+
+  function saveLocalUsers() {
+    try {
+      window.localStorage.setItem(LOCAL_USERS_STORAGE_KEY, JSON.stringify(state.users));
+    } catch (error) {
+      return;
+    }
+  }
+
+  function loadLocalCurrentUserId() {
+    try {
+      return window.localStorage.getItem(LOCAL_CURRENT_USER_STORAGE_KEY) || "";
+    } catch (error) {
+      return "";
+    }
+  }
+
+  function saveLocalCurrentUserId(userId) {
+    try {
+      if (userId) {
+        window.localStorage.setItem(LOCAL_CURRENT_USER_STORAGE_KEY, userId);
+      } else {
+        window.localStorage.removeItem(LOCAL_CURRENT_USER_STORAGE_KEY);
+      }
+    } catch (error) {
+      return;
+    }
+  }
+
   function loadSessionToken() {
     try {
       return window.localStorage.getItem(SESSION_TOKEN_STORAGE_KEY) || "";
@@ -190,8 +251,32 @@
     state.entries = [];
   }
 
+  function initLocalState() {
+    state.users = loadLocalUsers();
+    const storedUserId = loadLocalCurrentUserId();
+    const preferredUser = state.users.find((user) => user.id === storedUserId);
+    const adminUser = state.users.find((user) => user.role === "admin");
+    state.currentUser = preferredUser || adminUser || state.users[0] || null;
+
+    if (!state.currentUser) {
+      state.users = [
+        {
+          id: crypto.randomUUID(),
+          displayName: "Kaprel",
+          username: "kaprel",
+          role: "admin",
+          password: "",
+        },
+      ];
+      state.currentUser = state.users[0];
+    }
+
+    saveLocalUsers();
+    saveLocalCurrentUserId(state.currentUser?.id || "");
+  }
+
   function defaultEntryUser() {
-    return state.storageMode === "remote" && state.currentUser ? state.currentUser.displayName : "";
+    return state.currentUser ? state.currentUser.displayName : "";
   }
 
   function defaultFilterUser() {
@@ -277,7 +362,12 @@
       }
 
       state.storageMode = "local";
-      clearRemoteAppState();
+      state.catalog = loadCatalog();
+      state.entries = loadEntries();
+      state.bootstrapRequired = false;
+      state.currentUser = null;
+      state.users = [];
+      initLocalState();
       return false;
     }
   }
@@ -478,6 +568,37 @@
       notes: typeof entry.notes === "string" ? entry.notes.trim() : "",
       createdAt,
       updatedAt,
+    };
+  }
+
+  function normalizeUser(user) {
+    if (!user || typeof user !== "object") {
+      return null;
+    }
+
+    const displayName =
+      typeof user.displayName === "string" && user.displayName.trim()
+        ? user.displayName.trim()
+        : "";
+    const username =
+      typeof user.username === "string" && user.username.trim()
+        ? user.username.trim()
+        : displayName
+          ? displayName.toLowerCase().replace(/\s+/g, ".")
+          : "";
+    const role = user.role === "admin" ? "admin" : "member";
+    const password = typeof user.password === "string" ? user.password : "";
+
+    if (!displayName || !username) {
+      return null;
+    }
+
+    return {
+      id: typeof user.id === "string" && user.id ? user.id : crypto.randomUUID(),
+      displayName,
+      username,
+      role,
+      password,
     };
   }
 
@@ -691,7 +812,9 @@
     const year = refsForKind.year.value;
     if (!month || !day || !year) {
       input.value = "";
-      applyFiltersFromForm({ showErrors: false });
+      if (state.filters[kind]) {
+        applyFiltersFromForm({ showErrors: false });
+      }
       return;
     }
 
@@ -1065,7 +1188,7 @@
     populateSelect(
       projectField,
       projectNames(nextClient),
-      "All projects",
+      nextClient ? "All projects" : "Choose client first",
       nextProject
     );
 
@@ -1075,6 +1198,7 @@
     } else {
       userField.disabled = false;
     }
+    projectField.disabled = !nextClient;
 
     if (selection?.from !== undefined) {
       fromField.value = formatDisplayDate(selection.from);
@@ -1382,7 +1506,7 @@
     if (!isRemoteAuth) {
       showAppShell();
       refs.sessionIndicator.hidden = true;
-      refs.manageUsers.hidden = true;
+      refs.manageUsers.hidden = false;
       refs.logoutButton.hidden = true;
       refs.openCatalog.hidden = false;
       return;
@@ -1498,12 +1622,43 @@
     const role = String(formData.get("role") || "member");
 
     try {
-      await mutatePersistentState("add_user", {
-        displayName,
-        username,
-        password,
-        role,
-      });
+      if (state.storageMode === "remote") {
+        await mutatePersistentState("add_user", {
+          displayName,
+          username,
+          password,
+          role,
+        });
+      } else {
+        if (!displayName) {
+          throw new Error("Team member name is required.");
+        }
+        if (!username) {
+          throw new Error("Username is required.");
+        }
+        if (!password || password.length < 8) {
+          throw new Error("Password must be at least 8 characters.");
+        }
+
+        const exists = state.users.some(
+          (user) => user.username.toLowerCase() === username.toLowerCase()
+        );
+        if (exists) {
+          throw new Error("That username already exists.");
+        }
+
+        state.users = [
+          ...state.users,
+          {
+            id: crypto.randomUUID(),
+            displayName,
+            username,
+            role: role === "admin" ? "admin" : "member",
+            password,
+          },
+        ];
+        saveLocalUsers();
+      }
     } catch (error) {
       const message = error.message || "Unable to add team member.";
       setUserFeedback(message, true);
@@ -1550,12 +1705,54 @@
           return;
         }
 
-        await mutatePersistentState("update_user", {
-          userId: user.id,
-          displayName: nextDisplayName,
-          username: nextUsername,
-          role: user.role,
-        });
+        if (state.storageMode === "remote") {
+          await mutatePersistentState("update_user", {
+            userId: user.id,
+            displayName: nextDisplayName,
+            username: nextUsername,
+            role: user.role,
+          });
+        } else {
+          if (!nextDisplayName.trim()) {
+            throw new Error("Team member name is required.");
+          }
+          if (!nextUsername.trim()) {
+            throw new Error("Username is required.");
+          }
+          const exists = state.users.some(
+            (candidate) =>
+              candidate.id !== user.id &&
+              candidate.username.toLowerCase() === nextUsername.toLowerCase()
+          );
+          if (exists) {
+            throw new Error("That username already exists.");
+          }
+
+          state.users = state.users.map((candidate) =>
+            candidate.id === user.id
+              ? {
+                  ...candidate,
+                  displayName: nextDisplayName.trim(),
+                  username: nextUsername.trim(),
+                }
+              : candidate
+          );
+          state.entries = state.entries.map((entry) =>
+            entry.user === user.displayName
+              ? {
+                  ...entry,
+                  user: nextDisplayName.trim(),
+                  updatedAt: new Date().toISOString(),
+                }
+              : entry
+          );
+          saveEntries();
+          saveLocalUsers();
+          if (state.currentUser?.id === user.id) {
+            state.currentUser = state.users.find((candidate) => candidate.id === user.id);
+            saveLocalCurrentUserId(user.id);
+          }
+        }
         setUserFeedback("Team member updated.", false);
       } else if (button.dataset.userRole) {
         const nextRole = user.role === "admin" ? "member" : "admin";
@@ -1577,12 +1774,19 @@
           return;
         }
 
-        await mutatePersistentState("update_user", {
-          userId: user.id,
-          displayName: user.displayName,
-          username: user.username,
-          role: nextRole,
-        });
+        if (state.storageMode === "remote") {
+          await mutatePersistentState("update_user", {
+            userId: user.id,
+            displayName: user.displayName,
+            username: user.username,
+            role: nextRole,
+          });
+        } else {
+          state.users = state.users.map((candidate) =>
+            candidate.id === user.id ? { ...candidate, role: nextRole } : candidate
+          );
+          saveLocalUsers();
+        }
         setUserFeedback(`Role updated for ${user.displayName}.`, false);
       } else if (button.dataset.userPassword) {
         const nextPassword = window.prompt(
@@ -1592,10 +1796,20 @@
           return;
         }
 
-        await mutatePersistentState("reset_user_password", {
-          userId: user.id,
-          password: nextPassword,
-        });
+        if (state.storageMode === "remote") {
+          await mutatePersistentState("reset_user_password", {
+            userId: user.id,
+            password: nextPassword,
+          });
+        } else {
+          if (!nextPassword || nextPassword.length < 8) {
+            throw new Error("Password must be at least 8 characters.");
+          }
+          state.users = state.users.map((candidate) =>
+            candidate.id === user.id ? { ...candidate, password: nextPassword } : candidate
+          );
+          saveLocalUsers();
+        }
         setUserFeedback(`Password updated for ${user.displayName}.`, false);
       } else if (button.dataset.userDeactivate) {
         const confirmed = window.confirm(`Deactivate ${user.displayName}?`);
@@ -1603,9 +1817,20 @@
           return;
         }
 
-        await mutatePersistentState("deactivate_user", {
-          userId: user.id,
-        });
+        if (state.storageMode === "remote") {
+          await mutatePersistentState("deactivate_user", {
+            userId: user.id,
+          });
+        } else {
+          if (
+            user.role === "admin" &&
+            state.users.filter((candidate) => candidate.role === "admin").length <= 1
+          ) {
+            throw new Error("At least one admin account is required.");
+          }
+          state.users = state.users.filter((candidate) => candidate.id !== user.id);
+          saveLocalUsers();
+        }
         setUserFeedback(`${user.displayName} was deactivated.`, false);
       }
     } catch (error) {
@@ -2395,6 +2620,10 @@
       }
       render();
       return;
+    }
+
+    if (state.storageMode === "local") {
+      initLocalState();
     }
 
     syncFilterCatalogs(state.filters);
