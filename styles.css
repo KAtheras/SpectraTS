@@ -737,6 +737,20 @@ textarea {
   background: var(--column-head-bg);
 }
 
+.member-list-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 160px;
+  gap: 12px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--group-border);
+  border-bottom: 1px solid var(--group-border);
+  color: var(--muted);
+  font-family: var(--font-head);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .modal-backdrop {
   position: fixed;
   inset: 0;
@@ -898,6 +912,16 @@ textarea {
   text-transform: uppercase;
 }
 
+.catalog-item-meta {
+  display: grid;
+  gap: 2px;
+  color: var(--muted);
+  font-family: var(--font-head);
+  font-size: 0.68rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
 .catalog-delete {
   appearance: none;
   border: 0;
@@ -977,6 +1001,10 @@ textarea {
   display: grid;
   gap: 8px;
   justify-items: end;
+}
+
+.member-list {
+  max-height: 50vh;
 }
 
 .member-role select {

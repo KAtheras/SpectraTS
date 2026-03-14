@@ -913,6 +913,62 @@
     return state.assignments.projectMembers.filter((item) => item.userId === userId);
   }
 
+  function managerIdsForClient(client) {
+    return uniqueValues(
+      state.assignments.managerClients
+        .filter((item) => item.client === client)
+        .map((item) => item.managerId)
+    );
+  }
+
+  function directManagerIdsForProject(client, project) {
+    return uniqueValues(
+      state.assignments.managerProjects
+        .filter((item) => item.client === client && item.project === project)
+        .map((item) => item.managerId)
+    );
+  }
+
+  function managerIdsForProject(client, project) {
+    return uniqueValues([
+      ...managerIdsForClient(client),
+      ...directManagerIdsForProject(client, project),
+    ]);
+  }
+
+  function staffIdsForProject(client, project) {
+    return uniqueValues(
+      state.assignments.projectMembers
+        .filter((item) => item.client === client && item.project === project)
+        .map((item) => item.userId)
+    );
+  }
+
+  function staffIdsForClient(client) {
+    return uniqueValues(
+      state.assignments.projectMembers
+        .filter((item) => item.client === client)
+        .map((item) => item.userId)
+    );
+  }
+
+  function userNamesForIds(ids) {
+    return ids
+      .map((id) => getUserById(id)?.displayName)
+      .filter(Boolean)
+      .sort((a, b) => a.localeCompare(b));
+  }
+
+  function formatNameList(names) {
+    if (!names.length) {
+      return "None";
+    }
+    if (names.length <= 3) {
+      return names.join(", ");
+    }
+    return `${names.slice(0, 3).join(", ")} +${names.length - 3} more`;
+  }
+
   function allowedProjectTuples(user) {
     if (!user) {
       return [];
@@ -1930,7 +1986,11 @@
 
     refs.clientList.innerHTML = clients
       .map(
-        (client) => `
+        (client) => {
+          const managerNames = formatNameList(userNamesForIds(managerIdsForClient(client)));
+          const staffNames = formatNameList(userNamesForIds(staffIdsForClient(client)));
+
+          return `
           <article
             class="catalog-item${client === selectedClient ? " is-selected" : ""}"
             data-client="${escapeHtml(client)}"
@@ -1942,6 +2002,10 @@
               <small>${visibleCatalogProjectNames(client).length} ${
                 visibleCatalogProjectNames(client).length === 1 ? "project" : "projects"
               }</small>
+              <span class="catalog-item-meta">
+                <span>Managers: ${escapeHtml(managerNames)}</span>
+                <span>Staff: ${escapeHtml(staffNames)}</span>
+              </span>
             </span>
             <span class="catalog-item-actions">
               <button
@@ -1982,7 +2046,8 @@
               </button>
             </span>
           </article>
-        `
+        `;
+        }
       )
       .join("");
 
@@ -2032,6 +2097,12 @@
                 isGlobalAdmin(state.currentUser) ||
                 (isManager(state.currentUser) &&
                   canManagerAccessProject(state.currentUser, selectedClient, project));
+              const managerNames = formatNameList(
+                userNamesForIds(managerIdsForProject(selectedClient, project))
+              );
+              const staffNames = formatNameList(
+                userNamesForIds(staffIdsForProject(selectedClient, project))
+              );
 
               return `
               <article
@@ -2043,6 +2114,10 @@
                 <span class="catalog-item-copy">
                   <span class="catalog-item-title">${escapeHtml(project)}</span>
                   <small>${projectHours(selectedClient, project).toFixed(2)}h logged</small>
+                  <span class="catalog-item-meta">
+                    <span>Managers: ${escapeHtml(managerNames)}</span>
+                    <span>Staff: ${escapeHtml(staffNames)}</span>
+                  </span>
                 </span>
                 <span class="catalog-item-actions">
                   <button
@@ -2065,6 +2140,24 @@
                     )}
                   >
                     Remove
+                  </button>
+                  <button
+                    type="button"
+                    class="catalog-edit"
+                    aria-label="Assign managers to ${escapeHtml(project)}"
+                    data-assign-managers-project="${escapeHtml(project)}"
+                    ${disabledButtonAttrs(canEditProject, "Global Admin only.")}
+                  >
+                    Assign managers
+                  </button>
+                  <button
+                    type="button"
+                    class="catalog-edit"
+                    aria-label="Unassign managers from ${escapeHtml(project)}"
+                    data-unassign-managers-project="${escapeHtml(project)}"
+                    ${disabledButtonAttrs(canEditProject, "Global Admin only.")}
+                  >
+                    Unassign managers
                   </button>
                   <button
                     type="button"
@@ -2254,6 +2347,12 @@
     } else if (mode === "client-unassign") {
       title = `Unassign Managers from ${client}`;
       subtext = "Select managers to remove from this client.";
+    } else if (mode === "project-assign-manager") {
+      title = `Assign Managers to ${project}`;
+      subtext = "Select managers who should have access to this project.";
+    } else if (mode === "project-unassign-manager") {
+      title = `Unassign Managers from ${project}`;
+      subtext = "Select managers to remove from this project.";
     }
 
     refs.membersTitle.textContent = title;
@@ -2265,6 +2364,10 @@
       const isAssignedToProject = project
         ? isUserAssignedToProject(user.id, client, project)
         : false;
+      const isDirectAssignedToProject =
+        project && mode.startsWith("project-")
+          ? directManagerIdsForProject(client, project).includes(user.id)
+          : false;
       const isAssignedToClient = client
         ? state.assignments.managerClients.some(
             (item) => item.managerId === user.id && item.client === client
@@ -2296,6 +2399,17 @@
         }
       } else if (mode === "client-unassign") {
         show = isAssignedToClient && isManager(user);
+      } else if (mode === "project-assign-manager") {
+        if (!isManager(user) && !canChangeRole) {
+          checkboxDisabled = true;
+          checkboxTitle = "Global Admin only.";
+        }
+        if (isDirectAssignedToProject) {
+          checkboxDisabled = true;
+          checkboxTitle = "Already assigned.";
+        }
+      } else if (mode === "project-unassign-manager") {
+        show = isDirectAssignedToProject && isManager(user);
       }
 
       if (!show) {
@@ -3551,6 +3665,32 @@
   });
 
   refs.projectList.addEventListener("click", async function (event) {
+    const assignManagersProject = event.target.closest("[data-assign-managers-project]");
+    if (assignManagersProject) {
+      if (!isGlobalAdmin(state.currentUser)) {
+        feedback("Only Global Admins can assign managers.", true);
+        return;
+      }
+      memberModalState.mode = "project-assign-manager";
+      memberModalState.client = state.selectedCatalogClient;
+      memberModalState.project = assignManagersProject.dataset.assignManagersProject;
+      openMembersModal();
+      return;
+    }
+
+    const unassignManagersProject = event.target.closest("[data-unassign-managers-project]");
+    if (unassignManagersProject) {
+      if (!isGlobalAdmin(state.currentUser)) {
+        feedback("Only Global Admins can unassign managers.", true);
+        return;
+      }
+      memberModalState.mode = "project-unassign-manager";
+      memberModalState.client = state.selectedCatalogClient;
+      memberModalState.project = unassignManagersProject.dataset.unassignManagersProject;
+      openMembersModal();
+      return;
+    }
+
     const editButton = event.target.closest("[data-edit-project]");
     if (editButton) {
       if (!isGlobalAdmin(state.currentUser)) {
@@ -3812,7 +3952,15 @@
         return acc;
       }, {});
 
-      if (!selected.length && (mode === "project-add" || mode === "project-remove" || mode === "client-assign" || mode === "client-unassign")) {
+      if (
+        !selected.length &&
+        (mode === "project-add" ||
+          mode === "project-remove" ||
+          mode === "client-assign" ||
+          mode === "client-unassign" ||
+          mode === "project-assign-manager" ||
+          mode === "project-unassign-manager")
+      ) {
         setMembersFeedback("Select at least one member.", true);
         return;
       }
@@ -3919,6 +4067,51 @@
             } else {
               state.assignments.managerClients = state.assignments.managerClients.filter(
                 (item) => !(item.managerId === user.id && item.client === client)
+              );
+              saveLocalAssignments();
+            }
+          } else if (mode === "project-assign-manager") {
+            if (effectiveRole !== "manager") {
+              continue;
+            }
+            if (state.storageMode === "remote") {
+              await mutatePersistentState("assign_manager_project", {
+                managerId: user.id,
+                clientName: client,
+                projectName: project,
+              });
+            } else {
+              if (
+                !state.assignments.managerProjects.some(
+                  (item) =>
+                    item.managerId === user.id &&
+                    item.client === client &&
+                    item.project === project
+                )
+              ) {
+                state.assignments.managerProjects.push({
+                  managerId: user.id,
+                  client,
+                  project,
+                });
+                saveLocalAssignments();
+              }
+            }
+          } else if (mode === "project-unassign-manager") {
+            if (state.storageMode === "remote") {
+              await mutatePersistentState("unassign_manager_project", {
+                managerId: user.id,
+                clientName: client,
+                projectName: project,
+              });
+            } else {
+              state.assignments.managerProjects = state.assignments.managerProjects.filter(
+                (item) =>
+                  !(
+                    item.managerId === user.id &&
+                    item.client === client &&
+                    item.project === project
+                  )
               );
               saveLocalAssignments();
             }
