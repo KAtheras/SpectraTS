@@ -340,6 +340,31 @@ body.is-embedded .page-shell {
   height: 44px;
 }
 
+.level-labels-form {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--group-border);
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  align-items: end;
+}
+
+.level-labels-form h3 {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-family: var(--font-head);
+  font-size: 0.9rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.level-labels-form button {
+  grid-column: 1 / -1;
+  justify-self: end;
+}
+
 .entry-form label,
 .filters label {
   display: grid;

@@ -12,13 +12,13 @@ const {
   getSessionContext,
   getSql,
   getManagerScope,
-  isGlobalAdminRole,
   json,
   loadState,
-  normalizeRole,
+  normalizeLevel,
   normalizeText,
   parseBody,
   requireAdmin,
+  requireSuperAdmin,
   requireAuth,
   updateUserPassword,
   updateUserRecord,
@@ -30,15 +30,19 @@ function normalizeHours(value) {
 }
 
 function isGlobalAdmin(user) {
-  return user && isGlobalAdminRole(user.role);
+  return user && user.level >= 6;
 }
 
 function isManager(user) {
-  return user && user.role === "manager";
+  return user && user.level >= 3 && user.level <= 4;
 }
 
 function isStaff(user) {
-  return user && user.role === "staff";
+  return user && user.level <= 2;
+}
+
+function isAdmin(user) {
+  return user && user.level >= 5;
 }
 
 function validateEntry(entry, currentUser) {
@@ -69,21 +73,51 @@ function validateEntry(entry, currentUser) {
   return "";
 }
 
-async function addClient(sql, payload) {
+async function updateLevelLabels(sql, payload, accountId) {
+  const labels = payload?.labels;
+  if (!labels || typeof labels !== "object") {
+    return errorResponse(400, "Level labels are required.");
+  }
+
+  const updates = [];
+  for (let level = 1; level <= 6; level += 1) {
+    const label = normalizeText(labels[level]);
+    if (!label) {
+      return errorResponse(400, "Each level needs a label.");
+    }
+    updates.push({ level, label });
+  }
+
+  for (const item of updates) {
+    await sql`
+      INSERT INTO level_labels (account_id, level, label, updated_at)
+      VALUES (${accountId}, ${item.level}, ${item.label}, ${new Date().toISOString()})
+      ON CONFLICT (account_id, level) DO UPDATE SET
+        label = EXCLUDED.label,
+        updated_at = EXCLUDED.updated_at
+    `;
+  }
+
+  return null;
+}
+async function addClient(sql, payload, accountId) {
   const clientName = normalizeText(payload.clientName);
   if (!clientName) {
     return errorResponse(400, "Client name is required.");
   }
 
-  if (await findClient(sql, clientName)) {
+  if (await findClient(sql, clientName, accountId)) {
     return errorResponse(409, "That client already exists.");
   }
 
-  await sql`INSERT INTO clients (name) VALUES (${clientName})`;
+  await sql`
+    INSERT INTO clients (account_id, name)
+    VALUES (${accountId}, ${clientName})
+  `;
   return null;
 }
 
-async function addProject(sql, payload, currentUser) {
+async function addProject(sql, payload, currentUser, accountId) {
   const clientName = normalizeText(payload.clientName);
   const projectName = normalizeText(payload.projectName);
   if (!clientName) {
@@ -93,72 +127,73 @@ async function addProject(sql, payload, currentUser) {
     return errorResponse(400, "Project name is required.");
   }
 
-  const client = await findClient(sql, clientName);
+  const client = await findClient(sql, clientName, accountId);
   if (!client) {
     return errorResponse(404, "Client not found.");
   }
 
-  if (await findProject(sql, clientName, projectName)) {
+  if (await findProject(sql, clientName, projectName, accountId)) {
     return errorResponse(409, "That project already exists for this client.");
   }
 
   await sql`
-    INSERT INTO projects (client_id, name, created_by)
-    VALUES (${client.id}, ${projectName}, ${currentUser?.id || null})
+    INSERT INTO projects (client_id, account_id, name, created_by)
+    VALUES (${client.id}, ${accountId}, ${projectName}, ${currentUser?.id || null})
   `;
 
   return null;
 }
 
-async function managerHasClient(sql, managerId, clientId) {
+async function managerHasClient(sql, managerId, clientId, accountId) {
   const rows = await sql`
     SELECT id
     FROM manager_clients
     WHERE manager_id = ${managerId}
       AND client_id = ${clientId}
+      AND account_id = ${accountId}
     LIMIT 1
   `;
   return Boolean(rows[0]);
 }
 
-async function managerHasProjectAccess(sql, managerId, projectId) {
-  const scope = await getManagerScope(sql, managerId);
+async function managerHasProjectAccess(sql, managerId, projectId, accountId) {
+  const scope = await getManagerScope(sql, managerId, accountId);
   return scope.projectIds.includes(projectId);
 }
 
-async function assignManagerToClient(sql, payload, currentUser) {
+async function assignManagerToClient(sql, payload, currentUser, accountId) {
   const managerId = normalizeText(payload.managerId);
   const clientName = normalizeText(payload.clientName);
   if (!managerId || !clientName) {
     return errorResponse(400, "Manager and client are required.");
   }
 
-  const manager = await findUserById(sql, managerId);
-  if (!manager || normalizeRole(manager.role) !== "manager") {
+  const manager = await findUserById(sql, managerId, accountId);
+  if (!manager || normalizeLevel(manager.level) < 3) {
     return errorResponse(404, "Manager not found.");
   }
 
-  const client = await findClient(sql, clientName);
+  const client = await findClient(sql, clientName, accountId);
   if (!client) {
     return errorResponse(404, "Client not found.");
   }
 
   await sql`
-    INSERT INTO manager_clients (manager_id, client_id, assigned_by)
-    VALUES (${managerId}, ${client.id}, ${currentUser?.id || null})
+    INSERT INTO manager_clients (manager_id, client_id, account_id, assigned_by)
+    VALUES (${managerId}, ${client.id}, ${accountId}, ${currentUser?.id || null})
     ON CONFLICT (manager_id, client_id) DO NOTHING
   `;
   return null;
 }
 
-async function unassignManagerFromClient(sql, payload) {
+async function unassignManagerFromClient(sql, payload, accountId) {
   const managerId = normalizeText(payload.managerId);
   const clientName = normalizeText(payload.clientName);
   if (!managerId || !clientName) {
     return errorResponse(400, "Manager and client are required.");
   }
 
-  const client = await findClient(sql, clientName);
+  const client = await findClient(sql, clientName, accountId);
   if (!client) {
     return errorResponse(404, "Client not found.");
   }
@@ -167,11 +202,12 @@ async function unassignManagerFromClient(sql, payload) {
     DELETE FROM manager_clients
     WHERE manager_id = ${managerId}
       AND client_id = ${client.id}
+      AND account_id = ${accountId}
   `;
   return null;
 }
 
-async function assignManagerToProject(sql, payload, currentUser) {
+async function assignManagerToProject(sql, payload, currentUser, accountId) {
   const managerId = normalizeText(payload.managerId);
   const clientName = normalizeText(payload.clientName);
   const projectName = normalizeText(payload.projectName);
@@ -179,25 +215,25 @@ async function assignManagerToProject(sql, payload, currentUser) {
     return errorResponse(400, "Manager and project are required.");
   }
 
-  const manager = await findUserById(sql, managerId);
-  if (!manager || normalizeRole(manager.role) !== "manager") {
+  const manager = await findUserById(sql, managerId, accountId);
+  if (!manager || normalizeLevel(manager.level) < 3) {
     return errorResponse(404, "Manager not found.");
   }
 
-  const project = await findProject(sql, clientName, projectName);
+  const project = await findProject(sql, clientName, projectName, accountId);
   if (!project) {
     return errorResponse(404, "Project not found.");
   }
 
   await sql`
-    INSERT INTO manager_projects (manager_id, project_id, assigned_by)
-    VALUES (${managerId}, ${project.id}, ${currentUser?.id || null})
+    INSERT INTO manager_projects (manager_id, project_id, account_id, assigned_by)
+    VALUES (${managerId}, ${project.id}, ${accountId}, ${currentUser?.id || null})
     ON CONFLICT (manager_id, project_id) DO NOTHING
   `;
   return null;
 }
 
-async function unassignManagerFromProject(sql, payload) {
+async function unassignManagerFromProject(sql, payload, accountId) {
   const managerId = normalizeText(payload.managerId);
   const clientName = normalizeText(payload.clientName);
   const projectName = normalizeText(payload.projectName);
@@ -205,7 +241,7 @@ async function unassignManagerFromProject(sql, payload) {
     return errorResponse(400, "Manager and project are required.");
   }
 
-  const project = await findProject(sql, clientName, projectName);
+  const project = await findProject(sql, clientName, projectName, accountId);
   if (!project) {
     return errorResponse(404, "Project not found.");
   }
@@ -214,11 +250,12 @@ async function unassignManagerFromProject(sql, payload) {
     DELETE FROM manager_projects
     WHERE manager_id = ${managerId}
       AND project_id = ${project.id}
+      AND account_id = ${accountId}
   `;
   return null;
 }
 
-async function addProjectMember(sql, payload, currentUser) {
+async function addProjectMember(sql, payload, currentUser, accountId) {
   const userId = normalizeText(payload.userId);
   const clientName = normalizeText(payload.clientName);
   const projectName = normalizeText(payload.projectName);
@@ -226,32 +263,37 @@ async function addProjectMember(sql, payload, currentUser) {
     return errorResponse(400, "Member and project are required.");
   }
 
-  const user = await findUserById(sql, userId);
-  if (!user || normalizeRole(user.role) !== "staff") {
+  const user = await findUserById(sql, userId, accountId);
+  if (!user || normalizeLevel(user.level) > 2) {
     return errorResponse(404, "Staff member not found.");
   }
 
-  const project = await findProject(sql, clientName, projectName);
+  const project = await findProject(sql, clientName, projectName, accountId);
   if (!project) {
     return errorResponse(404, "Project not found.");
   }
 
   if (isManager(currentUser)) {
-    const hasAccess = await managerHasProjectAccess(sql, currentUser.id, project.id);
+    const hasAccess = await managerHasProjectAccess(
+      sql,
+      currentUser.id,
+      project.id,
+      accountId
+    );
     if (!hasAccess) {
       return errorResponse(403, "You are not assigned to this project.");
     }
   }
 
   await sql`
-    INSERT INTO project_members (project_id, user_id, assigned_by)
-    VALUES (${project.id}, ${userId}, ${currentUser.id})
+    INSERT INTO project_members (project_id, user_id, account_id, assigned_by)
+    VALUES (${project.id}, ${userId}, ${accountId}, ${currentUser.id})
     ON CONFLICT (project_id, user_id) DO NOTHING
   `;
   return null;
 }
 
-async function removeProjectMember(sql, payload, currentUser) {
+async function removeProjectMember(sql, payload, currentUser, accountId) {
   const userId = normalizeText(payload.userId);
   const clientName = normalizeText(payload.clientName);
   const projectName = normalizeText(payload.projectName);
@@ -259,13 +301,18 @@ async function removeProjectMember(sql, payload, currentUser) {
     return errorResponse(400, "Member and project are required.");
   }
 
-  const project = await findProject(sql, clientName, projectName);
+  const project = await findProject(sql, clientName, projectName, accountId);
   if (!project) {
     return errorResponse(404, "Project not found.");
   }
 
   if (isManager(currentUser)) {
-    const hasAccess = await managerHasProjectAccess(sql, currentUser.id, project.id);
+    const hasAccess = await managerHasProjectAccess(
+      sql,
+      currentUser.id,
+      project.id,
+      accountId
+    );
     if (!hasAccess) {
       return errorResponse(403, "You are not assigned to this project.");
     }
@@ -275,11 +322,12 @@ async function removeProjectMember(sql, payload, currentUser) {
     DELETE FROM project_members
     WHERE project_id = ${project.id}
       AND user_id = ${userId}
+      AND account_id = ${accountId}
   `;
   return null;
 }
 
-async function renameClient(sql, payload) {
+async function renameClient(sql, payload, accountId) {
   const clientName = normalizeText(payload.clientName);
   const nextName = normalizeText(payload.nextName);
   if (!clientName) {
@@ -289,14 +337,14 @@ async function renameClient(sql, payload) {
     return errorResponse(400, "Client name is required.");
   }
 
-  const client = await findClient(sql, clientName);
+  const client = await findClient(sql, clientName, accountId);
   if (!client) {
     return errorResponse(404, "Client not found.");
   }
   if (client.name.toLowerCase() === nextName.toLowerCase()) {
     return null;
   }
-  if (await findClient(sql, nextName)) {
+  if (await findClient(sql, nextName, accountId)) {
     return errorResponse(409, "That client already exists.");
   }
 
@@ -305,12 +353,13 @@ async function renameClient(sql, payload) {
     UPDATE entries
     SET client_name = ${nextName}
     WHERE LOWER(client_name) = LOWER(${client.name})
+      AND account_id = ${accountId}
   `;
 
   return null;
 }
 
-async function renameProject(sql, payload) {
+async function renameProject(sql, payload, accountId) {
   const clientName = normalizeText(payload.clientName);
   const projectName = normalizeText(payload.projectName);
   const nextName = normalizeText(payload.nextName);
@@ -321,14 +370,14 @@ async function renameProject(sql, payload) {
     return errorResponse(400, "Project name is required.");
   }
 
-  const project = await findProject(sql, clientName, projectName);
+  const project = await findProject(sql, clientName, projectName, accountId);
   if (!project) {
     return errorResponse(404, "Project not found.");
   }
   if (project.name.toLowerCase() === nextName.toLowerCase()) {
     return null;
   }
-  if (await findProject(sql, clientName, nextName)) {
+  if (await findProject(sql, clientName, nextName, accountId)) {
     return errorResponse(409, "That project already exists for this client.");
   }
 
@@ -338,14 +387,15 @@ async function renameProject(sql, payload) {
     SET project_name = ${nextName}
     WHERE LOWER(client_name) = LOWER(${clientName})
       AND LOWER(project_name) = LOWER(${project.name})
+      AND account_id = ${accountId}
   `;
 
   return null;
 }
 
-async function removeClient(sql, payload) {
+async function removeClient(sql, payload, accountId) {
   const clientName = normalizeText(payload.clientName);
-  const client = await findClient(sql, clientName);
+  const client = await findClient(sql, clientName, accountId);
   if (!client) {
     return errorResponse(404, "Client not found.");
   }
@@ -354,6 +404,7 @@ async function removeClient(sql, payload) {
     SELECT COALESCE(SUM(hours)::FLOAT8, 0) AS total
     FROM entries
     WHERE LOWER(client_name) = LOWER(${client.name})
+      AND account_id = ${accountId}
   `;
   const hoursLogged = rows[0]?.total || 0;
 
@@ -364,10 +415,10 @@ async function removeClient(sql, payload) {
     : { message: "" };
 }
 
-async function removeProject(sql, payload) {
+async function removeProject(sql, payload, accountId) {
   const clientName = normalizeText(payload.clientName);
   const projectName = normalizeText(payload.projectName);
-  const project = await findProject(sql, clientName, projectName);
+  const project = await findProject(sql, clientName, projectName, accountId);
   if (!project) {
     return errorResponse(404, "Project not found.");
   }
@@ -377,6 +428,7 @@ async function removeProject(sql, payload) {
     FROM entries
     WHERE LOWER(client_name) = LOWER(${clientName})
       AND LOWER(project_name) = LOWER(${project.name})
+      AND account_id = ${accountId}
   `;
   const hoursLogged = rows[0]?.total || 0;
 
@@ -387,32 +439,37 @@ async function removeProject(sql, payload) {
     : { message: "" };
 }
 
-async function saveEntry(sql, payload, currentUser) {
+async function saveEntry(sql, payload, currentUser, accountId) {
   const entry = payload.entry;
   const validationError = validateEntry(entry, currentUser);
   if (validationError) {
     return errorResponse(400, validationError);
   }
 
-  const project = await findProject(sql, entry.client, entry.project);
+  const project = await findProject(sql, entry.client, entry.project, accountId);
   if (!project) {
     return errorResponse(404, "Project not found.");
   }
 
-  const targetUser = await findUserByDisplayName(sql, entry.user);
+  const targetUser = await findUserByDisplayName(sql, entry.user, accountId);
   if (!targetUser) {
     return errorResponse(404, "Team member not found.");
   }
-  const targetRole = normalizeRole(targetUser.role);
+  const targetLevel = normalizeLevel(targetUser.level);
 
-  if (isGlobalAdmin(currentUser)) {
+  if (isAdmin(currentUser)) {
     // Full access.
   } else if (isManager(currentUser)) {
-    const hasAccess = await managerHasProjectAccess(sql, currentUser.id, project.id);
+    const hasAccess = await managerHasProjectAccess(
+      sql,
+      currentUser.id,
+      project.id,
+      accountId
+    );
     if (!hasAccess) {
       return errorResponse(403, "You are not assigned to this project.");
     }
-    if (targetUser.id !== currentUser.id && targetRole !== "staff") {
+    if (targetUser.id !== currentUser.id && targetLevel > 2) {
       return errorResponse(403, "Managers can only edit staff time.");
     }
   } else if (isStaff(currentUser)) {
@@ -431,12 +488,13 @@ async function saveEntry(sql, payload, currentUser) {
     }
   }
 
-  if (targetRole === "staff") {
+  if (targetLevel <= 2) {
     const memberRows = await sql`
       SELECT id
       FROM project_members
       WHERE project_id = ${project.id}
         AND user_id = ${targetUser.id}
+        AND account_id = ${accountId}
       LIMIT 1
     `;
     if (!memberRows[0]) {
@@ -444,11 +502,12 @@ async function saveEntry(sql, payload, currentUser) {
     }
   }
 
-  if (!isGlobalAdmin(currentUser)) {
+  if (!isAdmin(currentUser)) {
     const rows = await sql`
       SELECT user_name
       FROM entries
       WHERE id = ${normalizeText(entry.id)}
+        AND account_id = ${accountId}
       LIMIT 1
     `;
     if (rows[0] && rows[0].user_name !== entry.user && isStaff(currentUser)) {
@@ -466,6 +525,7 @@ async function saveEntry(sql, payload, currentUser) {
       task,
       hours,
       notes,
+      account_id,
       created_at,
       updated_at
     )
@@ -478,6 +538,7 @@ async function saveEntry(sql, payload, currentUser) {
       ${normalizeText(entry.task)},
       ${normalizeHours(entry.hours)},
       ${normalizeText(entry.notes)},
+      ${accountId},
       ${normalizeText(entry.createdAt)},
       ${normalizeText(entry.updatedAt)}
     )
@@ -496,7 +557,7 @@ async function saveEntry(sql, payload, currentUser) {
   return null;
 }
 
-async function deleteEntry(sql, payload, currentUser) {
+async function deleteEntry(sql, payload, currentUser, accountId) {
   const id = normalizeText(payload.id);
   if (!id) {
     return errorResponse(400, "Entry id is required.");
@@ -510,6 +571,7 @@ async function deleteEntry(sql, payload, currentUser) {
       project_name AS project
     FROM entries
     WHERE id = ${id}
+      AND account_id = ${accountId}
     LIMIT 1
   `;
   const entry = rows[0];
@@ -517,23 +579,28 @@ async function deleteEntry(sql, payload, currentUser) {
     return errorResponse(404, "Entry not found.");
   }
 
-  const project = await findProject(sql, entry.client, entry.project);
-  if (!project && !isGlobalAdmin(currentUser)) {
+  const project = await findProject(sql, entry.client, entry.project, accountId);
+  if (!project && !isAdmin(currentUser)) {
     return errorResponse(403, "You are not assigned to this project.");
   }
 
-  if (isGlobalAdmin(currentUser)) {
+  if (isAdmin(currentUser)) {
     // Full access.
   } else if (isManager(currentUser)) {
     if (project) {
-      const hasAccess = await managerHasProjectAccess(sql, currentUser.id, project.id);
+      const hasAccess = await managerHasProjectAccess(
+        sql,
+        currentUser.id,
+        project.id,
+        accountId
+      );
       if (!hasAccess) {
         return errorResponse(403, "You are not assigned to this project.");
       }
     }
-    const targetUser = await findUserByDisplayName(sql, entry.user);
-    const targetRole = targetUser ? normalizeRole(targetUser.role) : "";
-    if (targetUser && targetUser.id !== currentUser.id && targetRole !== "staff") {
+    const targetUser = await findUserByDisplayName(sql, entry.user, accountId);
+    const targetLevel = targetUser ? normalizeLevel(targetUser.level) : 1;
+    if (targetUser && targetUser.id !== currentUser.id && targetLevel > 2) {
       return errorResponse(403, "Managers can only edit staff time.");
     }
   } else if (isStaff(currentUser)) {
@@ -546,6 +613,7 @@ async function deleteEntry(sql, payload, currentUser) {
         FROM project_members
         WHERE project_id = ${project.id}
           AND user_id = ${currentUser.id}
+          AND account_id = ${accountId}
         LIMIT 1
       `;
       if (!memberRows[0]) {
@@ -576,6 +644,7 @@ exports.handler = async function handler(event) {
     if (authError) {
       return authError;
     }
+    const accountId = context.currentUser?.accountId;
 
     let mutationResult = null;
 
@@ -583,50 +652,65 @@ exports.handler = async function handler(event) {
       case "add_client": {
         const adminError = requireAdmin(context);
         if (adminError) return adminError;
-        mutationResult = await addClient(sql, request.payload || {});
+        mutationResult = await addClient(sql, request.payload || {}, accountId);
         break;
       }
       case "add_project": {
-        if (isGlobalAdmin(context.currentUser)) {
-          mutationResult = await addProject(sql, request.payload || {}, context.currentUser);
+        if (isAdmin(context.currentUser)) {
+          mutationResult = await addProject(
+            sql,
+            request.payload || {},
+            context.currentUser,
+            accountId
+          );
           break;
         }
         if (!isManager(context.currentUser)) {
           return errorResponse(403, "Manager access required.");
         }
         const clientName = normalizeText(request.payload?.clientName);
-        const client = await findClient(sql, clientName);
+        const client = await findClient(sql, clientName, accountId);
         if (!client) {
           return errorResponse(404, "Client not found.");
         }
-        const hasClientAccess = await managerHasClient(sql, context.currentUser.id, client.id);
+        const hasClientAccess = await managerHasClient(
+          sql,
+          context.currentUser.id,
+          client.id,
+          accountId
+        );
         if (!hasClientAccess) {
           return errorResponse(403, "You are not assigned to this client.");
         }
-        mutationResult = await addProject(sql, request.payload || {}, context.currentUser);
+        mutationResult = await addProject(
+          sql,
+          request.payload || {},
+          context.currentUser,
+          accountId
+        );
         break;
       }
       case "rename_client": {
         const adminError = requireAdmin(context);
         if (adminError) return adminError;
-        mutationResult = await renameClient(sql, request.payload || {});
+        mutationResult = await renameClient(sql, request.payload || {}, accountId);
         break;
       }
       case "rename_project": {
         const adminError = requireAdmin(context);
         if (adminError) return adminError;
-        mutationResult = await renameProject(sql, request.payload || {});
+        mutationResult = await renameProject(sql, request.payload || {}, accountId);
         break;
       }
       case "remove_client": {
         const adminError = requireAdmin(context);
         if (adminError) return adminError;
-        mutationResult = await removeClient(sql, request.payload || {});
+        mutationResult = await removeClient(sql, request.payload || {}, accountId);
         break;
       }
       case "remove_project": {
-        if (isGlobalAdmin(context.currentUser)) {
-          mutationResult = await removeProject(sql, request.payload || {});
+        if (isAdmin(context.currentUser)) {
+          mutationResult = await removeProject(sql, request.payload || {}, accountId);
           break;
         }
         if (!isManager(context.currentUser)) {
@@ -634,7 +718,7 @@ exports.handler = async function handler(event) {
         }
         const clientName = normalizeText(request.payload?.clientName);
         const projectName = normalizeText(request.payload?.projectName);
-        const project = await findProject(sql, clientName, projectName);
+        const project = await findProject(sql, clientName, projectName, accountId);
         if (!project) {
           return errorResponse(404, "Project not found.");
         }
@@ -642,69 +726,129 @@ exports.handler = async function handler(event) {
           SELECT created_by
           FROM projects
           WHERE id = ${project.id}
+            AND account_id = ${accountId}
           LIMIT 1
         `;
         const createdBy = projectRow[0]?.created_by || "";
         if (createdBy !== context.currentUser.id) {
           return errorResponse(403, "You can only remove projects you created.");
         }
-        mutationResult = await removeProject(sql, request.payload || {});
+        mutationResult = await removeProject(sql, request.payload || {}, accountId);
         break;
       }
       case "save_entry":
-        mutationResult = await saveEntry(sql, request.payload || {}, context.currentUser);
+        mutationResult = await saveEntry(
+          sql,
+          request.payload || {},
+          context.currentUser,
+          accountId
+        );
         break;
       case "delete_entry":
-        mutationResult = await deleteEntry(sql, request.payload || {}, context.currentUser);
+        mutationResult = await deleteEntry(
+          sql,
+          request.payload || {},
+          context.currentUser,
+          accountId
+        );
         break;
       case "assign_manager_client": {
         const adminError = requireAdmin(context);
         if (adminError) return adminError;
-        mutationResult = await assignManagerToClient(sql, request.payload || {}, context.currentUser);
+        mutationResult = await assignManagerToClient(
+          sql,
+          request.payload || {},
+          context.currentUser,
+          accountId
+        );
         break;
       }
       case "unassign_manager_client": {
         const adminError = requireAdmin(context);
         if (adminError) return adminError;
-        mutationResult = await unassignManagerFromClient(sql, request.payload || {});
+        mutationResult = await unassignManagerFromClient(
+          sql,
+          request.payload || {},
+          accountId
+        );
         break;
       }
       case "assign_manager_project": {
         const adminError = requireAdmin(context);
         if (adminError) return adminError;
-        mutationResult = await assignManagerToProject(sql, request.payload || {}, context.currentUser);
+        mutationResult = await assignManagerToProject(
+          sql,
+          request.payload || {},
+          context.currentUser,
+          accountId
+        );
         break;
       }
       case "unassign_manager_project": {
         const adminError = requireAdmin(context);
         if (adminError) return adminError;
-        mutationResult = await unassignManagerFromProject(sql, request.payload || {});
+        mutationResult = await unassignManagerFromProject(
+          sql,
+          request.payload || {},
+          accountId
+        );
         break;
       }
       case "add_project_member": {
-        if (!isGlobalAdmin(context.currentUser) && !isManager(context.currentUser)) {
+        if (!isAdmin(context.currentUser) && !isManager(context.currentUser)) {
           return errorResponse(403, "Manager access required.");
         }
-        mutationResult = await addProjectMember(sql, request.payload || {}, context.currentUser);
+        mutationResult = await addProjectMember(
+          sql,
+          request.payload || {},
+          context.currentUser,
+          accountId
+        );
         break;
       }
       case "remove_project_member": {
-        if (!isGlobalAdmin(context.currentUser) && !isManager(context.currentUser)) {
+        if (!isAdmin(context.currentUser) && !isManager(context.currentUser)) {
           return errorResponse(403, "Manager access required.");
         }
-        mutationResult = await removeProjectMember(sql, request.payload || {}, context.currentUser);
+        mutationResult = await removeProjectMember(
+          sql,
+          request.payload || {},
+          context.currentUser,
+          accountId
+        );
         break;
       }
       case "add_user": {
         const adminError = requireAdmin(context);
         if (adminError) return adminError;
-        await createUserRecord(sql, request.payload || {});
+        const desiredLevel = normalizeLevel(request.payload?.level ?? request.payload?.role);
+        const level = isGlobalAdmin(context.currentUser) ? desiredLevel : 1;
+        await createUserRecord(sql, {
+          ...(request.payload || {}),
+          level,
+          accountId,
+        });
         break;
       }
       case "update_user": {
         const adminError = requireAdmin(context);
         if (adminError) return adminError;
-        const maybeCurrentUser = await updateUserRecord(sql, request.payload || {}, context.currentUser);
+        const target = await findUserById(sql, request.payload?.userId, accountId);
+        if (!target || !target.is_active) {
+          return errorResponse(404, "User not found.");
+        }
+        const desiredLevel = normalizeLevel(request.payload?.level ?? request.payload?.role);
+        const nextLevel = isGlobalAdmin(context.currentUser)
+          ? desiredLevel
+          : normalizeLevel(target.level);
+        if (!isGlobalAdmin(context.currentUser) && normalizeLevel(target.level) >= 6) {
+          return errorResponse(403, "Admin access required.");
+        }
+        const maybeCurrentUser = await updateUserRecord(
+          sql,
+          { ...(request.payload || {}), level: nextLevel },
+          context.currentUser
+        );
         if (maybeCurrentUser) {
           context.currentUser = maybeCurrentUser;
         }
@@ -713,13 +857,33 @@ exports.handler = async function handler(event) {
       case "reset_user_password": {
         const adminError = requireAdmin(context);
         if (adminError) return adminError;
-        await updateUserPassword(sql, request.payload || {});
+        const target = await findUserById(sql, request.payload?.userId, accountId);
+        if (!target || !target.is_active) {
+          return errorResponse(404, "User not found.");
+        }
+        if (!isGlobalAdmin(context.currentUser) && normalizeLevel(target.level) >= 6) {
+          return errorResponse(403, "Admin access required.");
+        }
+        await updateUserPassword(sql, request.payload || {}, accountId);
         break;
       }
       case "deactivate_user": {
         const adminError = requireAdmin(context);
         if (adminError) return adminError;
+        const target = await findUserById(sql, request.payload?.userId, accountId);
+        if (!target || !target.is_active) {
+          return errorResponse(404, "User not found.");
+        }
+        if (!isGlobalAdmin(context.currentUser) && normalizeLevel(target.level) >= 6) {
+          return errorResponse(403, "Admin access required.");
+        }
         await deactivateUser(sql, request.payload || {}, context.currentUser);
+        break;
+      }
+      case "update_level_labels": {
+        const adminError = requireSuperAdmin(context);
+        if (adminError) return adminError;
+        mutationResult = await updateLevelLabels(sql, request.payload || {}, accountId);
         break;
       }
       default:

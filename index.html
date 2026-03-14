@@ -329,14 +329,46 @@
                 <input type="password" name="password" autocomplete="new-password" required />
               </label>
               <label>
-                <span>Role</span>
-                <select name="role">
-                  <option value="staff">Staff</option>
-                  <option value="manager">Manager</option>
-                  <option value="global_admin">Global Admin</option>
+                <span>Level</span>
+                <select name="level">
+                  <option value="1">Staff</option>
+                  <option value="2">Senior</option>
+                  <option value="3">Manager</option>
+                  <option value="4">Director</option>
+                  <option value="5">Partner</option>
+                  <option value="6">Admin</option>
                 </select>
               </label>
               <button class="button add-user-button" type="submit">Add team member</button>
+            </form>
+
+            <form id="level-labels-form" class="filters level-labels-form">
+              <h3>Level Labels</h3>
+              <label>
+                <span>Level 1</span>
+                <input type="text" name="level_1" required />
+              </label>
+              <label>
+                <span>Level 2</span>
+                <input type="text" name="level_2" required />
+              </label>
+              <label>
+                <span>Level 3</span>
+                <input type="text" name="level_3" required />
+              </label>
+              <label>
+                <span>Level 4</span>
+                <input type="text" name="level_4" required />
+              </label>
+              <label>
+                <span>Level 5</span>
+                <input type="text" name="level_5" required />
+              </label>
+              <label>
+                <span>Level 6</span>
+                <input type="text" name="level_6" required />
+              </label>
+              <button class="button button-ghost" type="submit">Save level labels</button>
             </form>
           </section>
         </div>
@@ -359,7 +391,7 @@
 
             <div class="member-list-head">
               <span>Member</span>
-              <span>Role</span>
+              <span>Level</span>
             </div>
             <div id="members-list" class="catalog-list member-list"></div>
             <p id="members-feedback" class="feedback auth-feedback" aria-live="polite"></p>
@@ -376,6 +408,6 @@
       </div>
     </div>
 
-    <script src="./app.js?v=20260314-01" defer></script>
+    <script src="./app.js?v=20260314-02" defer></script>
   </body>
 </html>

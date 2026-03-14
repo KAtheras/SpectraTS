@@ -1,13 +1,6 @@
 (function () {
-  const STORAGE_KEY = "timesheet-studio.entries.v1";
-  const CATALOG_STORAGE_KEY = "timesheet-studio.catalog.v1";
   const THEME_STORAGE_KEY = "timesheet-studio.theme.v1";
   const SESSION_TOKEN_STORAGE_KEY = "timesheet-studio.session-token.v1";
-  const LOCAL_USERS_STORAGE_KEY = "timesheet-studio.local-users.v1";
-  const LOCAL_CURRENT_USER_STORAGE_KEY = "timesheet-studio.local-current-user.v1";
-  const LOCAL_ASSIGNMENTS_STORAGE_KEY = "timesheet-studio.local-assignments.v1";
-  const LOCAL_PROJECT_MEMBERS_STORAGE_KEY = "timesheet-studio.local-project-members.v1";
-  const LOCAL_PROJECT_META_STORAGE_KEY = "timesheet-studio.local-project-meta.v1";
   const body = document.body;
   const embedded = window.self !== window.top || window.location.search.includes("embed=1");
   const themeMedia = window.matchMedia("(prefers-color-scheme: dark)");
@@ -51,6 +44,7 @@
     addClientForm: document.getElementById("add-client-form"),
     addProjectForm: document.getElementById("add-project-form"),
     addUserForm: document.getElementById("add-user-form"),
+    levelLabelsForm: document.getElementById("level-labels-form"),
     filterForm: document.getElementById("filter-form"),
     clearFilters: document.getElementById("clear-filters"),
     exportCsv: document.getElementById("export-csv"),
@@ -80,8 +74,8 @@
   const today = formatDate(new Date());
 
   const state = {
-    catalog: loadCatalog(),
-    entries: loadEntries(),
+    catalog: {},
+    entries: [],
     filters: {
       user: "",
       client: "",
@@ -92,11 +86,12 @@
     },
     editingId: null,
     selectedCatalogClient: "",
-    storageMode: "local",
     sessionToken: loadSessionToken(),
     currentUser: null,
     users: [],
     bootstrapRequired: false,
+    levelLabels: {},
+    account: null,
     projects: [],
     assignments: {
       managerClients: [],
@@ -141,138 +136,8 @@
     }
   }
 
-  function loadLocalUsers() {
-    try {
-      const raw = window.localStorage.getItem(LOCAL_USERS_STORAGE_KEY);
-      const parsed = raw ? JSON.parse(raw) : null;
-      const normalized = Array.isArray(parsed)
-        ? parsed.map(normalizeUser).filter(Boolean)
-        : [];
-          return normalized.length
-        ? normalized
-        : [
-            {
-              id: crypto.randomUUID(),
-              displayName: "Kaprel",
-              username: "kaprel",
-              role: "global_admin",
-              password: "",
-            },
-          ];
-    } catch (error) {
-      return [
-        {
-          id: crypto.randomUUID(),
-          displayName: "Kaprel",
-          username: "kaprel",
-          role: "global_admin",
-          password: "",
-        },
-      ];
-    }
-  }
-
-  function saveLocalUsers() {
-    try {
-      window.localStorage.setItem(LOCAL_USERS_STORAGE_KEY, JSON.stringify(state.users));
-    } catch (error) {
-      return;
-    }
-  }
-
-  function loadLocalCurrentUserId() {
-    try {
-      return window.localStorage.getItem(LOCAL_CURRENT_USER_STORAGE_KEY) || "";
-    } catch (error) {
-      return "";
-    }
-  }
-
-  function saveLocalCurrentUserId(userId) {
-    try {
-      if (userId) {
-        window.localStorage.setItem(LOCAL_CURRENT_USER_STORAGE_KEY, userId);
-      } else {
-        window.localStorage.removeItem(LOCAL_CURRENT_USER_STORAGE_KEY);
-      }
-    } catch (error) {
-      return;
-    }
-  }
-
   function projectKey(client, project) {
     return `${client}::${project}`;
-  }
-
-  function loadLocalAssignments() {
-    try {
-      const raw = window.localStorage.getItem(LOCAL_ASSIGNMENTS_STORAGE_KEY);
-      const parsed = raw ? JSON.parse(raw) : null;
-      const managerClients = Array.isArray(parsed?.managerClients) ? parsed.managerClients : [];
-      const managerProjects = Array.isArray(parsed?.managerProjects) ? parsed.managerProjects : [];
-      return {
-        managerClients,
-        managerProjects,
-      };
-    } catch (error) {
-      return { managerClients: [], managerProjects: [] };
-    }
-  }
-
-  function saveLocalAssignments() {
-    try {
-      window.localStorage.setItem(
-        LOCAL_ASSIGNMENTS_STORAGE_KEY,
-        JSON.stringify({
-          managerClients: state.assignments.managerClients || [],
-          managerProjects: state.assignments.managerProjects || [],
-        })
-      );
-    } catch (error) {
-      return;
-    }
-  }
-
-  function loadLocalProjectMembers() {
-    try {
-      const raw = window.localStorage.getItem(LOCAL_PROJECT_MEMBERS_STORAGE_KEY);
-      const parsed = raw ? JSON.parse(raw) : null;
-      return Array.isArray(parsed) ? parsed : [];
-    } catch (error) {
-      return [];
-    }
-  }
-
-  function saveLocalProjectMembers() {
-    try {
-      window.localStorage.setItem(
-        LOCAL_PROJECT_MEMBERS_STORAGE_KEY,
-        JSON.stringify(state.assignments.projectMembers || [])
-      );
-    } catch (error) {
-      return;
-    }
-  }
-
-  function loadLocalProjectMeta() {
-    try {
-      const raw = window.localStorage.getItem(LOCAL_PROJECT_META_STORAGE_KEY);
-      const parsed = raw ? JSON.parse(raw) : null;
-      return parsed && typeof parsed === "object" ? parsed : {};
-    } catch (error) {
-      return {};
-    }
-  }
-
-  function saveLocalProjectMeta() {
-    try {
-      window.localStorage.setItem(
-        LOCAL_PROJECT_META_STORAGE_KEY,
-        JSON.stringify(buildProjectMetaMap(state.projects))
-      );
-    } catch (error) {
-      return;
-    }
   }
 
   function loadSessionToken() {
@@ -338,7 +203,7 @@
     if (!state.currentUser) {
       return availableUsers();
     }
-    if (isGlobalAdmin(state.currentUser)) {
+    if (isAdmin(state.currentUser)) {
       return availableUsers();
     }
     if (isManager(state.currentUser)) {
@@ -359,6 +224,10 @@
     state.catalog = normalizeCatalog(data?.catalog || DEFAULT_CLIENT_PROJECTS);
     state.entries = Array.isArray(data?.entries) ? data.entries.map(normalizeEntry).filter(Boolean) : [];
     state.assignments = normalizeAssignments(data?.assignments);
+    state.levelLabels = data?.levelLabels && typeof data.levelLabels === "object"
+      ? data.levelLabels
+      : {};
+    state.account = data?.account || null;
     const normalizedProjects = normalizeProjects(data?.projects);
     state.projects = normalizedProjects.length
       ? normalizedProjects
@@ -372,70 +241,13 @@
     state.catalog = normalizeCatalog(DEFAULT_CLIENT_PROJECTS);
     state.entries = [];
     state.projects = [];
+    state.levelLabels = {};
+    state.account = null;
     state.assignments = {
       managerClients: [],
       managerProjects: [],
       projectMembers: [],
     };
-  }
-
-  function initLocalState() {
-    state.users = loadLocalUsers();
-    const localAssignments = loadLocalAssignments();
-    const localProjectMembers = loadLocalProjectMembers();
-    state.assignments = {
-      managerClients: Array.isArray(localAssignments.managerClients)
-        ? localAssignments.managerClients
-        : [],
-      managerProjects: Array.isArray(localAssignments.managerProjects)
-        ? localAssignments.managerProjects
-        : [],
-      projectMembers: Array.isArray(localProjectMembers) ? localProjectMembers : [],
-    };
-    const storedUserId = loadLocalCurrentUserId();
-    const preferredUser = state.users.find((user) => user.id === storedUserId);
-    const adminUser = state.users.find((user) => isGlobalAdmin(user));
-    state.currentUser = preferredUser || adminUser || state.users[0] || null;
-
-    if (!state.currentUser) {
-      state.users = [
-        {
-          id: crypto.randomUUID(),
-          displayName: "Kaprel",
-          username: "kaprel",
-          role: "global_admin",
-          password: "",
-        },
-      ];
-      state.currentUser = state.users[0];
-    }
-
-    if (!state.assignments.projectMembers.length && state.entries.length) {
-      const inferred = [];
-      state.entries.forEach(function (entry) {
-        const user = getUserByDisplayName(entry.user);
-        if (!user) {
-          return;
-        }
-        const key = `${user.id}::${entry.client}::${entry.project}`;
-        if (!inferred.some((item) => `${item.userId}::${item.client}::${item.project}` === key)) {
-          inferred.push({
-            userId: user.id,
-            client: entry.client,
-            project: entry.project,
-          });
-        }
-      });
-      state.assignments.projectMembers = inferred;
-    }
-
-    const projectMeta = loadLocalProjectMeta();
-    state.projects = buildProjectsFromCatalog(state.catalog, projectMeta);
-
-    saveLocalUsers();
-    saveLocalAssignments();
-    saveLocalProjectMembers();
-    saveLocalCurrentUserId(state.currentUser?.id || "");
   }
 
   function defaultEntryUser() {
@@ -510,12 +322,10 @@
     try {
       const payload = await requestAuth("session");
       applyLoadedState(payload);
-      state.storageMode = "remote";
       return true;
     } catch (error) {
       if (error.status === 401) {
         saveSessionToken("");
-        state.storageMode = "remote";
         state.bootstrapRequired = Boolean(error.payload?.bootstrapRequired);
         state.currentUser = null;
         state.users = [];
@@ -530,14 +340,7 @@
         return true;
       }
 
-      state.storageMode = "local";
-      state.catalog = loadCatalog();
-      state.entries = loadEntries();
-      state.bootstrapRequired = false;
-      state.currentUser = null;
-      state.users = [];
-      initLocalState();
-      return false;
+      throw error;
     }
   }
 
@@ -547,7 +350,6 @@
     }
 
     applyLoadedState(payload);
-    state.storageMode = "remote";
     resetFilters();
     resetForm();
     setAuthFeedback("", false);
@@ -559,10 +361,6 @@
   }
 
   async function mutatePersistentState(action, payload) {
-    if (state.storageMode !== "remote") {
-      return null;
-    }
-
     const sessionToken = loadSessionToken();
     const result = await requestJson(MUTATE_API_PATH, {
       method: "POST",
@@ -681,20 +479,6 @@
     return !Number.isNaN(parsed.getTime()) && formatDate(parsed) === value;
   }
 
-  function loadEntries() {
-    try {
-      const raw = window.localStorage.getItem(STORAGE_KEY);
-      const parsed = raw ? JSON.parse(raw) : [];
-      return Array.isArray(parsed) ? parsed.map(normalizeEntry).filter(Boolean) : [];
-    } catch (error) {
-      return [];
-    }
-  }
-
-  function saveEntries() {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state.entries));
-  }
-
   function normalizeCatalog(catalog) {
     const source = catalog && typeof catalog === "object" ? catalog : DEFAULT_CLIENT_PROJECTS;
     const normalized = {};
@@ -715,20 +499,6 @@
     });
 
     return Object.keys(normalized).length ? normalized : { ...DEFAULT_CLIENT_PROJECTS };
-  }
-
-  function loadCatalog() {
-    try {
-      const raw = window.localStorage.getItem(CATALOG_STORAGE_KEY);
-      const parsed = raw ? JSON.parse(raw) : null;
-      return normalizeCatalog(parsed || DEFAULT_CLIENT_PROJECTS);
-    } catch (error) {
-      return normalizeCatalog(DEFAULT_CLIENT_PROJECTS);
-    }
-  }
-
-  function saveCatalog() {
-    window.localStorage.setItem(CATALOG_STORAGE_KEY, JSON.stringify(state.catalog));
   }
 
   function normalizeEntry(entry) {
@@ -786,7 +556,7 @@
         : displayName
           ? displayName.toLowerCase().replace(/\s+/g, ".")
           : "";
-    const role = normalizeRole(user.role);
+    const level = normalizeLevel(user.level ?? user.role);
     const password = typeof user.password === "string" ? user.password : "";
 
     if (!displayName || !username) {
@@ -797,38 +567,60 @@
       id: typeof user.id === "string" && user.id ? user.id : crypto.randomUUID(),
       displayName,
       username,
-      role,
+      level,
       password,
+      accountId: user.accountId || "",
     };
   }
 
-  function normalizeRole(value) {
-    const role = typeof value === "string" ? value.trim() : "";
-    if (role === "admin") return "global_admin";
-    if (role === "member") return "staff";
-    if (role === "global_admin" || role === "manager" || role === "staff") {
-      return role;
+  function normalizeLevel(value) {
+    if (typeof value === "number" && Number.isInteger(value) && value >= 1 && value <= 6) {
+      return value;
     }
-    return "staff";
+    const raw = typeof value === "string" ? value.trim().toLowerCase() : "";
+    const numeric = Number(raw);
+    if (Number.isInteger(numeric) && numeric >= 1 && numeric <= 6) {
+      return numeric;
+    }
+    if (raw === "staff") return 1;
+    if (raw === "senior") return 2;
+    if (raw === "manager") return 3;
+    if (raw === "director") return 4;
+    if (raw === "partner") return 5;
+    if (raw === "admin" || raw === "global_admin") return 6;
+    if (raw === "member") return 1;
+    return 1;
   }
 
-  function roleLabel(role) {
-    const normalized = normalizeRole(role);
-    if (normalized === "global_admin") return "Global Admin";
-    if (normalized === "manager") return "Manager";
-    return "Staff";
+  const DEFAULT_LEVEL_LABELS = {
+    1: "Staff",
+    2: "Senior",
+    3: "Manager",
+    4: "Director",
+    5: "Partner",
+    6: "Admin",
+  };
+
+  function levelLabel(level) {
+    const normalized = normalizeLevel(level);
+    return state.levelLabels?.[normalized] || DEFAULT_LEVEL_LABELS[normalized] || "Staff";
   }
 
   function isGlobalAdmin(user) {
-    return normalizeRole(user?.role) === "global_admin";
+    return normalizeLevel(user?.level) >= 6;
   }
 
   function isManager(user) {
-    return normalizeRole(user?.role) === "manager";
+    const level = normalizeLevel(user?.level);
+    return level >= 3 && level <= 4;
   }
 
   function isStaff(user) {
-    return normalizeRole(user?.role) === "staff";
+    return normalizeLevel(user?.level) <= 2;
+  }
+
+  function isAdmin(user) {
+    return normalizeLevel(user?.level) >= 5;
   }
 
   function getUserById(userId) {
@@ -1001,7 +793,7 @@
     if (!user) {
       return [];
     }
-    if (isGlobalAdmin(user)) {
+    if (isAdmin(user)) {
       return state.projects.map((project) => ({
         client: project.client,
         project: project.name,
@@ -1090,7 +882,7 @@
     if (!user) {
       return false;
     }
-    if (isGlobalAdmin(user)) {
+    if (isAdmin(user)) {
       return true;
     }
     if (isManager(user)) {
@@ -1353,7 +1145,7 @@
     if (!state.currentUser) {
       return catalogClientNames();
     }
-    return isGlobalAdmin(state.currentUser)
+    return isAdmin(state.currentUser)
       ? catalogClientNames()
       : allowedClientsForUser(state.currentUser);
   }
@@ -1381,7 +1173,7 @@
     if (!state.currentUser) {
       return catalogProjectNames(client);
     }
-    if (isGlobalAdmin(state.currentUser)) {
+    if (isAdmin(state.currentUser)) {
       return catalogProjectNames(client);
     }
     return allowedProjectsForClient(state.currentUser, client);
@@ -1418,328 +1210,6 @@
         .join("");
 
     select.value = selectedValue && finalOptions.includes(selectedValue) ? selectedValue : "";
-  }
-
-  function addClient(clientName) {
-    const normalizedName = typeof clientName === "string" ? clientName.trim() : "";
-    if (!normalizedName) {
-      return "Client name is required.";
-    }
-
-    const exists = catalogClientNames().some(
-      (client) => client.toLowerCase() === normalizedName.toLowerCase()
-    );
-    if (exists) {
-      return "That client already exists.";
-    }
-
-    state.catalog[normalizedName] = [];
-    state.selectedCatalogClient = normalizedName;
-    saveCatalog();
-    return "";
-  }
-
-  function addProject(clientName, projectName) {
-    const normalizedClient = typeof clientName === "string" ? clientName.trim() : "";
-    const normalizedProject = typeof projectName === "string" ? projectName.trim() : "";
-
-    if (!normalizedClient) {
-      return "Select a client first.";
-    }
-    if (!normalizedProject) {
-      return "Project name is required.";
-    }
-
-    const currentProjects = state.catalog[normalizedClient] || [];
-    const exists = currentProjects.some(
-      (project) => project.toLowerCase() === normalizedProject.toLowerCase()
-    );
-    if (exists) {
-      return "That project already exists for this client.";
-    }
-
-    state.catalog[normalizedClient] = [...currentProjects, normalizedProject].sort((a, b) =>
-      a.localeCompare(b)
-    );
-    saveCatalog();
-    if (state.storageMode === "local" && state.currentUser) {
-      const meta = loadLocalProjectMeta();
-      meta[projectKey(normalizedClient, normalizedProject)] = state.currentUser.id;
-      window.localStorage.setItem(LOCAL_PROJECT_META_STORAGE_KEY, JSON.stringify(meta));
-      state.projects = buildProjectsFromCatalog(state.catalog, meta);
-    }
-    return "";
-  }
-
-  function renameClient(clientName, nextName) {
-    const normalizedClient = typeof clientName === "string" ? clientName.trim() : "";
-    const normalizedNext = typeof nextName === "string" ? nextName.trim() : "";
-
-    if (!normalizedClient || !state.catalog[normalizedClient]) {
-      return "Client not found.";
-    }
-    if (!normalizedNext) {
-      return "Client name is required.";
-    }
-    if (normalizedClient === normalizedNext) {
-      return "";
-    }
-
-    const exists = catalogClientNames().some(
-      (client) =>
-        client !== normalizedClient && client.toLowerCase() === normalizedNext.toLowerCase()
-    );
-    if (exists) {
-      return "That client already exists.";
-    }
-
-    state.catalog[normalizedNext] = [...(state.catalog[normalizedClient] || [])];
-    delete state.catalog[normalizedClient];
-
-    state.entries = state.entries.map(function (entry) {
-      if (entry.client !== normalizedClient) {
-        return entry;
-      }
-
-      return {
-        ...entry,
-        client: normalizedNext,
-      };
-    });
-
-    if (state.selectedCatalogClient === normalizedClient) {
-      state.selectedCatalogClient = normalizedNext;
-    }
-    if (state.filters.client === normalizedClient) {
-      state.filters.client = normalizedNext;
-    }
-    if (field(refs.form, "client")?.value === normalizedClient) {
-      syncFormCatalogs({
-        user: field(refs.form, "user").value,
-        client: normalizedNext,
-        project: field(refs.form, "project")?.value || "",
-      });
-    }
-
-    saveCatalog();
-    saveEntries();
-    if (state.storageMode === "local") {
-      state.assignments.managerClients = state.assignments.managerClients.map((item) =>
-        item.client === normalizedClient ? { ...item, client: normalizedNext } : item
-      );
-      state.assignments.managerProjects = state.assignments.managerProjects.map((item) =>
-        item.client === normalizedClient ? { ...item, client: normalizedNext } : item
-      );
-      state.assignments.projectMembers = state.assignments.projectMembers.map((item) =>
-        item.client === normalizedClient ? { ...item, client: normalizedNext } : item
-      );
-      saveLocalAssignments();
-      saveLocalProjectMembers();
-      const meta = loadLocalProjectMeta();
-      const nextMeta = {};
-      Object.entries(meta).forEach(function ([key, value]) {
-        if (key.startsWith(`${normalizedClient}::`)) {
-          const projectName = key.split("::")[1];
-          nextMeta[projectKey(normalizedNext, projectName)] = value;
-        } else {
-          nextMeta[key] = value;
-        }
-      });
-      window.localStorage.setItem(LOCAL_PROJECT_META_STORAGE_KEY, JSON.stringify(nextMeta));
-      state.projects = buildProjectsFromCatalog(state.catalog, nextMeta);
-    }
-    return "";
-  }
-
-  function renameProject(clientName, projectName, nextName) {
-    const normalizedClient = typeof clientName === "string" ? clientName.trim() : "";
-    const normalizedProject = typeof projectName === "string" ? projectName.trim() : "";
-    const normalizedNext = typeof nextName === "string" ? nextName.trim() : "";
-    const currentProjects = state.catalog[normalizedClient] || [];
-
-    if (!normalizedClient || !normalizedProject || !currentProjects.includes(normalizedProject)) {
-      return "Project not found.";
-    }
-    if (!normalizedNext) {
-      return "Project name is required.";
-    }
-    if (normalizedProject === normalizedNext) {
-      return "";
-    }
-
-    const exists = currentProjects.some(
-      (project) =>
-        project !== normalizedProject && project.toLowerCase() === normalizedNext.toLowerCase()
-    );
-    if (exists) {
-      return "That project already exists for this client.";
-    }
-
-    state.catalog[normalizedClient] = currentProjects
-      .map((project) => (project === normalizedProject ? normalizedNext : project))
-      .sort((a, b) => a.localeCompare(b));
-
-    state.entries = state.entries.map(function (entry) {
-      if (entry.client !== normalizedClient || entry.project !== normalizedProject) {
-        return entry;
-      }
-
-      return {
-        ...entry,
-        project: normalizedNext,
-      };
-    });
-
-    if (
-      state.filters.client === normalizedClient &&
-      state.filters.project === normalizedProject
-    ) {
-      state.filters.project = normalizedNext;
-    }
-    if (
-      field(refs.form, "client")?.value === normalizedClient &&
-      field(refs.form, "project")?.value === normalizedProject
-    ) {
-      syncFormCatalogs({
-        user: field(refs.form, "user").value,
-        client: normalizedClient,
-        project: normalizedNext,
-      });
-    }
-
-    saveCatalog();
-    saveEntries();
-    if (state.storageMode === "local") {
-      state.assignments.managerProjects = state.assignments.managerProjects.map((item) =>
-        item.client === normalizedClient && item.project === normalizedProject
-          ? { ...item, project: normalizedNext }
-          : item
-      );
-      state.assignments.projectMembers = state.assignments.projectMembers.map((item) =>
-        item.client === normalizedClient && item.project === normalizedProject
-          ? { ...item, project: normalizedNext }
-          : item
-      );
-      saveLocalAssignments();
-      saveLocalProjectMembers();
-      const meta = loadLocalProjectMeta();
-      const nextMeta = { ...meta };
-      const oldKey = projectKey(normalizedClient, normalizedProject);
-      const newKey = projectKey(normalizedClient, normalizedNext);
-      if (meta[oldKey]) {
-        nextMeta[newKey] = meta[oldKey];
-        delete nextMeta[oldKey];
-      }
-      window.localStorage.setItem(LOCAL_PROJECT_META_STORAGE_KEY, JSON.stringify(nextMeta));
-      state.projects = buildProjectsFromCatalog(state.catalog, nextMeta);
-    }
-    return "";
-  }
-
-  function removeClient(clientName) {
-    const normalizedClient = typeof clientName === "string" ? clientName.trim() : "";
-    if (!normalizedClient || !state.catalog[normalizedClient]) {
-      return "Client not found.";
-    }
-
-    const hoursLogged = clientHours(normalizedClient);
-    const projectsForClient = state.catalog[normalizedClient] || [];
-    delete state.catalog[normalizedClient];
-
-    if (state.filters.client === normalizedClient) {
-      state.filters.client = "";
-    }
-    if (state.selectedCatalogClient === normalizedClient) {
-      state.selectedCatalogClient = "";
-    }
-    if (field(refs.form, "client")?.value === normalizedClient) {
-      syncFormCatalogs({
-        user: field(refs.form, "user").value,
-        client: "",
-        project: "",
-      });
-    }
-
-    saveCatalog();
-    if (state.storageMode === "local") {
-      state.assignments.managerClients = state.assignments.managerClients.filter(
-        (item) => item.client !== normalizedClient
-      );
-      state.assignments.managerProjects = state.assignments.managerProjects.filter(
-        (item) => item.client !== normalizedClient
-      );
-      state.assignments.projectMembers = state.assignments.projectMembers.filter(
-        (item) => item.client !== normalizedClient
-      );
-      saveLocalAssignments();
-      saveLocalProjectMembers();
-      const meta = loadLocalProjectMeta();
-      projectsForClient.forEach(function (project) {
-        delete meta[projectKey(normalizedClient, project)];
-      });
-      window.localStorage.setItem(LOCAL_PROJECT_META_STORAGE_KEY, JSON.stringify(meta));
-      state.projects = buildProjectsFromCatalog(state.catalog, meta);
-    }
-    return hoursLogged > 0
-      ? `Client removed from active catalog. ${hoursLogged.toFixed(2)} logged hours were kept in history.`
-      : "";
-  }
-
-  function removeProject(clientName, projectName) {
-    const normalizedClient = typeof clientName === "string" ? clientName.trim() : "";
-    const normalizedProject = typeof projectName === "string" ? projectName.trim() : "";
-    const currentProjects = state.catalog[normalizedClient] || [];
-
-    if (!normalizedClient || !normalizedProject || !currentProjects.includes(normalizedProject)) {
-      return "Project not found.";
-    }
-
-    const hoursLogged = projectHours(normalizedClient, normalizedProject);
-    state.catalog[normalizedClient] = currentProjects.filter((project) => project !== normalizedProject);
-
-    if (
-      state.filters.client === normalizedClient &&
-      state.filters.project === normalizedProject
-    ) {
-      state.filters.project = "";
-    }
-    if (
-      field(refs.form, "client")?.value === normalizedClient &&
-      field(refs.form, "project")?.value === normalizedProject
-    ) {
-      syncFormCatalogs({
-        user: field(refs.form, "user").value,
-        client: normalizedClient,
-        project: "",
-      });
-    }
-
-    saveCatalog();
-    if (state.storageMode === "local") {
-      state.assignments.managerProjects = state.assignments.managerProjects.filter(
-        (item) =>
-          !(
-            item.client === normalizedClient &&
-            item.project === normalizedProject
-          )
-      );
-      state.assignments.projectMembers = state.assignments.projectMembers.filter(
-        (item) =>
-          !(
-            item.client === normalizedClient &&
-            item.project === normalizedProject
-          )
-      );
-      saveLocalAssignments();
-      saveLocalProjectMembers();
-      const meta = loadLocalProjectMeta();
-      delete meta[projectKey(normalizedClient, normalizedProject)];
-      window.localStorage.setItem(LOCAL_PROJECT_META_STORAGE_KEY, JSON.stringify(meta));
-      state.projects = buildProjectsFromCatalog(state.catalog, meta);
-    }
-    return hoursLogged > 0
-      ? `Project removed from active catalog. ${hoursLogged.toFixed(2)} logged hours were kept in history.`
-      : "";
   }
 
   function ensureCatalogSelection() {
@@ -1813,17 +1283,17 @@
       : authUsers[0] || "";
     const requestedClient = selection?.client ?? clientField?.value ?? "";
     const allowedClients = state.currentUser
-      ? isGlobalAdmin(state.currentUser)
+      ? isAdmin(state.currentUser)
         ? clientNames()
         : allowedClientsForUser(state.currentUser)
       : clientNames();
     const nextClient = allowedClients.includes(requestedClient) ? requestedClient : "";
     const requestedProject = selection?.project ?? projectField?.value ?? "";
     const allowedProjects = nextClient
-      ? state.currentUser && !isGlobalAdmin(state.currentUser)
+      ? state.currentUser && !isAdmin(state.currentUser)
         ? allowedProjectsForClient(state.currentUser, nextClient)
         : projectNames(nextClient)
-      : state.currentUser && !isGlobalAdmin(state.currentUser)
+      : state.currentUser && !isAdmin(state.currentUser)
         ? []
         : projectNames(nextClient);
     const nextProject = allowedProjects.includes(requestedProject) ? requestedProject : "";
@@ -1925,26 +1395,6 @@
 
     return [...state.entries]
       .filter((entry) => {
-        if (state.storageMode === "local" && state.currentUser) {
-          if (isGlobalAdmin(state.currentUser)) {
-            // Full access.
-          } else if (isManager(state.currentUser)) {
-            if (!canManagerAccessProject(state.currentUser, entry.client, entry.project)) {
-              return false;
-            }
-            const targetUser = getUserByDisplayName(entry.user);
-            if (targetUser && targetUser.id !== state.currentUser.id && !isStaff(targetUser)) {
-              return false;
-            }
-          } else if (isStaff(state.currentUser)) {
-            if (entry.user !== state.currentUser.displayName) {
-              return false;
-            }
-            if (!isUserAssignedToProject(state.currentUser.id, entry.client, entry.project)) {
-              return false;
-            }
-          }
-        }
         if (state.filters.user && entry.user !== state.filters.user) {
           return false;
         }
@@ -1998,7 +1448,7 @@
 
   function renderCatalogAside() {
     const clients = visibleCatalogClientNames();
-    const canManageClients = isGlobalAdmin(state.currentUser);
+    const canManageClients = isAdmin(state.currentUser);
 
     if (!clients.length) {
       refs.clientList.innerHTML = '<p class="empty-state">No clients yet.</p>';
@@ -2041,7 +1491,7 @@
                 class="catalog-edit"
                 aria-label="Edit ${escapeHtml(client)}"
                 data-edit-client="${escapeHtml(client)}"
-                ${disabledButtonAttrs(canManageClients, "Global Admin only.")}
+                ${disabledButtonAttrs(canManageClients, "Admin only.")}
               >
                 Edit
               </button>
@@ -2050,7 +1500,7 @@
                 class="catalog-delete"
                 aria-label="Delete ${escapeHtml(client)}"
                 data-delete-client="${escapeHtml(client)}"
-                ${disabledButtonAttrs(canManageClients, "Global Admin only.")}
+                ${disabledButtonAttrs(canManageClients, "Admin only.")}
               >
                 Remove
               </button>
@@ -2059,7 +1509,7 @@
                 class="catalog-edit"
                 aria-label="Assign managers to ${escapeHtml(client)}"
                 data-assign-managers="${escapeHtml(client)}"
-                ${disabledButtonAttrs(canManageClients, "Global Admin only.")}
+                ${disabledButtonAttrs(canManageClients, "Admin only.")}
               >
                 Assign managers
               </button>
@@ -2068,7 +1518,7 @@
                 class="catalog-edit"
                 aria-label="Unassign managers from ${escapeHtml(client)}"
                 data-unassign-managers="${escapeHtml(client)}"
-                ${disabledButtonAttrs(canManageClients, "Global Admin only.")}
+                ${disabledButtonAttrs(canManageClients, "Admin only.")}
               >
                 Unassign managers
               </button>
@@ -2082,20 +1532,20 @@
     refs.projectColumnLabel.textContent = selectedClient
       ? `Projects for ${selectedClient}`
       : "Projects";
-    const canAddClient = isGlobalAdmin(state.currentUser);
+    const canAddClient = isAdmin(state.currentUser);
     const clientNameField = field(refs.addClientForm, "client_name");
     const addClientButton = refs.addClientForm.querySelector("button");
     if (clientNameField && addClientButton) {
       clientNameField.disabled = !canAddClient;
       addClientButton.disabled = !canAddClient;
-      const reason = "Global Admin only.";
+    const reason = "Admin only.";
       clientNameField.title = canAddClient ? "" : reason;
       addClientButton.title = canAddClient ? "" : reason;
     }
     const projectNameField = field(refs.addProjectForm, "project_name");
     const canCreateProject =
       Boolean(selectedClient) &&
-      (isGlobalAdmin(state.currentUser) ||
+      (isAdmin(state.currentUser) ||
         (isManager(state.currentUser) &&
           canManagerAccessClient(state.currentUser, selectedClient)));
     const projectButton = refs.addProjectForm.querySelector("button");
@@ -2116,13 +1566,13 @@
       ? projects
           .map(
             (project) => {
-              const canEditProject = isGlobalAdmin(state.currentUser);
+              const canEditProject = isAdmin(state.currentUser);
               const canDeleteProject =
-                isGlobalAdmin(state.currentUser) ||
+                isAdmin(state.currentUser) ||
                 (isManager(state.currentUser) &&
                   projectCreatedBy(selectedClient, project) === state.currentUser?.id);
               const canManageMembers =
-                isGlobalAdmin(state.currentUser) ||
+                isAdmin(state.currentUser) ||
                 (isManager(state.currentUser) &&
                   canManagerAccessProject(state.currentUser, selectedClient, project));
               const managerNames = formatNameList(
@@ -2153,7 +1603,7 @@
                     class="catalog-edit"
                     aria-label="Edit ${escapeHtml(project)}"
                     data-edit-project="${escapeHtml(project)}"
-                    ${disabledButtonAttrs(canEditProject, "Global Admin only.")}
+                    ${disabledButtonAttrs(canEditProject, "Admin only.")}
                   >
                     Edit
                   </button>
@@ -2174,7 +1624,7 @@
                     class="catalog-edit"
                     aria-label="Assign managers to ${escapeHtml(project)}"
                     data-assign-managers-project="${escapeHtml(project)}"
-                    ${disabledButtonAttrs(canEditProject, "Global Admin only.")}
+                    ${disabledButtonAttrs(canEditProject, "Admin only.")}
                   >
                     Assign managers
                   </button>
@@ -2183,7 +1633,7 @@
                     class="catalog-edit"
                     aria-label="Unassign managers from ${escapeHtml(project)}"
                     data-unassign-managers-project="${escapeHtml(project)}"
-                    ${disabledButtonAttrs(canEditProject, "Global Admin only.")}
+                    ${disabledButtonAttrs(canEditProject, "Admin only.")}
                   >
                     Unassign managers
                   </button>
@@ -2233,15 +1683,16 @@
 
     refs.userList.innerHTML = state.users
       .map(function (user) {
-        const roleLabelText = roleLabel(user.role);
+        const roleLabelText = levelLabel(user.level);
         const isCurrentUser = state.currentUser?.id === user.id;
-        const canManageUsers = isGlobalAdmin(state.currentUser);
+        const canManageUsers = isAdmin(state.currentUser);
         const canEditUser = canManageUsers;
-        const canChangeRole = canManageUsers;
+        const canChangeRole = isGlobalAdmin(state.currentUser);
         const canResetPassword = canManageUsers;
         const canDeactivate = canManageUsers && !isCurrentUser;
-        const canAssignManager = canManageUsers && isManager(user);
-        const disabledReason = "Global Admin only.";
+        const canAssignManager = canManageUsers && (isManager(user) || isAdmin(user));
+        const disabledReason = "Admin only.";
+        const changeLevelReason = "Level 6 only.";
 
         return `
           <article class="catalog-item user-item">
@@ -2266,9 +1717,9 @@
                 type="button"
                 class="catalog-edit"
                 data-user-role="${escapeHtml(user.id)}"
-                ${disabledButtonAttrs(canChangeRole, disabledReason)}
+                ${disabledButtonAttrs(canChangeRole, changeLevelReason)}
               >
-                Change role
+                Change level
               </button>
               <button
                 type="button"
@@ -2333,9 +1784,27 @@
     if (!refs.addUserForm) {
       return;
     }
-    const canManageUsers = isGlobalAdmin(state.currentUser);
-    const reason = "Global Admin only.";
+    const canManageUsers = isAdmin(state.currentUser);
+    const canAssignLevel = isGlobalAdmin(state.currentUser);
+    const reason = "Admin only.";
+    const levelField = field(refs.addUserForm, "level");
+    if (levelField) {
+      levelField.innerHTML = [1, 2, 3, 4, 5, 6]
+        .map(
+          (level) =>
+            `<option value="${level}">${escapeHtml(levelLabel(level))}</option>`
+        )
+        .join("");
+      levelField.disabled = !canAssignLevel || !canManageUsers;
+      levelField.title = canAssignLevel && canManageUsers ? "" : "Admin only.";
+      if (!canAssignLevel) {
+        levelField.value = "1";
+      }
+    }
     refs.addUserForm.querySelectorAll("input, select, button").forEach(function (el) {
+      if (el === levelField) {
+        return;
+      }
       if (el.tagName === "BUTTON") {
         el.title = canManageUsers ? "" : reason;
       } else if (el.tagName === "INPUT" || el.tagName === "SELECT") {
@@ -2343,6 +1812,21 @@
       }
       el.disabled = !canManageUsers;
     });
+
+    if (refs.levelLabelsForm) {
+      refs.levelLabelsForm.hidden = !isGlobalAdmin(state.currentUser);
+      refs.levelLabelsForm
+        .querySelectorAll("input[name^='level_']")
+        .forEach(function (input) {
+          const level = Number(input.name.split("_")[1]);
+          input.value = levelLabel(level);
+          input.disabled = !isGlobalAdmin(state.currentUser);
+        });
+      const submitButton = refs.levelLabelsForm.querySelector("button");
+      if (submitButton) {
+        submitButton.disabled = !isGlobalAdmin(state.currentUser);
+      }
+    }
   }
 
   function setMembersFeedback(message, isError) {
@@ -2372,20 +1856,20 @@
       subtext = "Select staff to remove from this project.";
     } else if (mode === "client-assign") {
       title = `Assign Managers to ${client}`;
-      subtext = "Select managers who should have access to every project under this client.";
+      subtext = "Select managers or global admins who should have access to every project under this client.";
     } else if (mode === "client-unassign") {
       title = `Unassign Managers from ${client}`;
       subtext = "Select managers to remove from this client.";
     } else if (mode === "project-assign-manager") {
       title = `Assign Managers to ${project}`;
-      subtext = "Select managers who should have access to this project.";
+      subtext = "Select managers or global admins who should have access to this project.";
     } else if (mode === "project-unassign-manager") {
       title = `Unassign Managers from ${project}`;
       subtext = "Select managers to remove from this project.";
     } else if (mode === "user-role") {
       const targetUser = getUserById(userId);
-      title = `Change Role for ${targetUser ? targetUser.displayName : "Team Member"}`;
-      subtext = "Choose the role for this team member.";
+      title = `Change Level for ${targetUser ? targetUser.displayName : "Team Member"}`;
+      subtext = "Choose the level for this team member.";
     }
 
     refs.membersTitle.textContent = title;
@@ -2397,7 +1881,7 @@
         ? state.users.filter((user) => user.id === userId)
         : state.users;
     const rows = usersToRender.map(function (user) {
-      const currentRole = normalizeRole(user.role);
+      const currentLevel = normalizeLevel(user.level);
       const isAssignedToProject = project
         ? isUserAssignedToProject(user.id, client, project)
         : false;
@@ -2428,28 +1912,32 @@
         show = isAssignedToProject && isStaff(user);
         checkboxChecked = show;
       } else if (mode === "client-assign") {
-        if (!isManager(user) && !canChangeRole) {
+        const isEligible = normalizeLevel(user.level) >= 3;
+        show = isEligible;
+        if (!isEligible) {
           checkboxDisabled = true;
-          checkboxTitle = "Global Admin only.";
+          checkboxTitle = "Managers or higher only.";
         }
         if (isAssignedToClient) {
           checkboxDisabled = true;
           checkboxTitle = "Already assigned.";
         }
       } else if (mode === "client-unassign") {
-        show = isAssignedToClient && isManager(user);
+        show = isAssignedToClient && normalizeLevel(user.level) >= 3;
         checkboxChecked = show;
       } else if (mode === "project-assign-manager") {
-        if (!isManager(user) && !canChangeRole) {
+        const isEligible = normalizeLevel(user.level) >= 3;
+        show = isEligible;
+        if (!isEligible) {
           checkboxDisabled = true;
-          checkboxTitle = "Global Admin only.";
+          checkboxTitle = "Managers or higher only.";
         }
         if (isDirectAssignedToProject) {
           checkboxDisabled = true;
           checkboxTitle = "Already assigned.";
         }
       } else if (mode === "project-unassign-manager") {
-        show = isDirectAssignedToProject && isManager(user);
+        show = isDirectAssignedToProject && normalizeLevel(user.level) >= 3;
         checkboxChecked = show;
       } else if (mode === "user-role") {
         checkboxDisabled = true;
@@ -2463,15 +1951,20 @@
       const roleSelect = canChangeRole
         ? `
           <label class="member-role">
-            <span class="sr-only">Role</span>
-            <select data-role-select="${escapeHtml(user.id)}">
-              <option value="staff"${currentRole === "staff" ? " selected" : ""}>Staff</option>
-              <option value="manager"${currentRole === "manager" ? " selected" : ""}>Manager</option>
-              <option value="global_admin"${currentRole === "global_admin" ? " selected" : ""}>Global Admin</option>
+            <span class="sr-only">Level</span>
+            <select data-level-select="${escapeHtml(user.id)}">
+              ${[1, 2, 3, 4, 5, 6]
+                .map(
+                  (level) =>
+                    `<option value="${level}"${
+                      currentLevel === level ? " selected" : ""
+                    }>${escapeHtml(levelLabel(level))}</option>`
+                )
+                .join("")}
             </select>
           </label>
         `
-        : `<span class="member-role-label">${escapeHtml(roleLabel(user.role))}</span>`;
+        : `<span class="member-role-label">${escapeHtml(levelLabel(user.level))}</span>`;
 
       return `
         <article class="catalog-item member-item">
@@ -2498,17 +1991,7 @@
   }
 
   function renderAuthUi() {
-    const isRemoteAuth = state.storageMode === "remote";
     const isAuthenticated = Boolean(state.currentUser);
-
-    if (!isRemoteAuth) {
-      showAppShell();
-      refs.sessionIndicator.hidden = true;
-      refs.manageUsers.hidden = !isGlobalAdmin(state.currentUser);
-      refs.logoutButton.hidden = true;
-      refs.openCatalog.hidden = !(isGlobalAdmin(state.currentUser) || isManager(state.currentUser));
-      return;
-    }
 
     if (isAuthenticated) {
       showAppShell();
@@ -2519,15 +2002,15 @@
     refs.loginForm.hidden = state.bootstrapRequired;
     refs.bootstrapForm.hidden = !state.bootstrapRequired;
     refs.authSubtext.textContent = state.bootstrapRequired
-      ? "Create the first Global Admin account to activate team logins."
+      ? "Create the first Admin account to activate team logins."
       : "Sign in with your team member credentials to continue.";
 
     if (isAuthenticated) {
       refs.sessionIndicator.hidden = false;
       refs.sessionIndicator.textContent = state.currentUser.displayName;
-      refs.manageUsers.hidden = !isGlobalAdmin(state.currentUser);
+      refs.manageUsers.hidden = !isAdmin(state.currentUser);
       refs.logoutButton.hidden = false;
-      refs.openCatalog.hidden = !(isGlobalAdmin(state.currentUser) || isManager(state.currentUser));
+      refs.openCatalog.hidden = !(isAdmin(state.currentUser) || isManager(state.currentUser));
     } else {
       refs.sessionIndicator.hidden = true;
       refs.manageUsers.hidden = true;
@@ -2566,7 +2049,7 @@
     const displayName = String(formData.get("display_name") || "").trim();
     const username = String(formData.get("username") || "").trim();
     const password = String(formData.get("password") || "");
-    setAuthFeedback("Creating Global Admin account...", false);
+    setAuthFeedback("Creating Admin account...", false);
 
     try {
       const payload = await requestAuth("bootstrap", { displayName, username, password });
@@ -2574,12 +2057,12 @@
         throw new Error("Bootstrap response was missing a session token.");
       }
       saveSessionToken(payload.sessionToken || "");
-      setAuthFeedback("Global Admin account created. Loading workspace...", false);
+      setAuthFeedback("Admin account created. Loading workspace...", false);
       refs.bootstrapForm.reset();
       hydrateAuthenticatedState(payload);
     } catch (error) {
       console.error("Bootstrap failed:", error);
-      const message = error.message || "Unable to create the Global Admin account.";
+      const message = error.message || "Unable to create the Admin account.";
       setAuthFeedback(message, true);
       window.alert(message);
     }
@@ -2589,7 +2072,6 @@
     const sessionToken = loadSessionToken();
 
     saveSessionToken("");
-    state.storageMode = "remote";
     clearRemoteAppState();
     resetFilters();
     resetForm();
@@ -2613,8 +2095,8 @@
 
   async function handleAddUser(event) {
     event.preventDefault();
-    if (!isGlobalAdmin(state.currentUser)) {
-      const message = "Only Global Admins can add team members.";
+    if (!isAdmin(state.currentUser)) {
+      const message = "Only Admins can add team members.";
       setUserFeedback(message, true);
       window.alert(message);
       return;
@@ -2623,46 +2105,16 @@
     const displayName = String(formData.get("display_name") || "").trim();
     const username = String(formData.get("username") || "").trim();
     const password = String(formData.get("password") || "");
-    const role = String(formData.get("role") || "member");
+    const selectedLevel = Number(formData.get("level") || 1);
+    const level = isGlobalAdmin(state.currentUser) ? selectedLevel : 1;
 
     try {
-      if (state.storageMode === "remote") {
-        await mutatePersistentState("add_user", {
-          displayName,
-          username,
-          password,
-          role,
-        });
-      } else {
-        if (!displayName) {
-          throw new Error("Team member name is required.");
-        }
-        if (!username) {
-          throw new Error("Username is required.");
-        }
-        if (!password || password.length < 8) {
-          throw new Error("Password must be at least 8 characters.");
-        }
-
-        const exists = state.users.some(
-          (user) => user.username.toLowerCase() === username.toLowerCase()
-        );
-        if (exists) {
-          throw new Error("That username already exists.");
-        }
-
-        state.users = [
-          ...state.users,
-          {
-            id: crypto.randomUUID(),
-            displayName,
-            username,
-            role: normalizeRole(role),
-            password,
-          },
-        ];
-        saveLocalUsers();
-      }
+      await mutatePersistentState("add_user", {
+        displayName,
+        username,
+        password,
+        level,
+      });
     } catch (error) {
       const message = error.message || "Unable to add team member.";
       setUserFeedback(message, true);
@@ -2671,7 +2123,7 @@
     }
 
     refs.addUserForm.reset();
-    field(refs.addUserForm, "role").value = "staff";
+    field(refs.addUserForm, "level").value = "1";
     setUserFeedback("Team member added.", false);
     render();
   }
@@ -2718,54 +2170,12 @@
           return;
         }
 
-        if (state.storageMode === "remote") {
-          await mutatePersistentState("update_user", {
-            userId: user.id,
-            displayName: nextDisplayName,
-            username: nextUsername,
-            role: user.role,
-          });
-        } else {
-          if (!nextDisplayName.trim()) {
-            throw new Error("Team member name is required.");
-          }
-          if (!nextUsername.trim()) {
-            throw new Error("Username is required.");
-          }
-          const exists = state.users.some(
-            (candidate) =>
-              candidate.id !== user.id &&
-              candidate.username.toLowerCase() === nextUsername.toLowerCase()
-          );
-          if (exists) {
-            throw new Error("That username already exists.");
-          }
-
-          state.users = state.users.map((candidate) =>
-            candidate.id === user.id
-              ? {
-                  ...candidate,
-                  displayName: nextDisplayName.trim(),
-                  username: nextUsername.trim(),
-                }
-              : candidate
-          );
-          state.entries = state.entries.map((entry) =>
-            entry.user === user.displayName
-              ? {
-                  ...entry,
-                  user: nextDisplayName.trim(),
-                  updatedAt: new Date().toISOString(),
-                }
-              : entry
-          );
-          saveEntries();
-          saveLocalUsers();
-          if (state.currentUser?.id === user.id) {
-            state.currentUser = state.users.find((candidate) => candidate.id === user.id);
-            saveLocalCurrentUserId(user.id);
-          }
-        }
+        await mutatePersistentState("update_user", {
+          userId: user.id,
+          displayName: nextDisplayName,
+          username: nextUsername,
+          level: user.level,
+        });
         setUserFeedback("Team member updated.", false);
       } else if (button.dataset.userRole) {
         memberModalState.mode = "user-role";
@@ -2782,20 +2192,10 @@
           return;
         }
 
-        if (state.storageMode === "remote") {
-          await mutatePersistentState("reset_user_password", {
-            userId: user.id,
-            password: nextPassword,
-          });
-        } else {
-          if (!nextPassword || nextPassword.length < 8) {
-            throw new Error("Password must be at least 8 characters.");
-          }
-          state.users = state.users.map((candidate) =>
-            candidate.id === user.id ? { ...candidate, password: nextPassword } : candidate
-          );
-          saveLocalUsers();
-        }
+        await mutatePersistentState("reset_user_password", {
+          userId: user.id,
+          password: nextPassword,
+        });
         setUserFeedback(`Password updated for ${user.displayName}.`, false);
       } else if (button.dataset.userDeactivate) {
         const confirmed = window.confirm(`Deactivate ${user.displayName}?`);
@@ -2803,34 +2203,12 @@
           return;
         }
 
-        if (state.storageMode === "remote") {
-          await mutatePersistentState("deactivate_user", {
-            userId: user.id,
-          });
-        } else {
-          if (
-            isGlobalAdmin(user) &&
-            state.users.filter((candidate) => isGlobalAdmin(candidate)).length <= 1
-          ) {
-            throw new Error("At least one Global Admin account is required.");
-          }
-          state.users = state.users.filter((candidate) => candidate.id !== user.id);
-          state.assignments.managerClients = state.assignments.managerClients.filter(
-            (item) => item.managerId !== user.id
-          );
-          state.assignments.managerProjects = state.assignments.managerProjects.filter(
-            (item) => item.managerId !== user.id
-          );
-          state.assignments.projectMembers = state.assignments.projectMembers.filter(
-            (item) => item.userId !== user.id
-          );
-          saveLocalUsers();
-          saveLocalAssignments();
-          saveLocalProjectMembers();
-        }
+        await mutatePersistentState("deactivate_user", {
+          userId: user.id,
+        });
         setUserFeedback(`${user.displayName} was deactivated.`, false);
       } else if (button.dataset.userAssignClient) {
-        if (!isManager(user)) {
+        if (normalizeLevel(user.level) < 3) {
           throw new Error("Only managers can be assigned to clients.");
         }
         const clientName = window.prompt("Assign client", "");
@@ -2844,27 +2222,13 @@
         if (!catalogClientNames().some((client) => client.toLowerCase() === normalized.toLowerCase())) {
           throw new Error("Client not found.");
         }
-        if (state.storageMode === "remote") {
-          await mutatePersistentState("assign_manager_client", {
-            managerId: user.id,
-            clientName: normalized,
-          });
-        } else {
-          if (
-            !state.assignments.managerClients.some(
-              (item) => item.managerId === user.id && item.client === normalized
-            )
-          ) {
-            state.assignments.managerClients.push({
-              managerId: user.id,
-              client: normalized,
-            });
-          }
-          saveLocalAssignments();
-        }
+        await mutatePersistentState("assign_manager_client", {
+          managerId: user.id,
+          clientName: normalized,
+        });
         setUserFeedback(`Assigned ${user.displayName} to ${normalized}.`, false);
       } else if (button.dataset.userUnassignClient) {
-        if (!isManager(user)) {
+        if (normalizeLevel(user.level) < 3) {
           throw new Error("Only managers can be unassigned from clients.");
         }
         const clientName = window.prompt("Unassign client", "");
@@ -2875,20 +2239,13 @@
         if (!normalized) {
           throw new Error("Client name is required.");
         }
-        if (state.storageMode === "remote") {
-          await mutatePersistentState("unassign_manager_client", {
-            managerId: user.id,
-            clientName: normalized,
-          });
-        } else {
-          state.assignments.managerClients = state.assignments.managerClients.filter(
-            (item) => !(item.managerId === user.id && item.client === normalized)
-          );
-          saveLocalAssignments();
-        }
+        await mutatePersistentState("unassign_manager_client", {
+          managerId: user.id,
+          clientName: normalized,
+        });
         setUserFeedback(`Unassigned ${user.displayName} from ${normalized}.`, false);
       } else if (button.dataset.userAssignProject) {
-        if (!isManager(user)) {
+        if (normalizeLevel(user.level) < 3) {
           throw new Error("Only managers can be assigned to projects.");
         }
         const clientName = window.prompt("Assign project: client name", "");
@@ -2908,32 +2265,14 @@
         if (!clientProjects.includes(project)) {
           throw new Error("Project not found.");
         }
-        if (state.storageMode === "remote") {
-          await mutatePersistentState("assign_manager_project", {
-            managerId: user.id,
-            clientName: client,
-            projectName: project,
-          });
-        } else {
-          if (
-            !state.assignments.managerProjects.some(
-              (item) =>
-                item.managerId === user.id &&
-                item.client === client &&
-                item.project === project
-            )
-          ) {
-            state.assignments.managerProjects.push({
-              managerId: user.id,
-              client,
-              project,
-            });
-          }
-          saveLocalAssignments();
-        }
+        await mutatePersistentState("assign_manager_project", {
+          managerId: user.id,
+          clientName: client,
+          projectName: project,
+        });
         setUserFeedback(`Assigned ${user.displayName} to ${project}.`, false);
       } else if (button.dataset.userUnassignProject) {
-        if (!isManager(user)) {
+        if (normalizeLevel(user.level) < 3) {
           throw new Error("Only managers can be unassigned from projects.");
         }
         const clientName = window.prompt("Unassign project: client name", "");
@@ -2949,23 +2288,11 @@
         if (!client || !project) {
           throw new Error("Client and project are required.");
         }
-        if (state.storageMode === "remote") {
-          await mutatePersistentState("unassign_manager_project", {
-            managerId: user.id,
-            clientName: client,
-            projectName: project,
-          });
-        } else {
-          state.assignments.managerProjects = state.assignments.managerProjects.filter(
-            (item) =>
-              !(
-                item.managerId === user.id &&
-                item.client === client &&
-                item.project === project
-              )
-          );
-          saveLocalAssignments();
-        }
+        await mutatePersistentState("unassign_manager_project", {
+          managerId: user.id,
+          clientName: client,
+          projectName: project,
+        });
         setUserFeedback(`Unassigned ${user.displayName} from ${project}.`, false);
       }
     } catch (error) {
@@ -3050,7 +2377,7 @@
   function render() {
     renderAuthUi();
 
-    if (state.storageMode === "remote" && !state.currentUser) {
+    if (!state.currentUser) {
       postHeight();
       return;
     }
@@ -3205,43 +2532,7 @@
     }
 
     try {
-      if (state.storageMode === "local") {
-        const targetUser = getUserByDisplayName(nextEntry.user);
-        if (!targetUser) {
-          feedback("Team member not found.", true);
-          return;
-        }
-        if (!canUserAccessProject(state.currentUser, nextEntry.client, nextEntry.project)) {
-          feedback("You are not assigned to this project.", true);
-          return;
-        }
-        if (isManager(state.currentUser)) {
-          if (targetUser.id !== state.currentUser.id && !isStaff(targetUser)) {
-            feedback("Managers can only edit staff time.", true);
-            return;
-          }
-        } else if (isStaff(state.currentUser)) {
-          if (targetUser.id !== state.currentUser.id) {
-            feedback("You can only save entries for your own account.", true);
-            return;
-          }
-        }
-        if (isStaff(targetUser) && !isUserAssignedToProject(targetUser.id, nextEntry.client, nextEntry.project)) {
-          feedback("Staff member is not assigned to this project.", true);
-          return;
-        }
-      }
-      if (state.storageMode === "remote") {
-        await mutatePersistentState("save_entry", { entry: nextEntry });
-      } else if (state.editingId) {
-        state.entries = state.entries.map((entry) =>
-          entry.id === state.editingId ? nextEntry : entry
-        );
-        saveEntries();
-      } else {
-        state.entries.unshift(nextEntry);
-        saveEntries();
-      }
+      await mutatePersistentState("save_entry", { entry: nextEntry });
     } catch (error) {
       feedback(error.message || "Unable to save entry.", true);
       return;
@@ -3425,11 +2716,32 @@
   refs.exportCsv.addEventListener("click", exportCsv);
   refs.addUserForm.addEventListener("submit", handleAddUser);
   refs.userList.addEventListener("click", handleUserListAction);
+  if (refs.levelLabelsForm) {
+    refs.levelLabelsForm.addEventListener("submit", async function (event) {
+      event.preventDefault();
+      if (!isGlobalAdmin(state.currentUser)) {
+        feedback("Only Level 6 Admins can update level labels.", true);
+        return;
+      }
+      const formData = new FormData(refs.levelLabelsForm);
+      const labels = {};
+      for (let level = 1; level <= 6; level += 1) {
+        labels[level] = String(formData.get(`level_${level}`) || "").trim();
+      }
+      try {
+        await mutatePersistentState("update_level_labels", { labels });
+        feedback("Level labels updated.", false);
+        render();
+      } catch (error) {
+        feedback(error.message || "Unable to update level labels.", true);
+      }
+    });
+  }
 
   refs.addClientForm.addEventListener("submit", async function (event) {
     event.preventDefault();
-    if (!isGlobalAdmin(state.currentUser)) {
-      feedback("Only Global Admins can add clients.", true);
+    if (!isAdmin(state.currentUser)) {
+      feedback("Only Admins can add clients.", true);
       return;
     }
     const clientNameField = field(refs.addClientForm, "client_name");
@@ -3438,18 +2750,10 @@
     const filterClientField = field(refs.filterForm, "client");
     const filterProjectField = field(refs.filterForm, "project");
     try {
-      if (state.storageMode === "remote") {
-        await mutatePersistentState("add_client", {
-          clientName: clientNameField.value,
-        });
-        state.selectedCatalogClient = clientNameField.value.trim();
-      } else {
-        const error = addClient(clientNameField.value);
-        if (error) {
-          feedback(error, true);
-          return;
-        }
-      }
+      await mutatePersistentState("add_client", {
+        clientName: clientNameField.value,
+      });
+      state.selectedCatalogClient = clientNameField.value.trim();
     } catch (error) {
       feedback(error.message || "Unable to add client.", true);
       return;
@@ -3473,7 +2777,7 @@
   refs.addProjectForm.addEventListener("submit", async function (event) {
     event.preventDefault();
     const canCreateProject =
-      isGlobalAdmin(state.currentUser) ||
+      isAdmin(state.currentUser) ||
       (isManager(state.currentUser) &&
         canManagerAccessClient(state.currentUser, state.selectedCatalogClient));
     if (!canCreateProject) {
@@ -3486,21 +2790,10 @@
     const filterClientField = field(refs.filterForm, "client");
     const filterProjectField = field(refs.filterForm, "project");
     try {
-      if (state.storageMode === "remote") {
-        await mutatePersistentState("add_project", {
-          clientName: state.selectedCatalogClient,
-          projectName: projectNameField.value,
-        });
-      } else {
-        const error = addProject(
-          state.selectedCatalogClient,
-          projectNameField.value
-        );
-        if (error) {
-          feedback(error, true);
-          return;
-        }
-      }
+      await mutatePersistentState("add_project", {
+        clientName: state.selectedCatalogClient,
+        projectName: projectNameField.value,
+      });
     } catch (error) {
       feedback(error.message || "Unable to add project.", true);
       return;
@@ -3525,8 +2818,8 @@
   refs.clientList.addEventListener("click", async function (event) {
     const assignManagers = event.target.closest("[data-assign-managers]");
     if (assignManagers) {
-      if (!isGlobalAdmin(state.currentUser)) {
-        feedback("Only Global Admins can assign managers.", true);
+      if (!isAdmin(state.currentUser)) {
+        feedback("Only Admins can assign managers.", true);
         return;
       }
       memberModalState.mode = "client-assign";
@@ -3538,8 +2831,8 @@
 
     const unassignManagers = event.target.closest("[data-unassign-managers]");
     if (unassignManagers) {
-      if (!isGlobalAdmin(state.currentUser)) {
-        feedback("Only Global Admins can unassign managers.", true);
+      if (!isAdmin(state.currentUser)) {
+        feedback("Only Admins can unassign managers.", true);
         return;
       }
       memberModalState.mode = "client-unassign";
@@ -3551,8 +2844,8 @@
 
     const editButton = event.target.closest("[data-edit-client]");
     if (editButton) {
-      if (!isGlobalAdmin(state.currentUser)) {
-        feedback("Only Global Admins can edit clients.", true);
+      if (!isAdmin(state.currentUser)) {
+        feedback("Only Admins can edit clients.", true);
         return;
       }
       const clientName = editButton.dataset.editClient;
@@ -3562,26 +2855,15 @@
       }
 
       try {
-        if (state.storageMode === "remote") {
-          await mutatePersistentState("rename_client", {
-            clientName,
-            nextName,
-          });
-          if (state.selectedCatalogClient === clientName) {
-            state.selectedCatalogClient = nextName.trim();
-          }
-          if (state.filters.client === clientName) {
-            state.filters.client = nextName.trim();
-          }
-        } else {
-          const message = renameClient(clientName, nextName);
-          if (message) {
-            feedback(message, message !== "");
-            if (message) {
-              render();
-            }
-            return;
-          }
+        await mutatePersistentState("rename_client", {
+          clientName,
+          nextName,
+        });
+        if (state.selectedCatalogClient === clientName) {
+          state.selectedCatalogClient = nextName.trim();
+        }
+        if (state.filters.client === clientName) {
+          state.filters.client = nextName.trim();
         }
       } catch (error) {
         feedback(error.message || "Unable to update client.", true);
@@ -3596,8 +2878,8 @@
 
     const deleteButton = event.target.closest("[data-delete-client]");
     if (deleteButton) {
-      if (!isGlobalAdmin(state.currentUser)) {
-        feedback("Only Global Admins can remove clients.", true);
+      if (!isAdmin(state.currentUser)) {
+        feedback("Only Admins can remove clients.", true);
         return;
       }
       const clientName = deleteButton.dataset.deleteClient;
@@ -3615,23 +2897,15 @@
 
       let message = "";
       try {
-        if (state.storageMode === "remote") {
-          const result = await mutatePersistentState("remove_client", {
-            clientName,
-          });
-          message = result?.message || "";
-          if (state.selectedCatalogClient === clientName) {
-            state.selectedCatalogClient = "";
-          }
-          if (state.filters.client === clientName) {
-            state.filters.client = "";
-          }
-        } else {
-          message = removeClient(clientName);
-          if (message === "Client not found.") {
-            feedback(message, true);
-            return;
-          }
+        const result = await mutatePersistentState("remove_client", {
+          clientName,
+        });
+        message = result?.message || "";
+        if (state.selectedCatalogClient === clientName) {
+          state.selectedCatalogClient = "";
+        }
+        if (state.filters.client === clientName) {
+          state.filters.client = "";
         }
       } catch (error) {
         feedback(error.message || "Unable to remove client.", true);
@@ -3667,8 +2941,8 @@
   refs.projectList.addEventListener("click", async function (event) {
     const assignManagersProject = event.target.closest("[data-assign-managers-project]");
     if (assignManagersProject) {
-      if (!isGlobalAdmin(state.currentUser)) {
-        feedback("Only Global Admins can assign managers.", true);
+      if (!isAdmin(state.currentUser)) {
+        feedback("Only Admins can assign managers.", true);
         return;
       }
       memberModalState.mode = "project-assign-manager";
@@ -3680,8 +2954,8 @@
 
     const unassignManagersProject = event.target.closest("[data-unassign-managers-project]");
     if (unassignManagersProject) {
-      if (!isGlobalAdmin(state.currentUser)) {
-        feedback("Only Global Admins can unassign managers.", true);
+      if (!isAdmin(state.currentUser)) {
+        feedback("Only Admins can unassign managers.", true);
         return;
       }
       memberModalState.mode = "project-unassign-manager";
@@ -3693,8 +2967,8 @@
 
     const editButton = event.target.closest("[data-edit-project]");
     if (editButton) {
-      if (!isGlobalAdmin(state.currentUser)) {
-        feedback("Only Global Admins can edit projects.", true);
+      if (!isAdmin(state.currentUser)) {
+        feedback("Only Admins can edit projects.", true);
         return;
       }
       const projectName = editButton.dataset.editProject;
@@ -3704,27 +2978,16 @@
       }
 
       try {
-        if (state.storageMode === "remote") {
-          await mutatePersistentState("rename_project", {
-            clientName: state.selectedCatalogClient,
-            projectName,
-            nextName,
-          });
-          if (
-            state.filters.client === state.selectedCatalogClient &&
-            state.filters.project === projectName
-          ) {
-            state.filters.project = nextName.trim();
-          }
-        } else {
-          const message = renameProject(state.selectedCatalogClient, projectName, nextName);
-          if (message) {
-            feedback(message, message !== "");
-            if (message) {
-              render();
-            }
-            return;
-          }
+        await mutatePersistentState("rename_project", {
+          clientName: state.selectedCatalogClient,
+          projectName,
+          nextName,
+        });
+        if (
+          state.filters.client === state.selectedCatalogClient &&
+          state.filters.project === projectName
+        ) {
+          state.filters.project = nextName.trim();
         }
       } catch (error) {
         feedback(error.message || "Unable to update project.", true);
@@ -3741,7 +3004,7 @@
     if (deleteButton) {
       const projectName = deleteButton.dataset.deleteProject;
       const canDeleteProject =
-        isGlobalAdmin(state.currentUser) ||
+        isAdmin(state.currentUser) ||
         (isManager(state.currentUser) &&
           projectCreatedBy(state.selectedCatalogClient, projectName) ===
             state.currentUser?.id);
@@ -3763,24 +3026,16 @@
 
       let message = "";
       try {
-        if (state.storageMode === "remote") {
-          const result = await mutatePersistentState("remove_project", {
-            clientName: state.selectedCatalogClient,
-            projectName,
-          });
-          message = result?.message || "";
-          if (
-            state.filters.client === state.selectedCatalogClient &&
-            state.filters.project === projectName
-          ) {
-            state.filters.project = "";
-          }
-        } else {
-          message = removeProject(state.selectedCatalogClient, projectName);
-          if (message === "Project not found.") {
-            feedback(message, true);
-            return;
-          }
+        const result = await mutatePersistentState("remove_project", {
+          clientName: state.selectedCatalogClient,
+          projectName,
+        });
+        message = result?.message || "";
+        if (
+          state.filters.client === state.selectedCatalogClient &&
+          state.filters.project === projectName
+        ) {
+          state.filters.project = "";
         }
       } catch (error) {
         feedback(error.message || "Unable to remove project.", true);
@@ -3796,7 +3051,7 @@
     const assignMembersButton = event.target.closest("[data-assign-members]");
     if (assignMembersButton) {
       if (
-        !isGlobalAdmin(state.currentUser) &&
+        !isAdmin(state.currentUser) &&
         !(
           isManager(state.currentUser) &&
           canManagerAccessProject(
@@ -3819,7 +3074,7 @@
     const removeMembersButton = event.target.closest("[data-remove-members]");
     if (removeMembersButton) {
       if (
-        !isGlobalAdmin(state.currentUser) &&
+        !isAdmin(state.currentUser) &&
         !(
           isManager(state.currentUser) &&
           canManagerAccessProject(
@@ -3891,36 +3146,7 @@
       }
 
       try {
-        if (state.storageMode === "remote") {
-          await mutatePersistentState("delete_entry", { id });
-        } else {
-          const targetUser = getUserByDisplayName(entry.user);
-          if (!targetUser) {
-            feedback("Team member not found.", true);
-            return;
-          }
-          if (!canUserAccessProject(state.currentUser, entry.client, entry.project)) {
-            feedback("You are not assigned to this project.", true);
-            return;
-          }
-          if (isManager(state.currentUser)) {
-            if (targetUser.id !== state.currentUser.id && !isStaff(targetUser)) {
-              feedback("Managers can only edit staff time.", true);
-              return;
-            }
-          } else if (isStaff(state.currentUser)) {
-            if (targetUser.id !== state.currentUser.id) {
-              feedback("You can only delete your own entries.", true);
-              return;
-            }
-            if (!isUserAssignedToProject(state.currentUser.id, entry.client, entry.project)) {
-              feedback("You are not assigned to this project.", true);
-              return;
-            }
-          }
-          state.entries = state.entries.filter((item) => item.id !== id);
-          saveEntries();
-        }
+        await mutatePersistentState("delete_entry", { id });
       } catch (error) {
         feedback(error.message || "Unable to delete entry.", true);
         return;
@@ -3956,10 +3182,10 @@
             )
             .map((input) => input.dataset.memberId);
 
-      const roleSelections = Array.from(
-        refs.membersList.querySelectorAll("select[data-role-select]")
+      const levelSelections = Array.from(
+        refs.membersList.querySelectorAll("select[data-level-select]")
       ).reduce(function (acc, select) {
-        acc[select.dataset.roleSelect] = select.value;
+        acc[select.dataset.levelSelect] = Number(select.value);
         return acc;
       }, {});
 
@@ -3975,156 +3201,71 @@
           if (!user) {
             continue;
           }
-          const nextRole = roleSelections[userId] || normalizeRole(user.role);
-          if (isGlobalAdmin(state.currentUser) && nextRole !== normalizeRole(user.role)) {
+          const nextLevel = normalizeLevel(
+            levelSelections[userId] ?? user.level
+          );
+          if (isGlobalAdmin(state.currentUser) && nextLevel !== normalizeLevel(user.level)) {
             if (
               isGlobalAdmin(user) &&
-              !isGlobalAdmin({ role: nextRole }) &&
+              nextLevel < 6 &&
               state.users.filter((candidate) => isGlobalAdmin(candidate)).length <= 1
             ) {
-              throw new Error("At least one Global Admin account is required.");
+              throw new Error("At least one Admin account is required.");
             }
-            if (state.storageMode === "remote") {
-              await mutatePersistentState("update_user", {
-                userId: user.id,
-                displayName: user.displayName,
-                username: user.username,
-                role: nextRole,
-              });
-            } else {
-              state.users = state.users.map((candidate) =>
-                candidate.id === user.id ? { ...candidate, role: nextRole } : candidate
-              );
-              if (nextRole !== "manager") {
-                state.assignments.managerClients = state.assignments.managerClients.filter(
-                  (item) => item.managerId !== user.id
-                );
-                state.assignments.managerProjects = state.assignments.managerProjects.filter(
-                  (item) => item.managerId !== user.id
-                );
-                saveLocalAssignments();
-              }
-              saveLocalUsers();
-            }
+            await mutatePersistentState("update_user", {
+              userId: user.id,
+              displayName: user.displayName,
+              username: user.username,
+              level: nextLevel,
+            });
           }
 
-          const effectiveRole = normalizeRole(nextRole || user.role);
+          const effectiveLevel = normalizeLevel(nextLevel || user.level);
 
           if (mode === "project-add") {
-            if (effectiveRole !== "staff") {
+            if (effectiveLevel > 2) {
               skippedNonStaff += 1;
               continue;
             }
-            if (state.storageMode === "remote") {
-              await mutatePersistentState("add_project_member", {
-                userId: user.id,
-                clientName: client,
-                projectName: project,
-              });
-            } else {
-              if (!isUserAssignedToProject(user.id, client, project)) {
-                state.assignments.projectMembers.push({
-                  userId: user.id,
-                  client,
-                  project,
-                });
-                saveLocalProjectMembers();
-              }
-            }
+            await mutatePersistentState("add_project_member", {
+              userId: user.id,
+              clientName: client,
+              projectName: project,
+            });
           } else if (mode === "project-remove") {
-            if (state.storageMode === "remote") {
-              await mutatePersistentState("remove_project_member", {
-                userId: user.id,
-                clientName: client,
-                projectName: project,
-              });
-            } else {
-              state.assignments.projectMembers = state.assignments.projectMembers.filter(
-                (item) =>
-                  !(
-                    item.userId === user.id &&
-                    item.client === client &&
-                    item.project === project
-                  )
-              );
-              saveLocalProjectMembers();
-            }
+            await mutatePersistentState("remove_project_member", {
+              userId: user.id,
+              clientName: client,
+              projectName: project,
+            });
           } else if (mode === "client-assign") {
-            if (effectiveRole !== "manager") {
+            if (effectiveLevel < 3) {
               continue;
             }
-            if (state.storageMode === "remote") {
-              await mutatePersistentState("assign_manager_client", {
-                managerId: user.id,
-                clientName: client,
-              });
-            } else {
-              if (
-                !state.assignments.managerClients.some(
-                  (item) => item.managerId === user.id && item.client === client
-                )
-              ) {
-                state.assignments.managerClients.push({ managerId: user.id, client });
-                saveLocalAssignments();
-              }
-            }
+            await mutatePersistentState("assign_manager_client", {
+              managerId: user.id,
+              clientName: client,
+            });
           } else if (mode === "client-unassign") {
-            if (state.storageMode === "remote") {
-              await mutatePersistentState("unassign_manager_client", {
-                managerId: user.id,
-                clientName: client,
-              });
-            } else {
-              state.assignments.managerClients = state.assignments.managerClients.filter(
-                (item) => !(item.managerId === user.id && item.client === client)
-              );
-              saveLocalAssignments();
-            }
+            await mutatePersistentState("unassign_manager_client", {
+              managerId: user.id,
+              clientName: client,
+            });
           } else if (mode === "project-assign-manager") {
-            if (effectiveRole !== "manager") {
+            if (effectiveLevel < 3) {
               continue;
             }
-            if (state.storageMode === "remote") {
-              await mutatePersistentState("assign_manager_project", {
-                managerId: user.id,
-                clientName: client,
-                projectName: project,
-              });
-            } else {
-              if (
-                !state.assignments.managerProjects.some(
-                  (item) =>
-                    item.managerId === user.id &&
-                    item.client === client &&
-                    item.project === project
-                )
-              ) {
-                state.assignments.managerProjects.push({
-                  managerId: user.id,
-                  client,
-                  project,
-                });
-                saveLocalAssignments();
-              }
-            }
+            await mutatePersistentState("assign_manager_project", {
+              managerId: user.id,
+              clientName: client,
+              projectName: project,
+            });
           } else if (mode === "project-unassign-manager") {
-            if (state.storageMode === "remote") {
-              await mutatePersistentState("unassign_manager_project", {
-                managerId: user.id,
-                clientName: client,
-                projectName: project,
-              });
-            } else {
-              state.assignments.managerProjects = state.assignments.managerProjects.filter(
-                (item) =>
-                  !(
-                    item.managerId === user.id &&
-                    item.client === client &&
-                    item.project === project
-                  )
-              );
-              saveLocalAssignments();
-            }
+            await mutatePersistentState("unassign_manager_project", {
+              managerId: user.id,
+              clientName: client,
+              projectName: project,
+            });
           }
         }
       } catch (error) {
@@ -4133,7 +3274,7 @@
       }
 
       const postMessage = skippedNonStaff
-        ? "Only staff can be added to projects; managers were skipped."
+        ? "Only Levels 1-2 can be added to projects; higher levels were skipped."
         : "";
       closeMembersModal();
       render();
@@ -4167,17 +3308,13 @@
     await loadPersistentState();
     resetFilters();
 
-    if (state.storageMode === "remote" && !state.currentUser) {
+    if (!state.currentUser) {
       if (loadSessionToken() && !state.bootstrapRequired) {
         saveSessionToken("");
         setAuthFeedback("Your saved session could not be restored. Please sign in again.", true);
       }
       render();
       return;
-    }
-
-    if (state.storageMode === "local") {
-      initLocalState();
     }
 
     syncFilterCatalogs(state.filters);

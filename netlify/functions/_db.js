@@ -17,7 +17,37 @@ async function getSql() {
   return neon();
 }
 
+async function ensureDefaultAccount(sql) {
+  await sql`
+    CREATE TABLE IF NOT EXISTS accounts (
+      id UUID PRIMARY KEY,
+      name TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+
+  const existing = await sql`
+    SELECT id
+    FROM accounts
+    ORDER BY created_at
+    LIMIT 1
+  `;
+
+  if (existing[0]?.id) {
+    return existing[0].id;
+  }
+
+  const inserted = await sql`
+    INSERT INTO accounts (id, name)
+    VALUES (${randomId()}, 'Default')
+    RETURNING id
+  `;
+  return inserted[0].id;
+}
+
 async function ensureSchema(sql) {
+  const accountId = await ensureDefaultAccount(sql);
+
   await sql`
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
@@ -25,6 +55,8 @@ async function ensureSchema(sql) {
       display_name TEXT NOT NULL,
       password_hash TEXT NOT NULL,
       role TEXT NOT NULL,
+      level INT,
+      account_id UUID REFERENCES accounts(id),
       is_active BOOLEAN NOT NULL DEFAULT TRUE,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -35,19 +67,35 @@ async function ensureSchema(sql) {
   await sql`UPDATE users SET role = 'global_admin' WHERE role = 'admin'`;
   await sql`UPDATE users SET role = 'staff' WHERE role = 'member'`;
   await sql`
+    UPDATE users
+    SET level = CASE
+      WHEN level IS NOT NULL THEN level
+      WHEN role = 'global_admin' THEN 6
+      WHEN role = 'manager' THEN 3
+      ELSE 1
+    END
+  `;
+  await sql`UPDATE users SET account_id = ${accountId} WHERE account_id IS NULL`;
+  await sql`
     ALTER TABLE users
-    ADD CONSTRAINT users_role_check
-    CHECK (role IN ('global_admin', 'manager', 'staff'))
+    ADD CONSTRAINT users_level_check
+    CHECK (level BETWEEN 1 AND 6)
   `;
 
+  await sql`
+    DROP INDEX IF EXISTS users_username_ci_idx
+  `;
   await sql`
     CREATE UNIQUE INDEX IF NOT EXISTS users_username_ci_idx
-    ON users (LOWER(username))
+    ON users (account_id, LOWER(username))
   `;
 
   await sql`
+    DROP INDEX IF EXISTS users_display_name_ci_idx
+  `;
+  await sql`
     CREATE UNIQUE INDEX IF NOT EXISTS users_display_name_ci_idx
-    ON users (LOWER(display_name))
+    ON users (account_id, LOWER(display_name))
     WHERE is_active = TRUE
   `;
 
@@ -64,20 +112,30 @@ async function ensureSchema(sql) {
   await sql`
     CREATE TABLE IF NOT EXISTS clients (
       id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+      account_id UUID REFERENCES accounts(id),
       name TEXT NOT NULL,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `;
 
   await sql`
+    ALTER TABLE clients
+    ADD COLUMN IF NOT EXISTS account_id UUID REFERENCES accounts(id)
+  `;
+  await sql`UPDATE clients SET account_id = ${accountId} WHERE account_id IS NULL`;
+  await sql`
+    DROP INDEX IF EXISTS clients_name_ci_idx
+  `;
+  await sql`
     CREATE UNIQUE INDEX IF NOT EXISTS clients_name_ci_idx
-    ON clients (LOWER(name))
+    ON clients (account_id, LOWER(name))
   `;
 
   await sql`
     CREATE TABLE IF NOT EXISTS projects (
       id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
       client_id BIGINT NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+      account_id UUID REFERENCES accounts(id),
       name TEXT NOT NULL,
       created_by TEXT REFERENCES users(id),
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -88,6 +146,11 @@ async function ensureSchema(sql) {
     ALTER TABLE projects
     ADD COLUMN IF NOT EXISTS created_by TEXT REFERENCES users(id)
   `;
+  await sql`
+    ALTER TABLE projects
+    ADD COLUMN IF NOT EXISTS account_id UUID REFERENCES accounts(id)
+  `;
+  await sql`UPDATE projects SET account_id = ${accountId} WHERE account_id IS NULL`;
 
   await sql`
     CREATE UNIQUE INDEX IF NOT EXISTS projects_client_name_ci_idx
@@ -99,33 +162,51 @@ async function ensureSchema(sql) {
       id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
       manager_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       client_id BIGINT NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+      account_id UUID REFERENCES accounts(id),
       assigned_by TEXT REFERENCES users(id),
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       UNIQUE (manager_id, client_id)
     )
   `;
+  await sql`
+    ALTER TABLE manager_clients
+    ADD COLUMN IF NOT EXISTS account_id UUID REFERENCES accounts(id)
+  `;
+  await sql`UPDATE manager_clients SET account_id = ${accountId} WHERE account_id IS NULL`;
 
   await sql`
     CREATE TABLE IF NOT EXISTS manager_projects (
       id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
       manager_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       project_id BIGINT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      account_id UUID REFERENCES accounts(id),
       assigned_by TEXT REFERENCES users(id),
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       UNIQUE (manager_id, project_id)
     )
   `;
+  await sql`
+    ALTER TABLE manager_projects
+    ADD COLUMN IF NOT EXISTS account_id UUID REFERENCES accounts(id)
+  `;
+  await sql`UPDATE manager_projects SET account_id = ${accountId} WHERE account_id IS NULL`;
 
   await sql`
     CREATE TABLE IF NOT EXISTS project_members (
       id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
       project_id BIGINT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
       user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      account_id UUID REFERENCES accounts(id),
       assigned_by TEXT REFERENCES users(id),
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       UNIQUE (project_id, user_id)
     )
   `;
+  await sql`
+    ALTER TABLE project_members
+    ADD COLUMN IF NOT EXISTS account_id UUID REFERENCES accounts(id)
+  `;
+  await sql`UPDATE project_members SET account_id = ${accountId} WHERE account_id IS NULL`;
 
   await sql`
     CREATE TABLE IF NOT EXISTS entries (
@@ -137,16 +218,59 @@ async function ensureSchema(sql) {
       task TEXT NOT NULL DEFAULT '',
       hours NUMERIC(10, 2) NOT NULL CHECK (hours > 0 AND hours <= 24),
       notes TEXT NOT NULL DEFAULT '',
+      account_id UUID REFERENCES accounts(id),
       created_at TIMESTAMPTZ NOT NULL,
       updated_at TIMESTAMPTZ NOT NULL
     )
   `;
+  await sql`
+    ALTER TABLE entries
+    ADD COLUMN IF NOT EXISTS account_id UUID REFERENCES accounts(id)
+  `;
+  await sql`UPDATE entries SET account_id = ${accountId} WHERE account_id IS NULL`;
 
   await sql`
-    INSERT INTO project_members (project_id, user_id, assigned_by, created_at)
+    CREATE TABLE IF NOT EXISTS level_labels (
+      id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+      account_id UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      level INT NOT NULL CHECK (level BETWEEN 1 AND 6),
+      label TEXT NOT NULL,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (account_id, level)
+    )
+  `;
+
+  const labelRows = await sql`
+    SELECT level
+    FROM level_labels
+    WHERE account_id = ${accountId}
+  `;
+  const existingLevels = new Set(labelRows.map((row) => row.level));
+  const defaultLabels = {
+    1: "Staff",
+    2: "Senior",
+    3: "Manager",
+    4: "Director",
+    5: "Partner",
+    6: "Admin",
+  };
+  for (const [level, label] of Object.entries(defaultLabels)) {
+    const levelInt = Number(level);
+    if (!existingLevels.has(levelInt)) {
+      await sql`
+        INSERT INTO level_labels (account_id, level, label)
+        VALUES (${accountId}, ${levelInt}, ${label})
+        ON CONFLICT (account_id, level) DO NOTHING
+      `;
+    }
+  }
+
+  await sql`
+    INSERT INTO project_members (project_id, user_id, account_id, assigned_by, created_at)
     SELECT DISTINCT
       projects.id,
       users.id,
+      ${accountId},
       users.id,
       NOW()
     FROM entries
@@ -155,31 +279,36 @@ async function ensureSchema(sql) {
     JOIN projects ON projects.client_id = clients.id
       AND LOWER(projects.name) = LOWER(entries.project_name)
     WHERE users.is_active = TRUE
+      AND clients.account_id = ${accountId}
     ON CONFLICT (project_id, user_id) DO NOTHING
   `;
 
-  await seedDefaultCatalog(sql);
+  await seedDefaultCatalog(sql, accountId);
   await sql`DELETE FROM sessions WHERE expires_at <= NOW()`;
 }
 
-async function seedDefaultCatalog(sql) {
-  const [{ count }] = await sql`SELECT COUNT(*)::INT AS count FROM clients`;
+async function seedDefaultCatalog(sql, accountId) {
+  const [{ count }] = await sql`
+    SELECT COUNT(*)::INT AS count
+    FROM clients
+    WHERE account_id = ${accountId}
+  `;
   if (count > 0) {
     return;
   }
 
   for (const [clientName, projects] of Object.entries(DEFAULT_CLIENT_PROJECTS)) {
     const inserted = await sql`
-      INSERT INTO clients (name)
-      VALUES (${clientName})
+      INSERT INTO clients (account_id, name)
+      VALUES (${accountId}, ${clientName})
       RETURNING id
     `;
 
     const clientId = inserted[0].id;
     for (const projectName of projects) {
       await sql`
-        INSERT INTO projects (client_id, name)
-        VALUES (${clientId}, ${projectName})
+        INSERT INTO projects (client_id, account_id, name)
+        VALUES (${clientId}, ${accountId}, ${projectName})
       `;
     }
   }
@@ -224,18 +353,31 @@ function normalizeText(value) {
   return typeof value === "string" ? value.trim() : "";
 }
 
-function normalizeRole(value) {
-  const role = normalizeText(value);
-  if (role === "admin") return "global_admin";
-  if (role === "member") return "staff";
-  if (role === "global_admin" || role === "manager" || role === "staff") {
-    return role;
+function normalizeLevel(value) {
+  if (typeof value === "number" && Number.isInteger(value) && value >= 1 && value <= 6) {
+    return value;
   }
-  return "staff";
+  const raw = normalizeText(value).toLowerCase();
+  const numeric = Number(raw);
+  if (Number.isInteger(numeric) && numeric >= 1 && numeric <= 6) {
+    return numeric;
+  }
+  if (raw === "staff") return 1;
+  if (raw === "senior") return 2;
+  if (raw === "manager") return 3;
+  if (raw === "director") return 4;
+  if (raw === "partner") return 5;
+  if (raw === "admin" || raw === "global_admin") return 6;
+  if (raw === "member") return 1;
+  return 1;
 }
 
-function isGlobalAdminRole(role) {
-  return normalizeRole(role) === "global_admin";
+function isSuperAdminLevel(level) {
+  return normalizeLevel(level) >= 6;
+}
+
+function isAdminLevel(level) {
+  return normalizeLevel(level) >= 5;
 }
 
 function randomId() {
@@ -315,85 +457,128 @@ async function userCount(sql) {
   return rows[0]?.count || 0;
 }
 
-async function findUserByUsername(sql, username) {
+async function findUserByUsername(sql, username, accountId) {
   const normalized = normalizeText(username);
   if (!normalized) {
     return null;
   }
 
-  const rows = await sql`
-    SELECT *
-    FROM users
-    WHERE LOWER(username) = LOWER(${normalized})
-    LIMIT 1
-  `;
+  const rows = accountId
+    ? await sql`
+        SELECT *
+        FROM users
+        WHERE LOWER(username) = LOWER(${normalized})
+          AND account_id = ${accountId}
+        LIMIT 1
+      `
+    : await sql`
+        SELECT *
+        FROM users
+        WHERE LOWER(username) = LOWER(${normalized})
+        LIMIT 1
+      `;
 
   return rows[0] || null;
 }
 
-async function findUserById(sql, id) {
+async function findUserById(sql, id, accountId) {
   const normalized = normalizeText(id);
   if (!normalized) {
     return null;
   }
 
-  const rows = await sql`
-    SELECT *
-    FROM users
-    WHERE id = ${normalized}
-    LIMIT 1
-  `;
+  const rows = accountId
+    ? await sql`
+        SELECT *
+        FROM users
+        WHERE id = ${normalized}
+          AND account_id = ${accountId}
+        LIMIT 1
+      `
+    : await sql`
+        SELECT *
+        FROM users
+        WHERE id = ${normalized}
+        LIMIT 1
+      `;
 
   return rows[0] || null;
 }
 
-async function findUserByDisplayName(sql, displayName) {
+async function findUserByDisplayName(sql, displayName, accountId) {
   const normalized = normalizeText(displayName);
   if (!normalized) {
     return null;
   }
 
-  const rows = await sql`
-    SELECT *
-    FROM users
-    WHERE LOWER(display_name) = LOWER(${normalized})
-      AND is_active = TRUE
-    LIMIT 1
-  `;
+  const rows = accountId
+    ? await sql`
+        SELECT *
+        FROM users
+        WHERE LOWER(display_name) = LOWER(${normalized})
+          AND is_active = TRUE
+          AND account_id = ${accountId}
+        LIMIT 1
+      `
+    : await sql`
+        SELECT *
+        FROM users
+        WHERE LOWER(display_name) = LOWER(${normalized})
+          AND is_active = TRUE
+        LIMIT 1
+      `;
 
   return rows[0] || null;
 }
 
-async function listUsers(sql) {
+async function listUsers(sql, accountId) {
   const rows = await sql`
     SELECT
       id,
       username,
       display_name AS "displayName",
-      role,
+      level,
+      account_id AS "accountId",
       is_active AS "isActive",
       created_at AS "createdAt"
     FROM users
     WHERE is_active = TRUE
+      AND account_id = ${accountId}
     ORDER BY LOWER(display_name), LOWER(username)
   `;
-  return rows.map((row) => ({ ...row, role: normalizeRole(row.role) }));
+  return rows.map((row) => ({ ...row, level: normalizeLevel(row.level) }));
 }
 
-async function adminCount(sql) {
+async function adminCount(sql, accountId) {
   const rows = await sql`
     SELECT COUNT(*)::INT AS count
     FROM users
-    WHERE is_active = TRUE AND role = 'global_admin'
+    WHERE is_active = TRUE AND level >= 6
+      AND account_id = ${accountId}
   `;
   return rows[0]?.count || 0;
+}
+
+async function listLevelLabels(sql, accountId) {
+  const rows = await sql`
+    SELECT level, label
+    FROM level_labels
+    WHERE account_id = ${accountId}
+    ORDER BY level
+  `;
+  const labels = {};
+  rows.forEach((row) => {
+    labels[row.level] = row.label;
+  });
+  return labels;
 }
 
 async function createUserRecord(sql, payload) {
   const username = normalizeText(payload.username);
   const displayName = normalizeText(payload.displayName);
   const password = String(payload.password || "");
-  const role = normalizeRole(payload.role);
+  const level = normalizeLevel(payload.level ?? payload.role);
+  const accountId = normalizeText(payload.accountId);
 
   if (!username) {
     throw new Error("Username is required.");
@@ -405,7 +590,7 @@ async function createUserRecord(sql, payload) {
     throw new Error("Password must be at least 8 characters.");
   }
 
-  if (await findUserByUsername(sql, username)) {
+  if (await findUserByUsername(sql, username, accountId)) {
     throw new Error("That username already exists.");
   }
 
@@ -414,6 +599,7 @@ async function createUserRecord(sql, payload) {
     FROM users
     WHERE LOWER(display_name) = LOWER(${displayName})
       AND is_active = TRUE
+      AND account_id = ${accountId}
     LIMIT 1
   `;
   if (existingDisplayName[0]) {
@@ -425,10 +611,11 @@ async function createUserRecord(sql, payload) {
     id: randomId(),
     username,
     displayName,
-    role,
+    level,
     createdAt: now,
     updatedAt: now,
     passwordHash: hashPassword(password),
+    accountId,
   };
 
   await sql`
@@ -438,6 +625,8 @@ async function createUserRecord(sql, payload) {
       display_name,
       password_hash,
       role,
+      level,
+      account_id,
       is_active,
       created_at,
       updated_at
@@ -447,7 +636,9 @@ async function createUserRecord(sql, payload) {
       ${user.username},
       ${user.displayName},
       ${user.passwordHash},
-      ${user.role},
+      'staff',
+      ${user.level},
+      ${user.accountId},
       TRUE,
       ${user.createdAt},
       ${user.updatedAt}
@@ -461,8 +652,8 @@ async function updateUserRecord(sql, payload, actingUser) {
   const userId = normalizeText(payload.userId);
   const displayName = normalizeText(payload.displayName);
   const username = normalizeText(payload.username);
-  const role = normalizeRole(payload.role);
-  const existingUser = await findUserById(sql, userId);
+  const level = normalizeLevel(payload.level ?? payload.role);
+  const existingUser = await findUserById(sql, userId, actingUser?.accountId);
 
   if (!existingUser || !existingUser.is_active) {
     throw new Error("User not found.");
@@ -479,6 +670,7 @@ async function updateUserRecord(sql, payload, actingUser) {
     FROM users
     WHERE LOWER(username) = LOWER(${username})
       AND id <> ${existingUser.id}
+      AND account_id = ${existingUser.account_id}
     LIMIT 1
   `;
   if (duplicateUsername[0]) {
@@ -491,16 +683,17 @@ async function updateUserRecord(sql, payload, actingUser) {
     WHERE LOWER(display_name) = LOWER(${displayName})
       AND id <> ${existingUser.id}
       AND is_active = TRUE
+      AND account_id = ${existingUser.account_id}
     LIMIT 1
   `;
   if (duplicateDisplayName[0]) {
     throw new Error("That team member name already exists.");
   }
 
-  if (isGlobalAdminRole(existingUser.role) && !isGlobalAdminRole(role)) {
-    const admins = await adminCount(sql);
+  if (isSuperAdminLevel(existingUser.level) && !isSuperAdminLevel(level)) {
+    const admins = await adminCount(sql, existingUser.account_id);
     if (admins <= 1) {
-      throw new Error("At least one Global Admin account is required.");
+      throw new Error("At least one Admin account is required.");
     }
   }
 
@@ -510,7 +703,7 @@ async function updateUserRecord(sql, payload, actingUser) {
     SET
       username = ${username},
       display_name = ${displayName},
-      role = ${role},
+      level = ${level},
       updated_at = ${updatedAt}
     WHERE id = ${existingUser.id}
   `;
@@ -523,23 +716,24 @@ async function updateUserRecord(sql, payload, actingUser) {
     `;
   }
 
-  const refreshed = await findUserById(sql, existingUser.id);
+  const refreshed = await findUserById(sql, existingUser.id, actingUser?.accountId);
   if (actingUser && actingUser.id === existingUser.id) {
     return {
       id: refreshed.id,
       username: refreshed.username,
       displayName: refreshed.display_name,
-      role: refreshed.role,
+      level: normalizeLevel(refreshed.level),
+      accountId: refreshed.account_id,
     };
   }
 
   return null;
 }
 
-async function updateUserPassword(sql, payload) {
+async function updateUserPassword(sql, payload, accountId) {
   const userId = normalizeText(payload.userId);
   const password = String(payload.password || "");
-  const existingUser = await findUserById(sql, userId);
+  const existingUser = await findUserById(sql, userId, accountId);
 
   if (!existingUser || !existingUser.is_active) {
     throw new Error("User not found.");
@@ -559,7 +753,7 @@ async function updateUserPassword(sql, payload) {
 
 async function deactivateUser(sql, payload, actingUser) {
   const userId = normalizeText(payload.userId);
-  const existingUser = await findUserById(sql, userId);
+  const existingUser = await findUserById(sql, userId, actingUser?.accountId);
 
   if (!existingUser || !existingUser.is_active) {
     throw new Error("User not found.");
@@ -567,10 +761,10 @@ async function deactivateUser(sql, payload, actingUser) {
   if (actingUser && existingUser.id === actingUser.id) {
     throw new Error("You cannot deactivate your own account.");
   }
-  if (isGlobalAdminRole(existingUser.role)) {
-    const admins = await adminCount(sql);
+  if (isSuperAdminLevel(existingUser.level)) {
+    const admins = await adminCount(sql, existingUser.account_id);
     if (admins <= 1) {
-      throw new Error("At least one Global Admin account is required.");
+      throw new Error("At least one Admin account is required.");
     }
   }
 
@@ -607,7 +801,8 @@ async function getSessionContext(sql, event, request) {
       users.id,
       users.username,
       users.display_name AS "displayName",
-      users.role
+      users.level,
+      users.account_id AS "accountId"
     FROM sessions
     JOIN users ON users.id = sessions.user_id
     WHERE sessions.token_hash = ${hashToken(token)}
@@ -619,7 +814,7 @@ async function getSessionContext(sql, event, request) {
   return {
     bootstrapRequired: false,
     currentUser: rows[0]
-      ? { ...rows[0], role: normalizeRole(rows[0].role) }
+      ? { ...rows[0], level: normalizeLevel(rows[0].level) }
       : null,
   };
 }
@@ -670,12 +865,22 @@ function requireAdmin(context) {
     return requireAuth(context);
   }
 
-  return isGlobalAdminRole(context.currentUser.role)
+  return isAdminLevel(context.currentUser.level)
     ? null
     : errorResponse(403, "Admin access required.");
 }
 
-async function findClient(sql, clientName) {
+function requireSuperAdmin(context) {
+  if (!context.currentUser) {
+    return requireAuth(context);
+  }
+
+  return isSuperAdminLevel(context.currentUser.level)
+    ? null
+    : errorResponse(403, "Admin access required.");
+}
+
+async function findClient(sql, clientName, accountId) {
   const normalized = normalizeText(clientName);
   if (!normalized) {
     return null;
@@ -685,14 +890,15 @@ async function findClient(sql, clientName) {
     SELECT id, name
     FROM clients
     WHERE LOWER(name) = LOWER(${normalized})
+      AND account_id = ${accountId}
     LIMIT 1
   `;
 
   return rows[0] || null;
 }
 
-async function findProject(sql, clientName, projectName) {
-  const client = await findClient(sql, clientName);
+async function findProject(sql, clientName, projectName, accountId) {
+  const client = await findClient(sql, clientName, accountId);
   const normalizedProject = normalizeText(projectName);
   if (!client || !normalizedProject) {
     return null;
@@ -704,13 +910,14 @@ async function findProject(sql, clientName, projectName) {
     JOIN clients ON clients.id = projects.client_id
     WHERE projects.client_id = ${client.id}
       AND LOWER(projects.name) = LOWER(${normalizedProject})
+      AND projects.account_id = ${accountId}
     LIMIT 1
   `;
 
   return rows[0] || null;
 }
 
-async function listProjects(sql) {
+async function listProjects(sql, accountId) {
   return sql`
     SELECT
       projects.id,
@@ -719,11 +926,12 @@ async function listProjects(sql) {
       projects.created_by AS "createdBy"
     FROM projects
     JOIN clients ON clients.id = projects.client_id
+    WHERE projects.account_id = ${accountId}
     ORDER BY LOWER(clients.name), LOWER(projects.name)
   `;
 }
 
-async function listManagerClientAssignments(sql) {
+async function listManagerClientAssignments(sql, accountId) {
   return sql`
     SELECT
       manager_clients.manager_id AS "managerId",
@@ -731,10 +939,11 @@ async function listManagerClientAssignments(sql) {
       clients.name AS client
     FROM manager_clients
     JOIN clients ON clients.id = manager_clients.client_id
+    WHERE manager_clients.account_id = ${accountId}
   `;
 }
 
-async function listManagerProjectAssignments(sql) {
+async function listManagerProjectAssignments(sql, accountId) {
   return sql`
     SELECT
       manager_projects.manager_id AS "managerId",
@@ -744,10 +953,11 @@ async function listManagerProjectAssignments(sql) {
     FROM manager_projects
     JOIN projects ON projects.id = manager_projects.project_id
     JOIN clients ON clients.id = projects.client_id
+    WHERE manager_projects.account_id = ${accountId}
   `;
 }
 
-async function listProjectMembers(sql) {
+async function listProjectMembers(sql, accountId) {
   return sql`
     SELECT
       project_members.project_id AS "projectId",
@@ -760,10 +970,11 @@ async function listProjectMembers(sql) {
     JOIN clients ON clients.id = projects.client_id
     JOIN users ON users.id = project_members.user_id
     WHERE users.is_active = TRUE
+      AND project_members.account_id = ${accountId}
   `;
 }
 
-async function listManagerAssignmentsForUser(sql, managerId) {
+async function listManagerAssignmentsForUser(sql, managerId, accountId) {
   const clientRows = await sql`
     SELECT
       manager_clients.manager_id AS "managerId",
@@ -772,6 +983,7 @@ async function listManagerAssignmentsForUser(sql, managerId) {
     FROM manager_clients
     JOIN clients ON clients.id = manager_clients.client_id
     WHERE manager_clients.manager_id = ${managerId}
+      AND manager_clients.account_id = ${accountId}
   `;
   const projectRows = await sql`
     SELECT
@@ -783,11 +995,12 @@ async function listManagerAssignmentsForUser(sql, managerId) {
     JOIN projects ON projects.id = manager_projects.project_id
     JOIN clients ON clients.id = projects.client_id
     WHERE manager_projects.manager_id = ${managerId}
+      AND manager_projects.account_id = ${accountId}
   `;
   return { clientRows, projectRows };
 }
 
-async function listProjectMembersForUser(sql, userId) {
+async function listProjectMembersForUser(sql, userId, accountId) {
   return sql`
     SELECT
       project_members.project_id AS "projectId",
@@ -801,10 +1014,11 @@ async function listProjectMembersForUser(sql, userId) {
     JOIN users ON users.id = project_members.user_id
     WHERE project_members.user_id = ${userId}
       AND users.is_active = TRUE
+      AND project_members.account_id = ${accountId}
   `;
 }
 
-async function listProjectMembersForProjects(sql, projectIds) {
+async function listProjectMembersForProjects(sql, projectIds, accountId) {
   if (!projectIds || !projectIds.length) {
     return [];
   }
@@ -821,19 +1035,22 @@ async function listProjectMembersForProjects(sql, projectIds) {
     JOIN users ON users.id = project_members.user_id
     WHERE project_members.project_id = ANY(${projectIds})
       AND users.is_active = TRUE
+      AND project_members.account_id = ${accountId}
   `;
 }
 
-async function getManagerScope(sql, managerId) {
+async function getManagerScope(sql, managerId, accountId) {
   const clientRows = await sql`
     SELECT client_id
     FROM manager_clients
     WHERE manager_id = ${managerId}
+      AND account_id = ${accountId}
   `;
   const projectRows = await sql`
     SELECT project_id
     FROM manager_projects
     WHERE manager_id = ${managerId}
+      AND account_id = ${accountId}
   `;
   const clientIds = clientRows.map((row) => row.client_id);
   const directProjectIds = projectRows.map((row) => row.project_id);
@@ -854,10 +1071,14 @@ async function getManagerScope(sql, managerId) {
 }
 async function loadState(sql, currentUser) {
   const normalizedUser = currentUser
-    ? { ...currentUser, role: normalizeRole(currentUser.role) }
+    ? { ...currentUser, level: normalizeLevel(currentUser.level) }
     : null;
-  const isGlobalAdmin = normalizedUser && isGlobalAdminRole(normalizedUser.role);
-  const isManager = normalizedUser && normalizedUser.role === "manager";
+  const accountId = normalizedUser?.accountId || (await ensureDefaultAccount(sql));
+  const isSuperAdmin = normalizedUser && isSuperAdminLevel(normalizedUser.level);
+  const isAdmin = normalizedUser && isAdminLevel(normalizedUser.level);
+  const isManager =
+    normalizedUser && normalizedUser.level >= 3 && normalizedUser.level <= 4;
+  const isStaff = normalizedUser && normalizedUser.level <= 2;
 
   const catalogRows = await sql`
     SELECT
@@ -865,11 +1086,12 @@ async function loadState(sql, currentUser) {
       projects.name AS project
     FROM clients
     LEFT JOIN projects ON projects.client_id = clients.id
+    WHERE clients.account_id = ${accountId}
     ORDER BY LOWER(clients.name), LOWER(projects.name)
   `;
 
   let entries = [];
-  if (isGlobalAdmin) {
+  if (isAdmin) {
     entries = await sql`
       SELECT
         id,
@@ -883,10 +1105,11 @@ async function loadState(sql, currentUser) {
         created_at AS "createdAt",
         updated_at AS "updatedAt"
       FROM entries
+      WHERE account_id = ${accountId}
       ORDER BY entry_date DESC, created_at DESC
     `;
   } else if (isManager) {
-    const scope = await getManagerScope(sql, normalizedUser.id);
+    const scope = await getManagerScope(sql, normalizedUser.id, accountId);
     if (scope.projectIds.length) {
       entries = await sql`
         SELECT
@@ -906,11 +1129,12 @@ async function loadState(sql, currentUser) {
           AND LOWER(projects.name) = LOWER(entries.project_name)
         JOIN users ON LOWER(users.display_name) = LOWER(entries.user_name)
         WHERE projects.id = ANY(${scope.projectIds})
-          AND (users.role = 'staff' OR users.id = ${normalizedUser.id})
+          AND (users.level <= 2 OR users.id = ${normalizedUser.id})
+          AND entries.account_id = ${accountId}
         ORDER BY entries.entry_date DESC, entries.created_at DESC
       `;
     }
-  } else if (normalizedUser) {
+  } else if (normalizedUser && isStaff) {
     entries = await sql`
       SELECT
         id,
@@ -925,41 +1149,55 @@ async function loadState(sql, currentUser) {
         updated_at AS "updatedAt"
       FROM entries
       WHERE user_name = ${normalizedUser.displayName}
+        AND account_id = ${accountId}
       ORDER BY entry_date DESC, created_at DESC
     `;
   }
 
-  const users = isGlobalAdmin || isManager
-    ? await listUsers(sql)
+  const users = isAdmin || isManager
+    ? await listUsers(sql, accountId)
     : normalizedUser
       ? [{
           id: normalizedUser.id,
           username: normalizedUser.username,
           displayName: normalizedUser.displayName,
-          role: normalizedUser.role,
+          level: normalizedUser.level,
           isActive: true,
+          accountId: normalizedUser.accountId,
         }]
       : [];
 
-  const projects = await listProjects(sql);
+  const projects = await listProjects(sql, accountId);
   const assignments = {
     managerClients: [],
     managerProjects: [],
     projectMembers: [],
   };
 
-  if (isGlobalAdmin) {
-    assignments.managerClients = await listManagerClientAssignments(sql);
-    assignments.managerProjects = await listManagerProjectAssignments(sql);
-    assignments.projectMembers = await listProjectMembers(sql);
+  if (isAdmin) {
+    assignments.managerClients = await listManagerClientAssignments(sql, accountId);
+    assignments.managerProjects = await listManagerProjectAssignments(sql, accountId);
+    assignments.projectMembers = await listProjectMembers(sql, accountId);
   } else if (isManager && normalizedUser) {
-    const { clientRows, projectRows } = await listManagerAssignmentsForUser(sql, normalizedUser.id);
+    const { clientRows, projectRows } = await listManagerAssignmentsForUser(
+      sql,
+      normalizedUser.id,
+      accountId
+    );
     assignments.managerClients = clientRows;
     assignments.managerProjects = projectRows;
-    const scope = await getManagerScope(sql, normalizedUser.id);
-    assignments.projectMembers = await listProjectMembersForProjects(sql, scope.projectIds);
+    const scope = await getManagerScope(sql, normalizedUser.id, accountId);
+    assignments.projectMembers = await listProjectMembersForProjects(
+      sql,
+      scope.projectIds,
+      accountId
+    );
   } else if (normalizedUser) {
-    assignments.projectMembers = await listProjectMembersForUser(sql, normalizedUser.id);
+    assignments.projectMembers = await listProjectMembersForUser(
+      sql,
+      normalizedUser.id,
+      accountId
+    );
   }
 
   const catalog = {};
@@ -975,11 +1213,13 @@ async function loadState(sql, currentUser) {
   return {
     bootstrapRequired: false,
     currentUser: normalizedUser,
+    account: { id: accountId },
     users,
     catalog,
     entries,
     projects,
     assignments,
+    levelLabels: await listLevelLabels(sql, accountId),
   };
 }
 
@@ -988,6 +1228,7 @@ module.exports = {
   createSession,
   createUserRecord,
   deactivateUser,
+  ensureDefaultAccount,
   ensureSchema,
   errorResponse,
   findClient,
@@ -998,7 +1239,6 @@ module.exports = {
   getSessionContext,
   getSql,
   getManagerScope,
-  isGlobalAdminRole,
   json,
   listManagerAssignmentsForUser,
   listManagerClientAssignments,
@@ -1007,12 +1247,14 @@ module.exports = {
   listProjectMembersForProjects,
   listProjectMembersForUser,
   listProjects,
+  listLevelLabels,
   listUsers,
   loadState,
-  normalizeRole,
+  normalizeLevel,
   normalizeText,
   parseBody,
   requireAdmin,
+  requireSuperAdmin,
   requireAuth,
   updateUserPassword,
   updateUserRecord,

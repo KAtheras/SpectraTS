@@ -4,6 +4,7 @@ const {
   clearSession,
   createSession,
   createUserRecord,
+  ensureDefaultAccount,
   ensureSchema,
   errorResponse,
   findUserByUsername,
@@ -48,14 +49,16 @@ exports.handler = async function handler(event) {
 
     if (request.action === "bootstrap") {
       if (!context.bootstrapRequired) {
-        return errorResponse(409, "The Global Admin account has already been created.");
+        return errorResponse(409, "The Admin account has already been created.");
       }
 
+      const accountId = await ensureDefaultAccount(sql);
       const user = await createUserRecord(sql, {
         username: request.payload?.username,
         displayName: request.payload?.displayName,
         password: request.payload?.password,
-        role: "global_admin",
+        level: 6,
+        accountId,
       });
       const session = await createSession(sql, user.id);
 
@@ -63,7 +66,8 @@ exports.handler = async function handler(event) {
         id: user.id,
         username: user.username,
         displayName: user.displayName,
-        role: user.role,
+        level: user.level,
+        accountId,
       });
 
       return json(200, {
@@ -75,7 +79,7 @@ exports.handler = async function handler(event) {
 
     if (request.action === "login") {
       if (context.bootstrapRequired) {
-        return errorResponse(409, "Create the Global Admin account first.", {
+        return errorResponse(409, "Create the Admin account first.", {
           bootstrapRequired: true,
         });
       }
@@ -95,7 +99,8 @@ exports.handler = async function handler(event) {
         id: user.id,
         username: user.username,
         displayName: user.display_name,
-        role: user.role,
+        level: user.level,
+        accountId: user.account_id,
       });
 
       return json(200, {
