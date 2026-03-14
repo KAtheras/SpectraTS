@@ -763,7 +763,7 @@ textarea {
   position: sticky;
   top: 0;
   z-index: 3;
-  margin: 0 -22px 12px;
+  margin: 0;
   padding: 22px 22px 14px;
   background: var(--modal-sticky-bg);
   border-bottom: 1px solid var(--group-border);
@@ -991,6 +991,7 @@ textarea {
 
 .user-list {
   max-height: none;
+  padding-top: 12px;
 }
 
 .user-item {
