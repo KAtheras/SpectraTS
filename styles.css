@@ -333,6 +333,13 @@ body.is-embedded .page-shell {
     minmax(120px, 0.7fr)
     minmax(150px, 0.9fr);
   align-items: end;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  margin: -22px -22px 12px;
+  padding: 14px 22px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--group-border);
 }
 
 .add-user-form .add-user-button {
