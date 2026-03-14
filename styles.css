@@ -337,7 +337,7 @@ body.is-embedded .page-shell {
     minmax(120px, 0.7fr)
     minmax(150px, 0.9fr);
   align-items: end;
-  margin-top: 8px;
+  margin-top: 0;
 }
 
 .add-user-card {
@@ -764,13 +764,14 @@ textarea {
   top: 0;
   z-index: 3;
   margin: -22px -22px 16px;
-  padding: 18px 22px 14px;
+  padding: 0 22px 14px;
   background: var(--modal-sticky-bg);
   border-bottom: 1px solid var(--group-border);
 }
 
 .users-modal-sticky .panel-head {
-  margin-bottom: 10px;
+  padding-top: 18px;
+  margin: 0 0 10px;
 }
 
 .modal-subtext {
