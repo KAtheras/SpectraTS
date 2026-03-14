@@ -1342,6 +1342,12 @@ textarea {
     justify-content: center;
   }
 
+  .app-topbar .account-name {
+    width: 100%;
+    text-align: center;
+    font-size: 1.4rem;
+  }
+
   .app-topbar-actions {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
