@@ -1084,6 +1084,16 @@ async function loadState(sql, currentUser) {
     : null;
   const accountId = normalizedUser?.accountId || (await ensureDefaultAccount(sql));
   const accountUuid = accountId ? `${accountId}` : accountId;
+  const accountRow =
+    accountUuid &&
+    (
+      await sql`
+        SELECT id, name
+        FROM accounts
+        WHERE id = ${accountUuid}::uuid
+        LIMIT 1
+      `
+    )[0];
   const isSuperAdmin = normalizedUser && isSuperAdminLevel(normalizedUser.level);
   const isAdmin = normalizedUser && isAdminLevel(normalizedUser.level);
   const isManager =
@@ -1223,7 +1233,7 @@ async function loadState(sql, currentUser) {
   return {
     bootstrapRequired: false,
     currentUser: normalizedUser,
-    account: { id: accountUuid },
+    account: { id: accountUuid, name: accountRow?.name || null },
     users,
     catalog,
     entries,

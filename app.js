@@ -920,12 +920,18 @@
 
     if (isAuthenticated) {
       refs.sessionIndicator.hidden = false;
-      refs.sessionIndicator.textContent = state.currentUser.displayName;
+      const accountName = state.account?.name || "";
+      const userName = state.currentUser.displayName || "";
+      refs.sessionIndicator.innerHTML = `
+        <span class="session-account">${escapeHtml(accountName)}</span>
+        <span class="session-user">${escapeHtml(userName)}</span>
+      `;
       refs.manageUsers.hidden = !isAdmin(state.currentUser);
       refs.logoutButton.hidden = false;
       refs.openCatalog.hidden = !(isAdmin(state.currentUser) || isManager(state.currentUser));
     } else {
       refs.sessionIndicator.hidden = true;
+      refs.sessionIndicator.innerHTML = "";
       refs.manageUsers.hidden = true;
       refs.logoutButton.hidden = true;
       refs.openCatalog.hidden = true;

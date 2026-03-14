@@ -291,6 +291,7 @@ body.is-embedded .page-shell {
   align-items: center;
   min-height: 44px;
   padding: 0 14px;
+  gap: 8px;
   border: 1px solid var(--line);
   border-radius: 999px;
   background: var(--surface-subtle);
@@ -299,6 +300,19 @@ body.is-embedded .page-shell {
   font-size: 0.84rem;
   font-weight: 700;
   white-space: nowrap;
+  line-height: 1.1;
+}
+
+.session-indicator .session-account {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--text-strong);
+}
+
+.session-indicator .session-user {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--muted);
 }
 
 .panel-subtext {
