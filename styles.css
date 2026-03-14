@@ -763,6 +763,10 @@ textarea {
   padding: 22px;
 }
 
+#users-modal .panel-modal {
+  padding: 0;
+}
+
 .users-modal-sticky {
   position: sticky;
   top: 0;
