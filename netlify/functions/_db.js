@@ -47,6 +47,7 @@ async function ensureDefaultAccount(sql) {
 
 async function ensureSchema(sql) {
   const accountId = await ensureDefaultAccount(sql);
+  const accountUuid = accountId ? `${accountId}` : accountId;
 
   await sql`
     CREATE TABLE IF NOT EXISTS users (
@@ -78,7 +79,7 @@ async function ensureSchema(sql) {
       ELSE 1
     END
   `;
-  await sql`UPDATE users SET account_id = ${accountId} WHERE account_id IS NULL`;
+  await sql`UPDATE users SET account_id = ${accountUuid} WHERE account_id IS NULL`;
   await sql`ALTER TABLE users DROP CONSTRAINT IF EXISTS users_level_check`;
   await sql`
     ALTER TABLE users
@@ -126,7 +127,7 @@ async function ensureSchema(sql) {
     ALTER TABLE clients
     ADD COLUMN IF NOT EXISTS account_id UUID REFERENCES accounts(id)
   `;
-  await sql`UPDATE clients SET account_id = ${accountId} WHERE account_id IS NULL`;
+  await sql`UPDATE clients SET account_id = ${accountUuid} WHERE account_id IS NULL`;
   await sql`
     DROP INDEX IF EXISTS clients_name_ci_idx
   `;
@@ -154,7 +155,7 @@ async function ensureSchema(sql) {
     ALTER TABLE projects
     ADD COLUMN IF NOT EXISTS account_id UUID REFERENCES accounts(id)
   `;
-  await sql`UPDATE projects SET account_id = ${accountId} WHERE account_id IS NULL`;
+  await sql`UPDATE projects SET account_id = ${accountUuid} WHERE account_id IS NULL`;
 
   await sql`
     CREATE UNIQUE INDEX IF NOT EXISTS projects_client_name_ci_idx
@@ -176,7 +177,7 @@ async function ensureSchema(sql) {
     ALTER TABLE manager_clients
     ADD COLUMN IF NOT EXISTS account_id UUID REFERENCES accounts(id)
   `;
-  await sql`UPDATE manager_clients SET account_id = ${accountId} WHERE account_id IS NULL`;
+  await sql`UPDATE manager_clients SET account_id = ${accountUuid} WHERE account_id IS NULL`;
 
   await sql`
     CREATE TABLE IF NOT EXISTS manager_projects (
@@ -193,7 +194,7 @@ async function ensureSchema(sql) {
     ALTER TABLE manager_projects
     ADD COLUMN IF NOT EXISTS account_id UUID REFERENCES accounts(id)
   `;
-  await sql`UPDATE manager_projects SET account_id = ${accountId} WHERE account_id IS NULL`;
+  await sql`UPDATE manager_projects SET account_id = ${accountUuid} WHERE account_id IS NULL`;
 
   await sql`
     CREATE TABLE IF NOT EXISTS project_members (
@@ -210,7 +211,7 @@ async function ensureSchema(sql) {
     ALTER TABLE project_members
     ADD COLUMN IF NOT EXISTS account_id UUID REFERENCES accounts(id)
   `;
-  await sql`UPDATE project_members SET account_id = ${accountId} WHERE account_id IS NULL`;
+  await sql`UPDATE project_members SET account_id = ${accountUuid} WHERE account_id IS NULL`;
 
   await sql`
     CREATE TABLE IF NOT EXISTS entries (
@@ -231,7 +232,7 @@ async function ensureSchema(sql) {
     ALTER TABLE entries
     ADD COLUMN IF NOT EXISTS account_id UUID REFERENCES accounts(id)
   `;
-  await sql`UPDATE entries SET account_id = ${accountId} WHERE account_id IS NULL`;
+  await sql`UPDATE entries SET account_id = ${accountUuid} WHERE account_id IS NULL`;
 
   await sql`
     CREATE TABLE IF NOT EXISTS level_labels (
@@ -247,7 +248,7 @@ async function ensureSchema(sql) {
   const labelRows = await sql`
     SELECT level
     FROM level_labels
-    WHERE account_id = ${accountId}
+    WHERE account_id = ${accountUuid}
   `;
   const existingLevels = new Set(labelRows.map((row) => row.level));
   const defaultLabels = {
@@ -263,7 +264,7 @@ async function ensureSchema(sql) {
     if (!existingLevels.has(levelInt)) {
       await sql`
         INSERT INTO level_labels (account_id, level, label)
-        VALUES (${accountId}, ${levelInt}, ${label})
+        VALUES (${accountUuid}, ${levelInt}, ${label})
         ON CONFLICT (account_id, level) DO NOTHING
       `;
     }
@@ -274,7 +275,7 @@ async function ensureSchema(sql) {
     SELECT DISTINCT
       projects.id,
       users.id,
-      ${accountId},
+      ${accountUuid},
       users.id,
       NOW()
     FROM entries
@@ -283,11 +284,11 @@ async function ensureSchema(sql) {
     JOIN projects ON projects.client_id = clients.id
       AND LOWER(projects.name) = LOWER(entries.project_name)
     WHERE users.is_active = TRUE
-      AND clients.account_id = ${accountId}
+      AND clients.account_id = ${accountUuid}
     ON CONFLICT (project_id, user_id) DO NOTHING
   `;
 
-  await seedDefaultCatalog(sql, accountId);
+  await seedDefaultCatalog(sql, accountUuid);
   await sql`DELETE FROM sessions WHERE expires_at <= NOW()`;
 }
 
@@ -583,6 +584,10 @@ async function createUserRecord(sql, payload) {
   const password = String(payload.password || "");
   const level = normalizeLevel(payload.level ?? payload.role);
   const accountId = normalizeText(payload.accountId);
+  const accountUuid = accountId ? `${accountId}` : accountId;
+  if (!accountUuid) {
+    throw new Error("Account is required.");
+  }
 
   if (!username) {
     throw new Error("Username is required.");
@@ -594,7 +599,7 @@ async function createUserRecord(sql, payload) {
     throw new Error("Password must be at least 8 characters.");
   }
 
-  if (await findUserByUsername(sql, username, accountId)) {
+  if (await findUserByUsername(sql, username, accountUuid)) {
     throw new Error("That username already exists.");
   }
 
@@ -603,7 +608,7 @@ async function createUserRecord(sql, payload) {
     FROM users
     WHERE LOWER(display_name) = LOWER(${displayName})
       AND is_active = TRUE
-      AND account_id = ${accountId}
+      AND account_id = ${accountUuid}
     LIMIT 1
   `;
   if (existingDisplayName[0]) {
@@ -619,7 +624,7 @@ async function createUserRecord(sql, payload) {
     createdAt: now,
     updatedAt: now,
     passwordHash: hashPassword(password),
-    accountId,
+    accountId: accountUuid,
   };
 
   await sql`
@@ -1078,6 +1083,7 @@ async function loadState(sql, currentUser) {
     ? { ...currentUser, level: normalizeLevel(currentUser.level) }
     : null;
   const accountId = normalizedUser?.accountId || (await ensureDefaultAccount(sql));
+  const accountUuid = accountId ? `${accountId}` : accountId;
   const isSuperAdmin = normalizedUser && isSuperAdminLevel(normalizedUser.level);
   const isAdmin = normalizedUser && isAdminLevel(normalizedUser.level);
   const isManager =
@@ -1090,7 +1096,7 @@ async function loadState(sql, currentUser) {
       projects.name AS project
     FROM clients
     LEFT JOIN projects ON projects.client_id = clients.id
-    WHERE clients.account_id = ${accountId}
+    WHERE clients.account_id = ${accountUuid}
     ORDER BY LOWER(clients.name), LOWER(projects.name)
   `;
 
@@ -1109,11 +1115,11 @@ async function loadState(sql, currentUser) {
         created_at AS "createdAt",
         updated_at AS "updatedAt"
       FROM entries
-      WHERE account_id = ${accountId}
+      WHERE account_id = ${accountUuid}
       ORDER BY entry_date DESC, created_at DESC
     `;
   } else if (isManager) {
-    const scope = await getManagerScope(sql, normalizedUser.id, accountId);
+    const scope = await getManagerScope(sql, normalizedUser.id, accountUuid);
     if (scope.projectIds.length) {
       entries = await sql`
         SELECT
@@ -1134,7 +1140,7 @@ async function loadState(sql, currentUser) {
         JOIN users ON LOWER(users.display_name) = LOWER(entries.user_name)
         WHERE projects.id = ANY(${scope.projectIds})
           AND (users.level <= 2 OR users.id = ${normalizedUser.id})
-          AND entries.account_id = ${accountId}
+          AND entries.account_id = ${accountUuid}
         ORDER BY entries.entry_date DESC, entries.created_at DESC
       `;
     }
@@ -1153,13 +1159,13 @@ async function loadState(sql, currentUser) {
         updated_at AS "updatedAt"
       FROM entries
       WHERE user_name = ${normalizedUser.displayName}
-        AND account_id = ${accountId}
+        AND account_id = ${accountUuid}
       ORDER BY entry_date DESC, created_at DESC
     `;
   }
 
   const users = isAdmin || isManager
-    ? await listUsers(sql, accountId)
+    ? await listUsers(sql, accountUuid)
     : normalizedUser
       ? [{
           id: normalizedUser.id,
@@ -1171,7 +1177,7 @@ async function loadState(sql, currentUser) {
         }]
       : [];
 
-  const projects = await listProjects(sql, accountId);
+  const projects = await listProjects(sql, accountUuid);
   const assignments = {
     managerClients: [],
     managerProjects: [],
@@ -1179,28 +1185,28 @@ async function loadState(sql, currentUser) {
   };
 
   if (isAdmin) {
-    assignments.managerClients = await listManagerClientAssignments(sql, accountId);
-    assignments.managerProjects = await listManagerProjectAssignments(sql, accountId);
-    assignments.projectMembers = await listProjectMembers(sql, accountId);
+    assignments.managerClients = await listManagerClientAssignments(sql, accountUuid);
+    assignments.managerProjects = await listManagerProjectAssignments(sql, accountUuid);
+    assignments.projectMembers = await listProjectMembers(sql, accountUuid);
   } else if (isManager && normalizedUser) {
     const { clientRows, projectRows } = await listManagerAssignmentsForUser(
       sql,
       normalizedUser.id,
-      accountId
+      accountUuid
     );
     assignments.managerClients = clientRows;
     assignments.managerProjects = projectRows;
-    const scope = await getManagerScope(sql, normalizedUser.id, accountId);
+    const scope = await getManagerScope(sql, normalizedUser.id, accountUuid);
     assignments.projectMembers = await listProjectMembersForProjects(
       sql,
       scope.projectIds,
-      accountId
+      accountUuid
     );
   } else if (normalizedUser) {
     assignments.projectMembers = await listProjectMembersForUser(
       sql,
       normalizedUser.id,
-      accountId
+      accountUuid
     );
   }
 
@@ -1217,13 +1223,13 @@ async function loadState(sql, currentUser) {
   return {
     bootstrapRequired: false,
     currentUser: normalizedUser,
-    account: { id: accountId },
+    account: { id: accountUuid },
     users,
     catalog,
     entries,
     projects,
     assignments,
-    levelLabels: await listLevelLabels(sql, accountId),
+    levelLabels: await listLevelLabels(sql, accountUuid),
   };
 }
 
