@@ -903,7 +903,10 @@
       client: "",
       project: "",
     });
-    syncEntryDatePicker?.({ isValidDateString, today, refs, field, MONTH_NAMES }, today);
+    syncEntryDatePicker?.(
+      { isValidDateString, today, refs, field, MONTH_NAMES, escapeHtml },
+      today
+    );
     field(refs.form, "hours").value = "";
     refs.otherHours.value = "";
     renderHourSelection?.({ refs, field });
@@ -918,7 +921,10 @@
       client: entry.client,
       project: entry.project,
     });
-    syncEntryDatePicker?.({ isValidDateString, today, refs, field, MONTH_NAMES }, entry.date);
+    syncEntryDatePicker?.(
+      { isValidDateString, today, refs, field, MONTH_NAMES, escapeHtml },
+      entry.date
+    );
     field(refs.form, "hours").value = entry.hours;
     field(refs.form, "notes").value = entry.notes;
     refs.otherHours.value = QUICK_HOUR_PRESETS.has(String(entry.hours)) ? "" : String(entry.hours);
@@ -1760,7 +1766,7 @@
   });
 
   const updateEntryDateFromPickerHandler = function () {
-    updateEntryDateFromPicker?.({ refs, field });
+    updateEntryDateFromPicker?.({ refs, field, escapeHtml });
   };
   refs.entryDateMonth.addEventListener("change", updateEntryDateFromPickerHandler);
   refs.entryDateDay.addEventListener("change", updateEntryDateFromPickerHandler);
