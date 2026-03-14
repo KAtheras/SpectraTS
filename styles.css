@@ -30,6 +30,8 @@
   --pill-bg: rgba(255, 255, 255, 0.58);
   --pill-border: rgba(24, 21, 16, 0.06);
   --modal-overlay: rgba(24, 21, 16, 0.28);
+  --modal-sticky-bg: #f5efe5;
+  --modal-sticky-card: #fbf7f1;
   --column-bg: rgba(255, 255, 255, 0.44);
   --column-head-bg: rgba(255, 255, 255, 0.52);
   --column-create-bg: rgba(255, 255, 255, 0.3);
@@ -74,6 +76,8 @@ body[data-theme="dark"] {
   --pill-bg: rgba(35, 46, 60, 0.92);
   --pill-border: rgba(180, 197, 219, 0.14);
   --modal-overlay: rgba(3, 7, 12, 0.62);
+  --modal-sticky-bg: #151b24;
+  --modal-sticky-card: #1b2430;
   --column-bg: rgba(23, 31, 42, 0.94);
   --column-head-bg: rgba(30, 40, 53, 0.98);
   --column-create-bg: rgba(26, 35, 47, 0.96);
@@ -333,13 +337,14 @@ body.is-embedded .page-shell {
     minmax(120px, 0.7fr)
     minmax(150px, 0.9fr);
   align-items: end;
-  position: sticky;
-  top: 0;
-  z-index: 2;
-  margin: -22px -22px 12px;
-  padding: 14px 22px;
-  background: var(--panel);
-  border-bottom: 1px solid var(--group-border);
+  margin-top: 8px;
+}
+
+.add-user-card {
+  background: var(--modal-sticky-card);
+  border: 1px solid var(--group-border);
+  border-radius: 18px;
+  padding: 12px 14px 14px;
 }
 
 .add-user-form .add-user-button {
@@ -752,6 +757,20 @@ textarea {
   max-height: min(88vh, 900px);
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+}
+
+.users-modal-sticky {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  margin: -22px -22px 16px;
+  padding: 18px 22px 14px;
+  background: var(--modal-sticky-bg);
+  border-bottom: 1px solid var(--group-border);
+}
+
+.users-modal-sticky .panel-head {
+  margin-bottom: 10px;
 }
 
 .modal-subtext {

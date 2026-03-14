@@ -301,44 +301,46 @@
       <div class="modal-backdrop" id="users-modal" hidden aria-hidden="true">
         <div class="modal-shell" role="dialog" aria-modal="true" aria-labelledby="users-modal-title">
           <section class="panel panel-modal">
-            <div class="panel-head">
-              <div>
-                <h2 id="users-modal-title">Manage Team Members</h2>
+            <div class="users-modal-sticky">
+              <div class="panel-head">
+                <div>
+                  <h2 id="users-modal-title">Manage Team Members</h2>
+                </div>
+                <div class="panel-head-actions">
+                  <button class="button button-ghost" id="close-users" type="button">
+                    Close
+                  </button>
+                </div>
               </div>
-              <div class="panel-head-actions">
-                <button class="button button-ghost" id="close-users" type="button">
-                  Close
-                </button>
-              </div>
-            </div>
 
-            <form id="add-user-form" class="filters add-user-form">
-              <label>
-                <span>Name</span>
-                <input type="text" name="display_name" autocomplete="name" required />
-              </label>
-              <label>
-                <span>Username</span>
-                <input type="text" name="username" autocomplete="username" required />
-              </label>
-              <label>
-                <span>Password</span>
-                <input type="password" name="password" autocomplete="new-password" required />
-              </label>
-              <label>
-                <span>Level</span>
-                <select name="level">
-                  <option value="1">Staff</option>
-                  <option value="2">Senior</option>
-                  <option value="3">Manager</option>
-                  <option value="4">Director</option>
-                  <option value="5">Partner</option>
-                  <option value="6">Admin</option>
-                </select>
-              </label>
-              <button class="button add-user-button" type="submit">Add team member</button>
-            </form>
-            <p id="user-feedback" class="feedback auth-feedback" aria-live="polite"></p>
+              <form id="add-user-form" class="filters add-user-form add-user-card">
+                <label>
+                  <span>Name</span>
+                  <input type="text" name="display_name" autocomplete="name" required />
+                </label>
+                <label>
+                  <span>Username</span>
+                  <input type="text" name="username" autocomplete="username" required />
+                </label>
+                <label>
+                  <span>Password</span>
+                  <input type="password" name="password" autocomplete="new-password" required />
+                </label>
+                <label>
+                  <span>Level</span>
+                  <select name="level">
+                    <option value="1">Staff</option>
+                    <option value="2">Senior</option>
+                    <option value="3">Manager</option>
+                    <option value="4">Director</option>
+                    <option value="5">Partner</option>
+                    <option value="6">Admin</option>
+                  </select>
+                </label>
+                <button class="button add-user-button" type="submit">Add team member</button>
+              </form>
+              <p id="user-feedback" class="feedback auth-feedback" aria-live="polite"></p>
+            </div>
 
             <div id="user-list" class="catalog-list user-list"></div>
 
