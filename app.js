@@ -125,6 +125,7 @@
     mode: "",
     client: "",
     project: "",
+    userId: "",
   };
 
   if (embedded) {
@@ -640,6 +641,7 @@
     if (!refs.membersModal) {
       return;
     }
+    refs.membersModal.dataset.mode = memberModalState.mode || "";
     refs.membersFeedback.textContent = "";
     refs.membersFeedback.dataset.error = "false";
     refs.membersModal.hidden = false;
@@ -655,6 +657,11 @@
     }
     refs.membersModal.hidden = true;
     refs.membersModal.setAttribute("aria-hidden", "true");
+    refs.membersModal.dataset.mode = "";
+    memberModalState.mode = "";
+    memberModalState.client = "";
+    memberModalState.project = "";
+    memberModalState.userId = "";
     if (refs.usersModal.hidden && refs.catalogModal.hidden) {
       body.classList.remove("modal-open");
     }
@@ -921,6 +928,15 @@
     );
   }
 
+  function managerIdsForClientScope(client) {
+    return uniqueValues([
+      ...managerIdsForClient(client),
+      ...state.assignments.managerProjects
+        .filter((item) => item.client === client)
+        .map((item) => item.managerId),
+    ]);
+  }
+
   function directManagerIdsForProject(client, project) {
     return uniqueValues(
       state.assignments.managerProjects
@@ -941,14 +957,26 @@
       state.assignments.projectMembers
         .filter((item) => item.client === client && item.project === project)
         .map((item) => item.userId)
+        .filter((userId) => {
+          const user = getUserById(userId);
+          return user ? isStaff(user) : false;
+        })
     );
   }
 
   function staffIdsForClient(client) {
+    const managerIds = new Set(managerIdsForClientScope(client));
     return uniqueValues(
       state.assignments.projectMembers
         .filter((item) => item.client === client)
         .map((item) => item.userId)
+        .filter((userId) => {
+          if (managerIds.has(userId)) {
+            return false;
+          }
+          const user = getUserById(userId);
+          return user ? isStaff(user) : false;
+        })
     );
   }
 
@@ -1987,7 +2015,7 @@
     refs.clientList.innerHTML = clients
       .map(
         (client) => {
-          const managerNames = formatNameList(userNamesForIds(managerIdsForClient(client)));
+          const managerNames = formatNameList(userNamesForIds(managerIdsForClientScope(client)));
           const staffNames = formatNameList(userNamesForIds(staffIdsForClient(client)));
 
           return `
@@ -2332,12 +2360,13 @@
     const mode = memberModalState.mode;
     const client = memberModalState.client;
     const project = memberModalState.project;
+    const userId = memberModalState.userId;
 
     let title = "Manage Members";
     let subtext = "";
     if (mode === "project-add") {
       title = `Add Members to ${project}`;
-      subtext = "Select staff to add to this project. Global Admins can also change roles here.";
+      subtext = "Select staff to add to this project.";
     } else if (mode === "project-remove") {
       title = `Remove Members from ${project}`;
       subtext = "Select staff to remove from this project.";
@@ -2353,13 +2382,21 @@
     } else if (mode === "project-unassign-manager") {
       title = `Unassign Managers from ${project}`;
       subtext = "Select managers to remove from this project.";
+    } else if (mode === "user-role") {
+      const targetUser = getUserById(userId);
+      title = `Change Role for ${targetUser ? targetUser.displayName : "Team Member"}`;
+      subtext = "Choose the role for this team member.";
     }
 
     refs.membersTitle.textContent = title;
     refs.membersSubtext.textContent = subtext;
 
-    const canChangeRole = isGlobalAdmin(state.currentUser);
-    const rows = state.users.map(function (user) {
+    const canChangeRole = isGlobalAdmin(state.currentUser) && mode === "user-role";
+    const usersToRender =
+      mode === "user-role" && userId
+        ? state.users.filter((user) => user.id === userId)
+        : state.users;
+    const rows = usersToRender.map(function (user) {
       const currentRole = normalizeRole(user.role);
       const isAssignedToProject = project
         ? isUserAssignedToProject(user.id, client, project)
@@ -2377,6 +2414,7 @@
       let checkboxDisabled = false;
       let checkboxTitle = "";
       let show = true;
+      let checkboxChecked = false;
 
       if (mode === "project-add") {
         if (isAssignedToProject) {
@@ -2388,6 +2426,7 @@
         }
       } else if (mode === "project-remove") {
         show = isAssignedToProject && isStaff(user);
+        checkboxChecked = show;
       } else if (mode === "client-assign") {
         if (!isManager(user) && !canChangeRole) {
           checkboxDisabled = true;
@@ -2399,6 +2438,7 @@
         }
       } else if (mode === "client-unassign") {
         show = isAssignedToClient && isManager(user);
+        checkboxChecked = show;
       } else if (mode === "project-assign-manager") {
         if (!isManager(user) && !canChangeRole) {
           checkboxDisabled = true;
@@ -2410,6 +2450,10 @@
         }
       } else if (mode === "project-unassign-manager") {
         show = isDirectAssignedToProject && isManager(user);
+        checkboxChecked = show;
+      } else if (mode === "user-role") {
+        checkboxDisabled = true;
+        checkboxChecked = true;
       }
 
       if (!show) {
@@ -2435,6 +2479,7 @@
             <input
               type="checkbox"
               data-member-id="${escapeHtml(user.id)}"
+              ${checkboxChecked ? "checked" : ""}
               ${checkboxDisabled ? "disabled" : ""}
               ${checkboxTitle ? `title="${escapeHtml(checkboxTitle)}"` : ""}
             />
@@ -2723,57 +2768,12 @@
         }
         setUserFeedback("Team member updated.", false);
       } else if (button.dataset.userRole) {
-        const nextRoleInput = window.prompt(
-          "Enter role: global_admin, manager, or staff",
-          normalizeRole(user.role)
-        );
-        if (nextRoleInput === null) {
-          return;
-        }
-        const nextRole = normalizeRole(nextRoleInput);
-        if (!["global_admin", "manager", "staff"].includes(nextRole)) {
-          throw new Error("Role must be global_admin, manager, or staff.");
-        }
-        if (
-          isGlobalAdmin(user) &&
-          !isGlobalAdmin({ role: nextRole }) &&
-          state.users.filter((candidate) => isGlobalAdmin(candidate)).length <= 1
-        ) {
-          const message = "At least one Global Admin account is required.";
-          setUserFeedback(message, true);
-          window.alert(message);
-          return;
-        }
-        const confirmed = window.confirm(
-          `Change ${user.displayName} to ${roleLabel(nextRole)}?`
-        );
-        if (!confirmed) {
-          return;
-        }
-
-        if (state.storageMode === "remote") {
-          await mutatePersistentState("update_user", {
-            userId: user.id,
-            displayName: user.displayName,
-            username: user.username,
-            role: nextRole,
-          });
-        } else {
-          state.users = state.users.map((candidate) =>
-            candidate.id === user.id ? { ...candidate, role: nextRole } : candidate
-          );
-          if (nextRole !== "manager") {
-            state.assignments.managerClients = state.assignments.managerClients.filter(
-              (item) => item.managerId !== user.id
-            );
-            state.assignments.managerProjects = state.assignments.managerProjects.filter(
-              (item) => item.managerId !== user.id
-            );
-            saveLocalAssignments();
-          }
-          saveLocalUsers();
-        }
-        setUserFeedback(`Role updated for ${user.displayName}.`, false);
+        memberModalState.mode = "user-role";
+        memberModalState.client = "";
+        memberModalState.project = "";
+        memberModalState.userId = user.id;
+        openMembersModal();
+        return;
       } else if (button.dataset.userPassword) {
         const nextPassword = window.prompt(
           `Enter a new password for ${user.displayName} (minimum 8 characters)`
@@ -3939,11 +3939,22 @@
       const mode = memberModalState.mode;
       const client = memberModalState.client;
       const project = memberModalState.project;
-      const selected = Array.from(
-        refs.membersList.querySelectorAll("input[type='checkbox'][data-member-id]")
-      )
-        .filter((input) => input.checked && !input.disabled)
-        .map((input) => input.dataset.memberId);
+      const roleOnlyMode = mode === "user-role";
+      const isRemovalMode =
+        mode === "project-remove" ||
+        mode === "client-unassign" ||
+        mode === "project-unassign-manager";
+      const selected = roleOnlyMode
+        ? memberModalState.userId
+          ? [memberModalState.userId]
+          : []
+        : Array.from(
+            refs.membersList.querySelectorAll("input[type='checkbox'][data-member-id]")
+          )
+            .filter((input) =>
+              isRemovalMode ? !input.checked && !input.disabled : input.checked && !input.disabled
+            )
+            .map((input) => input.dataset.memberId);
 
       const roleSelections = Array.from(
         refs.membersList.querySelectorAll("select[data-role-select]")
@@ -3952,15 +3963,7 @@
         return acc;
       }, {});
 
-      if (
-        !selected.length &&
-        (mode === "project-add" ||
-          mode === "project-remove" ||
-          mode === "client-assign" ||
-          mode === "client-unassign" ||
-          mode === "project-assign-manager" ||
-          mode === "project-unassign-manager")
-      ) {
+      if (!selected.length && !roleOnlyMode) {
         setMembersFeedback("Select at least one member.", true);
         return;
       }
@@ -3974,6 +3977,13 @@
           }
           const nextRole = roleSelections[userId] || normalizeRole(user.role);
           if (isGlobalAdmin(state.currentUser) && nextRole !== normalizeRole(user.role)) {
+            if (
+              isGlobalAdmin(user) &&
+              !isGlobalAdmin({ role: nextRole }) &&
+              state.users.filter((candidate) => isGlobalAdmin(candidate)).length <= 1
+            ) {
+              throw new Error("At least one Global Admin account is required.");
+            }
             if (state.storageMode === "remote") {
               await mutatePersistentState("update_user", {
                 userId: user.id,

@@ -982,6 +982,18 @@ textarea {
   height: 18px;
 }
 
+#members-modal[data-mode="user-role"] .member-select {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+#members-modal[data-mode="user-role"] .member-select input[type="checkbox"] {
+  display: none;
+}
+
+#members-modal[data-mode="user-role"] .member-username {
+  grid-column: 1;
+}
+
 .member-name {
   font-family: var(--font-head);
   font-size: 0.95rem;
