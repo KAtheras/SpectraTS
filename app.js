@@ -1802,6 +1802,7 @@
         return;
       }
 
+      await loadPersistentState();
       syncFilterCatalogsUI(state.filters);
       feedback(message || "Client removed from active catalog.", false);
       render();
@@ -1963,6 +1964,7 @@
         return;
       }
 
+      await loadPersistentState();
       syncFilterCatalogsUI(state.filters);
       feedback(message || "Project removed from active catalog.", false);
       render();
