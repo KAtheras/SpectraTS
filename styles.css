@@ -186,8 +186,28 @@ body.modal-open {
   padding: 0;
 }
 
+.page-shell.page-clients,
+.page-shell.page-members {
+  padding: 0;
+  background: #fffaf2;
+  min-height: 100vh;
+}
+
+.page-shell.page-clients .shell-inner,
+.page-shell.page-members .shell-inner {
+  max-width: none;
+  margin: 0;
+  width: 100%;
+  padding: 0;
+}
+
 body.is-embedded .page-shell {
   padding: 10px;
+}
+
+body[data-theme="dark"] .page-shell.page-clients,
+body[data-theme="dark"] .page-shell.page-members {
+  background: #121922;
 }
 
 .app-frame {
@@ -849,12 +869,21 @@ textarea {
   border-radius: 0;
   width: 100%;
   max-width: none;
-  background: var(--panel);
+  background: #fffaf2;
   padding: 0;
+}
+
+.modal-backdrop.as-page .panel-modal {
+  min-height: 100vh;
 }
 
 .modal-backdrop.as-page .panel-head {
   padding: 20px 22px 14px;
+}
+
+body[data-theme="dark"] .modal-backdrop.as-page .panel,
+body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
+  background: #121922;
 }
 
 .modal-backdrop.as-page .users-modal-sticky {
