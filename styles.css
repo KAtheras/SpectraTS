@@ -475,8 +475,10 @@ body[data-theme="dark"] .app-topbar {
   border: none;
   background: transparent;
   padding: 6px;
-  border-radius: 10px;
+  border-radius: 8px;
   min-height: auto;
+  width: 36px;
+  height: 36px;
   color: var(--text-muted);
   cursor: pointer;
   transition: background 0.18s ease, color 0.18s ease;
@@ -500,11 +502,6 @@ body[data-theme="dark"] .app-topbar {
 
 .settings-menu-wrap {
   position: relative;
-}
-
-.settings-toggle {
-  padding-left: 12px;
-  padding-right: 12px;
 }
 
 .settings-icon {
