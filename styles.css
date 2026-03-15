@@ -1068,13 +1068,14 @@ textarea {
   gap: 16px;
   align-items: stretch;
   min-height: 420px;
+  height: calc(100vh - 260px);
 }
 
 .user-list-column {
   display: grid;
   gap: 12px;
   overflow-y: auto;
-  max-height: 60vh;
+  max-height: 100%;
   padding-right: 6px;
 }
 
@@ -1083,6 +1084,7 @@ textarea {
   position: sticky;
   top: 0;
   align-self: start;
+  height: 100%;
 }
 
 .user-detail-card {
@@ -1118,7 +1120,7 @@ textarea {
 .user-item.is-selected {
   border-color: var(--accent);
   box-shadow: 0 0 0 2px var(--accent-subtle, rgba(187, 98, 55, 0.18));
-  background: #f1f1f1;
+  background: #e6e6e6;
 }
 
 .user-item.is-selected .catalog-item-title {
@@ -1127,6 +1129,10 @@ textarea {
 
 .user-item.is-selected .user-item-meta {
   color: var(--muted);
+}
+
+.user-item.is-selected .user-item-actions button {
+  color: var(--text);
 }
 
 .user-item-meta {
