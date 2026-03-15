@@ -144,17 +144,18 @@
       };
     }
 
-    const assignments = assignmentSummary(selectedUser);
-    const detailHtml = `
-      <div class="user-detail-card">
-        <h4>${escapeHtml(selectedUser.displayName)}</h4>
-        <dl>
-          <div><dt>Level</dt><dd>${escapeHtml(levelLabel(selectedUser.level))}</dd></div>
-          <div><dt>Base Rate</dt><dd>${selectedUser.baseRate !== null && selectedUser.baseRate !== undefined ? `$${Number(selectedUser.baseRate).toFixed(2)}` : "—"}</dd></div>
-          <div><dt>Clients/Projects</dt><dd>${assignments.projects.length ? assignments.projects.map((p) => `${escapeHtml(p.client)} / ${escapeHtml(p.project)}`).join("<br>") : "—"}</dd></div>
-        </dl>
-      </div>
-    `;
+      const assignments = assignmentSummary(selectedUser);
+      const detailHtml = `
+        <div class="user-detail-card">
+          <h4>${escapeHtml(selectedUser.displayName)}</h4>
+          <dl>
+            <div><dt>Level</dt><dd>${escapeHtml(levelLabel(selectedUser.level))}</dd></div>
+            <div><dt>Base Rate</dt><dd>${selectedUser.baseRate !== null && selectedUser.baseRate !== undefined ? `$${Number(selectedUser.baseRate).toFixed(2)}` : "—"}</dd></div>
+            <div><dt>Cost Rate</dt><dd>${selectedUser.costRate !== null && selectedUser.costRate !== undefined ? `$${Number(selectedUser.costRate).toFixed(2)}` : "—"}</dd></div>
+            <div><dt>Clients/Projects</dt><dd>${assignments.projects.length ? assignments.projects.map((p) => `${escapeHtml(p.client)} / ${escapeHtml(p.project)}`).join("<br>") : "—"}</dd></div>
+          </dl>
+        </div>
+      `;
 
     refs.userList.innerHTML = `
       <div class="user-pane">

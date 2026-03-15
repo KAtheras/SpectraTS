@@ -55,6 +55,7 @@ async function ensureSchema(sql) {
       username TEXT NOT NULL,
       display_name TEXT NOT NULL,
       base_rate NUMERIC(10,2),
+      cost_rate NUMERIC(10,2),
       password_hash TEXT NOT NULL,
       role TEXT NOT NULL,
       level INT,
@@ -68,6 +69,7 @@ async function ensureSchema(sql) {
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS level INT`;
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS account_id UUID REFERENCES accounts(id)`;
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS base_rate NUMERIC(10,2)`;
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS cost_rate NUMERIC(10,2)`;
 
   await sql`ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check`;
   await sql`UPDATE users SET role = 'global_admin' WHERE role = 'admin'`;
@@ -556,6 +558,7 @@ async function listUsers(sql, accountId) {
       display_name AS "displayName",
       level,
       base_rate AS "baseRate",
+      cost_rate AS "costRate",
       account_id AS "accountId",
       is_active AS "isActive",
       created_at AS "createdAt"
@@ -600,6 +603,10 @@ async function createUserRecord(sql, payload) {
     payload.baseRate !== undefined && payload.baseRate !== null && payload.baseRate !== ""
       ? Number(payload.baseRate)
       : null;
+  const costRate =
+    payload.costRate !== undefined && payload.costRate !== null && payload.costRate !== ""
+      ? Number(payload.costRate)
+      : null;
   const accountId = normalizeText(payload.accountId);
   const accountUuid = accountId ? `${accountId}` : accountId;
   if (!accountUuid) {
@@ -617,6 +624,9 @@ async function createUserRecord(sql, payload) {
   }
   if (baseRate !== null && !(Number.isFinite(baseRate) && baseRate >= 0)) {
     throw new Error("Base rate must be a non-negative number.");
+  }
+  if (costRate !== null && !(Number.isFinite(costRate) && costRate >= 0)) {
+    throw new Error("Cost rate must be a non-negative number.");
   }
 
   const existingUsername = await sql`
@@ -650,19 +660,21 @@ async function createUserRecord(sql, payload) {
       UPDATE users
       SET
         display_name = ${displayName},
-        password_hash = ${hashPassword(password)},
-        level = ${level},
-        base_rate = ${baseRate},
-        is_active = TRUE,
-        updated_at = ${now}
-      WHERE id = ${userRecord.id}
-    `;
+      password_hash = ${hashPassword(password)},
+      level = ${level},
+      base_rate = ${baseRate},
+      cost_rate = ${costRate},
+      is_active = TRUE,
+      updated_at = ${now}
+    WHERE id = ${userRecord.id}
+  `;
     return {
       id: userRecord.id,
       username,
       displayName,
       level,
       baseRate,
+      costRate,
       createdAt: userRecord.created_at,
       updatedAt: now,
       passwordHash: userRecord.password_hash,
@@ -676,6 +688,7 @@ async function createUserRecord(sql, payload) {
     displayName,
     level,
     baseRate,
+    costRate,
     createdAt: now,
     updatedAt: now,
     passwordHash: hashPassword(password),
@@ -691,6 +704,7 @@ async function createUserRecord(sql, payload) {
       role,
       level,
       base_rate,
+      cost_rate,
       account_id,
       is_active,
       created_at,
@@ -704,6 +718,7 @@ async function createUserRecord(sql, payload) {
       'staff',
       ${user.level},
       ${user.baseRate},
+      ${user.costRate},
       ${user.accountId}::uuid,
       TRUE,
       ${user.createdAt},
@@ -726,6 +741,12 @@ async function updateUserRecord(sql, payload, actingUser) {
       : existingUser?.base_rate ?? null;
   const baseRate =
     rawBaseRate === null ? null : Number(rawBaseRate);
+  const rawCostRate =
+    payload.costRate !== undefined && payload.costRate !== null && payload.costRate !== ""
+      ? payload.costRate
+      : existingUser?.cost_rate ?? null;
+  const costRate =
+    rawCostRate === null ? null : Number(rawCostRate);
 
   if (!existingUser || !existingUser.is_active) {
     throw new Error("User not found.");
@@ -765,6 +786,9 @@ async function updateUserRecord(sql, payload, actingUser) {
   if (baseRate !== null && !(Number.isFinite(baseRate) && baseRate >= 0)) {
     throw new Error("Base rate must be a non-negative number.");
   }
+  if (costRate !== null && !(Number.isFinite(costRate) && costRate >= 0)) {
+    throw new Error("Cost rate must be a non-negative number.");
+  }
 
   if (isSuperAdminLevel(existingUser.level) && !isSuperAdminLevel(level)) {
     const admins = await adminCount(sql, existingUser.account_id);
@@ -781,6 +805,7 @@ async function updateUserRecord(sql, payload, actingUser) {
       display_name = ${displayName},
       level = ${level},
       base_rate = ${baseRate},
+      cost_rate = ${costRate},
       updated_at = ${updatedAt}
     WHERE id = ${existingUser.id}
   `;
@@ -801,6 +826,7 @@ async function updateUserRecord(sql, payload, actingUser) {
       displayName: refreshed.display_name,
       level: normalizeLevel(refreshed.level),
       baseRate: refreshed.base_rate ?? null,
+      costRate: refreshed.cost_rate ?? null,
       accountId: refreshed.account_id,
     };
   }
@@ -1159,6 +1185,8 @@ async function loadState(sql, currentUser) {
         level: normalizeLevel(currentUser.level),
         baseRate:
           currentUser.baseRate ?? currentUser.base_rate ?? null,
+        costRate:
+          currentUser.costRate ?? currentUser.cost_rate ?? null,
       }
     : null;
   const accountId = normalizedUser?.accountId || (await ensureDefaultAccount(sql));
@@ -1264,6 +1292,8 @@ async function loadState(sql, currentUser) {
           username: normalizedUser.username,
           displayName: normalizedUser.displayName,
           level: normalizedUser.level,
+          baseRate: normalizedUser.baseRate ?? null,
+          costRate: normalizedUser.costRate ?? null,
           isActive: true,
           accountId: normalizedUser.accountId,
         }]

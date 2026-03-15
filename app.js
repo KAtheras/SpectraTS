@@ -1123,6 +1123,17 @@
       baseRateRaw !== null && baseRateRaw !== ""
         ? Number(baseRateRaw)
         : null;
+    const costRateRaw = formData.get("cost_rate");
+    const costRate =
+      costRateRaw !== null && costRateRaw !== ""
+        ? Number(costRateRaw)
+        : null;
+    if (costRate !== null && (!Number.isFinite(costRate) || costRate < 0)) {
+      const message = "Cost rate must be a non-negative number.";
+      setUserFeedback(message, true);
+      window.alert(message);
+      return;
+    }
 
     try {
       await mutatePersistentState("add_user", {
@@ -1131,6 +1142,7 @@
         password,
         level,
         baseRate,
+        costRate,
       });
     } catch (error) {
       const message = error.message || "Unable to add team member.";
@@ -1186,12 +1198,30 @@
         if (nextUsername === null) {
           return;
         }
+        const nextCostRateRaw = window.prompt(
+          "Cost rate (optional, number)",
+          user.costRate !== null && user.costRate !== undefined ? String(user.costRate) : ""
+        );
+        if (nextCostRateRaw === null) {
+          return;
+        }
+        const nextCostRate =
+          nextCostRateRaw.trim() === ""
+            ? null
+            : Number(nextCostRateRaw);
+        if (nextCostRate !== null && (!Number.isFinite(nextCostRate) || nextCostRate < 0)) {
+          const message = "Cost rate must be a non-negative number.";
+          setUserFeedback(message, true);
+          window.alert(message);
+          return;
+        }
 
         await mutatePersistentState("update_user", {
           userId: user.id,
           displayName: nextDisplayName,
           username: nextUsername,
           level: user.level,
+          costRate: nextCostRate,
         });
         setUserFeedback("Team member updated.", false);
       } else if (button.dataset.userRole) {

@@ -66,6 +66,12 @@
         : user.base_rate !== undefined && user.base_rate !== null
           ? Number(user.base_rate)
           : null;
+    const costRate =
+      user.costRate !== undefined && user.costRate !== null
+        ? Number(user.costRate)
+        : user.cost_rate !== undefined && user.cost_rate !== null
+          ? Number(user.cost_rate)
+          : null;
 
     if (!displayName || !username) {
       return null;
@@ -78,6 +84,7 @@
       level,
       password,
       baseRate: Number.isFinite(baseRate) ? baseRate : null,
+      costRate: Number.isFinite(costRate) ? costRate : null,
       accountId: user.accountId || "",
     };
   }
