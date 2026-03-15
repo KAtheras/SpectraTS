@@ -258,13 +258,26 @@
     if (isAdmin(state.currentUser)) {
       return availableUsers();
     }
-    if (isManager(state.currentUser)) {
-      return state.users
-        .filter((user) => isStaff(user) || user.id === state.currentUser.id)
-        .map((user) => user.displayName)
-        .filter(Boolean);
+    const myProjectKeys = new Set(
+      (state.assignments?.projectMembers || [])
+        .filter((item) => item.userId === state.currentUser.id)
+        .map((item) => projectKey(item.client, item.project))
+    );
+    if (!myProjectKeys.size) {
+      return [];
     }
-    return [state.currentUser.displayName];
+    return state.users
+      .filter((user) => {
+        if (!isStaff(user)) {
+          return false;
+        }
+        const userKeys = (state.assignments?.projectMembers || [])
+          .filter((item) => item.userId === user.id)
+          .map((item) => projectKey(item.client, item.project));
+        return userKeys.some((key) => myProjectKeys.has(key));
+      })
+      .map((user) => user.displayName)
+      .filter(Boolean);
   }
 
   function applyLoadedState(data) {
