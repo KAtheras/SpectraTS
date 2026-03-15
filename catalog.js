@@ -163,6 +163,17 @@
                 <span class="catalog-item-copy">
                   <span class="catalog-item-title">${escapeHtml(project)}</span>
                   <small>${projectHours(selectedClient, project).toFixed(2)}h logged</small>
+                  <div class="catalog-analytics-wrap">
+                    <button
+                      type="button"
+                      class="catalog-analytics-button"
+                      aria-disabled="true"
+                      disabled
+                    >
+                      <span>Project</span>
+                      <span>Analytics</span>
+                    </button>
+                  </div>
                   <span class="catalog-item-meta">
                     <span>Managers: ${escapeHtml(managerNames)}</span>
                     <span>Staff: ${escapeHtml(staffNames)}</span>
