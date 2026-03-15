@@ -399,11 +399,22 @@
   }
 
   function openMembersModal() {
-    setView("members");
+    membersOpenMembersModal?.({
+      refs,
+      body,
+      renderMembersModal,
+      memberModalState,
+      postHeight,
+    });
   }
 
   function closeMembersModal() {
-    setView("main");
+    membersCloseMembersModal?.({
+      refs,
+      body,
+      memberModalState,
+      postHeight,
+    });
   }
 
 
@@ -1249,9 +1260,6 @@
     }
 
     if (view === "clients") {
-      if (refs.membersModal) {
-        refs.membersModal.hidden = true;
-      }
       renderCatalogLists({
         refs,
         state,
@@ -1279,9 +1287,6 @@
     }
 
     if (view === "members") {
-      if (refs.membersModal) {
-        refs.membersModal.hidden = true;
-      }
       renderUsersList();
       syncUserManagementControls();
       postHeight();
