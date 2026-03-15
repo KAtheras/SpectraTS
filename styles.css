@@ -1263,12 +1263,12 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   display: flex;
   justify-content: center;
   margin-top: 12px;
-  padding-top: 8px;
+  padding: 12px 0 4px;
 }
 
 .catalog-analytics-button {
-  min-width: 120px;
-  height: 44px;
+  min-width: 110px;
+  height: 40px;
   border-radius: 12px;
   border: none;
   background: #b55521;
