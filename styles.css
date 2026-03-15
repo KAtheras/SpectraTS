@@ -1259,6 +1259,31 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   text-transform: uppercase;
 }
 
+.catalog-analytics-footer {
+  display: flex;
+  justify-content: center;
+  margin-top: 12px;
+  padding-top: 8px;
+}
+
+.catalog-analytics-button {
+  min-width: 120px;
+  height: 44px;
+  border-radius: 12px;
+  border: none;
+  background: #b55521;
+  color: #fff;
+  font-family: var(--font-head);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  display: grid;
+  place-items: center;
+  text-transform: uppercase;
+  line-height: 1.1;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  cursor: default;
+}
+
 .catalog-analytics-wrap {
   position: absolute;
   inset: 0;
