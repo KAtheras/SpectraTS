@@ -95,7 +95,7 @@
     membersNavClients: document.getElementById("members-nav-clients"),
     membersNavMain: document.getElementById("members-nav-main"),
     membersNavTheme: document.getElementById("members-nav-theme"),
-    membersNavLevels: document.getElementById("members-nav-levels"),
+    settingsLevels: document.getElementById("settings-levels"),
     analyticsNavBack: document.getElementById("analytics-nav-back"),
     clientsPage: document.getElementById("clients-page"),
     usersPage: document.getElementById("members-page"),
@@ -1703,6 +1703,9 @@
       refs.openAnalytics.classList.toggle("is-active", view === "analytics");
       refs.openAnalytics.setAttribute("aria-current", view === "analytics" ? "page" : "false");
     }
+    if (refs.settingsLevels) {
+      refs.settingsLevels.hidden = view !== "main" || !isGlobalAdmin(state.currentUser);
+    }
     if (view !== "main") {
       closeSettingsMenu();
     }
@@ -2025,20 +2028,21 @@
     });
   }
 
-  if (refs.membersNavLevels) {
-    refs.membersNavLevels.addEventListener("click", function () {
-      if (!isAdmin(state.currentUser)) {
-        feedback("Admin access required.", true);
-        return;
-      }
-      setView("levels");
-    });
-  }
-
   const levelsBack = document.getElementById("levels-nav-back");
   if (levelsBack) {
     levelsBack.addEventListener("click", function () {
       setView("members");
+    });
+  }
+
+  if (refs.settingsLevels) {
+    refs.settingsLevels.addEventListener("click", function () {
+      if (!isGlobalAdmin(state.currentUser)) {
+        feedback("Admin access required.", true);
+        return;
+      }
+      closeSettingsMenu();
+      setView("levels");
     });
   }
 
