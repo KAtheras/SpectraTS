@@ -352,7 +352,7 @@ body.is-embedded .page-shell {
     minmax(0, 0.9fr)
     minmax(110px, 0.65fr)
     minmax(120px, 0.75fr)
-    minmax(110px, 0.7fr);
+    minmax(150px, 0.8fr);
   align-items: end;
   margin-top: 6px;
 }
@@ -367,6 +367,8 @@ body.is-embedded .page-shell {
 .add-user-form .add-user-button {
   align-self: end;
   height: 44px;
+  white-space: nowrap;
+  padding: 0 18px;
 }
 
 /* Remove numeric spin buttons for the Base Rate input */
