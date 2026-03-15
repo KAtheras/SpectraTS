@@ -207,10 +207,18 @@
                     <span>Staff: ${escapeHtml(staffNames)}</span>
                   </span>
                 </span>
-                <span class="catalog-inline-links catalog-inline-links-right">
+                <span class="catalog-inline-links catalog-inline-links-right catalog-inline-links-stack">
                   <button
                     type="button"
-                    class="catalog-edit"
+                    class="catalog-top-link stacked-top"
+                    aria-disabled="true"
+                    disabled
+                  >
+                    Project Page
+                  </button>
+                  <button
+                    type="button"
+                    class="catalog-edit stacked-mid"
                     aria-label="Edit managers for ${escapeHtml(project)}"
                     data-edit-managers="${escapeHtml(project)}"
                     ${disabledButtonAttrs(canEditProject, "Admin only.")}
@@ -219,7 +227,7 @@
                   </button>
                   <button
                     type="button"
-                    class="catalog-edit"
+                    class="catalog-edit stacked-bottom"
                     aria-label="Edit members for ${escapeHtml(project)}"
                     data-edit-members="${escapeHtml(project)}"
                     ${disabledButtonAttrs(canManageMembers, "Manager access required.")}
