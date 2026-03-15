@@ -1095,6 +1095,8 @@ textarea {
   display: grid;
   gap: 6px;
   height: 100%;
+  align-content: start;
+  align-items: start;
 }
 
 .user-detail-card h4 {
