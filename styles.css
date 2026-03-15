@@ -1093,6 +1093,10 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   overflow: auto;
 }
 
+.catalog-column:last-of-type .catalog-list {
+  max-height: 100%;
+}
+
 .catalog-item {
   display: flex;
   align-items: center;
