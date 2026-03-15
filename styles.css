@@ -373,8 +373,8 @@ body.is-embedded .page-shell {
   padding-top: 16px;
   border-top: 1px solid var(--group-border);
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px 16px;
   align-items: end;
 }
 
@@ -397,6 +397,7 @@ body.is-embedded .page-shell {
 .filters label {
   display: grid;
   gap: 6px;
+  width: 100%;
 }
 
 .hours-field {
