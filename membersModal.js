@@ -300,9 +300,9 @@
       const overrideRow =
         mode === "project-members-edit" || mode === "project-managers-edit"
           ? `
-              <div class="member-rate" data-rate-block="${escapeHtml(user.id)}" style="${checkboxChecked ? "" : "display:none;"}">
+              <div class="member-rate">
                 <div class="member-rate-line">Base Rate: ${formatRate(baseRate)}</div>
-                <label class="member-rate-input">
+                <label class="member-rate-input" data-rate-override="${escapeHtml(user.id)}" style="${checkboxChecked ? "" : "display:none;"}">
                   <span>Project Rate Override (optional)</span>
                   <input
                     type="number"
@@ -313,7 +313,9 @@
                     placeholder="Use base rate"
                   />
                 </label>
-                <div class="member-rate-line">
+                <div class="member-rate-line" data-effective-wrapper="${escapeHtml(
+                  user.id
+                )}" style="${checkboxChecked ? "" : "display:none;"}">
                   Effective: <span data-effective-rate="${escapeHtml(
                     user.id
                   )}">${formatRate(effectiveRate)}</span>
@@ -370,11 +372,18 @@
     refs.membersList.onchange = function (event) {
       const checkbox = event.target.closest("input[type='checkbox'][data-member-id]");
       if (checkbox) {
-        const rateBlock = refs.membersList.querySelector(
-          `[data-rate-block="${checkbox.dataset.memberId}"]`
+        const userId = checkbox.dataset.memberId;
+        const overrideLabel = refs.membersList.querySelector(
+          `[data-rate-override="${userId}"]`
         );
-        if (rateBlock) {
-          rateBlock.style.display = checkbox.checked ? "" : "none";
+        const effectiveLine = refs.membersList.querySelector(
+          `[data-effective-wrapper="${userId}"]`
+        );
+        if (overrideLabel) {
+          overrideLabel.style.display = checkbox.checked ? "" : "none";
+        }
+        if (effectiveLine) {
+          effectiveLine.style.display = checkbox.checked ? "" : "none";
         }
       }
       syncMembersSaveState(refs, memberModalState);
