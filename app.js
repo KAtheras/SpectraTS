@@ -83,6 +83,12 @@
     themeToggle: document.getElementById("theme-toggle"),
     openCatalog: document.getElementById("open-catalog"),
     closeCatalog: document.getElementById("close-catalog"),
+    clientsNavMembers: document.getElementById("clients-nav-members"),
+    clientsNavMain: document.getElementById("clients-nav-main"),
+    clientsNavTheme: document.getElementById("clients-nav-theme"),
+    membersNavClients: document.getElementById("members-nav-clients"),
+    membersNavMain: document.getElementById("members-nav-main"),
+    membersNavTheme: document.getElementById("members-nav-theme"),
     clientsPage: document.getElementById("clients-page"),
     usersPage: document.getElementById("members-page"),
     membersModal: document.getElementById("members-modal"),
@@ -1490,6 +1496,46 @@
   refs.openCatalog.addEventListener("click", function () {
     setView("clients");
   });
+
+  if (refs.clientsNavMembers) {
+    refs.clientsNavMembers.addEventListener("click", function () {
+      setView("members");
+    });
+  }
+
+  if (refs.clientsNavMain) {
+    refs.clientsNavMain.addEventListener("click", function () {
+      setView("main");
+    });
+  }
+
+  if (refs.clientsNavTheme) {
+    refs.clientsNavTheme.addEventListener("click", function () {
+      const nextTheme = body.dataset.theme === "dark" ? "light" : "dark";
+      saveThemePreference(nextTheme);
+      applyTheme(nextTheme);
+    });
+  }
+
+  if (refs.membersNavClients) {
+    refs.membersNavClients.addEventListener("click", function () {
+      setView("clients");
+    });
+  }
+
+  if (refs.membersNavMain) {
+    refs.membersNavMain.addEventListener("click", function () {
+      setView("main");
+    });
+  }
+
+  if (refs.membersNavTheme) {
+    refs.membersNavTheme.addEventListener("click", function () {
+      const nextTheme = body.dataset.theme === "dark" ? "light" : "dark";
+      saveThemePreference(nextTheme);
+      applyTheme(nextTheme);
+    });
+  }
 
   if (refs.themeToggle) {
     refs.themeToggle.addEventListener("click", function () {

@@ -225,7 +225,6 @@ body[data-theme="dark"] .page-shell.page-members {
 
 .page-head {
   display: flex;
-  flex-direction: row-reverse;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
@@ -235,9 +234,10 @@ body[data-theme="dark"] .page-shell.page-members {
   margin: 0;
 }
 
-.page-head > .button-ghost,
-.page-head > .button.button-ghost {
-  margin-left: 0;
+.page-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .page-view .catalog-grid {
