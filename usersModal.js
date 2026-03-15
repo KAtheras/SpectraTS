@@ -182,6 +182,7 @@
     const detailHtml = `
       <div class="user-detail-card">
         <h4>${escapeHtml(selectedUser.displayName)}</h4>
+        <div class="detail-top-divider"></div>
         <dl>
           <div>
             <dt>Username</dt>
