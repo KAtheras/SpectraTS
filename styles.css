@@ -364,8 +364,8 @@ body[data-theme="dark"] .page-shell.page-members {
 }
 
 .app-topbar {
-  width: 100%;
-  margin: 0 0 14px;
+  width: calc(100% + (var(--shell-pad) * 2));
+  margin: 0 calc(-1 * var(--shell-pad)) 14px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -376,12 +376,14 @@ body[data-theme="dark"] .page-shell.page-members {
   background: #ffffff;
   backdrop-filter: none;
   box-shadow: 0 8px 18px rgba(0, 0, 0, 0.08);
-  padding: 12px 0;
+  padding: 12px var(--shell-pad);
+  border-radius: 0;
 }
 
 body[data-theme="dark"] .app-topbar {
   background: #0f1117;
   box-shadow: 0 10px 22px rgba(0, 0, 0, 0.3);
+  border-radius: 0;
 }
 
 .topbar-left {
