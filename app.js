@@ -1785,6 +1785,7 @@
         }
       } catch (error) {
         feedback(error.message || "Unable to remove client.", true);
+        window.alert(error.message || "Unable to remove client.");
         return;
       }
 
@@ -1925,6 +1926,7 @@
         }
       } catch (error) {
         feedback(error.message || "Unable to remove project.", true);
+        window.alert(error.message || "Unable to remove project.");
         return;
       }
 
