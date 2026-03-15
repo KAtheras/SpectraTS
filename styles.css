@@ -370,6 +370,14 @@ body[data-theme="dark"] .page-shell.page-members {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: var(--page);
+  backdrop-filter: blur(6px);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.08);
+  padding: 10px 14px;
+  border-radius: 12px;
 }
 
 .topbar-left {
@@ -430,8 +438,7 @@ body[data-theme="dark"] .page-shell.page-members {
   border-color: rgba(0, 0, 0, 0.08);
 }
 
-.utility-pill,
-.settings-toggle {
+.utility-pill {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -450,11 +457,30 @@ body[data-theme="dark"] .page-shell.page-members {
   min-height: 38px;
 }
 
-.utility-pill:hover,
-.settings-toggle:hover {
+.utility-pill:hover {
   background: rgba(0, 0, 0, 0.06);
   color: var(--text-strong);
   border-color: rgba(0, 0, 0, 0.08);
+}
+
+.settings-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: none;
+  background: transparent;
+  padding: 6px;
+  border-radius: 10px;
+  min-height: auto;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.18s ease, color 0.18s ease;
+}
+
+.settings-toggle:hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: var(--text-strong);
 }
 
 .session-indicator {
@@ -478,8 +504,8 @@ body[data-theme="dark"] .page-shell.page-members {
 }
 
 .settings-icon {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
 }
 
 .settings-menu {
