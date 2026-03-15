@@ -26,7 +26,10 @@
     memberModalState.client = "";
     memberModalState.project = "";
     memberModalState.userId = "";
-    if (refs.usersModal.hidden && refs.catalogModal.hidden) {
+
+    const usersHidden = !refs.usersModal || refs.usersModal.hidden;
+    const catalogHidden = !refs.catalogModal || refs.catalogModal.hidden;
+    if (usersHidden && catalogHidden) {
       body.classList.remove("modal-open");
     }
     postHeight();

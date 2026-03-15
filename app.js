@@ -1718,32 +1718,6 @@
   });
 
   refs.clientList.addEventListener("click", async function (event) {
-    const assignManagers = event.target.closest("[data-assign-managers]");
-    if (assignManagers) {
-      if (!isAdmin(state.currentUser)) {
-        feedback("Only Admins can assign managers.", true);
-        return;
-      }
-      memberModalState.mode = "client-assign";
-      memberModalState.client = assignManagers.dataset.assignManagers;
-      memberModalState.project = "";
-      openMembersModal();
-      return;
-    }
-
-    const unassignManagers = event.target.closest("[data-unassign-managers]");
-    if (unassignManagers) {
-      if (!isAdmin(state.currentUser)) {
-        feedback("Only Admins can unassign managers.", true);
-        return;
-      }
-      memberModalState.mode = "client-unassign";
-      memberModalState.client = unassignManagers.dataset.unassignManagers;
-      memberModalState.project = "";
-      openMembersModal();
-      return;
-    }
-
     const editButton = event.target.closest("[data-edit-client]");
     if (editButton) {
       if (!isAdmin(state.currentUser)) {

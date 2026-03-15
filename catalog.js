@@ -59,9 +59,6 @@
     refs.clientList.innerHTML = clients
       .map(
         (client) => {
-          const managerNames = formatNameList(userNamesForIds(managerIdsForClientScope(client)));
-          const staffNames = formatNameList(userNamesForIds(staffIdsForClient(client)));
-
           return `
           <article
             class="catalog-item${client === selectedClient ? " is-selected" : ""}"
@@ -74,10 +71,6 @@
               <small>${visibleCatalogProjectNames(client).length} ${
                 visibleCatalogProjectNames(client).length === 1 ? "project" : "projects"
               }</small>
-              <span class="catalog-item-meta">
-                <span>Managers: ${escapeHtml(managerNames)}</span>
-                <span>Staff: ${escapeHtml(staffNames)}</span>
-              </span>
             </span>
             <span class="catalog-item-actions">
               <button
@@ -97,24 +90,6 @@
                 ${disabledButtonAttrs(canManageClients, "Admin only.")}
               >
                 Remove
-              </button>
-              <button
-                type="button"
-                class="catalog-edit"
-                aria-label="Assign managers to ${escapeHtml(client)}"
-                data-assign-managers="${escapeHtml(client)}"
-                ${disabledButtonAttrs(canManageClients, "Admin only.")}
-              >
-                Assign managers
-              </button>
-              <button
-                type="button"
-                class="catalog-edit"
-                aria-label="Unassign managers from ${escapeHtml(client)}"
-                data-unassign-managers="${escapeHtml(client)}"
-                ${disabledButtonAttrs(canManageClients, "Admin only.")}
-              >
-                Unassign managers
               </button>
             </span>
           </article>
