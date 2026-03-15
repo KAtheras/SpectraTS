@@ -2266,7 +2266,7 @@
       return;
     }
 
-    const button = event.target.closest("[data-project-select]");
+    const button = event.target.closest("[data-project]");
     if (!button || !state.selectedCatalogClient) {
       return;
     }
@@ -2274,7 +2274,7 @@
     syncFormCatalogsUI({
       user: field(refs.form, "user").value,
       client: state.selectedCatalogClient,
-      project: button.dataset.projectSelect,
+      project: button.dataset.project,
     });
     closeCatalogModal();
     refs.hourPresets.querySelector("[data-hours]")?.focus();
@@ -2283,7 +2283,7 @@
   });
 
   refs.projectList.addEventListener("keydown", function (event) {
-    const row = event.target.closest("[data-project-select]");
+    const row = event.target.closest("[data-project]");
     if (!row || (event.key !== "Enter" && event.key !== " ")) {
       return;
     }

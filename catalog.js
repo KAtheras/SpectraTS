@@ -154,78 +154,60 @@
               );
 
               return `
-              <article class="catalog-item catalog-item-project">
-                <button
-                  type="button"
-                  class="catalog-top-link"
-                  aria-disabled="true"
-                  disabled
-                >
-                  Project Page
-                </button>
+              <article
+                class="catalog-item catalog-item-project"
+                data-project="${escapeHtml(project)}"
+                role="button"
+                tabindex="0"
+              >
                 <span class="catalog-item-copy">
-                  <span class="catalog-item-title-row">
-                    <span class="catalog-item-title">${escapeHtml(project)}</span>
-                    <span class="catalog-inline-actions">
-                      <button
-                        type="button"
-                        class="catalog-edit"
-                        aria-label="Edit ${escapeHtml(project)}"
-                        data-edit-project="${escapeHtml(project)}"
-                        ${disabledButtonAttrs(canEditProject, "Admin only.")}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        class="catalog-delete"
-                        aria-label="Delete ${escapeHtml(project)}"
-                        data-delete-project="${escapeHtml(project)}"
-                        ${disabledButtonAttrs(
-                          canDeleteProject,
-                          "Managers can only remove projects they created."
-                        )}
-                      >
-                        Remove
-                      </button>
-                    </span>
-                  </span>
+                  <span class="catalog-item-title">${escapeHtml(project)}</span>
                   <small>${projectHours(selectedClient, project).toFixed(2)}h logged</small>
                   <span class="catalog-item-meta">
                     <span>Managers: ${escapeHtml(managerNames)}</span>
                     <span>Staff: ${escapeHtml(staffNames)}</span>
                   </span>
-                  <span class="catalog-inline-links">
-                    <button
-                      type="button"
-                      class="catalog-edit"
-                      data-project-select="${escapeHtml(project)}"
-                      ${disabledButtonAttrs(
-                        !!state.selectedCatalogClient,
-                        "Select a client first."
-                      )}
-                    >
-                      Input time
-                    </button>
-                    <button
-                      type="button"
-                      class="catalog-edit"
-                      aria-label="Edit managers for ${escapeHtml(project)}"
-                      data-edit-managers="${escapeHtml(project)}"
-                      ${disabledButtonAttrs(canEditProject, "Admin only.")}
-                    >
-                      Assign/Unassign managers
-                    </button>
-                    <button
-                      type="button"
-                      class="catalog-edit"
-                      aria-label="Edit members for ${escapeHtml(project)}"
-                      data-edit-members="${escapeHtml(project)}"
-                      ${disabledButtonAttrs(canManageMembers, "Manager access required.")}
-                    >
-                      Add/Remove members
-                    </button>
-                  </span>
+                </span>
+                <span class="catalog-item-actions">
+                  <button
+                    type="button"
+                    class="catalog-edit"
+                    aria-label="Edit ${escapeHtml(project)}"
+                    data-edit-project="${escapeHtml(project)}"
+                    ${disabledButtonAttrs(canEditProject, "Admin only.")}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    class="catalog-delete"
+                    aria-label="Delete ${escapeHtml(project)}"
+                    data-delete-project="${escapeHtml(project)}"
+                    ${disabledButtonAttrs(
+                      canDeleteProject,
+                      "Managers can only remove projects they created."
+                    )}
+                  >
+                    Remove
+                  </button>
+                  <button
+                    type="button"
+                    class="catalog-edit"
+                    aria-label="Edit managers for ${escapeHtml(project)}"
+                    data-edit-managers="${escapeHtml(project)}"
+                    ${disabledButtonAttrs(canEditProject, "Admin only.")}
+                  >
+                    Assign/Unassign managers
+                  </button>
+                  <button
+                    type="button"
+                    class="catalog-edit"
+                    aria-label="Edit members for ${escapeHtml(project)}"
+                    data-edit-members="${escapeHtml(project)}"
+                    ${disabledButtonAttrs(canManageMembers, "Manager access required.")}
+                  >
+                    Add/Remove members
+                  </button>
                 </span>
               </article>
             `;
