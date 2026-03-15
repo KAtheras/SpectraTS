@@ -2429,12 +2429,13 @@
         }
       }
 
-      let skippedNonStaff = 0;
-      try {
-        const currentAssigned = new Set(memberModalState.assigned || []);
-        const desiredAssigned = new Set(selected);
-        const toAdd = [];
-        const toRemove = [];
+    let skippedNonStaff = 0;
+    let success = false;
+    try {
+      const currentAssigned = new Set(memberModalState.assigned || []);
+      const desiredAssigned = new Set(selected);
+      const toAdd = [];
+      const toRemove = [];
 
         if (mode === "project-managers-edit") {
           currentAssigned.forEach((id) => {
@@ -2613,21 +2614,25 @@
             }
           }
         }
-      } catch (error) {
-        setMembersFeedback(error.message || "Unable to update members.", true);
-        return;
-      }
 
-      const postMessage = skippedNonStaff
-        ? "Only Levels 1-2 can be added to projects; higher levels were skipped."
-        : "";
+        success = true;
+    } catch (error) {
+      setMembersFeedback(error.message || "Unable to update members.", true);
+      return;
+    }
+
+    const postMessage = skippedNonStaff
+      ? "Only Levels 1-2 can be added to projects; higher levels were skipped."
+      : "";
+    if (success) {
       closeMembersModal();
       render();
-      if (postMessage) {
-        feedback(postMessage, true);
-      }
-    });
-  }
+    }
+    if (postMessage) {
+      feedback(postMessage, true);
+    }
+  });
+}
 
   window.addEventListener("resize", postHeight);
   window.addEventListener("load", postHeight);
