@@ -1404,6 +1404,23 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   right: 12px;
   display: flex;
   gap: 8px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--group-border);
+}
+
+.detail-divider {
+  grid-column: 1 / -1;
+  height: 1px;
+  background: var(--group-border);
+  margin: 4px 0 2px;
+}
+
+.user-detail-actions {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  gap: 8px;
 }
 
 .user-item.is-selected {
