@@ -2593,7 +2593,6 @@
             }
           }
         }
-    }
 
     if (mode === "project-members-edit") {
       const finalAssigned = new Set(memberModalState.assigned || []);
