@@ -80,6 +80,7 @@
     sessionIndicator: document.getElementById("session-indicator"),
     accountName: document.getElementById("account-name"),
     manageUsers: document.getElementById("manage-users"),
+    changePasswordOpen: document.getElementById("change-password-open"),
     logoutButton: document.getElementById("logout-button"),
     themeToggle: document.getElementById("theme-toggle"),
     openCatalog: document.getElementById("open-catalog"),
@@ -101,6 +102,17 @@
     dialogInput: document.getElementById("dialog-input"),
     dialogCancel: document.getElementById("dialog-cancel"),
     dialogConfirm: document.getElementById("dialog-confirm"),
+    changePasswordModal: document.getElementById("change-password-modal"),
+    changePasswordForm: document.getElementById("change-password-form"),
+    changePasswordCurrent: document.getElementById("change-password-current"),
+    changePasswordNew: document.getElementById("change-password-new"),
+    changePasswordConfirm: document.getElementById("change-password-confirm"),
+    changePasswordCancel: document.getElementById("change-password-cancel"),
+    forcePasswordShell: document.getElementById("force-password-shell"),
+    forcePasswordForm: document.getElementById("force-password-form"),
+    forcePasswordCurrent: document.getElementById("force-password-current"),
+    forcePasswordNew: document.getElementById("force-password-new"),
+    forcePasswordConfirm: document.getElementById("force-password-confirm"),
     membersModal: document.getElementById("members-modal"),
     closeUsers: document.getElementById("close-users"),
     closeMembers: document.getElementById("close-members"),
@@ -400,6 +412,9 @@
   function showAuthShell() {
     refs.authShell.hidden = false;
     refs.appShell.hidden = true;
+    if (refs.forcePasswordShell) {
+      refs.forcePasswordShell.hidden = true;
+    }
     refs.authShell.style.display = "grid";
     refs.appShell.style.display = "none";
   }
@@ -407,8 +422,22 @@
   function showAppShell() {
     refs.authShell.hidden = true;
     refs.appShell.hidden = false;
+    if (refs.forcePasswordShell) {
+      refs.forcePasswordShell.hidden = true;
+    }
     refs.authShell.style.display = "none";
     refs.appShell.style.display = "block";
+  }
+
+  function showForcePasswordShell() {
+    if (refs.forcePasswordShell) {
+      refs.forcePasswordShell.hidden = false;
+      refs.forcePasswordShell.setAttribute("aria-hidden", "false");
+    }
+    refs.authShell.hidden = true;
+    refs.appShell.hidden = true;
+    refs.authShell.style.display = "none";
+    refs.appShell.style.display = "none";
   }
 
   function setView(view) {
@@ -1017,7 +1046,11 @@
     const isAuthenticated = Boolean(state.currentUser);
 
     if (isAuthenticated) {
-      showAppShell();
+      if (state.currentUser?.mustChangePassword) {
+        showForcePasswordShell();
+      } else {
+        showAppShell();
+      }
     } else {
       showAuthShell();
     }
@@ -1078,6 +1111,81 @@
       setAuthFeedback(message, true);
       window.alert(message);
     }
+  }
+
+  async function submitForcePassword(event) {
+    event.preventDefault();
+    const currentPassword = refs.forcePasswordCurrent.value.trim();
+    const newPassword = refs.forcePasswordNew.value.trim();
+    const confirmPassword = refs.forcePasswordConfirm.value.trim();
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setAuthFeedback("All password fields are required.", true);
+      return;
+    }
+    if (newPassword.length < 8) {
+      setAuthFeedback("New password must be at least 8 characters.", true);
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setAuthFeedback("Passwords do not match.", true);
+      return;
+    }
+    try {
+      await mutatePersistentState("change_own_password", {
+        currentPassword,
+        newPassword,
+      });
+      refs.forcePasswordForm.reset();
+      renderAuthUi();
+      render();
+    } catch (error) {
+      setAuthFeedback(error.message || "Unable to change password.", true);
+    }
+  }
+
+  function openChangePasswordModal() {
+    if (!refs.changePasswordModal) return;
+    refs.changePasswordModal.hidden = false;
+    refs.changePasswordCurrent.value = "";
+    refs.changePasswordNew.value = "";
+    refs.changePasswordConfirm.value = "";
+    refs.changePasswordCurrent.focus();
+  }
+
+  function closeChangePasswordModal() {
+    if (!refs.changePasswordModal) return;
+    refs.changePasswordModal.hidden = true;
+  }
+
+  async function submitChangePassword(event) {
+    event.preventDefault();
+    const currentPassword = refs.changePasswordCurrent.value.trim();
+    const newPassword = refs.changePasswordNew.value.trim();
+    const confirmPassword = refs.changePasswordConfirm.value.trim();
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      feedback("All password fields are required.", true);
+      return;
+    }
+    if (newPassword.length < 8) {
+      feedback("New password must be at least 8 characters.", true);
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      feedback("Passwords do not match.", true);
+      return;
+    }
+    try {
+      await mutatePersistentState("change_own_password", {
+        currentPassword,
+        newPassword,
+      });
+      closeChangePasswordModal();
+      feedback("Password updated.", false);
+    } catch (error) {
+      feedback(error.message || "Unable to change password.", true);
+      return;
+    }
+    render();
   }
 
   async function handleLogout() {
@@ -1507,6 +1615,10 @@
       postHeight();
       return;
     }
+    if (state.currentUser.mustChangePassword) {
+      postHeight();
+      return;
+    }
 
     const view = state.currentView;
 
@@ -1530,6 +1642,10 @@
     }
     if (refs.manageUsers) {
       refs.manageUsers.hidden = view !== "main" ? true : !isAdmin(state.currentUser);
+    }
+    if (refs.changePasswordOpen) {
+      refs.changePasswordOpen.hidden =
+        view !== "main" || !state.currentUser || state.currentUser.mustChangePassword;
     }
     if (refs.logoutButton) {
       refs.logoutButton.hidden = view !== "main";
@@ -1989,6 +2105,18 @@
 
   refs.exportCsv.addEventListener("click", exportCsv);
   refs.addUserForm.addEventListener("submit", handleAddUser);
+  if (refs.changePasswordOpen) {
+    refs.changePasswordOpen.addEventListener("click", openChangePasswordModal);
+  }
+  if (refs.changePasswordForm) {
+    refs.changePasswordForm.addEventListener("submit", submitChangePassword);
+  }
+  if (refs.changePasswordCancel) {
+    refs.changePasswordCancel.addEventListener("click", closeChangePasswordModal);
+  }
+  if (refs.forcePasswordForm) {
+    refs.forcePasswordForm.addEventListener("submit", submitForcePassword);
+  }
   refs.userList.addEventListener("click", handleUserListAction);
   if (refs.levelLabelsForm) {
     refs.levelLabelsForm.addEventListener("submit", async function (event) {

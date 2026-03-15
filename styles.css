@@ -179,6 +179,31 @@ body.modal-open {
   gap: 10px;
 }
 
+.force-password {
+  position: fixed;
+  inset: 0;
+  z-index: 150;
+  display: grid;
+  place-items: center;
+  background: var(--page-bg, #f8f5f0);
+}
+
+.force-password-card {
+  background: var(--panel, #fff);
+  border: 1px solid var(--panel-border, #ddd);
+  border-radius: 18px;
+  padding: 20px;
+  width: min(520px, calc(100vw - 32px));
+  display: grid;
+  gap: 12px;
+  box-shadow: var(--shadow);
+}
+
+.force-password-card form {
+  display: grid;
+  gap: 10px;
+}
+
 .dialog-overlay[hidden] {
   display: none !important;
 }

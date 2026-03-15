@@ -9,6 +9,7 @@ const {
   findProject,
   findUserByDisplayName,
   findUserById,
+  hashPassword,
   getSessionContext,
   getSql,
   getManagerScope,
@@ -22,6 +23,7 @@ const {
   requireAuth,
   updateUserPassword,
   updateUserRecord,
+  verifyPassword,
 } = require("./_db");
 
 function normalizeHours(value) {
@@ -51,6 +53,35 @@ function normalizeStatus(status) {
     .toLowerCase() === "approved"
     ? "approved"
     : "pending";
+}
+
+async function changeOwnPassword(sql, payload, currentUser, accountId) {
+  const currentPassword = String(payload.currentPassword || "");
+  const newPassword = String(payload.newPassword || "");
+  if (!currentPassword || !newPassword) {
+    return errorResponse(400, "Current and new passwords are required.");
+  }
+  if (newPassword.length < 8) {
+    return errorResponse(400, "New password must be at least 8 characters.");
+  }
+  const user = await findUserById(sql, currentUser.id, accountId);
+  if (!user) {
+    return errorResponse(404, "User not found.");
+  }
+  if (!verifyPassword(currentPassword, user.password_hash)) {
+    return errorResponse(403, "Current password is incorrect.");
+  }
+
+  await sql`
+    UPDATE users
+    SET
+      password_hash = ${hashPassword(newPassword)},
+      must_change_password = FALSE,
+      updated_at = NOW()
+    WHERE id = ${user.id}
+      AND account_id = ${accountId}::uuid
+  `;
+  return null;
 }
 
 function validateEntry(entry, currentUser) {
@@ -1219,6 +1250,15 @@ exports.handler = async function handler(event) {
           return errorResponse(403, "Admin access required.");
         }
         await updateUserPassword(sql, request.payload || {}, accountId);
+        break;
+      }
+      case "change_own_password": {
+        mutationResult = await changeOwnPassword(
+          sql,
+          request.payload || {},
+          context.currentUser,
+          accountId
+        );
         break;
       }
       case "deactivate_user": {

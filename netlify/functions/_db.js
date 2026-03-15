@@ -60,6 +60,7 @@ async function ensureSchema(sql) {
       role TEXT NOT NULL,
       level INT,
       account_id UUID REFERENCES accounts(id),
+      must_change_password BOOLEAN NOT NULL DEFAULT FALSE,
       is_active BOOLEAN NOT NULL DEFAULT TRUE,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -70,6 +71,7 @@ async function ensureSchema(sql) {
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS account_id UUID REFERENCES accounts(id)`;
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS base_rate NUMERIC(10,2)`;
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS cost_rate NUMERIC(10,2)`;
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT FALSE`;
 
   await sql`ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check`;
   await sql`UPDATE users SET role = 'global_admin' WHERE role = 'admin'`;
@@ -559,6 +561,7 @@ async function listUsers(sql, accountId) {
       level,
       base_rate AS "baseRate",
       cost_rate AS "costRate",
+      must_change_password AS "mustChangePassword",
       account_id AS "accountId",
       is_active AS "isActive",
       created_at AS "createdAt"
@@ -607,6 +610,10 @@ async function createUserRecord(sql, payload) {
     payload.costRate !== undefined && payload.costRate !== null && payload.costRate !== ""
       ? Number(payload.costRate)
       : null;
+  const mustChangePassword =
+    payload.mustChangePassword === false || payload.mustChangePassword === "false"
+      ? false
+      : true;
   const accountId = normalizeText(payload.accountId);
   const accountUuid = accountId ? `${accountId}` : accountId;
   if (!accountUuid) {
@@ -665,6 +672,7 @@ async function createUserRecord(sql, payload) {
       base_rate = ${baseRate},
       cost_rate = ${costRate},
       is_active = TRUE,
+      must_change_password = ${mustChangePassword},
       updated_at = ${now}
     WHERE id = ${userRecord.id}
   `;
@@ -693,6 +701,7 @@ async function createUserRecord(sql, payload) {
     updatedAt: now,
     passwordHash: hashPassword(password),
     accountId: accountUuid,
+    mustChangePassword,
   };
 
   await sql`
@@ -705,6 +714,7 @@ async function createUserRecord(sql, payload) {
       level,
       base_rate,
       cost_rate,
+      must_change_password,
       account_id,
       is_active,
       created_at,
@@ -719,6 +729,7 @@ async function createUserRecord(sql, payload) {
       ${user.level},
       ${user.baseRate},
       ${user.costRate},
+      ${user.mustChangePassword},
       ${user.accountId}::uuid,
       TRUE,
       ${user.createdAt},
@@ -850,6 +861,7 @@ async function updateUserPassword(sql, payload, accountId) {
     UPDATE users
     SET
       password_hash = ${hashPassword(password)},
+      must_change_password = ${payload.mustChangePassword === false ? false : true},
       updated_at = ${new Date().toISOString()}
     WHERE id = ${existingUser.id}
   `;
@@ -1187,6 +1199,8 @@ async function loadState(sql, currentUser) {
           currentUser.baseRate ?? currentUser.base_rate ?? null,
         costRate:
           currentUser.costRate ?? currentUser.cost_rate ?? null,
+        mustChangePassword:
+          currentUser.mustChangePassword ?? currentUser.must_change_password ?? false,
       }
     : null;
   const accountId = normalizedUser?.accountId || (await ensureDefaultAccount(sql));
@@ -1294,6 +1308,7 @@ async function loadState(sql, currentUser) {
           level: normalizedUser.level,
           baseRate: normalizedUser.baseRate ?? null,
           costRate: normalizedUser.costRate ?? null,
+          mustChangePassword: normalizedUser.mustChangePassword ?? false,
           isActive: true,
           accountId: normalizedUser.accountId,
         }]

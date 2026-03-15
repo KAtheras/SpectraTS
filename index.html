@@ -56,6 +56,28 @@
       </section>
     </div>
 
+    <div class="force-password" id="force-password-shell" hidden>
+      <div class="force-password-card">
+        <h2>Password change required</h2>
+        <p>You must change your password before continuing.</p>
+        <form id="force-password-form">
+          <label>
+            <span>Current Password</span>
+            <input type="password" id="force-password-current" required />
+          </label>
+          <label>
+            <span>New Password</span>
+            <input type="password" id="force-password-new" required minlength="8" />
+          </label>
+          <label>
+            <span>Confirm New Password</span>
+            <input type="password" id="force-password-confirm" required minlength="8" />
+          </label>
+          <button class="button" type="submit">Save and continue</button>
+        </form>
+      </div>
+    </div>
+
     <div class="page-shell" id="app-shell" hidden>
       <div class="shell-inner">
         <div class="app-topbar">
@@ -67,6 +89,9 @@
             </button>
             <button class="button button-ghost" id="open-catalog" type="button">
               Clients
+            </button>
+            <button class="button button-ghost" id="change-password-open" type="button" hidden>
+              Change Password
             </button>
             <button class="button button-ghost" id="theme-toggle" type="button">
               Dark/Light
@@ -432,6 +457,30 @@
           <button type="button" class="button button-ghost" id="dialog-cancel">Cancel</button>
           <button type="button" class="button" id="dialog-confirm">OK</button>
         </div>
+      </div>
+    </div>
+
+    <div class="dialog-overlay" id="change-password-modal" hidden>
+      <div class="dialog-card">
+        <h3>Change Password</h3>
+        <form id="change-password-form">
+          <label>
+            <span>Current Password</span>
+            <input type="password" id="change-password-current" required />
+          </label>
+          <label>
+            <span>New Password</span>
+            <input type="password" id="change-password-new" required minlength="8" />
+          </label>
+          <label>
+            <span>Confirm New Password</span>
+            <input type="password" id="change-password-confirm" required minlength="8" />
+          </label>
+          <div class="dialog-actions">
+            <button type="button" class="button button-ghost" id="change-password-cancel">Cancel</button>
+            <button type="submit" class="button" id="change-password-save">Save</button>
+          </div>
+        </form>
       </div>
     </div>
 

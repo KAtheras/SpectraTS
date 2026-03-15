@@ -58,6 +58,7 @@ exports.handler = async function handler(event) {
         displayName: request.payload?.displayName,
         password: request.payload?.password,
         level: 6,
+        mustChangePassword: false,
         accountId,
       });
       const session = await createSession(sql, user.id);
@@ -69,6 +70,7 @@ exports.handler = async function handler(event) {
         level: user.level,
         baseRate: user.baseRate ?? user.base_rate ?? null,
         costRate: user.costRate ?? user.cost_rate ?? null,
+        mustChangePassword: user.mustChangePassword ?? user.must_change_password ?? false,
         accountId,
       });
 
@@ -104,6 +106,7 @@ exports.handler = async function handler(event) {
         level: user.level,
         baseRate: user.base_rate ?? null,
         costRate: user.cost_rate ?? null,
+        mustChangePassword: user.must_change_password ?? false,
         accountId: user.account_id,
       });
 

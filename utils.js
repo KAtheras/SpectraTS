@@ -72,6 +72,12 @@
         : user.cost_rate !== undefined && user.cost_rate !== null
           ? Number(user.cost_rate)
           : null;
+    const mustChangePassword =
+      user.mustChangePassword !== undefined
+        ? Boolean(user.mustChangePassword)
+        : user.must_change_password !== undefined
+          ? Boolean(user.must_change_password)
+          : false;
 
     if (!displayName || !username) {
       return null;
@@ -85,6 +91,7 @@
       password,
       baseRate: Number.isFinite(baseRate) ? baseRate : null,
       costRate: Number.isFinite(costRate) ? costRate : null,
+      mustChangePassword,
       accountId: user.accountId || "",
     };
   }
