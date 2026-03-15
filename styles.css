@@ -373,8 +373,8 @@ body.is-embedded .page-shell {
   padding-top: 16px;
   border-top: 1px solid var(--group-border);
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 10px 14px;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
   align-items: end;
 }
 
@@ -391,7 +391,8 @@ body.is-embedded .page-shell {
 .level-labels-form button {
   grid-column: 1 / -1;
   justify-self: end;
-  max-width: 220px;
+  width: fit-content;
+  max-width: 100%;
 }
 
 .entry-form label,
@@ -1347,6 +1348,11 @@ textarea {
   .app-topbar .session-indicator {
     width: 100%;
     justify-content: center;
+  }
+
+  .level-labels-form {
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 8px;
   }
 
   .level-labels-form {
