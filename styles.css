@@ -826,7 +826,7 @@ textarea {
   position: static;
   display: block;
   background: transparent;
-  padding: 0;
+  padding: 0 0 24px;
   width: 100%;
   height: auto;
 }
@@ -839,6 +839,28 @@ textarea {
 
 .panel-modal.as-page + .modal-backdrop {
   display: none !important;
+}
+
+.modal-backdrop.as-page .panel,
+.modal-backdrop.as-page .panel-modal {
+  box-shadow: none;
+  border: none;
+  border-radius: 0;
+  width: 100%;
+  max-width: none;
+  background: var(--panel);
+  padding: 0;
+}
+
+.modal-backdrop.as-page .panel-head {
+  padding: 20px 22px 14px;
+}
+
+.modal-backdrop.as-page .users-modal-sticky {
+  position: static;
+  padding: 20px 22px 14px;
+  background: transparent;
+  border-bottom: none;
 }
 
 #members-modal .panel-modal {
