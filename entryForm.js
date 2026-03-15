@@ -242,6 +242,7 @@
       refs,
       state,
       field,
+      uniqueValues,
       isStaff,
       isManager,
       isAdmin,
