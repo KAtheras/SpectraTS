@@ -2429,51 +2429,53 @@
         }
       }
 
-    let skippedNonStaff = 0;
-    let success = false;
+  let skippedNonStaff = 0;
+  let success = false;
+  let mutationsRun = 0;
     try {
-      const currentAssigned = new Set(memberModalState.assigned || []);
-      const desiredAssigned = new Set(selected);
-      const toAdd = [];
-      const toRemove = [];
+    const currentAssigned = new Set(memberModalState.assigned || []);
+    const desiredAssigned = new Set(selected);
+    const currentOverrides = memberModalState.overrides || {};
+    const toAdd = [];
+    const toRemove = [];
 
-        if (mode === "project-managers-edit") {
-          currentAssigned.forEach((id) => {
-            if (!desiredAssigned.has(id)) {
-              toRemove.push(id);
-            }
-          });
-          desiredAssigned.forEach((id) => {
-            if (!currentAssigned.has(id)) {
-              toAdd.push(id);
-            }
-          });
-        } else if (mode === "project-members-edit") {
-          currentAssigned.forEach((id) => {
-            if (!desiredAssigned.has(id)) {
-              toRemove.push(id);
-            }
-          });
-          desiredAssigned.forEach((id) => {
-            if (!currentAssigned.has(id)) {
-              toAdd.push(id);
-            }
-          });
+    if (mode === "project-managers-edit") {
+      // Build add/remove sets for informational symmetry; actions handled per-row below.
+      currentAssigned.forEach((id) => {
+        if (!desiredAssigned.has(id)) {
+          toRemove.push(id);
         }
+      });
+      desiredAssigned.forEach((id) => {
+        if (!currentAssigned.has(id)) {
+          toAdd.push(id);
+        }
+      });
+    } else if (mode === "project-members-edit") {
+      currentAssigned.forEach((id) => {
+        if (!desiredAssigned.has(id)) {
+          toRemove.push(id);
+        }
+      });
+      desiredAssigned.forEach((id) => {
+        if (!currentAssigned.has(id)) {
+          toAdd.push(id);
+        }
+      });
+    }
 
-        const processIds = mode === "project-managers-edit" || mode === "project-members-edit"
-          ? [...toAdd, ...toRemove]
-          : selected;
-        const currentOverrides = memberModalState.overrides || {};
+    const processIds = mode === "project-managers-edit" || mode === "project-members-edit"
+      ? [...new Set([...currentAssigned, ...desiredAssigned, ...Object.keys(overrideInputMap)])]
+      : selected;
 
-        for (const userId of processIds) {
-          const user = getUserById(userId);
-          if (!user) {
-            continue;
-          }
-          const nextLevel = normalizeLevel(
-            levelSelections[userId] ?? user.level
-          );
+    for (const userId of processIds) {
+      const user = getUserById(userId);
+      if (!user) {
+        continue;
+      }
+      const nextLevel = normalizeLevel(
+        levelSelections[userId] ?? user.level
+      );
           if (isGlobalAdmin(state.currentUser) && nextLevel !== normalizeLevel(user.level)) {
             if (
               isGlobalAdmin(user) &&
@@ -2523,36 +2525,41 @@
               clientName: client,
               projectName: project,
             });
-          } else if (mode === "project-managers-edit") {
-            if (toAdd.includes(user.id)) {
-              if (effectiveLevel < 3) {
-                continue;
-              }
-              await mutatePersistentState("assign_manager_project", {
-                managerId: user.id,
-                clientName: client,
-                projectName: project,
-                chargeRateOverride: overrideInputMap[user.id],
-              });
-            } else if (toRemove.includes(user.id)) {
-              await mutatePersistentState("unassign_manager_project", {
-                managerId: user.id,
-                clientName: client,
-                projectName: project,
-              });
-            } else if (overrideInputMap.hasOwnProperty(user.id)) {
-              const newOverride = overrideInputMap[user.id];
-              const prevOverride = currentOverrides[user.id] ?? null;
-              if (newOverride !== prevOverride) {
-                await mutatePersistentState("update_manager_project_rate", {
-                  managerId: user.id,
-                  clientName: client,
-                  projectName: project,
-                  chargeRateOverride: newOverride,
-                });
-              }
+        } else if (mode === "project-managers-edit") {
+          const wasAssigned = currentAssigned.has(user.id);
+          const isChecked = desiredAssigned.has(user.id);
+          const prevOverride = currentOverrides[user.id] ?? null;
+          const hasInput = overrideInputMap.hasOwnProperty(user.id);
+          const newOverride = hasInput ? overrideInputMap[user.id] : prevOverride;
+
+          if (!wasAssigned && isChecked) {
+            if (effectiveLevel < 3) {
+              continue;
             }
-          } else if (mode === "project-members-edit") {
+            await mutatePersistentState("assign_manager_project", {
+              managerId: user.id,
+              clientName: client,
+              projectName: project,
+              chargeRateOverride: newOverride,
+            });
+            mutationsRun += 1;
+          } else if (wasAssigned && !isChecked) {
+            await mutatePersistentState("unassign_manager_project", {
+              managerId: user.id,
+              clientName: client,
+              projectName: project,
+            });
+            mutationsRun += 1;
+          } else if (wasAssigned && isChecked && hasInput && newOverride !== prevOverride) {
+            await mutatePersistentState("update_manager_project_rate", {
+              managerId: user.id,
+              clientName: client,
+              projectName: project,
+              chargeRateOverride: newOverride,
+            });
+            mutationsRun += 1;
+          }
+        } else if (mode === "project-members-edit") {
             if (toAdd.includes(user.id)) {
               if (effectiveLevel > 2) {
                 skippedNonStaff += 1;
@@ -2586,37 +2593,40 @@
             }
           }
         }
+    }
 
-        if (mode === "project-members-edit" || mode === "project-managers-edit") {
-          const finalAssigned = new Set(memberModalState.assigned || []);
-          toRemove.forEach((id) => finalAssigned.delete(id));
-          toAdd.forEach((id) => finalAssigned.add(id));
+    if (mode === "project-members-edit") {
+      const finalAssigned = new Set(memberModalState.assigned || []);
+      toRemove.forEach((id) => finalAssigned.delete(id));
+      toAdd.forEach((id) => finalAssigned.add(id));
 
-          for (const userId of finalAssigned) {
-            if (!overrideInputMap.hasOwnProperty(userId)) {
-              continue;
-            }
-            const newOverride = overrideInputMap[userId];
-            const prevOverride = currentOverrides[userId] ?? null;
-            if (newOverride !== prevOverride && !toAdd.includes(userId)) {
-              const action =
-                mode === "project-members-edit"
-                  ? "update_project_member_rate"
-                  : "update_manager_project_rate";
-              await mutatePersistentState(action, {
-                ...(mode === "project-members-edit"
-                  ? { userId }
-                  : { managerId: userId }),
-                clientName: client,
-                projectName: project,
-                chargeRateOverride: newOverride,
-              });
-            }
-          }
+      for (const userId of finalAssigned) {
+        if (!overrideInputMap.hasOwnProperty(userId)) {
+          continue;
         }
+        const newOverride = overrideInputMap[userId];
+        const prevOverride = currentOverrides[userId] ?? null;
+        if (newOverride !== prevOverride && !toAdd.includes(userId)) {
+          await mutatePersistentState("update_project_member_rate", {
+            userId,
+            clientName: client,
+            projectName: project,
+            chargeRateOverride: newOverride,
+          });
+        }
+      }
+    }
 
-        success = true;
-    } catch (error) {
+    if (mode === "project-managers-edit") {
+      if (mutationsRun === 0) {
+        setMembersFeedback("No changes to save.", false);
+        return;
+      }
+      success = true;
+    } else {
+      success = true;
+    }
+  } catch (error) {
       setMembersFeedback(error.message || "Unable to update members.", true);
       return;
     }
