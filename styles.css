@@ -1260,25 +1260,30 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
 }
 
 .catalog-analytics-wrap {
+  position: absolute;
+  inset: 0;
   display: flex;
+  align-items: center;
   justify-content: center;
+  pointer-events: none;
 }
 
 .catalog-analytics-button {
-  width: 110px;
-  height: 110px;
-  border-radius: 16px;
-  border: none;
-  background: var(--accent);
-  color: #fff;
+  pointer-events: auto;
+  width: 88px;
+  height: 88px;
+  border-radius: 14px;
+  border: 1px solid var(--group-border);
+  background: var(--item-hover-bg);
+  color: var(--ink);
   font-family: var(--font-head);
   font-weight: 700;
   letter-spacing: 0.02em;
   display: grid;
   place-items: center;
   text-transform: uppercase;
-  line-height: 1.2;
-  cursor: default;
+  line-height: 1.15;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
 .catalog-delete {
