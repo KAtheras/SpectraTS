@@ -352,7 +352,7 @@ body.is-embedded .page-shell {
     minmax(0, 0.9fr)
     minmax(110px, 0.65fr)
     minmax(120px, 0.75fr)
-    minmax(140px, 0.9fr);
+    minmax(110px, 0.7fr);
   align-items: end;
   margin-top: 6px;
 }
@@ -367,6 +367,16 @@ body.is-embedded .page-shell {
 .add-user-form .add-user-button {
   align-self: end;
   height: 44px;
+}
+
+/* Remove numeric spin buttons for the Base Rate input */
+input[name="base_rate"]::-webkit-outer-spin-button,
+input[name="base_rate"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[name="base_rate"] {
+  -moz-appearance: textfield;
 }
 
 .level-labels-form {

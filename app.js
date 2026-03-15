@@ -1032,6 +1032,11 @@
     const password = String(formData.get("password") || "");
     const selectedLevel = Number(formData.get("level") || 1);
     const level = isGlobalAdmin(state.currentUser) ? selectedLevel : 1;
+    const baseRateRaw = formData.get("base_rate");
+    const baseRate =
+      baseRateRaw !== null && baseRateRaw !== ""
+        ? Number(baseRateRaw)
+        : null;
 
     try {
       await mutatePersistentState("add_user", {
@@ -1039,6 +1044,7 @@
         username,
         password,
         level,
+        baseRate,
       });
     } catch (error) {
       const message = error.message || "Unable to add team member.";

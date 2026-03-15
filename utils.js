@@ -60,6 +60,12 @@
           : "";
     const level = normalizeLevel(user.level ?? user.role);
     const password = typeof user.password === "string" ? user.password : "";
+    const baseRate =
+      user.baseRate !== undefined && user.baseRate !== null
+        ? Number(user.baseRate)
+        : user.base_rate !== undefined && user.base_rate !== null
+          ? Number(user.base_rate)
+          : null;
 
     if (!displayName || !username) {
       return null;
@@ -71,6 +77,7 @@
       username,
       level,
       password,
+      baseRate: Number.isFinite(baseRate) ? baseRate : null,
       accountId: user.accountId || "",
     };
   }

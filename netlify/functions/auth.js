@@ -67,6 +67,7 @@ exports.handler = async function handler(event) {
         username: user.username,
         displayName: user.displayName,
         level: user.level,
+        baseRate: user.baseRate ?? user.base_rate ?? null,
         accountId,
       });
 
@@ -100,6 +101,7 @@ exports.handler = async function handler(event) {
         username: user.username,
         displayName: user.display_name,
         level: user.level,
+        baseRate: user.base_rate ?? null,
         accountId: user.account_id,
       });
 

@@ -545,6 +545,7 @@ async function listUsers(sql, accountId) {
       username,
       display_name AS "displayName",
       level,
+      base_rate AS "baseRate",
       account_id AS "accountId",
       is_active AS "isActive",
       created_at AS "createdAt"
@@ -585,6 +586,10 @@ async function createUserRecord(sql, payload) {
   const displayName = normalizeText(payload.displayName);
   const password = String(payload.password || "");
   const level = normalizeLevel(payload.level ?? payload.role);
+  const baseRate =
+    payload.baseRate !== undefined && payload.baseRate !== null && payload.baseRate !== ""
+      ? Number(payload.baseRate)
+      : null;
   const accountId = normalizeText(payload.accountId);
   const accountUuid = accountId ? `${accountId}` : accountId;
   if (!accountUuid) {
@@ -599,6 +604,9 @@ async function createUserRecord(sql, payload) {
   }
   if (password.length < 8) {
     throw new Error("Password must be at least 8 characters.");
+  }
+  if (baseRate !== null && !(Number.isFinite(baseRate) && baseRate >= 0)) {
+    throw new Error("Base rate must be a non-negative number.");
   }
 
   if (await findUserByUsername(sql, username, accountUuid)) {
@@ -623,6 +631,7 @@ async function createUserRecord(sql, payload) {
     username,
     displayName,
     level,
+    baseRate,
     createdAt: now,
     updatedAt: now,
     passwordHash: hashPassword(password),
@@ -637,6 +646,7 @@ async function createUserRecord(sql, payload) {
       password_hash,
       role,
       level,
+      base_rate,
       account_id,
       is_active,
       created_at,
@@ -649,6 +659,7 @@ async function createUserRecord(sql, payload) {
       ${user.passwordHash},
       'staff',
       ${user.level},
+      ${user.baseRate},
       ${user.accountId}::uuid,
       TRUE,
       ${user.createdAt},
@@ -664,6 +675,10 @@ async function updateUserRecord(sql, payload, actingUser) {
   const displayName = normalizeText(payload.displayName);
   const username = normalizeText(payload.username);
   const level = normalizeLevel(payload.level ?? payload.role);
+  const baseRate =
+    payload.baseRate !== undefined && payload.baseRate !== null && payload.baseRate !== ""
+      ? Number(payload.baseRate)
+      : existingUser?.base_rate ?? null;
   const existingUser = await findUserById(sql, userId, actingUser?.accountId);
 
   if (!existingUser || !existingUser.is_active) {
@@ -700,6 +715,9 @@ async function updateUserRecord(sql, payload, actingUser) {
   if (duplicateDisplayName[0]) {
     throw new Error("That team member name already exists.");
   }
+  if (baseRate !== null && !(Number.isFinite(baseRate) && baseRate >= 0)) {
+    throw new Error("Base rate must be a non-negative number.");
+  }
 
   if (isSuperAdminLevel(existingUser.level) && !isSuperAdminLevel(level)) {
     const admins = await adminCount(sql, existingUser.account_id);
@@ -715,6 +733,7 @@ async function updateUserRecord(sql, payload, actingUser) {
       username = ${username},
       display_name = ${displayName},
       level = ${level},
+      base_rate = ${baseRate},
       updated_at = ${updatedAt}
     WHERE id = ${existingUser.id}
   `;
@@ -734,6 +753,7 @@ async function updateUserRecord(sql, payload, actingUser) {
       username: refreshed.username,
       displayName: refreshed.display_name,
       level: normalizeLevel(refreshed.level),
+      baseRate: refreshed.base_rate ?? null,
       accountId: refreshed.account_id,
     };
   }
@@ -1082,7 +1102,12 @@ async function getManagerScope(sql, managerId, accountId) {
 }
 async function loadState(sql, currentUser) {
   const normalizedUser = currentUser
-    ? { ...currentUser, level: normalizeLevel(currentUser.level) }
+    ? {
+        ...currentUser,
+        level: normalizeLevel(currentUser.level),
+        baseRate:
+          currentUser.baseRate ?? currentUser.base_rate ?? null,
+      }
     : null;
   const accountId = normalizedUser?.accountId || (await ensureDefaultAccount(sql));
   const accountUuid = accountId ? `${accountId}` : accountId;
