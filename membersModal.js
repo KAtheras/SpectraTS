@@ -26,6 +26,7 @@
     memberModalState.client = "";
     memberModalState.project = "";
     memberModalState.userId = "";
+    memberModalState.overrides = {};
 
     const usersHidden = !refs.usersModal || refs.usersModal.hidden;
     const catalogHidden = !refs.catalogModal || refs.catalogModal.hidden;
@@ -63,6 +64,7 @@
     const project = memberModalState.project;
     const userId = memberModalState.userId;
     const assignedSet = new Set(memberModalState.assigned || []);
+    const overrideMap = memberModalState.overrides || {};
 
     let title = "Manage Members";
     let subtext = "";
@@ -197,6 +199,42 @@
         `
         : `<span class="member-role-label">${escapeHtml(levelLabel(user.level))}</span>`;
 
+      const baseRate =
+        user.baseRate !== undefined && user.baseRate !== null
+          ? Number(user.baseRate)
+          : user.base_rate !== undefined && user.base_rate !== null
+            ? Number(user.base_rate)
+            : null;
+      const overrideRate =
+        overrideMap[user.id] !== undefined && overrideMap[user.id] !== null
+          ? Number(overrideMap[user.id])
+          : null;
+      const effectiveRate =
+        overrideRate !== null ? overrideRate : baseRate !== null ? baseRate : null;
+      const formatRate = (value) =>
+        value === null || Number.isNaN(value) ? "—" : `$${Number(value).toFixed(2)}`;
+
+      const overrideRow =
+        mode === "project-members-edit"
+          ? `
+              <div class="member-rate">
+                <div class="member-rate-line">Base Rate: ${formatRate(baseRate)}</div>
+                <label class="member-rate-input">
+                  <span>Project Rate Override (optional)</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    data-override-input="${escapeHtml(user.id)}"
+                    value="${overrideRate !== null ? escapeHtml(String(overrideRate)) : ""}"
+                    placeholder="Use base rate"
+                  />
+                </label>
+                <div class="member-rate-line">Effective: ${formatRate(effectiveRate)}</div>
+              </div>
+            `
+          : "";
+
       return `
         <article class="catalog-item member-item">
           <label class="member-select">
@@ -212,6 +250,7 @@
           </label>
           <div class="member-controls">
             ${roleSelect}
+            ${overrideRow}
           </div>
         </article>
       `;

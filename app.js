@@ -2262,6 +2262,16 @@
         state.selectedCatalogClient,
         editMembersButton.dataset.editMembers
       );
+      memberModalState.overrides = {};
+      state.assignments.projectMembers
+        .filter(
+          (item) =>
+            item.client === state.selectedCatalogClient &&
+            item.project === editMembersButton.dataset.editMembers
+        )
+        .forEach((item) => {
+          memberModalState.overrides[item.userId] = item.chargeRateOverride ?? null;
+        });
       openMembersModal();
       return;
     }
@@ -2389,6 +2399,26 @@
         return;
       }
 
+      const overrideInputMap = {};
+      if (mode === "project-members-edit") {
+        const overrideInputs = Array.from(
+          refs.membersList.querySelectorAll("input[data-override-input]")
+        );
+        for (const input of overrideInputs) {
+          const raw = input.value.trim();
+          if (!raw) {
+            overrideInputMap[input.dataset.overrideInput] = null;
+            continue;
+          }
+          const num = Number(raw);
+          if (!Number.isFinite(num) || num < 0) {
+            setMembersFeedback("Override must be a non-negative number.", true);
+            return;
+          }
+          overrideInputMap[input.dataset.overrideInput] = num;
+        }
+      }
+
       let skippedNonStaff = 0;
       try {
         const currentAssigned = new Set(memberModalState.assigned || []);
@@ -2423,6 +2453,7 @@
         const processIds = mode === "project-managers-edit" || mode === "project-members-edit"
           ? [...toAdd, ...toRemove]
           : selected;
+        const currentOverrides = memberModalState.overrides || {};
 
         for (const userId of processIds) {
           const user = getUserById(userId);
@@ -2508,6 +2539,7 @@
                 userId: user.id,
                 clientName: client,
                 projectName: project,
+                chargeRateOverride: overrideInputMap[user.id],
               });
             } else if (toRemove.includes(user.id)) {
               await mutatePersistentState("remove_project_member", {
@@ -2515,6 +2547,19 @@
                 clientName: client,
                 projectName: project,
               });
+            } else {
+              if (overrideInputMap.hasOwnProperty(user.id)) {
+                const newOverride = overrideInputMap[user.id];
+                const prevOverride = currentOverrides[user.id] ?? null;
+                if (newOverride !== prevOverride) {
+                  await mutatePersistentState("update_project_member_rate", {
+                    userId: user.id,
+                    clientName: client,
+                    projectName: project,
+                    chargeRateOverride: newOverride,
+                  });
+                }
+              }
             }
           }
         }

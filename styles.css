@@ -1466,6 +1466,26 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   justify-items: end;
 }
 
+.member-rate {
+  display: grid;
+  gap: 4px;
+  justify-items: end;
+}
+
+.member-rate-line {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.member-rate-input input {
+  width: 180px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--ink);
+}
+
 .member-list {
   max-height: 50vh;
 }

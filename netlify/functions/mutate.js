@@ -267,6 +267,10 @@ async function addProjectMember(sql, payload, currentUser, accountId) {
   const userId = normalizeText(payload.userId);
   const clientName = normalizeText(payload.clientName);
   const projectName = normalizeText(payload.projectName);
+  const override =
+    payload.chargeRateOverride !== undefined && payload.chargeRateOverride !== null && payload.chargeRateOverride !== ""
+      ? Number(payload.chargeRateOverride)
+      : null;
   if (!userId || !clientName || !projectName) {
     return errorResponse(400, "Member and project are required.");
   }
@@ -294,10 +298,23 @@ async function addProjectMember(sql, payload, currentUser, accountId) {
   }
 
   await sql`
-    INSERT INTO project_members (project_id, user_id, account_id, assigned_by)
-    VALUES (${project.id}, ${userId}, ${accountId}::uuid, ${currentUser.id})
-    ON CONFLICT (project_id, user_id) DO NOTHING
+    INSERT INTO project_members (project_id, user_id, account_id, assigned_by, charge_rate_override)
+    VALUES (${project.id}, ${userId}, ${accountId}::uuid, ${currentUser.id}, ${override})
+    ON CONFLICT (project_id, user_id) DO UPDATE SET
+      charge_rate_override = EXCLUDED.charge_rate_override
   `;
+  if (override !== null && !(Number.isFinite(override) && override >= 0)) {
+    return errorResponse(400, "Override rate must be non-negative.");
+  }
+  if (override !== null) {
+    await sql`
+      UPDATE project_members
+      SET charge_rate_override = ${override}
+      WHERE project_id = ${project.id}
+        AND user_id = ${userId}
+        AND account_id = ${accountId}::uuid
+    `;
+  }
   return null;
 }
 
@@ -332,6 +349,48 @@ async function removeProjectMember(sql, payload, currentUser, accountId) {
       AND user_id = ${userId}
       AND account_id = ${accountId}::uuid
   `;
+  return null;
+}
+
+async function updateProjectMemberRate(sql, payload, currentUser, accountId) {
+  const userId = normalizeText(payload.userId);
+  const clientName = normalizeText(payload.clientName);
+  const projectName = normalizeText(payload.projectName);
+  const overrideRaw = payload.chargeRateOverride;
+  const override =
+    overrideRaw === null || overrideRaw === "" || overrideRaw === undefined
+      ? null
+      : Number(overrideRaw);
+
+  if (!userId || !clientName || !projectName) {
+    return errorResponse(400, "Member and project are required.");
+  }
+  if (override !== null && !(Number.isFinite(override) && override >= 0)) {
+    return errorResponse(400, "Override must be a non-negative number.");
+  }
+
+  const project = await findProject(sql, clientName, projectName, accountId);
+  if (!project) {
+    return errorResponse(404, "Project not found.");
+  }
+
+  if (isManager(currentUser)) {
+    const hasAccess = await managerHasProjectAccess(sql, currentUser.id, project.id, accountId);
+    if (!hasAccess) {
+      return errorResponse(403, "You are not assigned to this project.");
+    }
+  } else if (!isAdmin(currentUser)) {
+    return errorResponse(403, "Manager access required.");
+  }
+
+  await sql`
+    UPDATE project_members
+    SET charge_rate_override = ${override}
+    WHERE project_id = ${project.id}
+      AND user_id = ${userId}
+      AND account_id = ${accountId}::uuid
+  `;
+
   return null;
 }
 
@@ -1044,6 +1103,15 @@ exports.handler = async function handler(event) {
           accountId
         );
         break;
+      case "update_project_member_rate": {
+        mutationResult = await updateProjectMemberRate(
+          sql,
+          request.payload || {},
+          context.currentUser,
+          accountId
+        );
+        break;
+      }
       }
       case "add_user": {
         const adminError = requireAdmin(context);

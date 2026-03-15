@@ -204,6 +204,7 @@ async function ensureSchema(sql) {
       project_id BIGINT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
       user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       account_id UUID REFERENCES accounts(id),
+      charge_rate_override NUMERIC(10,2),
       assigned_by TEXT REFERENCES users(id),
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       UNIQUE (project_id, user_id)
@@ -214,6 +215,7 @@ async function ensureSchema(sql) {
     ADD COLUMN IF NOT EXISTS account_id UUID REFERENCES accounts(id)
   `;
   await sql`UPDATE project_members SET account_id = ${accountUuid}::uuid WHERE account_id IS NULL`;
+  await sql`ALTER TABLE project_members ADD COLUMN IF NOT EXISTS charge_rate_override NUMERIC(10,2)`;
 
   await sql`
     CREATE TABLE IF NOT EXISTS entries (
@@ -1036,6 +1038,7 @@ async function listProjectMembers(sql, accountId) {
     SELECT
       project_members.project_id AS "projectId",
       project_members.user_id AS "userId",
+      project_members.charge_rate_override AS "chargeRateOverride",
       users.display_name AS "userName",
       projects.name AS project,
       clients.name AS client
@@ -1079,6 +1082,7 @@ async function listProjectMembersForUser(sql, userId, accountId) {
     SELECT
       project_members.project_id AS "projectId",
       project_members.user_id AS "userId",
+      project_members.charge_rate_override AS "chargeRateOverride",
       users.display_name AS "userName",
       projects.name AS project,
       clients.name AS client
@@ -1100,6 +1104,7 @@ async function listProjectMembersForProjects(sql, projectIds, accountId) {
     SELECT
       project_members.project_id AS "projectId",
       project_members.user_id AS "userId",
+      project_members.charge_rate_override AS "chargeRateOverride",
       users.display_name AS "userName",
       projects.name AS project,
       clients.name AS client
