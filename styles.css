@@ -824,15 +824,16 @@ textarea {
 
 .modal-backdrop.as-page {
   position: static;
-  display: block;
+  display: contents;
   background: transparent;
-  padding: 0 0 24px;
-  width: 100%;
+  padding: 0;
+  width: auto;
   height: auto;
 }
 
 .modal-backdrop.as-page .modal-shell {
   position: static;
+  display: contents;
   padding: 0;
   height: auto;
 }
