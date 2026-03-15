@@ -151,8 +151,7 @@
         <dl>
           <div><dt>Level</dt><dd>${escapeHtml(levelLabel(selectedUser.level))}</dd></div>
           <div><dt>Base Rate</dt><dd>${selectedUser.baseRate !== null && selectedUser.baseRate !== undefined ? `$${Number(selectedUser.baseRate).toFixed(2)}` : "—"}</dd></div>
-          <div><dt>Assigned Clients</dt><dd>${assignments.clients.length ? assignments.clients.map(escapeHtml).join("<br>") : "—"}</dd></div>
-          <div><dt>Assigned Projects</dt><dd>${assignments.projects.length ? assignments.projects.map((p) => `${escapeHtml(p.client)} / ${escapeHtml(p.project)}`).join("<br>") : "—"}</dd></div>
+          <div><dt>Clients/Projects</dt><dd>${assignments.projects.length ? assignments.projects.map((p) => `${escapeHtml(p.client)} / ${escapeHtml(p.project)}`).join("<br>") : "—"}</dd></div>
         </dl>
       </div>
     `;
