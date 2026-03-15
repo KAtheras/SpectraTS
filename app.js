@@ -1907,6 +1907,16 @@
           projectName,
         });
         message = result?.message || "";
+        // Defensive local cleanup in case state remains stale
+        state.projects = state.projects.filter(
+          (p) =>
+            !(p.client === state.selectedCatalogClient && p.project === projectName)
+        );
+        if (state.catalog?.[state.selectedCatalogClient]) {
+          state.catalog[state.selectedCatalogClient] = state.catalog[state.selectedCatalogClient].filter(
+            (name) => name !== projectName
+          );
+        }
         if (
           state.filters.client === state.selectedCatalogClient &&
           state.filters.project === projectName
