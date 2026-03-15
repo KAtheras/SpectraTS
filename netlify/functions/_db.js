@@ -54,6 +54,7 @@ async function ensureSchema(sql) {
       id TEXT PRIMARY KEY,
       username TEXT NOT NULL,
       display_name TEXT NOT NULL,
+      base_rate NUMERIC(10,2),
       password_hash TEXT NOT NULL,
       role TEXT NOT NULL,
       level INT,
@@ -66,6 +67,7 @@ async function ensureSchema(sql) {
 
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS level INT`;
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS account_id UUID REFERENCES accounts(id)`;
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS base_rate NUMERIC(10,2)`;
 
   await sql`ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check`;
   await sql`UPDATE users SET role = 'global_admin' WHERE role = 'admin'`;

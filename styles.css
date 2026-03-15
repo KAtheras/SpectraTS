@@ -347,11 +347,12 @@ body.is-embedded .page-shell {
 
 .add-user-form {
   grid-template-columns:
-    minmax(0, 1.1fr)
     minmax(0, 1fr)
-    minmax(0, 1fr)
-    minmax(120px, 0.7fr)
-    minmax(150px, 0.9fr);
+    minmax(0, 0.95fr)
+    minmax(0, 0.9fr)
+    minmax(110px, 0.65fr)
+    minmax(120px, 0.75fr)
+    minmax(140px, 0.9fr);
   align-items: end;
   margin-top: 6px;
 }
