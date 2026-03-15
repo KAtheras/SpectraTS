@@ -49,6 +49,16 @@
     select.value = selectedValue || "";
   }
 
+  function clampToToday(iso) {
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = String(today.getMonth() + 1).padStart(2, "0");
+    const d = String(today.getDate()).padStart(2, "0");
+    const todayIso = `${y}-${m}-${d}`;
+    if (!iso) return todayIso;
+    return iso > todayIso ? todayIso : iso;
+  }
+
   function syncEntryDatePicker(deps, value) {
     const {
       isValidDateString,
@@ -58,7 +68,7 @@
       MONTH_NAMES,
     } = deps;
 
-    const safeValue = isValidDateString(value) ? value : today;
+    const safeValue = clampToToday(isValidDateString(value) ? value : today);
     const [yearText, monthText, dayText] = safeValue.split("-");
     const year = Number(yearText);
     const monthIndex = Number(monthText) - 1;
@@ -143,7 +153,7 @@
   }
 
   function updateEntryDateFromPicker(deps) {
-    const { refs, field } = deps;
+    const { refs, field, isValidDateString } = deps;
     const year = refs.entryDateYear.value;
     const month = refs.entryDateMonth.value;
     const day = refs.entryDateDay.value;
@@ -159,7 +169,9 @@
       clampedDay
     );
 
-    field(refs.form, "date").value = `${year}-${month}-${clampedDay}`;
+    const nextValue = `${year}-${month}-${clampedDay}`;
+    const clampedValue = clampToToday(isValidDateString(nextValue) ? nextValue : "");
+    field(refs.form, "date").value = clampedValue;
   }
 
   function populateSelect(deps, select, options, placeholder, selectedValue) {
