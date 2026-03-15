@@ -69,17 +69,32 @@
     } = deps;
 
     const safeValue = clampToToday(isValidDateString(value) ? value : today);
-    const [yearText, monthText, dayText] = safeValue.split("-");
-    const year = Number(yearText);
-    const monthIndex = Number(monthText) - 1;
-    const day = Number(dayText);
-    const maxDay = daysInMonth(year, monthIndex);
-    const clampedDay = Math.min(day, maxDay);
-    const nextValue = `${yearText}-${monthText}-${String(clampedDay).padStart(2, "0")}`;
+    const [yearTextRaw, monthTextRaw, dayTextRaw] = safeValue.split("-");
+    const todayParts = today.split("-");
+    const currentYear = Number(todayParts[0]);
+    const currentMonth = Number(todayParts[1]);
+    const currentDay = Number(todayParts[2]);
 
-    setSelectOptions(deps, refs.entryDateMonth, MONTH_NAMES.map(function (label, index) {
-      return { value: String(index + 1).padStart(2, "0"), label };
-    }), monthText);
+    const year = Number(yearTextRaw);
+    const maxMonth = year === currentYear ? currentMonth : 12;
+    const monthIndex = Math.min(Number(monthTextRaw), maxMonth) - 1;
+    const monthValue = String(monthIndex + 1).padStart(2, "0");
+    const day = Number(dayTextRaw);
+    const maxDay =
+      year === currentYear && monthIndex + 1 === currentMonth
+        ? Math.min(currentDay, daysInMonth(year, monthIndex))
+        : daysInMonth(year, monthIndex);
+    const clampedDay = Math.min(day, maxDay);
+    const nextValue = `${year}-${monthValue}-${String(clampedDay).padStart(2, "0")}`;
+
+    setSelectOptions(
+      deps,
+      refs.entryDateMonth,
+      MONTH_NAMES.slice(0, maxMonth).map(function (label, index) {
+        return { value: String(index + 1).padStart(2, "0"), label };
+      }),
+      monthValue
+    );
     const yearConfig = yearOptions(year, 1);
     setSelectOptions(deps, refs.entryDateYear, yearConfig.options, yearConfig.selected);
     setSelectOptions(
@@ -153,12 +168,22 @@
   }
 
   function updateEntryDateFromPicker(deps) {
-    const { refs, field, isValidDateString } = deps;
-    const year = refs.entryDateYear.value;
-    const month = refs.entryDateMonth.value;
-    const day = refs.entryDateDay.value;
-    const maxDay = daysInMonth(Number(year), Number(month) - 1);
-    const clampedDay = String(Math.min(Number(day), maxDay)).padStart(2, "0");
+    const { refs, field, isValidDateString, today } = deps;
+    const todayParts = today.split("-");
+    const currentYear = Number(todayParts[0]);
+    const currentMonth = Number(todayParts[1]);
+    const currentDay = Number(todayParts[2]);
+
+    const year = Number(refs.entryDateYear.value);
+    const rawMonth = Number(refs.entryDateMonth.value);
+    const maxMonth = year === currentYear ? currentMonth : 12;
+    const monthNum = Math.min(rawMonth, maxMonth);
+    const month = String(monthNum).padStart(2, "0");
+    const maxDay =
+      year === currentYear && monthNum === currentMonth
+        ? Math.min(currentDay, daysInMonth(year, monthNum - 1))
+        : daysInMonth(year, monthNum - 1);
+    const clampedDay = String(Math.min(Number(refs.entryDateDay.value), maxDay)).padStart(2, "0");
 
     setSelectOptions(
       deps,
