@@ -1275,25 +1275,40 @@
 
     try {
       if (button.dataset.userEdit) {
-        const nextDisplayName = window.prompt("Team member name", user.displayName);
-        if (nextDisplayName === null) {
+        const nameDialog = await appDialog({
+          title: "Team member name",
+          input: true,
+          defaultValue: user.displayName,
+          confirmText: "Next",
+        });
+        if (!nameDialog.confirmed) {
           return;
         }
-        const nextUsername = window.prompt("Username", user.username);
-        if (nextUsername === null) {
+        const nextDisplayName = nameDialog.value || "";
+
+        const usernameDialog = await appDialog({
+          title: "Username",
+          input: true,
+          defaultValue: user.username,
+          confirmText: "Next",
+        });
+        if (!usernameDialog.confirmed) {
           return;
         }
-        const nextCostRateRaw = window.prompt(
-          "Cost rate (optional, number)",
-          user.costRate !== null && user.costRate !== undefined ? String(user.costRate) : ""
-        );
-        if (nextCostRateRaw === null) {
+        const nextUsername = usernameDialog.value || "";
+
+        const costDialog = await appDialog({
+          title: "Cost rate (optional)",
+          message: "Enter a non-negative number or leave blank.",
+          input: true,
+          defaultValue:
+            user.costRate !== null && user.costRate !== undefined ? String(user.costRate) : "",
+        });
+        if (!costDialog.confirmed) {
           return;
         }
-        const nextCostRate =
-          nextCostRateRaw.trim() === ""
-            ? null
-            : Number(nextCostRateRaw);
+        const nextCostRateRaw = (costDialog.value || "").trim();
+        const nextCostRate = nextCostRateRaw === "" ? null : Number(nextCostRateRaw);
         if (nextCostRate !== null && (!Number.isFinite(nextCostRate) || nextCostRate < 0)) {
           const message = "Cost rate must be a non-negative number.";
           setUserFeedback(message, true);
@@ -1317,21 +1332,28 @@
         openMembersModal();
         return;
       } else if (button.dataset.userPassword) {
-        const nextPassword = window.prompt(
-          `Enter a new password for ${user.displayName} (minimum 8 characters)`
-        );
-        if (nextPassword === null) {
+        const dialog = await appDialog({
+          title: `Enter a new password for ${user.displayName}`,
+          message: "Minimum 8 characters",
+          input: true,
+          confirmText: "Save",
+        });
+        if (!dialog.confirmed) {
           return;
         }
-
+        const nextPassword = dialog.value || "";
         await mutatePersistentState("reset_user_password", {
           userId: user.id,
           password: nextPassword,
         });
         setUserFeedback(`Password updated for ${user.displayName}.`, false);
       } else if (button.dataset.userDeactivate) {
-        const confirmed = window.confirm(`Deactivate ${user.displayName}?`);
-        if (!confirmed) {
+        const dialog = await appDialog({
+          title: `Deactivate ${user.displayName}?`,
+          confirmText: "Deactivate",
+          cancelText: "Cancel",
+        });
+        if (!dialog.confirmed) {
           return;
         }
 
