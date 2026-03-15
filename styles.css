@@ -1064,18 +1064,25 @@ textarea {
 
 .user-pane {
   display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.9fr);
   gap: 16px;
-  align-items: start;
+  align-items: stretch;
+  min-height: 420px;
 }
 
 .user-list-column {
   display: grid;
   gap: 12px;
+  overflow-y: auto;
+  max-height: 60vh;
+  padding-right: 6px;
 }
 
 .user-detail-column {
   display: block;
+  position: sticky;
+  top: 0;
+  align-self: start;
 }
 
 .user-detail-card {
@@ -1085,6 +1092,7 @@ textarea {
   padding: 16px;
   display: grid;
   gap: 10px;
+  height: 100%;
 }
 
 .user-detail-card h4 {
@@ -1110,7 +1118,15 @@ textarea {
 .user-item.is-selected {
   border-color: var(--accent);
   box-shadow: 0 0 0 2px var(--accent-subtle, rgba(187, 98, 55, 0.18));
-  background: var(--surface-subtle);
+  background: #f1f1f1;
+}
+
+.user-item.is-selected .catalog-item-title {
+  color: var(--text);
+}
+
+.user-item.is-selected .user-item-meta {
+  color: var(--muted);
 }
 
 .user-item-meta {

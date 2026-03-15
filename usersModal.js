@@ -132,14 +132,15 @@
           : [];
       const managerProjects =
         isManager(user) || isAdmin(user)
-          ? managerProjectAssignments(user.id).map((item) => `${item.client} / ${item.project}`)
+          ? managerProjectAssignments(user.id).map((item) => ({ client: item.client, project: item.project }))
           : [];
-      const memberProjects = projectMembersForUser(user.id).map(
-        (item) => `${item.client} / ${item.project}`
-      );
+      const memberProjects = projectMembersForUser(user.id).map((item) => ({
+        client: item.client,
+        project: item.project,
+      }));
       return {
         clients: [...new Set(clients)].sort(),
-        projects: [...new Set([...managerProjects, ...memberProjects])].sort(),
+        projects: [...new Map([...managerProjects, ...memberProjects].map((p) => [p.client + "::" + p.project, p])).values()],
       };
     }
 
@@ -150,8 +151,8 @@
         <dl>
           <div><dt>Level</dt><dd>${escapeHtml(levelLabel(selectedUser.level))}</dd></div>
           <div><dt>Base Rate</dt><dd>${selectedUser.baseRate !== null && selectedUser.baseRate !== undefined ? `$${Number(selectedUser.baseRate).toFixed(2)}` : "—"}</dd></div>
-          <div><dt>Assigned Clients</dt><dd>${assignments.clients.length ? assignments.clients.map(escapeHtml).join(", ") : "—"}</dd></div>
-          <div><dt>Assigned Projects</dt><dd>${assignments.projects.length ? assignments.projects.map(escapeHtml).join(", ") : "—"}</dd></div>
+          <div><dt>Assigned Clients</dt><dd>${assignments.clients.length ? assignments.clients.map(escapeHtml).join("<br>") : "—"}</dd></div>
+          <div><dt>Assigned Projects</dt><dd>${assignments.projects.length ? assignments.projects.map((p) => `${escapeHtml(p.client)} / ${escapeHtml(p.project)}`).join("<br>") : "—"}</dd></div>
         </dl>
       </div>
     `;
