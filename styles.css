@@ -370,7 +370,7 @@ body.is-embedded .page-shell {
 
 .level-labels-form {
   margin-top: 18px;
-  padding: 16px 0 18px;
+  padding: 16px 0 28px;
   border-top: 1px solid var(--group-border);
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1349,11 +1349,6 @@ textarea {
   .app-topbar .session-indicator {
     width: 100%;
     justify-content: center;
-  }
-
-  .level-labels-form {
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-    gap: 10px;
   }
 
   .app-topbar .account-name {
