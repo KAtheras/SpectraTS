@@ -1521,6 +1521,33 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   color: var(--danger);
 }
 
+.entry-status {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-family: var(--font-head);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: var(--pill-bg);
+  color: var(--muted-strong);
+}
+
+.entry-status.entry-status-approved {
+  background: #d8f2dc;
+  color: #1c6b2f;
+}
+
+.entry-status.entry-status-pending {
+  background: #f6e5c9;
+  color: #8a5b15;
+}
+
+.entry-row.entry-approved td {
+  background: linear-gradient(90deg, #f6fff7, #eef9f0);
+}
+
 .empty-row,
 .empty-state {
   color: var(--muted);

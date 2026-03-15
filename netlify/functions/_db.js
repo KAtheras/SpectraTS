@@ -225,6 +225,7 @@ async function ensureSchema(sql) {
       task TEXT NOT NULL DEFAULT '',
       hours NUMERIC(10, 2) NOT NULL CHECK (hours > 0 AND hours <= 24),
       notes TEXT NOT NULL DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'pending',
       account_id UUID REFERENCES accounts(id),
       created_at TIMESTAMPTZ NOT NULL,
       updated_at TIMESTAMPTZ NOT NULL
@@ -235,6 +236,7 @@ async function ensureSchema(sql) {
     ADD COLUMN IF NOT EXISTS account_id UUID REFERENCES accounts(id)
   `;
   await sql`UPDATE entries SET account_id = ${accountUuid}::uuid WHERE account_id IS NULL`;
+  await sql`ALTER TABLE entries ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'pending'`;
 
   await sql`
     CREATE TABLE IF NOT EXISTS level_labels (
@@ -1186,6 +1188,7 @@ async function loadState(sql, currentUser) {
         task,
         hours::FLOAT8 AS hours,
         notes,
+        status,
         created_at AS "createdAt",
         updated_at AS "updatedAt"
       FROM entries
@@ -1205,6 +1208,7 @@ async function loadState(sql, currentUser) {
           entries.task,
           entries.hours::FLOAT8 AS hours,
           entries.notes,
+          entries.status,
           entries.created_at AS "createdAt",
           entries.updated_at AS "updatedAt"
         FROM entries
@@ -1229,6 +1233,7 @@ async function loadState(sql, currentUser) {
         task,
         hours::FLOAT8 AS hours,
         notes,
+        status,
         created_at AS "createdAt",
         updated_at AS "updatedAt"
       FROM entries

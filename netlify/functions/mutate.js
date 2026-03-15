@@ -45,6 +45,14 @@ function isAdmin(user) {
   return user && user.level >= 5;
 }
 
+function normalizeStatus(status) {
+  return String(status || "")
+    .trim()
+    .toLowerCase() === "approved"
+    ? "approved"
+    : "pending";
+}
+
 function validateEntry(entry, currentUser) {
   if (!entry || typeof entry !== "object") {
     return "Entry payload is required.";
@@ -515,6 +523,16 @@ async function saveEntry(sql, payload, currentUser, accountId) {
     }
   }
 
+  const existingStatusRows = await sql`
+    SELECT status
+    FROM entries
+    WHERE id = ${normalizeText(entry.id)}
+      AND account_id = ${accountId}::uuid
+    LIMIT 1
+  `;
+  const persistedStatus = existingStatusRows[0]?.status;
+  const status = persistedStatus ? normalizeStatus(persistedStatus) : "pending";
+
   await sql`
     INSERT INTO entries (
       id,
@@ -525,6 +543,7 @@ async function saveEntry(sql, payload, currentUser, accountId) {
       task,
       hours,
       notes,
+      status,
       account_id,
       created_at,
       updated_at
@@ -538,6 +557,7 @@ async function saveEntry(sql, payload, currentUser, accountId) {
       ${normalizeText(entry.task)},
       ${normalizeHours(entry.hours)},
       ${normalizeText(entry.notes)},
+      ${status},
       ${accountId},
       ${normalizeText(entry.createdAt)},
       ${normalizeText(entry.updatedAt)}
@@ -550,8 +570,84 @@ async function saveEntry(sql, payload, currentUser, accountId) {
       task = EXCLUDED.task,
       hours = EXCLUDED.hours,
       notes = EXCLUDED.notes,
+      status = EXCLUDED.status,
       created_at = EXCLUDED.created_at,
       updated_at = EXCLUDED.updated_at
+  `;
+
+  return null;
+}
+
+async function approveEntry(sql, payload, currentUser, accountId) {
+  const id = normalizeText(payload.id);
+  if (!id) {
+    return errorResponse(400, "Entry id is required.");
+  }
+  if (!currentUser || normalizeLevel(currentUser.level) < 3) {
+    return errorResponse(403, "Manager access required.");
+  }
+
+  const rows = await sql`
+    SELECT
+      id,
+      user_name AS user_name,
+      client_name AS client_name,
+      project_name AS project_name,
+      status
+    FROM entries
+    WHERE id = ${id}
+      AND account_id = ${accountId}::uuid
+    LIMIT 1
+  `;
+  const entry = rows[0];
+  if (!entry) {
+    return errorResponse(404, "Entry not found.");
+  }
+  if (normalizeStatus(entry.status) === "approved") {
+    return { message: "Entry already approved." };
+  }
+
+  const targetUser = await findUserByDisplayName(sql, entry.user_name, accountId);
+  if (!targetUser) {
+    return errorResponse(404, "Entry user not found.");
+  }
+
+  const currentLevel = normalizeLevel(currentUser.level);
+  const targetLevel = normalizeLevel(targetUser.level);
+  const isCurrentAdmin = isAdmin(currentUser);
+
+  if (!isCurrentAdmin) {
+    if (currentUser.displayName === targetUser.display_name) {
+      return errorResponse(403, "You cannot approve your own entries.");
+    }
+    if (currentLevel <= targetLevel) {
+      return errorResponse(403, "You can only approve entries for lower levels.");
+    }
+  }
+
+  const project = await findProject(sql, entry.client_name, entry.project_name, accountId);
+  if (!project) {
+    return errorResponse(404, "Project not found.");
+  }
+
+  if (!isCurrentAdmin) {
+    const hasAccess = await managerHasProjectAccess(
+      sql,
+      currentUser.id,
+      project.id,
+      accountId
+    );
+    if (!hasAccess) {
+      return errorResponse(403, "You are not assigned to this project.");
+    }
+  }
+
+  await sql`
+    UPDATE entries
+    SET status = 'approved',
+        updated_at = NOW()
+    WHERE id = ${entry.id}
+      AND account_id = ${accountId}::uuid
   `;
 
   return null;
@@ -746,6 +842,14 @@ exports.handler = async function handler(event) {
         break;
       case "delete_entry":
         mutationResult = await deleteEntry(
+          sql,
+          request.payload || {},
+          context.currentUser,
+          accountId
+        );
+        break;
+      case "approve_entry":
+        mutationResult = await approveEntry(
           sql,
           request.payload || {},
           context.currentUser,

@@ -530,6 +530,10 @@
       typeof entry.updatedAt === "string" && entry.updatedAt
         ? entry.updatedAt
         : createdAt;
+    const status =
+      typeof entry.status === "string" && entry.status.toLowerCase() === "approved"
+        ? "approved"
+        : "pending";
 
     return {
       id: typeof entry.id === "string" && entry.id ? entry.id : crypto.randomUUID(),
@@ -545,6 +549,7 @@
       notes: typeof entry.notes === "string" ? entry.notes.trim() : "",
       createdAt,
       updatedAt,
+      status,
     };
   }
 
@@ -1236,11 +1241,47 @@
       .join("");
   }
 
+  function canApproveEntry(entry) {
+    const current = state.currentUser;
+    if (!current) {
+      return false;
+    }
+    if (!entry || entry.status === "approved") {
+      return false;
+    }
+
+    const currentLevel = normalizeLevel(current.level);
+    if (currentLevel < 3) {
+      return false;
+    }
+
+    const targetUser = getUserByDisplayName(entry.user);
+    const targetLevel = targetUser ? normalizeLevel(targetUser.level) : 1;
+
+    if (!isAdmin(current)) {
+      if (current.displayName === entry.user) {
+        return false;
+      }
+      if (currentLevel <= targetLevel) {
+        return false;
+      }
+      if (!canUserAccessProject(current, entry.client, entry.project)) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  function showApproveButton(entry) {
+    return canApproveEntry(entry);
+  }
+
   function renderTable(filteredEntries) {
     if (!filteredEntries.length) {
       refs.entriesBody.innerHTML = `
         <tr>
-          <td colspan="7" class="empty-row">
+          <td colspan="8" class="empty-row">
             <div class="empty-state-panel">
               <strong>No entries match the current filters.</strong>
               <span>Clear the filters or add a new entry to get started.</span>
@@ -1254,17 +1295,27 @@
     refs.entriesBody.innerHTML = filteredEntries
       .map(
         (entry) => `
-          <tr>
+          <tr class="entry-row ${entry.status === "approved" ? "entry-approved" : ""}">
             <td>${escapeHtml(formatDisplayDateShort(entry.date))}</td>
             <td>${escapeHtml(entry.user)}</td>
             <td>${escapeHtml(entry.client)}</td>
             <td>${escapeHtml(entry.project)}</td>
             <td>${entry.hours.toFixed(2)}</td>
             <td>${escapeHtml(entry.notes || "-")}</td>
+            <td>
+              <span class="entry-status entry-status-${entry.status}">
+                ${entry.status === "approved" ? "Approved" : "Pending"}
+              </span>
+            </td>
             <td class="actions-cell">
               <button class="text-button" type="button" data-action="edit" data-id="${entry.id}">
                 Edit
               </button>
+              ${
+                showApproveButton(entry)
+                  ? `<button class="text-button" type="button" data-action="approve" data-id="${entry.id}">Approve</button>`
+                  : ""
+              }
               <button class="text-button danger" type="button" data-action="delete" data-id="${entry.id}">
                 Delete
               </button>
@@ -1522,6 +1573,7 @@
       notes: notesField.value.trim(),
       createdAt: existingEntry?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
+      status: existingEntry?.status || "pending",
     };
 
     const error = validateEntry(nextEntry);
@@ -2220,6 +2272,18 @@
 
     if (action === "edit") {
       setForm(entry);
+      return;
+    }
+
+    if (action === "approve") {
+      try {
+        await mutatePersistentState("approve_entry", { id });
+      } catch (error) {
+        feedback(error.message || "Unable to approve entry.", true);
+        return;
+      }
+      feedback("Entry approved.", false);
+      render();
       return;
     }
 
