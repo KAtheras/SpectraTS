@@ -79,7 +79,10 @@
     cancelEdit: document.getElementById("cancel-edit"),
     sessionIndicator: document.getElementById("session-indicator"),
     accountName: document.getElementById("account-name"),
-    manageUsers: document.getElementById("manage-users"),
+    navTimesheet: document.getElementById("nav-timesheet"),
+    navMembers: document.getElementById("nav-members"),
+    settingsToggle: document.getElementById("settings-toggle"),
+    settingsMenu: document.getElementById("settings-menu"),
     changePasswordOpen: document.getElementById("change-password-open"),
     logoutButton: document.getElementById("logout-button"),
     themeToggle: document.getElementById("theme-toggle"),
@@ -470,6 +473,24 @@
 
   function closeAnalyticsPage() {
     setView("main");
+  }
+
+  function closeSettingsMenu() {
+    if (refs.settingsMenu) {
+      refs.settingsMenu.hidden = true;
+    }
+    if (refs.settingsToggle) {
+      refs.settingsToggle.setAttribute("aria-expanded", "false");
+    }
+  }
+
+  function toggleSettingsMenu() {
+    if (!refs.settingsMenu || !refs.settingsToggle) {
+      return;
+    }
+    const willOpen = refs.settingsMenu.hidden;
+    refs.settingsMenu.hidden = !willOpen;
+    refs.settingsToggle.setAttribute("aria-expanded", willOpen ? "true" : "false");
   }
 
   function openMembersModal() {
@@ -1640,6 +1661,8 @@
       refs.appShell.classList.toggle("page-analytics", view === "analytics");
     }
 
+    const currentLevel = normalizeLevel(state.currentUser?.level);
+
     if (refs.accountName) {
       refs.accountName.hidden = view !== "main";
       refs.accountName.textContent = view === "main" ? state.account?.name || "" : "";
@@ -1653,8 +1676,20 @@
         refs.sessionIndicator.innerHTML = "";
       }
     }
-    if (refs.manageUsers) {
-      refs.manageUsers.hidden = view !== "main" ? true : !isAdmin(state.currentUser);
+    if (refs.navTimesheet) {
+      refs.navTimesheet.hidden = view !== "main";
+      refs.navTimesheet.classList.toggle("is-active", view === "main");
+      refs.navTimesheet.setAttribute("aria-current", view === "main" ? "page" : "false");
+    }
+    if (refs.openCatalog) {
+      refs.openCatalog.hidden = view !== "main" || currentLevel < 3;
+      refs.openCatalog.classList.toggle("is-active", view === "clients");
+      refs.openCatalog.setAttribute("aria-current", view === "clients" ? "page" : "false");
+    }
+    if (refs.navMembers) {
+      refs.navMembers.hidden = view !== "main" || currentLevel < 5;
+      refs.navMembers.classList.toggle("is-active", view === "members");
+      refs.navMembers.setAttribute("aria-current", view === "members" ? "page" : "false");
     }
     if (refs.changePasswordOpen) {
       refs.changePasswordOpen.hidden =
@@ -1663,12 +1698,19 @@
     if (refs.logoutButton) {
       refs.logoutButton.hidden = view !== "main";
     }
-    if (refs.openCatalog) {
-      refs.openCatalog.hidden =
-        view !== "main" ? true : !(isAdmin(state.currentUser) || isManager(state.currentUser));
-    }
     if (refs.openAnalytics) {
       refs.openAnalytics.hidden = view !== "main";
+      refs.openAnalytics.classList.toggle("is-active", view === "analytics");
+      refs.openAnalytics.setAttribute("aria-current", view === "analytics" ? "page" : "false");
+    }
+    if (view !== "main") {
+      closeSettingsMenu();
+    }
+    if (refs.settingsToggle) {
+      refs.settingsToggle.hidden = view !== "main";
+      if (view !== "main") {
+        refs.settingsToggle.setAttribute("aria-expanded", "false");
+      }
     }
 
     if (refs.appTopbar) {
@@ -1920,17 +1962,28 @@
   refs.loginForm.addEventListener("submit", submitLogin);
   refs.bootstrapForm.addEventListener("submit", submitBootstrap);
 
-  refs.manageUsers.addEventListener("click", function () {
-    setView("members");
-  });
+  if (refs.navTimesheet) {
+    refs.navTimesheet.addEventListener("click", function () {
+      setView("main");
+    });
+  }
+  if (refs.navMembers) {
+    refs.navMembers.addEventListener("click", function () {
+      setView("members");
+    });
+  }
 
-  refs.logoutButton.addEventListener("click", function () {
-    handleLogout();
-  });
+  if (refs.logoutButton) {
+    refs.logoutButton.addEventListener("click", function () {
+      handleLogout();
+    });
+  }
 
-  refs.openCatalog.addEventListener("click", function () {
-    setView("clients");
-  });
+  if (refs.openCatalog) {
+    refs.openCatalog.addEventListener("click", function () {
+      setView("clients");
+    });
+  }
 
   if (refs.clientsNavMembers) {
     refs.clientsNavMembers.addEventListener("click", function () {
@@ -2130,6 +2183,24 @@
   if (refs.analyticsNavBack) {
     refs.analyticsNavBack.addEventListener("click", closeAnalyticsPage);
   }
+  if (refs.settingsToggle) {
+    refs.settingsToggle.addEventListener("click", function (event) {
+      event.stopPropagation();
+      toggleSettingsMenu();
+    });
+  }
+  document.addEventListener("click", function (event) {
+    const target = event.target;
+    if (
+      refs.settingsMenu &&
+      refs.settingsToggle &&
+      !refs.settingsMenu.hidden &&
+      !refs.settingsMenu.contains(target) &&
+      !refs.settingsToggle.contains(target)
+    ) {
+      closeSettingsMenu();
+    }
+  });
   if (refs.changePasswordOpen) {
     refs.changePasswordOpen.addEventListener("click", openChangePasswordModal);
   }

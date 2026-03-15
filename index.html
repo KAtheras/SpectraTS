@@ -81,27 +81,33 @@
     <div class="page-shell" id="app-shell" hidden>
       <div class="shell-inner">
         <div class="app-topbar">
-          <div class="account-name" id="account-name" hidden></div>
-          <div class="session-indicator" id="session-indicator" hidden></div>
-          <div class="app-topbar-actions">
-            <button class="button button-ghost" id="manage-users" type="button" hidden>
-              Members
-            </button>
-            <button class="button button-ghost" id="open-catalog" type="button">
-              Clients
-            </button>
-            <button class="button button-ghost" id="open-analytics" type="button">
-              Analytics
-            </button>
-            <button class="button button-ghost" id="change-password-open" type="button" hidden>
-              Change Password
-            </button>
-            <button class="button button-ghost" id="theme-toggle" type="button">
-              Dark/Light
-            </button>
-            <button class="button button-ghost" id="logout-button" type="button" hidden>
-              Log out
-            </button>
+          <div class="topbar-left">
+            <div class="account-name" id="account-name" hidden></div>
+            <div class="session-indicator" id="session-indicator" hidden></div>
+            <div class="settings-menu-wrap">
+              <button class="button button-ghost settings-toggle" id="settings-toggle" type="button">
+                Settings
+              </button>
+              <div class="settings-menu" id="settings-menu" hidden>
+                <button class="settings-item" id="change-password-open" type="button" hidden>
+                  Change Password
+                </button>
+                <button class="settings-item" id="theme-toggle" type="button">
+                  Dark/Light
+                </button>
+                <button class="settings-item" id="logout-button" type="button" hidden>
+                  Log out
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="topbar-right">
+            <div class="top-nav">
+              <button class="nav-pill" id="nav-timesheet" type="button">Timesheet</button>
+              <button class="nav-pill" id="open-catalog" type="button">Clients</button>
+              <button class="nav-pill" id="nav-members" type="button">Members</button>
+              <button class="nav-pill" id="open-analytics" type="button">Analytics</button>
+            </div>
           </div>
         </div>
 
