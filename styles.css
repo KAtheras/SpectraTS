@@ -189,7 +189,7 @@ body.modal-open {
 .page-shell.page-clients,
 .page-shell.page-members {
   padding: 0;
-  background: #fffaf2;
+  background: transparent;
   min-height: 100vh;
 }
 
@@ -211,7 +211,7 @@ body.is-embedded .page-shell {
 
 body[data-theme="dark"] .page-shell.page-clients,
 body[data-theme="dark"] .page-shell.page-members {
-  background: #121922;
+  background: transparent;
 }
 
 .page-view {
@@ -872,6 +872,7 @@ textarea {
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr);
   gap: 12px;
+  background: var(--panel);
 }
 
 .catalog-column .catalog-list {
@@ -931,7 +932,7 @@ textarea {
   border-radius: 0;
   width: 100%;
   max-width: none;
-  background: #fffaf2;
+  background: transparent;
   padding: 0;
 }
 
@@ -1043,7 +1044,7 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
 .catalog-column-head {
   padding: 12px 14px;
   border-bottom: 1px solid var(--group-border);
-  background: var(--column-head-bg);
+  background: var(--panel);
 }
 
 .catalog-column-head span {
@@ -1061,7 +1062,7 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   gap: 8px;
   padding: 8px 10px;
   border-bottom: 1px solid var(--group-border);
-  background: var(--column-create-bg);
+  background: var(--panel);
 }
 
 .catalog-create input {
