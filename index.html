@@ -245,93 +245,71 @@
         </main>
       </div>
 
-      <div class="modal-backdrop" id="catalog-modal" hidden aria-hidden="true">
-        <div class="modal-shell" role="dialog" aria-modal="true" aria-labelledby="catalog-modal-title">
-          <section class="panel panel-breakdown panel-modal">
-            <div class="panel-head">
-              <div>
-                <h2 id="catalog-modal-title">Manage Clients</h2>
-              </div>
-              <div class="panel-head-actions">
-                <button
-                  class="button button-ghost"
-                  id="close-catalog"
-                  type="button"
-                  data-close-catalog
-                >
-                  Back
-                </button>
-              </div>
+      <section class="page-view clients-page" id="clients-page" hidden aria-labelledby="catalog-page-title">
+        <header class="page-head">
+          <button class="button button-ghost" id="close-catalog" type="button">Back</button>
+          <h2 id="catalog-page-title">Manage Clients</h2>
+        </header>
+        <div class="catalog-grid">
+          <section class="catalog-column">
+            <div class="catalog-column-head">
+              <span>Clients</span>
             </div>
-            <div class="catalog-grid">
-              <section class="catalog-column">
-                <div class="catalog-column-head">
-                  <span>Clients</span>
-                </div>
-                <form id="add-client-form" class="catalog-create">
-                  <input
-                    type="text"
-                    name="client_name"
-                    placeholder="Add client"
-                    autocomplete="off"
-                  />
-                  <button class="mini-button" type="submit">Add</button>
-                </form>
-                <div id="client-list" class="catalog-list"></div>
-              </section>
-              <section class="catalog-column">
-                <div class="catalog-column-head">
-                  <span id="project-column-label">Projects</span>
-                </div>
-                <form id="add-project-form" class="catalog-create">
-                  <input
-                    type="text"
-                    name="project_name"
-                    placeholder="Add project"
-                    autocomplete="off"
-                  />
-                  <button class="mini-button" type="submit">Add</button>
-                </form>
-                <div id="project-list" class="catalog-list"></div>
-              </section>
+            <form id="add-client-form" class="catalog-create">
+              <input
+                type="text"
+                name="client_name"
+                placeholder="Add client"
+                autocomplete="off"
+              />
+              <button class="mini-button" type="submit">Add</button>
+            </form>
+            <div id="client-list" class="catalog-list"></div>
+          </section>
+          <section class="catalog-column">
+            <div class="catalog-column-head">
+              <span id="project-column-label">Projects</span>
             </div>
+            <form id="add-project-form" class="catalog-create">
+              <input
+                type="text"
+                name="project_name"
+                placeholder="Add project"
+                autocomplete="off"
+              />
+              <button class="mini-button" type="submit">Add</button>
+            </form>
+            <div id="project-list" class="catalog-list"></div>
           </section>
         </div>
-      </div>
+      </section>
 
-      <div class="modal-backdrop" id="users-modal" hidden aria-hidden="true">
-        <div class="modal-shell" role="dialog" aria-modal="true" aria-labelledby="users-modal-title">
-          <section class="panel panel-modal">
-            <div class="users-modal-sticky">
-              <div class="panel-head">
-                <div>
-                  <h2 id="users-modal-title">Manage Team Members</h2>
-                </div>
-                <div class="panel-head-actions">
-                  <button class="button button-ghost" id="close-users" type="button">Back</button>
-                </div>
-              </div>
-
-              <form id="add-user-form" class="filters add-user-form add-user-card">
-                <label>
-                  <span>Name</span>
-                  <input type="text" name="display_name" autocomplete="name" required />
-                </label>
-                <label>
-                  <span>Username</span>
-                  <input type="text" name="username" autocomplete="username" required />
-                </label>
-                <label>
-                  <span>Password</span>
-                  <input type="password" name="password" autocomplete="new-password" required />
-                </label>
-                <label>
-                  <span>Level</span>
-                  <select name="level">
-                    <option value="1">Staff</option>
-                    <option value="2">Senior</option>
-                    <option value="3">Manager</option>
-                    <option value="4">Director</option>
+      <section class="page-view members-page" id="members-page" hidden aria-labelledby="users-page-title">
+        <header class="page-head">
+          <button class="button button-ghost" id="close-users" type="button">Back</button>
+          <h2 id="users-page-title">Manage Team Members</h2>
+        </header>
+        <div class="users-page-body">
+          <form id="add-user-form" class="filters add-user-form add-user-card">
+            <label>
+              <span>Name</span>
+              <input type="text" name="display_name" autocomplete="name" required />
+            </label>
+            <label>
+              <span>Username</span>
+              <input type="text" name="username" autocomplete="username" required />
+            </label>
+            <label>
+              <span>Password</span>
+              <input type="password" name="password" autocomplete="new-password" required />
+            </label>
+            <label>
+              <span>Level</span>
+              <select name="level">
+                <option value="1">Staff</option>
+                <option value="2">Senior</option>
+                <option value="3">Manager</option>
+                <option value="4">Director</option>
                 <option value="5">Partner</option>
                 <option value="6">Admin</option>
               </select>
@@ -340,50 +318,46 @@
               <span>Base Rate</span>
               <input type="number" name="base_rate" min="0" step="0.01" inputmode="decimal" />
             </label>
-                <button class="button add-user-button" type="submit">Add member</button>
-              </form>
-              <p id="user-feedback" class="feedback auth-feedback" aria-live="polite"></p>
-            </div>
-
-            <div id="user-list" class="catalog-list user-list"></div>
-
-            <form id="level-labels-form" class="level-labels-form">
-              <div class="level-labels-inner">
-                <h3>Level Labels</h3>
-                <div class="level-labels-grid">
-                  <label>
-                    <span>Level 1</span>
-                    <input type="text" name="level_1" required />
-                  </label>
-                  <label>
-                    <span>Level 2</span>
-                    <input type="text" name="level_2" required />
-                  </label>
-                  <label>
-                    <span>Level 3</span>
-                    <input type="text" name="level_3" required />
-                  </label>
-                  <label>
-                    <span>Level 4</span>
-                    <input type="text" name="level_4" required />
-                  </label>
-                  <label>
-                    <span>Level 5</span>
-                    <input type="text" name="level_5" required />
-                  </label>
-                  <label>
-                    <span>Level 6</span>
-                    <input type="text" name="level_6" required />
-                  </label>
-                </div>
-                <div class="level-labels-actions">
-                  <button class="button button-ghost" type="submit">Save level labels</button>
-                </div>
+            <button class="button add-user-button" type="submit">Add member</button>
+          </form>
+          <p id="user-feedback" class="feedback auth-feedback" aria-live="polite"></p>
+          <div id="user-list" class="catalog-list user-list"></div>
+          <form id="level-labels-form" class="level-labels-form">
+            <div class="level-labels-inner">
+              <h3>Level Labels</h3>
+              <div class="level-labels-grid">
+                <label>
+                  <span>Level 1</span>
+                  <input type="text" name="level_1" required />
+                </label>
+                <label>
+                  <span>Level 2</span>
+                  <input type="text" name="level_2" required />
+                </label>
+                <label>
+                  <span>Level 3</span>
+                  <input type="text" name="level_3" required />
+                </label>
+                <label>
+                  <span>Level 4</span>
+                  <input type="text" name="level_4" required />
+                </label>
+                <label>
+                  <span>Level 5</span>
+                  <input type="text" name="level_5" required />
+                </label>
+                <label>
+                  <span>Level 6</span>
+                  <input type="text" name="level_6" required />
+                </label>
               </div>
-            </form>
-          </section>
+              <div class="level-labels-actions">
+                <button class="button button-ghost" type="submit">Save level labels</button>
+              </div>
+            </div>
+          </form>
         </div>
-      </div>
+      </section>
 
       <div class="modal-backdrop" id="members-modal" hidden aria-hidden="true">
         <div class="modal-shell" role="dialog" aria-modal="true" aria-labelledby="members-modal-title">

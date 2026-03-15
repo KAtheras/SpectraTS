@@ -83,8 +83,8 @@
     themeToggle: document.getElementById("theme-toggle"),
     openCatalog: document.getElementById("open-catalog"),
     closeCatalog: document.getElementById("close-catalog"),
-    catalogModal: document.getElementById("catalog-modal"),
-    usersModal: document.getElementById("users-modal"),
+    clientsPage: document.getElementById("clients-page"),
+    usersPage: document.getElementById("members-page"),
     membersModal: document.getElementById("members-modal"),
     closeUsers: document.getElementById("close-users"),
     closeMembers: document.getElementById("close-members"),
@@ -1241,20 +1241,14 @@
     if (refs.mainFrame) {
       refs.mainFrame.style.display = view === "main" ? "" : "none";
     }
+    if (refs.clientsPage) {
+      refs.clientsPage.hidden = view !== "clients";
+    }
+    if (refs.usersPage) {
+      refs.usersPage.hidden = view !== "members";
+    }
 
     if (view === "clients") {
-      if (refs.catalogModal) {
-        refs.catalogModal.hidden = false;
-        refs.catalogModal.classList.add("as-page");
-        refs.catalogModal.setAttribute("aria-hidden", "false");
-        const panel = refs.catalogModal.querySelector(".panel-modal");
-        if (panel) {
-          panel.classList.add("as-page");
-        }
-      }
-      if (refs.usersModal) {
-        refs.usersModal.hidden = true;
-      }
       if (refs.membersModal) {
         refs.membersModal.hidden = true;
       }
@@ -1285,18 +1279,6 @@
     }
 
     if (view === "members") {
-      if (refs.usersModal) {
-        refs.usersModal.hidden = false;
-        refs.usersModal.classList.add("as-page");
-        refs.usersModal.setAttribute("aria-hidden", "false");
-        const panel = refs.usersModal.querySelector(".panel-modal");
-        if (panel) {
-          panel.classList.add("as-page");
-        }
-      }
-      if (refs.catalogModal) {
-        refs.catalogModal.hidden = true;
-      }
       if (refs.membersModal) {
         refs.membersModal.hidden = true;
       }
@@ -1307,21 +1289,11 @@
     }
 
     // main view
-    if (refs.catalogModal) {
-      refs.catalogModal.hidden = true;
-      refs.catalogModal.classList.remove("as-page");
-      const panel = refs.catalogModal.querySelector(".panel-modal");
-      if (panel) {
-        panel.classList.remove("as-page");
-      }
+    if (refs.clientsPage) {
+      refs.clientsPage.hidden = true;
     }
-    if (refs.usersModal) {
-      refs.usersModal.hidden = true;
-      refs.usersModal.classList.remove("as-page");
-      const panel = refs.usersModal.querySelector(".panel-modal");
-      if (panel) {
-        panel.classList.remove("as-page");
-      }
+    if (refs.usersPage) {
+      refs.usersPage.hidden = true;
     }
     if (refs.membersModal) {
       refs.membersModal.hidden = true;
@@ -1529,12 +1501,6 @@
     });
   }
 
-  refs.catalogModal.addEventListener("click", function (event) {
-    if (event.target === refs.catalogModal) {
-      closeCatalogModal();
-    }
-  });
-
   refs.closeUsers.addEventListener("click", function (event) {
     event.preventDefault();
     closeUsersModal();
@@ -1552,12 +1518,6 @@
       closeMembersModal();
     });
   }
-
-  refs.usersModal.addEventListener("click", function (event) {
-    if (event.target === refs.usersModal) {
-      closeUsersModal();
-    }
-  });
 
   if (refs.membersModal) {
     refs.membersModal.addEventListener("click", function (event) {
@@ -2226,14 +2186,6 @@
   window.addEventListener("keydown", function (event) {
     if (event.key !== "Escape") {
       return;
-    }
-
-    if (!refs.usersModal.hidden) {
-      closeUsersModal();
-    }
-
-    if (!refs.catalogModal.hidden) {
-      closeCatalogModal();
     }
 
     if (refs.membersModal && !refs.membersModal.hidden) {

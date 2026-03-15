@@ -214,6 +214,36 @@ body[data-theme="dark"] .page-shell.page-members {
   background: #121922;
 }
 
+.page-view {
+  width: 100%;
+  min-height: 100vh;
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.page-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.page-head h2 {
+  margin: 0;
+}
+
+.page-view .catalog-grid {
+  flex: 1;
+}
+
+.users-page-body {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  flex: 1;
+}
+
 .app-frame {
   width: 100%;
   display: grid;
