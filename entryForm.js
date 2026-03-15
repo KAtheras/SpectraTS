@@ -313,7 +313,7 @@
           : availableUsers()
       : availableUsers();
     const filteredUsers = authUsers.filter((user) => entryUsers.includes(user));
-    const userOptions = filteredUsers.length ? filteredUsers : authUsers;
+    const userOptions = filteredUsers;
     const defaultUser = defaultFilterUser(state, isStaff);
     const requestedUser = selection?.user ?? userField?.value ?? defaultUser;
     const nextUser =
@@ -334,7 +334,7 @@
     const allowedClientsFiltered = allowedClientsRaw.filter((client) =>
       entryClients.includes(client)
     );
-    const allowedClients = allowedClientsFiltered.length ? allowedClientsFiltered : allowedClientsRaw;
+    const allowedClients = allowedClientsFiltered;
     const nextClient = allowedClients.includes(requestedClient) ? requestedClient : "";
     const requestedProject = selection?.project ?? projectField?.value ?? "";
     const entryProjects = uniqueValues(
@@ -353,9 +353,7 @@
     const allowedProjectsFiltered = allowedProjectsRaw.filter((project) =>
       entryProjects.includes(project)
     );
-    const allowedProjects = allowedProjectsFiltered.length
-      ? allowedProjectsFiltered
-      : allowedProjectsRaw;
+    const allowedProjects = allowedProjectsFiltered;
     const nextProject = allowedProjects.includes(requestedProject) ? requestedProject : "";
 
     populateSelect(deps, userField, userOptions, "All users", nextUser);
