@@ -858,6 +858,9 @@
       isAdmin,
       isGlobalAdmin,
       isManager,
+      managerClientAssignments,
+      managerProjectAssignments,
+      projectMembersForUser,
       escapeHtml,
       disabledButtonAttrs,
     });

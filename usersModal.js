@@ -1,4 +1,5 @@
 (function () {
+  let selectedUserId = null;
   function setUserFeedback(deps, message, isError) {
     const { refs } = deps;
     if (!refs.userFeedback) {
@@ -29,8 +30,19 @@
   }
 
   function renderUsersList(deps) {
-    const { refs, state, levelLabel, isAdmin, isGlobalAdmin, isManager, escapeHtml, disabledButtonAttrs } =
-      deps;
+    const {
+      refs,
+      state,
+      levelLabel,
+      isAdmin,
+      isGlobalAdmin,
+      isManager,
+      managerClientAssignments,
+      managerProjectAssignments,
+      projectMembersForUser,
+      escapeHtml,
+      disabledButtonAttrs,
+    } = deps;
 
     if (!refs.userList) {
       return;
@@ -41,7 +53,13 @@
       return;
     }
 
-    refs.userList.innerHTML = state.users
+    if (!selectedUserId || !state.users.some((u) => u.id === selectedUserId)) {
+      selectedUserId = state.users[0].id;
+    }
+
+    const selectedUser = state.users.find((u) => u.id === selectedUserId) || state.users[0];
+
+    const listHtml = state.users
       .map(function (user) {
         const roleLabelText = levelLabel(user.level);
         const isCurrentUser = state.currentUser?.id === user.id;
@@ -50,12 +68,12 @@
         const canChangeRole = isGlobalAdmin(state.currentUser);
         const canResetPassword = canManageUsers;
         const canDeactivate = canManageUsers && !isCurrentUser;
-        const canAssignManager = canManageUsers && (isManager(user) || isAdmin(user));
         const disabledReason = "Admin only.";
         const changeLevelReason = "Level 6 only.";
+        const isSelected = selectedUserId === user.id;
 
         return `
-          <article class="catalog-item user-item">
+          <article class="catalog-item user-item ${isSelected ? "is-selected" : ""}" data-user-id="${escapeHtml(user.id)}">
             <span class="catalog-item-copy">
               <span class="catalog-item-title">${escapeHtml(user.displayName)}</span>
               <span class="user-item-meta">
@@ -106,6 +124,53 @@
         `;
       })
       .join("");
+
+    function assignmentSummary(user) {
+      const clients =
+        isManager(user) || isAdmin(user)
+          ? managerClientAssignments(user.id).map((item) => item.client)
+          : [];
+      const managerProjects =
+        isManager(user) || isAdmin(user)
+          ? managerProjectAssignments(user.id).map((item) => `${item.client} / ${item.project}`)
+          : [];
+      const memberProjects = projectMembersForUser(user.id).map(
+        (item) => `${item.client} / ${item.project}`
+      );
+      return {
+        clients: [...new Set(clients)].sort(),
+        projects: [...new Set([...managerProjects, ...memberProjects])].sort(),
+      };
+    }
+
+    const assignments = assignmentSummary(selectedUser);
+    const detailHtml = `
+      <div class="user-detail-card">
+        <h4>${escapeHtml(selectedUser.displayName)}</h4>
+        <dl>
+          <div><dt>Level</dt><dd>${escapeHtml(levelLabel(selectedUser.level))}</dd></div>
+          <div><dt>Base Rate</dt><dd>${selectedUser.baseRate !== null && selectedUser.baseRate !== undefined ? `$${Number(selectedUser.baseRate).toFixed(2)}` : "—"}</dd></div>
+          <div><dt>Assigned Clients</dt><dd>${assignments.clients.length ? assignments.clients.map(escapeHtml).join(", ") : "—"}</dd></div>
+          <div><dt>Assigned Projects</dt><dd>${assignments.projects.length ? assignments.projects.map(escapeHtml).join(", ") : "—"}</dd></div>
+        </dl>
+      </div>
+    `;
+
+    refs.userList.innerHTML = `
+      <div class="user-pane">
+        <div class="user-list-column">${listHtml}</div>
+        <div class="user-detail-column">${detailHtml}</div>
+      </div>
+    `;
+
+    refs.userList.querySelectorAll(".user-item").forEach(function (item) {
+      item.addEventListener("click", function (event) {
+        const id = item.dataset.userId;
+        if (!id) return;
+        selectedUserId = id;
+        renderUsersList(deps);
+      });
+    });
   }
 
   function syncUserManagementControls(deps) {
