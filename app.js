@@ -1135,8 +1135,9 @@
         currentPassword,
         newPassword,
       });
+      await loadPersistentState();
       refs.forcePasswordForm.reset();
-      renderAuthUi();
+      showAppShell();
       render();
     } catch (error) {
       setAuthFeedback(error.message || "Unable to change password.", true);
