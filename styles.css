@@ -370,16 +370,16 @@ body.is-embedded .page-shell {
 
 .level-labels-form {
   margin-top: 18px;
-  padding: 16px 0 28px;
   border-top: 1px solid var(--group-border);
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px 16px;
-  align-items: end;
 }
 
-.level-labels-form h3 {
-  grid-column: 1 / -1;
+.level-labels-inner {
+  padding: 16px 18px 32px;
+  display: grid;
+  gap: 14px;
+}
+
+.level-labels-inner h3 {
   margin: 0;
   font-family: var(--font-head);
   font-size: 0.9rem;
@@ -388,12 +388,29 @@ body.is-embedded .page-shell {
   color: var(--muted);
 }
 
-.level-labels-form button {
-  grid-column: 1 / -1;
-  justify-self: end;
-  width: fit-content;
-  max-width: 100%;
-  margin-top: 8px;
+.level-labels-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px 16px;
+}
+
+.level-labels-grid label {
+  display: grid;
+  gap: 6px;
+}
+
+.level-labels-grid input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.level-labels-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.level-labels-actions .button {
+  margin-top: 4px;
 }
 
 .entry-form label,
