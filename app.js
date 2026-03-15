@@ -258,24 +258,21 @@
     if (isAdmin(state.currentUser)) {
       return availableUsers();
     }
-    const myProjectKeys = new Set(
-      (state.assignments?.projectMembers || [])
-        .filter((item) => item.userId === state.currentUser.id)
-        .map((item) => projectKey(item.client, item.project))
+    const allowedKeys = new Set(
+      allowedProjectTuples(state.currentUser).map((item) => projectKey(item.client, item.project))
     );
-    if (!myProjectKeys.size) {
+    if (!allowedKeys.size) {
       return [];
     }
+    const allowedUserIds = new Set(
+      (state.assignments?.projectMembers || [])
+        .filter((item) => allowedKeys.has(projectKey(item.client, item.project)))
+        .map((item) => item.userId)
+    );
+    allowedUserIds.add(state.currentUser.id);
+
     return state.users
-      .filter((user) => {
-        if (!isStaff(user)) {
-          return false;
-        }
-        const userKeys = (state.assignments?.projectMembers || [])
-          .filter((item) => item.userId === user.id)
-          .map((item) => projectKey(item.client, item.project));
-        return userKeys.some((key) => myProjectKeys.has(key));
-      })
+      .filter((user) => allowedUserIds.has(user.id) && isStaff(user))
       .map((user) => user.displayName)
       .filter(Boolean);
   }
