@@ -1162,6 +1162,7 @@ exports.handler = async function handler(event) {
           accountId
         );
         break;
+      }
       case "update_project_member_rate": {
         mutationResult = await updateProjectMemberRate(
           sql,
@@ -1170,7 +1171,6 @@ exports.handler = async function handler(event) {
           accountId
         );
         break;
-      }
       }
       case "add_user": {
         const adminError = requireAdmin(context);
