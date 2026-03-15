@@ -822,16 +822,9 @@ textarea {
   display: grid;
   grid-template-columns: minmax(220px, 0.8fr) minmax(0, 1.2fr);
   gap: 14px;
-  height: 100%;
-}
-
-.modal-backdrop.as-page .catalog-grid {
-  flex: 1;
-  min-height: 0;
 }
 
 .catalog-column {
-  height: 100%;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -867,16 +860,16 @@ textarea {
 
 .modal-backdrop.as-page {
   position: static;
-  display: contents;
+  display: block;
   background: transparent;
-  padding: 0;
-  width: auto;
+  padding: 16px;
+  width: 100%;
   height: auto;
 }
 
 .modal-backdrop.as-page .modal-shell {
   position: static;
-  display: contents;
+  display: block;
   padding: 0;
   height: auto;
 }
@@ -897,10 +890,8 @@ textarea {
 }
 
 .modal-backdrop.as-page .panel-modal {
-  min-height: 100vh;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
+  min-height: auto;
+  display: block;
 }
 
 .modal-backdrop.as-page .panel-head {
