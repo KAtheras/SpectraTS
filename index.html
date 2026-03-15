@@ -85,8 +85,13 @@
             <div class="account-name" id="account-name" hidden></div>
             <div class="session-indicator utility-pill" id="session-indicator" hidden></div>
             <div class="settings-menu-wrap">
-              <button class="button button-ghost settings-toggle utility-pill" id="settings-toggle" type="button">
-                Settings
+              <button class="button button-ghost settings-toggle utility-pill" id="settings-toggle" type="button" aria-label="Settings">
+                <svg class="settings-icon" aria-hidden="true" viewBox="0 0 24 24" focusable="false">
+                  <path
+                    fill="currentColor"
+                    d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7zm9.44 3.18-1.53-.89a7.61 7.61 0 0 0-.3-1.04l.9-1.55a.75.75 0 0 0-.11-.9l-1.5-1.5a.75.75 0 0 0-.9-.11l-1.55.9c-.33-.13-.68-.23-1.03-.31l-.9-1.53a.75.75 0 0 0-.66-.39h-2.12a.75.75 0 0 0-.66.39l-.9 1.53c-.36.08-.7.18-1.03.31l-1.55-.9a.75.75 0 0 0-.9.11l-1.5 1.5a.75.75 0 0 0-.11.9l.9 1.55c-.13.33-.23.68-.31 1.03l-1.53.9a.75.75 0 0 0-.39.66v2.12c0 .28.15.55.39.66l1.53.9c.08.36.18.7.31 1.03l-.9 1.55a.75.75 0 0 0 .11.9l1.5 1.5c.22.22.56.28.85.11l1.55-.9c.33.13.68.23 1.03.31l.9 1.53c.13.24.38.39.66.39h2.12c.28 0 .55-.15.66-.39l.9-1.53c.36-.08.7-.18 1.03-.31l1.55.9c.29.17.63.11.85-.11l1.5-1.5c.22-.22.28-.56.11-.85l-.9-1.55c.13-.33.23-.68.31-1.03l1.53-.9c.24-.13.39-.38.39-.66v-2.12a.75.75 0 0 0-.39-.66z"
+                  />
+                </svg>
               </button>
               <div class="settings-menu" id="settings-menu" hidden>
                 <button class="settings-item" id="change-password-open" type="button" hidden>
