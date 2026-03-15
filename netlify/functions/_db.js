@@ -187,6 +187,7 @@ async function ensureSchema(sql) {
       manager_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       project_id BIGINT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
       account_id UUID REFERENCES accounts(id),
+      charge_rate_override NUMERIC(10,2),
       assigned_by TEXT REFERENCES users(id),
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       UNIQUE (manager_id, project_id)
@@ -197,6 +198,7 @@ async function ensureSchema(sql) {
     ADD COLUMN IF NOT EXISTS account_id UUID REFERENCES accounts(id)
   `;
   await sql`UPDATE manager_projects SET account_id = ${accountUuid}::uuid WHERE account_id IS NULL`;
+  await sql`ALTER TABLE manager_projects ADD COLUMN IF NOT EXISTS charge_rate_override NUMERIC(10,2)`;
 
   await sql`
     CREATE TABLE IF NOT EXISTS project_members (
@@ -1025,7 +1027,8 @@ async function listManagerProjectAssignments(sql, accountId) {
       manager_projects.manager_id AS "managerId",
       projects.id AS "projectId",
       projects.name AS project,
-      clients.name AS client
+      clients.name AS client,
+      manager_projects.charge_rate_override AS "chargeRateOverride"
     FROM manager_projects
     JOIN projects ON projects.id = manager_projects.project_id
     JOIN clients ON clients.id = projects.client_id
@@ -1067,7 +1070,8 @@ async function listManagerAssignmentsForUser(sql, managerId, accountId) {
       manager_projects.manager_id AS "managerId",
       projects.id AS "projectId",
       projects.name AS project,
-      clients.name AS client
+      clients.name AS client,
+      manager_projects.charge_rate_override AS "chargeRateOverride"
     FROM manager_projects
     JOIN projects ON projects.id = manager_projects.project_id
     JOIN clients ON clients.id = projects.client_id

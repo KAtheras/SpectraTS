@@ -215,7 +215,7 @@
         value === null || Number.isNaN(value) ? "—" : `$${Number(value).toFixed(2)}`;
 
       const overrideRow =
-        mode === "project-members-edit"
+        mode === "project-members-edit" || mode === "project-managers-edit"
           ? `
               <div class="member-rate">
                 <div class="member-rate-line">Base Rate: ${formatRate(baseRate)}</div>
