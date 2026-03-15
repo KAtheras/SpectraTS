@@ -1674,3 +1674,12 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
     padding: 16px;
   }
 }
+
+/* Ensure page-mode panels are not height-capped by modal styles */
+.modal-backdrop.as-page .panel-modal {
+  max-height: none !important;
+  height: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
