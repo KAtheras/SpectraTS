@@ -2442,6 +2442,7 @@
   let skippedNonStaff = 0;
   let success = false;
   let mutationsRun = 0;
+  let memberMutationsRun = 0;
     try {
     const currentAssigned = new Set(memberModalState.assigned || []);
     const desiredAssigned = new Set(selected);
@@ -2571,38 +2572,41 @@
           }
         } else if (mode === "project-members-edit") {
             if (toAdd.includes(user.id)) {
-              if (effectiveLevel > 2) {
-                skippedNonStaff += 1;
-                continue;
-              }
-              await mutatePersistentState("add_project_member", {
-                userId: user.id,
-                clientName: client,
-                projectName: project,
-                chargeRateOverride: overrideInputMap[user.id],
-              });
-            } else if (toRemove.includes(user.id)) {
-              await mutatePersistentState("remove_project_member", {
-                userId: user.id,
-                clientName: client,
-                projectName: project,
-              });
-            } else {
-              if (overrideInputMap.hasOwnProperty(user.id)) {
-                const newOverride = overrideInputMap[user.id];
-                const prevOverride = currentOverrides[user.id] ?? null;
-                if (newOverride !== prevOverride) {
-                  await mutatePersistentState("update_project_member_rate", {
-                    userId: user.id,
-                    clientName: client,
-                    projectName: project,
-                    chargeRateOverride: newOverride,
-                  });
-                }
+            if (effectiveLevel > 2) {
+              skippedNonStaff += 1;
+              continue;
+            }
+            await mutatePersistentState("add_project_member", {
+              userId: user.id,
+              clientName: client,
+              projectName: project,
+              chargeRateOverride: overrideInputMap[user.id],
+            });
+            memberMutationsRun += 1;
+          } else if (toRemove.includes(user.id)) {
+            await mutatePersistentState("remove_project_member", {
+              userId: user.id,
+              clientName: client,
+              projectName: project,
+            });
+            memberMutationsRun += 1;
+          } else {
+            if (overrideInputMap.hasOwnProperty(user.id)) {
+              const newOverride = overrideInputMap[user.id];
+              const prevOverride = currentOverrides[user.id] ?? null;
+              if (newOverride !== prevOverride) {
+                await mutatePersistentState("update_project_member_rate", {
+                  userId: user.id,
+                  clientName: client,
+                  projectName: project,
+                  chargeRateOverride: newOverride,
+                });
+                memberMutationsRun += 1;
               }
             }
           }
         }
+      }
 
     if (mode === "project-members-edit") {
       const finalAssigned = new Set(memberModalState.assigned || []);
@@ -2622,12 +2626,19 @@
             projectName: project,
             chargeRateOverride: newOverride,
           });
+          memberMutationsRun += 1;
         }
       }
     }
 
     if (mode === "project-managers-edit") {
       if (mutationsRun === 0) {
+        setMembersFeedback("No changes to save.", false);
+        return;
+      }
+      success = true;
+    } else if (mode === "project-members-edit") {
+      if (memberMutationsRun === 0) {
         setMembersFeedback("No changes to save.", false);
         return;
       }
