@@ -276,6 +276,10 @@ body[data-theme="dark"] .page-shell.page-members {
   overflow: hidden;
 }
 
+.members-page.page-view {
+  overflow: auto;
+}
+
 .page-head {
   display: flex;
   align-items: center;

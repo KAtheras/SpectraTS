@@ -89,8 +89,10 @@
     membersNavClients: document.getElementById("members-nav-clients"),
     membersNavMain: document.getElementById("members-nav-main"),
     membersNavTheme: document.getElementById("members-nav-theme"),
+    membersNavLevels: document.getElementById("members-nav-levels"),
     clientsPage: document.getElementById("clients-page"),
     usersPage: document.getElementById("members-page"),
+    levelsPage: document.getElementById("levels-page"),
     dialog: document.getElementById("app-dialog"),
     dialogTitle: document.getElementById("dialog-title"),
     dialogMessage: document.getElementById("dialog-message"),
@@ -1324,6 +1326,9 @@
     if (refs.usersPage) {
       refs.usersPage.hidden = view !== "members";
     }
+    if (refs.levelsPage) {
+      refs.levelsPage.hidden = view !== "levels";
+    }
 
     if (view === "clients") {
       renderCatalogLists({
@@ -1359,12 +1364,21 @@
       return;
     }
 
+    if (view === "levels") {
+      postHeight();
+      postHeight();
+      return;
+    }
+
     // main view
     if (refs.clientsPage) {
       refs.clientsPage.hidden = true;
     }
     if (refs.usersPage) {
       refs.usersPage.hidden = true;
+    }
+    if (refs.levelsPage) {
+      refs.levelsPage.hidden = true;
     }
     if (refs.membersModal) {
       refs.membersModal.hidden = true;
@@ -1585,6 +1599,23 @@
       const nextTheme = body.dataset.theme === "dark" ? "light" : "dark";
       saveThemePreference(nextTheme);
       applyTheme(nextTheme);
+    });
+  }
+
+  if (refs.membersNavLevels) {
+    refs.membersNavLevels.addEventListener("click", function () {
+      if (!isAdmin(state.currentUser)) {
+        feedback("Admin access required.", true);
+        return;
+      }
+      setView("levels");
+    });
+  }
+
+  const levelsBack = document.getElementById("levels-nav-back");
+  if (levelsBack) {
+    levelsBack.addEventListener("click", function () {
+      setView("members");
     });
   }
 
