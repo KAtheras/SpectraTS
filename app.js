@@ -258,7 +258,7 @@
       ? data.users.map(normalizeUser).filter(Boolean)
       : [];
     state.bootstrapRequired = Boolean(data?.bootstrapRequired);
-    state.catalog = normalizeCatalog(data?.catalog || DEFAULT_CLIENT_PROJECTS);
+    state.catalog = normalizeCatalog(data?.catalog || {}, false);
     state.entries = Array.isArray(data?.entries) ? data.entries.map(normalizeEntry).filter(Boolean) : [];
     state.assignments = normalizeAssignments(data?.assignments);
     state.levelLabels = data?.levelLabels && typeof data.levelLabels === "object"
@@ -275,7 +275,7 @@
     state.currentUser = null;
     state.users = [];
     state.bootstrapRequired = false;
-    state.catalog = normalizeCatalog(DEFAULT_CLIENT_PROJECTS);
+    state.catalog = normalizeCatalog(DEFAULT_CLIENT_PROJECTS, true);
     state.entries = [];
     state.projects = [];
     state.levelLabels = {};
@@ -310,7 +310,7 @@
         state.currentUser = null;
         state.users = [];
         state.entries = [];
-        state.catalog = normalizeCatalog(DEFAULT_CLIENT_PROJECTS);
+        state.catalog = normalizeCatalog(DEFAULT_CLIENT_PROJECTS, true);
         state.projects = [];
         state.assignments = {
           managerClients: [],
@@ -418,8 +418,13 @@
   }
 
 
-  function normalizeCatalog(catalog) {
-    const source = catalog && typeof catalog === "object" ? catalog : DEFAULT_CLIENT_PROJECTS;
+  function normalizeCatalog(catalog, fallbackToDefault = true) {
+    const source =
+      catalog && typeof catalog === "object"
+        ? catalog
+        : fallbackToDefault
+          ? DEFAULT_CLIENT_PROJECTS
+          : {};
     const normalized = {};
 
     Object.entries(source).forEach(function ([client, projects]) {
@@ -437,7 +442,11 @@
       normalized[clientName] = normalizedProjects;
     });
 
-    return Object.keys(normalized).length ? normalized : { ...DEFAULT_CLIENT_PROJECTS };
+    return Object.keys(normalized).length
+      ? normalized
+      : fallbackToDefault
+        ? { ...DEFAULT_CLIENT_PROJECTS }
+        : {};
   }
 
   function normalizeEntry(entry) {
