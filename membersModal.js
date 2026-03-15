@@ -14,6 +14,84 @@
     postHeight();
   }
 
+  function normalizeOverrideValue(raw) {
+    if (raw === undefined || raw === null) {
+      return null;
+    }
+    const trimmed = String(raw).trim();
+    if (!trimmed) {
+      return null;
+    }
+    const num = Number(trimmed);
+    return Number.isFinite(num) && num >= 0 ? num : null;
+  }
+
+  function hasMemberChanges(refs, memberModalState) {
+    const mode = memberModalState.mode;
+    const gatingModes = new Set([
+      "project-members-edit",
+      "project-managers-edit",
+      "project-add",
+      "project-remove",
+      "project-assign-manager",
+      "project-unassign-manager",
+    ]);
+    if (!gatingModes.has(mode)) {
+      // Do not gate other modal modes; allow Save by default.
+      return true;
+    }
+    if (!refs.membersList) {
+      return false;
+    }
+
+    const initialAssigned = new Set(memberModalState.initialAssigned || []);
+    const currentChecked = new Set(
+      Array.from(refs.membersList.querySelectorAll("input[type='checkbox'][data-member-id]"))
+        .filter((input) => input.checked)
+        .map((input) => input.dataset.memberId)
+    );
+
+    if (initialAssigned.size !== currentChecked.size) {
+      return true;
+    }
+    for (const id of initialAssigned) {
+      if (!currentChecked.has(id)) {
+        return true;
+      }
+    }
+
+    const initialOverrides = memberModalState.initialOverrides || {};
+    const currentOverrides = {};
+    Array.from(refs.membersList.querySelectorAll("input[data-override-input]")).forEach(
+      (input) => {
+        currentOverrides[input.dataset.overrideInput] = normalizeOverrideValue(input.value);
+      }
+    );
+
+    const allIds = new Set([
+      ...Object.keys(initialOverrides || {}),
+      ...Object.keys(currentOverrides),
+    ]);
+    for (const id of allIds) {
+      const prev = normalizeOverrideValue(initialOverrides[id]);
+      const curr = normalizeOverrideValue(currentOverrides[id]);
+      if (prev !== curr) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  function syncMembersSaveState(refs, memberModalState) {
+    if (!refs.membersConfirm) {
+      return;
+    }
+    const changed = hasMemberChanges(refs, memberModalState);
+    refs.membersConfirm.disabled = !changed;
+    refs.membersConfirm.setAttribute("aria-disabled", changed ? "false" : "true");
+  }
+
   function closeMembersModal(deps) {
     const { refs, body, memberModalState, postHeight } = deps;
     if (!refs.membersModal) {
@@ -26,7 +104,12 @@
     memberModalState.client = "";
     memberModalState.project = "";
     memberModalState.userId = "";
+    memberModalState.assigned = [];
     memberModalState.overrides = {};
+    memberModalState.initialAssigned = [];
+    memberModalState.initialOverrides = {};
+    memberModalState.initialAssigned = [];
+    memberModalState.initialOverrides = {};
 
     const usersHidden = !refs.usersModal || refs.usersModal.hidden;
     const catalogHidden = !refs.catalogModal || refs.catalogModal.hidden;
@@ -265,25 +348,30 @@
 
     refs.membersList.oninput = function (event) {
       const input = event.target.closest("input[data-override-input]");
-      if (!input) {
-        return;
+      if (input) {
+        const userId = input.dataset.overrideInput;
+        const effectiveSpan = refs.membersList.querySelector(
+          `[data-effective-rate="${userId}"]`
+        );
+        if (effectiveSpan) {
+          const baseLine = effectiveSpan.closest(".member-rate").querySelector(".member-rate-line");
+          const baseMatch = baseLine ? /\$([0-9.]+)/.exec(baseLine.textContent) : null;
+          const baseValue = baseMatch ? Number(baseMatch[1]) : null;
+          const raw = input.value.trim();
+          const num = raw === "" ? null : Number(raw);
+          const effective = num !== null && Number.isFinite(num) ? num : baseValue;
+          effectiveSpan.textContent =
+            effective === null || Number.isNaN(effective) ? "—" : `$${Number(effective).toFixed(2)}`;
+        }
       }
-      const userId = input.dataset.overrideInput;
-      const effectiveSpan = refs.membersList.querySelector(
-        `[data-effective-rate="${userId}"]`
-      );
-      if (!effectiveSpan) {
-        return;
-      }
-      const baseLine = effectiveSpan.closest(".member-rate").querySelector(".member-rate-line");
-      const baseMatch = baseLine ? /\$([0-9.]+)/.exec(baseLine.textContent) : null;
-      const baseValue = baseMatch ? Number(baseMatch[1]) : null;
-      const raw = input.value.trim();
-      const num = raw === "" ? null : Number(raw);
-      const effective = num !== null && Number.isFinite(num) ? num : baseValue;
-      effectiveSpan.textContent =
-        effective === null || Number.isNaN(effective) ? "—" : `$${Number(effective).toFixed(2)}`;
+      syncMembersSaveState(refs, memberModalState);
     };
+
+    refs.membersList.onchange = function () {
+      syncMembersSaveState(refs, memberModalState);
+    };
+
+    syncMembersSaveState(refs, memberModalState);
   }
 
   window.membersModal = {

@@ -197,6 +197,10 @@
     client: "",
     project: "",
     userId: "",
+    initialAssigned: [],
+    initialOverrides: {},
+    assigned: [],
+    overrides: {},
   };
 
   if (embedded) {
@@ -428,6 +432,12 @@
   }
 
   function openMembersModal() {
+    memberModalState.initialAssigned = Array.isArray(memberModalState.assigned)
+      ? [...memberModalState.assigned]
+      : [];
+    memberModalState.initialOverrides = memberModalState.overrides
+      ? { ...memberModalState.overrides }
+      : {};
     membersOpenMembersModal?.({
       refs,
       body,

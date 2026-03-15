@@ -1889,3 +1889,9 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   display: flex;
   flex-direction: column;
 }
+
+#members-confirm:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+}
