@@ -1784,8 +1784,21 @@
           state.filters.client = "";
         }
       } catch (error) {
-        feedback(error.message || "Unable to remove client.", true);
-        window.alert(error.message || "Unable to remove client.");
+        const message = error.message || "Unable to remove client.";
+        feedback(message, true);
+        window.alert(message);
+        if (message.toLowerCase().includes("not found")) {
+          // Drop locally if server reports it missing
+          delete state.catalog[clientName];
+          state.projects = state.projects.filter((p) => p.client !== clientName);
+          if (state.selectedCatalogClient === clientName) {
+            state.selectedCatalogClient = "";
+          }
+          if (state.filters.client === clientName) {
+            state.filters.client = "";
+          }
+          render();
+        }
         return;
       }
 
@@ -1925,8 +1938,28 @@
           state.filters.project = "";
         }
       } catch (error) {
-        feedback(error.message || "Unable to remove project.", true);
-        window.alert(error.message || "Unable to remove project.");
+        const message = error.message || "Unable to remove project.";
+        feedback(message, true);
+        window.alert(message);
+        if (message.toLowerCase().includes("not found")) {
+          // Drop locally if server reports it missing
+          state.projects = state.projects.filter(
+            (p) =>
+              !(p.client === state.selectedCatalogClient && p.project === projectName)
+          );
+          if (state.catalog?.[state.selectedCatalogClient]) {
+            state.catalog[state.selectedCatalogClient] = state.catalog[state.selectedCatalogClient].filter(
+              (name) => name !== projectName
+            );
+          }
+          if (
+            state.filters.client === state.selectedCatalogClient &&
+            state.filters.project === projectName
+          ) {
+            state.filters.project = "";
+          }
+          render();
+        }
         return;
       }
 
