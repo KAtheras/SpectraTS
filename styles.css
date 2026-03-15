@@ -225,7 +225,9 @@ body[data-theme="dark"] .page-shell.page-members {
 
 .page-head {
   display: flex;
+  flex-direction: row-reverse;
   align-items: center;
+  justify-content: space-between;
   gap: 12px;
 }
 
@@ -235,7 +237,7 @@ body[data-theme="dark"] .page-shell.page-members {
 
 .page-head > .button-ghost,
 .page-head > .button.button-ghost {
-  margin-left: auto;
+  margin-left: 0;
 }
 
 .page-view .catalog-grid {
@@ -421,6 +423,11 @@ body[data-theme="dark"] .page-shell.page-members {
   border: 1px solid var(--group-border);
   border-radius: 18px;
   padding: 12px 14px 14px;
+}
+
+.members-page .add-user-card {
+  margin-inline: 22px;
+  width: calc(100% - 44px);
 }
 
 .add-user-form .add-user-button {
