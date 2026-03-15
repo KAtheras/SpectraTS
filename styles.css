@@ -864,13 +864,12 @@ textarea {
 }
 
 .catalog-column {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
   gap: 12px;
 }
 
 .catalog-column .catalog-list {
-  flex: 1;
   min-height: 0;
   overflow: auto;
 }
@@ -1078,7 +1077,6 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   align-content: start;
   gap: 8px;
   padding: 10px;
-  max-height: 48vh;
   overflow: auto;
 }
 
