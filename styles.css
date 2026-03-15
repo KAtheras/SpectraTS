@@ -472,8 +472,8 @@ body[data-theme="dark"] .page-shell.page-members {
     minmax(0, 0.95fr)
     minmax(0, 0.9fr)
     minmax(110px, 0.65fr)
-    minmax(120px, 0.75fr)
-    minmax(150px, 0.8fr);
+    minmax(100px, 0.55fr) /* Base Rate */
+    minmax(100px, 0.55fr); /* Cost Rate */
   align-items: end;
   margin-top: 6px;
 }
@@ -504,6 +504,14 @@ input[name="base_rate"]::-webkit-inner-spin-button {
   margin: 0;
 }
 input[name="base_rate"] {
+  -moz-appearance: textfield;
+}
+input[name="cost_rate"]::-webkit-outer-spin-button,
+input[name="cost_rate"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[name="cost_rate"] {
   -moz-appearance: textfield;
 }
 
