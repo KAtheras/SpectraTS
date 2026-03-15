@@ -1,5 +1,9 @@
 (function () {
   let selectedUserId = null;
+  let detailEditUserId = null;
+  let detailEditMode = false;
+  let detailDraft = {};
+
   function setUserFeedback(deps, message, isError) {
     const { refs } = deps;
     if (!refs.userFeedback) {
@@ -29,6 +33,12 @@
     postHeight();
   }
 
+  function setDetailEditState(userId, editing, draft) {
+    detailEditUserId = editing ? userId : null;
+    detailEditMode = Boolean(editing);
+    detailDraft = draft || {};
+  }
+
   function renderUsersList(deps) {
     const {
       refs,
@@ -55,9 +65,17 @@
 
     if (!selectedUserId || !state.users.some((u) => u.id === selectedUserId)) {
       selectedUserId = state.users[0].id;
+      detailEditMode = false;
+      detailEditUserId = null;
+      detailDraft = {};
     }
 
     const selectedUser = state.users.find((u) => u.id === selectedUserId) || state.users[0];
+    if (detailEditUserId && detailEditUserId !== selectedUser.id) {
+      detailEditMode = false;
+      detailEditUserId = null;
+      detailDraft = {};
+    }
 
     const listHtml = state.users
       .map(function (user) {
@@ -144,18 +162,83 @@
       };
     }
 
-      const assignments = assignmentSummary(selectedUser);
-      const detailHtml = `
-        <div class="user-detail-card">
-          <h4>${escapeHtml(selectedUser.displayName)}</h4>
-          <dl>
-            <div><dt>Level</dt><dd>${escapeHtml(levelLabel(selectedUser.level))}</dd></div>
-            <div><dt>Base Rate</dt><dd>${selectedUser.baseRate !== null && selectedUser.baseRate !== undefined ? `$${Number(selectedUser.baseRate).toFixed(2)}` : "—"}</dd></div>
-            <div><dt>Cost Rate</dt><dd>${selectedUser.costRate !== null && selectedUser.costRate !== undefined ? `$${Number(selectedUser.costRate).toFixed(2)}` : "—"}</dd></div>
-            <div><dt>Clients/Projects</dt><dd>${assignments.projects.length ? assignments.projects.map((p) => `${escapeHtml(p.client)} / ${escapeHtml(p.project)}`).join("<br>") : "—"}</dd></div>
-          </dl>
+    const assignments = assignmentSummary(selectedUser);
+    const editing = detailEditMode && detailEditUserId === selectedUser.id;
+    const levelOptions = [1, 2, 3, 4, 5, 6]
+      .map(
+        (level) =>
+          `<option value="${level}"${(editing ? detailDraft.level ?? selectedUser.level : selectedUser.level) === level ? " selected" : ""}>${escapeHtml(levelLabel(level))}</option>`
+      )
+      .join("");
+    const draftUsername = editing
+      ? detailDraft.username ?? selectedUser.username
+      : selectedUser.username;
+    const draftBase = editing
+      ? detailDraft.baseRate ?? selectedUser.baseRate ?? ""
+      : selectedUser.baseRate;
+    const draftCost = editing
+      ? detailDraft.costRate ?? selectedUser.costRate ?? ""
+      : selectedUser.costRate;
+    const detailHtml = `
+      <div class="user-detail-card">
+        <h4>${escapeHtml(selectedUser.displayName)}</h4>
+        <dl>
+          <div>
+            <dt>Username</dt>
+            <dd>
+              ${
+                editing
+                  ? `<input type="text" data-user-field="username" value="${escapeHtml(draftUsername || "")}" />`
+                  : escapeHtml(selectedUser.username)
+              }
+            </dd>
+          </div>
+          <div>
+            <dt>Level</dt>
+            <dd>
+              ${
+                editing
+                  ? `<select data-user-field="level">${levelOptions}</select>`
+                  : escapeHtml(levelLabel(selectedUser.level))
+              }
+            </dd>
+          </div>
+          <div>
+            <dt>Base Rate</dt>
+            <dd>
+              ${
+                editing
+                  ? `<input type="number" step="0.01" min="0" data-user-field="baseRate" value="${draftBase === null || draftBase === undefined ? "" : escapeHtml(String(draftBase))}" />`
+                  : selectedUser.baseRate !== null && selectedUser.baseRate !== undefined
+                    ? `$${Number(selectedUser.baseRate).toFixed(2)}`
+                    : "—"
+              }
+            </dd>
+          </div>
+          <div>
+            <dt>Cost Rate</dt>
+            <dd>
+              ${
+                editing
+                  ? `<input type="number" step="0.01" min="0" data-user-field="costRate" value="${draftCost === null || draftCost === undefined ? "" : escapeHtml(String(draftCost))}" />`
+                  : selectedUser.costRate !== null && selectedUser.costRate !== undefined
+                    ? `$${Number(selectedUser.costRate).toFixed(2)}`
+                    : "—"
+              }
+            </dd>
+          </div>
+          <div><dt>Clients/Projects</dt><dd>${assignments.projects.length ? assignments.projects.map((p) => `${escapeHtml(p.client)} / ${escapeHtml(p.project)}`).join("<br>") : "—"}</dd></div>
+        </dl>
+        <div class="user-detail-actions">
+          ${
+            editing
+              ? `<button type="button" class="button" data-user-panel-save="${escapeHtml(selectedUser.id)}">Save</button>
+                 <button type="button" class="button button-ghost" data-user-panel-cancel>Cancel</button>`
+              : `<button type="button" class="button" data-user-panel-edit="${escapeHtml(selectedUser.id)}">Edit</button>`
+          }
         </div>
-      `;
+      </div>
+    `;
 
     refs.userList.innerHTML = `
       <div class="user-pane">
@@ -230,5 +313,6 @@
     setUserFeedback,
     renderUsersList,
     syncUserManagementControls,
+    setDetailEditState,
   };
 })();

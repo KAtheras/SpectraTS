@@ -41,6 +41,7 @@
     setUserFeedback: usersSetUserFeedback,
     renderUsersList: usersRenderUsersList,
     syncUserManagementControls: usersSyncUserManagementControls,
+    setDetailEditState: usersSetDetailEditState,
   } = window.usersModal || {};
   const {
     daysInMonth,
@@ -1158,6 +1159,90 @@
   }
 
   async function handleUserListAction(event) {
+    const panelEdit = event.target.closest("[data-user-panel-edit]");
+    const panelCancel = event.target.closest("[data-user-panel-cancel]");
+    const panelSave = event.target.closest("[data-user-panel-save]");
+    if (panelEdit || panelCancel || panelSave) {
+      if (!isAdmin(state.currentUser)) {
+        const message = "Only Admins can edit team members.";
+        setUserFeedback(message, true);
+        window.alert(message);
+        return;
+      }
+      if (panelCancel) {
+        usersSetDetailEditState?.(null, false, {});
+        render();
+        return;
+      }
+      if (panelEdit) {
+        const user = state.users.find((u) => u.id === panelEdit.dataset.userPanelEdit);
+        if (!user) {
+          return;
+        }
+        usersSetDetailEditState?.(user.id, true, {
+          username: user.username,
+          level: user.level,
+          baseRate: user.baseRate ?? "",
+          costRate: user.costRate ?? "",
+        });
+        render();
+        return;
+      }
+      if (panelSave) {
+        const userId = panelSave.dataset.userPanelSave;
+        const user = state.users.find((u) => u.id === userId);
+        if (!user) {
+          return;
+        }
+        const detailCard = refs.userList.querySelector(".user-detail-card");
+        if (!detailCard) {
+          return;
+        }
+        const usernameInput = detailCard.querySelector('[data-user-field="username"]');
+        const levelSelect = detailCard.querySelector('[data-user-field="level"]');
+        const baseInput = detailCard.querySelector('[data-user-field="baseRate"]');
+        const costInput = detailCard.querySelector('[data-user-field="costRate"]');
+        const nextUsername = usernameInput?.value.trim() || "";
+        const nextLevel = Number(levelSelect?.value || user.level);
+        const baseRaw = baseInput?.value.trim();
+        const costRaw = costInput?.value.trim();
+        const nextBase = baseRaw ? Number(baseRaw) : null;
+        const nextCost = costRaw ? Number(costRaw) : null;
+        if (!nextUsername) {
+          setUserFeedback("Username is required.", true);
+          return;
+        }
+        if (!Number.isInteger(nextLevel) || nextLevel < 1 || nextLevel > 6) {
+          setUserFeedback("Invalid level.", true);
+          return;
+        }
+        if (nextBase !== null && (!Number.isFinite(nextBase) || nextBase < 0)) {
+          setUserFeedback("Base rate must be a non-negative number.", true);
+          return;
+        }
+        if (nextCost !== null && (!Number.isFinite(nextCost) || nextCost < 0)) {
+          setUserFeedback("Cost rate must be a non-negative number.", true);
+          return;
+        }
+        try {
+          await mutatePersistentState("update_user", {
+            userId: user.id,
+            displayName: user.displayName,
+            username: nextUsername,
+            level: nextLevel,
+            baseRate: nextBase,
+            costRate: nextCost,
+          });
+          usersSetDetailEditState?.(null, false, {});
+          setUserFeedback("Team member updated.", false);
+        } catch (error) {
+          setUserFeedback(error.message || "Unable to update team member.", true);
+          return;
+        }
+        render();
+        return;
+      }
+    }
     const button = event.target.closest(
       "[data-user-edit], [data-user-role], [data-user-password], [data-user-deactivate]"
     );
