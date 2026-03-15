@@ -2044,7 +2044,6 @@
       const roleOnlyMode = mode === "user-role";
       const isRemovalMode =
         mode === "project-remove" ||
-        mode === "client-unassign" ||
         mode === "project-unassign-manager";
       const selected = roleOnlyMode
         ? memberModalState.userId
@@ -2113,19 +2112,6 @@
               userId: user.id,
               clientName: client,
               projectName: project,
-            });
-          } else if (mode === "client-assign") {
-            if (effectiveLevel < 3) {
-              continue;
-            }
-            await mutatePersistentState("assign_manager_client", {
-              managerId: user.id,
-              clientName: client,
-            });
-          } else if (mode === "client-unassign") {
-            await mutatePersistentState("unassign_manager_client", {
-              managerId: user.id,
-              clientName: client,
             });
           } else if (mode === "project-assign-manager") {
             if (effectiveLevel < 3) {

@@ -676,10 +676,12 @@ async function updateUserRecord(sql, payload, actingUser) {
   const username = normalizeText(payload.username);
   const level = normalizeLevel(payload.level ?? payload.role);
   const existingUser = await findUserById(sql, userId, actingUser?.accountId);
-  const baseRate =
+  const rawBaseRate =
     payload.baseRate !== undefined && payload.baseRate !== null && payload.baseRate !== ""
-      ? Number(payload.baseRate)
+      ? payload.baseRate
       : existingUser?.base_rate ?? null;
+  const baseRate =
+    rawBaseRate === null ? null : Number(rawBaseRate);
 
   if (!existingUser || !existingUser.is_active) {
     throw new Error("User not found.");
