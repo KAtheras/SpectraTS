@@ -376,8 +376,7 @@ body[data-theme="dark"] .page-shell.page-members {
   background: var(--page);
   backdrop-filter: blur(6px);
   box-shadow: 0 8px 18px rgba(0, 0, 0, 0.08);
-  padding: 10px 14px;
-  border-radius: 12px;
+  padding: 12px 0;
 }
 
 .topbar-left {
