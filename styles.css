@@ -198,6 +198,13 @@ body.modal-open {
   display: none;
 }
 
+.page-shell.page-clients #catalog-modal.modal-backdrop,
+.page-shell.page-members #users-modal.modal-backdrop {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
 body.is-embedded .page-shell {
   padding: 10px;
 }
@@ -822,6 +829,8 @@ textarea {
   display: grid;
   grid-template-columns: minmax(220px, 0.8fr) minmax(0, 1.2fr);
   gap: 14px;
+  flex: 1;
+  min-height: 0;
 }
 
 .catalog-column {
@@ -860,16 +869,19 @@ textarea {
 
 .modal-backdrop.as-page {
   position: static;
-  display: block;
+  display: flex;
+  flex-direction: column;
   background: transparent;
   padding: 16px;
   width: 100%;
-  height: auto;
+  min-height: 100vh;
 }
 
 .modal-backdrop.as-page .modal-shell {
   position: static;
-  display: block;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
   padding: 0;
   height: auto;
 }
@@ -890,8 +902,9 @@ textarea {
 }
 
 .modal-backdrop.as-page .panel-modal {
-  min-height: auto;
-  display: block;
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .modal-backdrop.as-page .panel-head {
