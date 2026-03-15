@@ -186,11 +186,7 @@
   }
 
   function defaultFilterUser(state, isStaff) {
-    if (!state.currentUser) {
-      return "";
-    }
-
-    return isStaff(state.currentUser) ? state.currentUser.displayName : "";
+    return "";
   }
 
   function syncFormCatalogs(deps, selection) {
@@ -209,9 +205,12 @@
     const authUsers = entryUserOptions();
     const defaultUser = defaultEntryUser(state);
     const requestedUser = selection?.user ?? userField?.value ?? defaultUser;
-    const nextUser = authUsers.includes(requestedUser)
-      ? requestedUser
-      : authUsers[0] || "";
+    const nextUser =
+      requestedUser === ""
+        ? ""
+        : authUsers.includes(requestedUser)
+          ? requestedUser
+          : authUsers[0] || "";
     const requestedClient = selection?.client ?? clientField?.value ?? "";
     const clients = visibleCatalogClientNames();
     const nextClient = clients.includes(requestedClient) ? requestedClient : "";
@@ -262,6 +261,9 @@
     const fromField = field(refs.filterForm, "from");
     const toField = field(refs.filterForm, "to");
     const searchField = field(refs.filterForm, "search");
+    const entryUsers = uniqueValues(
+      (state.entries || []).map((entry) => entry.user).filter(Boolean)
+    );
     const authUsers = state.currentUser
       ? isStaff(state.currentUser)
         ? [state.currentUser.displayName]
@@ -272,29 +274,53 @@
               .filter(Boolean)
           : availableUsers()
       : availableUsers();
+    const filteredUsers = authUsers.filter((user) => entryUsers.includes(user));
+    const userOptions = filteredUsers.length ? filteredUsers : authUsers;
     const defaultUser = defaultFilterUser(state, isStaff);
     const requestedUser = selection?.user ?? userField?.value ?? defaultUser;
-    const nextUser = authUsers.includes(requestedUser)
-      ? requestedUser
-      : authUsers[0] || "";
+    const nextUser =
+      requestedUser === ""
+        ? ""
+        : userOptions.includes(requestedUser)
+          ? requestedUser
+          : userOptions[0] || "";
     const requestedClient = selection?.client ?? clientField?.value ?? "";
-    const allowedClients = state.currentUser
+    const entryClients = uniqueValues(
+      (state.entries || []).map((entry) => entry.client).filter(Boolean)
+    );
+    const allowedClientsRaw = state.currentUser
       ? isAdmin(state.currentUser)
         ? clientNames()
         : allowedClientsForUser(state.currentUser)
       : clientNames();
+    const allowedClientsFiltered = allowedClientsRaw.filter((client) =>
+      entryClients.includes(client)
+    );
+    const allowedClients = allowedClientsFiltered.length ? allowedClientsFiltered : allowedClientsRaw;
     const nextClient = allowedClients.includes(requestedClient) ? requestedClient : "";
     const requestedProject = selection?.project ?? projectField?.value ?? "";
-    const allowedProjects = nextClient
+    const entryProjects = uniqueValues(
+      (state.entries || [])
+        .filter((entry) => !nextClient || entry.client === nextClient)
+        .map((entry) => entry.project)
+        .filter(Boolean)
+    );
+    const allowedProjectsRaw = nextClient
       ? state.currentUser && !isAdmin(state.currentUser)
         ? allowedProjectsForClient(state.currentUser, nextClient)
         : projectNames(nextClient)
       : state.currentUser && !isAdmin(state.currentUser)
         ? []
         : projectNames(nextClient);
+    const allowedProjectsFiltered = allowedProjectsRaw.filter((project) =>
+      entryProjects.includes(project)
+    );
+    const allowedProjects = allowedProjectsFiltered.length
+      ? allowedProjectsFiltered
+      : allowedProjectsRaw;
     const nextProject = allowedProjects.includes(requestedProject) ? requestedProject : "";
 
-    populateSelect(deps, userField, authUsers, "All users", nextUser);
+    populateSelect(deps, userField, userOptions, "All users", nextUser);
     populateSelect(deps, clientField, allowedClients, "All clients", nextClient);
     populateSelect(
       deps,
