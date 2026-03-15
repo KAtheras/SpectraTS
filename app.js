@@ -2563,6 +2563,28 @@
             }
           }
         }
+
+        if (mode === "project-members-edit") {
+          const finalAssigned = new Set(memberModalState.assigned || []);
+          toRemove.forEach((id) => finalAssigned.delete(id));
+          toAdd.forEach((id) => finalAssigned.add(id));
+
+          for (const userId of finalAssigned) {
+            if (!overrideInputMap.hasOwnProperty(userId)) {
+              continue;
+            }
+            const newOverride = overrideInputMap[userId];
+            const prevOverride = currentOverrides[userId] ?? null;
+            if (newOverride !== prevOverride && !toAdd.includes(userId)) {
+              await mutatePersistentState("update_project_member_rate", {
+                userId,
+                clientName: client,
+                projectName: project,
+                chargeRateOverride: newOverride,
+              });
+            }
+          }
+        }
       } catch (error) {
         setMembersFeedback(error.message || "Unable to update members.", true);
         return;

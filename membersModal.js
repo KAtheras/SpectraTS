@@ -230,7 +230,11 @@
                     placeholder="Use base rate"
                   />
                 </label>
-                <div class="member-rate-line">Effective: ${formatRate(effectiveRate)}</div>
+                <div class="member-rate-line">
+                  Effective: <span data-effective-rate="${escapeHtml(
+                    user.id
+                  )}">${formatRate(effectiveRate)}</span>
+                </div>
               </div>
             `
           : "";
@@ -258,6 +262,28 @@
 
     const html = rows.filter(Boolean).join("");
     refs.membersList.innerHTML = html || '<p class="empty-state">No matching members.</p>';
+
+    refs.membersList.oninput = function (event) {
+      const input = event.target.closest("input[data-override-input]");
+      if (!input) {
+        return;
+      }
+      const userId = input.dataset.overrideInput;
+      const effectiveSpan = refs.membersList.querySelector(
+        `[data-effective-rate="${userId}"]`
+      );
+      if (!effectiveSpan) {
+        return;
+      }
+      const baseLine = effectiveSpan.closest(".member-rate").querySelector(".member-rate-line");
+      const baseMatch = baseLine ? /\$([0-9.]+)/.exec(baseLine.textContent) : null;
+      const baseValue = baseMatch ? Number(baseMatch[1]) : null;
+      const raw = input.value.trim();
+      const num = raw === "" ? null : Number(raw);
+      const effective = num !== null && Number.isFinite(num) ? num : baseValue;
+      effectiveSpan.textContent =
+        effective === null || Number.isNaN(effective) ? "—" : `$${Number(effective).toFixed(2)}`;
+    };
   }
 
   window.membersModal = {

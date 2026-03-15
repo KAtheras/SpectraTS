@@ -274,6 +274,9 @@ async function addProjectMember(sql, payload, currentUser, accountId) {
   if (!userId || !clientName || !projectName) {
     return errorResponse(400, "Member and project are required.");
   }
+  if (override !== null && !(Number.isFinite(override) && override >= 0)) {
+    return errorResponse(400, "Override rate must be non-negative.");
+  }
 
   const user = await findUserById(sql, userId, accountId);
   if (!user || normalizeLevel(user.level) > 2) {
@@ -303,9 +306,6 @@ async function addProjectMember(sql, payload, currentUser, accountId) {
     ON CONFLICT (project_id, user_id) DO UPDATE SET
       charge_rate_override = EXCLUDED.charge_rate_override
   `;
-  if (override !== null && !(Number.isFinite(override) && override >= 0)) {
-    return errorResponse(400, "Override rate must be non-negative.");
-  }
   if (override !== null) {
     await sql`
       UPDATE project_members
