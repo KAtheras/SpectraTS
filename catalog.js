@@ -216,8 +216,7 @@
                     aria-disabled="true"
                     disabled
                   >
-                    <span>Project</span>
-                    <span>Analytics</span>
+                    <span>Project Analytics</span>
                   </button>
                 </div>
               </article>
