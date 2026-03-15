@@ -1120,19 +1120,19 @@ textarea {
 .user-item.is-selected {
   border-color: var(--accent);
   box-shadow: 0 0 0 2px var(--accent-subtle, rgba(187, 98, 55, 0.18));
-  background: #e6e6e6;
+  background: #4a4a4a;
 }
 
 .user-item.is-selected .catalog-item-title {
-  color: var(--text);
+  color: #ffffff;
 }
 
 .user-item.is-selected .user-item-meta {
-  color: var(--muted);
+  color: #f4f4f4;
 }
 
 .user-item.is-selected .user-item-actions button {
-  color: var(--text);
+  color: #ffffff;
 }
 
 .user-item-meta {
