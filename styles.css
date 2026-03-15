@@ -233,6 +233,11 @@ body[data-theme="dark"] .page-shell.page-members {
   margin: 0;
 }
 
+.page-head > .button-ghost,
+.page-head > .button.button-ghost {
+  margin-left: auto;
+}
+
 .page-view .catalog-grid {
   flex: 1;
 }
