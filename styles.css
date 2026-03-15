@@ -373,8 +373,8 @@ body.is-embedded .page-shell {
   padding-top: 16px;
   border-top: 1px solid var(--group-border);
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 12px 16px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px 14px;
   align-items: end;
 }
 
@@ -391,6 +391,7 @@ body.is-embedded .page-shell {
 .level-labels-form button {
   grid-column: 1 / -1;
   justify-self: end;
+  max-width: 220px;
 }
 
 .entry-form label,
@@ -398,6 +399,11 @@ body.is-embedded .page-shell {
   display: grid;
   gap: 6px;
   width: 100%;
+}
+
+.level-labels-form input {
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .hours-field {
@@ -1341,6 +1347,10 @@ textarea {
   .app-topbar .session-indicator {
     width: 100%;
     justify-content: center;
+  }
+
+  .level-labels-form {
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   }
 
   .app-topbar .account-name {
