@@ -374,9 +374,14 @@ body[data-theme="dark"] .page-shell.page-members {
   top: 0;
   z-index: 20;
   background: var(--page);
-  backdrop-filter: blur(6px);
+  backdrop-filter: none;
   box-shadow: 0 8px 18px rgba(0, 0, 0, 0.08);
   padding: 12px 0;
+}
+
+body[data-theme="dark"] .app-topbar {
+  background: #0f1117;
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.3);
 }
 
 .topbar-left {
