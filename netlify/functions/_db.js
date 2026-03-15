@@ -1406,4 +1406,5 @@ module.exports = {
   updateUserPassword,
   updateUserRecord,
   verifyPassword,
+  hashPassword,
 };
