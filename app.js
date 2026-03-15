@@ -123,6 +123,7 @@
     filterToMonth: document.getElementById("filter-to-month"),
     filterToDay: document.getElementById("filter-to-day"),
     filterToYear: document.getElementById("filter-to-year"),
+    appTopbar: document.querySelector(".app-topbar"),
   };
 
   const today = formatDate(new Date());
@@ -918,29 +919,7 @@
       ? "Create the first Admin account to activate team logins."
       : "Sign in with your team member credentials to continue.";
 
-    if (isAuthenticated) {
-      const accountName = state.account?.name || "";
-      if (refs.accountName) {
-        refs.accountName.hidden = false;
-        refs.accountName.textContent = accountName;
-      }
-      refs.sessionIndicator.hidden = false;
-      const userName = state.currentUser.displayName || "";
-      refs.sessionIndicator.innerHTML = `<span class="session-user">${escapeHtml(userName)}</span>`;
-      refs.manageUsers.hidden = !isAdmin(state.currentUser);
-      refs.logoutButton.hidden = false;
-      refs.openCatalog.hidden = !(isAdmin(state.currentUser) || isManager(state.currentUser));
-    } else {
-      if (refs.accountName) {
-        refs.accountName.hidden = true;
-        refs.accountName.textContent = "";
-      }
-      refs.sessionIndicator.hidden = true;
-      refs.sessionIndicator.innerHTML = "";
-      refs.manageUsers.hidden = true;
-      refs.logoutButton.hidden = true;
-      refs.openCatalog.hidden = true;
-    }
+    // header visibility handled in render()
   }
 
   async function submitLogin(event) {
@@ -1227,6 +1206,38 @@
 
     const view = state.currentView;
 
+    if (refs.appShell) {
+      refs.appShell.classList.toggle("page-clients", view === "clients");
+      refs.appShell.classList.toggle("page-members", view === "members");
+    }
+
+    if (refs.accountName) {
+      refs.accountName.hidden = view !== "main";
+      refs.accountName.textContent = view === "main" ? state.account?.name || "" : "";
+    }
+    if (refs.sessionIndicator) {
+      refs.sessionIndicator.hidden = view !== "main";
+      if (view === "main") {
+        const userName = state.currentUser.displayName || "";
+        refs.sessionIndicator.innerHTML = `<span class="session-user">${escapeHtml(userName)}</span>`;
+      } else {
+        refs.sessionIndicator.innerHTML = "";
+      }
+    }
+    if (refs.manageUsers) {
+      refs.manageUsers.hidden = view !== "main" ? true : !isAdmin(state.currentUser);
+    }
+    if (refs.logoutButton) {
+      refs.logoutButton.hidden = view !== "main";
+    }
+    if (refs.openCatalog) {
+      refs.openCatalog.hidden =
+        view !== "main" ? true : !(isAdmin(state.currentUser) || isManager(state.currentUser));
+    }
+
+    if (refs.appTopbar) {
+      refs.appTopbar.style.display = view === "main" ? "" : "none";
+    }
     if (refs.mainFrame) {
       refs.mainFrame.style.display = view === "main" ? "" : "none";
     }
