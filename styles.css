@@ -1222,6 +1222,19 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   color: var(--muted);
 }
 
+.catalog-item-project {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.catalog-project-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+}
+
 .catalog-item-copy {
   display: grid;
   gap: 6px;
@@ -1284,33 +1297,6 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   line-height: 1.1;
   box-shadow: 0 3px 8px rgba(0, 0, 0, 0.1);
   cursor: pointer;
-}
-
-.catalog-analytics-wrap {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  pointer-events: none;
-}
-
-.catalog-analytics-button {
-  pointer-events: auto;
-  width: 88px;
-  height: 88px;
-  border-radius: 14px;
-  border: 1px solid var(--group-border);
-  background: var(--item-hover-bg);
-  color: var(--ink);
-  font-family: var(--font-head);
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  display: grid;
-  place-items: center;
-  text-transform: uppercase;
-  line-height: 1.15;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
 .catalog-delete {
