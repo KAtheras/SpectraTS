@@ -90,38 +90,6 @@
                 Reset password
               </button>
               ${
-                canAssignManager
-                  ? `<button
-                      type="button"
-                      class="catalog-edit"
-                      data-user-assign-client="${escapeHtml(user.id)}"
-                    >
-                      Assign client
-                    </button>
-                    <button
-                      type="button"
-                      class="catalog-edit"
-                      data-user-unassign-client="${escapeHtml(user.id)}"
-                    >
-                      Unassign client
-                    </button>
-                    <button
-                      type="button"
-                      class="catalog-edit"
-                      data-user-assign-project="${escapeHtml(user.id)}"
-                    >
-                      Assign project
-                    </button>
-                    <button
-                      type="button"
-                      class="catalog-edit"
-                      data-user-unassign-project="${escapeHtml(user.id)}"
-                    >
-                      Unassign project
-                    </button>`
-                  : ""
-              }
-              ${
                 isCurrentUser
                   ? ""
                   : `<button

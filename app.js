@@ -1061,7 +1061,7 @@
 
   async function handleUserListAction(event) {
     const button = event.target.closest(
-      "[data-user-edit], [data-user-role], [data-user-password], [data-user-deactivate], [data-user-assign-client], [data-user-unassign-client], [data-user-assign-project], [data-user-unassign-project]"
+      "[data-user-edit], [data-user-role], [data-user-password], [data-user-deactivate]"
     );
     if (!button) {
       return;
@@ -1138,93 +1138,6 @@
           userId: user.id,
         });
         setUserFeedback(`${user.displayName} was deactivated.`, false);
-      } else if (button.dataset.userAssignClient) {
-        if (normalizeLevel(user.level) < 3) {
-          throw new Error("Only managers can be assigned to clients.");
-        }
-        const clientName = window.prompt("Assign client", "");
-        if (clientName === null) {
-          return;
-        }
-        const normalized = clientName.trim();
-        if (!normalized) {
-          throw new Error("Client name is required.");
-        }
-        if (!catalogClientNames().some((client) => client.toLowerCase() === normalized.toLowerCase())) {
-          throw new Error("Client not found.");
-        }
-        await mutatePersistentState("assign_manager_client", {
-          managerId: user.id,
-          clientName: normalized,
-        });
-        setUserFeedback(`Assigned ${user.displayName} to ${normalized}.`, false);
-      } else if (button.dataset.userUnassignClient) {
-        if (normalizeLevel(user.level) < 3) {
-          throw new Error("Only managers can be unassigned from clients.");
-        }
-        const clientName = window.prompt("Unassign client", "");
-        if (clientName === null) {
-          return;
-        }
-        const normalized = clientName.trim();
-        if (!normalized) {
-          throw new Error("Client name is required.");
-        }
-        await mutatePersistentState("unassign_manager_client", {
-          managerId: user.id,
-          clientName: normalized,
-        });
-        setUserFeedback(`Unassigned ${user.displayName} from ${normalized}.`, false);
-      } else if (button.dataset.userAssignProject) {
-        if (normalizeLevel(user.level) < 3) {
-          throw new Error("Only managers can be assigned to projects.");
-        }
-        const clientName = window.prompt("Assign project: client name", "");
-        if (clientName === null) {
-          return;
-        }
-        const projectName = window.prompt("Assign project: project name", "");
-        if (projectName === null) {
-          return;
-        }
-        const client = clientName.trim();
-        const project = projectName.trim();
-        if (!client || !project) {
-          throw new Error("Client and project are required.");
-        }
-        const clientProjects = state.catalog[client] || [];
-        if (!clientProjects.includes(project)) {
-          throw new Error("Project not found.");
-        }
-        await mutatePersistentState("assign_manager_project", {
-          managerId: user.id,
-          clientName: client,
-          projectName: project,
-        });
-        setUserFeedback(`Assigned ${user.displayName} to ${project}.`, false);
-      } else if (button.dataset.userUnassignProject) {
-        if (normalizeLevel(user.level) < 3) {
-          throw new Error("Only managers can be unassigned from projects.");
-        }
-        const clientName = window.prompt("Unassign project: client name", "");
-        if (clientName === null) {
-          return;
-        }
-        const projectName = window.prompt("Unassign project: project name", "");
-        if (projectName === null) {
-          return;
-        }
-        const client = clientName.trim();
-        const project = projectName.trim();
-        if (!client || !project) {
-          throw new Error("Client and project are required.");
-        }
-        await mutatePersistentState("unassign_manager_project", {
-          managerId: user.id,
-          clientName: client,
-          projectName: project,
-        });
-        setUserFeedback(`Unassigned ${user.displayName} from ${project}.`, false);
       }
     } catch (error) {
       const message = error.message || "Unable to update team member.";
