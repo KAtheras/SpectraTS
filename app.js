@@ -109,6 +109,7 @@
     projectList: document.getElementById("project-list"),
     projectColumnLabel: document.getElementById("project-column-label"),
     userList: document.getElementById("user-list"),
+    mainFrame: document.querySelector(".app-frame"),
     userFeedback: document.getElementById("user-feedback"),
     membersList: document.getElementById("members-list"),
     membersTitle: document.getElementById("members-modal-title"),
@@ -151,6 +152,7 @@
       managerProjects: [],
       projectMembers: [],
     },
+    currentView: "main", // "main" | "clients" | "members"
   };
 
   function persistSessionToken(token) {
@@ -374,39 +376,33 @@
     refs.appShell.style.display = "block";
   }
 
+  function setView(view) {
+    state.currentView = view;
+    render();
+  }
+
   function openUsersModal() {
-    usersOpenUsersModal?.({ refs, body, postHeight });
+    setView("members");
   }
 
   function closeUsersModal() {
-    usersCloseUsersModal?.({ refs, body, postHeight });
+    setView("main");
   }
 
   function openCatalogModal() {
-    catalogOpenCatalogModal?.({ refs, body, postHeight });
+    setView("clients");
   }
 
   function closeCatalogModal() {
-    catalogCloseCatalogModal?.({ refs, body, postHeight });
+    setView("main");
   }
 
   function openMembersModal() {
-    membersOpenMembersModal?.({
-      refs,
-      body,
-      renderMembersModal,
-      memberModalState,
-      postHeight,
-    });
+    setView("members");
   }
 
   function closeMembersModal() {
-    membersCloseMembersModal?.({
-      refs,
-      body,
-      memberModalState,
-      postHeight,
-    });
+    setView("main");
   }
 
 
@@ -1229,6 +1225,97 @@
       return;
     }
 
+    const view = state.currentView;
+
+    if (refs.mainFrame) {
+      refs.mainFrame.style.display = view === "main" ? "" : "none";
+    }
+
+    if (view === "clients") {
+      if (refs.catalogModal) {
+        refs.catalogModal.hidden = false;
+        refs.catalogModal.classList.add("as-page");
+        refs.catalogModal.setAttribute("aria-hidden", "false");
+        const panel = refs.catalogModal.querySelector(".panel-modal");
+        if (panel) {
+          panel.classList.add("as-page");
+        }
+      }
+      if (refs.usersModal) {
+        refs.usersModal.hidden = true;
+      }
+      if (refs.membersModal) {
+        refs.membersModal.hidden = true;
+      }
+      renderCatalogLists({
+        refs,
+        state,
+        visibleCatalogClientNames,
+        visibleCatalogProjectNames,
+        isAdmin,
+        isManager,
+        canManagerAccessClient,
+        projectCreatedBy,
+        canManagerAccessProject,
+        projectHours,
+        formatNameList,
+        userNamesForIds,
+        managerIdsForProject,
+        staffIdsForProject,
+        managerIdsForClientScope,
+        staffIdsForClient,
+        disabledButtonAttrs,
+        escapeHtml,
+        field,
+        ensureCatalogSelection,
+      });
+      postHeight();
+      return;
+    }
+
+    if (view === "members") {
+      if (refs.usersModal) {
+        refs.usersModal.hidden = false;
+        refs.usersModal.classList.add("as-page");
+        refs.usersModal.setAttribute("aria-hidden", "false");
+        const panel = refs.usersModal.querySelector(".panel-modal");
+        if (panel) {
+          panel.classList.add("as-page");
+        }
+      }
+      if (refs.catalogModal) {
+        refs.catalogModal.hidden = true;
+      }
+      if (refs.membersModal) {
+        refs.membersModal.hidden = true;
+      }
+      renderUsersList();
+      syncUserManagementControls();
+      postHeight();
+      return;
+    }
+
+    // main view
+    if (refs.catalogModal) {
+      refs.catalogModal.hidden = true;
+      refs.catalogModal.classList.remove("as-page");
+      const panel = refs.catalogModal.querySelector(".panel-modal");
+      if (panel) {
+        panel.classList.remove("as-page");
+      }
+    }
+    if (refs.usersModal) {
+      refs.usersModal.hidden = true;
+      refs.usersModal.classList.remove("as-page");
+      const panel = refs.usersModal.querySelector(".panel-modal");
+      if (panel) {
+        panel.classList.remove("as-page");
+      }
+    }
+    if (refs.membersModal) {
+      refs.membersModal.hidden = true;
+    }
+
     syncFormCatalogsUI({});
     syncFilterCatalogsUI(state.filters);
     ensureCatalogSelection();
@@ -1237,9 +1324,6 @@
     renderCatalogAside();
     renderUsersList();
     syncUserManagementControls();
-    if (refs.membersModal && !refs.membersModal.hidden) {
-      renderMembersModal();
-    }
     renderFilterState(filteredEntries);
     renderTable(filteredEntries);
     postHeight();
@@ -1399,14 +1483,16 @@
   refs.bootstrapForm.addEventListener("submit", submitBootstrap);
 
   refs.manageUsers.addEventListener("click", function () {
-    openUsersModal();
+    setView("members");
   });
 
   refs.logoutButton.addEventListener("click", function () {
     handleLogout();
   });
 
-  refs.openCatalog.addEventListener("click", openCatalogModal);
+  refs.openCatalog.addEventListener("click", function () {
+    setView("clients");
+  });
 
   if (refs.themeToggle) {
     refs.themeToggle.addEventListener("click", function () {

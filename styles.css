@@ -814,6 +814,33 @@ textarea {
   -webkit-overflow-scrolling: touch;
 }
 
+.panel-modal.as-page {
+  position: static;
+  width: 100%;
+  max-height: none;
+  box-shadow: none;
+  overflow: visible;
+}
+
+.modal-backdrop.as-page {
+  position: static;
+  display: block;
+  background: transparent;
+  padding: 0;
+  width: 100%;
+  height: auto;
+}
+
+.modal-backdrop.as-page .modal-shell {
+  position: static;
+  padding: 0;
+  height: auto;
+}
+
+.panel-modal.as-page + .modal-backdrop {
+  display: none !important;
+}
+
 #members-modal .panel-modal {
   padding: 22px;
 }
