@@ -403,6 +403,21 @@
       </div>
     </div>
 
+    <!-- Inline app dialog (custom confirm/prompt) -->
+    <div class="dialog-overlay" id="app-dialog" hidden>
+      <div class="dialog-card">
+        <h3 id="dialog-title"></h3>
+        <p id="dialog-message"></p>
+        <div class="dialog-input" id="dialog-input-row" hidden>
+          <input type="text" id="dialog-input" />
+        </div>
+        <div class="dialog-actions">
+          <button type="button" class="button button-ghost" id="dialog-cancel">Cancel</button>
+          <button type="button" class="button" id="dialog-confirm">OK</button>
+        </div>
+      </div>
+    </div>
+
     <script src="./api.js?v=20260314-02" defer></script>
     <script src="./utils.js?v=20260314-02" defer></script>
     <script src="./accessControl.js?v=20260314-02" defer></script>

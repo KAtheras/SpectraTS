@@ -193,47 +193,21 @@
                   <button
                     type="button"
                     class="catalog-edit"
-                    aria-label="Assign managers to ${escapeHtml(project)}"
-                    data-assign-managers-project="${escapeHtml(project)}"
+                    aria-label="Edit managers for ${escapeHtml(project)}"
+                    data-edit-managers="${escapeHtml(project)}"
                     ${disabledButtonAttrs(canEditProject, "Admin only.")}
                   >
-                    Assign managers
+                    Assign/Unassign managers
                   </button>
-                  ${
-                    hasManagers
-                      ? `<button
-                          type="button"
-                          class="catalog-edit"
-                          aria-label="Unassign managers from ${escapeHtml(project)}"
-                          data-unassign-managers-project="${escapeHtml(project)}"
-                          ${disabledButtonAttrs(canEditProject, "Admin only.")}
-                        >
-                          Unassign managers
-                        </button>`
-                      : ""
-                  }
                   <button
                     type="button"
                     class="catalog-edit"
-                    aria-label="Assign members to ${escapeHtml(project)}"
-                    data-assign-members="${escapeHtml(project)}"
+                    aria-label="Edit members for ${escapeHtml(project)}"
+                    data-edit-members="${escapeHtml(project)}"
                     ${disabledButtonAttrs(canManageMembers, "Manager access required.")}
                   >
-                    Add members
+                    Add/Remove members
                   </button>
-                  ${
-                    hasStaff
-                      ? `<button
-                          type="button"
-                          class="catalog-edit"
-                          aria-label="Remove members from ${escapeHtml(project)}"
-                          data-remove-members="${escapeHtml(project)}"
-                          ${disabledButtonAttrs(canManageMembers, "Manager access required.")}
-                        >
-                          Remove members
-                        </button>`
-                      : ""
-                  }
                 </span>
               </article>
             `;

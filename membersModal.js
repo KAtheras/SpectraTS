@@ -62,15 +62,19 @@
     const client = memberModalState.client;
     const project = memberModalState.project;
     const userId = memberModalState.userId;
+    const assignedSet = new Set(memberModalState.assigned || []);
 
     let title = "Manage Members";
     let subtext = "";
-    if (mode === "project-add") {
+    if (mode === "project-add" || mode === "project-members-edit") {
       title = `Add Members to ${project}`;
       subtext = "Select staff to add to this project.";
     } else if (mode === "project-remove") {
       title = `Remove Members from ${project}`;
       subtext = "Select staff to remove from this project.";
+    } else if (mode === "project-members-edit") {
+      title = `Manage Members for ${project}`;
+      subtext = "Edit assigned members by checking or unchecking their boxes.";
     } else if (mode === "client-assign") {
       title = `Assign Managers to ${client}`;
       subtext =
@@ -78,12 +82,15 @@
     } else if (mode === "client-unassign") {
       title = `Unassign Managers from ${client}`;
       subtext = "Select managers to remove from this client.";
-    } else if (mode === "project-assign-manager") {
+    } else if (mode === "project-assign-manager" || mode === "project-managers-edit") {
       title = `Assign Managers to ${project}`;
       subtext = "Select managers or global admins who should have access to this project.";
     } else if (mode === "project-unassign-manager") {
       title = `Unassign Managers from ${project}`;
       subtext = "Select managers to remove from this project.";
+    } else if (mode === "project-managers-edit") {
+      title = `Manage Managers for ${project}`;
+      subtext = "Edit assigned managers by checking or unchecking their boxes.";
     } else if (mode === "user-role") {
       const targetUser = getUserById(userId);
       title = `Change Level for ${targetUser ? targetUser.displayName : "Team Member"}`;
@@ -129,6 +136,9 @@
       } else if (mode === "project-remove") {
         show = isAssignedToProject && isStaff(user);
         checkboxChecked = show;
+      } else if (mode === "project-members-edit") {
+        show = isStaff(user);
+        checkboxChecked = assignedSet.has(user.id);
       } else if (mode === "client-assign") {
         const isEligible = normalizeLevel(user.level) >= 3;
         show = isEligible;
@@ -157,6 +167,9 @@
       } else if (mode === "project-unassign-manager") {
         show = isDirectAssignedToProject && normalizeLevel(user.level) >= 3;
         checkboxChecked = show;
+      } else if (mode === "project-managers-edit") {
+        show = normalizeLevel(user.level) >= 3;
+        checkboxChecked = assignedSet.has(user.id);
       } else if (mode === "user-role") {
         checkboxDisabled = true;
         checkboxChecked = true;

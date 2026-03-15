@@ -133,6 +133,56 @@ body.modal-open {
   overflow: hidden;
 }
 
+.dialog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.32);
+  backdrop-filter: blur(6px);
+}
+
+.dialog-card {
+  width: min(520px, calc(100vw - 32px));
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  box-shadow: var(--shadow);
+  border-radius: 20px;
+  padding: 20px 20px 16px;
+  display: grid;
+  gap: 14px;
+}
+
+.dialog-card h3 {
+  margin: 0;
+  font-family: var(--font-head);
+  font-size: 1.2rem;
+}
+
+.dialog-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.dialog-input input {
+  width: 100%;
+  min-height: 42px;
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.dialog-overlay[hidden] {
+  display: none !important;
+}
+
 .auth-shell {
   min-height: 100vh;
   display: grid;
@@ -1012,9 +1062,9 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   display: flex;
   justify-content: flex-end;
   gap: 12px;
-  padding: 16px;
-  border-top: 1px solid var(--group-border);
-  background: var(--column-head-bg);
+  padding: 16px 0 4px;
+  border-top: none;
+  background: transparent;
 }
 
 .member-list-head {

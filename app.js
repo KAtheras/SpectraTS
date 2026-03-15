@@ -91,6 +91,13 @@
     membersNavTheme: document.getElementById("members-nav-theme"),
     clientsPage: document.getElementById("clients-page"),
     usersPage: document.getElementById("members-page"),
+    dialog: document.getElementById("app-dialog"),
+    dialogTitle: document.getElementById("dialog-title"),
+    dialogMessage: document.getElementById("dialog-message"),
+    dialogInputRow: document.getElementById("dialog-input-row"),
+    dialogInput: document.getElementById("dialog-input"),
+    dialogCancel: document.getElementById("dialog-cancel"),
+    dialogConfirm: document.getElementById("dialog-confirm"),
     membersModal: document.getElementById("members-modal"),
     closeUsers: document.getElementById("close-users"),
     closeMembers: document.getElementById("close-members"),
@@ -423,6 +430,50 @@
     });
   }
 
+  function appDialog(options) {
+    return new Promise((resolve) => {
+      const title = options?.title || "";
+      const message = options?.message || "";
+      const confirmText = options?.confirmText || "OK";
+      const cancelText = options?.cancelText || "Cancel";
+      const showInput = Boolean(options?.input);
+      const defaultValue = options?.defaultValue || "";
+
+      refs.dialogTitle.textContent = title;
+      refs.dialogMessage.textContent = message;
+      refs.dialogInputRow.hidden = !showInput;
+      refs.dialogInput.value = defaultValue;
+      refs.dialogConfirm.textContent = confirmText;
+      refs.dialogCancel.textContent = cancelText;
+      refs.dialog.hidden = false;
+
+      const cleanup = () => {
+        refs.dialog.hidden = true;
+        refs.dialogConfirm.removeEventListener("click", onConfirm);
+        refs.dialogCancel.removeEventListener("click", onCancel);
+      };
+
+      const onConfirm = () => {
+        cleanup();
+        resolve({
+          confirmed: true,
+          value: showInput ? refs.dialogInput.value.trim() : undefined,
+        });
+      };
+      const onCancel = () => {
+        cleanup();
+        resolve({ confirmed: false });
+      };
+
+      refs.dialogConfirm.addEventListener("click", onConfirm);
+      refs.dialogCancel.addEventListener("click", onCancel);
+
+      if (showInput) {
+        refs.dialogInput.focus();
+        refs.dialogInput.select();
+      }
+    });
+  }
 
   function normalizeCatalog(catalog, fallbackToDefault = true) {
     const source =
@@ -1780,8 +1831,18 @@
         return;
       }
       const clientName = editButton.dataset.editClient;
-      const nextName = window.prompt("Edit client name", clientName);
-      if (nextName === null) {
+      const dialogResult = await appDialog({
+        title: "Edit client name",
+        input: true,
+        defaultValue: clientName,
+        confirmText: "Save",
+      });
+      if (!dialogResult.confirmed) {
+        return;
+      }
+      const nextName = dialogResult.value || "";
+      if (!nextName.trim()) {
+        feedback("Client name cannot be empty.", true);
         return;
       }
 
@@ -1815,14 +1876,17 @@
       }
       const clientName = deleteButton.dataset.deleteClient;
       const hoursLogged = clientHours(clientName);
-      const confirmed = window.confirm(
-        hoursLogged > 0
-          ? `${clientName} already has ${hoursLogged.toFixed(
-              2
-            )} logged hours. Remove it from the active catalog and keep the history?`
-          : `Remove ${clientName} from the active catalog?`
-      );
-      if (!confirmed) {
+      const dialogResult = await appDialog({
+        title: "Remove client",
+        message:
+          hoursLogged > 0
+            ? `${clientName} already has ${hoursLogged.toFixed(
+                2
+              )} logged hours. Remove it from the active catalog and keep the history?`
+            : `Remove ${clientName} from the active catalog?`,
+        confirmText: "Remove",
+      });
+      if (!dialogResult.confirmed) {
         return;
       }
 
@@ -1918,8 +1982,18 @@
         return;
       }
       const projectName = editButton.dataset.editProject;
-      const nextName = window.prompt("Edit project name", projectName);
-      if (nextName === null) {
+      const dialogResult = await appDialog({
+        title: "Edit project name",
+        input: true,
+        defaultValue: projectName,
+        confirmText: "Save",
+      });
+      if (!dialogResult.confirmed) {
+        return;
+      }
+      const nextName = dialogResult.value || "";
+      if (!nextName.trim()) {
+        feedback("Project name cannot be empty.", true);
         return;
       }
 
@@ -1959,14 +2033,17 @@
         return;
       }
       const hoursLogged = projectHours(state.selectedCatalogClient, projectName);
-      const confirmed = window.confirm(
-        hoursLogged > 0
-          ? `${projectName} already has ${hoursLogged.toFixed(
-              2
-            )} logged hours. Remove it from the active catalog and keep the history?`
-          : `Remove ${projectName} from the active catalog?`
-      );
-      if (!confirmed) {
+      const dialogResult = await appDialog({
+        title: "Remove project",
+        message:
+          hoursLogged > 0
+            ? `${projectName} already has ${hoursLogged.toFixed(
+                2
+              )} logged hours. Remove it from the active catalog and keep the history?`
+            : `Remove ${projectName} from the active catalog?`,
+        confirmText: "Remove",
+      });
+      if (!dialogResult.confirmed) {
         return;
       }
 
@@ -2026,31 +2103,25 @@
       return;
     }
 
-    const assignMembersButton = event.target.closest("[data-assign-members]");
-    if (assignMembersButton) {
-      if (
-        !isAdmin(state.currentUser) &&
-        !(
-          isManager(state.currentUser) &&
-          canManagerAccessProject(
-            state.currentUser,
-            state.selectedCatalogClient,
-            assignMembersButton.dataset.assignMembers
-          )
-        )
-      ) {
+    const editManagersButton = event.target.closest("[data-edit-managers]");
+    if (editManagersButton) {
+      if (!isAdmin(state.currentUser) && !isManager(state.currentUser)) {
         feedback("Manager access required.", true);
         return;
       }
-      memberModalState.mode = "project-add";
+      memberModalState.mode = "project-managers-edit";
       memberModalState.client = state.selectedCatalogClient;
-      memberModalState.project = assignMembersButton.dataset.assignMembers;
+      memberModalState.project = editManagersButton.dataset.editManagers;
+      memberModalState.assigned = managerIdsForProject(
+        state.selectedCatalogClient,
+        editManagersButton.dataset.editManagers
+      );
       openMembersModal();
       return;
     }
 
-    const removeMembersButton = event.target.closest("[data-remove-members]");
-    if (removeMembersButton) {
+    const editMembersButton = event.target.closest("[data-edit-members]");
+    if (editMembersButton) {
       if (
         !isAdmin(state.currentUser) &&
         !(
@@ -2058,16 +2129,20 @@
           canManagerAccessProject(
             state.currentUser,
             state.selectedCatalogClient,
-            removeMembersButton.dataset.removeMembers
+            editMembersButton.dataset.editMembers
           )
         )
       ) {
         feedback("Manager access required.", true);
         return;
       }
-      memberModalState.mode = "project-remove";
+      memberModalState.mode = "project-members-edit";
       memberModalState.client = state.selectedCatalogClient;
-      memberModalState.project = removeMembersButton.dataset.removeMembers;
+      memberModalState.project = editMembersButton.dataset.editMembers;
+      memberModalState.assigned = staffIdsForProject(
+        state.selectedCatalogClient,
+        editMembersButton.dataset.editMembers
+      );
       openMembersModal();
       return;
     }
@@ -2166,14 +2241,47 @@
         return acc;
       }, {});
 
-      if (!selected.length && !roleOnlyMode) {
+      if (!selected.length && !roleOnlyMode && mode !== "project-managers-edit" && mode !== "project-members-edit") {
         setMembersFeedback("Select at least one member.", true);
         return;
       }
 
       let skippedNonStaff = 0;
       try {
-        for (const userId of selected) {
+        const currentAssigned = new Set(memberModalState.assigned || []);
+        const desiredAssigned = new Set(selected);
+        const toAdd = [];
+        const toRemove = [];
+
+        if (mode === "project-managers-edit") {
+          currentAssigned.forEach((id) => {
+            if (!desiredAssigned.has(id)) {
+              toRemove.push(id);
+            }
+          });
+          desiredAssigned.forEach((id) => {
+            if (!currentAssigned.has(id)) {
+              toAdd.push(id);
+            }
+          });
+        } else if (mode === "project-members-edit") {
+          currentAssigned.forEach((id) => {
+            if (!desiredAssigned.has(id)) {
+              toRemove.push(id);
+            }
+          });
+          desiredAssigned.forEach((id) => {
+            if (!currentAssigned.has(id)) {
+              toAdd.push(id);
+            }
+          });
+        }
+
+        const processIds = mode === "project-managers-edit" || mode === "project-members-edit"
+          ? [...toAdd, ...toRemove]
+          : selected;
+
+        for (const userId of processIds) {
           const user = getUserById(userId);
           if (!user) {
             continue;
@@ -2230,6 +2338,41 @@
               clientName: client,
               projectName: project,
             });
+          } else if (mode === "project-managers-edit") {
+            if (toAdd.includes(user.id)) {
+              if (effectiveLevel < 3) {
+                continue;
+              }
+              await mutatePersistentState("assign_manager_project", {
+                managerId: user.id,
+                clientName: client,
+                projectName: project,
+              });
+            } else if (toRemove.includes(user.id)) {
+              await mutatePersistentState("unassign_manager_project", {
+                managerId: user.id,
+                clientName: client,
+                projectName: project,
+              });
+            }
+          } else if (mode === "project-members-edit") {
+            if (toAdd.includes(user.id)) {
+              if (effectiveLevel > 2) {
+                skippedNonStaff += 1;
+                continue;
+              }
+              await mutatePersistentState("add_project_member", {
+                userId: user.id,
+                clientName: client,
+                projectName: project,
+              });
+            } else if (toRemove.includes(user.id)) {
+              await mutatePersistentState("remove_project_member", {
+                userId: user.id,
+                clientName: client,
+                projectName: project,
+              });
+            }
           }
         }
       } catch (error) {
