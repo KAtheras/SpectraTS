@@ -827,6 +827,31 @@ textarea {
   gap: 14px;
 }
 
+.modal-backdrop.as-page .catalog-grid {
+  flex: 1;
+  min-height: 0;
+}
+
+.catalog-column {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.catalog-column .catalog-list {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.modal-backdrop.as-page .user-list,
+.modal-backdrop.as-page .member-list {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
 .panel-modal {
   width: min(1040px, calc(100vw - 32px));
   max-height: min(88vh, 900px);
@@ -875,6 +900,8 @@ textarea {
 
 .modal-backdrop.as-page .panel-modal {
   min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
 .modal-backdrop.as-page .panel-head {
