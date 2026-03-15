@@ -300,7 +300,7 @@
       const overrideRow =
         mode === "project-members-edit" || mode === "project-managers-edit"
           ? `
-              <div class="member-rate">
+              <div class="member-rate" data-rate-block="${escapeHtml(user.id)}" style="${checkboxChecked ? "" : "display:none;"}">
                 <div class="member-rate-line">Base Rate: ${formatRate(baseRate)}</div>
                 <label class="member-rate-input">
                   <span>Project Rate Override (optional)</span>
@@ -367,7 +367,16 @@
       syncMembersSaveState(refs, memberModalState);
     };
 
-    refs.membersList.onchange = function () {
+    refs.membersList.onchange = function (event) {
+      const checkbox = event.target.closest("input[type='checkbox'][data-member-id]");
+      if (checkbox) {
+        const rateBlock = refs.membersList.querySelector(
+          `[data-rate-block="${checkbox.dataset.memberId}"]`
+        );
+        if (rateBlock) {
+          rateBlock.style.display = checkbox.checked ? "" : "none";
+        }
+      }
       syncMembersSaveState(refs, memberModalState);
     };
 
