@@ -195,11 +195,7 @@ body.modal-open {
 
 .page-shell.page-clients .shell-inner,
 .page-shell.page-members .shell-inner {
-  max-width: none;
-  margin: 0;
-  width: 100%;
-  padding: 0;
-  min-height: 100vh;
+  display: none;
 }
 
 body.is-embedded .page-shell {
