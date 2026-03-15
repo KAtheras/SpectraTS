@@ -523,15 +523,45 @@ async function saveEntry(sql, payload, currentUser, accountId) {
     }
   }
 
-  const existingStatusRows = await sql`
-    SELECT status
+  const existingRows = await sql`
+    SELECT
+      status,
+      user_name,
+      entry_date,
+      client_name,
+      project_name,
+      task,
+      hours,
+      notes,
+      approved_at,
+      approved_by_user_id
     FROM entries
     WHERE id = ${normalizeText(entry.id)}
       AND account_id = ${accountId}::uuid
     LIMIT 1
   `;
-  const persistedStatus = existingStatusRows[0]?.status;
-  const status = persistedStatus ? normalizeStatus(persistedStatus) : "pending";
+  const existing = existingRows[0];
+  const persistedStatus = existing?.status;
+
+  const hasContentChanges = existing
+    ? !(
+        existing.user_name === entry.user &&
+        String(existing.entry_date) === entry.date &&
+        existing.client_name === entry.client &&
+        existing.project_name === entry.project &&
+        (existing.task || "") === (entry.task || "") &&
+        Number(existing.hours) === normalizeHours(entry.hours) &&
+        (existing.notes || "") === (entry.notes || "")
+      )
+    : true;
+
+  const status = hasContentChanges
+    ? "pending"
+    : persistedStatus
+      ? normalizeStatus(persistedStatus)
+      : "pending";
+  const approvedAt = status === "approved" && !hasContentChanges ? existing?.approved_at : null;
+  const approvedBy = status === "approved" && !hasContentChanges ? existing?.approved_by_user_id : null;
 
   await sql`
     INSERT INTO entries (
@@ -544,6 +574,8 @@ async function saveEntry(sql, payload, currentUser, accountId) {
       hours,
       notes,
       status,
+      approved_at,
+      approved_by_user_id,
       account_id,
       created_at,
       updated_at
@@ -558,6 +590,8 @@ async function saveEntry(sql, payload, currentUser, accountId) {
       ${normalizeHours(entry.hours)},
       ${normalizeText(entry.notes)},
       ${status},
+      ${approvedAt},
+      ${approvedBy},
       ${accountId},
       ${normalizeText(entry.createdAt)},
       ${normalizeText(entry.updatedAt)}
@@ -571,6 +605,8 @@ async function saveEntry(sql, payload, currentUser, accountId) {
       hours = EXCLUDED.hours,
       notes = EXCLUDED.notes,
       status = EXCLUDED.status,
+      approved_at = EXCLUDED.approved_at,
+      approved_by_user_id = EXCLUDED.approved_by_user_id,
       created_at = EXCLUDED.created_at,
       updated_at = EXCLUDED.updated_at
   `;
@@ -645,6 +681,85 @@ async function approveEntry(sql, payload, currentUser, accountId) {
   await sql`
     UPDATE entries
     SET status = 'approved',
+        approved_at = NOW(),
+        approved_by_user_id = ${currentUser.id},
+        updated_at = NOW()
+    WHERE id = ${entry.id}
+      AND account_id = ${accountId}::uuid
+  `;
+
+  return null;
+}
+
+async function unapproveEntry(sql, payload, currentUser, accountId) {
+  const id = normalizeText(payload.id);
+  if (!id) {
+    return errorResponse(400, "Entry id is required.");
+  }
+  if (!currentUser || normalizeLevel(currentUser.level) < 3) {
+    return errorResponse(403, "Manager access required.");
+  }
+
+  const rows = await sql`
+    SELECT
+      id,
+      user_name AS user_name,
+      client_name AS client_name,
+      project_name AS project_name,
+      status
+    FROM entries
+    WHERE id = ${id}
+      AND account_id = ${accountId}::uuid
+    LIMIT 1
+  `;
+  const entry = rows[0];
+  if (!entry) {
+    return errorResponse(404, "Entry not found.");
+  }
+  if (normalizeStatus(entry.status) !== "approved") {
+    return { message: "Entry is already pending." };
+  }
+
+  const targetUser = await findUserByDisplayName(sql, entry.user_name, accountId);
+  if (!targetUser) {
+    return errorResponse(404, "Entry user not found.");
+  }
+
+  const currentLevel = normalizeLevel(currentUser.level);
+  const targetLevel = normalizeLevel(targetUser.level);
+  const isCurrentAdmin = isAdmin(currentUser);
+
+  if (!isCurrentAdmin) {
+    if (currentUser.displayName === targetUser.display_name) {
+      return errorResponse(403, "You cannot unapprove your own entries.");
+    }
+    if (currentLevel <= targetLevel) {
+      return errorResponse(403, "You can only unapprove entries for lower levels.");
+    }
+  }
+
+  const project = await findProject(sql, entry.client_name, entry.project_name, accountId);
+  if (!project) {
+    return errorResponse(404, "Project not found.");
+  }
+
+  if (!isCurrentAdmin) {
+    const hasAccess = await managerHasProjectAccess(
+      sql,
+      currentUser.id,
+      project.id,
+      accountId
+    );
+    if (!hasAccess) {
+      return errorResponse(403, "You are not assigned to this project.");
+    }
+  }
+
+  await sql`
+    UPDATE entries
+    SET status = 'pending',
+        approved_at = NULL,
+        approved_by_user_id = NULL,
         updated_at = NOW()
     WHERE id = ${entry.id}
       AND account_id = ${accountId}::uuid
@@ -850,6 +965,14 @@ exports.handler = async function handler(event) {
         break;
       case "approve_entry":
         mutationResult = await approveEntry(
+          sql,
+          request.payload || {},
+          context.currentUser,
+          accountId
+        );
+        break;
+      case "unapprove_entry":
+        mutationResult = await unapproveEntry(
           sql,
           request.payload || {},
           context.currentUser,

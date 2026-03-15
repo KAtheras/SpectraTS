@@ -226,6 +226,8 @@ async function ensureSchema(sql) {
       hours NUMERIC(10, 2) NOT NULL CHECK (hours > 0 AND hours <= 24),
       notes TEXT NOT NULL DEFAULT '',
       status TEXT NOT NULL DEFAULT 'pending',
+      approved_at TIMESTAMPTZ,
+      approved_by_user_id TEXT REFERENCES users(id),
       account_id UUID REFERENCES accounts(id),
       created_at TIMESTAMPTZ NOT NULL,
       updated_at TIMESTAMPTZ NOT NULL
@@ -237,6 +239,8 @@ async function ensureSchema(sql) {
   `;
   await sql`UPDATE entries SET account_id = ${accountUuid}::uuid WHERE account_id IS NULL`;
   await sql`ALTER TABLE entries ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'pending'`;
+  await sql`ALTER TABLE entries ADD COLUMN IF NOT EXISTS approved_at TIMESTAMPTZ`;
+  await sql`ALTER TABLE entries ADD COLUMN IF NOT EXISTS approved_by_user_id TEXT REFERENCES users(id)`;
 
   await sql`
     CREATE TABLE IF NOT EXISTS level_labels (

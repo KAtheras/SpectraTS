@@ -1241,12 +1241,12 @@
       .join("");
   }
 
-  function canApproveEntry(entry) {
+  function canManageApproval(entry) {
     const current = state.currentUser;
     if (!current) {
       return false;
     }
-    if (!entry || entry.status === "approved") {
+    if (!entry) {
       return false;
     }
 
@@ -1271,6 +1271,14 @@
     }
 
     return true;
+  }
+
+  function canApproveEntry(entry) {
+    return entry.status !== "approved" && canManageApproval(entry);
+  }
+
+  function canUnapproveEntry(entry) {
+    return entry.status === "approved" && canManageApproval(entry);
   }
 
   function showApproveButton(entry) {
@@ -1314,6 +1322,11 @@
               ${
                 showApproveButton(entry)
                   ? `<button class="text-button" type="button" data-action="approve" data-id="${entry.id}">Approve</button>`
+                  : ""
+              }
+              ${
+                canUnapproveEntry(entry)
+                  ? `<button class="text-button" type="button" data-action="unapprove" data-id="${entry.id}">Unapprove</button>`
                   : ""
               }
               <button class="text-button danger" type="button" data-action="delete" data-id="${entry.id}">
@@ -1562,6 +1575,15 @@
     const projectField = field(refs.form, "project");
     const hoursField = field(refs.form, "hours");
     const notesField = field(refs.form, "notes");
+    const entryChanged =
+      !existingEntry ||
+      existingEntry.user !== userField.value ||
+      existingEntry.date !== dateField.value ||
+      existingEntry.client !== clientField.value ||
+      existingEntry.project !== projectField.value ||
+      existingEntry.task !== (existingEntry?.task || "") ||
+      Number(existingEntry.hours) !== Number(hoursField.value) ||
+      (existingEntry.notes || "") !== notesField.value.trim();
     const nextEntry = {
       id: state.editingId || crypto.randomUUID(),
       user: userField.value,
@@ -1573,7 +1595,7 @@
       notes: notesField.value.trim(),
       createdAt: existingEntry?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      status: existingEntry?.status || "pending",
+      status: entryChanged ? "pending" : existingEntry?.status || "pending",
     };
 
     const error = validateEntry(nextEntry);
@@ -2283,6 +2305,18 @@
         return;
       }
       feedback("Entry approved.", false);
+      render();
+      return;
+    }
+
+    if (action === "unapprove") {
+      try {
+        await mutatePersistentState("unapprove_entry", { id });
+      } catch (error) {
+        feedback(error.message || "Unable to unapprove entry.", true);
+        return;
+      }
+      feedback("Entry marked as pending.", false);
       render();
       return;
     }
