@@ -609,7 +609,15 @@ async function createUserRecord(sql, payload) {
     throw new Error("Base rate must be a non-negative number.");
   }
 
-  if (await findUserByUsername(sql, username, accountUuid)) {
+  const existingUsername = await sql`
+    SELECT id
+    FROM users
+    WHERE LOWER(username) = LOWER(${username})
+      AND is_active = TRUE
+      AND account_id = ${accountUuid}::uuid
+    LIMIT 1
+  `;
+  if (existingUsername[0]) {
     throw new Error("That username already exists.");
   }
 
@@ -698,6 +706,7 @@ async function updateUserRecord(sql, payload, actingUser) {
     FROM users
     WHERE LOWER(username) = LOWER(${username})
       AND id <> ${existingUser.id}
+      AND is_active = TRUE
       AND account_id = ${existingUser.account_id}::uuid
     LIMIT 1
   `;
