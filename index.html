@@ -90,6 +90,9 @@
             <button class="button button-ghost" id="open-catalog" type="button">
               Clients
             </button>
+            <button class="button button-ghost" id="open-analytics" type="button">
+              Analytics
+            </button>
             <button class="button button-ghost" id="change-password-open" type="button" hidden>
               Change Password
             </button>
@@ -363,6 +366,27 @@
           </form>
           <p id="user-feedback" class="feedback auth-feedback" aria-live="polite"></p>
           <div id="user-list" class="catalog-list user-list"></div>
+        </div>
+      </section>
+
+      <section class="page-view analytics-page" id="analytics-page" hidden aria-labelledby="analytics-page-title">
+        <header class="page-head">
+          <h2 id="analytics-page-title">Analytics</h2>
+          <div class="page-head-actions">
+            <button class="button button-ghost" id="analytics-nav-back" type="button">Back</button>
+          </div>
+        </header>
+        <div class="analytics-body">
+          <div class="analytics-tabs">
+            <button class="button button-ghost" type="button" disabled>Projects</button>
+            <button class="button button-ghost" type="button" disabled>Clients</button>
+            <button class="button button-ghost" type="button" disabled>Team Utilization</button>
+          </div>
+          <div class="analytics-placeholder">
+            <p>Projects analytics coming soon.</p>
+            <p>Clients analytics coming soon.</p>
+            <p>Team utilization coming soon.</p>
+          </div>
         </div>
       </section>
 

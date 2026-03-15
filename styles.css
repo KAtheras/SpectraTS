@@ -329,6 +329,27 @@ body[data-theme="dark"] .page-shell.page-members {
   overflow: hidden;
 }
 
+.analytics-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  flex: 1;
+}
+
+.analytics-tabs {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.analytics-placeholder {
+  padding: 8px 0 4px;
+  color: var(--muted);
+  display: grid;
+  gap: 6px;
+  font-family: var(--font-body);
+}
+
 .users-page-body {
   display: flex;
   flex-direction: column;

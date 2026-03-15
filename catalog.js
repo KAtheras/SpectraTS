@@ -208,17 +208,7 @@
                       Add/Remove members
                     </button>
                   </span>
-                </div>
-                <div class="catalog-analytics-footer">
-                  <button
-                    type="button"
-                    class="catalog-analytics-button"
-                    aria-disabled="true"
-                    disabled
-                  >
-                    <span>Project Analytics</span>
-                  </button>
-                </div>
+              </div>
               </article>
             `;
             }

@@ -84,6 +84,7 @@
     logoutButton: document.getElementById("logout-button"),
     themeToggle: document.getElementById("theme-toggle"),
     openCatalog: document.getElementById("open-catalog"),
+    openAnalytics: document.getElementById("open-analytics"),
     closeCatalog: document.getElementById("close-catalog"),
     clientsNavMembers: document.getElementById("clients-nav-members"),
     clientsNavMain: document.getElementById("clients-nav-main"),
@@ -92,8 +93,10 @@
     membersNavMain: document.getElementById("members-nav-main"),
     membersNavTheme: document.getElementById("members-nav-theme"),
     membersNavLevels: document.getElementById("members-nav-levels"),
+    analyticsNavBack: document.getElementById("analytics-nav-back"),
     clientsPage: document.getElementById("clients-page"),
     usersPage: document.getElementById("members-page"),
+    analyticsPage: document.getElementById("analytics-page"),
     levelsPage: document.getElementById("levels-page"),
     dialog: document.getElementById("app-dialog"),
     dialogTitle: document.getElementById("dialog-title"),
@@ -181,7 +184,7 @@
       managerProjects: [],
       projectMembers: [],
     },
-    currentView: "main", // "main" | "clients" | "members"
+    currentView: "main", // "main" | "clients" | "members" | "analytics" | "levels"
   };
 
   function persistSessionToken(token) {
@@ -458,6 +461,14 @@
   }
 
   function closeCatalogModal() {
+    setView("main");
+  }
+
+  function openAnalyticsPage() {
+    setView("analytics");
+  }
+
+  function closeAnalyticsPage() {
     setView("main");
   }
 
@@ -1626,6 +1637,7 @@
     if (refs.appShell) {
       refs.appShell.classList.toggle("page-clients", view === "clients");
       refs.appShell.classList.toggle("page-members", view === "members");
+      refs.appShell.classList.toggle("page-analytics", view === "analytics");
     }
 
     if (refs.accountName) {
@@ -1655,6 +1667,9 @@
       refs.openCatalog.hidden =
         view !== "main" ? true : !(isAdmin(state.currentUser) || isManager(state.currentUser));
     }
+    if (refs.openAnalytics) {
+      refs.openAnalytics.hidden = view !== "main";
+    }
 
     if (refs.appTopbar) {
       refs.appTopbar.style.display = view === "main" ? "" : "none";
@@ -1667,6 +1682,9 @@
     }
     if (refs.usersPage) {
       refs.usersPage.hidden = view !== "members";
+    }
+    if (refs.analyticsPage) {
+      refs.analyticsPage.hidden = view !== "analytics";
     }
     if (refs.levelsPage) {
       refs.levelsPage.hidden = view !== "levels";
@@ -2106,6 +2124,12 @@
 
   refs.exportCsv.addEventListener("click", exportCsv);
   refs.addUserForm.addEventListener("submit", handleAddUser);
+  if (refs.openAnalytics) {
+    refs.openAnalytics.addEventListener("click", openAnalyticsPage);
+  }
+  if (refs.analyticsNavBack) {
+    refs.analyticsNavBack.addEventListener("click", closeAnalyticsPage);
+  }
   if (refs.changePasswordOpen) {
     refs.changePasswordOpen.addEventListener("click", openChangePasswordModal);
   }
