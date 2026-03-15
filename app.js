@@ -272,7 +272,11 @@
     allowedUserIds.add(state.currentUser.id);
 
     return state.users
-      .filter((user) => allowedUserIds.has(user.id) && isStaff(user))
+      .filter(
+        (user) =>
+          allowedUserIds.has(user.id) &&
+          (isStaff(user) || user.id === state.currentUser.id)
+      )
       .map((user) => user.displayName)
       .filter(Boolean);
   }
