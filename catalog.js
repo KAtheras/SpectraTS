@@ -157,8 +157,6 @@
               <article
                 class="catalog-item catalog-item-project"
                 data-project="${escapeHtml(project)}"
-                role="button"
-                tabindex="0"
               >
                 <span class="catalog-item-copy">
                   <span class="catalog-item-title">${escapeHtml(project)}</span>
@@ -220,6 +218,17 @@
                     Add/Remove members
                   </button>
                 </span>
+                <div class="catalog-analytics-footer">
+                  <button
+                    type="button"
+                    class="catalog-analytics-button"
+                    aria-disabled="true"
+                    disabled
+                  >
+                    <span>Project</span>
+                    <span>Analytics</span>
+                  </button>
+                </div>
               </article>
             `;
             }

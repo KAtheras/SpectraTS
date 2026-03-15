@@ -1575,6 +1575,15 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   background: linear-gradient(90deg, #f6fff7, #eef9f0);
 }
 
+.theme-dark .entry-status.entry-status-approved {
+  background: #1f5236;
+  color: #e2f7e9;
+}
+
+.theme-dark .entry-row.entry-approved td {
+  background: #0f2e23;
+}
+
 .empty-row,
 .empty-state {
   color: var(--muted);
