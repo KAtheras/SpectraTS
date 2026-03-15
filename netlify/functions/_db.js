@@ -610,14 +610,13 @@ async function createUserRecord(sql, payload) {
   }
 
   const existingUsername = await sql`
-    SELECT id
+    SELECT *
     FROM users
     WHERE LOWER(username) = LOWER(${username})
-      AND is_active = TRUE
       AND account_id = ${accountUuid}::uuid
     LIMIT 1
   `;
-  if (existingUsername[0]) {
+  if (existingUsername[0]?.is_active) {
     throw new Error("That username already exists.");
   }
 
@@ -634,6 +633,33 @@ async function createUserRecord(sql, payload) {
   }
 
   const now = new Date().toISOString();
+
+  if (existingUsername[0] && !existingUsername[0].is_active) {
+    const userRecord = existingUsername[0];
+    await sql`
+      UPDATE users
+      SET
+        display_name = ${displayName},
+        password_hash = ${hashPassword(password)},
+        level = ${level},
+        base_rate = ${baseRate},
+        is_active = TRUE,
+        updated_at = ${now}
+      WHERE id = ${userRecord.id}
+    `;
+    return {
+      id: userRecord.id,
+      username,
+      displayName,
+      level,
+      baseRate,
+      createdAt: userRecord.created_at,
+      updatedAt: now,
+      passwordHash: userRecord.password_hash,
+      accountId: accountUuid,
+    };
+  }
+
   const user = {
     id: randomId(),
     username,
