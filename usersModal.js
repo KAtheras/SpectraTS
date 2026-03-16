@@ -77,6 +77,9 @@
       detailDraft = {};
     }
 
+    const previousScroll =
+      refs.userList.querySelector(".user-list-column")?.scrollTop ?? 0;
+
     const listHtml = state.users
       .map(function (user) {
         const roleLabelText = levelLabel(user.level);
@@ -248,6 +251,11 @@
         <div class="user-detail-column">${detailHtml}</div>
       </div>
     `;
+
+    const newListColumn = refs.userList.querySelector(".user-list-column");
+    if (newListColumn) {
+      newListColumn.scrollTop = previousScroll;
+    }
 
     refs.userList.querySelectorAll(".user-item").forEach(function (item) {
       item.addEventListener("click", function (event) {
