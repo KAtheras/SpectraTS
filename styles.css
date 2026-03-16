@@ -373,7 +373,7 @@ body[data-theme="dark"] .page-shell.page-members {
   background: var(--page-bg, #f8f5f0);
   backdrop-filter: none;
   box-shadow: 0 8px 18px rgba(0, 0, 0, 0.08);
-  padding: 12px var(--shell-pad);
+  padding: 12px 0;
   border-radius: 0;
 }
 
@@ -381,6 +381,17 @@ body[data-theme="dark"] .app-topbar {
   background: #0f1117;
   box-shadow: 0 10px 22px rgba(0, 0, 0, 0.3);
   border-radius: 0;
+}
+
+.topbar-inner {
+  width: 100%;
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 0 var(--shell-pad);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .topbar-left {
