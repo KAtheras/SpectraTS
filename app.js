@@ -1758,7 +1758,7 @@
                         <path d="M8 11h8M8 14h5" />
                       </svg>
                     </button>`
-                  : `<button class="note-button note-button--empty" type="button" aria-label="No note" disabled>
+                  : `<button class="note-button note-button--empty" type="button" data-action="note" data-id="${entry.id}" aria-label="Add note">
                       <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                         <path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h9.086a1.5 1.5 0 0 1 1.06.44l2.914 2.914a1.5 1.5 0 0 1 .44 1.06V18.5A1.5 1.5 0 0 1 17.5 20h-12A1.5 1.5 0 0 1 4 18.5zM15 4v3.5a.5.5 0 0 0 .5.5H19" />
                         <path d="M8 11h8" />

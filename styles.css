@@ -1989,7 +1989,6 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
 
 .note-button--empty {
   opacity: 0.35;
-  cursor: default;
 }
 
 .note-button--empty svg {
