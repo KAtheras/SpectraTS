@@ -8,9 +8,9 @@
   --panel: rgba(255, 250, 242, 0.78);
   --panel-border: rgba(255, 255, 255, 0.38);
   --line: rgba(24, 21, 16, 0.1);
-  --accent: #ad4d21;
-  --accent-deep: #7c3514;
-  --accent-soft: rgba(173, 77, 33, 0.1);
+  --accent: #2f5c8a;
+  --accent-deep: #244a6e;
+  --accent-soft: rgba(75, 121, 168, 0.16);
   --danger: #9f2f28;
   --shadow: 0 26px 70px rgba(57, 42, 24, 0.16);
   --surface: rgba(255, 255, 255, 0.72);
@@ -55,9 +55,9 @@ body[data-theme="dark"] {
   --panel: rgba(18, 25, 34, 0.8);
   --panel-border: rgba(180, 197, 219, 0.12);
   --line: rgba(180, 197, 219, 0.18);
-  --accent: #d87543;
-  --accent-deep: #eb8e5f;
-  --accent-soft: rgba(216, 117, 67, 0.18);
+  --accent: #2f5c8a;
+  --accent-deep: #4b79a8;
+  --accent-soft: rgba(75, 121, 168, 0.24);
   --danger: #ff8f88;
   --shadow: 0 26px 70px rgba(0, 0, 0, 0.34);
   --surface: rgba(31, 41, 54, 0.94);
@@ -1551,7 +1551,7 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   height: 38px;
   border-radius: 10px;
   border: none;
-  background: #b55521;
+  background: var(--accent);
   color: #fff;
   font-family: var(--font-head);
   font-weight: 700;
