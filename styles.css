@@ -373,7 +373,7 @@ body[data-theme="dark"] .page-shell.page-members {
   position: sticky;
   top: 0;
   z-index: 20;
-  background: #ffffff;
+  background: var(--page-bg, #f8f5f0);
   backdrop-filter: none;
   box-shadow: 0 8px 18px rgba(0, 0, 0, 0.08);
   padding: 12px var(--shell-pad);
