@@ -1664,42 +1664,37 @@
     const currentLevel = normalizeLevel(state.currentUser?.level);
 
     if (refs.accountName) {
-      refs.accountName.hidden = view !== "main";
-      refs.accountName.textContent = view === "main" ? state.account?.name || "" : "";
+      refs.accountName.hidden = false;
+      refs.accountName.textContent = state.account?.name || "";
     }
     if (refs.sessionIndicator) {
-      refs.sessionIndicator.hidden = view !== "main";
-      if (view === "main") {
-        const userName = state.currentUser.displayName || "";
-        refs.sessionIndicator.innerHTML = `<span class="session-user">${escapeHtml(userName)}</span>`;
-      } else {
-        refs.sessionIndicator.innerHTML = "";
-      }
+      refs.sessionIndicator.hidden = false;
+      const userName = state.currentUser.displayName || "";
+      refs.sessionIndicator.innerHTML = `<span class="session-user">${escapeHtml(userName)}</span>`;
     }
     if (refs.navTimesheet) {
-      refs.navTimesheet.hidden = view !== "main";
+      refs.navTimesheet.hidden = false;
       refs.navTimesheet.classList.toggle("is-active", view === "main");
       refs.navTimesheet.setAttribute("aria-current", view === "main" ? "page" : "false");
     }
     if (refs.openCatalog) {
-      refs.openCatalog.hidden = view !== "main" || currentLevel < 3;
+      refs.openCatalog.hidden = currentLevel < 3;
       refs.openCatalog.classList.toggle("is-active", view === "clients");
       refs.openCatalog.setAttribute("aria-current", view === "clients" ? "page" : "false");
     }
     if (refs.navMembers) {
-      refs.navMembers.hidden = view !== "main" || currentLevel < 5;
+      refs.navMembers.hidden = currentLevel < 5;
       refs.navMembers.classList.toggle("is-active", view === "members");
       refs.navMembers.setAttribute("aria-current", view === "members" ? "page" : "false");
     }
     if (refs.changePasswordOpen) {
-      refs.changePasswordOpen.hidden =
-        view !== "main" || !state.currentUser || state.currentUser.mustChangePassword;
+      refs.changePasswordOpen.hidden = !state.currentUser || state.currentUser.mustChangePassword;
     }
     if (refs.logoutButton) {
-      refs.logoutButton.hidden = view !== "main";
+      refs.logoutButton.hidden = false;
     }
     if (refs.openAnalytics) {
-      refs.openAnalytics.hidden = view !== "main";
+      refs.openAnalytics.hidden = false;
       refs.openAnalytics.classList.toggle("is-active", view === "analytics");
       refs.openAnalytics.setAttribute("aria-current", view === "analytics" ? "page" : "false");
     }
@@ -1710,14 +1705,14 @@
       closeSettingsMenu();
     }
     if (refs.settingsToggle) {
-      refs.settingsToggle.hidden = view !== "main";
+      refs.settingsToggle.hidden = false;
       if (view !== "main") {
         refs.settingsToggle.setAttribute("aria-expanded", "false");
       }
     }
 
     if (refs.appTopbar) {
-      refs.appTopbar.style.display = view === "main" ? "" : "none";
+      refs.appTopbar.style.display = "";
     }
     if (refs.mainFrame) {
       refs.mainFrame.style.display = view === "main" ? "" : "none";
