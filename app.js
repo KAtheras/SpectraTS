@@ -1948,7 +1948,8 @@
       refs.navLevels.setAttribute("aria-current", view === "levels" ? "page" : "false");
     }
     if (refs.navMembers) {
-      refs.navMembers.hidden = !(currentGroup === "admin");
+      const showMembers = isAdmin(state.currentUser) || isExecutive(state.currentUser) || isGlobalAdmin(state.currentUser);
+      refs.navMembers.hidden = !showMembers;
       refs.navMembers.classList.toggle("is-active", view === "members");
       refs.navMembers.setAttribute("aria-current", view === "members" ? "page" : "false");
     }
