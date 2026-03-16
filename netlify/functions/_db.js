@@ -233,6 +233,7 @@ async function ensureSchema(sql) {
       task TEXT NOT NULL DEFAULT '',
       hours NUMERIC(10, 2) NOT NULL CHECK (hours > 0 AND hours <= 24),
       notes TEXT NOT NULL DEFAULT '',
+      billable BOOLEAN NOT NULL DEFAULT TRUE,
       status TEXT NOT NULL DEFAULT 'pending',
       approved_at TIMESTAMPTZ,
       approved_by_user_id TEXT REFERENCES users(id),
@@ -246,6 +247,7 @@ async function ensureSchema(sql) {
     ADD COLUMN IF NOT EXISTS account_id UUID REFERENCES accounts(id)
   `;
   await sql`UPDATE entries SET account_id = ${accountUuid}::uuid WHERE account_id IS NULL`;
+  await sql`ALTER TABLE entries ADD COLUMN IF NOT EXISTS billable BOOLEAN NOT NULL DEFAULT TRUE`;
   await sql`ALTER TABLE entries ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'pending'`;
   await sql`ALTER TABLE entries ADD COLUMN IF NOT EXISTS approved_at TIMESTAMPTZ`;
   await sql`ALTER TABLE entries ADD COLUMN IF NOT EXISTS approved_by_user_id TEXT REFERENCES users(id)`;
@@ -808,6 +810,9 @@ async function updateUserRecord(sql, payload, actingUser) {
     }
   }
 
+  const wasManager = isManagerLevel(existingUser.level);
+  const willBeManager = isManagerLevel(level);
+
   const updatedAt = new Date().toISOString();
   await sql`
     UPDATE users
@@ -829,6 +834,10 @@ async function updateUserRecord(sql, payload, actingUser) {
     `;
   }
 
+  if (wasManager !== willBeManager) {
+    await migrateAssignmentsOnLevelChange(sql, existingUser, level);
+  }
+
   const refreshed = await findUserById(sql, existingUser.id, actingUser?.accountId);
   if (actingUser && actingUser.id === existingUser.id) {
     return {
@@ -843,6 +852,79 @@ async function updateUserRecord(sql, payload, actingUser) {
   }
 
   return null;
+}
+
+async function migrateAssignmentsOnLevelChange(sql, existingUser, newLevel) {
+  const accountId = existingUser.account_id;
+  const userId = existingUser.id;
+  const wasManager = isManagerLevel(existingUser.level);
+  const willBeManager = isManagerLevel(newLevel);
+
+  if (wasManager && !willBeManager) {
+    // Move manager assignments to staff assignments
+    const managerProjects = await sql`
+      SELECT mp.project_id
+      FROM manager_projects mp
+      WHERE mp.manager_id = ${userId}
+        AND mp.account_id = ${accountId}::uuid
+    `;
+
+    for (const row of managerProjects) {
+      const projectId = row.project_id;
+      const existingMember = await sql`
+        SELECT 1 FROM project_members
+        WHERE project_id = ${projectId}
+          AND user_id = ${userId}
+          AND account_id = ${accountId}::uuid
+        LIMIT 1
+      `;
+      if (!existingMember[0]) {
+        await sql`
+          INSERT INTO project_members (project_id, user_id, account_id)
+          VALUES (${projectId}, ${userId}, ${accountId}::uuid)
+          ON CONFLICT DO NOTHING
+        `;
+      }
+    }
+
+    await sql`
+      DELETE FROM manager_projects
+      WHERE manager_id = ${userId}
+        AND account_id = ${accountId}::uuid
+    `;
+  } else if (!wasManager && willBeManager) {
+    // Move staff assignments to manager assignments
+    const memberProjects = await sql`
+      SELECT project_id
+      FROM project_members
+      WHERE user_id = ${userId}
+        AND account_id = ${accountId}::uuid
+    `;
+
+    for (const row of memberProjects) {
+      const projectId = row.project_id;
+      const existingManager = await sql`
+        SELECT 1 FROM manager_projects
+        WHERE project_id = ${projectId}
+          AND manager_id = ${userId}
+          AND account_id = ${accountId}::uuid
+        LIMIT 1
+      `;
+      if (!existingManager[0]) {
+        await sql`
+          INSERT INTO manager_projects (manager_id, project_id, account_id)
+          VALUES (${userId}, ${projectId}, ${accountId}::uuid)
+          ON CONFLICT DO NOTHING
+        `;
+      }
+    }
+
+    await sql`
+      DELETE FROM project_members
+      WHERE user_id = ${userId}
+        AND account_id = ${accountId}::uuid
+    `;
+  }
 }
 
 async function updateUserPassword(sql, payload, accountId) {
@@ -1243,6 +1325,7 @@ async function loadState(sql, currentUser) {
         task,
         hours::FLOAT8 AS hours,
         notes,
+        billable,
         status,
         created_at AS "createdAt",
         updated_at AS "updatedAt"
@@ -1263,6 +1346,7 @@ async function loadState(sql, currentUser) {
           entries.task,
           entries.hours::FLOAT8 AS hours,
           entries.notes,
+          entries.billable,
           entries.status,
           entries.created_at AS "createdAt",
           entries.updated_at AS "updatedAt"
@@ -1288,6 +1372,7 @@ async function loadState(sql, currentUser) {
         task,
         hours::FLOAT8 AS hours,
         notes,
+        billable,
         status,
         created_at AS "createdAt",
         updated_at AS "updatedAt"

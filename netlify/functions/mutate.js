@@ -109,6 +109,10 @@ function validateEntry(entry, currentUser) {
     return "Hours must be between 0 and 24.";
   }
 
+  if (typeof entry.billable !== "boolean") {
+    entry.billable = true;
+  }
+
   return "";
 }
 
@@ -683,6 +687,7 @@ async function saveEntry(sql, payload, currentUser, accountId) {
       task,
       hours,
       notes,
+      billable,
       approved_at,
       approved_by_user_id
     FROM entries
@@ -701,7 +706,8 @@ async function saveEntry(sql, payload, currentUser, accountId) {
         existing.project_name === entry.project &&
         (existing.task || "") === (entry.task || "") &&
         Number(existing.hours) === normalizeHours(entry.hours) &&
-        (existing.notes || "") === (entry.notes || "")
+        (existing.notes || "") === (entry.notes || "") &&
+        Boolean(existing.billable) === (entry.billable === false ? false : true)
       )
     : true;
 
@@ -723,6 +729,7 @@ async function saveEntry(sql, payload, currentUser, accountId) {
       task,
       hours,
       notes,
+      billable,
       status,
       approved_at,
       approved_by_user_id,
@@ -739,6 +746,7 @@ async function saveEntry(sql, payload, currentUser, accountId) {
       ${normalizeText(entry.task)},
       ${normalizeHours(entry.hours)},
       ${normalizeText(entry.notes)},
+      ${entry.billable === false ? false : true},
       ${status},
       ${approvedAt},
       ${approvedBy},
@@ -754,6 +762,7 @@ async function saveEntry(sql, payload, currentUser, accountId) {
       task = EXCLUDED.task,
       hours = EXCLUDED.hours,
       notes = EXCLUDED.notes,
+      billable = EXCLUDED.billable,
       status = EXCLUDED.status,
       approved_at = EXCLUDED.approved_at,
       approved_by_user_id = EXCLUDED.approved_by_user_id,

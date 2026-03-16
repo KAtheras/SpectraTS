@@ -156,7 +156,13 @@
               </label>
 
               <label class="span-2 hours-field">
-                <span>Hours</span>
+                <div class="hours-header">
+                  <span>Hours</span>
+                  <label class="nonbillable-toggle">
+                    <input type="checkbox" name="nonBillable" id="entry-nonbillable" />
+                    <span>Non-billable</span>
+                  </label>
+                </div>
                 <div class="entry-helpers entry-helpers-hours">
                   <input type="hidden" name="hours" required />
                   <div class="preset-row">

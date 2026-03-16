@@ -153,6 +153,7 @@
     membersFeedback: document.getElementById("members-feedback"),
     membersConfirm: document.getElementById("members-confirm"),
     membersCancel: document.getElementById("members-cancel"),
+    entryNonBillable: document.getElementById("entry-nonbillable"),
     filterFromMonth: document.getElementById("filter-from-month"),
     filterFromDay: document.getElementById("filter-from-day"),
     filterFromYear: document.getElementById("filter-from-year"),
@@ -597,6 +598,15 @@
         : {};
   }
 
+  function isNonBillableDefault(projectName) {
+    return /administrative|admin|internal/i.test(projectName || "");
+  }
+
+  function setNonBillableDefault(projectName) {
+    if (!refs.entryNonBillable) return;
+    refs.entryNonBillable.checked = isNonBillableDefault(projectName);
+  }
+
   function normalizeEntry(entry) {
     if (!entry || typeof entry !== "object") {
       return null;
@@ -623,6 +633,10 @@
       typeof entry.status === "string" && entry.status.toLowerCase() === "approved"
         ? "approved"
         : "pending";
+    const billable =
+      typeof entry.billable === "boolean"
+        ? entry.billable
+        : !(typeof entry.nonBillable === "boolean" ? entry.nonBillable : false);
 
     return {
       id: typeof entry.id === "string" && entry.id ? entry.id : crypto.randomUUID(),
@@ -639,6 +653,7 @@
       createdAt,
       updatedAt,
       status,
+      billable,
     };
   }
 
@@ -891,6 +906,7 @@
     field(refs.form, "hours").value = "";
     refs.otherHours.value = "";
     renderHourSelection?.({ refs, field });
+    setNonBillableDefault(field(refs.form, "project")?.value || "");
     refs.formHeading.textContent = "Add timesheet entry";
     refs.submitEntry.textContent = "Save";
     refs.cancelEdit.hidden = true;
@@ -910,6 +926,9 @@
     field(refs.form, "notes").value = entry.notes;
     refs.otherHours.value = QUICK_HOUR_PRESETS.has(String(entry.hours)) ? "" : String(entry.hours);
     renderHourSelection?.({ refs, field });
+    if (refs.entryNonBillable) {
+      refs.entryNonBillable.checked = entry.billable === false;
+    }
     state.editingId = entry.id;
     refs.formHeading.textContent = "Edit timesheet entry";
     refs.submitEntry.textContent = "Save";
@@ -1933,6 +1952,8 @@
     const projectField = field(refs.form, "project");
     const hoursField = field(refs.form, "hours");
     const notesField = field(refs.form, "notes");
+    const nonBillableField = field(refs.form, "nonBillable");
+    const isBillable = nonBillableField ? !nonBillableField.checked : true;
     const entryChanged =
       !existingEntry ||
       existingEntry.user !== userField.value ||
@@ -1941,7 +1962,8 @@
       existingEntry.project !== projectField.value ||
       existingEntry.task !== (existingEntry?.task || "") ||
       Number(existingEntry.hours) !== Number(hoursField.value) ||
-      (existingEntry.notes || "") !== notesField.value.trim();
+      (existingEntry.notes || "") !== notesField.value.trim() ||
+      existingEntry.billable !== isBillable;
     const nextEntry = {
       id: state.editingId || crypto.randomUUID(),
       user: userField.value,
@@ -1951,6 +1973,7 @@
       task: existingEntry?.task || "",
       hours: Number(hoursField.value),
       notes: notesField.value.trim(),
+      billable: isBillable,
       createdAt: existingEntry?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       status: entryChanged ? "pending" : existingEntry?.status || "pending",
@@ -2114,6 +2137,12 @@
       project: "",
     });
     renderCatalogAside();
+    setNonBillableDefault("");
+  });
+
+  field(refs.form, "project").addEventListener("change", function () {
+    const projectField = field(refs.form, "project");
+    setNonBillableDefault(projectField.value || "");
   });
 
   field(refs.filterForm, "client").addEventListener("change", function () {
