@@ -149,10 +149,20 @@ async function addClient(sql, payload, accountId) {
     return errorResponse(409, "That client already exists.");
   }
 
-  await sql`
+  const inserted = await sql`
     INSERT INTO clients (account_id, name)
     VALUES (${accountId}::uuid, ${clientName})
+    RETURNING id, name
   `;
+
+  const clientId = inserted[0]?.id;
+
+  if (clientId && !(await findProject(sql, clientName, "Administrative", accountId))) {
+    await sql`
+      INSERT INTO projects (client_id, account_id, name)
+      VALUES (${clientId}, ${accountId}::uuid, 'Administrative')
+    `;
+  }
   return null;
 }
 
