@@ -171,6 +171,14 @@ body.modal-open {
   padding: 10px 12px;
 }
 
+.dialog-input textarea {
+  width: 100%;
+  min-height: 140px;
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-family: inherit;
+}
+
 .dialog-actions {
   display: flex;
   justify-content: flex-end;
@@ -851,8 +859,8 @@ input[name="cost_rate"] {
 .hours-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  justify-content: flex-start;
+  gap: 10px;
   flex-wrap: nowrap;
 }
 
@@ -1913,6 +1921,30 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
 .notes-cell {
   width: 60px;
   text-align: center;
+}
+
+.billable-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-family: var(--font-head);
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1;
+  border: 1px solid transparent;
+}
+
+.billable-pill.is-billable {
+  background: var(--surface-strong);
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 25%, transparent);
+}
+
+.billable-pill.is-nonbillable {
+  background: color-mix(in srgb, var(--muted) 12%, transparent);
+  color: var(--muted-strong, #555);
+  border-color: color-mix(in srgb, var(--muted) 25%, transparent);
 }
 
 .note-button {

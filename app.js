@@ -108,6 +108,7 @@
     dialogMessage: document.getElementById("dialog-message"),
     dialogInputRow: document.getElementById("dialog-input-row"),
     dialogInput: document.getElementById("dialog-input"),
+    dialogTextarea: document.getElementById("dialog-textarea"),
     dialogCancel: document.getElementById("dialog-cancel"),
     dialogConfirm: document.getElementById("dialog-confirm"),
     changePasswordModal: document.getElementById("change-password-modal"),
@@ -534,10 +535,16 @@
       refs.dialogTitle.textContent = title;
       refs.dialogMessage.textContent = message;
       refs.dialogInputRow.hidden = !showInput;
+      refs.dialogInput.hidden = false;
+      if (refs.dialogTextarea) {
+        refs.dialogTextarea.hidden = true;
+      }
       refs.dialogInput.value = defaultValue;
       refs.dialogConfirm.textContent = confirmText;
       refs.dialogCancel.textContent = cancelText;
       refs.dialog.hidden = false;
+      refs.dialogConfirm.hidden = false;
+      refs.dialogCancel.disabled = false;
 
       const cleanup = () => {
         refs.dialog.hidden = true;
@@ -564,6 +571,94 @@
         refs.dialogInput.focus();
         refs.dialogInput.select();
       }
+    });
+  }
+
+  function showNoteModal(entry) {
+    return new Promise((resolve) => {
+      if (!refs.dialog || !refs.dialogCancel || !refs.dialogConfirm || !refs.dialogTextarea) {
+        resolve(false);
+        return;
+      }
+
+      let mode = "view";
+      const textarea = refs.dialogTextarea;
+
+      const cleanup = () => {
+        refs.dialog.hidden = true;
+        refs.dialogConfirm.removeEventListener("click", onConfirm);
+        refs.dialogCancel.removeEventListener("click", onCancel);
+        refs.dialogMessage.hidden = false;
+        refs.dialogInputRow.hidden = true;
+        refs.dialogInput.hidden = false;
+        textarea.hidden = true;
+        refs.dialogConfirm.hidden = false;
+        refs.dialogCancel.textContent = "Cancel";
+      };
+
+      const setViewMode = () => {
+        mode = "view";
+        refs.dialogTitle.textContent = "Note";
+        refs.dialogMessage.textContent = entry.notes && entry.notes.trim() ? entry.notes : "(No note)";
+        refs.dialogMessage.hidden = false;
+        refs.dialogInputRow.hidden = true;
+        textarea.hidden = true;
+        refs.dialogConfirm.hidden = false;
+        refs.dialogConfirm.textContent = "Edit";
+        refs.dialogCancel.textContent = "Close";
+      };
+
+      const setEditMode = () => {
+        mode = "edit";
+        refs.dialogTitle.textContent = "Edit note";
+        refs.dialogMessage.hidden = true;
+        refs.dialogInputRow.hidden = false;
+        refs.dialogInput.hidden = true;
+        textarea.hidden = false;
+        textarea.value = entry.notes || "";
+        textarea.focus();
+        refs.dialogConfirm.hidden = true;
+        refs.dialogCancel.textContent = "Save";
+      };
+
+      const onConfirm = () => {
+        if (mode === "view") {
+          setEditMode();
+        }
+      };
+
+      const onCancel = async () => {
+        if (mode === "edit") {
+          const nextNotes = textarea.value.trim();
+          const payload = {
+            entry: {
+              ...entry,
+              notes: nextNotes,
+              updatedAt: new Date().toISOString(),
+            },
+          };
+          try {
+            await mutatePersistentState("save_entry", payload);
+            feedback("Note saved.", false);
+          } catch (error) {
+            feedback(error.message || "Unable to save note.", true);
+            cleanup();
+            resolve(false);
+            return;
+          }
+          cleanup();
+          resolve(true);
+          return;
+        }
+
+        cleanup();
+        resolve(false);
+      };
+
+      refs.dialogConfirm.addEventListener("click", onConfirm);
+      refs.dialogCancel.addEventListener("click", onCancel);
+      refs.dialog.hidden = false;
+      setViewMode();
     });
   }
 
@@ -1621,7 +1716,7 @@
     if (!filteredEntries.length) {
       refs.entriesBody.innerHTML = `
         <tr>
-          <td colspan="8" class="empty-row">
+          <td colspan="9" class="empty-row">
             <div class="empty-state-panel">
               <strong>No entries match the current filters.</strong>
               <span>Clear the filters or add a new entry to get started.</span>
@@ -1641,6 +1736,11 @@
             <td>${escapeHtml(entry.client)}</td>
             <td>${escapeHtml(entry.project)}</td>
             <td>${entry.hours.toFixed(2)}</td>
+            <td>
+              <span class="billable-pill ${entry.billable === false ? "is-nonbillable" : "is-billable"}">
+                ${entry.billable === false ? "Non-billable" : "Billable"}
+              </span>
+            </td>
             <td class="notes-cell">
               ${
                 entry.notes && entry.notes.trim()
@@ -2722,14 +2822,7 @@
     }
 
     if (action === "note") {
-      if (entry.notes && entry.notes.trim()) {
-        await appDialog({
-          title: "Note",
-          message: entry.notes,
-          confirmText: "Close",
-          cancelText: "",
-        });
-      }
+      await showNoteModal(entry);
       return;
     }
 
