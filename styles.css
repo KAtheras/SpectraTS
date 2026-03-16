@@ -1020,8 +1020,8 @@ textarea {
 
 .entry-helpers-hours .chip-button,
 .entry-helpers-hours .other-hours input {
-  height: 44px;
-  min-height: 44px;
+  height: 36px;
+  min-height: 36px;
 }
 
 .preset-buttons {
@@ -1039,7 +1039,7 @@ textarea {
   appearance: none;
   border: 1px solid var(--chip-border);
   border-radius: 999px;
-  padding: 0 16px;
+  padding: 0 14px;
   background: var(--chip-bg);
   color: var(--ink);
   font-family: var(--font-head);
@@ -1147,7 +1147,7 @@ textarea {
 
 .form-actions-entry .button {
   min-width: 132px;
-  padding: 0 24px;
+  padding: 8px 24px;
   white-space: nowrap;
 }
 
