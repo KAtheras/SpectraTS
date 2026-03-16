@@ -1354,11 +1354,12 @@ async function loadState(sql, currentUser) {
         LIMIT 1
       `
     )[0];
-  const isSuperAdmin = normalizedUser && isSuperAdminLevel(normalizedUser.level);
-  const isAdmin = normalizedUser && isAdminLevel(normalizedUser.level);
-  const isManager =
-    normalizedUser && normalizedUser.level >= 3 && normalizedUser.level <= 4;
-  const isStaff = normalizedUser && normalizedUser.level <= 2;
+  const currentGroup = normalizedUser ? permissionGroupForLevel(normalizedUser.level) : null;
+  const isSuperAdmin = normalizedUser && isAdmin(normalizedUser); // keep legacy flag equivalent to admin group
+  const isAdminFlag = normalizedUser && isAdmin(normalizedUser);
+  const isExecFlag = normalizedUser && isExecutive(normalizedUser);
+  const isManagerFlag = normalizedUser && isManager(normalizedUser);
+  const isStaffFlag = normalizedUser && isStaff(normalizedUser);
 
   const catalogRows = await sql`
     SELECT
@@ -1441,7 +1442,7 @@ async function loadState(sql, currentUser) {
   }
 
   const users =
-    isAdmin || isManager || isExecutive(normalizedUser)
+    isAdminFlag || isManagerFlag || isExecFlag
       ? await listUsers(sql, accountUuid)
       : normalizedUser
         ? [{
@@ -1464,11 +1465,11 @@ async function loadState(sql, currentUser) {
     projectMembers: [],
   };
 
-  if (isAdmin) {
+  if (isAdminFlag) {
     assignments.managerClients = await listManagerClientAssignments(sql, accountUuid);
     assignments.managerProjects = await listManagerProjectAssignments(sql, accountUuid);
     assignments.projectMembers = await listProjectMembers(sql, accountUuid);
-  } else if (isManager && normalizedUser) {
+  } else if (isManagerFlag && normalizedUser) {
     const { clientRows, projectRows } = await listManagerAssignmentsForUser(
       sql,
       normalizedUser.id,
