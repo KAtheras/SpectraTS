@@ -291,7 +291,7 @@ body[data-theme="dark"] .page-shell.page-members {
   margin: 0 auto;
   min-height: 0;
   height: 100%;
-  padding: 14px var(--shell-pad) 22px;
+  padding: 0 var(--shell-pad) 22px;
   display: flex;
   flex-direction: column;
   gap: 18px;
