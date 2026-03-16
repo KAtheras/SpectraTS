@@ -124,6 +124,7 @@
       refs,
       state,
       memberModalState,
+      levels,
       isGlobalAdmin,
       isStaff,
       isManager,
@@ -264,12 +265,17 @@
         return "";
       }
 
+      const levelChoices =
+        Array.isArray(levels) && levels.length
+          ? levels
+          : [1, 2, 3, 4, 5, 6];
+
       const roleSelect = canChangeRole
         ? `
           <label class="member-role">
             <span class="sr-only">Level</span>
             <select data-level-select="${escapeHtml(user.id)}">
-              ${[1, 2, 3, 4, 5, 6]
+              ${levelChoices
                 .map(
                   (level) =>
                     `<option value="${level}"${

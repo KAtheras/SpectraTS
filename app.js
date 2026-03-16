@@ -1287,6 +1287,7 @@
       refs,
       state,
       memberModalState,
+      levels: sortedLevels(),
       isGlobalAdmin,
       isStaff,
       isManager,
