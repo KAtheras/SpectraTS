@@ -1440,21 +1440,22 @@ async function loadState(sql, currentUser) {
     `;
   }
 
-  const users = isAdmin || isManager
-    ? await listUsers(sql, accountUuid)
-    : normalizedUser
-      ? [{
-          id: normalizedUser.id,
-          username: normalizedUser.username,
-          displayName: normalizedUser.displayName,
-          level: normalizedUser.level,
-          baseRate: normalizedUser.baseRate ?? null,
-          costRate: normalizedUser.costRate ?? null,
-          mustChangePassword: normalizedUser.mustChangePassword ?? false,
-          isActive: true,
-          accountId: normalizedUser.accountId,
-        }]
-      : [];
+  const users =
+    isAdmin || isManager || isExecutive(normalizedUser)
+      ? await listUsers(sql, accountUuid)
+      : normalizedUser
+        ? [{
+            id: normalizedUser.id,
+            username: normalizedUser.username,
+            displayName: normalizedUser.displayName,
+            level: normalizedUser.level,
+            baseRate: normalizedUser.baseRate ?? null,
+            costRate: normalizedUser.costRate ?? null,
+            mustChangePassword: normalizedUser.mustChangePassword ?? false,
+            isActive: true,
+            accountId: normalizedUser.accountId,
+          }]
+        : [];
 
   const projects = await listProjects(sql, accountUuid);
   const assignments = {
