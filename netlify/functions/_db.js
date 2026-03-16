@@ -403,6 +403,11 @@ function isAdminLevel(level) {
   return normalizeLevel(level) >= 5;
 }
 
+function isManagerLevel(level) {
+  const normalized = normalizeLevel(level);
+  return normalized >= 3;
+}
+
 function randomId() {
   return crypto.randomUUID();
 }
