@@ -370,16 +370,18 @@ body[data-theme="dark"] .page-shell.page-members {
   position: sticky;
   top: 0;
   z-index: 20;
-  background: var(--page-bg, #f8f5f0);
+  background: var(--bg);
   backdrop-filter: none;
-  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.08);
+  box-shadow: none;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
   padding: 12px 0;
   border-radius: 0;
 }
 
 body[data-theme="dark"] .app-topbar {
-  background: #0f1117;
-  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.3);
+  background: var(--bg);
+  box-shadow: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 0;
 }
 
