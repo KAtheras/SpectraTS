@@ -2699,8 +2699,13 @@
     }
 
     if (action === "delete") {
-      const confirmed = window.confirm("Are you sure you want to delete this entry?");
-      if (!confirmed) {
+      const result = await appDialog({
+        title: "Delete entry",
+        message: "Are you sure you want to delete this entry?",
+        confirmText: "Delete",
+        cancelText: "Cancel",
+      });
+      if (!result?.confirmed) {
         return;
       }
 

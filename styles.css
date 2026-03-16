@@ -147,7 +147,7 @@ body.modal-open {
   border: 1px solid var(--panel-border);
   box-shadow: var(--shadow);
   border-radius: var(--card-radius);
-  padding: 20px 20px 16px;
+  padding: 22px 22px 16px;
   display: grid;
   gap: 14px;
 }
@@ -899,13 +899,13 @@ input[name="cost_rate"] {
 .entry-form .other-hours input,
 .entry-form textarea,
 .entry-form .button {
-  height: var(--entry-control-height);
-  min-height: var(--entry-control-height);
+  height: calc(var(--entry-control-height) - 8px);
+  min-height: calc(var(--entry-control-height) - 8px);
 }
 
 .wheel-date-picker select {
-  height: calc(var(--entry-control-height) - 8px);
-  min-height: calc(var(--entry-control-height) - 8px);
+  height: calc(var(--entry-control-height) - 12px);
+  min-height: calc(var(--entry-control-height) - 12px);
   border: 0;
   border-radius: 12px;
   background-color: var(--surface-strong);
@@ -914,6 +914,14 @@ input[name="cost_rate"] {
   font-size: 0.96rem;
   font-weight: 700;
   box-shadow: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+    linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position:
+    calc(100% - 18px) calc(50% - 3px),
+    calc(100% - 12px) calc(50% - 3px);
+  background-size: 6px 6px, 6px 6px;
+  background-repeat: no-repeat;
 }
 
 .filters .wheel-date-picker select {
@@ -1147,7 +1155,7 @@ textarea {
 
 .form-actions-entry .button {
   min-width: 132px;
-  padding: 8px 24px;
+  padding: 6px 20px;
   white-space: nowrap;
 }
 
