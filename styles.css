@@ -1901,6 +1901,49 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   vertical-align: top;
 }
 
+.notes-cell {
+  width: 60px;
+  text-align: center;
+}
+
+.note-button {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  padding: 4px;
+  transition: border-color 120ms ease, background-color 120ms ease, color 120ms ease;
+}
+
+.note-button svg {
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  fill: none;
+}
+
+.note-button:hover:not(:disabled),
+.note-button:focus-visible:not(:disabled) {
+  border-color: var(--line-strong);
+  background: var(--surface-strong);
+  outline: none;
+}
+
+.note-button--empty {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.note-button--empty svg {
+  color: var(--muted);
+}
+
 .entries-table th {
   color: var(--muted);
   font-family: var(--font-head);
