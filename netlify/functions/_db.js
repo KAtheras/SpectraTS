@@ -640,12 +640,27 @@ async function adminCount(sql, accountId) {
 }
 
 async function listLevelLabels(sql, accountId) {
-  const rows = await sql`
-    SELECT level, label, permission_group
-    FROM level_labels
-    WHERE account_id = ${accountId}::uuid
-    ORDER BY level
-  `;
+  let rows = [];
+  try {
+    rows = await sql`
+      SELECT level, label, permission_group
+      FROM level_labels
+      WHERE account_id = ${accountId}::uuid
+      ORDER BY level
+    `;
+  } catch (error) {
+    // If permission_group is missing (older schema), add it and retry once.
+    await sql`
+      ALTER TABLE level_labels
+      ADD COLUMN IF NOT EXISTS permission_group TEXT NOT NULL DEFAULT 'staff'
+    `;
+    rows = await sql`
+      SELECT level, label, permission_group
+      FROM level_labels
+      WHERE account_id = ${accountId}::uuid
+      ORDER BY level
+    `;
+  }
   const labels = {};
   rows.forEach((row) => {
     labels[row.level] = {
