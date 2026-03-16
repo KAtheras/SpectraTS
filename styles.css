@@ -833,6 +833,12 @@ input[name="cost_rate"] {
   width: 100%;
 }
 
+.entry-form .hours-field {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+}
+
 .level-labels-form input {
   width: 100%;
   box-sizing: border-box;
@@ -847,6 +853,7 @@ input[name="cost_rate"] {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  flex-wrap: nowrap;
 }
 
 .nonbillable-toggle {
@@ -857,11 +864,13 @@ input[name="cost_rate"] {
   color: var(--muted);
   font-size: 0.85rem;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .nonbillable-toggle input {
   width: 16px;
   height: 16px;
+  vertical-align: middle;
   accent-color: var(--accent);
 }
 
