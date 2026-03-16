@@ -894,18 +894,21 @@ input[name="cost_rate"] {
 }
 
 .entry-form > label > select,
-.entry-form .wheel-date-picker,
-.entry-form .chip-button,
-.entry-form .other-hours input,
-.entry-form textarea,
-.entry-form .button {
-  height: calc(var(--entry-control-height) - 8px);
-  min-height: calc(var(--entry-control-height) - 8px);
+.entry-form textarea {
+  height: 48px;
+  min-height: 48px;
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+
+.entry-form .wheel-date-picker {
+  height: 44px;
+  min-height: 44px;
 }
 
 .wheel-date-picker select {
-  height: calc(var(--entry-control-height) - 12px);
-  min-height: calc(var(--entry-control-height) - 12px);
+  height: 44px;
+  min-height: 44px;
   border: 0;
   border-radius: 12px;
   background-color: var(--surface-strong);
@@ -1155,7 +1158,9 @@ textarea {
 
 .form-actions-entry .button {
   min-width: 132px;
-  padding: 6px 20px;
+  padding: 0 20px;
+  height: 44px;
+  min-height: 44px;
   white-space: nowrap;
 }
 
