@@ -364,8 +364,8 @@ body[data-theme="dark"] .page-shell.page-members {
 }
 
 .app-topbar {
-  width: calc(100% + (var(--shell-pad) * 2));
-  margin: 0 calc(-1 * var(--shell-pad)) 14px;
+  width: 100%;
+  margin: 0 0 14px;
   display: flex;
   align-items: center;
   justify-content: space-between;
