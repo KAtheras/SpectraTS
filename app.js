@@ -1028,7 +1028,8 @@
     refs.formHeading.textContent = "Edit timesheet entry";
     refs.submitEntry.textContent = "Save";
     refs.cancelEdit.hidden = false;
-    refs.form.scrollIntoView({ behavior: "smooth", block: "start" });
+    const formCard = refs.form?.closest(".panel") || refs.form;
+    formCard?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
 
