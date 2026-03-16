@@ -1768,7 +1768,13 @@
               }
             </td>
             <td>
-              <span class="entry-status entry-status-${entry.status}">
+              <span
+                class="entry-status entry-status-${entry.status} ${
+                  canManageApproval(entry) ? "entry-status-clickable" : ""
+                }"
+                ${canManageApproval(entry) ? `data-action="toggle-status" data-id="${entry.id}" role="button" tabindex="0"` : ""}
+                aria-label="${entry.status === "approved" ? "Approved" : "Pending"}"
+              >
                 ${entry.status === "approved" ? "Approved" : "Pending"}
               </span>
             </td>
@@ -1776,16 +1782,6 @@
               <button class="text-button" type="button" data-action="edit" data-id="${entry.id}">
                 Edit
               </button>
-              ${
-                showApproveButton(entry)
-                  ? `<button class="text-button" type="button" data-action="approve" data-id="${entry.id}">Approve</button>`
-                  : ""
-              }
-              ${
-                canUnapproveEntry(entry)
-                  ? `<button class="text-button" type="button" data-action="unapprove" data-id="${entry.id}">Unapprove</button>`
-                  : ""
-              }
               <button class="text-button danger" type="button" data-action="delete" data-id="${entry.id}">
                 Delete
               </button>
@@ -2851,26 +2847,18 @@
       return;
     }
 
-    if (action === "approve") {
-      try {
-        await mutatePersistentState("approve_entry", { id });
-      } catch (error) {
-        feedback(error.message || "Unable to approve entry.", true);
+    if (action === "toggle-status") {
+      if (!canManageApproval(entry)) {
         return;
       }
-      feedback("Entry approved.", false);
-      render();
-      return;
-    }
-
-    if (action === "unapprove") {
+      const isApproved = entry.status === "approved";
       try {
-        await mutatePersistentState("unapprove_entry", { id });
+        await mutatePersistentState(isApproved ? "unapprove_entry" : "approve_entry", { id });
       } catch (error) {
-        feedback(error.message || "Unable to unapprove entry.", true);
+        feedback(error.message || "Unable to update entry status.", true);
         return;
       }
-      feedback("Entry marked as pending.", false);
+      feedback(isApproved ? "Entry marked as pending." : "Entry approved.", false);
       render();
       return;
     }

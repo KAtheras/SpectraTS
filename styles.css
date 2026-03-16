@@ -2046,6 +2046,16 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   color: #8a5b15;
 }
 
+.entry-status.entry-status-clickable {
+  cursor: pointer;
+}
+
+.entry-status.entry-status-clickable:hover,
+.entry-status.entry-status-clickable:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent);
+}
+
 .entry-row.entry-approved td {
   background: #f6fff7;
 }
