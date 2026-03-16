@@ -289,9 +289,11 @@ body[data-theme="dark"] .page-shell.page-members {
 
 .page-view {
   width: 100%;
+  max-width: 1240px;
+  margin: 0 auto;
   min-height: 0;
   height: 100%;
-  padding: 22px;
+  padding: 22px var(--shell-pad);
   display: flex;
   flex-direction: column;
   gap: 18px;
