@@ -1717,7 +1717,7 @@
       refs.openAnalytics.setAttribute("aria-current", view === "analytics" ? "page" : "false");
     }
     if (refs.settingsLevels) {
-      refs.settingsLevels.hidden = view !== "main" || !isGlobalAdmin(state.currentUser);
+      refs.settingsLevels.hidden = !isGlobalAdmin(state.currentUser);
     }
     if (view !== "main") {
       closeSettingsMenu();
