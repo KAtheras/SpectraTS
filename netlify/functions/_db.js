@@ -263,6 +263,10 @@ async function ensureSchema(sql) {
       UNIQUE (account_id, level)
     )
   `;
+  await sql`
+    ALTER TABLE level_labels
+    ADD COLUMN IF NOT EXISTS permission_group TEXT NOT NULL DEFAULT 'staff'
+  `;
 
   const labelRows = await sql`
     SELECT level
