@@ -289,7 +289,7 @@ body[data-theme="dark"] .page-shell.page-members {
 
 .page-view {
   width: 100%;
-  max-width: 1240px;
+  max-width: calc(1240px + (var(--shell-pad) * 2));
   margin: 0 auto;
   min-height: 0;
   height: 100%;
