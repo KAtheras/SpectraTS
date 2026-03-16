@@ -840,11 +840,32 @@ input[name="cost_rate"] {
   gap: 10px;
 }
 
+.settings-title {
+  margin: 0 0 12px;
+  font-family: var(--font-head);
+  color: var(--text-strong);
+}
+
 .level-row {
   display: grid;
   grid-template-columns: 80px 1fr 200px;
   align-items: center;
   gap: 10px;
+}
+
+.expense-row {
+  grid-template-columns: 1fr 160px;
+}
+.expense-row .level-num {
+  display: none;
+}
+
+.level-row .expense-active {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.9rem;
+  color: var(--muted-strong);
 }
 
 .level-row .level-num {

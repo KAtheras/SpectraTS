@@ -24,6 +24,7 @@ const {
   updateUserPassword,
   updateUserRecord,
   verifyPassword,
+  randomId,
 } = require("./_db");
 
 function normalizeHours(value) {
@@ -167,6 +168,74 @@ async function updateLevelLabels(sql, payload, accountId) {
         permission_group = EXCLUDED.permission_group,
         updated_at = EXCLUDED.updated_at
     `;
+  }
+
+  return null;
+}
+
+async function updateExpenseCategories(sql, payload, accountId) {
+  const categories = Array.isArray(payload?.categories) ? payload.categories : [];
+  if (!categories.length) {
+    return errorResponse(400, "Expense categories are required.");
+  }
+
+  const cleaned = [];
+  const seen = new Set();
+  for (const item of categories) {
+    const id = normalizeText(item.id);
+    const name = normalizeText(item.name);
+    const isActive = item.isActive === false ? false : true;
+    if (!name) {
+      return errorResponse(400, "Category name cannot be blank.");
+    }
+    const key = name.toLowerCase();
+    if (seen.has(key)) {
+      return errorResponse(400, "Category names must be unique.");
+    }
+    seen.add(key);
+    cleaned.push({ id, name, isActive });
+  }
+
+  const existing = await sql`
+    SELECT id, name
+    FROM expense_categories
+    WHERE account_uuid = ${accountId}::uuid
+  `;
+  const existingByName = new Map(
+    existing.map((row) => [row.name.toLowerCase(), row.id])
+  );
+
+  for (const item of cleaned) {
+    const conflictId = existingByName.get(item.name.toLowerCase());
+    if (conflictId && conflictId !== item.id) {
+      return errorResponse(400, `Category "${item.name}" already exists.`);
+    }
+  }
+
+  for (const item of cleaned) {
+    const now = new Date().toISOString();
+    if (item.id) {
+      const result = await sql`
+        UPDATE expense_categories
+        SET name = ${item.name},
+            is_active = ${item.isActive ? 1 : 0},
+            created_at = COALESCE(created_at, ${now})
+        WHERE id = ${item.id}
+          AND account_uuid = ${accountId}::uuid
+        RETURNING id
+      `;
+      if (!result[0]) {
+        await sql`
+          INSERT INTO expense_categories (id, account_uuid, name, is_active, created_at)
+          VALUES (${item.id}, ${accountId}::uuid, ${item.name}, ${item.isActive ? 1 : 0}, ${now})
+        `;
+      }
+    } else {
+      await sql`
+        INSERT INTO expense_categories (id, account_uuid, name, is_active, created_at)
+        VALUES (${randomId()}, ${accountId}::uuid, ${item.name}, ${item.isActive ? 1 : 0}, ${now})
+      `;
+    }
   }
 
   return null;
@@ -1332,6 +1401,12 @@ exports.handler = async function handler(event) {
         const adminError = requireAdmin(context);
         if (adminError) return adminError;
         mutationResult = await updateLevelLabels(sql, request.payload || {}, accountId);
+        break;
+      }
+      case "update_expense_categories": {
+        const adminError = requireAdmin(context);
+        if (adminError) return adminError;
+        mutationResult = await updateExpenseCategories(sql, request.payload || {}, accountId);
         break;
       }
       default:

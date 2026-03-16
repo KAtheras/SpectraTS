@@ -86,7 +86,7 @@
           </div>
           <div class="topbar-center">
             <div class="top-nav">
-              <button class="nav-pill" id="nav-levels" type="button">Roles</button>
+              <button class="nav-pill" id="nav-settings" type="button">Settings</button>
               <button class="nav-pill" id="nav-members" type="button">Members</button>
               <button class="nav-pill" id="open-catalog" type="button">Clients</button>
               <button class="nav-pill" id="nav-timesheet" type="button">Timesheet</button>
@@ -385,14 +385,28 @@
         </div>
       </section>
 
-      <section class="page-view level-page" id="levels-page" hidden>
+      <section class="page-view level-page" id="settings-page" hidden>
         <div class="users-page-body">
+          <h2 class="settings-title">Settings</h2>
+
           <form id="level-labels-form" class="level-labels-form">
             <div class="level-labels-inner">
+              <h3>Permission Levels</h3>
               <div class="level-rows" id="level-rows"></div>
               <div class="level-labels-actions">
                 <button class="button button-ghost" type="button" id="add-level">Add level</button>
                 <button class="button" type="submit">Save levels</button>
+              </div>
+            </div>
+          </form>
+
+          <form id="expense-categories-form" class="level-labels-form">
+            <div class="level-labels-inner">
+              <h3>Expense Categories</h3>
+              <div class="level-rows" id="expense-rows"></div>
+              <div class="level-labels-actions">
+                <button class="button button-ghost" type="button" id="add-category">Add category</button>
+                <button class="button" type="submit" id="save-categories">Save categories</button>
               </div>
             </div>
           </form>

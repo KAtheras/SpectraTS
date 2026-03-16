@@ -269,6 +269,21 @@ async function ensureSchema(sql) {
   `;
   await sql`ALTER TABLE level_labels DROP CONSTRAINT IF EXISTS level_labels_level_check`;
 
+  await sql`
+    CREATE TABLE IF NOT EXISTS expense_categories (
+      id TEXT PRIMARY KEY,
+      account_uuid UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      is_active INT NOT NULL DEFAULT 1,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+  await sql`
+    CREATE INDEX IF NOT EXISTS expense_categories_account_idx
+      ON expense_categories(account_uuid)
+  `;
+  await sql`ALTER TABLE level_labels DROP CONSTRAINT IF EXISTS level_labels_level_check`;
+
   const labelRows = await sql`
     SELECT level
     FROM level_labels
@@ -325,6 +340,7 @@ async function ensureSchema(sql) {
   `;
 
   await seedDefaultCatalog(sql, accountUuid);
+  await seedDefaultExpenseCategories(sql, accountUuid);
   await sql`DELETE FROM sessions WHERE expires_at <= NOW()`;
 }
 
@@ -352,6 +368,25 @@ async function seedDefaultCatalog(sql, accountId) {
         VALUES (${clientId}, ${accountId}::uuid, ${projectName})
       `;
     }
+  }
+}
+
+async function seedDefaultExpenseCategories(sql, accountId) {
+  const [{ count }] = await sql`
+    SELECT COUNT(*)::INT AS count
+    FROM expense_categories
+    WHERE account_uuid = ${accountId}::uuid
+  `;
+  if (count > 0) {
+    return;
+  }
+  const defaults = ["Travel", "Meals", "Lodging", "Supplies", "Mileage", "Other"];
+  for (const name of defaults) {
+    await sql`
+      INSERT INTO expense_categories (id, account_uuid, name, is_active, created_at)
+      VALUES (${randomId()}, ${accountId}::uuid, ${name}, 1, NOW())
+      ON CONFLICT DO NOTHING
+    `;
   }
 }
 
@@ -1231,6 +1266,23 @@ async function listProjects(sql, accountId) {
   `;
 }
 
+async function listExpenseCategories(sql, accountId) {
+  const rows = await sql`
+    SELECT
+      id,
+      name,
+      is_active AS "isActive"
+    FROM expense_categories
+    WHERE account_uuid = ${accountId}::uuid
+    ORDER BY created_at, LOWER(name)
+  `;
+  return rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    isActive: row.isActive === 0 ? false : true,
+  }));
+}
+
 async function listManagerClientAssignments(sql, accountId) {
   return sql`
     SELECT
@@ -1514,6 +1566,7 @@ async function loadState(sql, currentUser) {
         : [];
 
   const projects = await listProjects(sql, accountUuid);
+  const expenseCategories = await listExpenseCategories(sql, accountUuid);
   const assignments = {
     managerClients: [],
     managerProjects: [],
@@ -1564,6 +1617,7 @@ async function loadState(sql, currentUser) {
     catalog,
     entries,
     projects,
+    expenseCategories,
     assignments,
     levelLabels,
   };
@@ -1593,6 +1647,7 @@ module.exports = {
   listProjectMembersForProjects,
   listProjectMembersForUser,
   listProjects,
+  listExpenseCategories,
   listLevelLabels,
   listUsers,
   loadState,
@@ -1606,4 +1661,5 @@ module.exports = {
   updateUserRecord,
   verifyPassword,
   hashPassword,
+  randomId,
 };

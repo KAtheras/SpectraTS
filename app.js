@@ -80,7 +80,7 @@
     sessionIndicator: document.getElementById("session-indicator"),
     accountName: document.getElementById("account-name"),
     navTimesheet: document.getElementById("nav-timesheet"),
-    navLevels: document.getElementById("nav-levels"),
+    navSettings: document.getElementById("nav-settings"),
     navMembers: document.getElementById("nav-members"),
     settingsToggle: document.getElementById("settings-toggle"),
     settingsMenu: document.getElementById("settings-menu"),
@@ -102,7 +102,11 @@
     clientsPage: document.getElementById("clients-page"),
     usersPage: document.getElementById("members-page"),
     analyticsPage: document.getElementById("analytics-page"),
-    levelsPage: document.getElementById("levels-page"),
+    settingsPage: document.getElementById("settings-page"),
+    expenseRows: document.getElementById("expense-rows"),
+    addCategory: document.getElementById("add-category"),
+    saveCategories: document.getElementById("save-categories"),
+    expenseCategoriesForm: document.getElementById("expense-categories-form"),
     dialog: document.getElementById("app-dialog"),
     dialogTitle: document.getElementById("dialog-title"),
     dialogMessage: document.getElementById("dialog-message"),
@@ -195,6 +199,7 @@
     users: [],
     bootstrapRequired: false,
     levelLabels: {},
+    expenseCategories: [],
     account: null,
     projects: [],
     assignments: {
@@ -202,7 +207,7 @@
       managerProjects: [],
       projectMembers: [],
     },
-    currentView: "main", // "main" | "clients" | "members" | "analytics" | "levels"
+    currentView: "main", // "main" | "clients" | "members" | "analytics" | "settings"
   };
 
   function persistSessionToken(token) {
@@ -331,6 +336,13 @@
     state.levelLabels = data?.levelLabels && typeof data.levelLabels === "object"
       ? data.levelLabels
       : {};
+    state.expenseCategories = Array.isArray(data?.expenseCategories)
+      ? data.expenseCategories.map((item) => ({
+          id: item.id,
+          name: item.name,
+          isActive: item.isActive ?? item.is_active ?? true,
+        }))
+      : [];
     state.account = data?.account || null;
     const normalizedProjects = normalizeProjects(data?.projects);
     state.projects = normalizedProjects.length
@@ -346,6 +358,7 @@
     state.entries = [];
     state.projects = [];
     state.levelLabels = {};
+    state.expenseCategories = [];
     state.account = null;
     state.assignments = {
       managerClients: [],
@@ -1215,6 +1228,29 @@
     }
   }
 
+  function renderExpenseCategories() {
+    if (!refs.expenseRows) return;
+
+    const categories = state.expenseCategories.length
+      ? [...state.expenseCategories]
+      : [];
+
+    refs.expenseRows.innerHTML = categories
+      .map(
+        (item) => `
+          <div class="level-row expense-row" data-expense-id="${escapeHtml(item.id || "")}">
+            <span class="level-num sr-only">Category</span>
+            <input type="text" value="${escapeHtml(item.name || "")}" data-expense-name placeholder="Category name" />
+            <label class="expense-active">
+              <input type="checkbox" data-expense-active ${item.isActive === false ? "" : "checked"} />
+              <span>Active</span>
+            </label>
+          </div>
+        `
+      )
+      .join("");
+  }
+
   function sortedLevels() {
     const levels = Object.keys(state.levelLabels || {}).map((l) => Number(l));
     if (levels.length) {
@@ -1943,10 +1979,10 @@
       }
     }
     const currentGroup = permissionGroupForLevel(state.currentUser?.level);
-    if (refs.navLevels) {
-      refs.navLevels.hidden = !isAdmin(state.currentUser);
-      refs.navLevels.classList.toggle("is-active", view === "levels");
-      refs.navLevels.setAttribute("aria-current", view === "levels" ? "page" : "false");
+    if (refs.navSettings) {
+      refs.navSettings.hidden = !isAdmin(state.currentUser);
+      refs.navSettings.classList.toggle("is-active", view === "settings");
+      refs.navSettings.setAttribute("aria-current", view === "settings" ? "page" : "false");
     }
     if (refs.navMembers) {
       const showMembers = isAdmin(state.currentUser) || isExecutive(state.currentUser) || isGlobalAdmin(state.currentUser);
@@ -2000,8 +2036,8 @@
     if (refs.analyticsPage) {
       refs.analyticsPage.hidden = view !== "analytics";
     }
-    if (refs.levelsPage) {
-      refs.levelsPage.hidden = view !== "levels";
+    if (refs.settingsPage) {
+      refs.settingsPage.hidden = view !== "settings";
     }
 
     if (view === "clients") {
@@ -2038,7 +2074,9 @@
       return;
     }
 
-    if (view === "levels") {
+    if (view === "settings") {
+      renderLevelRows();
+      renderExpenseCategories();
       postHeight();
       postHeight();
       return;
@@ -2051,8 +2089,8 @@
     if (refs.usersPage) {
       refs.usersPage.hidden = true;
     }
-    if (refs.levelsPage) {
-      refs.levelsPage.hidden = true;
+    if (refs.settingsPage) {
+      refs.settingsPage.hidden = true;
     }
     if (refs.membersModal) {
       refs.membersModal.hidden = true;
@@ -2244,12 +2282,12 @@
       setView("main");
     });
   }
-  if (refs.navLevels) {
-    refs.navLevels.addEventListener("click", function () {
-      if (!isGlobalAdmin(state.currentUser)) {
+  if (refs.navSettings) {
+    refs.navSettings.addEventListener("click", function () {
+      if (!isAdmin(state.currentUser)) {
         return;
       }
-      setView("levels");
+      setView("settings");
     });
   }
 
@@ -2271,12 +2309,7 @@
     });
   }
 
-  const levelsBack = document.getElementById("levels-nav-back");
-  if (levelsBack) {
-    levelsBack.addEventListener("click", function () {
-      setView("members");
-    });
-  }
+  // legacy back button removed; no handler needed
 
   if (refs.themeToggle) {
     refs.themeToggle.addEventListener("click", function () {
@@ -2506,6 +2539,66 @@
   }
   if (refs.addLevel) {
     refs.addLevel.addEventListener("click", handleAddLevel);
+  }
+
+  if (refs.expenseCategoriesForm) {
+    refs.expenseCategoriesForm.addEventListener("submit", async function (event) {
+      event.preventDefault();
+      if (!isAdmin(state.currentUser)) {
+        feedback("Only Admins can update expense categories.", true);
+        return;
+      }
+      const rows = Array.from(refs.expenseRows?.querySelectorAll(".level-row") || []);
+      if (!rows.length) {
+        feedback("Add at least one category.", true);
+        return;
+      }
+      const seen = new Set();
+      const categories = [];
+      for (const row of rows) {
+        const id = (row.dataset.expenseId || "").trim();
+        const nameInput = row.querySelector("[data-expense-name]");
+        const activeInput = row.querySelector("[data-expense-active]");
+        const name = (nameInput?.value || "").trim();
+        const isActive = activeInput ? activeInput.checked : true;
+        if (!name) {
+          feedback("Category name cannot be blank.", true);
+          return;
+        }
+        const key = name.toLowerCase();
+        if (seen.has(key)) {
+          feedback("Category names must be unique.", true);
+          return;
+        }
+        seen.add(key);
+        categories.push({ id: id || null, name, isActive });
+      }
+      try {
+        await mutatePersistentState("update_expense_categories", { categories });
+        feedback("Expense categories updated.", false);
+        render();
+      } catch (error) {
+        feedback(error.message || "Unable to update expense categories.", true);
+      }
+    });
+  }
+
+  if (refs.addCategory) {
+    refs.addCategory.addEventListener("click", function () {
+      if (!isAdmin(state.currentUser)) {
+        feedback("Only Admins can update expense categories.", true);
+        return;
+      }
+      state.expenseCategories = [
+        ...state.expenseCategories,
+        {
+          id: "",
+          name: "",
+          isActive: true,
+        },
+      ];
+      renderExpenseCategories();
+    });
   }
 
   refs.addClientForm.addEventListener("submit", async function (event) {
