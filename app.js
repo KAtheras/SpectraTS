@@ -83,6 +83,7 @@
     navMembers: document.getElementById("nav-members"),
     settingsToggle: document.getElementById("settings-toggle"),
     settingsMenu: document.getElementById("settings-menu"),
+    settingsMenuHeader: document.getElementById("settings-menu-header"),
     changePasswordOpen: document.getElementById("change-password-open"),
     logoutButton: document.getElementById("logout-button"),
     themeToggle: document.getElementById("theme-toggle"),
@@ -679,6 +680,14 @@
   function feedback(message, isError) {
     refs.feedback.textContent = message || "";
     refs.feedback.dataset.error = isError ? "true" : "false";
+  }
+
+  function userInitials(user) {
+    const name = (user?.displayName || user?.username || "").trim();
+    if (!name) return "??";
+    const parts = name.split(/\s+/).filter(Boolean);
+    const letters = (parts[0]?.[0] || "") + (parts[1]?.[0] || parts[0]?.[1] || "");
+    return letters.toUpperCase();
   }
 
   function field(form, name) {
@@ -1669,8 +1678,17 @@
     }
     if (refs.sessionIndicator) {
       refs.sessionIndicator.hidden = false;
-      const userName = state.currentUser.displayName || "";
-      refs.sessionIndicator.innerHTML = `<span class="session-user">${escapeHtml(userName)}</span>`;
+      refs.sessionIndicator.textContent = userInitials(state.currentUser);
+    }
+    if (refs.settingsMenuHeader) {
+      const fullName = state.currentUser?.displayName || state.currentUser?.username || "";
+      if (fullName) {
+        refs.settingsMenuHeader.hidden = false;
+        refs.settingsMenuHeader.textContent = fullName;
+      } else {
+        refs.settingsMenuHeader.hidden = true;
+        refs.settingsMenuHeader.textContent = "";
+      }
     }
     if (refs.navTimesheet) {
       refs.navTimesheet.hidden = false;

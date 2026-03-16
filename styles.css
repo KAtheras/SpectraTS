@@ -406,23 +406,25 @@ body[data-theme="dark"] .app-topbar {
   min-width: 0;
 }
 
+.topbar-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+}
+
 .topbar-right {
   display: flex;
   align-items: center;
   gap: 12px;
-}
-
-.account-name {
-  font-family: var(--font-head);
-  font-weight: 800;
-  font-size: 1.4rem;
-  color: var(--text-strong);
-  line-height: 1.1;
+  justify-content: flex-end;
+  flex: 1;
 }
 
 .top-nav {
-  display: flex;
-  gap: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .topbar-user {
@@ -435,31 +437,58 @@ body[data-theme="dark"] .app-topbar {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  border: 1px solid var(--line);
-  background: var(--surface-subtle);
-  padding: 12px 18px;
-  border-radius: 14px;
+  gap: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  padding: 10px 14px;
+  border-radius: 12px;
   font-family: var(--font-head);
-  font-weight: 800;
+  font-weight: 700;
   font-size: 0.95rem;
   letter-spacing: 0.01em;
   color: var(--text-muted);
   cursor: pointer;
   transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
-  min-height: 46px;
+  min-height: 42px;
 }
 
 .nav-pill.is-active {
   background: var(--accent);
-  border-color: var(--accent);
+  border-color: transparent;
   color: #fff;
 }
 
 .nav-pill:hover {
-  background: rgba(0, 0, 0, 0.06);
+  background: rgba(0, 0, 0, 0.05);
   color: var(--text-strong);
+  border-color: transparent;
+}
+
+.avatar-button {
+  border: 1px solid var(--line);
+  background: var(--surface-subtle);
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-head);
+  font-weight: 800;
+  color: var(--text-strong);
+  cursor: pointer;
+  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+  padding: 0;
+}
+
+.avatar-button:hover {
+  background: rgba(0, 0, 0, 0.06);
   border-color: rgba(0, 0, 0, 0.08);
+}
+
+.avatar-button span {
+  font-size: 0.85rem;
+  letter-spacing: 0.02em;
 }
 
 .utility-pill {

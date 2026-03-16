@@ -84,49 +84,33 @@
           <div class="topbar-left">
             <div class="account-name" id="account-name" hidden></div>
           </div>
-          <div class="topbar-right">
+          <div class="topbar-center">
             <div class="top-nav">
               <button class="nav-pill" id="nav-timesheet" type="button">Timesheet</button>
               <button class="nav-pill" id="open-catalog" type="button">Clients</button>
               <button class="nav-pill" id="nav-members" type="button">Members</button>
               <button class="nav-pill" id="open-analytics" type="button">Analytics</button>
             </div>
+          </div>
+          <div class="topbar-right">
             <div class="topbar-user">
-              <div class="session-indicator utility-pill" id="session-indicator" hidden></div>
-              <div class="settings-menu-wrap">
-                <svg
-                  id="settings-toggle"
-                  class="settings-icon"
-                  aria-hidden="true"
-                  viewBox="0 0 24 24"
-                  focusable="false"
-                  stroke="currentColor"
-                  stroke-width="1.5"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  fill="none"
-                >
-                  <path
-                    d="M11.079 2.25h1.842c.317 0 .6.2.706.498l.498 1.434c.04.115.136.205.254.236.259.072.513.157.76.254.112.044.237.02.324-.068l1.06-1.06a.75.75 0 0 1 1.06 0l1.302 1.302a.75.75 0 0 1 0 1.06l-1.06 1.061c-.088.087-.112.212-.068.324.097.247.182.5.254.759.031.118.12.214.236.254l1.434.498c.298.105.498.389.498.705v1.843a.75.75 0 0 1-.498.705l-1.434.498a.353.353 0 0 0-.236.254 6.47 6.47 0 0 1-.254.76.34.34 0 0 0 .068.323l1.06 1.06a.75.75 0 0 1 0 1.061l-1.302 1.302a.75.75 0 0 1-1.06 0l-1.061-1.06a.34.34 0 0 0-.323-.069c-.247.098-.5.183-.759.255a.353.353 0 0 0-.254.236l-.498 1.434a.75.75 0 0 1-.705.498h-1.843a.75.75 0 0 1-.705-.498l-.498-1.434a.353.353 0 0 0-.254-.236 6.47 6.47 0 0 1-.76-.255.34.34 0 0 0-.323.069l-1.06 1.06a.75.75 0 0 1-1.061 0L4.4 18.823a.75.75 0 0 1 0-1.06l1.06-1.061a.34.34 0 0 0 .069-.323 6.52 6.52 0 0 1-.255-.76.353.353 0 0 0-.236-.254l-1.434-.498A.75.75 0 0 1 3 14.164v-1.842c0-.317.2-.6.498-.706l1.434-.498c.115-.04.205-.136.236-.254.072-.259.157-.513.254-.76.044-.112.02-.237-.068-.324l-1.06-1.06a.75.75 0 0 1 0-1.061l1.302-1.302a.75.75 0 0 1 1.06 0l1.061 1.06c.087.088.212.112.323.068.247-.097.5-.182.759-.254a.353.353 0 0 0 .254-.236l.498-1.434a.75.75 0 0 1 .705-.498Z"
-                  />
-                  <path
-                    d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"
-                  />
-                </svg>
-                <div class="settings-menu" id="settings-menu" hidden>
-                  <button class="settings-item" id="change-password-open" type="button" hidden>
-                    Change Password
-                  </button>
-                  <button class="settings-item" id="theme-toggle" type="button">
-                    Dark/Light
-                  </button>
-                  <button class="settings-item" id="settings-levels" type="button" hidden>
-                    Edit Levels
-                  </button>
-                  <button class="settings-item" id="logout-button" type="button" hidden>
-                    Log out
-                  </button>
-                </div>
+              <button class="avatar-button" id="settings-toggle" type="button" aria-label="User menu">
+                <span id="session-indicator" hidden></span>
+              </button>
+              <div class="settings-menu" id="settings-menu" hidden>
+                <div class="settings-menu-header" id="settings-menu-header" hidden></div>
+                <button class="settings-item" id="change-password-open" type="button" hidden>
+                  Change Password
+                </button>
+                <button class="settings-item" id="theme-toggle" type="button">
+                  Dark/Light
+                </button>
+                <button class="settings-item" id="settings-levels" type="button" hidden>
+                  Edit Levels
+                </button>
+                <button class="settings-item" id="logout-button" type="button" hidden>
+                  Log out
+                </button>
               </div>
             </div>
           </div>
