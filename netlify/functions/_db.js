@@ -644,8 +644,19 @@ async function adminCount(sql, accountId) {
   const rows = await sql`
     SELECT COUNT(*)::INT AS count
     FROM users
-    WHERE is_active = TRUE AND level >= 6
-      AND account_id = ${accountId}::uuid
+    LEFT JOIN level_labels
+      ON level_labels.account_id = users.account_id
+     AND level_labels.level = users.level
+    WHERE users.is_active = TRUE
+      AND users.account_id = ${accountId}::uuid
+      AND COALESCE(
+            level_labels.permission_group,
+            CASE
+              WHEN users.level >= 5 THEN 'admin'
+              WHEN users.level >= 3 THEN 'manager'
+              ELSE 'staff'
+            END
+          ) = 'admin'
   `;
   return rows[0]?.count || 0;
 }
@@ -886,7 +897,7 @@ async function updateUserRecord(sql, payload, actingUser) {
     throw new Error("Cost rate must be a non-negative number.");
   }
 
-  if (isSuperAdminLevel(existingUser.level) && !isSuperAdminLevel(level)) {
+  if (isAdmin(existingUser) && !isAdmin({ level, permissionGroup: null })) {
     const admins = await adminCount(sql, existingUser.account_id);
     if (admins <= 1) {
       throw new Error("At least one Admin account is required.");
