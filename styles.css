@@ -1933,13 +1933,13 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   background: #f6fff7;
 }
 
-.theme-dark .entry-status.entry-status-approved {
-  background: #1f5236;
-  color: #e2f7e9;
+body[data-theme="dark"] .entry-status.entry-status-approved {
+  background: #224734;
+  color: #e7f4ed;
 }
 
-.theme-dark .entry-row.entry-approved td {
-  background: #0c2019;
+body[data-theme="dark"] .entry-row.entry-approved td {
+  background: #0f1d15;
 }
 
 .empty-row,
