@@ -850,13 +850,14 @@
     return Object.keys(state.catalog).sort((a, b) => a.localeCompare(b));
   }
 
-  function visibleCatalogClientNames() {
-    if (!state.currentUser) {
+  function visibleCatalogClientNames(targetUser) {
+    const user = targetUser || state.currentUser;
+    if (!user) {
       return catalogClientNames();
     }
-    return isAdmin(state.currentUser)
+    return isAdmin(user)
       ? catalogClientNames()
-      : allowedClientsForUser(state.currentUser);
+      : allowedClientsForUser(user);
   }
 
   function historicalClientNames() {
@@ -878,14 +879,15 @@
     return uniqueValues(configuredProjects).sort((a, b) => a.localeCompare(b));
   }
 
-  function visibleCatalogProjectNames(client) {
-    if (!state.currentUser) {
+  function visibleCatalogProjectNames(client, targetUser) {
+    const user = targetUser || state.currentUser;
+    if (!user) {
       return catalogProjectNames(client);
     }
-    if (isAdmin(state.currentUser)) {
+    if (isAdmin(user)) {
       return catalogProjectNames(client);
     }
-    return allowedProjectsForClient(state.currentUser, client);
+    return allowedProjectsForClient(user, client);
   }
 
   function projectNames(client) {
@@ -955,6 +957,12 @@
   }
 
   function syncFormCatalogsUI(selection) {
+    const selectedUserName = selection?.user || "";
+    const targetUser =
+      selectedUserName && state.users.length
+        ? state.users.find((u) => u.displayName === selectedUserName) || state.currentUser
+        : state.currentUser;
+
     syncFormCatalogs?.(
       {
         refs,
@@ -963,6 +971,7 @@
         entryUserOptions,
         visibleCatalogClientNames,
         visibleCatalogProjectNames,
+        targetUser,
         isStaff,
         isValidDateString,
         populateSelect,
@@ -1932,18 +1941,19 @@
         refs.settingsMenuHeader.textContent = "";
       }
     }
+    const currentGroup = permissionGroupForLevel(state.currentUser?.level);
     if (refs.navLevels) {
-      refs.navLevels.hidden = !isGlobalAdmin(state.currentUser);
+      refs.navLevels.hidden = !isAdmin(state.currentUser);
       refs.navLevels.classList.toggle("is-active", view === "levels");
       refs.navLevels.setAttribute("aria-current", view === "levels" ? "page" : "false");
     }
     if (refs.navMembers) {
-      refs.navMembers.hidden = currentLevel < 5;
+      refs.navMembers.hidden = !(currentGroup === "admin");
       refs.navMembers.classList.toggle("is-active", view === "members");
       refs.navMembers.setAttribute("aria-current", view === "members" ? "page" : "false");
     }
     if (refs.openCatalog) {
-      refs.openCatalog.hidden = currentLevel < 3;
+      refs.openCatalog.hidden = !(currentGroup === "manager" || currentGroup === "executive" || currentGroup === "admin");
       refs.openCatalog.classList.toggle("is-active", view === "clients");
       refs.openCatalog.setAttribute("aria-current", view === "clients" ? "page" : "false");
     }

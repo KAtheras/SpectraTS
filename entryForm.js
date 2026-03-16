@@ -326,10 +326,15 @@
     const entryClients = uniqueValues(
       (state.entries || []).map((entry) => entry.client).filter(Boolean)
     );
-    const allowedClientsRaw = state.currentUser
-      ? isAdmin(state.currentUser)
+    const targetUser =
+      nextUser && state.users.length
+        ? state.users.find((u) => u.displayName === nextUser) || state.currentUser
+        : state.currentUser;
+
+    const allowedClientsRaw = targetUser
+      ? isAdmin(targetUser)
         ? clientNames()
-        : allowedClientsForUser(state.currentUser)
+        : allowedClientsForUser(targetUser)
       : clientNames();
     const allowedClientsFiltered = allowedClientsRaw.filter((client) =>
       entryClients.includes(client)
@@ -344,10 +349,10 @@
         .filter(Boolean)
     );
     const allowedProjectsRaw = nextClient
-      ? state.currentUser && !isAdmin(state.currentUser)
-        ? allowedProjectsForClient(state.currentUser, nextClient)
+      ? targetUser && !isAdmin(targetUser)
+        ? allowedProjectsForClient(targetUser, nextClient)
         : projectNames(nextClient)
-      : state.currentUser && !isAdmin(state.currentUser)
+      : targetUser && !isAdmin(targetUser)
         ? []
         : projectNames(nextClient);
     const allowedProjectsFiltered = allowedProjectsRaw.filter((project) =>
