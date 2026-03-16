@@ -2025,11 +2025,6 @@
     });
   }
 
-  refs.closeUsers.addEventListener("click", function (event) {
-    event.preventDefault();
-    closeUsersModal();
-  });
-
   if (refs.closeMembers) {
     refs.closeMembers.addEventListener("click", function (event) {
       event.preventDefault();
