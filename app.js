@@ -2447,16 +2447,42 @@
         return;
       }
       const rows = Array.from(refs.levelRows?.querySelectorAll(".level-row") || []);
+      if (!rows.length) {
+        feedback("No levels to save.", true);
+        return;
+      }
+
+      const seen = new Set();
+      const validGroups = new Set(["staff", "manager", "executive", "admin"]);
+
       const levels = rows.map(function (row) {
         const level = Number(row.dataset.level);
         const labelInput = row.querySelector("[data-level-label]");
         const groupSelect = row.querySelector("[data-level-permission]");
-        return {
-          level,
-          label: (labelInput?.value || "").trim(),
-          permissionGroup: (groupSelect?.value || "staff").trim(),
-        };
-      });
+        const label = (labelInput?.value || "").trim();
+        const permissionGroup = (groupSelect?.value || "staff").trim();
+        return { level, label, permissionGroup };
+      }).sort((a, b) => a.level - b.level);
+
+      for (const item of levels) {
+        if (!item.level || Number.isNaN(item.level)) {
+          feedback("Level number is required for each row.", true);
+          return;
+        }
+        if (seen.has(item.level)) {
+          feedback("Duplicate level numbers are not allowed.", true);
+          return;
+        }
+        seen.add(item.level);
+        if (!item.label) {
+          feedback("Each level needs a label.", true);
+          return;
+        }
+        if (!validGroups.has(item.permissionGroup)) {
+          feedback("Invalid permission group selected.", true);
+          return;
+        }
+      }
       try {
         await mutatePersistentState("update_level_labels", { levels });
         feedback("Levels updated.", false);
