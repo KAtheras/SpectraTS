@@ -1983,46 +1983,6 @@
     });
   }
 
-  if (refs.clientsNavMembers) {
-    refs.clientsNavMembers.addEventListener("click", function () {
-      setView("members");
-    });
-  }
-
-  if (refs.clientsNavMain) {
-    refs.clientsNavMain.addEventListener("click", function () {
-      setView("main");
-    });
-  }
-
-  if (refs.clientsNavTheme) {
-    refs.clientsNavTheme.addEventListener("click", function () {
-      const nextTheme = body.dataset.theme === "dark" ? "light" : "dark";
-      saveThemePreference(nextTheme);
-      applyTheme(nextTheme);
-    });
-  }
-
-  if (refs.membersNavClients) {
-    refs.membersNavClients.addEventListener("click", function () {
-      setView("clients");
-    });
-  }
-
-  if (refs.membersNavMain) {
-    refs.membersNavMain.addEventListener("click", function () {
-      setView("main");
-    });
-  }
-
-  if (refs.membersNavTheme) {
-    refs.membersNavTheme.addEventListener("click", function () {
-      const nextTheme = body.dataset.theme === "dark" ? "light" : "dark";
-      saveThemePreference(nextTheme);
-      applyTheme(nextTheme);
-    });
-  }
-
   const levelsBack = document.getElementById("levels-nav-back");
   if (levelsBack) {
     levelsBack.addEventListener("click", function () {
