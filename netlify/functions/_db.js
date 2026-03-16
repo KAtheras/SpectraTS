@@ -1330,6 +1330,15 @@ async function getManagerScope(sql, managerId, accountId) {
   return { clientIds, projectIds };
 }
 async function loadState(sql, currentUser) {
+  const permissionGroupForLevelWithLabels = (level, labels) => {
+    const normalized = normalizeLevel(level);
+    const value = labels?.[normalized];
+    if (value && typeof value === "object" && value.permissionGroup) {
+      return value.permissionGroup;
+    }
+    return defaultPermissionGroup(normalized);
+  };
+
   const normalizedUser = currentUser
     ? {
         ...currentUser,
@@ -1356,10 +1365,12 @@ async function loadState(sql, currentUser) {
     )[0];
   const currentGroup = normalizedUser ? permissionGroupForLevel(normalizedUser.level) : null;
   const isSuperAdmin = normalizedUser && isAdmin(normalizedUser); // keep legacy flag equivalent to admin group
-  const isAdminFlag = normalizedUser && isAdmin(normalizedUser);
-  const isExecFlag = normalizedUser && isExecutive(normalizedUser);
-  const isManagerFlag = normalizedUser && isManager(normalizedUser);
-  const isStaffFlag = normalizedUser && isStaff(normalizedUser);
+  const levelLabels = await listLevelLabels(sql, accountUuid);
+  const currentGroup = normalizedUser ? permissionGroupForLevelWithLabels(normalizedUser.level, levelLabels) : null;
+  const isAdminFlag = currentGroup === "admin";
+  const isExecFlag = currentGroup === "executive";
+  const isManagerFlag = currentGroup === "manager" || isExecFlag || isAdminFlag;
+  const isStaffFlag = currentGroup === "staff";
 
   const catalogRows = await sql`
     SELECT
@@ -1510,7 +1521,7 @@ async function loadState(sql, currentUser) {
     entries,
     projects,
     assignments,
-    levelLabels: await listLevelLabels(sql, accountUuid),
+    levelLabels,
   };
 }
 
