@@ -42,6 +42,7 @@
   --shell-pad: 24px;
   --font-head: Arial, Helvetica, sans-serif;
   --font-body: Arial, Helvetica, sans-serif;
+  --card-radius: 16px;
 }
 
 body[data-theme="dark"] {
@@ -145,7 +146,7 @@ body.modal-open {
   background: var(--panel);
   border: 1px solid var(--panel-border);
   box-shadow: var(--shadow);
-  border-radius: 20px;
+  border-radius: var(--card-radius);
   padding: 20px 20px 16px;
   display: grid;
   gap: 14px;
@@ -188,7 +189,7 @@ body.modal-open {
 .force-password-card {
   background: var(--panel, #fff);
   border: 1px solid var(--panel-border, #ddd);
-  border-radius: 18px;
+  border-radius: var(--card-radius);
   padding: 20px;
   width: min(520px, calc(100vw - 32px));
   display: grid;
@@ -663,7 +664,7 @@ body[data-theme="dark"] .settings-item:hover {
 }
 
 .panel {
-  border-radius: 28px;
+  border-radius: var(--card-radius);
   padding: 22px;
 }
 
@@ -743,7 +744,7 @@ body[data-theme="dark"] .settings-item:hover {
 .add-user-card {
   background: var(--modal-sticky-card);
   border: 1px solid var(--group-border);
-  border-radius: 18px;
+  border-radius: var(--card-radius);
   padding: 12px 14px 14px;
 }
 
