@@ -135,6 +135,8 @@
     addProjectForm: document.getElementById("add-project-form"),
     addUserForm: document.getElementById("add-user-form"),
     levelLabelsForm: document.getElementById("level-labels-form"),
+    levelRows: document.getElementById("level-rows"),
+    addLevel: document.getElementById("add-level"),
     filterForm: document.getElementById("filter-form"),
     clearFilters: document.getElementById("clear-filters"),
     exportCsv: document.getElementById("export-csv"),
@@ -165,6 +167,15 @@
   };
 
   const today = formatDate(new Date());
+
+  const DEFAULT_LEVEL_DEFS = {
+    1: { label: "Staff", permissionGroup: "staff" },
+    2: { label: "Senior", permissionGroup: "staff" },
+    3: { label: "Manager", permissionGroup: "manager" },
+    4: { label: "Director", permissionGroup: "manager" },
+    5: { label: "Partner", permissionGroup: "admin" },
+    6: { label: "Admin", permissionGroup: "admin" },
+  };
 
   const state = {
     catalog: {},
@@ -904,8 +915,10 @@
     levelLabel,
     isGlobalAdmin,
     isManager,
+    isExecutive,
     isStaff,
     isAdmin,
+    permissionGroupForLevel,
     getUserById,
     getUserByDisplayName,
     managerClientAssignments,
@@ -1148,6 +1161,7 @@
       refs,
       state,
       levelLabel,
+      levels: sortedLevels(),
       isAdmin,
       isGlobalAdmin,
       isManager,
@@ -1159,6 +1173,67 @@
     });
   }
 
+  function renderLevelRows() {
+    if (!refs.levelRows) return;
+
+    const sorted = getLevelDefinitions();
+
+    refs.levelRows.innerHTML = sorted
+      .map(
+        (item) => `
+          <div class="level-row" data-level="${item.level}">
+            <span class="level-num">Level ${item.level}</span>
+            <input type="text" value="${escapeHtml(item.label || "")}" data-level-label />
+            <select data-level-permission>
+              ${["staff", "manager", "executive", "admin"]
+                .map(
+                  (group) =>
+                    `<option value="${group}"${group === item.permissionGroup ? " selected" : ""}>${group}</option>`
+                )
+                .join("")}
+            </select>
+          </div>
+        `
+      )
+      .join("");
+
+    const isEditable = isAdmin(state.currentUser);
+    refs.levelRows.querySelectorAll("input, select").forEach(function (el) {
+      el.disabled = !isEditable;
+    });
+    if (refs.addLevel) {
+      refs.addLevel.disabled = !isEditable;
+    }
+  }
+
+  function sortedLevels() {
+    const levels = Object.keys(state.levelLabels || {}).map((l) => Number(l));
+    if (levels.length) {
+      return levels.sort((a, b) => a - b);
+    }
+    return Object.keys(DEFAULT_LEVEL_DEFS)
+      .map((l) => Number(l))
+      .sort((a, b) => a - b);
+  }
+
+  function getLevelDefinitions() {
+    const levels = sortedLevels();
+    return levels.map(function (lvl) {
+      const value = state.levelLabels?.[lvl];
+      const label =
+        value && typeof value === "object"
+          ? value.label
+          : typeof value === "string"
+            ? value
+            : DEFAULT_LEVEL_DEFS[lvl]?.label || `Level ${lvl}`;
+      const permissionGroup =
+        value && typeof value === "object"
+          ? value.permissionGroup || value.permission_group
+          : DEFAULT_LEVEL_DEFS[lvl]?.permissionGroup || "staff";
+      return { level: lvl, label, permissionGroup };
+    });
+  }
+
   function syncUserManagementControls() {
     usersSyncUserManagementControls?.({
       refs,
@@ -1166,9 +1241,28 @@
       isAdmin,
       isGlobalAdmin,
       levelLabel,
+      levels: sortedLevels(),
       escapeHtml,
       field,
     });
+  }
+
+  function handleAddLevel() {
+    if (!isAdmin(state.currentUser)) {
+      feedback("Only Admins can edit levels.", true);
+      return;
+    }
+    const currentLevels = sortedLevels();
+    const maxLevel = currentLevels.length ? Math.max(...currentLevels) : 6;
+    const nextLevel = maxLevel + 1;
+    state.levelLabels = {
+      ...state.levelLabels,
+      [nextLevel]: {
+        label: `Level ${nextLevel}`,
+        permissionGroup: "staff",
+      },
+    };
+    renderLevelRows();
   }
 
   function setMembersFeedback(message, isError) {
@@ -1679,27 +1773,33 @@
       return false;
     }
 
-    const currentLevel = normalizeLevel(current.level);
-    if (currentLevel < 3) {
+    const currentGroup = permissionGroupForLevel(current.level);
+    const targetUser = getUserByDisplayName(entry.user);
+    const targetGroup = permissionGroupForLevel(targetUser?.level || 1);
+
+    if (current.displayName === entry.user) {
       return false;
     }
 
-    const targetUser = getUserByDisplayName(entry.user);
-    const targetLevel = targetUser ? normalizeLevel(targetUser.level) : 1;
-
-    if (!isAdmin(current)) {
-      if (current.displayName === entry.user) {
-        return false;
-      }
-      if (currentLevel <= targetLevel) {
-        return false;
-      }
-      if (!canUserAccessProject(current, entry.client, entry.project)) {
-        return false;
-      }
+    if (currentGroup === "staff") {
+      return false;
     }
 
-    return true;
+    if (currentGroup === "manager") {
+      if (targetGroup !== "staff") {
+        return false;
+      }
+      return canUserAccessProject(current, entry.client, entry.project);
+    }
+
+    if (currentGroup === "executive" || currentGroup === "admin") {
+      if (!isAdmin(current) && !canUserAccessProject(current, entry.client, entry.project)) {
+        return false;
+      }
+      return true;
+    }
+
+    return false;
   }
 
   function canApproveEntry(entry) {
@@ -1954,6 +2054,7 @@
     renderCatalogAside();
     renderUsersList();
     syncUserManagementControls();
+    renderLevelRows();
     renderFilterState(filteredEntries);
     renderTable(filteredEntries);
     postHeight();
@@ -2341,29 +2442,38 @@
   if (refs.levelLabelsForm) {
     refs.levelLabelsForm.addEventListener("submit", async function (event) {
       event.preventDefault();
-      if (!isGlobalAdmin(state.currentUser)) {
-        feedback("Only Level 6 Admins can update level labels.", true);
+      if (!isAdmin(state.currentUser)) {
+        feedback("Only Admins can update levels.", true);
         return;
       }
-      const formData = new FormData(refs.levelLabelsForm);
-      const labels = {};
-      for (let level = 1; level <= 6; level += 1) {
-        labels[level] = String(formData.get(`level_${level}`) || "").trim();
-      }
+      const rows = Array.from(refs.levelRows?.querySelectorAll(".level-row") || []);
+      const levels = rows.map(function (row) {
+        const level = Number(row.dataset.level);
+        const labelInput = row.querySelector("[data-level-label]");
+        const groupSelect = row.querySelector("[data-level-permission]");
+        return {
+          level,
+          label: (labelInput?.value || "").trim(),
+          permissionGroup: (groupSelect?.value || "staff").trim(),
+        };
+      });
       try {
-        await mutatePersistentState("update_level_labels", { labels });
-        feedback("Level labels updated.", false);
+        await mutatePersistentState("update_level_labels", { levels });
+        feedback("Levels updated.", false);
         render();
       } catch (error) {
-        feedback(error.message || "Unable to update level labels.", true);
+        feedback(error.message || "Unable to update levels.", true);
       }
     });
+  }
+  if (refs.addLevel) {
+    refs.addLevel.addEventListener("click", handleAddLevel);
   }
 
   refs.addClientForm.addEventListener("submit", async function (event) {
     event.preventDefault();
-    if (!isAdmin(state.currentUser)) {
-      feedback("Only Admins can add clients.", true);
+    if (!isAdmin(state.currentUser) && !isExecutive(state.currentUser)) {
+      feedback("Only Executives or Admins can add clients.", true);
       return;
     }
     const clientNameField = field(refs.addClientForm, "client_name");
@@ -2398,12 +2508,9 @@
 
   refs.addProjectForm.addEventListener("submit", async function (event) {
     event.preventDefault();
-    const canCreateProject =
-      isAdmin(state.currentUser) ||
-      (isManager(state.currentUser) &&
-        canManagerAccessClient(state.currentUser, state.selectedCatalogClient));
+    const canCreateProject = isAdmin(state.currentUser) || isExecutive(state.currentUser);
     if (!canCreateProject) {
-      feedback("You are not assigned to this client.", true);
+      feedback("Only Executives or Admins can create projects.", true);
       return;
     }
     const projectNameField = field(refs.addProjectForm, "project_name");

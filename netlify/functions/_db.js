@@ -256,8 +256,9 @@ async function ensureSchema(sql) {
     CREATE TABLE IF NOT EXISTS level_labels (
       id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
       account_id UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
-      level INT NOT NULL CHECK (level BETWEEN 1 AND 6),
+      level INT NOT NULL,
       label TEXT NOT NULL,
+      permission_group TEXT NOT NULL DEFAULT 'staff',
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       UNIQUE (account_id, level)
     )
@@ -281,12 +282,24 @@ async function ensureSchema(sql) {
     const levelInt = Number(level);
     if (!existingLevels.has(levelInt)) {
       await sql`
-        INSERT INTO level_labels (account_id, level, label)
-        VALUES (${accountUuid}::uuid, ${levelInt}, ${label})
+        INSERT INTO level_labels (account_id, level, label, permission_group)
+        VALUES (${accountUuid}::uuid, ${levelInt}, ${label}, ${defaultPermissionGroup(levelInt)})
         ON CONFLICT (account_id, level) DO NOTHING
       `;
     }
   }
+
+  await sql`
+    UPDATE level_labels
+    SET permission_group = CASE
+      WHEN level >= 5 THEN 'admin'
+      WHEN level >= 3 THEN 'manager'
+      WHEN level >= 1 THEN 'staff'
+      ELSE permission_group
+    END
+    WHERE (permission_group IS NULL OR permission_group = '')
+      AND account_id = ${accountUuid}::uuid
+  `;
 
   await sql`
     INSERT INTO project_members (project_id, user_id, account_id, assigned_by, created_at)
@@ -377,12 +390,12 @@ function normalizeText(value) {
 }
 
 function normalizeLevel(value) {
-  if (typeof value === "number" && Number.isInteger(value) && value >= 1 && value <= 6) {
+  if (typeof value === "number" && Number.isInteger(value) && value >= 1) {
     return value;
   }
   const raw = normalizeText(value).toLowerCase();
   const numeric = Number(raw);
-  if (Number.isInteger(numeric) && numeric >= 1 && numeric <= 6) {
+  if (Number.isInteger(numeric) && numeric >= 1) {
     return numeric;
   }
   if (raw === "staff") return 1;
@@ -406,6 +419,38 @@ function isAdminLevel(level) {
 function isManagerLevel(level) {
   const normalized = normalizeLevel(level);
   return normalized >= 3;
+}
+
+function defaultPermissionGroup(level) {
+  const normalized = normalizeLevel(level);
+  if (normalized >= 5) return "admin";
+  if (normalized >= 3) return "manager";
+  return "staff";
+}
+
+function permissionGroupForLevel(level) {
+  const normalized = normalizeLevel(level);
+  if (normalized >= 5) return "admin";
+  if (normalized >= 3) return "manager";
+  return "staff";
+}
+
+function isAdmin(user) {
+  return permissionGroupForLevel(user?.level) === "admin";
+}
+
+function isExecutive(user) {
+  const group = permissionGroupForLevel(user?.level);
+  return group === "executive" || group === "admin";
+}
+
+function isManager(user) {
+  const group = permissionGroupForLevel(user?.level);
+  return group === "manager" || group === "executive" || group === "admin";
+}
+
+function isStaff(user) {
+  return permissionGroupForLevel(user?.level) === "staff";
 }
 
 function randomId() {
@@ -592,14 +637,17 @@ async function adminCount(sql, accountId) {
 
 async function listLevelLabels(sql, accountId) {
   const rows = await sql`
-    SELECT level, label
+    SELECT level, label, permission_group
     FROM level_labels
     WHERE account_id = ${accountId}::uuid
     ORDER BY level
   `;
   const labels = {};
   rows.forEach((row) => {
-    labels[row.level] = row.label;
+    labels[row.level] = {
+      label: row.label,
+      permissionGroup: row.permission_group,
+    };
   });
   return labels;
 }
@@ -1068,7 +1116,7 @@ function requireAdmin(context) {
     return requireAuth(context);
   }
 
-  return isAdminLevel(context.currentUser.level)
+  return isAdmin(context.currentUser)
     ? null
     : errorResponse(403, "Admin access required.");
 }
@@ -1078,7 +1126,7 @@ function requireSuperAdmin(context) {
     return requireAuth(context);
   }
 
-  return isSuperAdminLevel(context.currentUser.level)
+  return isAdmin(context.currentUser)
     ? null
     : errorResponse(403, "Admin access required.");
 }

@@ -396,34 +396,10 @@
           <form id="level-labels-form" class="level-labels-form">
             <div class="level-labels-inner">
               <h3>Level Labels</h3>
-              <div class="level-labels-grid">
-                <label>
-                  <span>Level 1</span>
-                  <input type="text" name="level_1" required />
-                </label>
-                <label>
-                  <span>Level 2</span>
-                  <input type="text" name="level_2" required />
-                </label>
-                <label>
-                  <span>Level 3</span>
-                  <input type="text" name="level_3" required />
-                </label>
-                <label>
-                  <span>Level 4</span>
-                  <input type="text" name="level_4" required />
-                </label>
-                <label>
-                  <span>Level 5</span>
-                  <input type="text" name="level_5" required />
-                </label>
-                <label>
-                  <span>Level 6</span>
-                  <input type="text" name="level_6" required />
-                </label>
-              </div>
+              <div class="level-rows" id="level-rows"></div>
               <div class="level-labels-actions">
-                <button class="button button-ghost" type="submit">Save level labels</button>
+                <button class="button button-ghost" type="button" id="add-level">Add level</button>
+                <button class="button" type="submit">Save levels</button>
               </div>
             </div>
           </form>

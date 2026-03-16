@@ -11,26 +11,53 @@
       6: "Admin",
     };
 
+    const DEFAULT_LEVEL_PERMISSION_GROUP = {
+      1: "staff",
+      2: "staff",
+      3: "manager",
+      4: "manager",
+      5: "admin",
+      6: "admin",
+    };
+
+    function permissionGroupForLevel(level) {
+      const normalized = normalizeLevel(level);
+      const value = state.levelLabels?.[normalized];
+      if (value && typeof value === "object" && value.permissionGroup) {
+        return value.permissionGroup;
+      }
+      const group = DEFAULT_LEVEL_PERMISSION_GROUP[normalized];
+      return group || "staff";
+    }
+
     function levelLabel(level) {
       const normalized = normalizeLevel(level);
-      return state.levelLabels?.[normalized] || DEFAULT_LEVEL_LABELS[normalized] || "Staff";
-    }
-
-    function isGlobalAdmin(user) {
-      return normalizeLevel(user?.level) >= 6;
-    }
-
-    function isManager(user) {
-      const level = normalizeLevel(user?.level);
-      return level >= 3 && level <= 4;
-    }
-
-    function isStaff(user) {
-      return normalizeLevel(user?.level) <= 2;
+      const value = state.levelLabels?.[normalized];
+      if (value && typeof value === "object") {
+        return value.label || DEFAULT_LEVEL_LABELS[normalized] || "Staff";
+      }
+      return value || DEFAULT_LEVEL_LABELS[normalized] || "Staff";
     }
 
     function isAdmin(user) {
-      return normalizeLevel(user?.level) >= 5;
+      return permissionGroupForLevel(user?.level) === "admin";
+    }
+
+    function isGlobalAdmin(user) {
+      return isAdmin(user);
+    }
+
+    function isExecutive(user) {
+      return permissionGroupForLevel(user?.level) === "executive";
+    }
+
+    function isManager(user) {
+      const group = permissionGroupForLevel(user?.level);
+      return group === "manager" || group === "executive" || group === "admin";
+    }
+
+    function isStaff(user) {
+      return permissionGroupForLevel(user?.level) === "staff";
     }
 
     function getUserById(userId) {
@@ -232,6 +259,8 @@
       isManager,
       isStaff,
       isAdmin,
+      isExecutive,
+      permissionGroupForLevel,
       getUserById,
       getUserByDisplayName,
       managerClientAssignments,

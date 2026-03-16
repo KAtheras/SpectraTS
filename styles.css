@@ -828,10 +828,35 @@ input[name="cost_rate"] {
 .level-labels-actions {
   display: flex;
   justify-content: flex-end;
+  gap: 10px;
 }
 
 .level-labels-actions .button {
   margin-top: 4px;
+}
+
+.level-rows {
+  display: grid;
+  gap: 10px;
+}
+
+.level-row {
+  display: grid;
+  grid-template-columns: 80px 1fr 200px;
+  align-items: center;
+  gap: 10px;
+}
+
+.level-row .level-num {
+  font-family: var(--font-head);
+  font-weight: 700;
+}
+
+.level-row input,
+.level-row select {
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0;
 }
 
 .entry-form label,

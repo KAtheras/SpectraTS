@@ -44,6 +44,7 @@
       refs,
       state,
       levelLabel,
+      levels,
       isAdmin,
       isGlobalAdmin,
       isManager,
@@ -167,11 +168,12 @@
 
     const assignments = assignmentSummary(selectedUser);
     const editing = detailEditMode && detailEditUserId === selectedUser.id;
-    const levelOptions = [1, 2, 3, 4, 5, 6]
-      .map(
-        (level) =>
-          `<option value="${level}"${(editing ? detailDraft.level ?? selectedUser.level : selectedUser.level) === level ? " selected" : ""}>${escapeHtml(levelLabel(level))}</option>`
-      )
+    const levelChoices = Array.isArray(levels) && levels.length ? levels : [1, 2, 3, 4, 5, 6];
+    const levelOptions = levelChoices
+      .map((level) => {
+        const selectedValue = editing ? detailDraft.level ?? selectedUser.level : selectedUser.level;
+        return `<option value="${level}"${selectedValue === level ? " selected" : ""}>${escapeHtml(levelLabel(level))}</option>`;
+      })
       .join("");
     const draftUsername = editing
       ? detailDraft.username ?? selectedUser.username
@@ -277,7 +279,8 @@
     const reason = "Admin only.";
     const levelField = field(refs.addUserForm, "level");
     if (levelField) {
-      levelField.innerHTML = [1, 2, 3, 4, 5, 6]
+      const levels = Array.isArray(deps.levels) && deps.levels.length ? deps.levels : [1, 2, 3, 4, 5, 6];
+      levelField.innerHTML = levels
         .map(
           (level) =>
             `<option value="${level}">${escapeHtml(levelLabel(level))}</option>`
@@ -285,8 +288,8 @@
         .join("");
       levelField.disabled = !canAssignLevel || !canManageUsers;
       levelField.title = canAssignLevel && canManageUsers ? "" : "Admin only.";
-      if (!canAssignLevel) {
-        levelField.value = "1";
+      if (!canAssignLevel && levels.length) {
+        levelField.value = String(levels[0]);
       }
     }
     refs.addUserForm.querySelectorAll("input, select, button").forEach(function (el) {

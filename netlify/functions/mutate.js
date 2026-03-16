@@ -31,20 +31,33 @@ function normalizeHours(value) {
   return Number.isFinite(hours) ? hours : NaN;
 }
 
-function isGlobalAdmin(user) {
-  return user && user.level >= 6;
-}
-
-function isManager(user) {
-  return user && user.level >= 3 && user.level <= 4;
+function permissionGroupForLevel(level) {
+  const normalized = normalizeLevel(level);
+  if (normalized >= 5) return "admin";
+  if (normalized >= 3) return "manager";
+  return "staff";
 }
 
 function isStaff(user) {
-  return user && user.level <= 2;
+  return permissionGroupForLevel(user?.level) === "staff";
+}
+
+function isManager(user) {
+  const group = permissionGroupForLevel(user?.level);
+  return group === "manager" || group === "admin";
+}
+
+function isExecutive(user) {
+  const group = permissionGroupForLevel(user?.level);
+  return group === "executive" || group === "admin";
 }
 
 function isAdmin(user) {
-  return user && user.level >= 5;
+  return permissionGroupForLevel(user?.level) === "admin";
+}
+
+function isGlobalAdmin(user) {
+  return isAdmin(user);
 }
 
 function normalizeStatus(status) {
@@ -117,26 +130,35 @@ function validateEntry(entry, currentUser) {
 }
 
 async function updateLevelLabels(sql, payload, accountId) {
-  const labels = payload?.labels;
-  if (!labels || typeof labels !== "object") {
-    return errorResponse(400, "Level labels are required.");
+  const levels = Array.isArray(payload?.levels)
+    ? payload.levels
+    : [];
+
+  if (!levels.length) {
+    return errorResponse(400, "Level definitions are required.");
   }
 
-  const updates = [];
-  for (let level = 1; level <= 6; level += 1) {
-    const label = normalizeText(labels[level]);
-    if (!label) {
-      return errorResponse(400, "Each level needs a label.");
+  const validGroups = new Set(["staff", "manager", "executive", "admin"]);
+  const seenLevels = new Set();
+
+  for (const item of levels) {
+    const level = normalizeLevel(item.level);
+    const label = normalizeText(item.label);
+    const group = normalizeText(item.permissionGroup);
+    if (!level || !label) {
+      return errorResponse(400, "Each level needs a number and label.");
     }
-    updates.push({ level, label });
-  }
-
-  for (const item of updates) {
+    if (seenLevels.has(level)) {
+      return errorResponse(400, "Duplicate level numbers are not allowed.");
+    }
+    seenLevels.add(level);
+    const permissionGroup = validGroups.has(group) ? group : "staff";
     await sql`
-      INSERT INTO level_labels (account_id, level, label, updated_at)
-      VALUES (${accountId}::uuid, ${item.level}, ${item.label}, ${new Date().toISOString()})
+      INSERT INTO level_labels (account_id, level, label, permission_group, updated_at)
+      VALUES (${accountId}::uuid, ${level}, ${label}, ${permissionGroup}, ${new Date().toISOString()})
       ON CONFLICT (account_id, level) DO UPDATE SET
         label = EXCLUDED.label,
+        permission_group = EXCLUDED.permission_group,
         updated_at = EXCLUDED.updated_at
     `;
   }
@@ -221,8 +243,12 @@ async function assignManagerToClient(sql, payload, currentUser, accountId) {
     return errorResponse(400, "Manager and client are required.");
   }
 
+  if (!isExecutive(currentUser) && !isAdmin(currentUser)) {
+    return errorResponse(403, "Executive or Admin access required.");
+  }
+
   const manager = await findUserById(sql, managerId, accountId);
-  if (!manager || normalizeLevel(manager.level) < 3) {
+  if (!manager || (!isManager(manager) && !isExecutive(manager) && !isAdmin(manager))) {
     return errorResponse(404, "Manager not found.");
   }
 
@@ -275,8 +301,12 @@ async function assignManagerToProject(sql, payload, currentUser, accountId) {
     return errorResponse(400, "Override rate must be non-negative.");
   }
 
+  if (!isExecutive(currentUser) && !isAdmin(currentUser)) {
+    return errorResponse(403, "Executive or Admin access required.");
+  }
+
   const manager = await findUserById(sql, managerId, accountId);
-  if (!manager || normalizeLevel(manager.level) < 3) {
+  if (!manager || (!isManager(manager) && !isExecutive(manager) && !isAdmin(manager))) {
     return errorResponse(404, "Manager not found.");
   }
 
@@ -332,7 +362,7 @@ async function addProjectMember(sql, payload, currentUser, accountId) {
   }
 
   const user = await findUserById(sql, userId, accountId);
-  if (!user || normalizeLevel(user.level) > 2) {
+  if (!user || permissionGroupForLevel(user.level) !== "staff") {
     return errorResponse(404, "Staff member not found.");
   }
 
@@ -341,7 +371,15 @@ async function addProjectMember(sql, payload, currentUser, accountId) {
     return errorResponse(404, "Project not found.");
   }
 
+  const targetUser = await findUserById(sql, userId, accountId);
+  if (!targetUser) {
+    return errorResponse(404, "Member not found.");
+  }
+
   if (isManager(currentUser)) {
+    if (permissionGroupForLevel(targetUser.level) !== "staff") {
+      return errorResponse(403, "Managers can only remove staff.");
+    }
     const hasAccess = await managerHasProjectAccess(
       sql,
       currentUser.id,
@@ -425,6 +463,15 @@ async function updateProjectMemberRate(sql, payload, currentUser, accountId) {
   const project = await findProject(sql, clientName, projectName, accountId);
   if (!project) {
     return errorResponse(404, "Project not found.");
+  }
+
+  const targetUser = await findUserById(sql, userId, accountId);
+  if (!targetUser) {
+    return errorResponse(404, "Member not found.");
+  }
+
+  if (permissionGroupForLevel(targetUser.level) !== "staff") {
+    return errorResponse(403, "Only staff entries can be updated.");
   }
 
   if (isManager(currentUser)) {
@@ -617,7 +664,7 @@ async function saveEntry(sql, payload, currentUser, accountId) {
   if (!targetUser) {
     return errorResponse(404, "Team member not found.");
   }
-  const targetLevel = normalizeLevel(targetUser.level);
+  const targetGroup = permissionGroupForLevel(targetUser.level);
 
   if (isAdmin(currentUser)) {
     // Full access.
@@ -631,7 +678,7 @@ async function saveEntry(sql, payload, currentUser, accountId) {
     if (!hasAccess) {
       return errorResponse(403, "You are not assigned to this project.");
     }
-    if (targetUser.id !== currentUser.id && targetLevel > 2) {
+    if (targetUser.id !== currentUser.id && targetGroup !== "staff") {
       return errorResponse(403, "Managers can only edit staff time.");
     }
   } else if (isStaff(currentUser)) {
@@ -650,7 +697,7 @@ async function saveEntry(sql, payload, currentUser, accountId) {
     }
   }
 
-  if (targetLevel <= 2) {
+  if (targetGroup === "staff") {
     const memberRows = await sql`
       SELECT id
       FROM project_members
@@ -778,7 +825,7 @@ async function approveEntry(sql, payload, currentUser, accountId) {
   if (!id) {
     return errorResponse(400, "Entry id is required.");
   }
-  if (!currentUser || normalizeLevel(currentUser.level) < 3) {
+  if (!currentUser || permissionGroupForLevel(currentUser.level) === "staff") {
     return errorResponse(403, "Manager access required.");
   }
 
@@ -807,16 +854,16 @@ async function approveEntry(sql, payload, currentUser, accountId) {
     return errorResponse(404, "Entry user not found.");
   }
 
-  const currentLevel = normalizeLevel(currentUser.level);
-  const targetLevel = normalizeLevel(targetUser.level);
+  const currentGroup = permissionGroupForLevel(currentUser.level);
+  const targetGroup = permissionGroupForLevel(targetUser.level);
   const isCurrentAdmin = isAdmin(currentUser);
 
   if (!isCurrentAdmin) {
     if (currentUser.displayName === targetUser.display_name) {
       return errorResponse(403, "You cannot approve your own entries.");
     }
-    if (currentLevel <= targetLevel) {
-      return errorResponse(403, "You can only approve entries for lower levels.");
+    if (currentGroup === "manager" && targetGroup !== "staff") {
+      return errorResponse(403, "Managers can only approve staff entries.");
     }
   }
 
@@ -855,7 +902,7 @@ async function unapproveEntry(sql, payload, currentUser, accountId) {
   if (!id) {
     return errorResponse(400, "Entry id is required.");
   }
-  if (!currentUser || normalizeLevel(currentUser.level) < 3) {
+  if (!currentUser || permissionGroupForLevel(currentUser.level) === "staff") {
     return errorResponse(403, "Manager access required.");
   }
 
@@ -884,16 +931,16 @@ async function unapproveEntry(sql, payload, currentUser, accountId) {
     return errorResponse(404, "Entry user not found.");
   }
 
-  const currentLevel = normalizeLevel(currentUser.level);
-  const targetLevel = normalizeLevel(targetUser.level);
+  const currentGroup = permissionGroupForLevel(currentUser.level);
+  const targetGroup = permissionGroupForLevel(targetUser.level);
   const isCurrentAdmin = isAdmin(currentUser);
 
   if (!isCurrentAdmin) {
     if (currentUser.displayName === targetUser.display_name) {
       return errorResponse(403, "You cannot unapprove your own entries.");
     }
-    if (currentLevel <= targetLevel) {
-      return errorResponse(403, "You can only unapprove entries for lower levels.");
+    if (currentGroup === "manager" && targetGroup !== "staff") {
+      return errorResponse(403, "Managers can only unapprove staff entries.");
     }
   }
 
@@ -1020,37 +1067,15 @@ exports.handler = async function handler(event) {
 
     switch (request.action) {
       case "add_client": {
-        const adminError = requireAdmin(context);
-        if (adminError) return adminError;
+        if (!isAdmin(context.currentUser) && !isExecutive(context.currentUser)) {
+          return errorResponse(403, "Executive or Admin access required.");
+        }
         mutationResult = await addClient(sql, request.payload || {}, accountId);
         break;
       }
       case "add_project": {
-        if (isAdmin(context.currentUser)) {
-          mutationResult = await addProject(
-            sql,
-            request.payload || {},
-            context.currentUser,
-            accountId
-          );
-          break;
-        }
-        if (!isManager(context.currentUser)) {
-          return errorResponse(403, "Manager access required.");
-        }
-        const clientName = normalizeText(request.payload?.clientName);
-        const client = await findClient(sql, clientName, accountId);
-        if (!client) {
-          return errorResponse(404, "Client not found.");
-        }
-        const hasClientAccess = await managerHasClient(
-          sql,
-          context.currentUser.id,
-          client.id,
-          accountId
-        );
-        if (!hasClientAccess) {
-          return errorResponse(403, "You are not assigned to this client.");
+        if (!isAdmin(context.currentUser) && !isExecutive(context.currentUser)) {
+          return errorResponse(403, "Executive or Admin access required.");
         }
         mutationResult = await addProject(
           sql,
@@ -1139,8 +1164,9 @@ exports.handler = async function handler(event) {
         );
         break;
       case "assign_manager_client": {
-        const adminError = requireAdmin(context);
-        if (adminError) return adminError;
+        if (!isAdmin(context.currentUser) && !isExecutive(context.currentUser)) {
+          return errorResponse(403, "Executive or Admin access required.");
+        }
         mutationResult = await assignManagerToClient(
           sql,
           request.payload || {},
@@ -1150,8 +1176,9 @@ exports.handler = async function handler(event) {
         break;
       }
       case "unassign_manager_client": {
-        const adminError = requireAdmin(context);
-        if (adminError) return adminError;
+        if (!isAdmin(context.currentUser) && !isExecutive(context.currentUser)) {
+          return errorResponse(403, "Executive or Admin access required.");
+        }
         mutationResult = await unassignManagerFromClient(
           sql,
           request.payload || {},
@@ -1160,8 +1187,9 @@ exports.handler = async function handler(event) {
         break;
       }
       case "assign_manager_project": {
-        const adminError = requireAdmin(context);
-        if (adminError) return adminError;
+        if (!isAdmin(context.currentUser) && !isExecutive(context.currentUser)) {
+          return errorResponse(403, "Executive or Admin access required.");
+        }
         mutationResult = await assignManagerToProject(
           sql,
           request.payload || {},
@@ -1171,8 +1199,9 @@ exports.handler = async function handler(event) {
         break;
       }
       case "unassign_manager_project": {
-        const adminError = requireAdmin(context);
-        if (adminError) return adminError;
+        if (!isAdmin(context.currentUser) && !isExecutive(context.currentUser)) {
+          return errorResponse(403, "Executive or Admin access required.");
+        }
         mutationResult = await unassignManagerFromProject(
           sql,
           request.payload || {},
@@ -1294,7 +1323,7 @@ exports.handler = async function handler(event) {
         break;
       }
       case "update_level_labels": {
-        const adminError = requireSuperAdmin(context);
+        const adminError = requireAdmin(context);
         if (adminError) return adminError;
         mutationResult = await updateLevelLabels(sql, request.payload || {}, accountId);
         break;
