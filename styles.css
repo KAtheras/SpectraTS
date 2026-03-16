@@ -1,5 +1,5 @@
 :root {
-  --bg: linear-gradient(145deg, #f1e6d0 0%, #ddd2c2 52%, #d6d9de 100%);
+  --bg: #f3efe7;
   --bg-glow-top-left: rgba(255, 255, 255, 0.55);
   --bg-glow-right: rgba(89, 108, 142, 0.08);
   --bg-glow-bottom-right: rgba(161, 74, 31, 0.08);
@@ -45,7 +45,7 @@
 }
 
 body[data-theme="dark"] {
-  --bg: linear-gradient(160deg, #10151c 0%, #151d28 48%, #1f1611 100%);
+  --bg: #0f1117;
   --bg-glow-top-left: rgba(111, 136, 168, 0.18);
   --bg-glow-right: rgba(61, 88, 126, 0.16);
   --bg-glow-bottom-right: rgba(173, 77, 33, 0.14);
@@ -110,15 +110,12 @@ body {
 
 body {
   margin: 0;
-  background:
-    radial-gradient(circle at top left, var(--bg-glow-top-left), transparent 36%),
-    radial-gradient(circle at center right, var(--bg-glow-right), transparent 28%),
-    radial-gradient(circle at bottom right, var(--bg-glow-bottom-right), transparent 24%),
-    var(--bg);
+  background: var(--bg);
   color: var(--ink);
   font-family: var(--font-body);
   transition: background 180ms ease, color 180ms ease;
   overflow-x: hidden;
+  min-height: 100vh;
 }
 
 [hidden] {
@@ -1860,7 +1857,7 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
 }
 
 .entry-row.entry-approved td {
-  background: linear-gradient(90deg, #f6fff7, #eef9f0);
+  background: #f6fff7;
 }
 
 .theme-dark .entry-status.entry-status-approved {
