@@ -1460,7 +1460,8 @@
         if (!user) {
           return;
         }
-        const detailCard = refs.userList.querySelector(".user-detail-card");
+        const detailCard =
+          panelSave.closest(".user-detail-card") || refs.userList.querySelector(".user-detail-card");
         if (!detailCard) {
           return;
         }
