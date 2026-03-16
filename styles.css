@@ -1947,6 +1947,17 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   border-color: color-mix(in srgb, var(--muted) 25%, transparent);
 }
 
+.billable-pill.is-clickable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.billable-pill.is-clickable:hover,
+.billable-pill.is-clickable:focus-visible {
+  border-color: var(--line-strong);
+  outline: none;
+}
+
 .note-button {
   width: 32px;
   height: 32px;

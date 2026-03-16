@@ -1737,7 +1737,14 @@
             <td>${escapeHtml(entry.project)}</td>
             <td>${entry.hours.toFixed(2)}</td>
             <td>
-              <span class="billable-pill ${entry.billable === false ? "is-nonbillable" : "is-billable"}">
+              <span
+                class="billable-pill ${entry.billable === false ? "is-nonbillable" : "is-billable"} is-clickable"
+                data-action="toggle-billable"
+                data-id="${entry.id}"
+                role="button"
+                aria-label="${entry.billable === false ? "Mark as billable" : "Mark as non-billable"}"
+                tabindex="0"
+              >
                 ${entry.billable === false ? "Non-billable" : "Billable"}
               </span>
             </td>
@@ -2823,6 +2830,22 @@
 
     if (action === "note") {
       await showNoteModal(entry);
+      return;
+    }
+
+    if (action === "toggle-billable") {
+      const nextBillable = entry.billable === false ? true : false;
+      const updated = {
+        ...entry,
+        billable: nextBillable,
+        updatedAt: new Date().toISOString(),
+      };
+      try {
+        await mutatePersistentState("save_entry", { entry: updated });
+        feedback("Entry updated.", false);
+      } catch (error) {
+        feedback(error.message || "Unable to update entry.", true);
+      }
       return;
     }
 
