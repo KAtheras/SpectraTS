@@ -80,6 +80,7 @@
     sessionIndicator: document.getElementById("session-indicator"),
     accountName: document.getElementById("account-name"),
     navTimesheet: document.getElementById("nav-timesheet"),
+    navLevels: document.getElementById("nav-levels"),
     navMembers: document.getElementById("nav-members"),
     settingsToggle: document.getElementById("settings-toggle"),
     settingsMenu: document.getElementById("settings-menu"),
@@ -404,6 +405,7 @@
       }),
     });
     applyLoadedState(result);
+    render();
     return result;
   }
 
@@ -1690,20 +1692,25 @@
         refs.settingsMenuHeader.textContent = "";
       }
     }
-    if (refs.navTimesheet) {
-      refs.navTimesheet.hidden = false;
-      refs.navTimesheet.classList.toggle("is-active", view === "main");
-      refs.navTimesheet.setAttribute("aria-current", view === "main" ? "page" : "false");
+    if (refs.navLevels) {
+      refs.navLevels.hidden = !isGlobalAdmin(state.currentUser);
+      refs.navLevels.classList.toggle("is-active", view === "levels");
+      refs.navLevels.setAttribute("aria-current", view === "levels" ? "page" : "false");
+    }
+    if (refs.navMembers) {
+      refs.navMembers.hidden = currentLevel < 5;
+      refs.navMembers.classList.toggle("is-active", view === "members");
+      refs.navMembers.setAttribute("aria-current", view === "members" ? "page" : "false");
     }
     if (refs.openCatalog) {
       refs.openCatalog.hidden = currentLevel < 3;
       refs.openCatalog.classList.toggle("is-active", view === "clients");
       refs.openCatalog.setAttribute("aria-current", view === "clients" ? "page" : "false");
     }
-    if (refs.navMembers) {
-      refs.navMembers.hidden = currentLevel < 5;
-      refs.navMembers.classList.toggle("is-active", view === "members");
-      refs.navMembers.setAttribute("aria-current", view === "members" ? "page" : "false");
+    if (refs.navTimesheet) {
+      refs.navTimesheet.hidden = false;
+      refs.navTimesheet.classList.toggle("is-active", view === "main");
+      refs.navTimesheet.setAttribute("aria-current", view === "main" ? "page" : "false");
     }
     if (refs.changePasswordOpen) {
       refs.changePasswordOpen.hidden = !state.currentUser || state.currentUser.mustChangePassword;
@@ -1715,9 +1722,6 @@
       refs.openAnalytics.hidden = false;
       refs.openAnalytics.classList.toggle("is-active", view === "analytics");
       refs.openAnalytics.setAttribute("aria-current", view === "analytics" ? "page" : "false");
-    }
-    if (refs.settingsLevels) {
-      refs.settingsLevels.hidden = !isGlobalAdmin(state.currentUser);
     }
     if (view !== "main") {
       closeSettingsMenu();
@@ -1983,6 +1987,15 @@
       setView("main");
     });
   }
+  if (refs.navLevels) {
+    refs.navLevels.addEventListener("click", function () {
+      if (!isGlobalAdmin(state.currentUser)) {
+        return;
+      }
+      setView("levels");
+    });
+  }
+
   if (refs.navMembers) {
     refs.navMembers.addEventListener("click", function () {
       setView("members");
@@ -2005,17 +2018,6 @@
   if (levelsBack) {
     levelsBack.addEventListener("click", function () {
       setView("members");
-    });
-  }
-
-  if (refs.settingsLevels) {
-    refs.settingsLevels.addEventListener("click", function () {
-      if (!isGlobalAdmin(state.currentUser)) {
-        feedback("Admin access required.", true);
-        return;
-      }
-      closeSettingsMenu();
-      setView("levels");
     });
   }
 
