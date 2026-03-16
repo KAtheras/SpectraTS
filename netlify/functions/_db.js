@@ -267,6 +267,7 @@ async function ensureSchema(sql) {
     ALTER TABLE level_labels
     ADD COLUMN IF NOT EXISTS permission_group TEXT NOT NULL DEFAULT 'staff'
   `;
+  await sql`ALTER TABLE level_labels DROP CONSTRAINT IF EXISTS level_labels_level_check`;
 
   const labelRows = await sql`
     SELECT level
