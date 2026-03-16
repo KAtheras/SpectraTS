@@ -38,22 +38,28 @@ function permissionGroupForLevel(level) {
   return "staff";
 }
 
+function permissionGroupForUser(user) {
+  if (!user) return "staff";
+  if (user.permissionGroup) return String(user.permissionGroup).toLowerCase();
+  return permissionGroupForLevel(user.level);
+}
+
 function isStaff(user) {
-  return permissionGroupForLevel(user?.level) === "staff";
+  return permissionGroupForUser(user) === "staff";
 }
 
 function isManager(user) {
-  const group = permissionGroupForLevel(user?.level);
+  const group = permissionGroupForUser(user);
   return group === "manager" || group === "admin";
 }
 
 function isExecutive(user) {
-  const group = permissionGroupForLevel(user?.level);
+  const group = permissionGroupForUser(user);
   return group === "executive" || group === "admin";
 }
 
 function isAdmin(user) {
-  return permissionGroupForLevel(user?.level) === "admin";
+  return permissionGroupForUser(user) === "admin";
 }
 
 function isGlobalAdmin(user) {

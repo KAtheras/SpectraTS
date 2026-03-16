@@ -439,22 +439,33 @@ function permissionGroupForLevel(level) {
   return "staff";
 }
 
-function isAdmin(user) {
-  return permissionGroupForLevel(user?.level) === "admin";
+function permissionGroupForUser(user, levelLabels) {
+  if (!user) return "staff";
+  if (user.permissionGroup) return normalizeText(user.permissionGroup);
+  if (levelLabels && user.level) {
+    const normalized = normalizeLevel(user.level);
+    const mapped = levelLabels[normalized]?.permissionGroup;
+    if (mapped) return mapped;
+  }
+  return permissionGroupForLevel(user.level);
 }
 
-function isExecutive(user) {
-  const group = permissionGroupForLevel(user?.level);
+function isAdmin(user, levelLabels) {
+  return permissionGroupForUser(user, levelLabels) === "admin";
+}
+
+function isExecutive(user, levelLabels) {
+  const group = permissionGroupForUser(user, levelLabels);
   return group === "executive" || group === "admin";
 }
 
-function isManager(user) {
-  const group = permissionGroupForLevel(user?.level);
+function isManager(user, levelLabels) {
+  const group = permissionGroupForUser(user, levelLabels);
   return group === "manager" || group === "executive" || group === "admin";
 }
 
-function isStaff(user) {
-  return permissionGroupForLevel(user?.level) === "staff";
+function isStaff(user, levelLabels) {
+  return permissionGroupForUser(user, levelLabels) === "staff";
 }
 
 function randomId() {
@@ -1072,9 +1083,12 @@ async function getSessionContext(sql, event, request) {
       users.username,
       users.display_name AS "displayName",
       users.level,
-      users.account_id AS "accountId"
+      users.account_id AS "accountId",
+      level_labels.permission_group AS "permissionGroup"
     FROM sessions
     JOIN users ON users.id = sessions.user_id
+    LEFT JOIN level_labels ON level_labels.account_id = users.account_id
+      AND level_labels.level = users.level
     WHERE sessions.token_hash = ${hashToken(token)}
       AND sessions.expires_at > NOW()
       AND users.is_active = TRUE
@@ -1084,7 +1098,11 @@ async function getSessionContext(sql, event, request) {
   return {
     bootstrapRequired: false,
     currentUser: rows[0]
-      ? { ...rows[0], level: normalizeLevel(rows[0].level) }
+      ? {
+          ...rows[0],
+          level: normalizeLevel(rows[0].level),
+          permissionGroup: rows[0].permissionGroup,
+        }
       : null,
   };
 }
