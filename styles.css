@@ -409,7 +409,7 @@ body[data-theme="dark"] .app-topbar {
 .topbar-right {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
 }
 
 .account-name {
@@ -422,6 +422,12 @@ body[data-theme="dark"] .app-topbar {
 
 .top-nav {
   display: flex;
+  gap: 10px;
+}
+
+.topbar-user {
+  display: flex;
+  align-items: center;
   gap: 10px;
 }
 
