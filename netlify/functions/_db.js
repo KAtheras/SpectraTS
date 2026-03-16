@@ -1378,7 +1378,6 @@ async function loadState(sql, currentUser) {
         LIMIT 1
       `
     )[0];
-  const currentGroup = normalizedUser ? permissionGroupForLevel(normalizedUser.level) : null;
   const isSuperAdmin = normalizedUser && isAdmin(normalizedUser); // keep legacy flag equivalent to admin group
   const levelLabels = await listLevelLabels(sql, accountUuid);
   const currentGroup = normalizedUser ? permissionGroupForLevelWithLabels(normalizedUser.level, levelLabels) : null;
