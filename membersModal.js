@@ -265,10 +265,7 @@
         return "";
       }
 
-      const levelChoices =
-        Array.isArray(levels) && levels.length
-          ? levels
-          : [1, 2, 3, 4, 5, 6];
+      const levelChoices = Array.isArray(levels) && levels.length ? levels.slice().sort((a, b) => a - b) : [];
 
       const roleSelect = canChangeRole
         ? `
