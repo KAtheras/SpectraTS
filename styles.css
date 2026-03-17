@@ -798,6 +798,8 @@ input[name="cost_rate"] {
   padding: 16px 18px 32px;
   display: grid;
   gap: 14px;
+  max-width: 900px;
+  margin: 0 auto;
 }
 
 .level-labels-inner h3 {
@@ -829,6 +831,7 @@ input[name="cost_rate"] {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
+  flex-wrap: wrap;
 }
 
 .level-labels-actions .button {
@@ -838,6 +841,7 @@ input[name="cost_rate"] {
 .level-rows {
   display: grid;
   gap: 10px;
+  max-width: 900px;
 }
 
 .settings-title {
@@ -854,7 +858,7 @@ input[name="cost_rate"] {
 }
 
 .expense-row {
-  grid-template-columns: 1fr 160px;
+  grid-template-columns: minmax(0, 1fr) 140px;
 }
 .expense-row .level-num {
   display: none;
@@ -866,6 +870,9 @@ input[name="cost_rate"] {
   gap: 6px;
   font-size: 0.9rem;
   color: var(--muted-strong);
+}
+.expense-row input {
+  width: 100%;
 }
 
 .level-row .level-num {
