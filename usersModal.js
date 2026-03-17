@@ -277,8 +277,9 @@
     const reason = "Admin only.";
     const levelField = field(refs.addUserForm, "level");
     if (levelField) {
-      const levels = Array.isArray(deps.levels) && deps.levels.length ? deps.levels : [1, 2, 3, 4, 5, 6];
-      levelField.innerHTML = levels
+      const levelsArray = Array.isArray(deps.levels) ? deps.levels.slice() : [];
+      const uniqueSortedLevels = Array.from(new Set(levelsArray)).sort((a, b) => a - b);
+      levelField.innerHTML = uniqueSortedLevels
         .map(
           (level) =>
             `<option value="${level}">${escapeHtml(levelLabel(level))}</option>`
@@ -286,8 +287,8 @@
         .join("");
       levelField.disabled = !canAssignLevel || !canManageUsers;
       levelField.title = canAssignLevel && canManageUsers ? "" : "Admin only.";
-      if (!canAssignLevel && levels.length) {
-        levelField.value = String(levels[0]);
+      if (!canAssignLevel && uniqueSortedLevels.length) {
+        levelField.value = String(uniqueSortedLevels[0]);
       }
     }
     refs.addUserForm.querySelectorAll("input, select, button").forEach(function (el) {
