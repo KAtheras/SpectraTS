@@ -1046,24 +1046,26 @@
 
   function syncExpenseCatalogs({ userId, client, project }) {
     const clients = visibleCatalogClientNames();
-    setSelectOptionsWithPlaceholder(refs.expenseClient, clients, "Select client");
+    setSelectOptionsWithPlaceholder({ escapeHtml }, refs.expenseClient, clients, client || "", "Select client");
     if (client && clients.includes(client)) {
       refs.expenseClient.value = client;
     }
 
     const projects = visibleCatalogProjectNames(client || "", getUserById?.(userId));
-    setSelectOptionsWithPlaceholder(refs.expenseProject, projects, "Select project");
+    setSelectOptionsWithPlaceholder({ escapeHtml }, refs.expenseProject, projects, project || "", "Select project");
     if (project && projects.includes(project)) {
       refs.expenseProject.value = project;
     }
 
     const users = entryUserOptions();
     setSelectOptionsWithPlaceholder(
+      { escapeHtml },
       refs.expenseUser,
       users.map((name) => {
         const user = getUserByDisplayName(name);
         return { label: name, value: user?.id || name };
       }),
+      userId || "",
       "Select team member"
     );
     if (userId && refs.expenseUser) {
@@ -1071,7 +1073,7 @@
     }
 
     const categories = activeExpenseCategories().map((c) => c.name);
-    setSelectOptionsWithPlaceholder(refs.expenseCategory, categories, "Select category");
+    setSelectOptionsWithPlaceholder({ escapeHtml }, refs.expenseCategory, categories, "", "Select category");
   }
 
   const accessControl = createAccessControl?.({
