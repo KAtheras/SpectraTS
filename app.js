@@ -3222,6 +3222,8 @@
           return acc;
         }, {});
         await mutatePersistentState("update_level_labels", { levels: levels.sort((a, b) => a.level - b.level) });
+        await loadPersistentState();
+        renderLevelRows();
         feedback("Level deleted.", false);
       } catch (error) {
         // Restore UI on failure
