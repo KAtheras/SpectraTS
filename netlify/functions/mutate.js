@@ -75,9 +75,6 @@ function permissionGroupForUser(user) {
       if (value.permissionGroup) return String(value.permissionGroup).toLowerCase();
       if (value.permission_group) return String(value.permission_group).toLowerCase();
     }
-    if (normalized >= 5) return "admin";
-    if (normalized === 4) return "executive";
-    if (normalized >= 3) return "manager";
     return "staff";
   }
   if (user.permissionGroup) return String(user.permissionGroup).toLowerCase();
@@ -87,9 +84,6 @@ function permissionGroupForUser(user) {
     if (value.permissionGroup) return String(value.permissionGroup).toLowerCase();
     if (value.permission_group) return String(value.permission_group).toLowerCase();
   }
-  if (normalized >= 5) return "admin";
-  if (normalized === 4) return "executive";
-  if (normalized >= 3) return "manager";
   return "staff";
 }
 
