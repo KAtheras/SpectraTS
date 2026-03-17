@@ -2155,6 +2155,8 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 10px;
+  white-space: nowrap;
 }
 
 .nonbillable-toggle--expense input {
