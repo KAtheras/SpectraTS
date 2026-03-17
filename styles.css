@@ -887,7 +887,7 @@ input[name="cost_rate"] {
 }
 
 .expense-row {
-  grid-template-columns: minmax(0, 1fr) 110px;
+  grid-template-columns: minmax(0, 1fr) 220px;
 }
 .expense-row .level-num {
   display: none;
@@ -932,7 +932,8 @@ input[name="cost_rate"] {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 8px;
+  gap: 12px;
+  width: 100%;
 }
 
 .level-delete {
