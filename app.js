@@ -2936,6 +2936,16 @@
       }
     });
   }
+
+  if (refs.entriesBody) {
+    refs.entriesBody.addEventListener("keydown", async function (event) {
+      const actionEl = event.target.closest("[data-action]");
+      if (!actionEl) return;
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      actionEl.click();
+    });
+  }
   refs.addUserForm.addEventListener("submit", handleAddUser);
   if (refs.openAnalytics) {
     refs.openAnalytics.addEventListener("click", openAnalyticsPage);

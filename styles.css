@@ -2106,12 +2106,14 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
 
 .entry-status.entry-status-clickable {
   cursor: pointer;
+  transition: box-shadow 120ms ease, transform 80ms ease;
 }
 
 .entry-status.entry-status-clickable:hover,
 .entry-status.entry-status-clickable:focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent);
+  transform: translateY(-1px);
 }
 
 .entry-row.entry-approved td {
