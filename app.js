@@ -1743,10 +1743,10 @@
       .map((row) => {
         const friendlyEntity = humanizeEntity(row.entity_type);
         const friendlyAction = humanizeAction(row.action);
-        const actor = row.changed_by_name_snapshot || row.changed_by_name || row.changed_by_user_id || "Unknown";
-        const targetName = row.target_user_name || row.target_user_id || "";
-        const clientName = row.context_client_name || row.context_client_id || "";
-        const projectName = row.context_project_name || row.context_project_id || "";
+        const actor = row.changed_by_name_snapshot || userNameById(row.changed_by_user_id) || row.changed_by_user_id || "Unknown";
+        const targetName = userNameById(row.target_user_id) || "";
+        const projectName = projectNameById(row.context_project_id) || "";
+        const clientName = clientNameById(row.context_client_id, projectName ? row.context_project_id : null) || "";
         const context = [
           targetName ? `Target: ${escapeHtml(targetName)}` : "",
           clientName ? `Client: ${escapeHtml(clientName)}` : "",
@@ -1838,6 +1838,9 @@
     if (key === "date") return formatDisplayDate(String(value));
     if (key === "hours") return Number(value).toFixed(2);
     if (key === "amount") return `$${Number(value).toFixed(2)}`;
+    if (key === "user_id") return escapeHtml(userNameById(value) || String(value));
+    if (key === "project_id") return escapeHtml(projectNameById(value) || String(value));
+    if (key === "client_id") return escapeHtml(clientNameById(value) || String(value));
     return escapeHtml(String(value));
   }
 
@@ -1856,6 +1859,23 @@
         )}</span></div>`;
       })
       .join("");
+  }
+
+  function projectNameById(id) {
+    if (!id) return "";
+    const match = state.projects.find((p) => String(p.id) === String(id));
+    return match?.name || "";
+  }
+
+  function clientNameById(id, projectId) {
+    if (projectId) {
+      const project = state.projects.find((p) => String(p.id) === String(projectId));
+      if (project?.client) return project.client;
+    }
+    if (!id) return "";
+    const project = state.projects.find((p) => String(p.client_id) === String(id));
+    if (project?.client) return project.client;
+    return "";
   }
 
   function disabledButtonAttrs(enabled, title) {
