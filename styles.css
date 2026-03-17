@@ -665,14 +665,14 @@ body[data-theme="dark"] .settings-item:hover {
   justify-content: space-between;
   gap: 8px;
   padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
-  background: var(--surface-strong, #f5f6f7);
+  background: #f5f6f7; /* solid, non-transparent */
   border-top: 1px solid color-mix(in srgb, var(--muted-strong) 18%, transparent);
   box-shadow: 0 -4px 12px color-mix(in srgb, black 10%, transparent);
   z-index: 30;
 }
 
 body[data-theme="dark"] .mobile-tabbar {
-  background: var(--surface-strong, #1f2936);
+  background: #11161d; /* solid dark surface */
 }
 
 .mobile-tabbar .nav-pill {
