@@ -901,6 +901,30 @@ input[name="cost_rate"] {
   color: var(--muted-strong);
   justify-content: flex-end;
 }
+.expense-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.expense-delete {
+  background: transparent;
+  border: 0;
+  color: var(--danger);
+  font-family: var(--font-head);
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 6px 8px;
+  border-radius: 999px;
+}
+
+.expense-delete:hover,
+.expense-delete:focus-visible {
+  background: color-mix(in srgb, var(--danger) 14%, transparent);
+  outline: none;
+}
 .expense-row input {
   width: 100%;
 }

@@ -1450,10 +1450,12 @@
           <div class="level-row expense-row" data-expense-id="${escapeHtml(item.id || "")}">
             <span class="level-num sr-only">Category</span>
             <input type="text" value="${escapeHtml(item.name || "")}" data-expense-name placeholder="Category name" />
-            <label class="expense-active">
-              <input type="checkbox" data-expense-active ${item.isActive === false ? "" : "checked"} />
-              <span>Active</span>
-            </label>
+            <div class="expense-actions">
+              <label class="expense-active">
+                <input type="checkbox" data-expense-active ${item.isActive === false ? "" : "checked"} />
+              </label>
+              <button type="button" class="expense-delete" data-expense-delete>Delete</button>
+            </div>
           </div>
         `
       )
@@ -3094,6 +3096,54 @@
         render();
       } catch (error) {
         feedback(error.message || "Unable to update expense categories.", true);
+      }
+    });
+  }
+
+  if (refs.expenseRows) {
+    refs.expenseRows.addEventListener("click", async function (event) {
+      const deleteBtn = event.target.closest("[data-expense-delete]");
+      if (!deleteBtn) return;
+      if (!isAdmin(state.currentUser)) {
+        feedback("Only Admins can update expense categories.", true);
+        return;
+      }
+      const row = deleteBtn.closest(".expense-row");
+      if (!row) return;
+
+      // Build categories from current rows excluding the one being deleted
+      const rows = Array.from(refs.expenseRows.querySelectorAll(".expense-row")).filter((r) => r !== row);
+      const categories = [];
+      const seen = new Set();
+      for (const r of rows) {
+        const id = (r.dataset.expenseId || "").trim();
+        const nameInput = r.querySelector("[data-expense-name]");
+        const activeInput = r.querySelector("[data-expense-active]");
+        const name = (nameInput?.value || "").trim();
+        const isActive = activeInput ? activeInput.checked : true;
+        if (!name) {
+          feedback("Category name cannot be blank.", true);
+          return;
+        }
+        const key = name.toLowerCase();
+        if (seen.has(key)) {
+          feedback("Category names must be unique.", true);
+          return;
+        }
+        seen.add(key);
+        categories.push({ id: id || null, name, isActive });
+      }
+
+      const previous = [...state.expenseCategories];
+      state.expenseCategories = categories;
+      try {
+        await mutatePersistentState("update_expense_categories", { categories });
+        feedback("Category deleted.", false);
+        renderExpenseCategories();
+      } catch (error) {
+        state.expenseCategories = previous;
+        renderExpenseCategories();
+        feedback(error.message || "Unable to delete category.", true);
       }
     });
   }
