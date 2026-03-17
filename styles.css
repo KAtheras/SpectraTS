@@ -674,8 +674,9 @@ body[data-theme="dark"] .settings-item:hover {
 .mobile-tabbar .nav-pill {
   flex: 1 1 0;
   text-align: center;
-  padding: 10px 8px;
+  padding: 8px 6px;
   min-height: 44px;
+  font-size: 13px;
 }
 
 .page-shell {
