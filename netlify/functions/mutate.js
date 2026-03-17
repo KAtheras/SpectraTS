@@ -1138,11 +1138,22 @@ async function removeClient(sql, payload, accountId) {
   `;
   const hoursLogged = rows[0]?.total || 0;
 
+  const projectCountRows = await sql`
+    SELECT COUNT(*)::INT AS total
+    FROM projects
+    WHERE client_id = ${client.id}
+      AND account_id = ${accountId}::uuid
+  `;
+  const projectCount = projectCountRows[0]?.total || 0;
+
   await sql`DELETE FROM clients WHERE id = ${client.id}`;
 
-  return hoursLogged > 0
-    ? { message: `Client removed from active catalog. ${hoursLogged.toFixed(2)} logged hours were kept in history.` }
-    : { message: "" };
+  const message =
+    hoursLogged > 0 || projectCount > 0
+      ? `${client.name} already has ${hoursLogged.toFixed(2)} logged hours and ${projectCount} active projects. Removing it will also remove the active projects. Remove it from the active catalog and keep the history?`
+      : "";
+
+  return { message };
 }
 
 async function removeProject(sql, payload, accountId) {
