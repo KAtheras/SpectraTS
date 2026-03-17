@@ -33,10 +33,13 @@
     function levelLabel(level) {
       const normalized = normalizeLevel(level);
       const value = state.levelLabels?.[normalized];
-      if (value && typeof value === "object") {
-        return value.label || DEFAULT_LEVEL_LABELS[normalized] || "Staff";
+      if (value && typeof value === "object" && value.label) {
+        return value.label;
       }
-      return value || DEFAULT_LEVEL_LABELS[normalized] || "Staff";
+      if (typeof value === "string") {
+        return value;
+      }
+      return `Level ${normalized}`;
     }
 
     function isAdmin(user) {
