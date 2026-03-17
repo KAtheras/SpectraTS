@@ -2238,6 +2238,17 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   gap: 6px;
   white-space: nowrap;
   flex-shrink: 0;
+  flex-direction: row;
+}
+
+.expense-nonbillable-live input {
+  display: inline-block;
+  flex: 0 0 auto;
+}
+
+.expense-nonbillable-live .expense-nonbillable-text {
+  display: inline;
+  white-space: nowrap;
 }
 
 .expenses-view .panel-head {
