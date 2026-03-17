@@ -2135,11 +2135,11 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
 }
 
 .expense-entry-form .expense-row-1 {
-  grid-template-columns: repeat(4, var(--expense-col));
+  grid-template-columns: repeat(5, var(--expense-col));
 }
 
 .expense-entry-form .expense-row-2 {
-  grid-template-columns: var(--expense-col) minmax(0, 2.2fr) auto;
+  grid-template-columns: var(--expense-col) minmax(0, 2.6fr) auto;
   align-items: end;
 }
 
