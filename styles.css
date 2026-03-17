@@ -2124,13 +2124,13 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   display: grid;
   grid-template-columns: 1fr;
   grid-auto-rows: auto;
-  gap: 12px;
+  gap: 14px;
   --expense-col: minmax(200px, 1fr);
 }
 
 .expense-entry-form .expense-row {
   display: grid;
-  gap: 12px;
+  gap: 14px;
   align-items: start;
 }
 
@@ -2150,6 +2150,12 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
 .expense-entry-form .expense-actions-inline {
   display: flex;
   align-items: flex-end;
+}
+
+.expense-entry-form label {
+  display: grid;
+  gap: 6px;
+  width: 100%;
 }
 
 .expense-field-header {
