@@ -215,28 +215,28 @@
                  <button type="button" class="button button-ghost" data-user-panel-cancel>Cancel</button>`
               : `<button type="button" class="button" data-user-panel-edit="${escapeHtml(selectedUser.id)}">Edit</button>`
           }
-          <div class="user-detail-secondary">
-            <button
-              type="button"
-              class="catalog-edit"
-              data-user-password="${escapeHtml(selectedUser.id)}"
-              ${disabledButtonAttrs(canResetPassword, disabledReason)}
-            >
-              Reset password
-            </button>
-            ${
-              canDeactivate
-                ? `<button
-                     type="button"
-                     class="catalog-delete"
-                     data-user-deactivate="${escapeHtml(selectedUser.id)}"
-                     ${disabledButtonAttrs(canDeactivate, disabledReason)}
-                   >
-                     Deactivate
-                   </button>`
-                : ""
-            }
-          </div>
+        </div>
+        <div class="user-detail-secondary">
+          <button
+            type="button"
+            class="catalog-edit"
+            data-user-password="${escapeHtml(selectedUser.id)}"
+            ${disabledButtonAttrs(canResetPassword, disabledReason)}
+          >
+            Reset password
+          </button>
+          ${
+            canDeactivate
+              ? `<button
+                   type="button"
+                   class="catalog-delete"
+                   data-user-deactivate="${escapeHtml(selectedUser.id)}"
+                   ${disabledButtonAttrs(canDeactivate, disabledReason)}
+                 >
+                   Deactivate
+                 </button>`
+              : ""
+          }
         </div>
       </div>
     `;
