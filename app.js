@@ -1142,7 +1142,7 @@
     isExecutive,
     isStaff,
     isAdmin,
-    permissionGroupForLevel,
+    permissionGroupForUser,
     getUserById,
     getUserByDisplayName,
     managerClientAssignments,
@@ -1611,7 +1611,7 @@
   }
 
   function normalizeModalLevel(level) {
-    const group = permissionGroupForLevel(level);
+    const group = permissionGroupForUser({ level });
     if (group === "admin") return 5;
     if (group === "executive") return 4;
     if (group === "manager") return 3;
@@ -2104,9 +2104,9 @@
       return false;
     }
 
-    const currentGroup = permissionGroupForLevel(current.level);
+    const currentGroup = permissionGroupForUser(current);
     const targetUser = getUserByDisplayName(entry.user);
-    const targetGroup = permissionGroupForLevel(targetUser?.level || 1);
+    const targetGroup = permissionGroupForUser(targetUser);
 
     if (current.displayName === entry.user) {
       return false;
@@ -2267,7 +2267,7 @@
         refs.settingsMenuHeader.textContent = "";
       }
     }
-    const currentGroup = permissionGroupForLevel(state.currentUser?.level);
+    const currentGroup = permissionGroupForUser(state.currentUser);
     if (refs.navSettings) {
       refs.navSettings.hidden = true;
       refs.navSettings.classList.toggle("is-active", false);
@@ -2508,9 +2508,9 @@
   function canManageExpenseApproval(expense) {
     const current = state.currentUser;
     if (!current || !expense) return false;
-    const currentGroup = permissionGroupForLevel(current.level);
+    const currentGroup = permissionGroupForUser(current);
     const targetUser = getUserById?.(expense.userId);
-    const targetGroup = permissionGroupForLevel(targetUser?.level || 1);
+    const targetGroup = permissionGroupForUser(targetUser);
 
     if (current.id === expense.userId) return false;
     if (currentGroup === "staff") return false;

@@ -505,13 +505,19 @@ function permissionGroupForLevel(level) {
 
 function permissionGroupForUser(user, levelLabels) {
   if (!user) return "staff";
+  if (typeof user === "number") {
+    const normalized = normalizeLevel(user);
+    const mapped = levelLabels?.[normalized]?.permissionGroup;
+    if (mapped) return normalizeText(mapped);
+    return "staff";
+  }
   if (user.permissionGroup) return normalizeText(user.permissionGroup);
   if (levelLabels && user.level) {
     const normalized = normalizeLevel(user.level);
     const mapped = levelLabels[normalized]?.permissionGroup;
     if (mapped) return mapped;
   }
-  return permissionGroupForLevel(user.level);
+  return "staff";
 }
 
 function isAdmin(user, levelLabels) {
@@ -1460,15 +1466,6 @@ async function getManagerScope(sql, managerId, accountId) {
   return { clientIds, projectIds };
 }
 async function loadState(sql, currentUser) {
-  const permissionGroupForLevelWithLabels = (level, labels) => {
-    const normalized = normalizeLevel(level);
-    const value = labels?.[normalized];
-    if (value && typeof value === "object" && value.permissionGroup) {
-      return value.permissionGroup;
-    }
-    return defaultPermissionGroup(normalized);
-  };
-
   const normalizedUser = currentUser
     ? {
         ...currentUser,
@@ -1495,7 +1492,7 @@ async function loadState(sql, currentUser) {
     )[0];
   const isSuperAdmin = normalizedUser && isAdmin(normalizedUser); // keep legacy flag equivalent to admin group
   const levelLabels = await listLevelLabels(sql, accountUuid);
-  const currentGroup = normalizedUser ? permissionGroupForLevelWithLabels(normalizedUser.level, levelLabels) : null;
+  const currentGroup = normalizedUser ? permissionGroupForUser(normalizedUser, levelLabels) : null;
   const isAdminFlag = currentGroup === "admin";
   const isExecFlag = currentGroup === "executive";
   const isManagerFlag = currentGroup === "manager" || isExecFlag || isAdminFlag;

@@ -20,14 +20,26 @@
       6: "admin",
     };
 
-    function permissionGroupForLevel(level) {
-      const normalized = normalizeLevel(level);
-      const value = state.levelLabels?.[normalized];
-      if (value && typeof value === "object" && value.permissionGroup) {
-        return value.permissionGroup;
+    function permissionGroupForUser(user) {
+      if (user === null || user === undefined) return "staff";
+      // allow a numeric level to be passed directly
+      if (typeof user === "number") {
+        const normalized = normalizeLevel(user);
+        const value = state.levelLabels?.[normalized];
+        if (value && typeof value === "object") {
+          if (value.permissionGroup) return String(value.permissionGroup).toLowerCase();
+          if (value.permission_group) return String(value.permission_group).toLowerCase();
+        }
+        return "staff";
       }
-      const group = DEFAULT_LEVEL_PERMISSION_GROUP[normalized];
-      return group || "staff";
+      if (user.permissionGroup) return String(user.permissionGroup).toLowerCase();
+      const normalized = normalizeLevel(user.level);
+      const value = state.levelLabels?.[normalized];
+      if (value && typeof value === "object") {
+        if (value.permissionGroup) return String(value.permissionGroup).toLowerCase();
+        if (value.permission_group) return String(value.permission_group).toLowerCase();
+      }
+      return "staff";
     }
 
     function levelLabel(level) {
@@ -43,7 +55,7 @@
     }
 
     function isAdmin(user) {
-      return permissionGroupForLevel(user?.level) === "admin";
+      return permissionGroupForUser(user) === "admin";
     }
 
     function isGlobalAdmin(user) {
@@ -51,16 +63,16 @@
     }
 
     function isExecutive(user) {
-      return permissionGroupForLevel(user?.level) === "executive";
+      return permissionGroupForUser(user) === "executive";
     }
 
     function isManager(user) {
-      const group = permissionGroupForLevel(user?.level);
+      const group = permissionGroupForUser(user);
       return group === "manager" || group === "executive" || group === "admin";
     }
 
     function isStaff(user) {
-      return permissionGroupForLevel(user?.level) === "staff";
+      return permissionGroupForUser(user) === "staff";
     }
 
     function getUserById(userId) {
@@ -263,7 +275,7 @@
       isStaff,
       isAdmin,
       isExecutive,
-      permissionGroupForLevel,
+      permissionGroupForUser,
       getUserById,
       getUserByDisplayName,
       managerClientAssignments,
