@@ -54,7 +54,6 @@ This first version stores data in the browser, so it is best for a single-user M
 
 ## Current team and catalog setup
 
-- Users are currently `George Bertzios` and `Kaprel Ozsolak`
-- The current client catalog is `ISTO` with projects `Bright Start`, `Bright Directions`, `ABLE`, and `Secure Choice`
-- The seed catalog is configured in `DEFAULT_CLIENT_PROJECTS` in [app.js](/Users/kaprelozsolak/Timesheet/app.js)
-- New clients and projects added in the UI are stored in browser `localStorage`
+- Users, clients, and projects are tenant-specific and should come from your database or initial configuration.
+- No client/project catalog is hardcoded by default; seed data should be supplied per tenant or left empty.
+- New clients and projects added in the UI are stored according to the configured backend (or `localStorage` if running the original prototype mode).

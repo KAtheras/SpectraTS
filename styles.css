@@ -2152,6 +2152,26 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   align-items: flex-end;
 }
 
+.expense-field-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: nowrap;
+}
+
+.expense-field-header span {
+  white-space: nowrap;
+}
+
+.expense-nonbillable-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
 .expense-project-hidden {
   display: none;
 }

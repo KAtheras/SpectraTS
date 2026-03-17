@@ -63,9 +63,7 @@
   } = window.entryForm || {};
   const { createAccessControl } = window.accessControl || {};
 
-  const DEFAULT_CLIENT_PROJECTS = {
-    ISTO: ["Bright Start", "Bright Directions", "ABLE", "Secure Choice"],
-  };
+  const DEFAULT_CLIENT_PROJECTS = {};
 
   const refs = {
     authShell: document.getElementById("auth-shell"),

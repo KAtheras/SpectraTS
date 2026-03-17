@@ -3,9 +3,7 @@
 const crypto = require("crypto");
 const { neon } = require("@netlify/neon");
 
-const DEFAULT_CLIENT_PROJECTS = {
-  ISTO: ["Bright Start", "Bright Directions", "ABLE", "Secure Choice"],
-};
+const DEFAULT_CLIENT_PROJECTS = {};
 
 const SESSION_TTL_DAYS = 14;
 
