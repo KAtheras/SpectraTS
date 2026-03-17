@@ -802,6 +802,10 @@ input[name="cost_rate"] {
   margin: 0 auto;
 }
 
+#expense-rows {
+  max-width: 820px;
+}
+
 .level-labels-inner h3 {
   margin: 0;
   font-family: var(--font-head);
@@ -858,7 +862,7 @@ input[name="cost_rate"] {
 }
 
 .expense-row {
-  grid-template-columns: minmax(0, 1fr) 140px;
+  grid-template-columns: minmax(0, 1fr) 110px;
 }
 .expense-row .level-num {
   display: none;
@@ -870,6 +874,7 @@ input[name="cost_rate"] {
   gap: 6px;
   font-size: 0.9rem;
   color: var(--muted-strong);
+  justify-content: flex-end;
 }
 .expense-row input {
   width: 100%;
