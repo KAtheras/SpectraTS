@@ -2220,7 +2220,7 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
 
 /* Expenses live hooks */
 .expense-form-card-live {
-  background: #F2FAF6;
+  background: #F5F6F7;
 }
 
 .expense-amount-header-live {
@@ -2380,10 +2380,11 @@ body[data-theme="dark"] .entry-row.entry-approved td {
 .panel-form {
   width: 60%;
   margin-right: auto;
+  background: #F5F6F7;
 }
 
 .panel.panel-expense {
-  background: #F2FAF6;
+  background: #F5F6F7;
 }
 
   .app-frame {
