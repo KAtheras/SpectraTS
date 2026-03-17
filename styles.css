@@ -2177,6 +2177,14 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   align-items: flex-end;
 }
 
+.expense-actions-inline .button {
+  min-width: 132px;
+  padding: 0 20px;
+  height: 44px;
+  min-height: 44px;
+  white-space: nowrap;
+}
+
 .expense-entry-form label {
   display: grid;
   gap: 6px;
@@ -2357,6 +2365,10 @@ body[data-theme="dark"] .entry-row.entry-approved td {
   }
 
   .form-actions-entry .button {
+    width: 100%;
+  }
+
+  .expense-actions-inline .button {
     width: 100%;
   }
 
