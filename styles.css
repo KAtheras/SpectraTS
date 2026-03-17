@@ -2157,15 +2157,21 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
 }
 
 .nonbillable-toggle--expense {
-  display: inline-flex;
+  display: flex;
+  flex-direction: row;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   font-family: var(--font-head);
   color: var(--muted);
   font-size: 0.9rem;
   padding-top: 0;
   white-space: nowrap;
   flex-wrap: nowrap;
+  min-width: 140px;
+}
+
+.nonbillable-toggle--expense span {
+  white-space: nowrap;
 }
 
 .expense-amount-group .expense-amount-header {
@@ -2321,8 +2327,8 @@ body[data-theme="dark"] .entry-row.entry-approved td {
   margin-right: auto;
 }
 
-.panel-expense {
-  background: #f6f7fb;
+.panel.panel-expense {
+  background: #F2FAF6;
 }
 
   .app-frame {
