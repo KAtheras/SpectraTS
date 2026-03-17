@@ -314,6 +314,11 @@ body[data-theme="dark"] .panel.panel-form textarea {
   color: var(--ink);
 }
 
+/* Dark mode: ensure primary buttons stay readable */
+body[data-theme="dark"] .button {
+  color: var(--ink);
+}
+
 .page-view {
   width: 100%;
   max-width: calc(1240px + (var(--shell-pad) * 2));
