@@ -258,6 +258,18 @@ async function updateExpenseCategories(sql, payload, accountId) {
     }
   }
 
+  // Delete categories that are not present in the submitted list
+  const keepIds = new Set(cleaned.filter((c) => c.id).map((c) => c.id));
+  for (const existingRow of existing) {
+    if (existingRow.id && !keepIds.has(existingRow.id)) {
+      await sql`
+        DELETE FROM expense_categories
+        WHERE account_uuid = ${accountId}::uuid
+          AND id = ${existingRow.id}
+      `;
+    }
+  }
+
   for (const item of cleaned) {
     const now = new Date().toISOString();
     if (item.id) {
