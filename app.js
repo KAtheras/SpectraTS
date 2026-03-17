@@ -3208,7 +3208,7 @@
         levels.push({ level, label, permissionGroup });
       }
 
-      const adminCount = levels.filter((l) => permissionGroupForLevel(l.level) === "admin" || l.permissionGroup === "admin").length;
+      const adminCount = levels.filter((l) => l.permissionGroup === "admin").length;
       if (adminCount === 0) {
         feedback("At least one admin permission level is required.", true);
         return;
@@ -3216,6 +3216,11 @@
 
       const previous = getLevelDefinitions();
       try {
+        // Optimistically update local state so permissionGroup lookups stay in sync
+        state.levelLabels = levels.reduce((acc, item) => {
+          acc[item.level] = { label: item.label, permissionGroup: item.permissionGroup };
+          return acc;
+        }, {});
         await mutatePersistentState("update_level_labels", { levels: levels.sort((a, b) => a.level - b.level) });
         feedback("Level deleted.", false);
       } catch (error) {
