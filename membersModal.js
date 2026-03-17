@@ -265,7 +265,10 @@
         return "";
       }
 
-      const levelChoices = Array.isArray(levels) && levels.length ? levels.slice().sort((a, b) => a - b) : [];
+      const levelChoices =
+        Array.isArray(levels) && levels.length
+          ? Array.from(new Set(levels)).sort((a, b) => a - b)
+          : [];
 
       const roleSelect = canChangeRole
         ? `
