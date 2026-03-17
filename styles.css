@@ -901,10 +901,32 @@ input[name="cost_rate"] {
   color: var(--muted-strong);
   justify-content: flex-end;
 }
-.level-row .expense-active input {
-  width: 18px;
-  height: 18px;
-  accent-color: var(--accent);
+
+.expense-toggle {
+  border: 0;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-family: var(--font-head);
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 120ms ease, background 120ms ease, color 120ms ease;
+}
+
+.expense-toggle.is-active {
+  background: #1f7a3d;
+  color: #e8f6ec;
+}
+
+.expense-toggle.is-inactive {
+  background: #8c1d1d;
+  color: #fdeeee;
+}
+
+.expense-toggle:hover,
+.expense-toggle:focus-visible {
+  transform: translateY(-1px);
+  outline: none;
 }
 .expense-actions {
   display: flex;

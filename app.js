@@ -1451,10 +1451,15 @@
             <span class="level-num sr-only">Category</span>
             <input type="text" value="${escapeHtml(item.name || "")}" data-expense-name placeholder="Category name" />
             <div class="expense-actions">
-              <label class="expense-active">
-                <input type="checkbox" data-expense-active ${item.isActive === false ? "" : "checked"} />
-                <span class="sr-only">Active</span>
-              </label>
+              <button
+                type="button"
+                class="expense-toggle ${item.isActive === false ? "is-inactive" : "is-active"}"
+                data-expense-active
+                data-active="${item.isActive === false ? "false" : "true"}"
+                aria-pressed="${item.isActive === false ? "false" : "true"}"
+              >
+                ${item.isActive === false ? "Inactive" : "Active"}
+              </button>
               <button type="button" class="expense-delete" data-expense-delete>Delete</button>
             </div>
           </div>
@@ -3078,7 +3083,7 @@
         const nameInput = row.querySelector("[data-expense-name]");
         const activeInput = row.querySelector("[data-expense-active]");
         const name = (nameInput?.value || "").trim();
-        const isActive = activeInput ? activeInput.checked : true;
+        const isActive = activeInput ? activeInput.dataset.active !== "false" : true;
         if (!name) {
           feedback("Category name cannot be blank.", true);
           return;
@@ -3104,6 +3109,16 @@
   if (refs.expenseRows) {
     refs.expenseRows.addEventListener("click", async function (event) {
       const deleteBtn = event.target.closest("[data-expense-delete]");
+      const toggleBtn = event.target.closest("[data-expense-active]");
+      if (toggleBtn) {
+        const next = toggleBtn.dataset.active !== "true";
+        toggleBtn.dataset.active = next ? "true" : "false";
+        toggleBtn.classList.toggle("is-active", next);
+        toggleBtn.classList.toggle("is-inactive", !next);
+        toggleBtn.textContent = next ? "Active" : "Inactive";
+        toggleBtn.setAttribute("aria-pressed", next ? "true" : "false");
+        return;
+      }
       if (!deleteBtn) return;
       if (!isAdmin(state.currentUser)) {
         feedback("Only Admins can update expense categories.", true);
@@ -3121,7 +3136,7 @@
         const nameInput = r.querySelector("[data-expense-name]");
         const activeInput = r.querySelector("[data-expense-active]");
         const name = (nameInput?.value || "").trim();
-        const isActive = activeInput ? activeInput.checked : true;
+        const isActive = activeInput ? activeInput.dataset.active !== "false" : true;
         if (!name) {
           feedback("Category name cannot be blank.", true);
           return;
