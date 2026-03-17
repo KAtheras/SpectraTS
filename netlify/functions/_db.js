@@ -933,11 +933,22 @@ async function updateUserRecord(sql, payload, actingUser) {
     throw new Error("Cost rate must be a non-negative number.");
   }
 
-  if (isAdmin(existingUser) && !isAdmin({ level, permissionGroup: null })) {
-    const admins = await adminCount(sql, existingUser.account_id);
-    if (admins <= 1) {
-      throw new Error("At least one Admin account is required.");
-    }
+  const levelLabels = await listLevelLabels(sql, existingUser.account_id);
+  const levelLabelMap = levelLabels.reduce((acc, item) => {
+    const normalizedLevel = normalizeLevel(item.level);
+    acc[normalizedLevel] = {
+      label: item.label,
+      permissionGroup: item.permission_group || item.permissionGroup || null,
+    };
+    return acc;
+  }, {});
+  const currentIsAdmin = isAdmin(existingUser, levelLabelMap);
+  const nextIsAdmin = isAdmin({ ...existingUser, level }, levelLabelMap);
+  const admins = await adminCount(sql, existingUser.account_id);
+  const adminsAfterChange = admins + (nextIsAdmin ? 1 : 0) - (currentIsAdmin ? 1 : 0);
+
+  if (adminsAfterChange <= 0) {
+    throw new Error("At least one Admin account is required.");
   }
 
   const wasManager = isManagerLevel(existingUser.level);
