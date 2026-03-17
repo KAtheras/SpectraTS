@@ -303,51 +303,55 @@
                 </div>
               </div>
 
-              <form id="expense-form" class="entry-form">
-                <label class="entry-pill">
-                  <span>Team member</span>
-                  <select name="user" id="expense-user" required></select>
-                </label>
+              <form id="expense-form" class="entry-form expense-entry-form">
+                <div class="expense-row expense-row-1">
+                  <label class="entry-pill">
+                    <span>Team member</span>
+                    <select name="user" id="expense-user" required></select>
+                  </label>
 
-                <label class="entry-pill">
-                  <span>Client</span>
-                  <select name="client" id="expense-client" required></select>
-                </label>
+                  <label class="entry-pill">
+                    <span>Client</span>
+                    <select name="client" id="expense-client" required></select>
+                  </label>
 
-                <label class="entry-pill">
+                  <label class="entry-pill">
+                    <span>Category</span>
+                    <select name="category" id="expense-category" required></select>
+                  </label>
+
+                  <label class="entry-pill">
+                    <span>Date</span>
+                    <input type="date" id="expense-date" name="date" required />
+                  </label>
+                </div>
+
+                <div class="expense-row expense-row-2">
+                  <label class="entry-pill expense-amount-group">
+                    <div class="expense-amount-header">
+                      <span>Amount</span>
+                      <label class="nonbillable-toggle nonbillable-toggle--expense" for="expense-nonbillable">
+                        <input type="checkbox" id="expense-nonbillable" name="nonbillable" />
+                        <span>Non-billable</span>
+                      </label>
+                    </div>
+                    <input type="number" id="expense-amount" name="amount" step="0.01" min="0" required />
+                  </label>
+
+                  <label class="entry-notes expense-notes-inline">
+                    <span>Notes</span>
+                    <textarea id="expense-notes" name="notes" rows="2" placeholder="Add a note (optional)"></textarea>
+                  </label>
+
+                  <div class="form-actions expense-actions-inline">
+                    <button class="button button-primary" id="submit-expense" type="submit">Save expense</button>
+                  </div>
+                </div>
+
+                <label class="entry-pill expense-project-hidden" hidden>
                   <span>Project</span>
                   <select name="project" id="expense-project" required></select>
                 </label>
-
-                <label class="entry-pill">
-                  <span>Date</span>
-                  <input type="date" id="expense-date" name="date" required />
-                </label>
-
-                <label class="entry-pill">
-                  <span>Category</span>
-                  <select name="category" id="expense-category" required></select>
-                </label>
-
-                <label class="entry-pill expense-amount-group">
-                  <div class="expense-amount-header">
-                    <span>Amount</span>
-                    <label class="nonbillable-toggle nonbillable-toggle--expense" for="expense-nonbillable">
-                      <input type="checkbox" id="expense-nonbillable" name="nonbillable" />
-                      <span>Non-billable</span>
-                    </label>
-                  </div>
-                  <input type="number" id="expense-amount" name="amount" step="0.01" min="0" required />
-                </label>
-
-                <label class="entry-notes expense-notes-inline">
-                  <span>Notes</span>
-                  <textarea id="expense-notes" name="notes" rows="2" placeholder="Add a note (optional)"></textarea>
-                </label>
-
-                <div class="form-actions">
-                  <button class="button button-primary" id="submit-expense" type="submit">Save expense</button>
-                </div>
               </form>
             </section>
 

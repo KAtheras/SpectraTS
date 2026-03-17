@@ -1055,6 +1055,8 @@
     setSelectOptionsWithPlaceholder({ escapeHtml }, refs.expenseProject, projects, project || "", "Select project");
     if (project && projects.includes(project)) {
       refs.expenseProject.value = project;
+    } else if (!refs.expenseProject?.value && projects.length) {
+      refs.expenseProject.value = projects[0];
     }
 
     const users = entryUserOptions();
