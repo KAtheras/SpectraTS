@@ -2244,6 +2244,12 @@
     if (refs.appTopbar) {
       refs.appTopbar.style.display = "";
     }
+    if (refs.timesheetView) {
+      refs.timesheetView.hidden = view !== "main";
+    }
+    if (refs.expensesView) {
+      refs.expensesView.hidden = view !== "expenses";
+    }
     if (refs.mainFrame) {
       refs.mainFrame.style.display = view === "main" || view === "expenses" ? "" : "none";
     }
