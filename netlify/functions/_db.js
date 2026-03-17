@@ -327,6 +327,9 @@ async function ensureSchema(sql) {
       changed_fields_json JSONB
     )
   `;
+  await sql`ALTER TABLE audit_log ADD COLUMN IF NOT EXISTS context_client_id BIGINT`;
+  await sql`ALTER TABLE audit_log ADD COLUMN IF NOT EXISTS context_project_id BIGINT`;
+  await sql`ALTER TABLE audit_log ADD COLUMN IF NOT EXISTS changed_fields_json JSONB`;
   await sql`
     CREATE INDEX IF NOT EXISTS audit_log_account_idx
       ON audit_log (account_id, changed_at DESC)
