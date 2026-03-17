@@ -90,7 +90,7 @@ async function ensureSchema(sql) {
   await sql`
     ALTER TABLE users
     ADD CONSTRAINT users_level_check
-    CHECK (level BETWEEN 1 AND 6)
+    CHECK (level >= 1)
   `;
 
   await sql`

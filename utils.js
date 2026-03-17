@@ -25,12 +25,12 @@
   }
 
   function normalizeLevel(value) {
-    if (typeof value === "number" && Number.isInteger(value) && value >= 1 && value <= 6) {
+    if (typeof value === "number" && Number.isInteger(value) && value >= 1) {
       return value;
     }
     const raw = typeof value === "string" ? value.trim().toLowerCase() : "";
     const numeric = Number(raw);
-    if (Number.isInteger(numeric) && numeric >= 1 && numeric <= 6) {
+    if (Number.isInteger(numeric) && numeric >= 1) {
       return numeric;
     }
     if (raw === "staff") return 1;
