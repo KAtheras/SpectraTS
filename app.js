@@ -1864,6 +1864,7 @@
           return;
         }
         usersSetDetailEditState?.(user.id, true, {
+          displayName: user.displayName,
           username: user.username,
           level: user.level,
           baseRate: user.baseRate ?? "",
@@ -1883,16 +1884,22 @@
         if (!detailCard) {
           return;
         }
+        const displayNameInput = detailCard.querySelector('[data-user-field="displayName"]');
         const usernameInput = detailCard.querySelector('[data-user-field="username"]');
         const levelSelect = detailCard.querySelector('[data-user-field="level"]');
         const baseInput = detailCard.querySelector('[data-user-field="baseRate"]');
         const costInput = detailCard.querySelector('[data-user-field="costRate"]');
+        const nextDisplayName = displayNameInput?.value.trim() || "";
         const nextUsername = usernameInput?.value.trim() || "";
         const nextLevel = Number(levelSelect?.value || user.level);
         const baseRaw = baseInput?.value.trim();
         const costRaw = costInput?.value.trim();
         const nextBase = baseRaw ? Number(baseRaw) : null;
         const nextCost = costRaw ? Number(costRaw) : null;
+        if (!nextDisplayName) {
+          setUserFeedback("Name is required.", true);
+          return;
+        }
         if (!nextUsername) {
           setUserFeedback("Username is required.", true);
           return;
@@ -1912,7 +1919,7 @@
         try {
           await mutatePersistentState("update_user", {
             userId: user.id,
-            displayName: user.displayName,
+            displayName: nextDisplayName,
             username: nextUsername,
             level: nextLevel,
             baseRate: nextBase,

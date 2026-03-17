@@ -86,12 +86,6 @@
         const roleLabelText = levelLabel(user.level);
         const isCurrentUser = state.currentUser?.id === user.id;
         const canManageUsers = isAdmin(state.currentUser);
-        const canEditUser = canManageUsers;
-        const canChangeRole = isGlobalAdmin(state.currentUser);
-        const canResetPassword = canManageUsers;
-        const canDeactivate = canManageUsers && !isCurrentUser;
-        const disabledReason = "Admin only.";
-        const changeLevelReason = "Level 6 only.";
         const isSelected = selectedUserId === user.id;
 
         return `
@@ -103,44 +97,6 @@
                 <span>${escapeHtml(roleLabelText)}</span>
                 ${isCurrentUser ? "<span>Current session</span>" : ""}
               </span>
-            </span>
-            <span class="user-item-actions">
-              <button
-                type="button"
-                class="catalog-edit"
-                data-user-edit="${escapeHtml(user.id)}"
-                ${disabledButtonAttrs(canEditUser, disabledReason)}
-              >
-                Edit
-              </button>
-              <button
-                type="button"
-                class="catalog-edit"
-                data-user-role="${escapeHtml(user.id)}"
-                ${disabledButtonAttrs(canChangeRole, changeLevelReason)}
-              >
-                Change level
-              </button>
-              <button
-                type="button"
-                class="catalog-edit"
-                data-user-password="${escapeHtml(user.id)}"
-                ${disabledButtonAttrs(canResetPassword, disabledReason)}
-              >
-                Reset password
-              </button>
-              ${
-                isCurrentUser
-                  ? ""
-                  : `<button
-                      type="button"
-                      class="catalog-delete"
-                      data-user-deactivate="${escapeHtml(user.id)}"
-                      ${disabledButtonAttrs(canDeactivate, disabledReason)}
-                    >
-                      Deactivate
-                    </button>`
-              }
             </span>
           </article>
         `;
@@ -168,6 +124,12 @@
 
     const assignments = assignmentSummary(selectedUser);
     const editing = detailEditMode && detailEditUserId === selectedUser.id;
+    const canManageUsers = isAdmin(state.currentUser);
+    const canChangeRole = isGlobalAdmin(state.currentUser);
+    const canResetPassword = canManageUsers;
+    const canDeactivate = canManageUsers && state.currentUser?.id !== selectedUser.id;
+    const disabledReason = "Admin only.";
+    const changeLevelReason = "Level 6 only.";
     const levelChoices =
       Array.isArray(levels) && levels.length
         ? Array.from(new Set(levels)).sort((a, b) => a - b)
@@ -179,6 +141,9 @@
     const draftUsername = editing
       ? detailDraft.username ?? selectedUser.username
       : selectedUser.username;
+    const draftDisplayName = editing
+      ? detailDraft.displayName ?? selectedUser.displayName
+      : selectedUser.displayName;
     const draftBase = editing
       ? detailDraft.baseRate ?? selectedUser.baseRate ?? ""
       : selectedUser.baseRate;
@@ -187,7 +152,13 @@
       : selectedUser.costRate;
     const detailHtml = `
       <div class="user-detail-card">
-        <h4>${escapeHtml(selectedUser.displayName)}</h4>
+        <h4>
+          ${
+            editing
+              ? `<input type="text" data-user-field="displayName" value="${escapeHtml(draftDisplayName || "")}" />`
+              : escapeHtml(selectedUser.displayName)
+          }
+        </h4>
         <div class="detail-top-divider"></div>
         <dl>
           <div>
@@ -205,7 +176,7 @@
             <dd>
               ${
                 editing
-                  ? `<select data-user-field="level">${levelOptions}</select>`
+                  ? `<select data-user-field="level" ${disabledButtonAttrs(canChangeRole, changeLevelReason)}>${levelOptions}</select>`
                   : escapeHtml(levelLabel(selectedUser.level))
               }
             </dd>
@@ -244,6 +215,28 @@
                  <button type="button" class="button button-ghost" data-user-panel-cancel>Cancel</button>`
               : `<button type="button" class="button" data-user-panel-edit="${escapeHtml(selectedUser.id)}">Edit</button>`
           }
+          <div class="user-detail-secondary">
+            <button
+              type="button"
+              class="catalog-edit"
+              data-user-password="${escapeHtml(selectedUser.id)}"
+              ${disabledButtonAttrs(canResetPassword, disabledReason)}
+            >
+              Reset password
+            </button>
+            ${
+              canDeactivate
+                ? `<button
+                     type="button"
+                     class="catalog-delete"
+                     data-user-deactivate="${escapeHtml(selectedUser.id)}"
+                     ${disabledButtonAttrs(canDeactivate, disabledReason)}
+                   >
+                     Deactivate
+                   </button>`
+                : ""
+            }
+          </div>
         </div>
       </div>
     `;
