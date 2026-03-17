@@ -2278,13 +2278,13 @@
       refs.navSettingsMobile.setAttribute("aria-current", "false");
     }
     if (refs.navMembers) {
-      const showMembers = isAdmin(state.currentUser) || isExecutive(state.currentUser) || isGlobalAdmin(state.currentUser);
+      const showMembers = isAdmin(state.currentUser) || isGlobalAdmin(state.currentUser);
       refs.navMembers.hidden = !showMembers;
       refs.navMembers.classList.toggle("is-active", view === "members");
       refs.navMembers.setAttribute("aria-current", view === "members" ? "page" : "false");
     }
     if (refs.navMembersMobile) {
-      const showMembers = isAdmin(state.currentUser) || isExecutive(state.currentUser) || isGlobalAdmin(state.currentUser);
+      const showMembers = isAdmin(state.currentUser) || isGlobalAdmin(state.currentUser);
       refs.navMembersMobile.hidden = !showMembers;
       refs.navMembersMobile.classList.toggle("is-active", view === "members");
       refs.navMembersMobile.setAttribute("aria-current", view === "members" ? "page" : "false");
