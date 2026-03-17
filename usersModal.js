@@ -93,7 +93,6 @@
             <span class="catalog-item-copy">
               <span class="catalog-item-title">${escapeHtml(user.displayName)}</span>
               <span class="user-item-meta">
-                <span>${escapeHtml(user.username)}</span>
                 <span>${escapeHtml(roleLabelText)}</span>
                 ${isCurrentUser ? "<span>Current session</span>" : ""}
               </span>

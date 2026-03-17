@@ -1870,11 +1870,10 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   border: 1px solid var(--group-border);
   border-radius: 16px;
   padding: 14px;
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 6px;
   height: 100%;
-  align-content: start;
-  align-items: start;
   position: relative;
 }
 
