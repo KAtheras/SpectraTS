@@ -292,6 +292,26 @@ body.is-embedded .page-shell {
 
 body[data-theme="dark"] .page-shell.page-clients,
 body[data-theme="dark"] .page-shell.page-members {
+  /* dark mode overrides injected below */
+}
+
+/* Dark mode: normalize top form cards (Timesheet + Expenses) */
+body[data-theme="dark"] .panel.panel-form,
+body[data-theme="dark"] .expense-form-card-live {
+  background: var(--surface);
+}
+
+body[data-theme="dark"] .panel.panel-form .entry-form span,
+body[data-theme="dark"] .panel.panel-form .expense-entry-form span {
+  color: #d8e2ed;
+}
+
+body[data-theme="dark"] .panel.panel-form input,
+body[data-theme="dark"] .panel.panel-form select,
+body[data-theme="dark"] .panel.panel-form textarea {
+  background: var(--surface-strong);
+  border-color: var(--group-border);
+  color: var(--ink);
 }
 
 .page-view {
