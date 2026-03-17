@@ -2240,15 +2240,24 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   white-space: nowrap;
   flex-shrink: 0;
   flex-direction: row;
+  flex: 0 0 auto;
+  margin: 0;
 }
 
 .expense-nonbillable-live input {
   display: inline-block;
   flex: 0 0 auto;
+  margin: 0;
 }
 
 .expense-nonbillable-live .expense-nonbillable-text {
-  display: inline;
+  display: inline-block;
+  white-space: nowrap;
+}
+
+.expense-amount-label-live {
+  display: inline-block;
+  flex: 0 0 auto;
   white-space: nowrap;
 }
 
