@@ -1882,6 +1882,12 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   font-family: var(--font-head);
 }
 
+.user-detail-card h4 input[data-user-field="displayName"] {
+  max-width: 240px;
+  width: 100%;
+  display: inline-block;
+}
+
 .user-detail-card dl {
   margin: 8px 0 0 0;
   display: grid;
@@ -1944,7 +1950,7 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
-  justify-content: flex-start;
+  justify-content: flex-end;
 }
 
 .user-item.is-selected {
