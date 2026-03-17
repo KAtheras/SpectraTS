@@ -1743,20 +1743,18 @@
       .map((row) => {
         const friendlyEntity = humanizeEntity(row.entity_type);
         const friendlyAction = humanizeAction(row.action);
-        const actor = row.changed_by_name_snapshot || userNameById(row.changed_by_user_id) || row.changed_by_user_id || "Unknown";
-        const targetName = userNameById(row.target_user_id) || "";
+        const actor =
+          row.changed_by_name_snapshot || userNameById(row.changed_by_user_id) || row.changed_by_user_id || "Unknown";
         const projectName = projectNameById(row.context_project_id) || "";
         const clientName = clientNameById(row.context_client_id, projectName ? row.context_project_id : null) || "";
-        const context = [
-          targetName ? `Target: ${escapeHtml(targetName)}` : "",
-          clientName ? `Client: ${escapeHtml(clientName)}` : "",
-          projectName ? `Project: ${escapeHtml(projectName)}` : "",
-        ]
-          .filter(Boolean)
-          .join(" · ");
-
-        const beforeLines = formatAuditKV(row.before_json, row.entity_type, row.action, "before");
-        const afterLines = formatAuditKV(row.after_json, row.entity_type, row.action, "after");
+        const beforeLines = formatAuditKV(row.before_json, row.entity_type, row.action, "before", {
+          clientName,
+          projectName,
+        });
+        const afterLines = formatAuditKV(row.after_json, row.entity_type, row.action, "after", {
+          clientName,
+          projectName,
+        });
 
         const summary = `${escapeHtml(actor)} ${friendlyAction.toLowerCase()} a ${friendlyEntity}`;
         const changedFields =
@@ -1770,7 +1768,6 @@
             <td>${escapeHtml(actor)}</td>
             <td>${escapeHtml(friendlyEntity)}</td>
             <td>${escapeHtml(friendlyAction)}</td>
-            <td>${context || "-"}</td>
             <td>${escapeHtml(changedFields)}</td>
             <td>
               <details>
@@ -1844,18 +1841,24 @@
     return escapeHtml(String(value));
   }
 
-  function formatAuditKV(json, entityType, action, position) {
+  function formatAuditKV(json, entityType, action, position, contextNames) {
     if (!json || typeof json !== "object" || !Object.keys(json).length) {
       if (action === "create" && position === "before") return "";
       if (action === "delete" && position === "after") return "";
       return "";
     }
+    const clientOverride = contextNames?.clientName;
+    const projectOverride = contextNames?.projectName;
     return Object.entries(json)
       .map(([key, value]) => {
         const label = humanizeField(key);
-        return `<div class="audit-kv"><span class="audit-k">${escapeHtml(label)}</span><span class="audit-v">${formatValue(
-          key,
-          value
+        const displayValue = (() => {
+          if (key === "client_id" && clientOverride) return clientOverride;
+          if (key === "project_id" && projectOverride) return projectOverride;
+          return formatValue(key, value);
+        })();
+        return `<div class="audit-kv"><span class="audit-k">${escapeHtml(label)}</span><span class="audit-v">${escapeHtml(
+          displayValue
         )}</span></div>`;
       })
       .join("");
