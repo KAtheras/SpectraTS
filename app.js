@@ -1453,6 +1453,7 @@
             <div class="expense-actions">
               <label class="expense-active">
                 <input type="checkbox" data-expense-active ${item.isActive === false ? "" : "checked"} />
+                <span class="sr-only">Active</span>
               </label>
               <button type="button" class="expense-delete" data-expense-delete>Delete</button>
             </div>
