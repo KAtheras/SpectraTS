@@ -2224,7 +2224,7 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   border: 2px solid #2f6fed;
 }
 
-.expense-amount-field-live .expense-amount-header-live {
+.expense-amount-header-live {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -2252,12 +2252,6 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
 
 .expense-nonbillable-live .expense-nonbillable-text {
   display: inline-block;
-  white-space: nowrap;
-}
-
-.expense-amount-label-live {
-  display: inline-block;
-  flex: 0 0 auto;
   white-space: nowrap;
 }
 

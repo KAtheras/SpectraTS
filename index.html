@@ -332,14 +332,14 @@
                 </div>
 
                 <div class="expense-row expense-row-2">
-                  <label class="entry-pill expense-amount-group expense-amount-field-live">
-                    <span class="expense-amount-header-live">
-                      <span class="expense-amount-label-live">Amount</span>
-                      <label class="expense-nonbillable-live" for="expense-nonbillable">
+                  <label class="entry-pill expense-amount-group">
+                    <div class="hours-header expense-amount-header-live">
+                      <span>Amount</span>
+                      <span class="nonbillable-toggle expense-nonbillable-live">
                         <input type="checkbox" id="expense-nonbillable" name="nonbillable">
-                        <span class="expense-nonbillable-text">Non-billable</span>
-                      </label>
-                    </span>
+                        <span>Non-billable</span>
+                      </span>
+                    </div>
                     <input type="number" id="expense-amount" name="amount" step="0.01" min="0" required />
                   </label>
 
