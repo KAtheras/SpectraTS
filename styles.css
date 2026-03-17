@@ -2221,15 +2221,13 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
 /* Expenses live hooks */
 .expense-form-card-live {
   background: #F2FAF6;
-  border: 2px solid #2f6fed;
 }
 
 .expense-amount-header-live {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  width: 100%;
+  justify-content: flex-start;
+  gap: 16px;
   flex-wrap: nowrap;
 }
 
