@@ -3524,13 +3524,14 @@
       }
       const clientName = deleteButton.dataset.deleteClient;
       const hoursLogged = clientHours(clientName);
+      const projectCount = state.projects.filter((p) => p.client === clientName).length;
       const dialogResult = await appDialog({
         title: "Remove client",
         message:
-          hoursLogged > 0
+          hoursLogged > 0 || projectCount > 0
             ? `${clientName} already has ${hoursLogged.toFixed(
                 2
-              )} logged hours. Remove it from the active catalog and keep the history?`
+              )} logged hours and ${projectCount} active projects. Removing it will also remove the active projects. Remove it from the active catalog and keep the history?`
             : `Remove ${clientName} from the active catalog?`,
         confirmText: "Remove",
       });
