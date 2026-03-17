@@ -2223,6 +2223,10 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   background: #F5F6F7;
 }
 
+.panel.panel-form {
+  background: #F5F6F7;
+}
+
 .expense-amount-header-live {
   display: flex;
   align-items: center;
