@@ -905,9 +905,9 @@ input[name="cost_rate"] {
 .expense-toggle {
   border: 0;
   border-radius: 999px;
-  padding: 6px 12px;
+  padding: 4px 10px;
   font-family: var(--font-head);
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   font-weight: 700;
   cursor: pointer;
   transition: transform 120ms ease, background 120ms ease, color 120ms ease;
