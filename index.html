@@ -329,17 +329,18 @@
                   <select name="category" id="expense-category" required></select>
                 </label>
 
-                <label class="entry-pill">
+                <label class="entry-pill expense-amount-group">
                   <span>Amount</span>
-                  <input type="number" id="expense-amount" name="amount" step="0.01" min="0" required />
+                  <div class="expense-amount-inner">
+                    <input type="number" id="expense-amount" name="amount" step="0.01" min="0" required />
+                    <label class="nonbillable-toggle nonbillable-toggle--expense" for="expense-nonbillable">
+                      <input type="checkbox" id="expense-nonbillable" name="nonbillable" />
+                      <span>Non-billable</span>
+                    </label>
+                  </div>
                 </label>
 
-                <div class="nonbillable-toggle nonbillable-toggle--expense">
-                  <input type="checkbox" id="expense-nonbillable" name="nonbillable" />
-                  <span>Non-billable</span>
-                </div>
-
-                <label class="entry-notes">
+                <label class="entry-notes expense-notes-inline">
                   <span>Notes</span>
                   <textarea id="expense-notes" name="notes" rows="2" placeholder="Add a note (optional)"></textarea>
                 </label>
