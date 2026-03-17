@@ -1082,6 +1082,13 @@ async function updateProject(sql, payload, currentUser, accountId) {
   if (!project) {
     return errorResponse(404, "Project not found.");
   }
+  const nextBudget =
+    hasBudget && !Number.isNaN(budgetAmount) && budgetAmount >= 0
+      ? budgetAmount
+      : project.budget !== undefined
+        ? project.budget
+        : null;
+
   // Reuse admin requirement from rename_project
   if (!isAdmin(currentUser)) {
     return errorResponse(403, "Admin access required.");
@@ -1097,7 +1104,7 @@ async function updateProject(sql, payload, currentUser, accountId) {
   await sql`
     UPDATE projects
     SET name = ${nextName},
-        budget_amount = ${budgetAmount},
+        budget_amount = ${nextBudget},
         updated_at = NOW()
     WHERE id = ${project.id}
       AND account_id = ${accountId}::uuid

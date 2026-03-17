@@ -3558,6 +3558,102 @@
       return;
     }
 
+    const editNameButton = event.target.closest("[data-edit-project-name]");
+    if (editNameButton) {
+      if (!isAdmin(state.currentUser)) {
+        feedback("Only Admins can edit projects.", true);
+        return;
+      }
+      const projectName = editNameButton.dataset.editProjectName;
+      const dialogResult = await appDialog({
+        title: "Edit project name",
+        input: true,
+        defaultValue: projectName,
+        confirmText: "Save",
+      });
+      if (!dialogResult.confirmed) {
+        return;
+      }
+      const nextName = dialogResult.value || projectName;
+      if (!nextName.trim()) {
+        feedback("Project name cannot be empty.", true);
+        return;
+      }
+      try {
+        await mutatePersistentState("update_project", {
+          clientName: state.selectedCatalogClient,
+          projectName,
+          nextName,
+        });
+        if (
+          state.filters.client === state.selectedCatalogClient &&
+          state.filters.project === projectName
+        ) {
+          state.filters.project = nextName.trim();
+        }
+      } catch (error) {
+        feedback(error.message || "Unable to update project.", true);
+        return;
+      }
+      await loadPersistentState();
+      syncFilterCatalogsUI(state.filters);
+      feedback("Project updated.", false);
+      render();
+      return;
+    }
+
+    const editBudgetButton = event.target.closest("[data-edit-project-budget]");
+    if (editBudgetButton) {
+      if (!isAdmin(state.currentUser)) {
+        feedback("Only Admins can edit budgets.", true);
+        return;
+      }
+      const projectName = editBudgetButton.dataset.editProjectBudget;
+      const projectRow =
+        (state.projects || []).find(
+          (p) =>
+            p.client === state.selectedCatalogClient &&
+            (p.name || "").toLowerCase() === projectName.toLowerCase()
+        ) || null;
+      const currentBudget = projectRow && Number.isFinite(projectRow.budget) ? projectRow.budget : null;
+      const dialogResult = await appDialog({
+        title: "Edit project budget",
+        input: true,
+        defaultValue: currentBudget !== null ? String(currentBudget) : "",
+        confirmText: "Save",
+        message: "Enter a non-negative number. Leave blank for no budget.",
+      });
+      if (!dialogResult.confirmed) {
+        return;
+      }
+      const trimmedBudget = (dialogResult.value || "").trim();
+      let budgetAmount = null;
+      if (trimmedBudget) {
+        const parsed = Number(trimmedBudget);
+        if (Number.isNaN(parsed) || parsed < 0) {
+          feedback("Budget must be a non-negative number.", true);
+          return;
+        }
+        budgetAmount = parsed;
+      }
+      try {
+        await mutatePersistentState("update_project", {
+          clientName: state.selectedCatalogClient,
+          projectName,
+          nextName: projectName,
+          budgetAmount,
+        });
+      } catch (error) {
+        feedback(error.message || "Unable to update budget.", true);
+        return;
+      }
+      await loadPersistentState();
+      syncFilterCatalogsUI(state.filters);
+      feedback("Project budget updated.", false);
+      render();
+      return;
+    }
+
     const deleteButton = event.target.closest("[data-delete-project]");
     if (deleteButton) {
       const projectName = deleteButton.dataset.deleteProject;
