@@ -1535,7 +1535,7 @@ async function loadState(sql, currentUser) {
     const scope = await getManagerScope(sql, normalizedUser.id, accountUuid);
     if (scope.projectIds.length) {
       entries = await sql`
-        SELECT
+        SELECT DISTINCT ON (entries.id)
           entries.id,
           entries.user_name AS "user",
           TO_CHAR(entries.entry_date, 'YYYY-MM-DD') AS date,
@@ -1556,7 +1556,7 @@ async function loadState(sql, currentUser) {
         WHERE projects.id = ANY(${scope.projectIds})
           AND (users.level <= 2 OR users.id = ${normalizedUser.id})
           AND entries.account_id = ${accountUuid}::uuid
-        ORDER BY entries.entry_date DESC, entries.created_at DESC
+        ORDER BY entries.id, entries.entry_date DESC, entries.created_at DESC
       `;
     }
   } else if (normalizedUser && isStaffFlag) {
