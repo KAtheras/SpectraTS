@@ -2226,6 +2226,10 @@
       return;
     }
 
+    if (refs.mobileTabbar) {
+      refs.mobileTabbar.hidden = false;
+    }
+
     const view = state.currentView;
 
     if (refs.appShell) {
