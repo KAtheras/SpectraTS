@@ -129,6 +129,7 @@
     changePasswordNew: document.getElementById("change-password-new"),
     changePasswordConfirm: document.getElementById("change-password-confirm"),
     changePasswordCancel: document.getElementById("change-password-cancel"),
+    settingsMenuSettings: document.getElementById("settings-menu-settings"),
     forcePasswordShell: document.getElementById("force-password-shell"),
     forcePasswordForm: document.getElementById("force-password-form"),
     forcePasswordCurrent: document.getElementById("force-password-current"),
@@ -2260,14 +2261,14 @@
     }
     const currentGroup = permissionGroupForLevel(state.currentUser?.level);
     if (refs.navSettings) {
-      refs.navSettings.hidden = !isAdmin(state.currentUser);
-      refs.navSettings.classList.toggle("is-active", view === "settings");
-      refs.navSettings.setAttribute("aria-current", view === "settings" ? "page" : "false");
+      refs.navSettings.hidden = true;
+      refs.navSettings.classList.toggle("is-active", false);
+      refs.navSettings.setAttribute("aria-current", "false");
     }
     if (refs.navSettingsMobile) {
-      refs.navSettingsMobile.hidden = !isAdmin(state.currentUser);
-      refs.navSettingsMobile.classList.toggle("is-active", view === "settings");
-      refs.navSettingsMobile.setAttribute("aria-current", view === "settings" ? "page" : "false");
+      refs.navSettingsMobile.hidden = true;
+      refs.navSettingsMobile.classList.toggle("is-active", false);
+      refs.navSettingsMobile.setAttribute("aria-current", "false");
     }
     if (refs.navMembers) {
       const showMembers = isAdmin(state.currentUser) || isExecutive(state.currentUser) || isGlobalAdmin(state.currentUser);
@@ -2291,6 +2292,11 @@
       refs.navClientsMobile.hidden = !showClients;
       refs.navClientsMobile.classList.toggle("is-active", view === "clients");
       refs.navClientsMobile.setAttribute("aria-current", view === "clients" ? "page" : "false");
+    }
+    if (refs.settingsMenuSettings) {
+      const showSettingsLink = isAdmin(state.currentUser);
+      refs.settingsMenuSettings.hidden = !showSettingsLink;
+      refs.settingsMenuSettings.setAttribute("aria-current", view === "settings" ? "page" : "false");
     }
     if (refs.navTimesheet) {
       refs.navTimesheet.hidden = false;
@@ -3113,6 +3119,15 @@
   }
   if (refs.changePasswordCancel) {
     refs.changePasswordCancel.addEventListener("click", closeChangePasswordModal);
+  }
+  if (refs.settingsMenuSettings) {
+    refs.settingsMenuSettings.addEventListener("click", function () {
+      if (!isAdmin(state.currentUser)) {
+        return;
+      }
+      setView("settings");
+      closeSettingsMenu();
+    });
   }
   if (refs.forcePasswordForm) {
     refs.forcePasswordForm.addEventListener("submit", submitForcePassword);
