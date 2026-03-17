@@ -726,44 +726,85 @@
         return;
       }
 
+      let mode = "view";
       const textarea = refs.dialogTextarea;
-      refs.dialogTitle.textContent = "Expense note";
-      refs.dialogMessage.hidden = true;
-      refs.dialogInputRow.hidden = true;
-      refs.dialogInput.hidden = true;
-      textarea.hidden = false;
-      textarea.value = expense.notes || "";
-      refs.dialogConfirm.hidden = true;
-      refs.dialogCancel.textContent = "Save";
-      refs.dialog.hidden = false;
-      textarea.focus();
 
       const cleanup = () => {
         refs.dialog.hidden = true;
-        refs.dialogCancel.removeEventListener("click", onSave);
+        refs.dialogConfirm.removeEventListener("click", onConfirm);
+        refs.dialogCancel.removeEventListener("click", onCancel);
+        refs.dialogMessage.hidden = false;
+        refs.dialogInputRow.hidden = true;
+        refs.dialogInput.hidden = false;
+        textarea.hidden = true;
+        refs.dialogConfirm.hidden = false;
+        refs.dialogCancel.textContent = "Cancel";
       };
 
-      const onSave = async () => {
-        const nextNotes = textarea.value.trim();
-        const payload = {
-          expense: {
-            ...expense,
-            notes: nextNotes,
-          },
-        };
-        try {
-          await mutatePersistentState("update_expense", payload);
-          feedback("Note saved.", false);
-          cleanup();
-          resolve(true);
-        } catch (error) {
-          feedback(error.message || "Unable to save note.", true);
-          cleanup();
-          resolve(false);
+      const setViewMode = () => {
+        mode = "view";
+        refs.dialogTitle.textContent = "Expense note";
+        refs.dialogMessage.textContent =
+          expense.notes && expense.notes.trim() ? expense.notes : "(No note)";
+        refs.dialogMessage.hidden = false;
+        refs.dialogInputRow.hidden = true;
+        refs.dialogInput.hidden = true;
+        textarea.hidden = true;
+        refs.dialogConfirm.hidden = false;
+        refs.dialogConfirm.textContent = "Edit";
+        refs.dialogCancel.textContent = "Close";
+      };
+
+      const setEditMode = () => {
+        mode = "edit";
+        refs.dialogTitle.textContent = "Edit expense note";
+        refs.dialogMessage.hidden = true;
+        refs.dialogInputRow.hidden = false;
+        refs.dialogInput.hidden = true;
+        textarea.hidden = false;
+        textarea.value = expense.notes || "";
+        textarea.focus();
+        refs.dialogConfirm.hidden = true;
+        refs.dialogCancel.textContent = "Save";
+      };
+
+      const onConfirm = () => {
+        if (mode === "view") {
+          setEditMode();
         }
       };
 
-      refs.dialogCancel.addEventListener("click", onSave);
+      const onCancel = async () => {
+        if (mode === "edit") {
+          const nextNotes = textarea.value.trim();
+          const payload = {
+            expense: {
+              ...expense,
+              notes: nextNotes,
+            },
+          };
+          try {
+            await mutatePersistentState("update_expense", payload);
+            feedback("Note saved.", false);
+          } catch (error) {
+            feedback(error.message || "Unable to save note.", true);
+            cleanup();
+            resolve(false);
+            return;
+          }
+          cleanup();
+          resolve(true);
+          return;
+        }
+
+        cleanup();
+        resolve(false);
+      };
+
+      refs.dialogConfirm.addEventListener("click", onConfirm);
+      refs.dialogCancel.addEventListener("click", onCancel);
+      setViewMode();
+      refs.dialog.hidden = false;
     });
   }
 
