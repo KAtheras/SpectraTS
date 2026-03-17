@@ -466,7 +466,7 @@ async function addProjectMember(sql, payload, currentUser, accountId) {
     return errorResponse(404, "Member not found.");
   }
 
-  if (isManager(currentUser)) {
+  if (isManager(currentUser) && !isAdmin(currentUser)) {
     if (permissionGroupForLevel(targetUser.level) !== "staff") {
       return errorResponse(403, "Managers can only remove staff.");
     }
@@ -512,7 +512,7 @@ async function removeProjectMember(sql, payload, currentUser, accountId) {
     return errorResponse(404, "Project not found.");
   }
 
-  if (isManager(currentUser)) {
+  if (isManager(currentUser) && !isAdmin(currentUser)) {
     const hasAccess = await managerHasProjectAccess(
       sql,
       currentUser.id,
@@ -564,7 +564,7 @@ async function updateProjectMemberRate(sql, payload, currentUser, accountId) {
     return errorResponse(403, "Only staff entries can be updated.");
   }
 
-  if (isManager(currentUser)) {
+  if (isManager(currentUser) && !isAdmin(currentUser)) {
     const hasAccess = await managerHasProjectAccess(sql, currentUser.id, project.id, accountId);
     if (!hasAccess) {
       return errorResponse(403, "You are not assigned to this project.");
@@ -606,7 +606,7 @@ async function updateManagerProjectRate(sql, payload, currentUser, accountId) {
     return errorResponse(404, "Project not found.");
   }
 
-  if (isManager(currentUser)) {
+  if (isManager(currentUser) && !isAdmin(currentUser)) {
     const hasAccess = await managerHasProjectAccess(sql, currentUser.id, project.id, accountId);
     if (!hasAccess) {
       return errorResponse(403, "You are not assigned to this project.");
