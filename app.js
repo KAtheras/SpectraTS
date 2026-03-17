@@ -83,6 +83,8 @@
     navExpenses: document.getElementById("nav-expenses"),
     navSettings: document.getElementById("nav-settings"),
     navMembers: document.getElementById("nav-members"),
+    timesheetView: document.getElementById("timesheet-view"),
+    expensesView: document.getElementById("expenses-view"),
     settingsToggle: document.getElementById("settings-toggle"),
     settingsMenu: document.getElementById("settings-menu"),
     settingsMenuHeader: document.getElementById("settings-menu-header"),
@@ -351,7 +353,6 @@
     state.expenses = Array.isArray(data?.expenses)
       ? data.expenses.map(normalizeExpense).filter(Boolean)
       : [];
-    state.expenses = Array.isArray(data?.expenses) ? data.expenses : [];
     state.assignments = normalizeAssignments(data?.assignments);
     state.levelLabels = data?.levelLabels && typeof data.levelLabels === "object"
       ? data.levelLabels
@@ -439,6 +440,7 @@
     applyLoadedState(payload);
     resetFilters();
     resetForm();
+    resetExpenseForm();
     setAuthFeedback("", false);
     feedback("", false);
     closeUsersModal();
@@ -717,6 +719,54 @@
     });
   }
 
+  function showExpenseNoteModal(expense) {
+    return new Promise((resolve) => {
+      if (!refs.dialog || !refs.dialogCancel || !refs.dialogConfirm || !refs.dialogTextarea) {
+        resolve(false);
+        return;
+      }
+
+      const textarea = refs.dialogTextarea;
+      refs.dialogTitle.textContent = "Expense note";
+      refs.dialogMessage.hidden = true;
+      refs.dialogInputRow.hidden = true;
+      refs.dialogInput.hidden = true;
+      textarea.hidden = false;
+      textarea.value = expense.notes || "";
+      refs.dialogConfirm.hidden = true;
+      refs.dialogCancel.textContent = "Save";
+      refs.dialog.hidden = false;
+      textarea.focus();
+
+      const cleanup = () => {
+        refs.dialog.hidden = true;
+        refs.dialogCancel.removeEventListener("click", onSave);
+      };
+
+      const onSave = async () => {
+        const nextNotes = textarea.value.trim();
+        const payload = {
+          expense: {
+            ...expense,
+            notes: nextNotes,
+          },
+        };
+        try {
+          await mutatePersistentState("update_expense", payload);
+          feedback("Note saved.", false);
+          cleanup();
+          resolve(true);
+        } catch (error) {
+          feedback(error.message || "Unable to save note.", true);
+          cleanup();
+          resolve(false);
+        }
+      };
+
+      refs.dialogCancel.addEventListener("click", onSave);
+    });
+  }
+
   function normalizeCatalog(catalog, fallbackToDefault = true) {
     const source =
       catalog && typeof catalog === "object"
@@ -755,6 +805,11 @@
   function setNonBillableDefault(projectName) {
     if (!refs.entryNonBillable) return;
     refs.entryNonBillable.checked = isNonBillableDefault(projectName);
+  }
+
+  function setExpenseNonBillableDefault(projectName) {
+    if (!refs.expenseNonBillable) return;
+    refs.expenseNonBillable.checked = isNonBillableDefault(projectName);
   }
 
   function normalizeEntry(entry) {
@@ -985,6 +1040,40 @@
     return catalogProjectNames(client).length;
   }
 
+  function activeExpenseCategories() {
+    return (state.expenseCategories || []).filter((c) => c.isActive);
+  }
+
+  function syncExpenseCatalogs({ userId, client, project }) {
+    const clients = visibleCatalogClientNames();
+    setSelectOptionsWithPlaceholder(refs.expenseClient, clients, "Select client");
+    if (client && clients.includes(client)) {
+      refs.expenseClient.value = client;
+    }
+
+    const projects = visibleCatalogProjectNames(client || "", getUserById?.(userId));
+    setSelectOptionsWithPlaceholder(refs.expenseProject, projects, "Select project");
+    if (project && projects.includes(project)) {
+      refs.expenseProject.value = project;
+    }
+
+    const users = entryUserOptions();
+    setSelectOptionsWithPlaceholder(
+      refs.expenseUser,
+      users.map((name) => {
+        const user = getUserByDisplayName(name);
+        return { label: name, value: user?.id || name };
+      }),
+      "Select team member"
+    );
+    if (userId && refs.expenseUser) {
+      refs.expenseUser.value = userId;
+    }
+
+    const categories = activeExpenseCategories().map((c) => c.name);
+    setSelectOptionsWithPlaceholder(refs.expenseCategory, categories, "Select category");
+  }
+
   const accessControl = createAccessControl?.({
     state,
     normalizeLevel,
@@ -1131,6 +1220,57 @@
     refs.submitEntry.textContent = "Save";
     refs.cancelEdit.hidden = false;
     const formCard = refs.form?.closest(".panel") || refs.form;
+    formCard?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function resetExpenseForm() {
+    if (!refs.expenseForm) return;
+    refs.expenseForm.reset();
+    state.expenseEditingId = null;
+    const defaultUserId = state.currentUser?.id || "";
+    if (refs.expenseUser) {
+      refs.expenseUser.value = defaultUserId;
+    }
+    if (refs.expenseDate) {
+      refs.expenseDate.value = today;
+    }
+    syncExpenseCatalogs({
+      userId: refs.expenseUser?.value || "",
+      client: "",
+      project: "",
+    });
+    setExpenseNonBillableDefault(refs.expenseProject?.value || "");
+    if (refs.expenseFormHeading) {
+      refs.expenseFormHeading.textContent = "Add expense";
+    }
+    if (refs.submitExpense) {
+      refs.submitExpense.textContent = "Save expense";
+    }
+    if (refs.expenseCancelEdit) {
+      refs.expenseCancelEdit.hidden = true;
+    }
+  }
+
+  function setExpenseForm(expense) {
+    if (!expense || !refs.expenseForm) return;
+    syncExpenseCatalogs({
+      userId: expense.userId,
+      client: expense.clientName,
+      project: expense.projectName,
+    });
+    if (refs.expenseUser) refs.expenseUser.value = expense.userId;
+    if (refs.expenseDate) refs.expenseDate.value = expense.expenseDate;
+    if (refs.expenseCategory) refs.expenseCategory.value = expense.category;
+    if (refs.expenseAmount) refs.expenseAmount.value = expense.amount;
+    if (refs.expenseNotes) refs.expenseNotes.value = expense.notes || "";
+    if (refs.expenseNonBillable)
+      refs.expenseNonBillable.checked = expense.isBillable === false;
+    setExpenseNonBillableDefault(expense.projectName || "");
+    state.expenseEditingId = expense.id;
+    if (refs.expenseFormHeading) refs.expenseFormHeading.textContent = "Edit expense";
+    if (refs.submitExpense) refs.submitExpense.textContent = "Save expense";
+    if (refs.expenseCancelEdit) refs.expenseCancelEdit.hidden = false;
+    const formCard = refs.expenseForm.closest(".panel");
     formCard?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
@@ -2075,6 +2215,11 @@
       refs.navTimesheet.classList.toggle("is-active", view === "main");
       refs.navTimesheet.setAttribute("aria-current", view === "main" ? "page" : "false");
     }
+    if (refs.navExpenses) {
+      refs.navExpenses.hidden = false;
+      refs.navExpenses.classList.toggle("is-active", view === "expenses");
+      refs.navExpenses.setAttribute("aria-current", view === "expenses" ? "page" : "false");
+    }
     if (refs.changePasswordOpen) {
       refs.changePasswordOpen.hidden = !state.currentUser || state.currentUser.mustChangePassword;
     }
@@ -2100,7 +2245,7 @@
       refs.appTopbar.style.display = "";
     }
     if (refs.mainFrame) {
-      refs.mainFrame.style.display = view === "main" ? "" : "none";
+      refs.mainFrame.style.display = view === "main" || view === "expenses" ? "" : "none";
     }
     if (refs.clientsPage) {
       refs.clientsPage.hidden = view !== "clients";
@@ -2157,6 +2302,19 @@
       return;
     }
 
+    if (view === "expenses") {
+      if (refs.timesheetView) refs.timesheetView.hidden = true;
+      if (refs.expensesView) refs.expensesView.hidden = false;
+      renderExpenses();
+      syncExpenseCatalogs({
+        userId: refs.expenseUser?.value || state.currentUser?.id || "",
+        client: refs.expenseClient?.value || "",
+        project: refs.expenseProject?.value || "",
+      });
+      postHeight();
+      return;
+    }
+
     // main view
     if (refs.clientsPage) {
       refs.clientsPage.hidden = true;
@@ -2170,6 +2328,9 @@
     if (refs.membersModal) {
       refs.membersModal.hidden = true;
     }
+
+    if (refs.timesheetView) refs.timesheetView.hidden = false;
+    if (refs.expensesView) refs.expensesView.hidden = true;
 
     syncFormCatalogsUI({});
     syncFilterCatalogsUI(state.filters);
@@ -2225,6 +2386,111 @@
     feedback("", false);
     render();
     return true;
+  }
+
+  function canManageExpenseApproval(expense) {
+    const current = state.currentUser;
+    if (!current || !expense) return false;
+    const currentGroup = permissionGroupForLevel(current.level);
+    const targetUser = getUserById?.(expense.userId);
+    const targetGroup = permissionGroupForLevel(targetUser?.level || 1);
+
+    if (current.id === expense.userId) return false;
+    if (currentGroup === "staff") return false;
+    if (currentGroup === "manager") {
+      if (targetGroup !== "staff") return false;
+      return canUserAccessProject(current, expense.clientName, expense.projectName);
+    }
+    if (currentGroup === "executive" || currentGroup === "admin") {
+      if (!isAdmin(current) && !canUserAccessProject(current, expense.clientName, expense.projectName)) {
+        return false;
+      }
+      return true;
+    }
+    return false;
+  }
+
+  function userNameById(id) {
+    const user = getUserById?.(id);
+    return user?.displayName || "";
+  }
+
+  function renderExpenses() {
+    if (!refs.expensesBody) return;
+    const expenses = state.expenses || [];
+    if (!expenses.length) {
+      refs.expensesBody.innerHTML = `
+        <tr>
+          <td colspan="10" class="empty-row">
+            <div class="empty-state-panel">
+              <strong>No expenses yet.</strong>
+              <span>Add an expense to get started.</span>
+            </div>
+          </td>
+        </tr>
+      `;
+      return;
+    }
+
+    refs.expensesBody.innerHTML = expenses
+      .map((expense) => {
+        const billable = expense.isBillable !== false;
+        const clickableStatus = canManageExpenseApproval(expense);
+        return `
+          <tr class="${expense.status === "approved" ? "entry-approved" : ""}">
+            <td>${escapeHtml(formatDisplayDateShort(expense.expenseDate))}</td>
+            <td>${escapeHtml(userNameById(expense.userId))}</td>
+            <td>${escapeHtml(expense.clientName)}</td>
+            <td>${escapeHtml(expense.projectName)}</td>
+            <td>${escapeHtml(expense.category)}</td>
+            <td>$${Number(expense.amount || 0).toFixed(2)}</td>
+            <td>
+              <span
+                class="billable-pill ${billable ? "is-billable" : "is-nonbillable"} is-clickable"
+                data-action="expense-toggle-billable"
+                data-id="${expense.id}"
+                role="button"
+              >
+                ${billable ? "Billable" : "Non-billable"}
+              </span>
+            </td>
+            <td class="notes-cell">
+              ${
+                expense.notes && expense.notes.trim()
+                  ? `<button class="note-button" type="button" data-action="expense-note" data-id="${expense.id}" aria-label="View note">
+                      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                        <path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h9.086a1.5 1.5 0 0 1 1.06.44l2.914 2.914a1.5 1.5 0 0 1 .44 1.06V18.5A1.5 1.5 0 0 1 17.5 20h-12A1.5 1.5 0 0 1 4 18.5zM15 4v3.5a.5.5 0 0 0 .5.5H19" />
+                        <path d="M8 11h8M8 14h5" />
+                      </svg>
+                    </button>`
+                  : `<button class="note-button note-button--empty" type="button" data-action="expense-note" data-id="${expense.id}" aria-label="Add note">
+                      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                        <path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h9.086a1.5 1.5 0 0 1 1.06.44l2.914 2.914a1.5 1.5 0 0 1 .44 1.06V18.5A1.5 1.5 0 0 1 17.5 20h-12A1.5 1.5 0 0 1 4 18.5zM15 4v3.5a.5.5 0 0 0 .5.5H19" />
+                        <path d="M8 11h8" />
+                      </svg>
+                    </button>`
+              }
+            </td>
+            <td>
+              <span
+                class="entry-status entry-status-${expense.status} ${clickableStatus ? "entry-status-clickable" : ""}"
+                ${clickableStatus ? `data-action="expense-toggle-status" data-id="${expense.id}" role="button" tabindex="0"` : ""}
+              >
+                ${expense.status === "approved" ? "Approved" : "Pending"}
+              </span>
+            </td>
+            <td class="actions-cell">
+              <button class="text-button" type="button" data-action="expense-edit" data-id="${expense.id}">
+                Edit
+              </button>
+              <button class="text-button danger" type="button" data-action="expense-delete" data-id="${expense.id}">
+                Delete
+              </button>
+            </td>
+          </tr>
+        `;
+      })
+      .join("");
   }
 
   function postHeight() {
@@ -2355,6 +2621,11 @@
   if (refs.navTimesheet) {
     refs.navTimesheet.addEventListener("click", function () {
       setView("main");
+    });
+  }
+  if (refs.navExpenses) {
+    refs.navExpenses.addEventListener("click", function () {
+      setView("expenses");
     });
   }
   if (refs.navSettings) {
@@ -2521,6 +2792,142 @@
   });
 
   refs.exportCsv.addEventListener("click", exportCsv);
+
+  function expenseFromForm() {
+    return {
+      id: state.expenseEditingId || crypto.randomUUID(),
+      userId: refs.expenseUser?.value || "",
+      clientName: refs.expenseClient?.value || "",
+      projectName: refs.expenseProject?.value || "",
+      expenseDate: refs.expenseDate?.value || today,
+      category: refs.expenseCategory?.value || "",
+      amount: Number(refs.expenseAmount?.value),
+      isBillable: refs.expenseNonBillable ? !refs.expenseNonBillable.checked : true,
+      notes: refs.expenseNotes?.value?.trim() || "",
+    };
+  }
+
+  function validateExpenseForm(expense) {
+    if (!expense.userId) return "Team member is required.";
+    if (!expense.clientName) return "Client is required.";
+    if (!expense.projectName) return "Project is required.";
+    if (!expense.expenseDate) return "Date is required.";
+    if (!expense.category) return "Category is required.";
+    if (!Number.isFinite(expense.amount) || expense.amount <= 0) return "Amount must be a positive number.";
+    return "";
+  }
+
+  if (refs.expenseForm) {
+    refs.expenseForm.addEventListener("submit", async function (event) {
+      event.preventDefault();
+      const expense = expenseFromForm();
+      const error = validateExpenseForm(expense);
+      if (error) {
+        feedback(error, true);
+        return;
+      }
+      const action = state.expenseEditingId ? "update_expense" : "create_expense";
+      try {
+        await mutatePersistentState(action, { expense });
+        feedback(state.expenseEditingId ? "Expense updated." : "Expense saved.", false);
+        resetExpenseForm();
+      } catch (err) {
+        feedback(err.message || "Unable to save expense.", true);
+      }
+    });
+  }
+
+  if (refs.expenseCancelEdit) {
+    refs.expenseCancelEdit.addEventListener("click", function () {
+      resetExpenseForm();
+      feedback("", false);
+    });
+  }
+
+  if (refs.expenseClient) {
+    refs.expenseClient.addEventListener("change", function () {
+      syncExpenseCatalogs({
+        userId: refs.expenseUser?.value || "",
+        client: refs.expenseClient.value,
+        project: "",
+      });
+      setExpenseNonBillableDefault("");
+    });
+  }
+
+  if (refs.expenseProject) {
+    refs.expenseProject.addEventListener("change", function () {
+      setExpenseNonBillableDefault(refs.expenseProject.value || "");
+    });
+  }
+
+  if (refs.expenseUser) {
+    refs.expenseUser.addEventListener("change", function () {
+      syncExpenseCatalogs({
+        userId: refs.expenseUser.value,
+        client: refs.expenseClient?.value || "",
+        project: refs.expenseProject?.value || "",
+      });
+    });
+  }
+
+  if (refs.expensesBody) {
+    refs.expensesBody.addEventListener("click", async function (event) {
+      const actionEl = event.target.closest("[data-action]");
+      if (!actionEl) return;
+      const action = actionEl.dataset.action;
+      const id = actionEl.dataset.id;
+      const expense = (state.expenses || []).find((item) => item.id === id);
+      if (!expense) return;
+
+      if (action === "expense-edit") {
+        setExpenseForm(expense);
+        return;
+      }
+
+      if (action === "expense-delete") {
+        const confirmed = window.confirm("Delete this expense?");
+        if (!confirmed) return;
+        try {
+          await mutatePersistentState("delete_expense", { id });
+          feedback("Expense deleted.", false);
+        } catch (err) {
+          feedback(err.message || "Unable to delete expense.", true);
+        }
+        return;
+      }
+
+      if (action === "expense-toggle-status") {
+        try {
+          await mutatePersistentState("toggle_expense_status", { id });
+        } catch (err) {
+          feedback(err.message || "Unable to update status.", true);
+        }
+        return;
+      }
+
+      if (action === "expense-note") {
+        const saved = await showExpenseNoteModal(expense);
+        if (saved) {
+          feedback("Note saved.", false);
+        }
+        return;
+      }
+
+      if (action === "expense-toggle-billable") {
+        const nextExpense = {
+          ...expense,
+          isBillable: expense.isBillable === false ? true : false,
+        };
+        try {
+          await mutatePersistentState("update_expense", { expense: nextExpense });
+        } catch (err) {
+          feedback(err.message || "Unable to update billable status.", true);
+        }
+        return;
+      }
+    });
+  }
   refs.addUserForm.addEventListener("submit", handleAddUser);
   if (refs.openAnalytics) {
     refs.openAnalytics.addEventListener("click", openAnalyticsPage);
