@@ -1776,34 +1776,22 @@ async function listAuditLogs(sql, accountId, filters = {}) {
 
   const rows = await sql`
     SELECT
-      al.id,
-      al.entity_type,
-      al.entity_id,
-      al.action,
-      al.changed_by_user_id,
-      al.changed_by_name_snapshot,
-      actor.display_name AS changed_by_name,
-      al.target_user_id,
-      target.display_name AS target_user_name,
-      al.context_client_id,
-      clients.name AS context_client_name,
-      al.context_project_id,
-      projects.name AS context_project_name,
-      al.changed_at,
-      al.before_json,
-      al.after_json,
-      al.changed_fields_json
-    FROM audit_log al
-    LEFT JOIN users actor
-      ON actor.id = al.changed_by_user_id AND actor.account_id = al.account_id
-    LEFT JOIN users target
-      ON target.id = al.target_user_id AND target.account_id = al.account_id
-    LEFT JOIN clients
-      ON clients.id = al.context_client_id AND clients.account_id = al.account_id
-    LEFT JOIN projects
-      ON projects.id = al.context_project_id AND projects.account_id = al.account_id
+      id,
+      entity_type,
+      entity_id,
+      action,
+      changed_by_user_id,
+      changed_by_name_snapshot,
+      target_user_id,
+      context_client_id,
+      context_project_id,
+      changed_at,
+      before_json,
+      after_json,
+      changed_fields_json
+    FROM audit_log
     WHERE ${where}
-    ORDER BY al.changed_at DESC
+    ORDER BY changed_at DESC
     LIMIT 100
   `;
   return rows;
