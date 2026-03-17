@@ -881,7 +881,7 @@ input[name="cost_rate"] {
 
 .level-row {
   display: grid;
-  grid-template-columns: 80px 1fr 200px;
+  grid-template-columns: 80px 1fr 200px auto;
   align-items: center;
   gap: 10px;
 }
@@ -933,6 +933,24 @@ input[name="cost_rate"] {
   align-items: center;
   justify-content: flex-end;
   gap: 8px;
+}
+
+.level-delete {
+  background: transparent;
+  border: 0;
+  color: var(--danger);
+  font-family: var(--font-head);
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 6px 8px;
+  border-radius: 999px;
+}
+
+.level-delete:hover,
+.level-delete:focus-visible {
+  background: color-mix(in srgb, var(--danger) 14%, transparent);
+  outline: none;
 }
 
 .expense-delete {

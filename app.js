@@ -1423,6 +1423,7 @@
                 )
                 .join("")}
             </select>
+            <button type="button" class="level-delete" data-level-delete aria-label="Delete level">Delete</button>
           </div>
         `
       )
@@ -3160,6 +3161,71 @@
         state.expenseCategories = previous;
         renderExpenseCategories();
         feedback(error.message || "Unable to delete category.", true);
+      }
+    });
+  }
+
+  if (refs.levelRows) {
+    refs.levelRows.addEventListener("click", async function (event) {
+      const deleteBtn = event.target.closest("[data-level-delete]");
+      if (!deleteBtn) return;
+      if (!isAdmin(state.currentUser)) {
+        feedback("Only Admins can update levels.", true);
+        return;
+      }
+      const row = deleteBtn.closest(".level-row");
+      if (!row) return;
+
+      const rows = Array.from(refs.levelRows.querySelectorAll(".level-row")).filter((r) => r !== row);
+
+      const seen = new Set();
+      const validGroups = new Set(["staff", "manager", "executive", "admin"]);
+      const levels = [];
+      for (const r of rows) {
+        const level = Number(r.dataset.level);
+        const labelInput = r.querySelector("[data-level-label]");
+        const groupSelect = r.querySelector("[data-level-permission]");
+        const label = (labelInput?.value || "").trim();
+        const permissionGroup = (groupSelect?.value || "staff").trim();
+
+        if (!level || Number.isNaN(level)) {
+          feedback("Level number is required for each row.", true);
+          return;
+        }
+        if (seen.has(level)) {
+          feedback("Duplicate level numbers are not allowed.", true);
+          return;
+        }
+        seen.add(level);
+        if (!label) {
+          feedback("Each level needs a label.", true);
+          return;
+        }
+        if (!validGroups.has(permissionGroup)) {
+          feedback("Invalid permission group selected.", true);
+          return;
+        }
+        levels.push({ level, label, permissionGroup });
+      }
+
+      const adminCount = levels.filter((l) => permissionGroupForLevel(l.level) === "admin" || l.permissionGroup === "admin").length;
+      if (adminCount === 0) {
+        feedback("At least one admin permission level is required.", true);
+        return;
+      }
+
+      const previous = getLevelDefinitions();
+      try {
+        await mutatePersistentState("update_level_labels", { levels: levels.sort((a, b) => a.level - b.level) });
+        feedback("Level deleted.", false);
+      } catch (error) {
+        // Restore UI on failure
+        state.levelLabels = previous.reduce((acc, item) => {
+          acc[item.level] = { label: item.label, permissionGroup: item.permissionGroup };
+          return acc;
+        }, {});
+        renderLevelRows();
+        feedback(error.message || "Unable to delete level.", true);
       }
     });
   }
