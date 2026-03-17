@@ -48,10 +48,8 @@
     yearOptions,
     setSelectOptions,
     setSelectOptionsWithPlaceholder,
-    syncEntryDatePicker,
     filterDateRefs,
     syncFilterDatePicker,
-    updateEntryDateFromPicker,
     populateSelect,
     syncFormCatalogs,
     syncFilterCatalogs,
@@ -64,6 +62,21 @@
   const { createAccessControl } = window.accessControl || {};
 
   const DEFAULT_CLIENT_PROJECTS = {};
+
+  const minEntryDate = (() => {
+    const todayParts = today.split("-");
+    const minYear = Number(todayParts[0]) - 1;
+    return `${minYear}-01-01`;
+  })();
+
+  function clampDateToBounds(value) {
+    const max = today;
+    const min = minEntryDate;
+    const safe = isValidDateString(value) ? value : max;
+    if (safe > max) return max;
+    if (safe < min) return min;
+    return safe;
+  }
 
   const refs = {
     authShell: document.getElementById("auth-shell"),
@@ -140,9 +153,7 @@
     closeMembers: document.getElementById("close-members"),
     hourPresets: document.getElementById("hour-presets"),
     otherHours: document.getElementById("other-hours"),
-    entryDateMonth: document.getElementById("entry-date-month"),
-    entryDateDay: document.getElementById("entry-date-day"),
-    entryDateYear: document.getElementById("entry-date-year"),
+    entryDate: document.getElementById("entry-date"),
     submitEntry: document.getElementById("submit-entry"),
     addClientForm: document.getElementById("add-client-form"),
     addProjectForm: document.getElementById("add-project-form"),
@@ -1238,10 +1249,9 @@
       client: "",
       project: "",
     });
-    syncEntryDatePicker?.(
-      { isValidDateString, today, refs, field, MONTH_NAMES, escapeHtml },
-      today
-    );
+    if (refs.entryDate) {
+      refs.entryDate.value = clampDateToBounds(today);
+    }
     field(refs.form, "hours").value = "";
     refs.otherHours.value = "";
     renderHourSelection?.({ refs, field });
@@ -1257,10 +1267,9 @@
       client: entry.client,
       project: entry.project,
     });
-    syncEntryDatePicker?.(
-      { isValidDateString, today, refs, field, MONTH_NAMES, escapeHtml },
-      entry.date
-    );
+    if (refs.entryDate) {
+      refs.entryDate.value = clampDateToBounds(entry.date);
+    }
     field(refs.form, "hours").value = entry.hours;
     field(refs.form, "notes").value = entry.notes;
     refs.otherHours.value = QUICK_HOUR_PRESETS.has(String(entry.hours)) ? "" : String(entry.hours);
@@ -2735,6 +2744,24 @@
   refs.loginForm.addEventListener("submit", submitLogin);
   refs.bootstrapForm.addEventListener("submit", submitBootstrap);
 
+  if (refs.entryDate) {
+    refs.entryDate.min = minEntryDate;
+    refs.entryDate.max = today;
+    refs.entryDate.value = clampDateToBounds(refs.entryDate.value || today);
+    refs.entryDate.addEventListener("change", function () {
+      refs.entryDate.value = clampDateToBounds(refs.entryDate.value);
+    });
+  }
+
+  if (refs.expenseDate) {
+    refs.expenseDate.min = minEntryDate;
+    refs.expenseDate.max = today;
+    refs.expenseDate.value = clampDateToBounds(refs.expenseDate.value || today);
+    refs.expenseDate.addEventListener("change", function () {
+      refs.expenseDate.value = clampDateToBounds(refs.expenseDate.value);
+    });
+  }
+
   if (refs.navTimesheet) {
     refs.navTimesheet.addEventListener("click", function () {
       setView("main");
@@ -2878,13 +2905,6 @@
       });
     });
   });
-
-  const updateEntryDateFromPickerHandler = function () {
-    updateEntryDateFromPicker?.({ refs, field, escapeHtml });
-  };
-  refs.entryDateMonth.addEventListener("change", updateEntryDateFromPickerHandler);
-  refs.entryDateDay.addEventListener("change", updateEntryDateFromPickerHandler);
-  refs.entryDateYear.addEventListener("change", updateEntryDateFromPickerHandler);
 
   field(refs.form, "client").addEventListener("change", function () {
     const userField = field(refs.form, "user");
