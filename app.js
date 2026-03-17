@@ -457,8 +457,10 @@
         ...(sessionToken ? { sessionToken } : {}),
       }),
     });
-    applyLoadedState(result);
-    render();
+    if (result && result.currentUser) {
+      applyLoadedState(result);
+      render();
+    }
     return result;
   }
 
@@ -3053,9 +3055,15 @@
         }
       }
       try {
+        state.levelLabels = levels.reduce((acc, item) => {
+          acc[item.level] = { label: item.label, permissionGroup: item.permissionGroup };
+          return acc;
+        }, {});
+        renderLevelRows();
         await mutatePersistentState("update_level_labels", { levels });
+        await loadPersistentState();
+        renderLevelRows();
         feedback("Levels updated.", false);
-        render();
       } catch (error) {
         feedback(error.message || "Unable to update levels.", true);
       }
@@ -3214,23 +3222,20 @@
         return;
       }
 
-      const previous = getLevelDefinitions();
+      const previous = { ...state.levelLabels };
+      state.levelLabels = levels.reduce((acc, item) => {
+        acc[item.level] = { label: item.label, permissionGroup: item.permissionGroup };
+        return acc;
+      }, {});
+      renderLevelRows();
       try {
-        // Optimistically update local state so permissionGroup lookups stay in sync
-        state.levelLabels = levels.reduce((acc, item) => {
-          acc[item.level] = { label: item.label, permissionGroup: item.permissionGroup };
-          return acc;
-        }, {});
         await mutatePersistentState("update_level_labels", { levels: levels.sort((a, b) => a.level - b.level) });
         await loadPersistentState();
         renderLevelRows();
         feedback("Level deleted.", false);
       } catch (error) {
         // Restore UI on failure
-        state.levelLabels = previous.reduce((acc, item) => {
-          acc[item.level] = { label: item.label, permissionGroup: item.permissionGroup };
-          return acc;
-        }, {});
+        state.levelLabels = { ...previous };
         renderLevelRows();
         feedback(error.message || "Unable to delete level.", true);
       }
