@@ -315,9 +315,11 @@ async function ensureSchema(sql) {
     5: "Partner",
     6: "Admin",
   };
-  for (const [level, label] of Object.entries(defaultLabels)) {
-    const levelInt = Number(level);
-    if (!existingLevels.has(levelInt)) {
+  // Only seed defaults for accounts with no level labels yet. If levels
+  // exist, respect deliberate deletions.
+  if (existingLevels.size === 0) {
+    for (const [level, label] of Object.entries(defaultLabels)) {
+      const levelInt = Number(level);
       await sql`
         INSERT INTO level_labels (account_id, level, label, permission_group)
         VALUES (${accountUuid}::uuid, ${levelInt}, ${label}, ${defaultPermissionGroup(levelInt)})
