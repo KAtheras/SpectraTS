@@ -205,6 +205,22 @@
     appTopbar: document.querySelector(".app-topbar"),
   };
 
+  if (refs.entryDate) {
+    refs.entryDate.min = minEntryDate;
+    refs.entryDate.max = today;
+    refs.entryDate.addEventListener("change", () => {
+      refs.entryDate.value = clampDateToBounds(refs.entryDate.value);
+    });
+  }
+
+  if (refs.expenseDate) {
+    refs.expenseDate.min = minEntryDate;
+    refs.expenseDate.max = today;
+    refs.expenseDate.addEventListener("change", () => {
+      refs.expenseDate.value = clampDateToBounds(refs.expenseDate.value);
+    });
+  }
+
   // Enforce settings dropdown item order: Settings, Dark/Light, Change Password, Log out.
   if (refs.settingsMenu) {
     [
@@ -1305,9 +1321,9 @@
     if (refs.expenseUser) {
       refs.expenseUser.value = defaultUserId;
     }
-    if (refs.expenseDate) {
-      refs.expenseDate.value = today;
-    }
+  if (refs.expenseDate) {
+    refs.expenseDate.value = clampDateToBounds(today);
+  }
     syncExpenseCatalogs({
       userId: refs.expenseUser?.value || "",
       client: "",
@@ -1333,7 +1349,7 @@
       project: expense.projectName,
     });
     if (refs.expenseUser) refs.expenseUser.value = expense.userId;
-    if (refs.expenseDate) refs.expenseDate.value = expense.expenseDate;
+    if (refs.expenseDate) refs.expenseDate.value = clampDateToBounds(expense.expenseDate);
     if (refs.expenseCategory) refs.expenseCategory.value = expense.category;
     if (refs.expenseAmount) refs.expenseAmount.value = expense.amount;
     if (refs.expenseNotes) refs.expenseNotes.value = expense.notes || "";
