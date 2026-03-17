@@ -188,7 +188,7 @@ async function updateLevelLabels(sql, payload, accountId) {
   const validGroups = new Set(["staff", "manager", "executive", "admin"]);
   const seenLevels = new Set();
   const seenLabels = new Set();
-  const submittedLevels = [];
+  const cleaned = [];
 
   for (const item of levels) {
     const level = normalizeLevel(item.level);
@@ -207,25 +207,27 @@ async function updateLevelLabels(sql, payload, accountId) {
     }
     seenLabels.add(labelKey);
     const permissionGroup = validGroups.has(group) ? group : "staff";
-    submittedLevels.push(level);
-    await sql`
-      INSERT INTO level_labels (account_id, level, label, permission_group, updated_at)
-      VALUES (${accountId}::uuid, ${level}, ${label}, ${permissionGroup}, ${new Date().toISOString()})
-      ON CONFLICT (account_id, level) DO UPDATE SET
-        label = EXCLUDED.label,
-        permission_group = EXCLUDED.permission_group,
-        updated_at = EXCLUDED.updated_at
-    `;
+    cleaned.push({ level, label, permissionGroup });
   }
 
-  // Delete levels that are no longer present
-  if (submittedLevels.length) {
-    await sql`
+  // Replace all level labels atomically for this account to ensure deletions persist
+  await sql.begin(async (trx) => {
+    await trx`
       DELETE FROM level_labels
       WHERE account_id = ${accountId}::uuid
-        AND NOT (level = ANY(${sql.array(submittedLevels, "int4")}))
     `;
-  }
+
+    for (const item of cleaned) {
+      await trx`
+        INSERT INTO level_labels (account_id, level, label, permission_group, updated_at)
+        VALUES (${accountId}::uuid, ${item.level}, ${item.label}, ${item.permissionGroup}, ${new Date().toISOString()})
+        ON CONFLICT (account_id, level) DO UPDATE SET
+          label = EXCLUDED.label,
+          permission_group = EXCLUDED.permission_group,
+          updated_at = EXCLUDED.updated_at
+      `;
+    }
+  });
 
   return null;
 }
