@@ -26,6 +26,7 @@ const {
   updateUserRecord,
   verifyPassword,
   randomId,
+  logAudit,
 } = require("./_db");
 
 function normalizeHours(value) {
@@ -115,6 +116,68 @@ function normalizeStatus(status) {
     .toLowerCase() === "approved"
     ? "approved"
     : "pending";
+}
+
+function diffKeys(before, after) {
+  const keys = new Set([
+    ...Object.keys(before || {}),
+    ...Object.keys(after || {}),
+  ]);
+  const changed = [];
+  for (const key of keys) {
+    const a = before ? before[key] : undefined;
+    const b = after ? after[key] : undefined;
+    if (JSON.stringify(a) !== JSON.stringify(b)) {
+      changed.push(key);
+    }
+  }
+  return changed;
+}
+
+function entrySnapshot({
+  date,
+  userId,
+  clientId,
+  projectId,
+  hours,
+  notes,
+  nonbillable,
+  status,
+}) {
+  return {
+    date,
+    user_id: userId || null,
+    client_id: clientId || null,
+    project_id: projectId || null,
+    hours: hours !== undefined && hours !== null ? Number(hours) : null,
+    notes: notes || "",
+    nonbillable: Boolean(nonbillable),
+    status: status || "pending",
+  };
+}
+
+function expenseSnapshot({
+  date,
+  userId,
+  clientId,
+  projectId,
+  amount,
+  notes,
+  nonbillable,
+  status,
+  category,
+}) {
+  return {
+    date,
+    user_id: userId || null,
+    client_id: clientId || null,
+    project_id: projectId || null,
+    amount: amount !== undefined && amount !== null ? Number(amount) : null,
+    notes: notes || "",
+    nonbillable: Boolean(nonbillable),
+    status: status || "pending",
+    category: category || "",
+  };
 }
 
 async function changeOwnPassword(sql, payload, currentUser, accountId) {
@@ -775,40 +838,69 @@ async function createExpense(sql, payload, currentUser, accountId) {
   const id = normalizeText(expense.id) || randomId();
   const isBillable = expense.isBillable === false || expense.isBillable === 0 ? 0 : 1;
 
-  await sql`
-    INSERT INTO expenses (
-      id,
-      account_id,
-      user_id,
-      client_name,
-      project_name,
-      expense_date,
-      category,
-      amount,
-      is_billable,
-      notes,
-      status,
-      approved_at,
-      created_at,
-      updated_at
-    )
-    VALUES (
-      ${id},
-      ${accountId}::uuid,
-      ${targetUser.id},
-      ${expense.clientName},
-      ${expense.projectName},
-      ${expense.expenseDate},
-      ${expense.category},
-      ${normalizeAmount(expense.amount)},
-      ${isBillable},
-      ${normalizeText(expense.notes)},
-      'pending',
-      NULL,
-      ${now},
-      ${now}
-    )
-  `;
+  await sql.begin(async (tx) => {
+    await tx`
+      INSERT INTO expenses (
+        id,
+        account_id,
+        user_id,
+        client_name,
+        project_name,
+        expense_date,
+        category,
+        amount,
+        is_billable,
+        notes,
+        status,
+        approved_at,
+        created_at,
+        updated_at
+      )
+      VALUES (
+        ${id},
+        ${accountId}::uuid,
+        ${targetUser.id},
+        ${expense.clientName},
+        ${expense.projectName},
+        ${expense.expenseDate},
+        ${expense.category},
+        ${normalizeAmount(expense.amount)},
+        ${isBillable},
+        ${normalizeText(expense.notes)},
+        'pending',
+        NULL,
+        ${now},
+        ${now}
+      )
+    `;
+
+    const afterSnapshot = expenseSnapshot({
+      date: expense.expenseDate,
+      userId: targetUser.id,
+      clientId: project?.client_id || null,
+      projectId: project?.id || null,
+      amount: normalizeAmount(expense.amount),
+      notes: normalizeText(expense.notes),
+      nonbillable: isBillable ? false : true,
+      status: "pending",
+      category: expense.category,
+    });
+
+    await logAudit(tx, {
+      accountId,
+      entityType: "expense",
+      entityId: id,
+      action: "create",
+      changedByUserId: currentUser.id,
+      changedByNameSnapshot: currentUser.displayName,
+      targetUserId: targetUser.id,
+      contextClientId: project?.client_id || null,
+      contextProjectId: project?.id || null,
+      beforeJson: null,
+      afterJson: afterSnapshot,
+      changedFieldsJson: diffKeys({}, afterSnapshot || {}),
+    });
+  });
 
   return null;
 }
@@ -836,6 +928,7 @@ async function updateExpense(sql, payload, currentUser, accountId) {
     return errorResponse(404, "Expense not found.");
   }
 
+  const previousProject = await findProject(sql, existing.client_name, existing.project_name, accountId);
   const project = await findProject(sql, expense.clientName, expense.projectName, accountId);
   if (!project) {
     return errorResponse(404, "Project not found.");
@@ -878,21 +971,62 @@ async function updateExpense(sql, payload, currentUser, accountId) {
   const isBillable = expense.isBillable === false || expense.isBillable === 0 ? 0 : 1;
   const now = new Date().toISOString();
 
-  await sql`
-    UPDATE expenses
-    SET
-      user_id = ${targetUser.id},
-      client_name = ${expense.clientName},
-      project_name = ${expense.projectName},
-      expense_date = ${expense.expenseDate},
-      category = ${expense.category},
-      amount = ${normalizeAmount(expense.amount)},
-      is_billable = ${isBillable},
-      notes = ${normalizeText(expense.notes)},
-      updated_at = ${now}
-    WHERE id = ${id}
-      AND account_id = ${accountId}::uuid
-  `;
+  const beforeSnapshot = expenseSnapshot({
+    date: existing.expense_date,
+    userId: existing.user_id,
+    clientId: previousProject?.client_id || null,
+    projectId: previousProject?.id || null,
+    amount: existing.amount,
+    notes: existing.notes,
+    nonbillable: existing.is_billable === 0,
+    status: existing.status,
+    category: existing.category,
+  });
+
+  const afterSnapshot = expenseSnapshot({
+    date: expense.expenseDate,
+    userId: targetUser.id,
+    clientId: project?.client_id || null,
+    projectId: project?.id || null,
+    amount: normalizeAmount(expense.amount),
+    notes: normalizeText(expense.notes),
+    nonbillable: isBillable === 0,
+    status: existing.status,
+    category: expense.category,
+  });
+
+  await sql.begin(async (tx) => {
+    await tx`
+      UPDATE expenses
+      SET
+        user_id = ${targetUser.id},
+        client_name = ${expense.clientName},
+        project_name = ${expense.projectName},
+        expense_date = ${expense.expenseDate},
+        category = ${expense.category},
+        amount = ${normalizeAmount(expense.amount)},
+        is_billable = ${isBillable},
+        notes = ${normalizeText(expense.notes)},
+        updated_at = ${now}
+      WHERE id = ${id}
+        AND account_id = ${accountId}::uuid
+    `;
+
+    await logAudit(tx, {
+      accountId,
+      entityType: "expense",
+      entityId: id,
+      action: "update",
+      changedByUserId: currentUser.id,
+      changedByNameSnapshot: currentUser.displayName,
+      targetUserId: targetUser.id,
+      contextClientId: project?.client_id || null,
+      contextProjectId: project?.id || null,
+      beforeJson: beforeSnapshot,
+      afterJson: afterSnapshot,
+      changedFieldsJson: diffKeys(beforeSnapshot || {}, afterSnapshot || {}),
+    });
+  });
 
   return null;
 }
@@ -916,6 +1050,7 @@ async function deleteExpense(sql, payload, currentUser, accountId) {
   }
 
   const project = await findProject(sql, expense.client_name, expense.project_name, accountId);
+  const targetUser = await findUserById(sql, expense.user_id, accountId);
   if (!project && !isAdmin(currentUser)) {
     return errorResponse(403, "You are not assigned to this project.");
   }
@@ -929,7 +1064,6 @@ async function deleteExpense(sql, payload, currentUser, accountId) {
         return errorResponse(403, "You are not assigned to this project.");
       }
     }
-    const targetUser = await findUserById(sql, expense.user_id, accountId);
     const targetLevel = targetUser ? normalizeLevel(targetUser.level) : 1;
     if (targetUser && targetUser.id !== currentUser.id && targetLevel > 2) {
       return errorResponse(403, "Managers can only edit staff expenses.");
@@ -953,11 +1087,40 @@ async function deleteExpense(sql, payload, currentUser, accountId) {
     }
   }
 
-  await sql`
-    DELETE FROM expenses
-    WHERE id = ${id}
-      AND account_id = ${accountId}::uuid
-  `;
+  const beforeSnapshot = expenseSnapshot({
+    date: expense.expense_date,
+    userId: expense.user_id,
+    clientId: project?.client_id || null,
+    projectId: project?.id || null,
+    amount: expense.amount,
+    notes: expense.notes,
+    nonbillable: expense.is_billable === 0,
+    status: expense.status,
+    category: expense.category,
+  });
+
+  await sql.begin(async (tx) => {
+    await tx`
+      DELETE FROM expenses
+      WHERE id = ${id}
+        AND account_id = ${accountId}::uuid
+    `;
+
+    await logAudit(tx, {
+      accountId,
+      entityType: "expense",
+      entityId: id,
+      action: "delete",
+      changedByUserId: currentUser.id,
+      changedByNameSnapshot: currentUser.displayName,
+      targetUserId: targetUser?.id || null,
+      contextClientId: project?.client_id || null,
+      contextProjectId: project?.id || null,
+      beforeJson: beforeSnapshot,
+      afterJson: null,
+      changedFieldsJson: diffKeys(beforeSnapshot || {}, {}),
+    });
+  });
 
   return null;
 }
@@ -1016,14 +1179,44 @@ async function toggleExpenseStatus(sql, payload, currentUser, accountId) {
   const nextStatus = normalizeStatus(expense.status) === "approved" ? "pending" : "approved";
   const approvedAt = nextStatus === "approved" ? new Date().toISOString() : null;
 
-  await sql`
-    UPDATE expenses
-    SET status = ${nextStatus},
-        approved_at = ${approvedAt},
-        updated_at = NOW()
-    WHERE id = ${expense.id}
-      AND account_id = ${accountId}::uuid
-  `;
+  const beforeSnapshot = expenseSnapshot({
+    date: expense.expense_date,
+    userId: expense.user_id,
+    clientId: project?.client_id || null,
+    projectId: project?.id || null,
+    amount: expense.amount,
+    notes: expense.notes,
+    nonbillable: expense.is_billable === 0,
+    status: expense.status,
+    category: expense.category,
+  });
+  const afterSnapshot = { ...beforeSnapshot, status: nextStatus };
+
+  await sql.begin(async (tx) => {
+    await tx`
+      UPDATE expenses
+      SET status = ${nextStatus},
+          approved_at = ${approvedAt},
+          updated_at = NOW()
+      WHERE id = ${expense.id}
+        AND account_id = ${accountId}::uuid
+    `;
+
+    await logAudit(tx, {
+      accountId,
+      entityType: "expense",
+      entityId: expense.id,
+      action: nextStatus === "approved" ? "approve" : "unapprove",
+      changedByUserId: currentUser.id,
+      changedByNameSnapshot: currentUser.displayName,
+      targetUserId: targetUser?.id || null,
+      contextClientId: project?.client_id || null,
+      contextProjectId: project?.id || null,
+      beforeJson: beforeSnapshot,
+      afterJson: afterSnapshot,
+      changedFieldsJson: diffKeys(beforeSnapshot || {}, afterSnapshot || {}),
+    });
+  });
 
   return null;
 }
@@ -1300,56 +1493,96 @@ async function saveEntry(sql, payload, currentUser, accountId) {
   const approvedAt = status === "approved" && !hasContentChanges ? existing?.approved_at : null;
   const approvedBy = status === "approved" && !hasContentChanges ? existing?.approved_by_user_id : null;
 
-  await sql`
-    INSERT INTO entries (
-      id,
-      user_name,
-      entry_date,
-      client_name,
-      project_name,
-      task,
-      hours,
-      notes,
-      billable,
+  await sql.begin(async (tx) => {
+    await tx`
+      INSERT INTO entries (
+        id,
+        user_name,
+        entry_date,
+        client_name,
+        project_name,
+        task,
+        hours,
+        notes,
+        billable,
+        status,
+        approved_at,
+        approved_by_user_id,
+        account_id,
+        created_at,
+        updated_at
+      )
+      VALUES (
+        ${normalizeText(entry.id)},
+        ${normalizeText(entry.user)},
+        ${normalizeText(entry.date)},
+        ${normalizeText(entry.client)},
+        ${normalizeText(entry.project)},
+        ${normalizeText(entry.task)},
+        ${normalizeHours(entry.hours)},
+        ${normalizeText(entry.notes)},
+        ${entry.billable === false ? false : true},
+        ${status},
+        ${approvedAt},
+        ${approvedBy},
+        ${accountId},
+        ${normalizeText(entry.createdAt)},
+        ${normalizeText(entry.updatedAt)}
+      )
+      ON CONFLICT (id) DO UPDATE SET
+        user_name = EXCLUDED.user_name,
+        entry_date = EXCLUDED.entry_date,
+        client_name = EXCLUDED.client_name,
+        project_name = EXCLUDED.project_name,
+        task = EXCLUDED.task,
+        hours = EXCLUDED.hours,
+        notes = EXCLUDED.notes,
+        billable = EXCLUDED.billable,
+        status = EXCLUDED.status,
+        approved_at = EXCLUDED.approved_at,
+        approved_by_user_id = EXCLUDED.approved_by_user_id,
+        created_at = EXCLUDED.created_at,
+        updated_at = EXCLUDED.updated_at
+    `;
+
+    const beforeSnapshot = existing
+      ? entrySnapshot({
+          date: existing.entry_date,
+          userId: targetUser?.id || null,
+          clientId: project?.client_id || null,
+          projectId: project?.id || null,
+          hours: existing.hours,
+          notes: existing.notes,
+          nonbillable: existing.billable === false,
+          status: existing.status,
+        })
+      : null;
+    const afterSnapshot = entrySnapshot({
+      date: normalizeText(entry.date),
+      userId: targetUser?.id || null,
+      clientId: project?.client_id || null,
+      projectId: project?.id || null,
+      hours: normalizeHours(entry.hours),
+      notes: normalizeText(entry.notes),
+      nonbillable: entry.billable === false,
       status,
-      approved_at,
-      approved_by_user_id,
-      account_id,
-      created_at,
-      updated_at
-    )
-    VALUES (
-      ${normalizeText(entry.id)},
-      ${normalizeText(entry.user)},
-      ${normalizeText(entry.date)},
-      ${normalizeText(entry.client)},
-      ${normalizeText(entry.project)},
-      ${normalizeText(entry.task)},
-      ${normalizeHours(entry.hours)},
-      ${normalizeText(entry.notes)},
-      ${entry.billable === false ? false : true},
-      ${status},
-      ${approvedAt},
-      ${approvedBy},
-      ${accountId},
-      ${normalizeText(entry.createdAt)},
-      ${normalizeText(entry.updatedAt)}
-    )
-    ON CONFLICT (id) DO UPDATE SET
-      user_name = EXCLUDED.user_name,
-      entry_date = EXCLUDED.entry_date,
-      client_name = EXCLUDED.client_name,
-      project_name = EXCLUDED.project_name,
-      task = EXCLUDED.task,
-      hours = EXCLUDED.hours,
-      notes = EXCLUDED.notes,
-      billable = EXCLUDED.billable,
-      status = EXCLUDED.status,
-      approved_at = EXCLUDED.approved_at,
-      approved_by_user_id = EXCLUDED.approved_by_user_id,
-      created_at = EXCLUDED.created_at,
-      updated_at = EXCLUDED.updated_at
-  `;
+    });
+
+    await logAudit(tx, {
+      accountId,
+      entityType: "time_entry",
+      entityId: normalizeText(entry.id),
+      action: existing ? "update" : "create",
+      changedByUserId: currentUser?.id || null,
+      changedByNameSnapshot: currentUser?.displayName || "",
+      targetUserId: targetUser?.id || null,
+      contextClientId: project?.client_id || null,
+      contextProjectId: project?.id || null,
+      beforeJson: beforeSnapshot,
+      afterJson: afterSnapshot,
+      changedFieldsJson: diffKeys(beforeSnapshot || {}, afterSnapshot || {}),
+    });
+  });
 
   return null;
 }
@@ -1369,6 +1602,10 @@ async function approveEntry(sql, payload, currentUser, accountId) {
       user_name AS user_name,
       client_name AS client_name,
       project_name AS project_name,
+      entry_date,
+      hours,
+      notes,
+      billable,
       status
     FROM entries
     WHERE id = ${id}
@@ -1418,15 +1655,44 @@ async function approveEntry(sql, payload, currentUser, accountId) {
     }
   }
 
-  await sql`
-    UPDATE entries
-    SET status = 'approved',
-        approved_at = NOW(),
-        approved_by_user_id = ${currentUser.id},
-        updated_at = NOW()
-    WHERE id = ${entry.id}
-      AND account_id = ${accountId}::uuid
-  `;
+  const beforeSnapshot = entrySnapshot({
+    date: entry.entry_date,
+    userId: targetUser?.id || null,
+    clientId: project?.client_id || null,
+    projectId: project?.id || null,
+    hours: entry.hours,
+    notes: entry.notes,
+    nonbillable: entry.billable === false,
+    status: entry.status,
+  });
+  const afterSnapshot = { ...beforeSnapshot, status: "approved" };
+
+  await sql.begin(async (tx) => {
+    await tx`
+      UPDATE entries
+      SET status = 'approved',
+          approved_at = NOW(),
+          approved_by_user_id = ${currentUser.id},
+          updated_at = NOW()
+      WHERE id = ${entry.id}
+        AND account_id = ${accountId}::uuid
+    `;
+
+    await logAudit(tx, {
+      accountId,
+      entityType: "time_entry",
+      entityId: entry.id,
+      action: "approve",
+      changedByUserId: currentUser.id,
+      changedByNameSnapshot: currentUser.displayName,
+      targetUserId: targetUser?.id || null,
+      contextClientId: project?.client_id || null,
+      contextProjectId: project?.id || null,
+      beforeJson: beforeSnapshot,
+      afterJson: afterSnapshot,
+      changedFieldsJson: diffKeys(beforeSnapshot || {}, afterSnapshot || {}),
+    });
+  });
 
   return null;
 }
@@ -1446,6 +1712,10 @@ async function unapproveEntry(sql, payload, currentUser, accountId) {
       user_name AS user_name,
       client_name AS client_name,
       project_name AS project_name,
+      entry_date,
+      hours,
+      notes,
+      billable,
       status
     FROM entries
     WHERE id = ${id}
@@ -1495,15 +1765,44 @@ async function unapproveEntry(sql, payload, currentUser, accountId) {
     }
   }
 
-  await sql`
-    UPDATE entries
-    SET status = 'pending',
-        approved_at = NULL,
-        approved_by_user_id = NULL,
-        updated_at = NOW()
-    WHERE id = ${entry.id}
-      AND account_id = ${accountId}::uuid
-  `;
+  const beforeSnapshot = entrySnapshot({
+    date: entry.entry_date,
+    userId: targetUser?.id || null,
+    clientId: project?.client_id || null,
+    projectId: project?.id || null,
+    hours: entry.hours,
+    notes: entry.notes,
+    nonbillable: entry.billable === false,
+    status: entry.status,
+  });
+  const afterSnapshot = { ...beforeSnapshot, status: "pending" };
+
+  await sql.begin(async (tx) => {
+    await tx`
+      UPDATE entries
+      SET status = 'pending',
+          approved_at = NULL,
+          approved_by_user_id = NULL,
+          updated_at = NOW()
+      WHERE id = ${entry.id}
+        AND account_id = ${accountId}::uuid
+    `;
+
+    await logAudit(tx, {
+      accountId,
+      entityType: "time_entry",
+      entityId: entry.id,
+      action: "unapprove",
+      changedByUserId: currentUser.id,
+      changedByNameSnapshot: currentUser.displayName,
+      targetUserId: targetUser?.id || null,
+      contextClientId: project?.client_id || null,
+      contextProjectId: project?.id || null,
+      beforeJson: beforeSnapshot,
+      afterJson: afterSnapshot,
+      changedFieldsJson: diffKeys(beforeSnapshot || {}, afterSnapshot || {}),
+    });
+  });
 
   return null;
 }
@@ -1519,7 +1818,12 @@ async function deleteEntry(sql, payload, currentUser, accountId) {
       id,
       user_name AS "user",
       client_name AS client,
-      project_name AS project
+      project_name AS project,
+      entry_date,
+      hours,
+      notes,
+      billable,
+      status
     FROM entries
     WHERE id = ${id}
       AND account_id = ${accountId}::uuid
@@ -1573,7 +1877,35 @@ async function deleteEntry(sql, payload, currentUser, accountId) {
     }
   }
 
-  await sql`DELETE FROM entries WHERE id = ${id}`;
+  const entryUser = await findUserByDisplayName(sql, entry.user, accountId);
+  const beforeSnapshot = entrySnapshot({
+    date: entry.entry_date || entry.date,
+    userId: entryUser?.id || null,
+    clientId: project?.client_id || null,
+    projectId: project?.id || null,
+    hours: entry.hours,
+    notes: entry.notes,
+    nonbillable: entry.billable === false,
+    status: entry.status,
+  });
+
+  await sql.begin(async (tx) => {
+    await tx`DELETE FROM entries WHERE id = ${id}`;
+    await logAudit(tx, {
+      accountId,
+      entityType: "time_entry",
+      entityId: id,
+      action: "delete",
+      changedByUserId: currentUser.id,
+      changedByNameSnapshot: currentUser.displayName,
+      targetUserId: entryUser?.id || null,
+      contextClientId: project?.client_id || null,
+      contextProjectId: project?.id || null,
+      beforeJson: beforeSnapshot,
+      afterJson: null,
+      changedFieldsJson: diffKeys(beforeSnapshot || {}, {}),
+    });
+  });
   return null;
 }
 

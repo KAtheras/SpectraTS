@@ -308,6 +308,29 @@ async function ensureSchema(sql) {
     CREATE INDEX IF NOT EXISTS expense_categories_account_idx
       ON expense_categories(account_uuid)
   `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS audit_log (
+      id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+      account_id UUID REFERENCES accounts(id),
+      entity_type TEXT NOT NULL,
+      entity_id TEXT NOT NULL,
+      action TEXT NOT NULL,
+      changed_by_user_id TEXT,
+      changed_by_name_snapshot TEXT,
+      target_user_id TEXT,
+      context_client_id BIGINT,
+      context_project_id BIGINT,
+      changed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      before_json JSONB,
+      after_json JSONB,
+      changed_fields_json JSONB
+    )
+  `;
+  await sql`
+    CREATE INDEX IF NOT EXISTS audit_log_account_idx
+      ON audit_log (account_id, changed_at DESC)
+  `;
   await sql`ALTER TABLE level_labels DROP CONSTRAINT IF EXISTS level_labels_level_check`;
 
   const labelRows = await sql`
@@ -1725,6 +1748,55 @@ async function loadState(sql, currentUser) {
   };
 }
 
+async function logAudit(
+  sql,
+  {
+    accountId,
+    entityType,
+    entityId,
+    action,
+    changedByUserId,
+    changedByNameSnapshot,
+    targetUserId,
+    contextClientId,
+    contextProjectId,
+    beforeJson,
+    afterJson,
+    changedFieldsJson,
+  }
+) {
+  await sql`
+    INSERT INTO audit_log (
+      account_id,
+      entity_type,
+      entity_id,
+      action,
+      changed_by_user_id,
+      changed_by_name_snapshot,
+      target_user_id,
+      context_client_id,
+      context_project_id,
+      before_json,
+      after_json,
+      changed_fields_json
+    )
+    VALUES (
+      ${accountId}::uuid,
+      ${entityType},
+      ${entityId},
+      ${action},
+      ${changedByUserId},
+      ${changedByNameSnapshot},
+      ${targetUserId},
+      ${contextClientId},
+      ${contextProjectId},
+      ${beforeJson ? JSON.stringify(beforeJson) : null}::jsonb,
+      ${afterJson ? JSON.stringify(afterJson) : null}::jsonb,
+      ${changedFieldsJson ? JSON.stringify(changedFieldsJson) : null}::jsonb
+    )
+  `;
+}
+
 module.exports = {
   clearSession,
   createSession,
@@ -1753,6 +1825,7 @@ module.exports = {
   listLevelLabels,
   listUsers,
   loadState,
+  logAudit,
   normalizeLevel,
   normalizeText,
   parseBody,
