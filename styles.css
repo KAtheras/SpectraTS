@@ -1430,17 +1430,53 @@ textarea {
   margin-bottom: 12px;
 }
 
-.audit-detail pre {
-  background: rgba(0, 0, 0, 0.03);
-  padding: 8px;
-  border-radius: 8px;
-  max-height: 240px;
-  overflow: auto;
-  font-size: 12px;
+.audit-detail {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 16px;
+  margin-top: 8px;
 }
 
-body[data-theme="dark"] .audit-detail pre {
+.audit-detail-col {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: rgba(0, 0, 0, 0.03);
+  border-radius: 8px;
+  padding: 10px;
+}
+
+body[data-theme="dark"] .audit-detail-col {
   background: rgba(255, 255, 255, 0.04);
+}
+
+.audit-kv {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 1.4;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  padding: 4px 0;
+}
+
+.audit-kv:last-child {
+  border-bottom: none;
+}
+
+.audit-k {
+  font-weight: 600;
+  color: var(--muted-strong, #444);
+}
+
+.audit-v {
+  color: var(--text, #2f2f2f);
+  text-align: right;
+}
+
+.audit-empty {
+  font-style: italic;
+  color: var(--muted, #777);
 }
 
 .filter-pill {

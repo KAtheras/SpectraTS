@@ -1741,40 +1741,119 @@
 
     refs.auditTableBody.innerHTML = rows
       .map((row) => {
-        const fields =
-          Array.isArray(row.changed_fields_json) && row.changed_fields_json.length
-            ? row.changed_fields_json.join(", ")
-            : "-";
+        const friendlyEntity = humanizeEntity(row.entity_type);
+        const friendlyAction = humanizeAction(row.action);
+        const actor = row.changed_by_name_snapshot || row.changed_by_name || row.changed_by_user_id || "Unknown";
+        const targetName = row.target_user_name || row.target_user_id || "";
+        const clientName = row.context_client_name || row.context_client_id || "";
+        const projectName = row.context_project_name || row.context_project_id || "";
         const context = [
-          row.entity_id ? `ID: ${escapeHtml(String(row.entity_id))}` : "",
-          row.context_client_id ? `Client ID: ${escapeHtml(String(row.context_client_id))}` : "",
-          row.context_project_id ? `Project ID: ${escapeHtml(String(row.context_project_id))}` : "",
-          row.target_user_id ? `Target user: ${escapeHtml(String(row.target_user_id))}` : "",
+          targetName ? `Target: ${escapeHtml(targetName)}` : "",
+          clientName ? `Client: ${escapeHtml(clientName)}` : "",
+          projectName ? `Project: ${escapeHtml(projectName)}` : "",
         ]
           .filter(Boolean)
           .join(" · ");
 
+        const beforeLines = formatAuditKV(row.before_json, row.entity_type, row.action, "before");
+        const afterLines = formatAuditKV(row.after_json, row.entity_type, row.action, "after");
+
+        const summary = `${escapeHtml(actor)} ${friendlyAction.toLowerCase()} a ${friendlyEntity}`;
+        const changedFields =
+          Array.isArray(row.changed_fields_json) && row.changed_fields_json.length
+            ? row.changed_fields_json.map(humanizeField).join(", ")
+            : "-";
+
         return `
           <tr>
             <td>${escapeHtml(formatDateTimeLocal(row.changed_at))}</td>
-            <td>${escapeHtml(row.changed_by_name_snapshot || row.changed_by_user_id || "Unknown")}</td>
-            <td>${escapeHtml(row.entity_type)}</td>
-            <td>${escapeHtml(row.action)}</td>
+            <td>${escapeHtml(actor)}</td>
+            <td>${escapeHtml(friendlyEntity)}</td>
+            <td>${escapeHtml(friendlyAction)}</td>
             <td>${context || "-"}</td>
-            <td>${escapeHtml(fields)}</td>
+            <td>${escapeHtml(changedFields)}</td>
             <td>
               <details>
-                <summary>Details</summary>
+                <summary>${summary}</summary>
                 <div class="audit-detail">
-                  <strong>Before</strong>
-                  <pre>${escapeHtml(JSON.stringify(row.before_json || {}, null, 2))}</pre>
-                  <strong>After</strong>
-                  <pre>${escapeHtml(JSON.stringify(row.after_json || {}, null, 2))}</pre>
+                  <div class="audit-detail-col">
+                    <strong>Before</strong>
+                    ${beforeLines || '<div class="audit-empty">New record</div>'}
+                  </div>
+                  <div class="audit-detail-col">
+                    <strong>After</strong>
+                    ${afterLines || '<div class="audit-empty">Deleted</div>'}
+                  </div>
                 </div>
               </details>
             </td>
           </tr>
         `;
+      })
+      .join("");
+  }
+
+  const FIELD_LABELS = {
+    nonbillable: "Billable Status",
+    user_id: "Team Member",
+    client_id: "Client",
+    project_id: "Project",
+    category_id: "Category",
+    date: "Date",
+    hours: "Hours",
+    amount: "Amount",
+    notes: "Notes",
+    status: "Status",
+  };
+
+  const ENTITY_LABELS = {
+    time_entry: "Time Entry",
+    expense: "Expense",
+  };
+
+  const ACTION_LABELS = {
+    create: "Created",
+    update: "Updated",
+    delete: "Deleted",
+    approve: "Approved",
+    unapprove: "Unapproved",
+  };
+
+  function humanizeEntity(entity) {
+    return ENTITY_LABELS[entity] || entity || "";
+  }
+
+  function humanizeAction(action) {
+    return ACTION_LABELS[action] || action || "";
+  }
+
+  function humanizeField(field) {
+    if (!field) return "";
+    return FIELD_LABELS[field] || field;
+  }
+
+  function formatValue(key, value) {
+    if (value === null || value === undefined || value === "") return "—";
+    if (key === "nonbillable") return value ? "Non-billable" : "Billable";
+    if (key === "date") return formatDisplayDate(String(value));
+    if (key === "hours") return Number(value).toFixed(2);
+    if (key === "amount") return `$${Number(value).toFixed(2)}`;
+    return escapeHtml(String(value));
+  }
+
+  function formatAuditKV(json, entityType, action, position) {
+    if (!json || typeof json !== "object" || !Object.keys(json).length) {
+      if (action === "create" && position === "before") return "";
+      if (action === "delete" && position === "after") return "";
+      return "";
+    }
+    return Object.entries(json)
+      .map(([key, value]) => {
+        const label = humanizeField(key);
+        return `<div class="audit-kv"><span class="audit-k">${escapeHtml(label)}</span><span class="audit-v">${formatValue(
+          key,
+          value
+        )}</span></div>`;
       })
       .join("");
   }
