@@ -2151,14 +2151,10 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   white-space: nowrap;
 }
 
-.expense-amount-group .expense-amount-inner {
+.expense-amount-group .expense-amount-header {
   display: flex;
   align-items: center;
-  gap: 12px;
-}
-
-.expense-amount-group input[type="number"] {
-  flex: 1;
+  justify-content: space-between;
 }
 
 .nonbillable-toggle--expense input {
