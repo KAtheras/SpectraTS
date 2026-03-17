@@ -68,7 +68,7 @@
     const clientHoursMap = {};
     const clientBudgetMap = {};
     clients.forEach((client) => {
-      const clientProjects = visibleCatalogProjectNames(client);
+      const clientProjects = visibleCatalogProjectNames(client) || [];
       const hours = clientProjects.reduce(
         (total, proj) => total + (projectHours(client, proj) || 0),
         0
