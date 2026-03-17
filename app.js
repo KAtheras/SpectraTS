@@ -3137,10 +3137,10 @@
 
       const previous = [...state.expenseCategories];
       state.expenseCategories = categories;
+      renderExpenseCategories();
       try {
         await mutatePersistentState("update_expense_categories", { categories });
         feedback("Category deleted.", false);
-        renderExpenseCategories();
       } catch (error) {
         state.expenseCategories = previous;
         renderExpenseCategories();

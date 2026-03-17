@@ -901,6 +901,11 @@ input[name="cost_rate"] {
   color: var(--muted-strong);
   justify-content: flex-end;
 }
+.level-row .expense-active input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+}
 .expense-actions {
   display: flex;
   align-items: center;
