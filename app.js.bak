@@ -60,11 +60,8 @@
     handleOtherHoursInput,
   } = window.entryForm || {};
   const { createAccessControl } = window.accessControl || {};
-
   const DEFAULT_CLIENT_PROJECTS = {};
 
-  const today = formatDate(new Date());
-  
   const minEntryDate = (() => {
     const todayParts = today.split("-");
     const minYear = Number(todayParts[0]) - 1;
@@ -205,7 +202,7 @@
     appTopbar: document.querySelector(".app-topbar"),
   };
 
-  
+  const today = formatDate(new Date());
 
   const DEFAULT_LEVEL_DEFS = {
     1: { label: "Staff", permissionGroup: "staff" },
@@ -2745,6 +2742,24 @@
 
   refs.loginForm.addEventListener("submit", submitLogin);
   refs.bootstrapForm.addEventListener("submit", submitBootstrap);
+
+  if (refs.entryDate) {
+    refs.entryDate.min = minEntryDate;
+    refs.entryDate.max = today;
+    refs.entryDate.value = clampDateToBounds(refs.entryDate.value || today);
+    refs.entryDate.addEventListener("change", function () {
+      refs.entryDate.value = clampDateToBounds(refs.entryDate.value);
+    });
+  }
+
+  if (refs.expenseDate) {
+    refs.expenseDate.min = minEntryDate;
+    refs.expenseDate.max = today;
+    refs.expenseDate.value = clampDateToBounds(refs.expenseDate.value || today);
+    refs.expenseDate.addEventListener("change", function () {
+      refs.expenseDate.value = clampDateToBounds(refs.expenseDate.value);
+    });
+  }
 
   if (refs.navTimesheet) {
     refs.navTimesheet.addEventListener("click", function () {
