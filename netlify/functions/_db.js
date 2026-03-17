@@ -147,7 +147,8 @@ async function ensureSchema(sql) {
       account_id UUID REFERENCES accounts(id),
       name TEXT NOT NULL,
       created_by TEXT REFERENCES users(id),
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      budget_amount NUMERIC(12,2)
     )
   `;
 
@@ -160,6 +161,14 @@ async function ensureSchema(sql) {
     ADD COLUMN IF NOT EXISTS account_id UUID REFERENCES accounts(id)
   `;
   await sql`UPDATE projects SET account_id = ${accountUuid}::uuid WHERE account_id IS NULL`;
+  await sql`
+    ALTER TABLE projects
+    ADD COLUMN IF NOT EXISTS budget_amount NUMERIC(12,2)
+  `;
+  await sql`
+    ALTER TABLE projects
+    ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  `;
 
   await sql`
     CREATE UNIQUE INDEX IF NOT EXISTS projects_client_name_ci_idx
@@ -1263,7 +1272,7 @@ async function findProject(sql, clientName, projectName, accountId) {
   }
 
   const rows = await sql`
-    SELECT projects.id, projects.name, clients.name AS client
+    SELECT projects.id, projects.name, clients.name AS client, projects.budget_amount AS budget
     FROM projects
     JOIN clients ON clients.id = projects.client_id
     WHERE projects.client_id = ${client.id}
@@ -1281,7 +1290,8 @@ async function listProjects(sql, accountId) {
       projects.id,
       projects.name,
       clients.name AS client,
-      projects.created_by AS "createdBy"
+      projects.created_by AS "createdBy",
+      projects.budget_amount AS budget
     FROM projects
     JOIN clients ON clients.id = projects.client_id
     WHERE projects.account_id = ${accountId}::uuid

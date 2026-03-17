@@ -3493,6 +3493,13 @@
         return;
       }
       const projectName = editButton.dataset.editProject;
+      const projectRow =
+        (state.projects || []).find(
+          (p) =>
+            p.client === state.selectedCatalogClient &&
+            (p.name || "").toLowerCase() === projectName.toLowerCase()
+        ) || null;
+      const currentBudget = projectRow && Number.isFinite(projectRow.budget) ? projectRow.budget : null;
       const dialogResult = await appDialog({
         title: "Edit project name",
         input: true,
@@ -3502,17 +3509,36 @@
       if (!dialogResult.confirmed) {
         return;
       }
-      const nextName = dialogResult.value || "";
+      const nextName = dialogResult.value || projectName;
       if (!nextName.trim()) {
         feedback("Project name cannot be empty.", true);
         return;
       }
 
+      const budgetInput = window.prompt(
+        "Project budget (optional – leave blank for no budget). Enter a number.",
+        currentBudget !== null ? String(currentBudget) : ""
+      );
+      if (budgetInput === null) {
+        return;
+      }
+      const trimmedBudget = budgetInput.trim();
+      let budgetAmount = null;
+      if (trimmedBudget) {
+        const parsed = Number(trimmedBudget);
+        if (Number.isNaN(parsed) || parsed < 0) {
+          feedback("Budget must be a non-negative number.", true);
+          return;
+        }
+        budgetAmount = parsed;
+      }
+
       try {
-        await mutatePersistentState("rename_project", {
+        await mutatePersistentState("update_project", {
           clientName: state.selectedCatalogClient,
           projectName,
           nextName,
+          budgetAmount,
         });
         if (
           state.filters.client === state.selectedCatalogClient &&
@@ -3525,6 +3551,7 @@
         return;
       }
 
+      await loadPersistentState();
       syncFilterCatalogsUI(state.filters);
       feedback("Project updated.", false);
       render();

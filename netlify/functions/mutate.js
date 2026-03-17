@@ -1060,6 +1060,62 @@ async function renameProject(sql, payload, accountId) {
   return null;
 }
 
+async function updateProject(sql, payload, currentUser, accountId) {
+  const clientName = normalizeText(payload.clientName);
+  const projectName = normalizeText(payload.projectName);
+  const nextName = normalizeText(payload.nextName || projectName);
+  const budgetRaw = payload.budgetAmount;
+  const hasBudget = budgetRaw !== undefined && budgetRaw !== null && budgetRaw !== "";
+  const budgetAmount = hasBudget ? Number(budgetRaw) : null;
+
+  if (!clientName || !projectName) {
+    return errorResponse(404, "Project not found.");
+  }
+  if (!nextName) {
+    return errorResponse(400, "Project name is required.");
+  }
+  if (hasBudget && (Number.isNaN(budgetAmount) || budgetAmount < 0)) {
+    return errorResponse(400, "Budget must be a non-negative number.");
+  }
+
+  const project = await findProject(sql, clientName, projectName, accountId);
+  if (!project) {
+    return errorResponse(404, "Project not found.");
+  }
+  // Reuse admin requirement from rename_project
+  if (!isAdmin(currentUser)) {
+    return errorResponse(403, "Admin access required.");
+  }
+
+  if (project.name.toLowerCase() !== nextName.toLowerCase()) {
+    const conflict = await findProject(sql, clientName, nextName, accountId);
+    if (conflict) {
+      return errorResponse(409, "That project already exists for this client.");
+    }
+  }
+
+  await sql`
+    UPDATE projects
+    SET name = ${nextName},
+        budget_amount = ${budgetAmount},
+        updated_at = NOW()
+    WHERE id = ${project.id}
+      AND account_id = ${accountId}::uuid
+  `;
+
+  if (project.name.toLowerCase() !== nextName.toLowerCase()) {
+    await sql`
+      UPDATE entries
+      SET project_name = ${nextName}
+      WHERE LOWER(client_name) = LOWER(${clientName})
+        AND LOWER(project_name) = LOWER(${project.name})
+        AND account_id = ${accountId}::uuid
+    `;
+  }
+
+  return null;
+}
+
 async function removeClient(sql, payload, accountId) {
   const clientName = normalizeText(payload.clientName);
   const client = await findClient(sql, clientName, accountId);
@@ -1554,6 +1610,12 @@ exports.handler = async function handler(event) {
         const adminError = requireAdmin(context);
         if (adminError) return adminError;
         mutationResult = await renameProject(sql, request.payload || {}, accountId);
+        break;
+      }
+      case "update_project": {
+        const adminError = requireAdmin(context);
+        if (adminError) return adminError;
+        mutationResult = await updateProject(sql, request.payload || {}, context.currentUser, accountId);
         break;
       }
       case "remove_client": {

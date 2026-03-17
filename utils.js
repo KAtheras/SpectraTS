@@ -117,11 +117,13 @@
         if (!client || !name) {
           return null;
         }
+        const budgetRaw = project.budget !== undefined ? Number(project.budget) : null;
         return {
           id: project.id || "",
           client,
           name,
           createdBy: project.createdBy || "",
+          budget: Number.isFinite(budgetRaw) ? budgetRaw : null,
         };
       })
       .filter(Boolean);

@@ -55,6 +55,12 @@
     ensureCatalogSelection();
     const selectedClient = state.selectedCatalogClient;
     const projects = visibleCatalogProjectNames(selectedClient);
+    const projectBudgetMap = (state.projects || []).reduce((acc, project) => {
+      if (project && project.client === selectedClient) {
+        acc[project.name] = Number.isFinite(project.budget) ? Number(project.budget) : null;
+      }
+      return acc;
+    }, {});
 
     refs.clientList.innerHTML = clients
       .map(
@@ -162,6 +168,15 @@
                   <span class="catalog-item-copy">
                     <span class="catalog-item-title">${escapeHtml(project)}</span>
                     <small>${projectHours(selectedClient, project).toFixed(2)}h logged</small>
+                    ${
+                      projectBudgetMap[project] !== undefined
+                        ? `<small>Budget: ${
+                            projectBudgetMap[project] === null
+                              ? "—"
+                              : `$${projectBudgetMap[project].toFixed(2)}`
+                          }</small>`
+                        : ""
+                    }
                     <span class="catalog-item-meta">
                       <span>Managers: ${escapeHtml(managerNames)}</span>
                       <span>Staff: ${escapeHtml(staffNames)}</span>
