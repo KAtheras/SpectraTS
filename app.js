@@ -1334,7 +1334,7 @@
       isStaff,
       isManager,
       levelLabel,
-      normalizeLevel,
+      normalizeLevel: normalizeModalLevel,
       getUserById,
       directManagerIdsForProject,
       isUserAssignedToProject,
@@ -1344,6 +1344,14 @@
       staffIdsForClient,
       escapeHtml,
     });
+  }
+
+  function normalizeModalLevel(level) {
+    const group = permissionGroupForLevel(level);
+    if (group === "admin") return 5;
+    if (group === "executive") return 4;
+    if (group === "manager") return 3;
+    return 1; // staff
   }
 
   function renderAuthUi() {
@@ -3258,9 +3266,10 @@
           }
 
           const effectiveLevel = normalizeLevel(nextLevel || user.level);
+          const effectiveUser = { ...user, level: effectiveLevel };
 
           if (mode === "project-add") {
-            if (effectiveLevel > 2) {
+            if (!isStaff(effectiveUser)) {
               skippedNonStaff += 1;
               continue;
             }
@@ -3276,7 +3285,7 @@
               projectName: project,
             });
           } else if (mode === "project-assign-manager") {
-            if (effectiveLevel < 3) {
+            if (!isManager(effectiveUser)) {
               continue;
             }
             await mutatePersistentState("assign_manager_project", {
@@ -3298,7 +3307,7 @@
           const newOverride = hasInput ? overrideInputMap[user.id] : prevOverride;
 
           if (!wasAssigned && isChecked) {
-            if (effectiveLevel < 3) {
+            if (!isManager(effectiveUser)) {
               continue;
             }
             await mutatePersistentState("assign_manager_project", {
@@ -3326,7 +3335,7 @@
           }
         } else if (mode === "project-members-edit") {
             if (toAdd.includes(user.id)) {
-            if (effectiveLevel > 2) {
+            if (!isStaff(effectiveUser)) {
               skippedNonStaff += 1;
               continue;
             }
