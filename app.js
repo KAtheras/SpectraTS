@@ -205,7 +205,17 @@
     appTopbar: document.querySelector(".app-topbar"),
   };
 
-  
+  // Enforce settings dropdown item order: Settings, Dark/Light, Change Password, Log out.
+  if (refs.settingsMenu) {
+    [
+      refs.settingsMenuSettings,
+      refs.themeToggle,
+      refs.changePasswordOpen,
+      refs.logoutButton,
+    ].forEach(function (el) {
+      if (el) refs.settingsMenu.appendChild(el);
+    });
+  }
 
   const DEFAULT_LEVEL_DEFS = {
     1: { label: "Staff", permissionGroup: "staff" },
