@@ -2145,6 +2145,11 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   background: #f6fff7;
 }
 
+/* Ensure approved rows tint applies to tables that omit the entry-row class (e.g., expenses) */
+.entry-approved td {
+  background: #f6fff7;
+}
+
 .expense-entry-form {
   display: grid;
   grid-template-columns: 1fr;
@@ -2321,6 +2326,10 @@ body[data-theme="dark"] .entry-status.entry-status-approved {
 }
 
 body[data-theme="dark"] .entry-row.entry-approved td {
+  background: #0f1d15;
+}
+
+body[data-theme="dark"] .entry-approved td {
   background: #0f1d15;
 }
 
