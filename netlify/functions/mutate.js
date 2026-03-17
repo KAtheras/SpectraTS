@@ -15,6 +15,7 @@ const {
   getManagerScope,
   json,
   loadState,
+  listLevelLabels,
   normalizeLevel,
   normalizeText,
   parseBody,
@@ -32,10 +33,18 @@ function normalizeHours(value) {
   return Number.isFinite(hours) ? hours : NaN;
 }
 
+let requestLevelLabels = {};
+
 function permissionGroupForLevel(level) {
   const normalized = normalizeLevel(level);
-  if (normalized >= 5) return "admin";
-  if (normalized >= 3) return "manager";
+  const value = requestLevelLabels?.[normalized];
+  if (value && typeof value === "object") {
+    if (value.permissionGroup) return String(value.permissionGroup).toLowerCase();
+    if (value.permission_group) return String(value.permission_group).toLowerCase();
+  }
+  if (normalized === 1) return "admin";
+  if (normalized === 2) return "executive";
+  if (normalized <= 3) return "manager";
   return "staff";
 }
 
@@ -1143,6 +1152,7 @@ exports.handler = async function handler(event) {
       return authError;
     }
     const accountId = context.currentUser?.accountId;
+    requestLevelLabels = await listLevelLabels(sql, accountId);
 
     let mutationResult = null;
 
