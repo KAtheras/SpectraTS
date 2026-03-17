@@ -2935,6 +2935,14 @@
         return;
       }
     });
+
+    refs.expensesBody.addEventListener("keydown", async function (event) {
+      const actionEl = event.target.closest("[data-action]");
+      if (!actionEl) return;
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      actionEl.click();
+    });
   }
 
   if (refs.entriesBody) {
