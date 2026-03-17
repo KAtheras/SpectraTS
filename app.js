@@ -80,6 +80,7 @@
     sessionIndicator: document.getElementById("session-indicator"),
     accountName: document.getElementById("account-name"),
     navTimesheet: document.getElementById("nav-timesheet"),
+    navExpenses: document.getElementById("nav-expenses"),
     navSettings: document.getElementById("nav-settings"),
     navMembers: document.getElementById("nav-members"),
     settingsToggle: document.getElementById("settings-toggle"),
@@ -148,6 +149,7 @@
     feedback: document.getElementById("feedback"),
     activeFilters: document.getElementById("active-filters"),
     entriesBody: document.getElementById("entries-body"),
+    expensesBody: document.getElementById("expenses-body"),
     clientList: document.getElementById("client-list"),
     projectList: document.getElementById("project-list"),
     projectColumnLabel: document.getElementById("project-column-label"),
@@ -161,6 +163,18 @@
     membersConfirm: document.getElementById("members-confirm"),
     membersCancel: document.getElementById("members-cancel"),
     entryNonBillable: document.getElementById("entry-nonbillable"),
+    expenseForm: document.getElementById("expense-form"),
+    expenseFormHeading: document.getElementById("expense-form-heading"),
+    expenseCancelEdit: document.getElementById("expense-cancel-edit"),
+    expenseUser: document.getElementById("expense-user"),
+    expenseClient: document.getElementById("expense-client"),
+    expenseProject: document.getElementById("expense-project"),
+    expenseDate: document.getElementById("expense-date"),
+    expenseCategory: document.getElementById("expense-category"),
+    expenseAmount: document.getElementById("expense-amount"),
+    expenseNonBillable: document.getElementById("expense-nonbillable"),
+    expenseNotes: document.getElementById("expense-notes"),
+    submitExpense: document.getElementById("submit-expense"),
     filterFromMonth: document.getElementById("filter-from-month"),
     filterFromDay: document.getElementById("filter-from-day"),
     filterFromYear: document.getElementById("filter-from-year"),
@@ -208,7 +222,8 @@
       managerProjects: [],
       projectMembers: [],
     },
-    currentView: "main", // "main" | "clients" | "members" | "analytics" | "settings"
+    currentView: "main", // "main" | "expenses" | "clients" | "members" | "analytics" | "settings"
+    expenseEditingId: null,
   };
 
   function persistSessionToken(token) {
@@ -333,6 +348,9 @@
     state.bootstrapRequired = Boolean(data?.bootstrapRequired);
     state.catalog = normalizeCatalog(data?.catalog || {}, false);
     state.entries = Array.isArray(data?.entries) ? data.entries.map(normalizeEntry).filter(Boolean) : [];
+    state.expenses = Array.isArray(data?.expenses)
+      ? data.expenses.map(normalizeExpense).filter(Boolean)
+      : [];
     state.expenses = Array.isArray(data?.expenses) ? data.expenses : [];
     state.assignments = normalizeAssignments(data?.assignments);
     state.levelLabels = data?.levelLabels && typeof data.levelLabels === "object"
@@ -503,6 +521,10 @@
 
   function closeCatalogModal() {
     setView("main");
+  }
+
+  function openExpensesPage() {
+    setView("expenses");
   }
 
   function openAnalyticsPage() {
@@ -782,6 +804,42 @@
       updatedAt,
       status,
       billable,
+    };
+  }
+
+  function normalizeExpense(expense) {
+    if (!expense || typeof expense !== "object") return null;
+    const createdAt =
+      typeof expense.createdAt === "string" && expense.createdAt
+        ? expense.createdAt
+        : new Date().toISOString();
+    const updatedAt =
+      typeof expense.updatedAt === "string" && expense.updatedAt
+        ? expense.updatedAt
+        : createdAt;
+    const status =
+      typeof expense.status === "string" && expense.status.toLowerCase() === "approved"
+        ? "approved"
+        : "pending";
+    const amount = Number(expense.amount);
+
+    return {
+      id: typeof expense.id === "string" && expense.id ? expense.id : crypto.randomUUID(),
+      userId: expense.userId || expense.user_id || "",
+      clientName: expense.clientName || expense.client_name || "",
+      projectName: expense.projectName || expense.project_name || "",
+      expenseDate: expense.expenseDate || expense.expense_date || today,
+      category: expense.category || "",
+      amount: Number.isFinite(amount) ? amount : 0,
+      isBillable:
+        expense.isBillable === false || expense.is_billable === 0
+          ? false
+          : true,
+      notes: typeof expense.notes === "string" ? expense.notes : "",
+      status,
+      approvedAt: expense.approvedAt || expense.approved_at || null,
+      createdAt,
+      updatedAt,
     };
   }
 

@@ -90,6 +90,7 @@
               <button class="nav-pill" id="nav-members" type="button">Members</button>
               <button class="nav-pill" id="open-catalog" type="button">Clients</button>
               <button class="nav-pill" id="nav-timesheet" type="button">Timesheet</button>
+              <button class="nav-pill" id="nav-expenses" type="button">Expenses</button>
               <button class="nav-pill" id="open-analytics" type="button">Analytics</button>
             </div>
           </div>
@@ -116,7 +117,7 @@
       </div>
       <div class="shell-inner">
         <main class="app-frame">
-          <section class="panel-stack">
+          <section class="panel-stack timesheet-view" id="timesheet-view">
             <section class="panel panel-form">
               <div class="panel-head">
                 <div>
@@ -287,6 +288,103 @@
               <tbody id="entries-body"></tbody>
             </table>
           </div>
+          </section>
+
+          <section class="panel-stack expenses-view" id="expenses-view" hidden>
+            <section class="panel panel-form panel-expense">
+              <div class="panel-head">
+                <div>
+                  <h2 id="expense-form-heading">Add expense</h2>
+                </div>
+                <div class="panel-head-actions">
+                  <button class="button button-ghost" id="expense-cancel-edit" hidden>
+                    Cancel
+                  </button>
+                </div>
+              </div>
+
+              <form id="expense-form" class="entry-form">
+                <label class="entry-pill">
+                  <span>Team member</span>
+                  <select name="user" id="expense-user" required></select>
+                </label>
+
+                <label class="entry-pill">
+                  <span>Client</span>
+                  <select name="client" id="expense-client" required></select>
+                </label>
+
+                <label class="entry-pill">
+                  <span>Project</span>
+                  <select name="project" id="expense-project" required></select>
+                </label>
+
+                <label class="entry-pill">
+                  <span>Date</span>
+                  <input type="date" id="expense-date" name="date" required />
+                </label>
+
+                <label class="entry-pill">
+                  <span>Category</span>
+                  <select name="category" id="expense-category" required></select>
+                </label>
+
+                <label class="entry-pill">
+                  <span>Amount</span>
+                  <input type="number" id="expense-amount" name="amount" step="0.01" min="0" required />
+                </label>
+
+                <label class="entry-checkbox entry-pill--checkbox">
+                  <input type="checkbox" id="expense-nonbillable" name="nonbillable" />
+                  <span>Non-billable</span>
+                </label>
+
+                <label class="entry-notes">
+                  <span>Notes</span>
+                  <textarea id="expense-notes" name="notes" rows="2" placeholder="Add a note (optional)"></textarea>
+                </label>
+
+                <div class="form-actions">
+                  <button class="button button-primary" id="submit-expense" type="submit">Save expense</button>
+                </div>
+              </form>
+            </section>
+
+            <section class="panel panel-table">
+              <div class="panel-head">
+                <div>
+                  <h2>Submitted expenses</h2>
+                </div>
+              </div>
+              <div class="table-wrapper">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>User</th>
+                      <th>Client</th>
+                      <th>Project</th>
+                      <th>Category</th>
+                      <th>Amount</th>
+                      <th>Billable</th>
+                      <th>Notes</th>
+                      <th>Status</th>
+                      <th class="actions-cell">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="expenses-body">
+                    <tr>
+                      <td colspan="10" class="empty-row">
+                        <div class="empty-state-panel">
+                          <strong>No expenses yet.</strong>
+                          <span>Add an expense to get started.</span>
+                        </div>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
           </section>
         </main>
       </div>

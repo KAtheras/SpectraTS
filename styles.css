@@ -2223,10 +2223,14 @@ body[data-theme="dark"] .entry-row.entry-approved td {
     grid-template-columns: 1fr;
   }
 
-  .panel-form {
-    width: 60%;
-    margin-right: auto;
-  }
+.panel-form {
+  width: 60%;
+  margin-right: auto;
+}
+
+.panel-expense {
+  background: #f2faf6;
+}
 
   .app-frame {
     max-width: 100%;
