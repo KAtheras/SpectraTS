@@ -16,6 +16,7 @@ const {
   json,
   loadState,
   listLevelLabels,
+  listAuditLogs,
   normalizeLevel,
   normalizeText,
   parseBody,
@@ -2242,6 +2243,12 @@ exports.handler = async function handler(event) {
         if (adminError) return adminError;
         mutationResult = await updateExpenseCategories(sql, request.payload || {}, accountId);
         break;
+      }
+      case "list_audit_logs": {
+        const adminError = requireAdmin(context);
+        if (adminError) return adminError;
+        const logs = await listAuditLogs(sql, accountId, request.payload?.filters || {});
+        return json(200, { auditLogs: logs });
       }
       default:
         return errorResponse(400, "Unknown mutation action.");

@@ -84,16 +84,17 @@
           <div class="topbar-left">
             <div class="account-name" id="account-name" hidden></div>
           </div>
-          <div class="topbar-center">
-            <div class="top-nav">
-              <button class="nav-pill" id="nav-settings" type="button">Settings</button>
-              <button class="nav-pill" id="nav-members" type="button">Members</button>
-              <button class="nav-pill" id="open-catalog" type="button">Clients</button>
-              <button class="nav-pill" id="nav-timesheet" type="button">Timesheet</button>
-              <button class="nav-pill" id="nav-expenses" type="button">Expenses</button>
-              <button class="nav-pill" id="open-analytics" type="button">Analytics</button>
-            </div>
-          </div>
+              <div class="topbar-center">
+                <div class="top-nav">
+                  <button class="nav-pill" id="nav-settings" type="button">Settings</button>
+                  <button class="nav-pill" id="nav-members" type="button">Members</button>
+                  <button class="nav-pill" id="open-catalog" type="button">Clients</button>
+                  <button class="nav-pill" id="nav-timesheet" type="button">Timesheet</button>
+                  <button class="nav-pill" id="nav-expenses" type="button">Expenses</button>
+                  <button class="nav-pill" id="nav-audit" type="button">Audit Log</button>
+                  <button class="nav-pill" id="open-analytics" type="button">Analytics</button>
+                </div>
+              </div>
           <div class="topbar-right">
             <div class="topbar-user">
               <button class="avatar-button" id="settings-toggle" type="button" aria-label="User menu">
@@ -125,6 +126,7 @@
         <button class="nav-pill" id="nav-clients-mobile" type="button">Clients</button>
         <button class="nav-pill" id="nav-timesheet-mobile" type="button">Timesheet</button>
         <button class="nav-pill" id="nav-expenses-mobile" type="button">Expenses</button>
+        <button class="nav-pill" id="nav-audit-mobile" type="button">Audit</button>
         <button class="nav-pill" id="nav-analytics-mobile" type="button">Analytics</button>
       </nav>
       <div class="shell-inner">
@@ -544,6 +546,64 @@
             <p>Clients analytics coming soon.</p>
             <p>Team utilization coming soon.</p>
           </div>
+        </div>
+      </section>
+
+      <section class="page-view audit-page" id="audit-page" hidden aria-labelledby="audit-page-title">
+        <header class="page-head">
+          <h2 id="audit-page-title">Audit Log</h2>
+        </header>
+        <form id="audit-filter-form" class="filters audit-filters">
+          <label>
+            <span>Entity</span>
+            <select id="audit-filter-entity" name="entity">
+              <option value="">All</option>
+              <option value="time_entry">Time entry</option>
+              <option value="expense">Expense</option>
+            </select>
+          </label>
+          <label>
+            <span>Action</span>
+            <select id="audit-filter-action" name="action">
+              <option value="">All</option>
+              <option value="create">Create</option>
+              <option value="update">Update</option>
+              <option value="delete">Delete</option>
+              <option value="approve">Approve</option>
+              <option value="unapprove">Unapprove</option>
+            </select>
+          </label>
+          <label>
+            <span>Actor</span>
+            <select id="audit-filter-actor" name="actor">
+              <option value="">All</option>
+            </select>
+          </label>
+        </form>
+        <div class="table-wrap audit-table-wrap">
+          <table class="entries-table audit-table">
+            <thead>
+              <tr>
+                <th>Changed at</th>
+                <th>Actor</th>
+                <th>Entity</th>
+                <th>Action</th>
+                <th>Context</th>
+                <th>Changed fields</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="audit-table-body">
+              <tr>
+                <td colspan="7" class="empty-row">
+                  <div class="empty-state-panel">
+                    <strong>No audit log entries yet.</strong>
+                    <span>Actions will appear here once recorded.</span>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </section>
 

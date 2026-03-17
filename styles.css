@@ -1426,6 +1426,23 @@ textarea {
   margin: 0 0 16px;
 }
 
+.audit-filters {
+  margin-bottom: 12px;
+}
+
+.audit-detail pre {
+  background: rgba(0, 0, 0, 0.03);
+  padding: 8px;
+  border-radius: 8px;
+  max-height: 240px;
+  overflow: auto;
+  font-size: 12px;
+}
+
+body[data-theme="dark"] .audit-detail pre {
+  background: rgba(255, 255, 255, 0.04);
+}
+
 .filter-pill {
   display: inline-flex;
   align-items: center;

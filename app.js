@@ -216,6 +216,14 @@
     expenseFilterToMonth: document.getElementById("expense-filter-to-month"),
     expenseFilterToDay: document.getElementById("expense-filter-to-day"),
     expenseFilterToYear: document.getElementById("expense-filter-to-year"),
+    navAudit: document.getElementById("nav-audit"),
+    navAuditMobile: document.getElementById("nav-audit-mobile"),
+    auditView: document.getElementById("audit-page"),
+    auditFilterForm: document.getElementById("audit-filter-form"),
+    auditFilterEntity: document.getElementById("audit-filter-entity"),
+    auditFilterAction: document.getElementById("audit-filter-action"),
+    auditFilterActor: document.getElementById("audit-filter-actor"),
+    auditTableBody: document.getElementById("audit-table-body"),
     appTopbar: document.querySelector(".app-topbar"),
   };
 
@@ -298,6 +306,12 @@
     },
     currentView: "main", // "main" | "expenses" | "clients" | "members" | "analytics" | "settings"
     expenseEditingId: null,
+    auditLogs: [],
+    auditFilters: {
+      entity: "",
+      action: "",
+      actor: "",
+    },
   };
 
   function persistSessionToken(token) {
@@ -465,6 +479,8 @@
       managerProjects: [],
       projectMembers: [],
     };
+    state.auditLogs = [];
+    resetAuditFilters();
   }
 
   function resetFilters() {
@@ -475,6 +491,14 @@
       from: "",
       to: "",
       search: "",
+    };
+  }
+
+  function resetAuditFilters() {
+    state.auditFilters = {
+      entity: "",
+      action: "",
+      actor: "",
     };
   }
 
@@ -511,6 +535,7 @@
 
     applyLoadedState(payload);
     resetFilters();
+    resetAuditFilters();
     resetForm();
     resetExpenseForm();
     setAuthFeedback("", false);
@@ -1623,6 +1648,35 @@
       .reduce((sum, entry) => sum + entry.hours, 0);
   }
 
+  async function loadAuditLogs() {
+    if (!isAdmin(state.currentUser)) return;
+    try {
+      const sessionToken = loadSessionToken();
+      const payload = await requestJson(MUTATE_API_PATH, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sessionToken || ""}`,
+        },
+        body: JSON.stringify({
+          action: "list_audit_logs",
+          payload: {
+            sessionToken,
+            filters: {
+              entityType: state.auditFilters.entity || undefined,
+              action: state.auditFilters.action || undefined,
+              actorId: state.auditFilters.actor || undefined,
+            },
+          },
+        }),
+      });
+      state.auditLogs = Array.isArray(payload?.auditLogs) ? payload.auditLogs : [];
+      renderAuditTable(state.auditLogs);
+    } catch (error) {
+      feedback("Unable to load audit logs.", true);
+    }
+  }
+
   function renderCatalogAside() {
     if (!renderCatalogLists) {
       return;
@@ -1650,6 +1704,79 @@
       field,
       ensureCatalogSelection,
     });
+  }
+
+  function renderAuditTable(logs) {
+    if (!refs.auditTableBody) return;
+    const rows = Array.isArray(logs) ? logs : [];
+    if (!rows.length) {
+      refs.auditTableBody.innerHTML = `
+        <tr>
+          <td colspan="7" class="empty-row">
+            <div class="empty-state-panel">
+              <strong>No audit log entries yet.</strong>
+              <span>Actions will appear here once recorded.</span>
+            </div>
+          </td>
+        </tr>
+      `;
+      return;
+    }
+
+    const actorOptions = [
+      ...new Map(
+        rows
+          .filter((row) => row.changed_by_user_id)
+          .map((row) => [row.changed_by_user_id, row.changed_by_name_snapshot || row.changed_by_user_id])
+      ).entries(),
+    ];
+    if (refs.auditFilterActor && refs.auditFilterActor.options.length <= 1) {
+      refs.auditFilterActor.innerHTML = [
+        `<option value="">All</option>`,
+        ...actorOptions.map(
+          ([id, label]) => `<option value="${escapeHtml(id)}">${escapeHtml(label)}</option>`
+        ),
+      ].join("");
+    }
+
+    refs.auditTableBody.innerHTML = rows
+      .map((row) => {
+        const fields =
+          Array.isArray(row.changed_fields_json) && row.changed_fields_json.length
+            ? row.changed_fields_json.join(", ")
+            : "-";
+        const context = [
+          row.entity_id ? `ID: ${escapeHtml(String(row.entity_id))}` : "",
+          row.context_client_id ? `Client ID: ${escapeHtml(String(row.context_client_id))}` : "",
+          row.context_project_id ? `Project ID: ${escapeHtml(String(row.context_project_id))}` : "",
+          row.target_user_id ? `Target user: ${escapeHtml(String(row.target_user_id))}` : "",
+        ]
+          .filter(Boolean)
+          .join(" · ");
+
+        return `
+          <tr>
+            <td>${escapeHtml(formatDateTimeLocal(row.changed_at))}</td>
+            <td>${escapeHtml(row.changed_by_name_snapshot || row.changed_by_user_id || "Unknown")}</td>
+            <td>${escapeHtml(row.entity_type)}</td>
+            <td>${escapeHtml(row.action)}</td>
+            <td>${context || "-"}</td>
+            <td>${escapeHtml(fields)}</td>
+            <td>
+              <details>
+                <summary>Details</summary>
+                <div class="audit-detail">
+                  <strong>Before</strong>
+                  <pre>${escapeHtml(JSON.stringify(row.before_json || {}, null, 2))}</pre>
+                  <strong>After</strong>
+                  <pre>${escapeHtml(JSON.stringify(row.after_json || {}, null, 2))}</pre>
+                </div>
+              </details>
+            </td>
+          </tr>
+        `;
+      })
+      .join("");
   }
 
   function disabledButtonAttrs(enabled, title) {
@@ -2622,6 +2749,17 @@
       refs.navExpensesMobile.classList.toggle("is-active", view === "expenses");
       refs.navExpensesMobile.setAttribute("aria-current", view === "expenses" ? "page" : "false");
     }
+    const showAudit = isAdmin(state.currentUser);
+    if (refs.navAudit) {
+      refs.navAudit.hidden = !showAudit;
+      refs.navAudit.classList.toggle("is-active", view === "audit");
+      refs.navAudit.setAttribute("aria-current", view === "audit" ? "page" : "false");
+    }
+    if (refs.navAuditMobile) {
+      refs.navAuditMobile.hidden = !showAudit;
+      refs.navAuditMobile.classList.toggle("is-active", view === "audit");
+      refs.navAuditMobile.setAttribute("aria-current", view === "audit" ? "page" : "false");
+    }
     if (refs.changePasswordOpen) {
       refs.changePasswordOpen.hidden = !state.currentUser || state.currentUser.mustChangePassword;
     }
@@ -2672,6 +2810,9 @@
     if (refs.settingsPage) {
       refs.settingsPage.hidden = view !== "settings";
     }
+    if (refs.auditView) {
+      refs.auditView.hidden = view !== "audit";
+    }
 
     if (view === "clients") {
       renderCatalogLists({
@@ -2711,6 +2852,22 @@
       renderLevelRows();
       renderExpenseCategories();
       postHeight();
+      postHeight();
+      return;
+    }
+
+    if (view === "audit") {
+      if (!isAdmin(state.currentUser)) {
+        setView("main");
+        return;
+      }
+      if (refs.timesheetView) refs.timesheetView.hidden = true;
+      if (refs.expensesView) refs.expensesView.hidden = true;
+      if (refs.mainFrame) refs.mainFrame.style.display = "none";
+      renderAuditTable(state.auditLogs);
+      if (!state.auditLogs.length) {
+        loadAuditLogs();
+      }
       postHeight();
       return;
     }
@@ -2928,6 +3085,13 @@
 
   applyTheme(resolveTheme());
 
+  function formatDateTimeLocal(value) {
+    if (!value) return "";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+    return date.toLocaleString();
+  }
+
   function escapeHtml(value) {
     return String(value)
       .replaceAll("&", "&amp;")
@@ -3093,6 +3257,20 @@
   if (refs.navExpensesMobile) {
     refs.navExpensesMobile.addEventListener("click", function () {
       setView("expenses");
+    });
+  }
+  if (refs.navAudit) {
+    refs.navAudit.addEventListener("click", function () {
+      if (!isAdmin(state.currentUser)) return;
+      setView("audit");
+      loadAuditLogs();
+    });
+  }
+  if (refs.navAuditMobile) {
+    refs.navAuditMobile.addEventListener("click", function () {
+      if (!isAdmin(state.currentUser)) return;
+      setView("audit");
+      loadAuditLogs();
     });
   }
   if (refs.navSettings) {
@@ -3345,6 +3523,19 @@
   });
 
   refs.expenseExportCsv?.addEventListener("click", exportExpensesCsv);
+
+  function applyAuditFiltersFromForm() {
+    state.auditFilters = {
+      entity: refs.auditFilterEntity?.value || "",
+      action: refs.auditFilterAction?.value || "",
+      actor: refs.auditFilterActor?.value || "",
+    };
+    loadAuditLogs();
+  }
+
+  refs.auditFilterEntity?.addEventListener("change", applyAuditFiltersFromForm);
+  refs.auditFilterAction?.addEventListener("change", applyAuditFiltersFromForm);
+  refs.auditFilterActor?.addEventListener("change", applyAuditFiltersFromForm);
 
   function expenseFromForm() {
     return {

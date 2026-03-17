@@ -1748,6 +1748,52 @@ async function loadState(sql, currentUser) {
   };
 }
 
+async function listAuditLogs(sql, accountId, filters = {}) {
+  const clauses = [sql`account_id = ${accountId}::uuid`];
+  if (filters.entityType) {
+    clauses.push(sql`entity_type = ${filters.entityType}`);
+  }
+  if (filters.action) {
+    clauses.push(sql`action = ${filters.action}`);
+  }
+  if (filters.actorId) {
+    clauses.push(sql`changed_by_user_id = ${filters.actorId}`);
+  }
+  if (filters.fromDate) {
+    clauses.push(sql`changed_at >= ${filters.fromDate}`);
+  }
+  if (filters.toDate) {
+    clauses.push(sql`changed_at <= ${filters.toDate}`);
+  }
+
+  const where =
+    clauses.length > 1
+      ? clauses.reduce((acc, clause, idx) => (idx === 0 ? clause : sql`${acc} AND ${clause}`))
+      : clauses[0];
+
+  const rows = await sql`
+    SELECT
+      id,
+      entity_type,
+      entity_id,
+      action,
+      changed_by_user_id,
+      changed_by_name_snapshot,
+      target_user_id,
+      context_client_id,
+      context_project_id,
+      changed_at,
+      before_json,
+      after_json,
+      changed_fields_json
+    FROM audit_log
+    WHERE ${where}
+    ORDER BY changed_at DESC
+    LIMIT 100
+  `;
+  return rows;
+}
+
 async function logAudit(
   sql,
   {
@@ -1825,6 +1871,7 @@ module.exports = {
   listLevelLabels,
   listUsers,
   loadState,
+  listAuditLogs,
   logAudit,
   normalizeLevel,
   normalizeText,
