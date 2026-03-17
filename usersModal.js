@@ -168,7 +168,10 @@
 
     const assignments = assignmentSummary(selectedUser);
     const editing = detailEditMode && detailEditUserId === selectedUser.id;
-    const levelChoices = Array.isArray(levels) && levels.length ? levels.slice().sort((a, b) => a - b) : [];
+    const levelChoices =
+      Array.isArray(levels) && levels.length
+        ? Array.from(new Set(levels)).sort((a, b) => a - b)
+        : [];
     const selectedValue = editing ? detailDraft.level ?? selectedUser.level : selectedUser.level;
     const levelOptions = levelChoices
       .map((level) => `<option value="${level}"${selectedValue === level ? " selected" : ""}>${escapeHtml(levelLabel(level))}</option>`)
