@@ -2143,7 +2143,7 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
 .nonbillable-toggle--expense {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   font-family: var(--font-head);
   color: var(--muted);
   font-size: 0.9rem;
