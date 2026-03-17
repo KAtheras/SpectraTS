@@ -655,6 +655,46 @@ body[data-theme="dark"] .settings-item:hover {
   background: rgba(255, 255, 255, 0.08);
 }
 
+.mobile-tabbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+  background: var(--panel);
+  border-top: 1px solid color-mix(in srgb, var(--muted-strong) 18%, transparent);
+  box-shadow: 0 -4px 12px color-mix(in srgb, black 10%, transparent);
+  z-index: 30;
+}
+
+.mobile-tabbar .nav-pill {
+  flex: 1 1 0;
+  text-align: center;
+  padding: 10px 8px;
+  min-height: 44px;
+}
+
+.page-shell {
+  padding-bottom: 0;
+}
+
+@media (max-width: 720px) {
+  .topbar-center .top-nav {
+    display: none;
+  }
+  .mobile-tabbar {
+    display: flex;
+  }
+  .shell-inner,
+  .app-frame {
+    padding-bottom: 80px;
+  }
+}
+
 .panel-stack {
   width: 100%;
 }

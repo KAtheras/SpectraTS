@@ -91,6 +91,13 @@
     themeToggle: document.getElementById("theme-toggle"),
     openCatalog: document.getElementById("open-catalog"),
     openAnalytics: document.getElementById("open-analytics"),
+    mobileTabbar: document.getElementById("mobile-tabbar"),
+    navSettingsMobile: document.getElementById("nav-settings-mobile"),
+    navMembersMobile: document.getElementById("nav-members-mobile"),
+    navClientsMobile: document.getElementById("nav-clients-mobile"),
+    navTimesheetMobile: document.getElementById("nav-timesheet-mobile"),
+    navExpensesMobile: document.getElementById("nav-expenses-mobile"),
+    navAnalyticsMobile: document.getElementById("nav-analytics-mobile"),
     closeCatalog: document.getElementById("close-catalog"),
     clientsNavMembers: document.getElementById("clients-nav-members"),
     clientsNavMain: document.getElementById("clients-nav-main"),
@@ -2253,26 +2260,53 @@
       refs.navSettings.classList.toggle("is-active", view === "settings");
       refs.navSettings.setAttribute("aria-current", view === "settings" ? "page" : "false");
     }
+    if (refs.navSettingsMobile) {
+      refs.navSettingsMobile.hidden = !isAdmin(state.currentUser);
+      refs.navSettingsMobile.classList.toggle("is-active", view === "settings");
+      refs.navSettingsMobile.setAttribute("aria-current", view === "settings" ? "page" : "false");
+    }
     if (refs.navMembers) {
       const showMembers = isAdmin(state.currentUser) || isExecutive(state.currentUser) || isGlobalAdmin(state.currentUser);
       refs.navMembers.hidden = !showMembers;
       refs.navMembers.classList.toggle("is-active", view === "members");
       refs.navMembers.setAttribute("aria-current", view === "members" ? "page" : "false");
     }
+    if (refs.navMembersMobile) {
+      const showMembers = isAdmin(state.currentUser) || isExecutive(state.currentUser) || isGlobalAdmin(state.currentUser);
+      refs.navMembersMobile.hidden = !showMembers;
+      refs.navMembersMobile.classList.toggle("is-active", view === "members");
+      refs.navMembersMobile.setAttribute("aria-current", view === "members" ? "page" : "false");
+    }
     if (refs.openCatalog) {
       refs.openCatalog.hidden = !(currentGroup === "manager" || currentGroup === "executive" || currentGroup === "admin");
       refs.openCatalog.classList.toggle("is-active", view === "clients");
       refs.openCatalog.setAttribute("aria-current", view === "clients" ? "page" : "false");
+    }
+    if (refs.navClientsMobile) {
+      const showClients = currentGroup === "manager" || currentGroup === "executive" || currentGroup === "admin";
+      refs.navClientsMobile.hidden = !showClients;
+      refs.navClientsMobile.classList.toggle("is-active", view === "clients");
+      refs.navClientsMobile.setAttribute("aria-current", view === "clients" ? "page" : "false");
     }
     if (refs.navTimesheet) {
       refs.navTimesheet.hidden = false;
       refs.navTimesheet.classList.toggle("is-active", view === "main");
       refs.navTimesheet.setAttribute("aria-current", view === "main" ? "page" : "false");
     }
+    if (refs.navTimesheetMobile) {
+      refs.navTimesheetMobile.hidden = false;
+      refs.navTimesheetMobile.classList.toggle("is-active", view === "main");
+      refs.navTimesheetMobile.setAttribute("aria-current", view === "main" ? "page" : "false");
+    }
     if (refs.navExpenses) {
       refs.navExpenses.hidden = false;
       refs.navExpenses.classList.toggle("is-active", view === "expenses");
       refs.navExpenses.setAttribute("aria-current", view === "expenses" ? "page" : "false");
+    }
+    if (refs.navExpensesMobile) {
+      refs.navExpensesMobile.hidden = false;
+      refs.navExpensesMobile.classList.toggle("is-active", view === "expenses");
+      refs.navExpensesMobile.setAttribute("aria-current", view === "expenses" ? "page" : "false");
     }
     if (refs.changePasswordOpen) {
       refs.changePasswordOpen.hidden = !state.currentUser || state.currentUser.mustChangePassword;
@@ -2284,6 +2318,11 @@
       refs.openAnalytics.hidden = false;
       refs.openAnalytics.classList.toggle("is-active", view === "analytics");
       refs.openAnalytics.setAttribute("aria-current", view === "analytics" ? "page" : "false");
+    }
+    if (refs.navAnalyticsMobile) {
+      refs.navAnalyticsMobile.hidden = false;
+      refs.navAnalyticsMobile.classList.toggle("is-active", view === "analytics");
+      refs.navAnalyticsMobile.setAttribute("aria-current", view === "analytics" ? "page" : "false");
     }
     if (view !== "main") {
       closeSettingsMenu();
@@ -2683,13 +2722,31 @@
       setView("main");
     });
   }
+  if (refs.navTimesheetMobile) {
+    refs.navTimesheetMobile.addEventListener("click", function () {
+      setView("main");
+    });
+  }
   if (refs.navExpenses) {
     refs.navExpenses.addEventListener("click", function () {
       setView("expenses");
     });
   }
+  if (refs.navExpensesMobile) {
+    refs.navExpensesMobile.addEventListener("click", function () {
+      setView("expenses");
+    });
+  }
   if (refs.navSettings) {
     refs.navSettings.addEventListener("click", function () {
+      if (!isAdmin(state.currentUser)) {
+        return;
+      }
+      setView("settings");
+    });
+  }
+  if (refs.navSettingsMobile) {
+    refs.navSettingsMobile.addEventListener("click", function () {
       if (!isAdmin(state.currentUser)) {
         return;
       }
@@ -2702,6 +2759,11 @@
       setView("members");
     });
   }
+  if (refs.navMembersMobile) {
+    refs.navMembersMobile.addEventListener("click", function () {
+      setView("members");
+    });
+  }
 
   if (refs.logoutButton) {
     refs.logoutButton.addEventListener("click", function () {
@@ -2711,6 +2773,11 @@
 
   if (refs.openCatalog) {
     refs.openCatalog.addEventListener("click", function () {
+      setView("clients");
+    });
+  }
+  if (refs.navClientsMobile) {
+    refs.navClientsMobile.addEventListener("click", function () {
       setView("clients");
     });
   }
@@ -3009,6 +3076,9 @@
   refs.addUserForm.addEventListener("submit", handleAddUser);
   if (refs.openAnalytics) {
     refs.openAnalytics.addEventListener("click", openAnalyticsPage);
+  }
+  if (refs.navAnalyticsMobile) {
+    refs.navAnalyticsMobile.addEventListener("click", openAnalyticsPage);
   }
   if (refs.analyticsNavBack) {
     refs.analyticsNavBack.addEventListener("click", closeAnalyticsPage);
