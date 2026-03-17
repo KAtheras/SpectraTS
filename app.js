@@ -337,11 +337,17 @@
       ? data.levelLabels
       : {};
     state.expenseCategories = Array.isArray(data?.expenseCategories)
-      ? data.expenseCategories.map((item) => ({
-          id: item.id,
-          name: item.name,
-          isActive: item.isActive ?? item.is_active ?? true,
-        }))
+      ? data.expenseCategories.map((item) => {
+          const activeRaw =
+            item.isActive !== undefined ? item.isActive : item.is_active;
+          const isActive =
+            activeRaw === 0 || activeRaw === false ? false : true;
+          return {
+            id: item.id,
+            name: item.name,
+            isActive,
+          };
+        })
       : [];
     state.account = data?.account || null;
     const normalizedProjects = normalizeProjects(data?.projects);
@@ -2499,6 +2505,7 @@
 
       const seen = new Set();
       const validGroups = new Set(["staff", "manager", "executive", "admin"]);
+      const seenLabels = new Set();
 
       const levels = rows.map(function (row) {
         const level = Number(row.dataset.level);
@@ -2523,6 +2530,12 @@
           feedback("Each level needs a label.", true);
           return;
         }
+        const labelKey = item.label.trim().toLowerCase();
+        if (seenLabels.has(labelKey)) {
+          feedback("Level labels must be unique.", true);
+          return;
+        }
+        seenLabels.add(labelKey);
         if (!validGroups.has(item.permissionGroup)) {
           feedback("Invalid permission group selected.", true);
           return;

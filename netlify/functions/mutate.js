@@ -147,6 +147,7 @@ async function updateLevelLabels(sql, payload, accountId) {
 
   const validGroups = new Set(["staff", "manager", "executive", "admin"]);
   const seenLevels = new Set();
+  const seenLabels = new Set();
 
   for (const item of levels) {
     const level = normalizeLevel(item.level);
@@ -159,6 +160,11 @@ async function updateLevelLabels(sql, payload, accountId) {
       return errorResponse(400, "Duplicate level numbers are not allowed.");
     }
     seenLevels.add(level);
+    const labelKey = label.toLowerCase();
+    if (seenLabels.has(labelKey)) {
+      return errorResponse(400, "Duplicate level labels are not allowed.");
+    }
+    seenLabels.add(labelKey);
     const permissionGroup = validGroups.has(group) ? group : "staff";
     await sql`
       INSERT INTO level_labels (account_id, level, label, permission_group, updated_at)
@@ -184,7 +190,7 @@ async function updateExpenseCategories(sql, payload, accountId) {
   for (const item of categories) {
     const id = normalizeText(item.id);
     const name = normalizeText(item.name);
-    const isActive = item.isActive === false ? false : true;
+    const isActive = item.isActive === false || item.isActive === 0 ? false : true;
     if (!name) {
       return errorResponse(400, "Category name cannot be blank.");
     }
