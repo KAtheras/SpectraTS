@@ -223,7 +223,7 @@ async function updateLevelLabels(sql, payload, accountId) {
     await sql`
       DELETE FROM level_labels
       WHERE account_id = ${accountId}::uuid
-        AND level <> ALL(${sql.array(submittedLevels, "int4")})
+        AND NOT (level = ANY(${sql.array(submittedLevels, "int4")}))
     `;
   }
 
