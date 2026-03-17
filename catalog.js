@@ -24,6 +24,7 @@
       visibleCatalogClientNames,
       visibleCatalogProjectNames,
       isAdmin,
+      isExecutive,
       isManager,
       canManagerAccessClient,
       projectCreatedBy,
@@ -42,7 +43,7 @@
     } = deps;
 
     const clients = visibleCatalogClientNames();
-    const canManageClients = isAdmin(state.currentUser);
+    const canManageClients = isAdmin(state.currentUser) || isExecutive(state.currentUser);
 
     if (!clients.length) {
       refs.clientList.innerHTML = '<p class="empty-state">No clients yet.</p>';
@@ -108,7 +109,7 @@
     refs.projectColumnLabel.textContent = selectedClient
       ? `Projects for ${selectedClient}`
       : "Projects";
-    const canAddClient = isAdmin(state.currentUser);
+    const canAddClient = isAdmin(state.currentUser) || isExecutive(state.currentUser);
     const clientNameField = field(refs.addClientForm, "client_name");
     const addClientButton = refs.addClientForm.querySelector("button");
     if (clientNameField && addClientButton) {
@@ -122,6 +123,7 @@
     const canCreateProject =
       Boolean(selectedClient) &&
       (isAdmin(state.currentUser) ||
+        isExecutive(state.currentUser) ||
         (isManager(state.currentUser) &&
           canManagerAccessClient(state.currentUser, selectedClient)));
     const projectButton = refs.addProjectForm.querySelector("button");
@@ -142,13 +144,15 @@
       ? projects
           .map(
             (project) => {
-              const canEditProject = isAdmin(state.currentUser);
+              const canEditProject = isAdmin(state.currentUser) || isExecutive(state.currentUser);
               const canDeleteProject =
                 isAdmin(state.currentUser) ||
+                isExecutive(state.currentUser) ||
                 (isManager(state.currentUser) &&
                   projectCreatedBy(selectedClient, project) === state.currentUser?.id);
               const canManageMembers =
                 isAdmin(state.currentUser) ||
+                isExecutive(state.currentUser) ||
                 (isManager(state.currentUser) &&
                   canManagerAccessProject(state.currentUser, selectedClient, project));
               const hasManagers = managerIdsForProject(selectedClient, project).length > 0;

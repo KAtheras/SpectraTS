@@ -73,9 +73,9 @@ function permissionGroupForLevel(level) {
     if (value.permissionGroup) return String(value.permissionGroup).toLowerCase();
     if (value.permission_group) return String(value.permission_group).toLowerCase();
   }
-  if (normalized === 1) return "admin";
-  if (normalized === 2) return "executive";
-  if (normalized <= 3) return "manager";
+  if (normalized >= 5) return "admin";
+  if (normalized === 4) return "executive";
+  if (normalized >= 3) return "manager";
   return "staff";
 }
 

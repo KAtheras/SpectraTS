@@ -1413,6 +1413,7 @@
       visibleCatalogClientNames,
       visibleCatalogProjectNames,
       isAdmin,
+      isExecutive,
       isManager,
       canManagerAccessClient,
       projectCreatedBy,
