@@ -933,15 +933,7 @@ async function updateUserRecord(sql, payload, actingUser) {
     throw new Error("Cost rate must be a non-negative number.");
   }
 
-  const levelLabels = await listLevelLabels(sql, existingUser.account_id);
-  const levelLabelMap = levelLabels.reduce((acc, item) => {
-    const normalizedLevel = normalizeLevel(item.level);
-    acc[normalizedLevel] = {
-      label: item.label,
-      permissionGroup: item.permission_group || item.permissionGroup || null,
-    };
-    return acc;
-  }, {});
+  const levelLabelMap = await listLevelLabels(sql, existingUser.account_id);
   const currentIsAdmin = isAdmin(existingUser, levelLabelMap);
   const nextIsAdmin = isAdmin({ ...existingUser, level }, levelLabelMap);
   const admins = await adminCount(sql, existingUser.account_id);
