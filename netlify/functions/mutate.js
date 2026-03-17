@@ -188,6 +188,7 @@ async function updateLevelLabels(sql, payload, accountId) {
   const validGroups = new Set(["staff", "manager", "executive", "admin"]);
   const seenLevels = new Set();
   const seenLabels = new Set();
+  const submittedLevels = [];
 
   for (const item of levels) {
     const level = normalizeLevel(item.level);
@@ -206,6 +207,7 @@ async function updateLevelLabels(sql, payload, accountId) {
     }
     seenLabels.add(labelKey);
     const permissionGroup = validGroups.has(group) ? group : "staff";
+    submittedLevels.push(level);
     await sql`
       INSERT INTO level_labels (account_id, level, label, permission_group, updated_at)
       VALUES (${accountId}::uuid, ${level}, ${label}, ${permissionGroup}, ${new Date().toISOString()})
@@ -213,6 +215,15 @@ async function updateLevelLabels(sql, payload, accountId) {
         label = EXCLUDED.label,
         permission_group = EXCLUDED.permission_group,
         updated_at = EXCLUDED.updated_at
+    `;
+  }
+
+  // Delete levels that are no longer present
+  if (submittedLevels.length) {
+    await sql`
+      DELETE FROM level_labels
+      WHERE account_id = ${accountId}::uuid
+        AND level <> ALL(${sql.array(submittedLevels, "int4")})
     `;
   }
 
