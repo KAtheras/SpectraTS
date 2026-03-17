@@ -210,24 +210,34 @@ async function updateLevelLabels(sql, payload, accountId) {
     cleaned.push({ level, label, permissionGroup });
   }
 
-  // Replace all level labels atomically for this account to ensure deletions persist
-  await sql.begin(async (trx) => {
-    await trx`
-      DELETE FROM level_labels
-      WHERE account_id = ${accountId}::uuid
-    `;
-
-    for (const item of cleaned) {
-      await trx`
-        INSERT INTO level_labels (account_id, level, label, permission_group, updated_at)
-        VALUES (${accountId}::uuid, ${item.level}, ${item.label}, ${item.permissionGroup}, ${new Date().toISOString()})
-        ON CONFLICT (account_id, level) DO UPDATE SET
-          label = EXCLUDED.label,
-          permission_group = EXCLUDED.permission_group,
-          updated_at = EXCLUDED.updated_at
+  // Delete levels that are not present in the submitted list
+  const existing = await sql`
+    SELECT level
+    FROM level_labels
+    WHERE account_id = ${accountId}::uuid
+  `;
+  const keepLevels = new Set(cleaned.map((c) => c.level));
+  for (const row of existing) {
+    if (!keepLevels.has(row.level)) {
+      await sql`
+        DELETE FROM level_labels
+        WHERE account_id = ${accountId}::uuid
+          AND level = ${row.level}
       `;
     }
-  });
+  }
+
+  // Upsert submitted levels
+  for (const item of cleaned) {
+    await sql`
+      INSERT INTO level_labels (account_id, level, label, permission_group, updated_at)
+      VALUES (${accountId}::uuid, ${item.level}, ${item.label}, ${item.permissionGroup}, ${new Date().toISOString()})
+      ON CONFLICT (account_id, level) DO UPDATE SET
+        label = EXCLUDED.label,
+        permission_group = EXCLUDED.permission_group,
+        updated_at = EXCLUDED.updated_at
+    `;
+  }
 
   return null;
 }
