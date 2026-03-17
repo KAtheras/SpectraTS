@@ -2806,6 +2806,7 @@
       const nextTheme = body.dataset.theme === "dark" ? "light" : "dark";
       saveThemePreference(nextTheme);
       applyTheme(nextTheme);
+      closeSettingsMenu();
     });
   }
 
