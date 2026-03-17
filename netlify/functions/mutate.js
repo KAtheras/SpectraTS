@@ -33,6 +33,37 @@ function normalizeHours(value) {
   return Number.isFinite(hours) ? hours : NaN;
 }
 
+function normalizeAmount(value) {
+  const amount = Number(value);
+  return Number.isFinite(amount) ? amount : NaN;
+}
+
+function validateExpense(expense) {
+  if (!expense || typeof expense !== "object") {
+    return "Expense payload is required.";
+  }
+  if (!normalizeText(expense.userId)) {
+    return "Team member is required.";
+  }
+  if (!normalizeText(expense.clientName)) {
+    return "Client is required.";
+  }
+  if (!normalizeText(expense.projectName)) {
+    return "Project is required.";
+  }
+  if (!normalizeText(expense.expenseDate)) {
+    return "Date is required.";
+  }
+  if (!normalizeText(expense.category)) {
+    return "Category is required.";
+  }
+  const amount = normalizeAmount(expense.amount);
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return "Amount must be a positive number.";
+  }
+  return "";
+}
+
 let requestLevelLabels = {};
 
 function permissionGroupForLevel(level) {
@@ -652,6 +683,308 @@ async function renameClient(sql, payload, accountId) {
     UPDATE entries
     SET client_name = ${nextName}
     WHERE LOWER(client_name) = LOWER(${client.name})
+      AND account_id = ${accountId}::uuid
+  `;
+
+  return null;
+}
+
+async function createExpense(sql, payload, currentUser, accountId) {
+  const expense = payload.expense || {};
+  const validationError = validateExpense(expense);
+  if (validationError) {
+    return errorResponse(400, validationError);
+  }
+
+  const project = await findProject(sql, expense.clientName, expense.projectName, accountId);
+  if (!project) {
+    return errorResponse(404, "Project not found.");
+  }
+
+  const targetUser = await findUserById(sql, expense.userId, accountId);
+  if (!targetUser) {
+    return errorResponse(404, "Team member not found.");
+  }
+  const targetGroup = permissionGroupForLevel(targetUser.level);
+
+  if (isAdmin(currentUser)) {
+    // full access
+  } else if (isManager(currentUser)) {
+    const hasAccess = await managerHasProjectAccess(sql, currentUser.id, project.id, accountId);
+    if (!hasAccess) {
+      return errorResponse(403, "You are not assigned to this project.");
+    }
+    if (targetUser.id !== currentUser.id && targetGroup !== "staff") {
+      return errorResponse(403, "Managers can only edit staff expenses.");
+    }
+  } else if (isStaff(currentUser)) {
+    if (targetUser.id !== currentUser.id) {
+      return errorResponse(403, "You can only save expenses for your own account.");
+    }
+    const memberRows = await sql`
+      SELECT id
+      FROM project_members
+      WHERE project_id = ${project.id}
+        AND user_id = ${currentUser.id}
+        AND account_id = ${accountId}::uuid
+      LIMIT 1
+    `;
+    if (!memberRows[0]) {
+      return errorResponse(403, "You are not assigned to this project.");
+    }
+  }
+
+  const now = new Date().toISOString();
+  const id = normalizeText(expense.id) || randomId();
+  const isBillable = expense.isBillable === false || expense.isBillable === 0 ? 0 : 1;
+
+  await sql`
+    INSERT INTO expenses (
+      id,
+      account_id,
+      user_id,
+      client_name,
+      project_name,
+      expense_date,
+      category,
+      amount,
+      is_billable,
+      notes,
+      status,
+      approved_at,
+      created_at,
+      updated_at
+    )
+    VALUES (
+      ${id},
+      ${accountId}::uuid,
+      ${targetUser.id},
+      ${expense.clientName},
+      ${expense.projectName},
+      ${expense.expenseDate},
+      ${expense.category},
+      ${normalizeAmount(expense.amount)},
+      ${isBillable},
+      ${normalizeText(expense.notes)},
+      'pending',
+      NULL,
+      ${now},
+      ${now}
+    )
+  `;
+
+  return null;
+}
+
+async function updateExpense(sql, payload, currentUser, accountId) {
+  const expense = payload.expense || {};
+  const id = normalizeText(expense.id);
+  if (!id) {
+    return errorResponse(400, "Expense id is required.");
+  }
+  const validationError = validateExpense(expense);
+  if (validationError) {
+    return errorResponse(400, validationError);
+  }
+
+  const existingRows = await sql`
+    SELECT *
+    FROM expenses
+    WHERE id = ${id}
+      AND account_id = ${accountId}::uuid
+    LIMIT 1
+  `;
+  const existing = existingRows[0];
+  if (!existing) {
+    return errorResponse(404, "Expense not found.");
+  }
+
+  const project = await findProject(sql, expense.clientName, expense.projectName, accountId);
+  if (!project) {
+    return errorResponse(404, "Project not found.");
+  }
+
+  const targetUserId = normalizeText(expense.userId) || existing.user_id;
+  const targetUser = await findUserById(sql, targetUserId, accountId);
+  if (!targetUser) {
+    return errorResponse(404, "Team member not found.");
+  }
+  const targetGroup = permissionGroupForLevel(targetUser.level);
+
+  if (isAdmin(currentUser)) {
+    // full access
+  } else if (isManager(currentUser)) {
+    const hasAccess = await managerHasProjectAccess(sql, currentUser.id, project.id, accountId);
+    if (!hasAccess) {
+      return errorResponse(403, "You are not assigned to this project.");
+    }
+    if (targetUser.id !== currentUser.id && targetGroup !== "staff") {
+      return errorResponse(403, "Managers can only edit staff expenses.");
+    }
+  } else if (isStaff(currentUser)) {
+    if (targetUser.id !== currentUser.id) {
+      return errorResponse(403, "You can only save expenses for your own account.");
+    }
+    const memberRows = await sql`
+      SELECT id
+      FROM project_members
+      WHERE project_id = ${project.id}
+        AND user_id = ${currentUser.id}
+        AND account_id = ${accountId}::uuid
+      LIMIT 1
+    `;
+    if (!memberRows[0]) {
+      return errorResponse(403, "You are not assigned to this project.");
+    }
+  }
+
+  const isBillable = expense.isBillable === false || expense.isBillable === 0 ? 0 : 1;
+  const now = new Date().toISOString();
+
+  await sql`
+    UPDATE expenses
+    SET
+      user_id = ${targetUser.id},
+      client_name = ${expense.clientName},
+      project_name = ${expense.projectName},
+      expense_date = ${expense.expenseDate},
+      category = ${expense.category},
+      amount = ${normalizeAmount(expense.amount)},
+      is_billable = ${isBillable},
+      notes = ${normalizeText(expense.notes)},
+      updated_at = ${now}
+    WHERE id = ${id}
+      AND account_id = ${accountId}::uuid
+  `;
+
+  return null;
+}
+
+async function deleteExpense(sql, payload, currentUser, accountId) {
+  const id = normalizeText(payload.id);
+  if (!id) {
+    return errorResponse(400, "Expense id is required.");
+  }
+
+  const rows = await sql`
+    SELECT *
+    FROM expenses
+    WHERE id = ${id}
+      AND account_id = ${accountId}::uuid
+    LIMIT 1
+  `;
+  const expense = rows[0];
+  if (!expense) {
+    return errorResponse(404, "Expense not found.");
+  }
+
+  const project = await findProject(sql, expense.client_name, expense.project_name, accountId);
+  if (!project && !isAdmin(currentUser)) {
+    return errorResponse(403, "You are not assigned to this project.");
+  }
+
+  if (isAdmin(currentUser)) {
+    // full access
+  } else if (isManager(currentUser)) {
+    if (project) {
+      const hasAccess = await managerHasProjectAccess(sql, currentUser.id, project.id, accountId);
+      if (!hasAccess) {
+        return errorResponse(403, "You are not assigned to this project.");
+      }
+    }
+    const targetUser = await findUserById(sql, expense.user_id, accountId);
+    const targetLevel = targetUser ? normalizeLevel(targetUser.level) : 1;
+    if (targetUser && targetUser.id !== currentUser.id && targetLevel > 2) {
+      return errorResponse(403, "Managers can only edit staff expenses.");
+    }
+  } else if (isStaff(currentUser)) {
+    if (expense.user_id !== currentUser.id) {
+      return errorResponse(403, "You can only delete your own expenses.");
+    }
+    if (project) {
+      const memberRows = await sql`
+        SELECT id
+        FROM project_members
+        WHERE project_id = ${project.id}
+          AND user_id = ${currentUser.id}
+          AND account_id = ${accountId}::uuid
+        LIMIT 1
+      `;
+      if (!memberRows[0]) {
+        return errorResponse(403, "You are not assigned to this project.");
+      }
+    }
+  }
+
+  await sql`
+    DELETE FROM expenses
+    WHERE id = ${id}
+      AND account_id = ${accountId}::uuid
+  `;
+
+  return null;
+}
+
+async function toggleExpenseStatus(sql, payload, currentUser, accountId) {
+  const id = normalizeText(payload.id);
+  if (!id) {
+    return errorResponse(400, "Expense id is required.");
+  }
+  if (!currentUser || permissionGroupForLevel(currentUser.level) === "staff") {
+    return errorResponse(403, "Manager access required.");
+  }
+
+  const rows = await sql`
+    SELECT *
+    FROM expenses
+    WHERE id = ${id}
+      AND account_id = ${accountId}::uuid
+    LIMIT 1
+  `;
+  const expense = rows[0];
+  if (!expense) {
+    return errorResponse(404, "Expense not found.");
+  }
+
+  const targetUser = await findUserById(sql, expense.user_id, accountId);
+  if (!targetUser) {
+    return errorResponse(404, "Expense user not found.");
+  }
+
+  const currentGroup = permissionGroupForLevel(currentUser.level);
+  const targetGroup = permissionGroupForLevel(targetUser.level);
+  const isCurrentAdmin = isAdmin(currentUser);
+
+  if (!isCurrentAdmin) {
+    if (currentUser.id === targetUser.id) {
+      return errorResponse(403, "You cannot approve your own expenses.");
+    }
+    if (currentGroup === "manager" && targetGroup !== "staff") {
+      return errorResponse(403, "Managers can only approve staff expenses.");
+    }
+  }
+
+  const project = await findProject(sql, expense.client_name, expense.project_name, accountId);
+  if (!project) {
+    return errorResponse(404, "Project not found.");
+  }
+
+  if (!isCurrentAdmin) {
+    const hasAccess = await managerHasProjectAccess(sql, currentUser.id, project.id, accountId);
+    if (!hasAccess) {
+      return errorResponse(403, "You are not assigned to this project.");
+    }
+  }
+
+  const nextStatus = normalizeStatus(expense.status) === "approved" ? "pending" : "approved";
+  const approvedAt = nextStatus === "approved" ? new Date().toISOString() : null;
+
+  await sql`
+    UPDATE expenses
+    SET status = ${nextStatus},
+        approved_at = ${approvedAt},
+        updated_at = NOW()
+    WHERE id = ${expense.id}
       AND account_id = ${accountId}::uuid
   `;
 
@@ -1335,6 +1668,42 @@ exports.handler = async function handler(event) {
       }
       case "update_project_member_rate": {
         mutationResult = await updateProjectMemberRate(
+          sql,
+          request.payload || {},
+          context.currentUser,
+          accountId
+        );
+        break;
+      }
+      case "create_expense": {
+        mutationResult = await createExpense(
+          sql,
+          request.payload || {},
+          context.currentUser,
+          accountId
+        );
+        break;
+      }
+      case "update_expense": {
+        mutationResult = await updateExpense(
+          sql,
+          request.payload || {},
+          context.currentUser,
+          accountId
+        );
+        break;
+      }
+      case "delete_expense": {
+        mutationResult = await deleteExpense(
+          sql,
+          request.payload || {},
+          context.currentUser,
+          accountId
+        );
+        break;
+      }
+      case "toggle_expense_status": {
+        mutationResult = await toggleExpenseStatus(
           sql,
           request.payload || {},
           context.currentUser,

@@ -184,6 +184,7 @@
   const state = {
     catalog: {},
     entries: [],
+    expenses: [],
     filters: {
       user: "",
       client: "",
@@ -332,6 +333,7 @@
     state.bootstrapRequired = Boolean(data?.bootstrapRequired);
     state.catalog = normalizeCatalog(data?.catalog || {}, false);
     state.entries = Array.isArray(data?.entries) ? data.entries.map(normalizeEntry).filter(Boolean) : [];
+    state.expenses = Array.isArray(data?.expenses) ? data.expenses : [];
     state.assignments = normalizeAssignments(data?.assignments);
     state.levelLabels = data?.levelLabels && typeof data.levelLabels === "object"
       ? data.levelLabels
@@ -362,6 +364,7 @@
     state.bootstrapRequired = false;
     state.catalog = normalizeCatalog(DEFAULT_CLIENT_PROJECTS, true);
     state.entries = [];
+    state.expenses = [];
     state.projects = [];
     state.levelLabels = {};
     state.expenseCategories = [];

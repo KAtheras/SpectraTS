@@ -278,6 +278,25 @@ async function ensureSchema(sql) {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS expenses (
+      id TEXT PRIMARY KEY,
+      account_id UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      client_name TEXT NOT NULL,
+      project_name TEXT NOT NULL,
+      expense_date TEXT NOT NULL,
+      category TEXT NOT NULL,
+      amount NUMERIC NOT NULL,
+      is_billable INT NOT NULL DEFAULT 1,
+      notes TEXT,
+      status TEXT NOT NULL DEFAULT 'pending',
+      approved_at TEXT,
+      created_at TEXT,
+      updated_at TEXT
+    )
+  `;
   await sql`
     CREATE INDEX IF NOT EXISTS expense_categories_account_idx
       ON expense_categories(account_uuid)
@@ -1483,7 +1502,7 @@ async function loadState(sql, currentUser) {
   `;
 
   let entries = [];
-  if (isAdmin) {
+  if (isAdminFlag) {
     entries = await sql`
       SELECT
         id,
@@ -1502,7 +1521,7 @@ async function loadState(sql, currentUser) {
       WHERE account_id = ${accountUuid}::uuid
       ORDER BY entry_date DESC, created_at DESC
     `;
-  } else if (isManager) {
+  } else if (isManagerFlag) {
     const scope = await getManagerScope(sql, normalizedUser.id, accountUuid);
     if (scope.projectIds.length) {
       entries = await sql`
@@ -1530,7 +1549,7 @@ async function loadState(sql, currentUser) {
         ORDER BY entries.entry_date DESC, entries.created_at DESC
       `;
     }
-  } else if (normalizedUser && isStaff) {
+  } else if (normalizedUser && isStaffFlag) {
     entries = await sql`
       SELECT
         id,
@@ -1549,6 +1568,77 @@ async function loadState(sql, currentUser) {
       WHERE user_name = ${normalizedUser.displayName}
         AND account_id = ${accountUuid}::uuid
       ORDER BY entry_date DESC, created_at DESC
+    `;
+  }
+
+  let expenses = [];
+  if (isAdminFlag || isExecFlag) {
+    expenses = await sql`
+      SELECT
+        id,
+        user_id AS "userId",
+        client_name AS "clientName",
+        project_name AS "projectName",
+        expense_date AS "expenseDate",
+        category,
+        amount::FLOAT8 AS amount,
+        is_billable AS "isBillable",
+        COALESCE(notes, '') AS notes,
+        status,
+        approved_at AS "approvedAt",
+        created_at AS "createdAt",
+        updated_at AS "updatedAt"
+      FROM expenses
+      WHERE account_id = ${accountUuid}::uuid
+      ORDER BY expense_date DESC, created_at DESC NULLS LAST
+    `;
+  } else if (isManagerFlag) {
+    const scope = await getManagerScope(sql, normalizedUser.id, accountUuid);
+    if (scope.projectIds.length) {
+      expenses = await sql`
+        SELECT
+          expenses.id,
+          expenses.user_id AS "userId",
+          expenses.client_name AS "clientName",
+          expenses.project_name AS "projectName",
+          expenses.expense_date AS "expenseDate",
+          expenses.category,
+          expenses.amount::FLOAT8 AS amount,
+          expenses.is_billable AS "isBillable",
+          COALESCE(expenses.notes, '') AS notes,
+          expenses.status,
+          expenses.approved_at AS "approvedAt",
+          expenses.created_at AS "createdAt",
+          expenses.updated_at AS "updatedAt"
+        FROM expenses
+        JOIN clients ON LOWER(clients.name) = LOWER(expenses.client_name)
+        JOIN projects ON projects.client_id = clients.id
+          AND LOWER(projects.name) = LOWER(expenses.project_name)
+        WHERE expenses.account_id = ${accountUuid}::uuid
+          AND projects.id = ANY(${scope.projectIds})
+        ORDER BY expenses.expense_date DESC, expenses.created_at DESC NULLS LAST
+      `;
+    }
+  } else if (normalizedUser && isStaffFlag) {
+    expenses = await sql`
+      SELECT
+        id,
+        user_id AS "userId",
+        client_name AS "clientName",
+        project_name AS "projectName",
+        expense_date AS "expenseDate",
+        category,
+        amount::FLOAT8 AS amount,
+        is_billable AS "isBillable",
+        COALESCE(notes, '') AS notes,
+        status,
+        approved_at AS "approvedAt",
+        created_at AS "createdAt",
+        updated_at AS "updatedAt"
+      FROM expenses
+      WHERE account_id = ${accountUuid}::uuid
+        AND user_id = ${normalizedUser.id}
+      ORDER BY expense_date DESC, created_at DESC NULLS LAST
     `;
   }
 
@@ -1620,6 +1710,7 @@ async function loadState(sql, currentUser) {
     users,
     catalog,
     entries,
+    expenses,
     projects,
     expenseCategories,
     assignments,
