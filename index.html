@@ -363,11 +363,63 @@
             </section>
 
             <section class="panel panel-table">
-              <div class="panel-head">
-                <div>
+              <div class="panel-head panel-head-logged">
+                <div class="panel-head-title-row">
                   <h2>Submitted expenses</h2>
+                  <div class="filter-total" id="expense-filter-total">Total amount: $0.00</div>
+                </div>
+                <div class="panel-head-actions">
+                  <button class="button button-ghost" type="button" id="expense-clear-filters">
+                    Clear
+                  </button>
+                  <button class="button button-ghost" type="button" id="expense-export-csv">
+                    Export CSV
+                  </button>
                 </div>
               </div>
+
+              <form id="expense-filter-form" class="filters">
+                <label>
+                  <span>User</span>
+                  <select name="user" id="expense-filter-user"></select>
+                </label>
+                <label>
+                  <span>Client</span>
+                  <select name="client" id="expense-filter-client"></select>
+                </label>
+                <label>
+                  <span>Project</span>
+                  <select name="project" id="expense-filter-project"></select>
+                </label>
+                <label>
+                  <span>From</span>
+                  <input type="text" name="from" hidden />
+                  <div class="wheel-date-picker wheel-date-picker--compact" data-expense-filter-date="from">
+                    <select id="expense-filter-from-month" aria-label="From month"></select>
+                    <select id="expense-filter-from-day" aria-label="From day"></select>
+                    <select id="expense-filter-from-year" aria-label="From year"></select>
+                  </div>
+                </label>
+                <label>
+                  <span>To</span>
+                  <input type="text" name="to" hidden />
+                  <div class="wheel-date-picker wheel-date-picker--compact" data-expense-filter-date="to">
+                    <select id="expense-filter-to-month" aria-label="To month"></select>
+                    <select id="expense-filter-to-day" aria-label="To day"></select>
+                    <select id="expense-filter-to-year" aria-label="To year"></select>
+                  </div>
+                </label>
+                <label>
+                  <span>Search</span>
+                  <input
+                    type="search"
+                    name="search"
+                    placeholder="Project, category, or notes"
+                  />
+                </label>
+              </form>
+
+              <div id="expense-active-filters" class="active-filters" hidden></div>
               <div class="table-wrapper">
                 <table class="entries-table">
                   <thead>

@@ -202,6 +202,20 @@
     filterToMonth: document.getElementById("filter-to-month"),
     filterToDay: document.getElementById("filter-to-day"),
     filterToYear: document.getElementById("filter-to-year"),
+    expenseFilterForm: document.getElementById("expense-filter-form"),
+    expenseClearFilters: document.getElementById("expense-clear-filters"),
+    expenseExportCsv: document.getElementById("expense-export-csv"),
+    expenseFilterTotal: document.getElementById("expense-filter-total"),
+    expenseActiveFilters: document.getElementById("expense-active-filters"),
+    expenseFilterUser: document.getElementById("expense-filter-user"),
+    expenseFilterClient: document.getElementById("expense-filter-client"),
+    expenseFilterProject: document.getElementById("expense-filter-project"),
+    expenseFilterFromMonth: document.getElementById("expense-filter-from-month"),
+    expenseFilterFromDay: document.getElementById("expense-filter-from-day"),
+    expenseFilterFromYear: document.getElementById("expense-filter-from-year"),
+    expenseFilterToMonth: document.getElementById("expense-filter-to-month"),
+    expenseFilterToDay: document.getElementById("expense-filter-to-day"),
+    expenseFilterToYear: document.getElementById("expense-filter-to-year"),
     appTopbar: document.querySelector(".app-topbar"),
   };
 
@@ -219,7 +233,12 @@
     refs.expenseDate.addEventListener("change", () => {
       refs.expenseDate.value = clampDateToBounds(refs.expenseDate.value);
     });
+    const expenseToday = clampDateToBounds(today);
+    refs.expenseDate.value = expenseToday;
+    refs.expenseDate.defaultValue = expenseToday;
   }
+
+  initExpenseFilterDatePickers();
 
   // Enforce settings dropdown item order: Settings, Dark/Light, Change Password, Log out.
   if (refs.settingsMenu) {
@@ -247,6 +266,14 @@
     entries: [],
     expenses: [],
     filters: {
+      user: "",
+      client: "",
+      project: "",
+      from: "",
+      to: "",
+      search: "",
+    },
+    expenseFilters: {
       user: "",
       client: "",
       project: "",
@@ -1040,6 +1067,29 @@
     return form?.elements?.namedItem(name);
   }
 
+  function setOptions(select, values, placeholder) {
+    if (!select) return;
+    const opts = [
+      placeholder ? `<option value=\"\">${escapeHtml(placeholder)}</option>` : "",
+      ...values.map((val) => `<option value=\"${escapeHtml(val)}\">${escapeHtml(val)}</option>`),
+    ];
+    select.innerHTML = opts.join("");
+  }
+
+  function initExpenseFilterDatePickers() {
+    const monthValues = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, "0"));
+    const dayValues = Array.from({ length: 31 }, (_, i) => String(i + 1).padStart(2, "0"));
+    const yearNow = Number(today.split("-")[0]);
+    const yearValues = [yearNow, yearNow - 1].map(String);
+
+    setOptions(refs.expenseFilterFromMonth, monthValues, "MM");
+    setOptions(refs.expenseFilterFromDay, dayValues, "DD");
+    setOptions(refs.expenseFilterFromYear, yearValues, "YY");
+    setOptions(refs.expenseFilterToMonth, monthValues, "MM");
+    setOptions(refs.expenseFilterToDay, dayValues, "DD");
+    setOptions(refs.expenseFilterToYear, yearValues, "YY");
+  }
+
   function updateFilterDateFromPicker(kind) {
     const refsForKind = filterDateRefs(refs, kind);
     const input = field(refs.filterForm, kind);
@@ -1067,6 +1117,50 @@
 
     input.value = `${month}/${day}/${year}`;
     applyFiltersFromForm({ showErrors: false });
+  }
+
+  function expenseFilterDateRefs(kind) {
+    if (kind === "from") {
+      return {
+        month: refs.expenseFilterFromMonth,
+        day: refs.expenseFilterFromDay,
+        year: refs.expenseFilterFromYear,
+      };
+    }
+    return {
+      month: refs.expenseFilterToMonth,
+      day: refs.expenseFilterToDay,
+      year: refs.expenseFilterToYear,
+    };
+  }
+
+  function updateExpenseFilterDateFromPicker(kind) {
+    const refsForKind = expenseFilterDateRefs(kind);
+    const input = field(refs.expenseFilterForm, kind);
+    if (!refsForKind.month || !refsForKind.day || !refsForKind.year || !input) {
+      return;
+    }
+
+    const month = refsForKind.month.value;
+    const day = refsForKind.day.value;
+    const year = refsForKind.year.value;
+    if (!month || !day || !year) {
+      input.value = "";
+      if (state.expenseFilters[kind]) {
+        applyExpenseFiltersFromForm({ showErrors: false });
+      }
+      return;
+    }
+
+    const iso = `${year}-${month}-${day}`;
+    if (!isValidDateString(iso)) {
+      input.value = "";
+      applyExpenseFiltersFromForm({ showErrors: false });
+      return;
+    }
+
+    input.value = `${month}/${day}/${year}`;
+    applyExpenseFiltersFromForm({ showErrors: false });
   }
 
   function catalogClientNames() {
@@ -1269,6 +1363,51 @@
     );
   }
 
+  function syncExpenseFilterCatalogsUI(selection) {
+    const selectedUserId = selection?.user || "";
+    const selectedClient = selection?.client || "";
+    const selectedProject = selection?.project || "";
+
+    if (refs.expenseFilterUser) {
+      const users = entryUserOptions().map((name) => {
+        const user = getUserByDisplayName(name);
+        return { label: name, value: user?.id || name };
+      });
+      setSelectOptionsWithPlaceholder(
+        { escapeHtml },
+        refs.expenseFilterUser,
+        users,
+        selectedUserId,
+        "All users"
+      );
+    }
+
+    if (refs.expenseFilterClient) {
+      const clients = visibleCatalogClientNames();
+      setSelectOptionsWithPlaceholder(
+        { escapeHtml },
+        refs.expenseFilterClient,
+        clients,
+        selectedClient,
+        "All clients"
+      );
+    }
+
+    if (refs.expenseFilterProject) {
+      const projects = selectedClient
+        ? visibleCatalogProjectNames(selectedClient, getUserById?.(selectedUserId))
+        : [];
+      const placeholder = selectedClient ? "All projects" : "Choose client first";
+      setSelectOptionsWithPlaceholder(
+        { escapeHtml },
+        refs.expenseFilterProject,
+        projects,
+        selectedProject,
+        placeholder
+      );
+    }
+  }
+
   function resetForm() {
     refs.form.reset();
     state.editingId = null;
@@ -1321,9 +1460,11 @@
     if (refs.expenseUser) {
       refs.expenseUser.value = defaultUserId;
     }
-  if (refs.expenseDate) {
-    refs.expenseDate.value = clampDateToBounds(today);
-  }
+    if (refs.expenseDate) {
+      const expenseToday = clampDateToBounds(today);
+      refs.expenseDate.value = expenseToday;
+      refs.expenseDate.defaultValue = expenseToday;
+    }
     syncExpenseCatalogs({
       userId: refs.expenseUser?.value || "",
       client: "",
@@ -1424,7 +1565,49 @@
         if (a.date === b.date) {
           return b.createdAt.localeCompare(a.createdAt);
         }
-        return b.date.localeCompare(a.date);
+      return b.date.localeCompare(a.date);
+    });
+  }
+
+  function currentExpenses() {
+    const search = state.expenseFilters.search.trim().toLowerCase();
+
+    return [...state.expenses]
+      .filter((expense) => {
+        if (state.expenseFilters.user && expense.userId !== state.expenseFilters.user) {
+          return false;
+        }
+        if (state.expenseFilters.client && expense.clientName !== state.expenseFilters.client) {
+          return false;
+        }
+        if (state.expenseFilters.project && expense.projectName !== state.expenseFilters.project) {
+          return false;
+        }
+        if (state.expenseFilters.from && expense.expenseDate < state.expenseFilters.from) {
+          return false;
+        }
+        if (state.expenseFilters.to && expense.expenseDate > state.expenseFilters.to) {
+          return false;
+        }
+        if (!search) {
+          return true;
+        }
+        const haystack = [
+          userNameById(expense.userId),
+          expense.clientName,
+          expense.projectName,
+          expense.category,
+          expense.notes,
+        ]
+          .join(" ")
+          .toLowerCase();
+        return haystack.includes(search);
+      })
+      .sort((a, b) => {
+        if (a.expenseDate === b.expenseDate) {
+          return b.createdAt?.localeCompare(a.createdAt || "") || 0;
+        }
+        return b.expenseDate.localeCompare(a.expenseDate);
       });
   }
 
@@ -2132,6 +2315,82 @@
       .join("");
   }
 
+  function renderExpenseFilterState(filteredExpenses) {
+    if (!refs.expenseFilterTotal || !refs.expenseActiveFilters) return;
+    const chips = [];
+    const totalAmount = filteredExpenses.reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
+    if (state.expenseFilters.user) {
+      chips.push(`User: ${userNameById(state.expenseFilters.user) || state.expenseFilters.user}`);
+    }
+    if (state.expenseFilters.client) {
+      chips.push(`Client: ${state.expenseFilters.client}`);
+    }
+    if (state.expenseFilters.project) {
+      chips.push(`Project: ${state.expenseFilters.project}`);
+    }
+    if (state.expenseFilters.from) {
+      chips.push(`From ${formatDisplayDate(state.expenseFilters.from)}`);
+    }
+    if (state.expenseFilters.to) {
+      chips.push(`To ${formatDisplayDate(state.expenseFilters.to)}`);
+    }
+    if (state.expenseFilters.search.trim()) {
+      chips.push(`Search: ${state.expenseFilters.search.trim()}`);
+    }
+
+    refs.expenseFilterTotal.textContent = `Total amount: $${totalAmount.toFixed(2)}`;
+    refs.expenseActiveFilters.hidden = chips.length === 0;
+    refs.expenseActiveFilters.innerHTML = chips
+      .map((chip) => `<span class="filter-pill">${escapeHtml(chip)}</span>`)
+      .join("");
+  }
+
+  function applyExpenseFiltersFromForm(options) {
+    const settings = options || {};
+    const showErrors = settings.showErrors !== false;
+    const userField = field(refs.expenseFilterForm, "user");
+    const clientField = field(refs.expenseFilterForm, "client");
+    const projectField = field(refs.expenseFilterForm, "project");
+    const fromField = field(refs.expenseFilterForm, "from");
+    const toField = field(refs.expenseFilterForm, "to");
+    const searchField = field(refs.expenseFilterForm, "search");
+    const parsedFrom = parseDisplayDate(fromField?.value || "");
+    const parsedTo = parseDisplayDate(toField?.value || "");
+
+    if (fromField?.value.trim() && !parsedFrom) {
+      if (showErrors) {
+        feedback("From date must be in MM/DD/YYYY format.", true);
+      }
+      return false;
+    }
+    if (toField?.value.trim() && !parsedTo) {
+      if (showErrors) {
+        feedback("To date must be in MM/DD/YYYY format.", true);
+      }
+      return false;
+    }
+    if (parsedFrom && parsedTo && parsedFrom > parsedTo) {
+      if (showErrors) {
+        feedback("From date cannot be after To date.", true);
+      }
+      return false;
+    }
+
+    state.expenseFilters = {
+      user: userField?.value || "",
+      client: clientField?.value || "",
+      project: projectField?.value || "",
+      from: parsedFrom || "",
+      to: parsedTo || "",
+      search: searchField?.value || "",
+    };
+
+    const filtered = currentExpenses();
+    renderExpenses(filtered);
+    renderExpenseFilterState(filtered);
+    return true;
+  }
+
   function canManageApproval(entry) {
     const current = state.currentUser;
     if (!current) {
@@ -2459,7 +2718,10 @@
     if (view === "expenses") {
       if (refs.timesheetView) refs.timesheetView.hidden = true;
       if (refs.expensesView) refs.expensesView.hidden = false;
-      renderExpenses();
+      syncExpenseFilterCatalogsUI(state.expenseFilters);
+      const filteredExpenses = currentExpenses();
+      renderExpenses(filteredExpenses);
+      renderExpenseFilterState(filteredExpenses);
       syncExpenseCatalogs({
         userId: refs.expenseUser?.value || state.currentUser?.id || "",
         client: refs.expenseClient?.value || "",
@@ -2569,9 +2831,11 @@
     return user?.displayName || "";
   }
 
-  function renderExpenses() {
+  function renderExpenses(filtered) {
     if (!refs.expensesBody) return;
-    const expenses = state.expenses || [];
+    const expenses = filtered || currentExpenses();
+    renderExpenseFilterState(expenses);
+
     if (!expenses.length) {
       refs.expensesBody.innerHTML = `
         <tr>
@@ -2705,6 +2969,45 @@
     const link = document.createElement("a");
     link.href = url;
     link.download = `timesheet-${today}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function exportExpensesCsv() {
+    const expenses = currentExpenses();
+    if (!expenses.length) {
+      feedback("There are no expenses to export.", true);
+      return;
+    }
+
+    const rows = [
+      ["Date", "User", "Client", "Project", "Category", "Amount", "Billable", "Notes", "Status"],
+      ...expenses.map((expense) => [
+        expense.expenseDate,
+        userNameById(expense.userId),
+        expense.clientName,
+        expense.projectName,
+        expense.category,
+        Number(expense.amount || 0).toFixed(2),
+        expense.isBillable !== false ? "Billable" : "Non-billable",
+        expense.notes || "",
+        expense.status || "pending",
+      ]),
+    ];
+
+    const csv = rows
+      .map((row) =>
+        row
+          .map((cell) => `"${String(cell ?? "").replaceAll('"', '""')}"`)
+          .join(",")
+      )
+      .join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `expenses-${today}.csv`;
     link.click();
     URL.revokeObjectURL(url);
   }
@@ -2916,6 +3219,19 @@
     });
   });
 
+  ["from", "to"].forEach(function (name) {
+    const refsForKind = expenseFilterDateRefs(name);
+    if (!refsForKind.month || !refsForKind.day || !refsForKind.year) {
+      return;
+    }
+
+    [refsForKind.month, refsForKind.day, refsForKind.year].forEach(function (select) {
+      select.addEventListener("change", function () {
+        updateExpenseFilterDateFromPicker(name);
+      });
+    });
+  });
+
   field(refs.form, "client").addEventListener("change", function () {
     const userField = field(refs.form, "user");
     const clientField = field(refs.form, "client");
@@ -2945,6 +3261,41 @@
     applyFiltersFromForm();
   });
 
+  field(refs.expenseFilterForm, "client")?.addEventListener("change", function () {
+    const userField = field(refs.expenseFilterForm, "user");
+    const clientField = field(refs.expenseFilterForm, "client");
+    syncExpenseFilterCatalogsUI({
+      user: userField?.value || "",
+      client: clientField?.value || "",
+      project: "",
+    });
+    applyExpenseFiltersFromForm();
+  });
+
+  field(refs.expenseFilterForm, "project")?.addEventListener("change", function () {
+    applyExpenseFiltersFromForm();
+  });
+
+  field(refs.expenseFilterForm, "user")?.addEventListener("change", function () {
+    const userField = field(refs.expenseFilterForm, "user");
+    const clientField = field(refs.expenseFilterForm, "client");
+    syncExpenseFilterCatalogsUI({
+      user: userField?.value || "",
+      client: clientField?.value || "",
+      project: field(refs.expenseFilterForm, "project")?.value || "",
+    });
+    applyExpenseFiltersFromForm();
+  });
+
+  field(refs.expenseFilterForm, "search")?.addEventListener("input", function () {
+    applyExpenseFiltersFromForm({ showErrors: false });
+  });
+
+  refs.expenseFilterForm?.addEventListener("submit", function (event) {
+    event.preventDefault();
+    applyExpenseFiltersFromForm();
+  });
+
   ["user", "project"].forEach(function (name) {
     field(refs.filterForm, name).addEventListener("change", function () {
       applyFiltersFromForm();
@@ -2968,6 +3319,32 @@
   });
 
   refs.exportCsv.addEventListener("click", exportCsv);
+
+  refs.expenseClearFilters?.addEventListener("click", function () {
+    refs.expenseFilterForm?.reset();
+    syncExpenseFilterCatalogsUI({
+      user: "",
+      client: "",
+      project: "",
+    });
+    state.expenseFilters = {
+      user: "",
+      client: "",
+      project: "",
+      from: "",
+      to: "",
+      search: "",
+    };
+    ["from", "to"].forEach(function (name) {
+      const refsForKind = expenseFilterDateRefs(name);
+      if (refsForKind.month) refsForKind.month.value = "";
+      if (refsForKind.day) refsForKind.day.value = "";
+      if (refsForKind.year) refsForKind.year.value = "";
+    });
+    applyExpenseFiltersFromForm({ showErrors: false });
+  });
+
+  refs.expenseExportCsv?.addEventListener("click", exportExpensesCsv);
 
   function expenseFromForm() {
     return {
