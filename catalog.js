@@ -55,6 +55,32 @@
     ensureCatalogSelection();
     const selectedClient = state.selectedCatalogClient;
     const projects = visibleCatalogProjectNames(selectedClient);
+
+    // Aggregate per-client hours and budget
+    const projectBudgetMap = (state.projects || []).reduce((acc, project) => {
+      if (!project || !project.client) return acc;
+      if (!acc[project.client]) acc[project.client] = [];
+      const budget = Number.isFinite(project.budget) ? Number(project.budget) : null;
+      acc[project.client].push({ name: project.name, budget });
+      return acc;
+    }, {});
+
+    const clientHoursMap = {};
+    const clientBudgetMap = {};
+    clients.forEach((client) => {
+      const clientProjects = visibleCatalogProjectNames(client);
+      const hours = clientProjects.reduce(
+        (total, proj) => total + (projectHours(client, proj) || 0),
+        0
+      );
+      clientHoursMap[client] = hours;
+
+      const budgets = (projectBudgetMap[client] || [])
+        .map((p) => p.budget)
+        .filter((b) => Number.isFinite(b));
+      clientBudgetMap[client] =
+        budgets.length > 0 ? budgets.reduce((a, b) => a + b, 0) : null;
+    });
     const projectBudgetMap = (state.projects || []).reduce((acc, project) => {
       if (project && project.client === selectedClient) {
         acc[project.name] = Number.isFinite(project.budget) ? Number(project.budget) : null;
@@ -77,6 +103,15 @@
               <small>${visibleCatalogProjectNames(client).length} ${
                 visibleCatalogProjectNames(client).length === 1 ? "project" : "projects"
               }</small>
+              <small>${(clientHoursMap[client] || 0).toFixed(2)}h logged</small>
+              <small>
+                Budget:
+                ${
+                  clientBudgetMap[client] === null
+                    ? "—"
+                    : `$${clientBudgetMap[client].toFixed(2)}`
+                }
+              </small>
             </span>
             <span class="catalog-item-actions">
               <button
