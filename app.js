@@ -60,8 +60,6 @@
     handleOtherHoursInput,
   } = window.entryForm || {};
   const { createAccessControl } = window.accessControl || {};
-  const today = formatDate(new Date());
-
   const DEFAULT_CLIENT_PROJECTS = {};
 
   const minEntryDate = (() => {
