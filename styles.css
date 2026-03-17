@@ -2218,6 +2218,28 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   accent-color: var(--accent);
 }
 
+/* Expenses live hooks */
+.expense-form-card-live {
+  background: #F2FAF6;
+  border: 2px solid #2f6fed;
+}
+
+.expense-amount-field-live .expense-amount-header-live {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: nowrap;
+}
+
+.expense-nonbillable-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
 .expenses-view .panel-head {
   margin-bottom: 10px;
 }
