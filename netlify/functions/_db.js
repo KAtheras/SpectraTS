@@ -1092,7 +1092,8 @@ async function deactivateUser(sql, payload, actingUser) {
   if (actingUser && existingUser.id === actingUser.id) {
     throw new Error("You cannot deactivate your own account.");
   }
-  if (isSuperAdminLevel(existingUser.level)) {
+  const levelLabelMap = await listLevelLabels(sql, existingUser.account_id);
+  if (isAdmin(existingUser, levelLabelMap)) {
     const admins = await adminCount(sql, existingUser.account_id);
     if (admins <= 1) {
       throw new Error("At least one Admin account is required.");
