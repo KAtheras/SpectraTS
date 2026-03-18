@@ -1429,9 +1429,21 @@ textarea {
 .audit-filters {
   margin: 0;
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 10px;
   align-items: center;
+  margin-left: auto;
+}
+
+.audit-filters label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: auto;
+}
+
+.audit-filters select {
+  width: 180px;
 }
 
 .audit-detail {
