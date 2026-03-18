@@ -314,6 +314,20 @@
     },
   };
 
+  function arrangeSettingsMenu(showAudit) {
+    if (!refs.settingsMenu) return;
+    const items = [
+      refs.settingsMenuSettings,
+      showAudit ? refs.navAudit : null,
+      refs.themeToggle,
+      refs.changePasswordOpen,
+      refs.logoutButton,
+    ].filter(Boolean);
+    items.forEach(function (el) {
+      refs.settingsMenu.appendChild(el);
+    });
+  }
+
   function persistSessionToken(token) {
     state.sessionToken = token || "";
     saveSessionToken(token);
@@ -2877,15 +2891,16 @@
       refs.navExpensesMobile.setAttribute("aria-current", view === "expenses" ? "page" : "false");
     }
     const showAudit = isAdmin(state.currentUser);
+    arrangeSettingsMenu(showAudit);
     if (refs.navAudit) {
       refs.navAudit.hidden = !showAudit;
       refs.navAudit.classList.toggle("is-active", view === "audit");
       refs.navAudit.setAttribute("aria-current", view === "audit" ? "page" : "false");
     }
     if (refs.navAuditMobile) {
-      refs.navAuditMobile.hidden = !showAudit;
-      refs.navAuditMobile.classList.toggle("is-active", view === "audit");
-      refs.navAuditMobile.setAttribute("aria-current", view === "audit" ? "page" : "false");
+      refs.navAuditMobile.hidden = true;
+      refs.navAuditMobile.classList.toggle("is-active", false);
+      refs.navAuditMobile.setAttribute("aria-current", "false");
     }
     if (refs.changePasswordOpen) {
       refs.changePasswordOpen.hidden = !state.currentUser || state.currentUser.mustChangePassword;
