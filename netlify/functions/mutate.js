@@ -983,7 +983,7 @@ async function updateExpense(sql, payload, currentUser, accountId) {
   const now = new Date().toISOString();
 
   const beforeSnapshot = expenseSnapshot({
-    date: existing.expense_date,
+    date: normalizeText(existing.expense_date),
     userId: existing.user_id,
     clientId: previousProject?.client_id || null,
     projectId: previousProject?.id || null,
@@ -995,7 +995,7 @@ async function updateExpense(sql, payload, currentUser, accountId) {
   });
 
   const afterSnapshot = expenseSnapshot({
-    date: safeExpense.expenseDate,
+    date: normalizeText(safeExpense.expenseDate),
     userId: targetUser.id,
     clientId: project?.client_id || null,
     projectId: project?.id || null,
