@@ -1265,12 +1265,19 @@
       refs.expenseClient.value = client;
     }
 
+    const hasClient = Boolean(client);
     const projects = visibleCatalogProjectNames(client || "", getUserById?.(userId));
-    setSelectOptionsWithPlaceholder({ escapeHtml }, refs.expenseProject, projects, project || "", "Select project");
-    if (project && projects.includes(project)) {
+    const placeholder = hasClient ? "Select project" : "Choose client first";
+    setSelectOptionsWithPlaceholder({ escapeHtml }, refs.expenseProject, projects, project || "", placeholder);
+    if (refs.expenseProject) {
+      refs.expenseProject.disabled = !hasClient;
+    }
+    if (hasClient && project && projects.includes(project)) {
       refs.expenseProject.value = project;
-    } else if (client && !refs.expenseProject?.value && projects.length) {
+    } else if (hasClient && !refs.expenseProject?.value && projects.length) {
       refs.expenseProject.value = projects[0];
+    } else if (!hasClient && refs.expenseProject) {
+      refs.expenseProject.value = "";
     }
 
     const users = entryUserOptions();
