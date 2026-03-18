@@ -1,15 +1,17 @@
 # Timesheet Studio
 
-Standalone timesheet web app for Netlify, designed to be embedded in WordPress with an `iframe`.
+Full-stack (Netlify Functions + Postgres) timesheet and expenses app, still embeddable in WordPress via `iframe`.
 
-## What this version does
+## Current capabilities
 
-- Runs as a plain static site
-- Stores entries in `localStorage` so you can test the full UI immediately
-- Supports add, edit, delete, filter, search, client breakdown, and CSV export
-- Includes two fixed users and a client-project catalog in [app.js](/Users/kaprelozsolak/Timesheet/app.js)
-- Detects iframe embedding and posts its height to the parent page
-- Lets you add clients and projects locally from the sidebar catalog panel
+- Authentication backed by Netlify Functions; session token stored client-side.
+- Time entries: add, edit, delete, billable toggle, approvals, filters, CSV export.
+- Expenses: add, edit, delete, billable toggle, filters, CSV export.
+- Catalog: clients/projects come from the database; no hardcoded tenant defaults. Admin-only can create clients; Admin/Exec can create projects.
+- Administrative projects default to non-billable **only for new entries/expenses**; edits preserve saved billable state.
+- Audit Log (admin-only): read-only table with Actor, Entity, Action, Date filters; inline with header; row expansion shows before/after.
+- Mobile: bottom tab bar; opaque in light/dark modes; audit access via user dropdown (admins).
+- Access control: permission groups (admin/executive/manager/staff) drive visibility and actions; members tab hidden for level 2 and below.
 
 ## Local preview
 
@@ -48,12 +50,15 @@ Use an iframe block or HTML block with your deployed Netlify URL:
 </script>
 ```
 
-## Important limitation
+## Notes & limitations
 
-This first version stores data in the browser, so it is best for a single-user MVP or visual prototype. If you want real multi-user accounts and shared data, the next step is to add a backend such as Supabase, Firebase, or Netlify Functions plus a database.
+- Backend: Netlify Functions in `netlify/functions/` expect a Postgres-compatible `sql` client (see `_db.js`) and run without transactions (`sql.begin` not used). Ensure env vars match your DB.
+- Audit Log is append-only; no UI to edit/delete entries.
+- Filters currently fetch latest audit rows and also filter client-side; keep datasets modest or add pagination if needed.
+- Light/dark themes supported; dropdown ordering: Settings, Audit Log (admins), Dark/Light, Change Password, Log out.
 
 ## Current team and catalog setup
 
 - Users, clients, and projects are tenant-specific and should come from your database or initial configuration.
 - No client/project catalog is hardcoded by default; seed data should be supplied per tenant or left empty.
-- New clients and projects added in the UI are stored according to the configured backend (or `localStorage` if running the original prototype mode).
+- New clients/projects added in the UI are stored via the configured backend APIs.
