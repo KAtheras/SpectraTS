@@ -932,6 +932,12 @@ async function updateExpense(sql, payload, currentUser, accountId) {
     expenseDate: expense.expenseDate || expense.expense_date,
     category: expense.category || existing.category,
     amount: expense.amount !== undefined ? expense.amount : existing.amount,
+    isBillable:
+      expense.isBillable !== undefined
+        ? expense.isBillable
+        : expense.is_billable !== undefined
+          ? expense.is_billable !== 0
+          : existing.is_billable !== 0,
   };
 
   const validationError = validateExpense(safeExpense);
