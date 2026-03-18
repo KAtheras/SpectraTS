@@ -1953,9 +1953,8 @@ exports.handler = async function handler(event) {
 
     switch (request.action) {
       case "add_client": {
-        if (!isAdmin(context.currentUser) && !isExecutive(context.currentUser)) {
-          return errorResponse(403, "Executive or Admin access required.");
-        }
+        const adminError = requireAdmin(context);
+        if (adminError) return adminError;
         mutationResult = await addClient(sql, request.payload || {}, accountId);
         break;
       }
