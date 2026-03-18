@@ -1528,7 +1528,6 @@
     if (refs.expenseNotes) refs.expenseNotes.value = expense.notes || "";
     if (refs.expenseNonBillable)
       refs.expenseNonBillable.checked = expense.isBillable === false;
-    setExpenseNonBillableDefault(expense.projectName || "");
     state.expenseEditingId = expense.id;
     if (refs.expenseFormHeading) refs.expenseFormHeading.textContent = "Edit expense";
     if (refs.submitExpense) refs.submitExpense.textContent = "Save expense";
