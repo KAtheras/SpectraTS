@@ -1266,7 +1266,9 @@
     }
 
     const hasClient = Boolean(client);
-    const projects = visibleCatalogProjectNames(client || "", getUserById?.(userId));
+    const projects = hasClient
+      ? visibleCatalogProjectNames(client, getUserById?.(userId))
+      : [];
     const placeholder = hasClient ? "Select project" : "Choose client first";
     setSelectOptionsWithPlaceholder({ escapeHtml }, refs.expenseProject, projects, project || "", placeholder);
     if (refs.expenseProject) {
