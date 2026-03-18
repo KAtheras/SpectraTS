@@ -4116,8 +4116,8 @@
 
   refs.addClientForm.addEventListener("submit", async function (event) {
     event.preventDefault();
-    if (!isAdmin(state.currentUser) && !isExecutive(state.currentUser)) {
-      feedback("Only Executives or Admins can add clients.", true);
+    if (!isAdmin(state.currentUser)) {
+      feedback("Only Admins can add clients.", true);
       return;
     }
     const clientNameField = field(refs.addClientForm, "client_name");
