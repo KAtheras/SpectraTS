@@ -552,34 +552,34 @@
       <section class="page-view audit-page" id="audit-page" hidden aria-labelledby="audit-page-title">
         <header class="page-head">
           <h2 id="audit-page-title">Audit Log</h2>
+          <form id="audit-filter-form" class="filters audit-filters">
+            <label>
+              <span>Actor</span>
+              <select id="audit-filter-actor" name="actor">
+                <option value="">All</option>
+              </select>
+            </label>
+            <label>
+              <span>Entity</span>
+              <select id="audit-filter-entity" name="entity">
+                <option value="">All</option>
+                <option value="time_entry">Time entry</option>
+                <option value="expense">Expense</option>
+              </select>
+            </label>
+            <label>
+              <span>Action</span>
+              <select id="audit-filter-action" name="action">
+                <option value="">All</option>
+                <option value="create">Create</option>
+                <option value="update">Update</option>
+                <option value="delete">Delete</option>
+                <option value="approve">Approve</option>
+                <option value="unapprove">Unapprove</option>
+              </select>
+            </label>
+          </form>
         </header>
-        <form id="audit-filter-form" class="filters audit-filters">
-          <label>
-            <span>Entity</span>
-            <select id="audit-filter-entity" name="entity">
-              <option value="">All</option>
-              <option value="time_entry">Time entry</option>
-              <option value="expense">Expense</option>
-            </select>
-          </label>
-          <label>
-            <span>Action</span>
-            <select id="audit-filter-action" name="action">
-              <option value="">All</option>
-              <option value="create">Create</option>
-              <option value="update">Update</option>
-              <option value="delete">Delete</option>
-              <option value="approve">Approve</option>
-              <option value="unapprove">Unapprove</option>
-            </select>
-          </label>
-          <label>
-            <span>Actor</span>
-            <select id="audit-filter-actor" name="actor">
-              <option value="">All</option>
-            </select>
-          </label>
-        </form>
         <div class="table-wrap audit-table-wrap">
           <table class="entries-table audit-table">
             <thead>
