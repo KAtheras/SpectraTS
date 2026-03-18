@@ -1017,6 +1017,16 @@
         ? "approved"
         : "pending";
     const amount = Number(expense.amount);
+    const billableRaw =
+      expense.isBillable !== undefined
+        ? expense.isBillable
+        : expense.is_billable !== undefined
+          ? expense.is_billable
+          : undefined;
+    const isBillable =
+      billableRaw === false || billableRaw === 0 || billableRaw === "0"
+        ? false
+        : true;
 
     return {
       id: typeof expense.id === "string" && expense.id ? expense.id : crypto.randomUUID(),
@@ -1026,10 +1036,7 @@
       expenseDate: expense.expenseDate || expense.expense_date || today,
       category: expense.category || "",
       amount: Number.isFinite(amount) ? amount : 0,
-      isBillable:
-        expense.isBillable === false || expense.is_billable === 0
-          ? false
-          : true,
+      isBillable,
       notes: typeof expense.notes === "string" ? expense.notes : "",
       status,
       approvedAt: expense.approvedAt || expense.approved_at || null,
