@@ -30,6 +30,21 @@ const {
   logAudit,
 } = require("./_db");
 
+function normalizeDateString(value) {
+  if (!value) return "";
+  // Already a YYYY-MM-DD string
+  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value.trim())) {
+    return value.trim();
+  }
+  // Date object or parsable string
+  const dt = new Date(value);
+  if (Number.isNaN(dt.getTime())) return "";
+  const year = dt.getFullYear();
+  const month = String(dt.getMonth() + 1).padStart(2, "0");
+  const day = String(dt.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 function normalizeHours(value) {
   const hours = Number(value);
   return Number.isFinite(hours) ? hours : NaN;
@@ -1557,9 +1572,7 @@ async function saveEntry(sql, payload, currentUser, accountId) {
 
   const beforeSnapshot = existing
     ? entrySnapshot({
-        date: existing.entry_date
-          ? formatDate(new Date(existing.entry_date))
-          : normalizeText(entry.date),
+        date: normalizeDateString(existing.entry_date) || normalizeText(entry.date),
         userId: targetUser?.id || null,
         clientId: project?.client_id || null,
         projectId: project?.id || null,
