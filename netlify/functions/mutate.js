@@ -1539,13 +1539,13 @@ async function saveEntry(sql, payload, currentUser, accountId) {
 
   const beforeSnapshot = existing
     ? entrySnapshot({
-        date: existing.entry_date,
+        date: existing.entry_date || normalizeText(entry.date),
         userId: targetUser?.id || null,
         clientId: project?.client_id || null,
         projectId: project?.id || null,
         hours: existing.hours,
         notes: existing.notes,
-        nonbillable: existing.billable === false,
+        nonbillable: existing.billable === false || existing.billable === 0,
         status: existing.status,
       })
     : null;
