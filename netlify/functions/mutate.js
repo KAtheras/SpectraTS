@@ -910,10 +910,6 @@ async function updateExpense(sql, payload, currentUser, accountId) {
   if (!id) {
     return errorResponse(400, "Expense id is required.");
   }
-  const validationError = validateExpense(expense);
-  if (validationError) {
-    return errorResponse(400, validationError);
-  }
 
   const existingRows = await sql`
     SELECT *
@@ -927,13 +923,29 @@ async function updateExpense(sql, payload, currentUser, accountId) {
     return errorResponse(404, "Expense not found.");
   }
 
+  const safeExpense = {
+    ...existing,
+    ...expense,
+    userId: expense.userId || expense.user_id || existing.user_id,
+    clientName: normalizeText(expense.clientName) || existing.client_name,
+    projectName: normalizeText(expense.projectName) || existing.project_name,
+    expenseDate: expense.expenseDate || expense.expense_date,
+    category: expense.category || existing.category,
+    amount: expense.amount !== undefined ? expense.amount : existing.amount,
+  };
+
+  const validationError = validateExpense(safeExpense);
+  if (validationError) {
+    return errorResponse(400, validationError);
+  }
+
   const previousProject = await findProject(sql, existing.client_name, existing.project_name, accountId);
-  const project = await findProject(sql, expense.clientName, expense.projectName, accountId);
+  const project = await findProject(sql, safeExpense.clientName, safeExpense.projectName, accountId);
   if (!project) {
     return errorResponse(404, "Project not found.");
   }
 
-  const targetUserId = normalizeText(expense.userId) || existing.user_id;
+  const targetUserId = normalizeText(safeExpense.userId) || existing.user_id;
   const targetUser = await findUserById(sql, targetUserId, accountId);
   if (!targetUser) {
     return errorResponse(404, "Team member not found.");
@@ -967,7 +979,7 @@ async function updateExpense(sql, payload, currentUser, accountId) {
     }
   }
 
-  const isBillable = expense.isBillable === false || expense.isBillable === 0 ? 0 : 1;
+  const isBillable = safeExpense.isBillable === false || safeExpense.isBillable === 0 ? 0 : 1;
   const now = new Date().toISOString();
 
   const beforeSnapshot = expenseSnapshot({
@@ -983,28 +995,28 @@ async function updateExpense(sql, payload, currentUser, accountId) {
   });
 
   const afterSnapshot = expenseSnapshot({
-    date: expense.expenseDate,
+    date: safeExpense.expenseDate,
     userId: targetUser.id,
     clientId: project?.client_id || null,
     projectId: project?.id || null,
-    amount: normalizeAmount(expense.amount),
-    notes: normalizeText(expense.notes),
+    amount: normalizeAmount(safeExpense.amount),
+    notes: normalizeText(safeExpense.notes),
     nonbillable: isBillable === 0,
     status: existing.status,
-    category: expense.category,
+    category: safeExpense.category,
   });
 
   await sql`
     UPDATE expenses
     SET
       user_id = ${targetUser.id},
-      client_name = ${expense.clientName},
-      project_name = ${expense.projectName},
-      expense_date = ${expense.expenseDate},
-      category = ${expense.category},
-      amount = ${normalizeAmount(expense.amount)},
+      client_name = ${safeExpense.clientName},
+      project_name = ${safeExpense.projectName},
+      expense_date = ${safeExpense.expenseDate},
+      category = ${safeExpense.category},
+      amount = ${normalizeAmount(safeExpense.amount)},
       is_billable = ${isBillable},
-      notes = ${normalizeText(expense.notes)},
+      notes = ${normalizeText(safeExpense.notes)},
       updated_at = ${now}
     WHERE id = ${id}
       AND account_id = ${accountId}::uuid
