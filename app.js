@@ -323,6 +323,11 @@
       refs.changePasswordOpen,
       refs.logoutButton,
     ].filter(Boolean);
+    if (showAudit && refs.settingsMenuSettings && refs.navAudit) {
+      refs.navAudit.className = refs.settingsMenuSettings.className || "";
+      refs.navAudit.style.marginLeft = "";
+      refs.navAudit.style.paddingLeft = "";
+    }
     items.forEach(function (el) {
       refs.settingsMenu.appendChild(el);
     });
