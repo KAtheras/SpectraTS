@@ -1442,8 +1442,23 @@ textarea {
   width: auto;
 }
 
-.audit-filters select {
+.audit-filters select,
+.audit-filters input[type="date"] {
   width: 180px;
+}
+
+.audit-filters input[type="date"] {
+  height: var(--filter-control-height);
+  padding: 10px 14px;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--ink);
+}
+
+body[data-theme="dark"] .audit-filters input[type=\"date\"] {
+  border-color: var(--panel-border);
+  background: var(--panel);
 }
 
 .audit-detail {

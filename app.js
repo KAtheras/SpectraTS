@@ -311,6 +311,7 @@
       entity: "",
       action: "",
       actor: "",
+      date: "",
     },
   };
 
@@ -1705,7 +1706,7 @@
         }),
       });
       state.auditLogs = Array.isArray(payload?.auditLogs) ? payload.auditLogs : [];
-      renderAuditTable(state.auditLogs);
+      renderAuditTable(filterAuditLogs(state.auditLogs));
     } catch (error) {
       feedback("Unable to load audit logs.", true);
     }
@@ -1822,6 +1823,27 @@
         `;
       })
       .join("");
+  }
+
+  function filterAuditLogs(logs) {
+    let rows = Array.isArray(logs) ? logs : [];
+    const { entity, action, actor, date } = state.auditFilters || {};
+    if (entity) {
+      rows = rows.filter((row) => row.entity_type === entity);
+    }
+    if (action) {
+      rows = rows.filter((row) => row.action === action);
+    }
+    if (actor) {
+      rows = rows.filter((row) => row.changed_by_user_id === actor);
+    }
+    if (date) {
+      rows = rows.filter((row) => {
+        const changedAt = row.changed_at || row.changedAt || "";
+        return changedAt.slice(0, 10) === date;
+      });
+    }
+    return rows;
   }
 
   const FIELD_LABELS = {
@@ -3676,13 +3698,16 @@
       entity: refs.auditFilterEntity?.value || "",
       action: refs.auditFilterAction?.value || "",
       actor: refs.auditFilterActor?.value || "",
+      date: refs.auditFilterDate?.value || "",
     };
+    renderAuditTable(filterAuditLogs(state.auditLogs));
     loadAuditLogs();
   }
 
   refs.auditFilterEntity?.addEventListener("change", applyAuditFiltersFromForm);
   refs.auditFilterAction?.addEventListener("change", applyAuditFiltersFromForm);
   refs.auditFilterActor?.addEventListener("change", applyAuditFiltersFromForm);
+  refs.auditFilterDate?.addEventListener("change", applyAuditFiltersFromForm);
 
   function expenseFromForm() {
     return {
