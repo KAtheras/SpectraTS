@@ -6,6 +6,14 @@
   const inputs = TARGET_IDS.map((id) => document.getElementById(id)).filter(Boolean);
   if (!inputs.length) return;
 
+  // Disable native desktop date picker for these inputs; keep mobile untouched.
+  inputs.forEach((input) => {
+    input.dataset.originalType = input.type || 'date';
+    input.type = 'text';
+    input.readOnly = true;
+    input.classList.add('dp-desktop-date');
+  });
+
   const popover = document.createElement('div');
   popover.className = 'dp-popover';
   popover.innerHTML = `
