@@ -71,6 +71,19 @@
     applyAuditFiltersFromForm,
   } = window.auditLog || {};
 
+  // Expose audit dependencies for auditLog.js (no behavior change).
+  window.auditLogDeps = {
+    refs,
+    state,
+    escapeHtml,
+    userNameById,
+    projectNameById,
+    clientNameById,
+    formatDateTimeLocal,
+    formatDisplayDate,
+    parseDisplayDate,
+  };
+
   const DEFAULT_CLIENT_PROJECTS = {};
 
   const today = formatDate(new Date());

@@ -1,4 +1,15 @@
 (function () {
+  const {
+    refs,
+    state,
+    escapeHtml,
+    userNameById,
+    projectNameById,
+    clientNameById,
+    formatDateTimeLocal,
+    formatDisplayDate,
+    parseDisplayDate,
+  } = window.auditLogDeps || {};
   function renderAuditTable(logs) {
     if (!refs.auditTableBody) return;
     const rows = Array.isArray(logs) ? logs : [];
