@@ -92,6 +92,9 @@
     canApproveEntry,
     canUnapproveEntry,
     showApproveButton,
+    resetForm,
+    setForm,
+    validateEntry,
   } = window.timeEntries || {};
 
   const DEFAULT_CLIENT_PROJECTS = {};
@@ -1602,70 +1605,6 @@
         placeholder
       );
     }
-  }
-
-  function resetForm() {
-    refs.form.reset();
-    state.editingId = null;
-    syncFormCatalogsUI({
-      user: defaultEntryUser(state),
-      client: "",
-      project: "",
-    });
-    if (refs.entryDate) {
-      refs.entryDate.value = clampDateToBounds(today);
-    }
-    field(refs.form, "hours").value = "";
-    refs.otherHours.value = "";
-    renderHourSelection?.({ refs, field });
-    setNonBillableDefault(field(refs.form, "project")?.value || "");
-    refs.formHeading.textContent = "Add timesheet entry";
-    refs.submitEntry.textContent = "Save";
-    refs.cancelEdit.hidden = true;
-  }
-
-  function setForm(entry) {
-    syncFormCatalogsUI({
-      user: entry.user,
-      client: entry.client,
-      project: entry.project,
-    });
-    if (refs.entryDate) {
-      refs.entryDate.value = clampDateToBounds(entry.date);
-    }
-    field(refs.form, "hours").value = entry.hours;
-    field(refs.form, "notes").value = entry.notes;
-    refs.otherHours.value = QUICK_HOUR_PRESETS.has(String(entry.hours)) ? "" : String(entry.hours);
-    renderHourSelection?.({ refs, field });
-    if (refs.entryNonBillable) {
-      refs.entryNonBillable.checked = entry.billable === false;
-    }
-    state.editingId = entry.id;
-    refs.formHeading.textContent = "Edit timesheet entry";
-    refs.submitEntry.textContent = "Save";
-    refs.cancelEdit.hidden = false;
-    const formCard = refs.form?.closest(".panel") || refs.form;
-    formCard?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }
-
-
-  function validateEntry(data) {
-    if (!data.user) {
-      return "Team member is required.";
-    }
-    if (!data.date) {
-      return "Date is required.";
-    }
-    if (!data.client) {
-      return "Client is required.";
-    }
-    if (!data.project) {
-      return "Project is required.";
-    }
-    if (!Number.isFinite(data.hours) || data.hours <= 0 || data.hours > 24) {
-      return "Hours must be between 0.25 and 24.";
-    }
-    return "";
   }
 
   function clientHours(client) {
@@ -4793,6 +4732,14 @@
     getUserByDisplayName,
     canUserAccessProject,
     isAdmin,
+    syncFormCatalogsUI,
+    defaultEntryUser,
+    clampDateToBounds,
+    today,
+    field,
+    renderHourSelection,
+    setNonBillableDefault,
+    QUICK_HOUR_PRESETS,
   };
 
   // Expose expenses dependencies for expenses.js (no behavior change).
