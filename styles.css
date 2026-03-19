@@ -1748,7 +1748,7 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.9);
   z-index: 30;
   overflow: auto;
 }
