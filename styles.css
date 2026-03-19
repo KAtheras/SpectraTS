@@ -2618,15 +2618,16 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   }
 
   .dp-day.is-disabled {
-    color: color-mix(in srgb, var(--muted) 70%, transparent);
-    border-color: color-mix(in srgb, var(--control-border) 70%, transparent);
-    background: var(--surface-subtle);
+    color: color-mix(in srgb, var(--muted) 60%, transparent);
+    border-color: color-mix(in srgb, var(--control-border) 60%, transparent);
+    background: color-mix(in srgb, var(--surface-subtle) 85%, transparent);
     cursor: not-allowed;
     pointer-events: none;
+    opacity: 0.55;
   }
 
   .dp-day.is-disabled:hover {
-    background: var(--surface-subtle);
+    background: color-mix(in srgb, var(--surface-subtle) 85%, transparent);
   }
 
   .dp-day.dp-day--spacer {
@@ -2634,6 +2635,21 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
     background: transparent;
     cursor: default;
     height: 34px;
+  }
+}
+
+@media (pointer: fine) and (hover: hover) {
+  body:not([data-theme="dark"]) .dp-day.is-disabled {
+    color: color-mix(in srgb, var(--muted) 65%, transparent);
+    border-color: color-mix(in srgb, var(--line) 60%, transparent);
+    background: color-mix(in srgb, var(--surface) 75%, #f3f1ec 25%);
+    opacity: 0.58;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+
+  body:not([data-theme="dark"]) .dp-day.is-disabled:hover {
+    background: color-mix(in srgb, var(--surface) 75%, #f3f1ec 25%);
   }
 }
 
