@@ -49,7 +49,7 @@
 
   function parseInput(input) {
     const val = input.value;
-    if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(val)) return null;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(val)) return null;
     const d = new Date(val + 'T00:00:00');
     return Number.isNaN(d.getTime()) ? null : d;
   }
@@ -64,8 +64,8 @@
   function clampToBounds(d, input) {
     const minAttr = input.getAttribute('min');
     const maxAttr = input.getAttribute('max');
-    const min = minAttr && /^\\d{4}-\\d{2}-\\d{2}$/.test(minAttr) ? new Date(minAttr + 'T00:00:00') : null;
-    const max = maxAttr && /^\\d{4}-\\d{2}-\\d{2}$/.test(maxAttr) ? new Date(maxAttr + 'T00:00:00') : null;
+    const min = minAttr && /^\d{4}-\d{2}-\d{2}$/.test(minAttr) ? new Date(minAttr + 'T00:00:00') : null;
+    const max = maxAttr && /^\d{4}-\d{2}-\d{2}$/.test(maxAttr) ? new Date(maxAttr + 'T00:00:00') : null;
     let date = d;
     if (min && date < min) date = min;
     if (max && date > max) date = max;
@@ -75,8 +75,8 @@
   function isDisabled(date, input) {
     const minAttr = input.getAttribute('min');
     const maxAttr = input.getAttribute('max');
-    const min = minAttr && /^\\d{4}-\\d{2}-\\d{2}$/.test(minAttr) ? new Date(minAttr + 'T00:00:00') : null;
-    const max = maxAttr && /^\\d{4}-\\d{2}-\\d{2}$/.test(maxAttr) ? new Date(maxAttr + 'T00:00:00') : null;
+    const min = minAttr && /^\d{4}-\d{2}-\d{2}$/.test(minAttr) ? new Date(minAttr + 'T00:00:00') : null;
+    const max = maxAttr && /^\d{4}-\d{2}-\d{2}$/.test(maxAttr) ? new Date(maxAttr + 'T00:00:00') : null;
     if (min && date < min) return true;
     if (max && date > max) return true;
     return false;
