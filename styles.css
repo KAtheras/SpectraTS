@@ -1425,14 +1425,14 @@ textarea {
 .form-actions-entry .button {
   min-width: 132px;
   padding: 0 20px;
-  height: var(--entry-control-height);
-  min-height: var(--entry-control-height);
+  height: 48px;
+  min-height: 48px;
   white-space: nowrap;
 }
 
 .notes-field textarea {
-  height: var(--entry-control-height);
-  min-height: var(--entry-control-height);
+  height: 48px;
+  min-height: 48px;
   border-radius: 12px;
   padding-top: 8px;
   padding-bottom: 8px;
@@ -2510,8 +2510,8 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
 }
 
 .expense-entry-form .expense-notes-inline textarea {
-  height: var(--entry-control-height);
-  min-height: var(--entry-control-height);
+  height: 48px;
+  min-height: 48px;
   border-radius: 12px;
   padding-top: 8px;
   padding-bottom: 8px;
@@ -2526,8 +2526,8 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
 .expense-actions-inline .button {
   min-width: 132px;
   padding: 0 20px;
-  height: var(--entry-control-height);
-  min-height: var(--entry-control-height);
+  height: 48px;
+  min-height: 48px;
   white-space: nowrap;
 }
 
