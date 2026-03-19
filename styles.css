@@ -2531,6 +2531,107 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   white-space: nowrap;
 }
 
+@media (pointer: fine) and (hover: hover) {
+  .dp-popover {
+    position: absolute;
+    z-index: 120;
+    display: none;
+    background: var(--panel);
+    border: 1px solid color-mix(in srgb, var(--panel-border) 75%, var(--line) 25%);
+    box-shadow: var(--shadow);
+    border-radius: 12px;
+  }
+
+  .dp-popover.is-open {
+    display: block;
+  }
+
+  .dp-inner {
+    padding: 10px 10px 12px;
+    min-width: 260px;
+    display: grid;
+    gap: 10px;
+  }
+
+  .dp-header {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .dp-title {
+    text-align: center;
+    font-family: var(--font-head);
+    font-weight: 700;
+    color: var(--ink);
+  }
+
+  .dp-nav {
+    border: 1px solid var(--control-border);
+    background: var(--control);
+    border-radius: 10px;
+    width: 32px;
+    height: 32px;
+    font-size: 18px;
+    cursor: pointer;
+    color: var(--ink);
+  }
+
+  .dp-week {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    text-align: center;
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+
+  .dp-week span {
+    padding: 2px 0;
+  }
+
+  .dp-grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 4px;
+  }
+
+  .dp-day {
+    border: 1px solid var(--control-border);
+    background: var(--surface);
+    border-radius: 10px;
+    height: 34px;
+    font-family: var(--font-head);
+    font-weight: 700;
+    color: var(--ink);
+    cursor: pointer;
+  }
+
+  .dp-day.is-selected {
+    background: color-mix(in srgb, var(--accent) 24%, var(--surface));
+    border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+    color: #f6f8fb;
+  }
+
+  .dp-day.is-today:not(.is-selected) {
+    border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+  }
+
+  .dp-day.is-disabled {
+    color: var(--muted);
+    border-style: dashed;
+    cursor: not-allowed;
+    background: var(--surface-subtle);
+  }
+
+  .dp-day.dp-day--spacer {
+    border: none;
+    background: transparent;
+    cursor: default;
+    height: 34px;
+  }
+}
+
 .expense-entry-form label {
   display: grid;
   gap: 8px;
