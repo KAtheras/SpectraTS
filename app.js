@@ -4134,6 +4134,7 @@
     setSelectOptionsWithPlaceholder,
     getUserById,
     getUserByDisplayName,
+    ensureCatalogSelection,
   };
 
   // Expose time entry dependencies for timeEntries.js (no behavior change).
