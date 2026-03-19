@@ -33,7 +33,7 @@
   }
 
   function renderLevelRows() {
-    const { refs, getLevelDefinitions, escapeHtml, isAdmin } = deps();
+    const { refs, escapeHtml, isAdmin } = deps();
     if (!refs.levelRows) return;
 
     const sorted = getLevelDefinitions();
