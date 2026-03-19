@@ -158,6 +158,11 @@
     return `${y}-${m}-${day}`;
   }
 
+  function fireChange(el) {
+    if (!el) return;
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+
   function setSelectsFromDate(input, date) {
     if (!input || !input._dpMonth || !input._dpDay || !input._dpYear || !date) return;
     input._dpMonth.value = String(date.getMonth() + 1).padStart(2, '0');
@@ -247,6 +252,9 @@
           if (openInput.dataset.dpFilter === 'true') {
             openInput.value = formatDisplay(date);
             setSelectsFromDate(openInput, date);
+            fireChange(openInput._dpMonth);
+            fireChange(openInput._dpDay);
+            fireChange(openInput._dpYear);
           } else {
             openInput.value = canonical;
           }
