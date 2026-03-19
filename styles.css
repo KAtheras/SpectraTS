@@ -1,42 +1,45 @@
 :root {
-  --bg: #f3efe7;
-  --bg-glow-top-left: rgba(255, 255, 255, 0.55);
-  --bg-glow-right: rgba(89, 108, 142, 0.08);
-  --bg-glow-bottom-right: rgba(161, 74, 31, 0.08);
-  --ink: #181510;
-  --muted: #665d53;
-  --panel: rgba(255, 250, 242, 0.78);
-  --panel-border: rgba(255, 255, 255, 0.38);
-  --line: rgba(24, 21, 16, 0.1);
+  --bg: #f4f3ef;
+  --bg-glow-top-left: rgba(255, 255, 255, 0.72);
+  --bg-glow-right: rgba(89, 108, 142, 0.06);
+  --bg-glow-bottom-right: rgba(161, 74, 31, 0.06);
+  --ink: #1a1813;
+  --muted: #6a6257;
+  --panel: #ffffff;
+  --panel-border: rgba(24, 21, 16, 0.09);
+  --line: rgba(24, 21, 16, 0.12);
   --accent: #2f5c8a;
   --accent-deep: #244a6e;
-  --accent-soft: rgba(75, 121, 168, 0.16);
+  --accent-soft: rgba(47, 92, 138, 0.15);
   --danger: #9f2f28;
-  --shadow: 0 26px 70px rgba(57, 42, 24, 0.16);
-  --surface: rgba(255, 255, 255, 0.72);
-  --surface-strong: rgba(255, 255, 255, 0.82);
-  --surface-soft: rgba(255, 255, 255, 0.68);
-  --surface-subtle: rgba(255, 255, 255, 0.64);
-  --surface-hover: rgba(255, 255, 255, 0.9);
-  --group-bg: rgba(255, 255, 255, 0.42);
-  --group-border: rgba(24, 21, 16, 0.06);
-  --chip-bg: rgba(255, 255, 255, 0.52);
+  --shadow: 0 22px 60px rgba(24, 18, 12, 0.16);
+  --surface: #f9f8f5;
+  --surface-strong: #fdfcf9;
+  --surface-soft: #f6f4f0;
+  --surface-subtle: #f3f1ed;
+  --surface-hover: #ffffff;
+  --control: #f8f7f5;
+  --control-border: rgba(24, 21, 16, 0.14);
+  --control-hover: rgba(24, 21, 16, 0.22);
+  --group-bg: #fbfaf8;
+  --group-border: rgba(24, 21, 16, 0.08);
+  --chip-bg: #f5f3ef;
   --chip-border: rgba(24, 21, 16, 0.08);
-  --chip-hover: rgba(255, 255, 255, 0.86);
+  --chip-hover: #ffffff;
   --selected-bg: #201810;
   --selected-border: #201810;
   --selected-ink: #fff7f1;
   --selected-muted-ink: #f1c7b5;
-  --pill-bg: rgba(255, 255, 255, 0.58);
-  --pill-border: rgba(24, 21, 16, 0.06);
+  --pill-bg: #f1ede6;
+  --pill-border: rgba(24, 21, 16, 0.08);
   --modal-overlay: rgba(24, 21, 16, 0.28);
   --modal-sticky-bg: #f5efe5;
   --modal-sticky-card: #fbf7f1;
-  --column-bg: rgba(255, 255, 255, 0.44);
-  --column-head-bg: rgba(255, 255, 255, 0.52);
-  --column-create-bg: rgba(255, 255, 255, 0.3);
-  --item-bg: rgba(255, 255, 255, 0.62);
-  --item-hover-bg: rgba(255, 255, 255, 0.9);
+  --column-bg: #faf7f2;
+  --column-head-bg: #f3efe9;
+  --column-create-bg: #f7f3ec;
+  --item-bg: #f6f3ee;
+  --item-hover-bg: #ffffff;
   --entry-control-height: 56px;
   --filter-control-height: 46px;
   --shell-pad: 24px;
@@ -52,38 +55,41 @@ body[data-theme="dark"] {
   --bg-glow-bottom-right: rgba(173, 77, 33, 0.14);
   --ink: #edf1f6;
   --muted: #9fabb8;
-  --panel: rgba(18, 25, 34, 0.8);
-  --panel-border: rgba(180, 197, 219, 0.12);
+  --panel: #141a22;
+  --panel-border: rgba(180, 197, 219, 0.14);
   --line: rgba(180, 197, 219, 0.18);
   --accent: #2f5c8a;
   --accent-deep: #4b79a8;
   --accent-soft: rgba(75, 121, 168, 0.24);
   --danger: #ff8f88;
   --shadow: 0 26px 70px rgba(0, 0, 0, 0.34);
-  --surface: rgba(31, 41, 54, 0.94);
-  --surface-strong: rgba(39, 50, 65, 0.98);
-  --surface-soft: rgba(34, 45, 59, 0.94);
-  --surface-subtle: rgba(42, 54, 69, 0.9);
-  --surface-hover: rgba(49, 62, 80, 0.96);
-  --group-bg: rgba(25, 34, 45, 0.94);
+  --surface: #1b2330;
+  --surface-strong: #1f2836;
+  --surface-soft: #19212e;
+  --surface-subtle: #161d28;
+  --surface-hover: #222c3b;
+  --control: #1f2733;
+  --control-border: rgba(180, 197, 219, 0.2);
+  --control-hover: rgba(180, 197, 219, 0.28);
+  --group-bg: #151c27;
   --group-border: rgba(180, 197, 219, 0.16);
-  --chip-bg: rgba(39, 50, 65, 0.95);
-  --chip-border: rgba(180, 197, 219, 0.16);
-  --chip-hover: rgba(54, 68, 87, 0.98);
+  --chip-bg: #1f2836;
+  --chip-border: rgba(180, 197, 219, 0.18);
+  --chip-hover: #273344;
   --selected-bg: #edf1f6;
   --selected-border: #edf1f6;
   --selected-ink: #11161d;
   --selected-muted-ink: #825039;
-  --pill-bg: rgba(35, 46, 60, 0.92);
-  --pill-border: rgba(180, 197, 219, 0.14);
+  --pill-bg: #1f2733;
+  --pill-border: rgba(180, 197, 219, 0.16);
   --modal-overlay: rgba(3, 7, 12, 0.62);
   --modal-sticky-bg: #151b24;
   --modal-sticky-card: #1b2430;
-  --column-bg: rgba(23, 31, 42, 0.94);
-  --column-head-bg: rgba(30, 40, 53, 0.98);
-  --column-create-bg: rgba(26, 35, 47, 0.96);
-  --item-bg: rgba(35, 46, 60, 0.92);
-  --item-hover-bg: rgba(47, 60, 77, 0.98);
+  --column-bg: #121824;
+  --column-head-bg: #161e2c;
+  --column-create-bg: #151d2a;
+  --item-bg: #1a2231;
+  --item-hover-bg: #222c3b;
   color-scheme: dark;
 }
 
@@ -1192,20 +1198,22 @@ input,
 select,
 textarea {
   width: 100%;
-  border: 1px solid var(--line);
+  border: 1px solid var(--control-border);
   border-radius: 16px;
   padding: 13px 14px;
-  background: var(--surface);
+  background: var(--control);
   color: var(--ink);
   font: inherit;
+  transition: background 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
 }
 
 input:focus,
 select:focus,
 textarea:focus {
   outline: none;
-  border-color: rgba(161, 74, 31, 0.45);
-  box-shadow: 0 0 0 4px rgba(161, 74, 31, 0.08);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent);
+  background: var(--surface);
 }
 
 select {
@@ -1220,7 +1228,7 @@ textarea {
 
 .mini-button {
   appearance: none;
-  border: 1px solid var(--line);
+  border: 1px solid var(--control-border);
   border-radius: 14px;
   padding: 0 14px;
   background: var(--surface-soft);
@@ -1229,10 +1237,12 @@ textarea {
   font-size: 0.85rem;
   font-weight: 700;
   cursor: pointer;
+  transition: background 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
 }
 
 .mini-button:hover {
   background: var(--surface-hover);
+  border-color: var(--control-hover);
 }
 
 .preset-row {
@@ -1324,7 +1334,7 @@ textarea {
 
 .button {
   appearance: none;
-  border: 0;
+  border: 1px solid color-mix(in srgb, var(--accent) 60%, transparent);
   border-radius: 999px;
   padding: 12px 18px;
   background: var(--accent);
@@ -1333,22 +1343,26 @@ textarea {
   font-size: 0.95rem;
   font-weight: 700;
   cursor: pointer;
-  transition: transform 160ms ease, background 160ms ease, opacity 160ms ease;
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--accent) 25%, transparent);
+  transition: transform 160ms ease, background 160ms ease, opacity 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
 }
 
 .button:hover {
   background: var(--accent-deep);
   transform: translateY(-1px);
+  box-shadow: 0 12px 28px color-mix(in srgb, var(--accent) 30%, transparent);
 }
 
 .button-ghost {
   background: transparent;
-  border: 1px solid var(--line);
+  border: 1px solid var(--control-border);
   color: var(--ink);
+  box-shadow: none;
 }
 
 .button-ghost:hover {
   background: var(--surface-subtle);
+  border-color: var(--control-hover);
 }
 
 .form-actions,
