@@ -307,8 +307,22 @@
       const sourceMin = bodyEl?.dataset?.rangeMin;
       const sourceMax = bodyEl?.dataset?.rangeMax;
       const range = sourceMin && sourceMax ? { min: sourceMin, max: sourceMax } : visibleRange(input.dataset.dpBody);
-      if (range?.min) input.setAttribute('min', range.min); else input.removeAttribute('min');
-      if (range?.max) input.setAttribute('max', range.max); else input.removeAttribute('max');
+      let minVal = range?.min || '';
+      let maxVal = range?.max || '';
+      if (input.dataset.dpFilter === 'true') {
+        const form = input.closest('form');
+        const sibling = (name) => form?.elements?.namedItem(name);
+        const fromVal = sibling('from')?.dataset?.dpCanonical || sibling('from')?.value || '';
+        const toVal = sibling('to')?.dataset?.dpCanonical || sibling('to')?.value || '';
+        if (input.name === 'to' && /^\d{4}-\d{2}-\d{2}$/.test(fromVal)) {
+          minVal = minVal ? (fromVal > minVal ? fromVal : minVal) : fromVal;
+        }
+        if (input.name === 'from' && /^\d{4}-\d{2}-\d{2}$/.test(toVal)) {
+          maxVal = maxVal ? (toVal < maxVal ? toVal : maxVal) : toVal;
+        }
+      }
+      if (minVal) input.setAttribute('min', minVal); else input.removeAttribute('min');
+      if (maxVal) input.setAttribute('max', maxVal); else input.removeAttribute('max');
     }
     openInput = input;
     const parsed = parseInput(input) || today();
