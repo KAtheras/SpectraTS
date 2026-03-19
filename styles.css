@@ -2894,7 +2894,6 @@ body[data-theme="dark"] .entry-approved td {
   border: 1px solid var(--border-color, #d0d5dd);
   padding: 0;
   height: 36px;
-  white-space: nowrap;
 }
 
 .bulk-entry-container .bulk-entry-table th {
@@ -2994,28 +2993,6 @@ body[data-theme="dark"] .entry-approved td {
 
 .bulk-col-delete {
   width: 2.2rem;
-}
-
-.bulk-entry-container .bulk-entry-table th:nth-child(4),
-.bulk-entry-container .bulk-entry-table td:nth-child(4) {
-  width: 2.3rem;
-}
-
-.bulk-entry-container .bulk-entry-table th:nth-child(5),
-.bulk-entry-container .bulk-entry-table td:nth-child(5) {
-  width: 2.0rem;
-  text-align: center;
-}
-
-.bulk-entry-container .bulk-entry-table th:nth-child(6),
-.bulk-entry-container .bulk-entry-table td:nth-child(6) {
-  width: auto;
-}
-
-.bulk-entry-container .bulk-entry-table th:nth-child(7),
-.bulk-entry-container .bulk-entry-table td:nth-child(7) {
-  width: 2.0rem;
-  text-align: center;
 }
 
 .bulk-center {
