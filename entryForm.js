@@ -435,6 +435,32 @@
     actions.insertBefore(spacer, actions.lastElementChild);
   }
 
+  function enforceBulkHoursWidth() {
+    const table = document.querySelector(".bulk-entry-table");
+    if (!table || table.dataset.hoursWidthObserver) return;
+
+    const apply = () => {
+      const targetWidth = "3.3rem"; // ~20% wider than previous 2.75rem
+      const hoursHeader = table.querySelector("thead tr th:nth-child(4)");
+      if (hoursHeader) {
+        hoursHeader.style.width = targetWidth;
+        hoursHeader.style.minWidth = targetWidth;
+        hoursHeader.style.maxWidth = targetWidth;
+      }
+      table.querySelectorAll(".bulk-col-hours").forEach((cell) => {
+        cell.style.width = targetWidth;
+        cell.style.minWidth = targetWidth;
+        cell.style.maxWidth = targetWidth;
+      });
+    };
+
+    apply();
+
+    const observer = new MutationObserver(apply);
+    observer.observe(table, { childList: true, subtree: true });
+    table.dataset.hoursWidthObserver = "true";
+  }
+
   function wireEntryModeToggle(deps) {
     const { refs, toggleEntryMode } = deps;
     const btn = refs?.entryModeToggle;
@@ -451,10 +477,14 @@
       toggleEntryMode(next);
       setLabel(next);
       positionBulkSave();
+      if (next === "multiple") {
+        enforceBulkHoursWidth();
+      }
     });
 
     setLabel("single");
     positionBulkSave();
+    enforceBulkHoursWidth();
   }
 
   window.entryForm = {
