@@ -1,16 +1,7 @@
 (function () {
-  const {
-    refs,
-    state,
-    escapeHtml,
-    userNameById,
-    projectNameById,
-    clientNameById,
-    formatDateTimeLocal,
-    formatDisplayDate,
-    parseDisplayDate,
-  } = window.auditLogDeps || {};
+  const deps = () => window.auditLogDeps || {};
   function renderAuditTable(logs) {
+    const { refs, state, escapeHtml, userNameById, projectNameById, clientNameById, formatDateTimeLocal } = deps();
     if (!refs.auditTableBody) return;
     const rows = Array.isArray(logs) ? logs : [];
 
@@ -106,6 +97,7 @@
   }
 
   function filterAuditLogs(logs) {
+    const { state } = deps();
     let rows = Array.isArray(logs) ? logs : [];
     const { entity, action, actor, date } = state.auditFilters || {};
     if (entity) {
@@ -166,6 +158,7 @@
   }
 
   function formatValue(key, value) {
+    const { escapeHtml, userNameById, projectNameById, clientNameById, formatDisplayDate } = deps();
     if (value === null || value === undefined || value === "") return "—";
     if (key === "nonbillable") return value ? "Non-billable" : "Billable";
     if (key === "date") return formatDisplayDate(String(value));
@@ -178,6 +171,7 @@
   }
 
   function formatAuditKV(json, entityType, action, position, contextNames) {
+    const { escapeHtml } = deps();
     if (!json || typeof json !== "object" || !Object.keys(json).length) {
       if (action === "create" && position === "before") return "";
       if (action === "delete" && position === "after") return "";
@@ -201,6 +195,7 @@
   }
 
   function applyAuditFiltersFromForm() {
+    const { parseDisplayDate, refs, state } = deps();
     const dateIso = parseDisplayDate(refs.auditFilterDate?.value) || refs.auditFilterDate?.value || "";
     state.auditFilters = {
       entity: refs.auditFilterEntity?.value || "",
