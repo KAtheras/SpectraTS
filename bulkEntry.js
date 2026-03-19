@@ -93,9 +93,9 @@
       .map((row, idx) => {
         const projects = projectOptions(row.client);
         return `
-          <tr data-row="${idx}">
-            <td><input type="date" class="bulk-input" data-field="date" value="${row.date || ""}" /></td>
-            <td>
+          <tr class="bulk-entry-row" data-row="${idx}">
+            <td class="bulk-entry-cell bulk-col-date"><input type="date" class="bulk-input" data-field="date" value="${row.date || ""}" /></td>
+            <td class="bulk-entry-cell bulk-col-client">
               <select class="bulk-input" data-field="client">
                 <option value=""></option>
                 ${clients
@@ -103,7 +103,7 @@
                   .join("")}
               </select>
             </td>
-            <td>
+            <td class="bulk-entry-cell bulk-col-project">
               <select class="bulk-input" data-field="project">
                 <option value=""></option>
                 ${projects
@@ -111,13 +111,13 @@
                   .join("")}
               </select>
             </td>
-            <td><input type="number" class="bulk-input" data-field="hours" min="0" step="0.25" value="${row.hours}" /></td>
-            <td class="bulk-center">
+            <td class="bulk-entry-cell bulk-col-hours"><input type="number" class="bulk-input" data-field="hours" min="0" step="0.25" value="${row.hours}" /></td>
+            <td class="bulk-entry-cell bulk-col-billable bulk-center">
               <input type="checkbox" class="bulk-checkbox" data-field="billable" ${row.billable ? "checked" : ""} />
             </td>
-            <td><input type="text" class="bulk-input" data-field="notes" value="${escapeHtml(row.notes)}" /></td>
-            <td class="bulk-center">
-              <button type="button" class="text-button danger bulk-delete" data-action="delete" aria-label="Delete row">Delete</button>
+            <td class="bulk-entry-cell bulk-col-notes"><input type="text" class="bulk-input" data-field="notes" value="${escapeHtml(row.notes)}" /></td>
+            <td class="bulk-entry-cell bulk-col-delete bulk-center">
+              <button type="button" class="text-button danger bulk-delete" data-action="delete" aria-label="Delete row">✕</button>
             </td>
           </tr>
         `;

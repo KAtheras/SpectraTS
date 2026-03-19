@@ -2885,12 +2885,13 @@ body[data-theme="dark"] .entry-approved td {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.95rem;
+  table-layout: fixed;
 }
 
 .bulk-entry-table th,
 .bulk-entry-table td {
   border: 1px solid var(--border-200, #d7d7d7);
-  padding: 0.45rem 0.5rem;
+  padding: 0.3rem 0.4rem;
 }
 
 .bulk-entry-table th {
@@ -2899,11 +2900,48 @@ body[data-theme="dark"] .entry-approved td {
   font-weight: 600;
 }
 
+.bulk-entry-row {
+  background: var(--surface-0, #fff);
+}
+
+.bulk-entry-cell {
+  vertical-align: middle;
+}
+
+.bulk-col-date {
+  width: 7.5rem;
+}
+
+.bulk-col-client {
+  width: 12rem;
+}
+
+.bulk-col-project {
+  width: 14rem;
+}
+
+.bulk-col-hours {
+  width: 5rem;
+}
+
+.bulk-col-billable {
+  width: 3.5rem;
+}
+
+.bulk-col-notes {
+  width: 100%;
+}
+
+.bulk-col-delete {
+  width: 3.5rem;
+}
+
 .bulk-input {
   width: 100%;
-  padding: 0.35rem 0.4rem;
+  padding: 0.3rem 0.35rem;
   border: 1px solid var(--border-200, #d7d7d7);
   border-radius: 6px;
+  font-size: 0.92rem;
 }
 
 .bulk-checkbox {
