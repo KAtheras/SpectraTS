@@ -311,8 +311,10 @@
 
   document.addEventListener('click', (event) => {
     if (!openInput) return;
-    if (popover.contains(event.target)) return;
-    if (inputs.includes(event.target)) return;
+    const target = event.target;
+    if (popover.contains(target)) return;
+    if (inputs.includes(target)) return;
+    if (target.closest('[data-filter-date],[data-expense-filter-date]')) return;
     closePopover();
   });
 
