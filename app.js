@@ -977,15 +977,38 @@
     return {
       id: client.id,
       name,
-      businessContactFirstName: clean(client.businessContactFirstName || client.business_contact_first_name),
-      businessContactLastName: clean(client.businessContactLastName || client.business_contact_last_name),
+      businessContactName: clean(
+        client.businessContactName ||
+          client.business_contact_name ||
+          [client.businessContactFirstName, client.business_contact_first_name, client.businessContactLastName, client.business_contact_last_name]
+            .filter(Boolean)
+            .join(" ")
+      ),
       businessContactEmail: clean(client.businessContactEmail || client.business_contact_email),
       businessContactPhone: clean(client.businessContactPhone || client.business_contact_phone),
-      clientAddress: clean(client.clientAddress || client.client_address),
-      adminContactFirstName: clean(client.adminContactFirstName || client.admin_contact_first_name),
-      adminContactLastName: clean(client.adminContactLastName || client.admin_contact_last_name),
-      adminContactEmail: clean(client.adminContactEmail || client.admin_contact_email),
-      adminContactPhone: clean(client.adminContactPhone || client.admin_contact_phone),
+      billingContactName: clean(
+        client.billingContactName ||
+          client.billing_contact_name ||
+          client.adminContactFirstName ||
+          client.admin_contact_first_name ||
+          client.adminContactLastName ||
+          client.admin_contact_last_name
+          ? [
+              client.adminContactFirstName,
+              client.admin_contact_first_name,
+              client.adminContactLastName,
+              client.admin_contact_last_name,
+            ]
+              .filter(Boolean)
+              .join(" ")
+          : ""
+      ),
+      billingContactEmail: clean(client.billingContactEmail || client.billing_contact_email || client.adminContactEmail || client.admin_contact_email),
+      billingContactPhone: clean(client.billingContactPhone || client.billing_contact_phone || client.adminContactPhone || client.admin_contact_phone),
+      addressStreet: clean(client.addressStreet || client.address_street || client.clientAddress || client.client_address),
+      addressCity: clean(client.addressCity || client.address_city),
+      addressState: clean(client.addressState || client.address_state),
+      addressPostal: clean(client.addressPostal || client.address_postal),
     };
   }
 
@@ -1826,19 +1849,14 @@
       <div class="client-editor-overlay" role="dialog" aria-modal="true" aria-label="${escapeHtml(title)}">
         <form class="client-editor-card" data-client-editor-form="${escapeHtml(editor.mode)}">
           <h3>${escapeHtml(title)}</h3>
-          <p class="client-editor-note">Client details stay on the left; selecting a card still loads projects on the right.</p>
           <div class="client-editor-grid">
             <label class="client-editor-field">
               <span>Client name</span>
               <input type="text" name="client_name" value="${escapeHtml(values.name || "")}" ${disabledAttr} required />
             </label>
             <label class="client-editor-field">
-              <span>Business contact — first</span>
-              <input type="text" name="business_contact_first_name" value="${escapeHtml(values.businessContactFirstName || "")}" ${disabledAttr} />
-            </label>
-            <label class="client-editor-field">
-              <span>Business contact — last</span>
-              <input type="text" name="business_contact_last_name" value="${escapeHtml(values.businessContactLastName || "")}" ${disabledAttr} />
+              <span>Business contact — name</span>
+              <input type="text" name="business_contact_name" value="${escapeHtml(values.businessContactName || "")}" ${disabledAttr} />
             </label>
             <label class="client-editor-field">
               <span>Business contact — email</span>
@@ -1849,29 +1867,37 @@
               <input type="tel" name="business_contact_phone" value="${escapeHtml(values.businessContactPhone || "")}" ${disabledAttr} />
             </label>
             <label class="client-editor-field">
-              <span>Client address</span>
-              <textarea name="client_address" rows="2" ${disabledAttr}>${escapeHtml(values.clientAddress || "")}</textarea>
+              <span>Billing contact — name</span>
+              <input type="text" name="billing_contact_name" value="${escapeHtml(values.billingContactName || "")}" ${disabledAttr} />
             </label>
             <label class="client-editor-field">
-              <span>Account admin — first</span>
-              <input type="text" name="admin_contact_first_name" value="${escapeHtml(values.adminContactFirstName || "")}" ${disabledAttr} />
+              <span>Billing contact — email</span>
+              <input type="email" name="billing_contact_email" value="${escapeHtml(values.billingContactEmail || "")}" ${disabledAttr} />
             </label>
             <label class="client-editor-field">
-              <span>Account admin — last</span>
-              <input type="text" name="admin_contact_last_name" value="${escapeHtml(values.adminContactLastName || "")}" ${disabledAttr} />
+              <span>Billing contact — phone</span>
+              <input type="tel" name="billing_contact_phone" value="${escapeHtml(values.billingContactPhone || "")}" ${disabledAttr} />
             </label>
             <label class="client-editor-field">
-              <span>Account admin — email</span>
-              <input type="email" name="admin_contact_email" value="${escapeHtml(values.adminContactEmail || "")}" ${disabledAttr} />
+              <span>Street address</span>
+              <input type="text" name="address_street" value="${escapeHtml(values.addressStreet || "")}" ${disabledAttr} />
             </label>
             <label class="client-editor-field">
-              <span>Account admin — phone</span>
-              <input type="tel" name="admin_contact_phone" value="${escapeHtml(values.adminContactPhone || "")}" ${disabledAttr} />
+              <span>City</span>
+              <input type="text" name="address_city" value="${escapeHtml(values.addressCity || "")}" ${disabledAttr} />
+            </label>
+            <label class="client-editor-field">
+              <span>State</span>
+              <input type="text" name="address_state" value="${escapeHtml(values.addressState || "")}" ${disabledAttr} />
+            </label>
+            <label class="client-editor-field">
+              <span>Zip code</span>
+              <input type="text" name="address_postal" value="${escapeHtml(values.addressPostal || "")}" ${disabledAttr} />
             </label>
           </div>
           <div class="client-editor-actions">
             <button type="button" class="button-ghost" data-cancel-client>Cancel</button>
-            <button type="submit" class="mini-button" ${disabledAttr}>${escapeHtml(saveLabel)}</button>
+            <button type="submit" class="button" ${disabledAttr}>${escapeHtml(saveLabel)}</button>
           </div>
         </form>
       </div>
@@ -4345,15 +4371,16 @@
     };
     return {
       name: value("client_name"),
-      businessContactFirstName: value("business_contact_first_name"),
-      businessContactLastName: value("business_contact_last_name"),
+      businessContactName: value("business_contact_name"),
       businessContactEmail: value("business_contact_email"),
       businessContactPhone: value("business_contact_phone"),
-      clientAddress: value("client_address"),
-      adminContactFirstName: value("admin_contact_first_name"),
-      adminContactLastName: value("admin_contact_last_name"),
-      adminContactEmail: value("admin_contact_email"),
-      adminContactPhone: value("admin_contact_phone"),
+      billingContactName: value("billing_contact_name"),
+      billingContactEmail: value("billing_contact_email"),
+      billingContactPhone: value("billing_contact_phone"),
+      addressStreet: value("address_street"),
+      addressCity: value("address_city"),
+      addressState: value("address_state"),
+      addressPostal: value("address_postal"),
     };
   }
 
@@ -4404,15 +4431,16 @@
       const payload = {
         clientName: editor.mode === "edit" ? editor.originalName : values.name,
         nextName: values.name,
-        businessContactFirstName: values.businessContactFirstName,
-        businessContactLastName: values.businessContactLastName,
+        businessContactName: values.businessContactName,
         businessContactEmail: values.businessContactEmail,
         businessContactPhone: values.businessContactPhone,
-        clientAddress: values.clientAddress,
-        adminContactFirstName: values.adminContactFirstName,
-        adminContactLastName: values.adminContactLastName,
-        adminContactEmail: values.adminContactEmail,
-        adminContactPhone: values.adminContactPhone,
+        billingContactName: values.billingContactName,
+        billingContactEmail: values.billingContactEmail,
+        billingContactPhone: values.billingContactPhone,
+        addressStreet: values.addressStreet,
+        addressCity: values.addressCity,
+        addressState: values.addressState,
+        addressPostal: values.addressPostal,
       };
 
       const formUserField = field(refs.form, "user");

@@ -141,11 +141,19 @@ async function ensureSchema(sql) {
     ALTER TABLE clients
     ADD COLUMN IF NOT EXISTS account_id UUID REFERENCES accounts(id)
   `;
+  await sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS business_contact_name TEXT`;
   await sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS business_contact_first_name TEXT`;
   await sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS business_contact_last_name TEXT`;
   await sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS business_contact_email TEXT`;
   await sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS business_contact_phone TEXT`;
   await sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS client_address TEXT`;
+  await sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS billing_contact_name TEXT`;
+  await sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS billing_contact_email TEXT`;
+  await sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS billing_contact_phone TEXT`;
+  await sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS address_street TEXT`;
+  await sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS address_city TEXT`;
+  await sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS address_state TEXT`;
+  await sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS address_postal TEXT`;
   await sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS admin_contact_first_name TEXT`;
   await sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS admin_contact_last_name TEXT`;
   await sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS admin_contact_email TEXT`;
@@ -1309,11 +1317,19 @@ async function findClient(sql, clientName, accountId) {
     SELECT
       id,
       name,
+      business_contact_name,
       business_contact_first_name AS business_contact_first_name,
       business_contact_last_name AS business_contact_last_name,
       business_contact_email AS business_contact_email,
       business_contact_phone AS business_contact_phone,
+      billing_contact_name,
+      billing_contact_email,
+      billing_contact_phone,
       client_address AS client_address,
+      address_street,
+      address_city,
+      address_state,
+      address_postal,
       admin_contact_first_name AS admin_contact_first_name,
       admin_contact_last_name AS admin_contact_last_name,
       admin_contact_email AS admin_contact_email,
@@ -1332,11 +1348,19 @@ async function listClients(sql, accountId) {
     SELECT
       id,
       name,
+      business_contact_name AS "businessContactName",
       business_contact_first_name AS "businessContactFirstName",
       business_contact_last_name AS "businessContactLastName",
       business_contact_email AS "businessContactEmail",
       business_contact_phone AS "businessContactPhone",
+      billing_contact_name AS "billingContactName",
+      billing_contact_email AS "billingContactEmail",
+      billing_contact_phone AS "billingContactPhone",
       client_address AS "clientAddress",
+      address_street AS "addressStreet",
+      address_city AS "addressCity",
+      address_state AS "addressState",
+      address_postal AS "addressPostal",
       admin_contact_first_name AS "adminContactFirstName",
       admin_contact_last_name AS "adminContactLastName",
       admin_contact_email AS "adminContactEmail",
