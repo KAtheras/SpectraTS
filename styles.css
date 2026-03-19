@@ -3000,7 +3000,7 @@ body[data-theme="dark"] .entry-approved td {
 }
 
 .bulk-actions {
-  margin-top: 0.5rem;
+  margin-top: 1rem;
   display: flex;
   justify-content: flex-end;
   gap: 0.5rem;
