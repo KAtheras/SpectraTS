@@ -3599,6 +3599,7 @@
         const msg = "Please correct values in the highlighted input fields.";
         setClientEditorMessage(form, msg);
         feedback(msg, true);
+        window.alert(msg);
         return;
       }
 
