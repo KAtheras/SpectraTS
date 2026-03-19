@@ -57,7 +57,8 @@
     renderTable();
   }
 
-  function updateRow(index, field, value) {
+  function updateRow(index, field, value, opts = {}) {
+    const { render = true } = opts;
     const row = state.rows[index];
     if (!row) return;
     if (field === "billable") {
@@ -68,7 +69,9 @@
     if (field === "client") {
       row.project = "";
     }
-    renderTable();
+    if (render) {
+      renderTable();
+    }
   }
 
   function clientOptions() {
@@ -187,7 +190,9 @@
     if (field === "billable") {
       value = event.target.checked;
     }
-    updateRow(index, field, value);
+    const isLiveText =
+      event.type === "input" && (field === "notes" || field === "hours");
+    updateRow(index, field, value, { render: !isLiveText });
   }
 
   function onDeleteRow(event) {
