@@ -2635,6 +2635,23 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
     cursor: default;
     height: 34px;
   }
+
+  .dp-desktop-date {
+    position: relative;
+    color: transparent;
+    caret-color: transparent;
+  }
+
+  .dp-desktop-date::after {
+    content: attr(data-display);
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--ink);
+    pointer-events: none;
+  }
 }
 
 .expense-entry-form label {

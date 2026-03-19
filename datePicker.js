@@ -22,6 +22,9 @@
     input.classList.add('dp-desktop-date');
     const parsed = parseInput(input);
     setDisplay(input, parsed);
+    input.addEventListener('change', () => {
+      setDisplay(input, parseInput(input));
+    });
   });
 
   const popover = document.createElement('div');
