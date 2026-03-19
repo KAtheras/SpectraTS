@@ -1823,56 +1823,58 @@
     const disabledAttr = isEditable ? "" : "disabled";
 
     refs.clientEditor.innerHTML = `
-      <form class="client-editor-card" data-client-editor-form="${escapeHtml(editor.mode)}">
-        <h3>${escapeHtml(title)}</h3>
-        <p class="client-editor-note">Client details stay on the left; selecting a card still loads projects on the right.</p>
-        <div class="client-editor-grid">
-          <label class="client-editor-field">
-            <span>Client name</span>
-            <input type="text" name="client_name" value="${escapeHtml(values.name || "")}" ${disabledAttr} required />
-          </label>
-          <label class="client-editor-field">
-            <span>Business contact — first</span>
-            <input type="text" name="business_contact_first_name" value="${escapeHtml(values.businessContactFirstName || "")}" ${disabledAttr} />
-          </label>
-          <label class="client-editor-field">
-            <span>Business contact — last</span>
-            <input type="text" name="business_contact_last_name" value="${escapeHtml(values.businessContactLastName || "")}" ${disabledAttr} />
-          </label>
-          <label class="client-editor-field">
-            <span>Business contact — email</span>
-            <input type="email" name="business_contact_email" value="${escapeHtml(values.businessContactEmail || "")}" ${disabledAttr} />
-          </label>
-          <label class="client-editor-field">
-            <span>Business contact — phone</span>
-            <input type="tel" name="business_contact_phone" value="${escapeHtml(values.businessContactPhone || "")}" ${disabledAttr} />
-          </label>
-          <label class="client-editor-field">
-            <span>Client address</span>
-            <textarea name="client_address" rows="2" ${disabledAttr}>${escapeHtml(values.clientAddress || "")}</textarea>
-          </label>
-          <label class="client-editor-field">
-            <span>Account admin — first</span>
-            <input type="text" name="admin_contact_first_name" value="${escapeHtml(values.adminContactFirstName || "")}" ${disabledAttr} />
-          </label>
-          <label class="client-editor-field">
-            <span>Account admin — last</span>
-            <input type="text" name="admin_contact_last_name" value="${escapeHtml(values.adminContactLastName || "")}" ${disabledAttr} />
-          </label>
-          <label class="client-editor-field">
-            <span>Account admin — email</span>
-            <input type="email" name="admin_contact_email" value="${escapeHtml(values.adminContactEmail || "")}" ${disabledAttr} />
-          </label>
-          <label class="client-editor-field">
-            <span>Account admin — phone</span>
-            <input type="tel" name="admin_contact_phone" value="${escapeHtml(values.adminContactPhone || "")}" ${disabledAttr} />
-          </label>
-        </div>
-        <div class="client-editor-actions">
-          <button type="button" class="button-ghost" data-cancel-client>Cancel</button>
-          <button type="submit" class="mini-button" ${disabledAttr}>${escapeHtml(saveLabel)}</button>
-        </div>
-      </form>
+      <div class="client-editor-overlay" role="dialog" aria-modal="true" aria-label="${escapeHtml(title)}">
+        <form class="client-editor-card" data-client-editor-form="${escapeHtml(editor.mode)}">
+          <h3>${escapeHtml(title)}</h3>
+          <p class="client-editor-note">Client details stay on the left; selecting a card still loads projects on the right.</p>
+          <div class="client-editor-grid">
+            <label class="client-editor-field">
+              <span>Client name</span>
+              <input type="text" name="client_name" value="${escapeHtml(values.name || "")}" ${disabledAttr} required />
+            </label>
+            <label class="client-editor-field">
+              <span>Business contact — first</span>
+              <input type="text" name="business_contact_first_name" value="${escapeHtml(values.businessContactFirstName || "")}" ${disabledAttr} />
+            </label>
+            <label class="client-editor-field">
+              <span>Business contact — last</span>
+              <input type="text" name="business_contact_last_name" value="${escapeHtml(values.businessContactLastName || "")}" ${disabledAttr} />
+            </label>
+            <label class="client-editor-field">
+              <span>Business contact — email</span>
+              <input type="email" name="business_contact_email" value="${escapeHtml(values.businessContactEmail || "")}" ${disabledAttr} />
+            </label>
+            <label class="client-editor-field">
+              <span>Business contact — phone</span>
+              <input type="tel" name="business_contact_phone" value="${escapeHtml(values.businessContactPhone || "")}" ${disabledAttr} />
+            </label>
+            <label class="client-editor-field">
+              <span>Client address</span>
+              <textarea name="client_address" rows="2" ${disabledAttr}>${escapeHtml(values.clientAddress || "")}</textarea>
+            </label>
+            <label class="client-editor-field">
+              <span>Account admin — first</span>
+              <input type="text" name="admin_contact_first_name" value="${escapeHtml(values.adminContactFirstName || "")}" ${disabledAttr} />
+            </label>
+            <label class="client-editor-field">
+              <span>Account admin — last</span>
+              <input type="text" name="admin_contact_last_name" value="${escapeHtml(values.adminContactLastName || "")}" ${disabledAttr} />
+            </label>
+            <label class="client-editor-field">
+              <span>Account admin — email</span>
+              <input type="email" name="admin_contact_email" value="${escapeHtml(values.adminContactEmail || "")}" ${disabledAttr} />
+            </label>
+            <label class="client-editor-field">
+              <span>Account admin — phone</span>
+              <input type="tel" name="admin_contact_phone" value="${escapeHtml(values.adminContactPhone || "")}" ${disabledAttr} />
+            </label>
+          </div>
+          <div class="client-editor-actions">
+            <button type="button" class="button-ghost" data-cancel-client>Cancel</button>
+            <button type="submit" class="mini-button" ${disabledAttr}>${escapeHtml(saveLabel)}</button>
+          </div>
+        </form>
+      </div>
     `;
   }
 
@@ -4373,6 +4375,10 @@
   if (refs.clientEditor) {
     refs.clientEditor.addEventListener("click", function (event) {
       if (event.target.closest("[data-cancel-client]")) {
+        closeClientEditor();
+        render();
+      }
+      if (event.target === refs.clientEditor || event.target.classList.contains("client-editor-overlay")) {
         closeClientEditor();
         render();
       }

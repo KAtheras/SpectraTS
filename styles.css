@@ -1742,22 +1742,33 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
 }
 
 .client-editor {
-  padding: 10px;
-  background: var(--panel);
-  border-bottom: 1px solid var(--group-border);
-  position: sticky;
-  top: 0;
-  z-index: 2;
+  position: fixed;
+  inset: 0;
+  padding: 24px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 30;
+  overflow: auto;
+}
+
+.client-editor-overlay {
+  width: 100%;
+  display: flex;
+  justify-content: center;
 }
 
 .client-editor-card {
   display: grid;
   gap: 12px;
-  padding: 16px;
+  padding: 18px;
   border: 1px solid var(--group-border);
-  border-radius: 14px;
+  border-radius: 16px;
   background: var(--surface);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18);
+  width: min(960px, 100%);
+  margin-top: 20px;
 }
 
 .client-editor-card h3 {
