@@ -55,7 +55,7 @@ body[data-theme="dark"] {
   --bg-glow-bottom-right: rgba(173, 77, 33, 0.14);
   --ink: #edf1f6;
   --muted: #9fabb8;
-  --panel: #141a22;
+  --panel: #141c27;
   --panel-border: rgba(180, 197, 219, 0.14);
   --line: rgba(180, 197, 219, 0.18);
   --accent: #2f5c8a;
@@ -63,15 +63,15 @@ body[data-theme="dark"] {
   --accent-soft: rgba(75, 121, 168, 0.24);
   --danger: #ff8f88;
   --shadow: 0 26px 70px rgba(0, 0, 0, 0.34);
-  --surface: #1b2330;
-  --surface-strong: #1f2836;
-  --surface-soft: #19212e;
-  --surface-subtle: #161d28;
-  --surface-hover: #222c3b;
-  --control: #1f2733;
-  --control-border: rgba(180, 197, 219, 0.2);
-  --control-hover: rgba(180, 197, 219, 0.28);
-  --group-bg: #151c27;
+  --surface: #1b2432;
+  --surface-strong: #202b3a;
+  --surface-soft: #192331;
+  --surface-subtle: #161f2c;
+  --surface-hover: #242f3f;
+  --control: #222d3c;
+  --control-border: rgba(180, 197, 219, 0.22);
+  --control-hover: rgba(180, 197, 219, 0.3);
+  --group-bg: #161f2c;
   --group-border: rgba(180, 197, 219, 0.16);
   --chip-bg: #1f2836;
   --chip-border: rgba(180, 197, 219, 0.18);
@@ -651,6 +651,11 @@ body[data-theme="dark"] .settings-menu {
   background: #1f2027;
   border-color: rgba(255, 255, 255, 0.08);
   box-shadow: 0 14px 30px rgba(0, 0, 0, 0.45);
+}
+
+body[data-theme="dark"] label span,
+body[data-theme="dark"] .client-editor-row-label {
+  color: color-mix(in srgb, var(--ink) 75%, transparent);
 }
 
 body[data-theme="dark"] .settings-item {
@@ -2638,11 +2643,11 @@ body[data-theme="dark"] .entry-status.entry-status-approved {
 }
 
 body[data-theme="dark"] .entry-row.entry-approved td {
-  background: #0f1d15;
+  background: color-mix(in srgb, #224734 6%, transparent);
 }
 
 body[data-theme="dark"] .entry-approved td {
-  background: #0f1d15;
+  background: color-mix(in srgb, #224734 6%, transparent);
 }
 
 .empty-row,
