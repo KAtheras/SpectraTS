@@ -270,6 +270,12 @@
     6: { label: "Admin", permissionGroup: "admin" },
   };
 
+  const US_STATES = [
+    "AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI",
+    "MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT",
+    "VT","VA","WA","WV","WI","WY","DC","PR","VI"
+  ];
+
   const state = {
     catalog: {},
     clients: [],
@@ -1391,6 +1397,14 @@
     }
   }
 
+  function renderStateOptions(selected) {
+    const current = (selected || "").toUpperCase();
+    return ['<option value=""></option>', ...US_STATES.map((state) => {
+      const isSelected = state === current ? "selected" : "";
+      return `<option value="${state}" ${isSelected}>${state}</option>`;
+    })].join("");
+  }
+
   function activeExpenseCategories() {
     return (state.expenseCategories || []).filter((c) => c.isActive);
   }
@@ -1902,7 +1916,9 @@
                 </label>
                 <label class="client-editor-field">
                   <span>State</span>
-                  <input type="text" name="address_state" value="${escapeHtml(values.addressState || "")}" ${disabledAttr} />
+                  <select name="address_state" ${disabledAttr}>
+                    ${renderStateOptions(values.addressState)}
+                  </select>
                 </label>
                 <label class="client-editor-field">
                   <span>Zip code</span>

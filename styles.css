@@ -1797,7 +1797,7 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
 
 .client-editor-row-fields {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: minmax(320px, 2fr) minmax(180px, 1fr) minmax(140px, 0.8fr) minmax(140px, 0.8fr);
   gap: 12px;
 }
 
