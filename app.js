@@ -1811,9 +1811,11 @@
     const editor = state.clientEditor;
     if (!editor) {
       refs.clientEditor.innerHTML = "";
+      refs.clientEditor.hidden = true;
       return;
     }
 
+    refs.clientEditor.hidden = false;
     const values = editor.values || {};
     const isEditable = isAdmin(state.currentUser);
     const saveLabel = editor.mode === "edit" ? "Save client" : "Create client";
