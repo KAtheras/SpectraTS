@@ -2898,7 +2898,7 @@ body[data-theme="dark"] .entry-approved td {
 
 .bulk-entry-container .bulk-entry-table th {
   text-align: left;
-  background: var(--surface-100, #eef1f6);
+  background: var(--surface-100, #f4f6fb);
   font-weight: 600;
   padding: 6px 8px;
   border-bottom-width: 2px;
@@ -2983,21 +2983,6 @@ body[data-theme="dark"] .entry-approved td {
 
 .bulk-col-delete {
   width: 3rem;
-}
-
-.bulk-input {
-  width: 100%;
-  padding: 0.25rem 0.3rem;
-  border: 1px solid var(--border-200, #d7d7d7);
-  border-radius: 4px;
-  font-size: 0.9rem;
-  height: 32px;
-  box-sizing: border-box;
-}
-
-.bulk-checkbox {
-  width: 1rem;
-  height: 1rem;
 }
 
 .bulk-center {
