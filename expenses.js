@@ -51,7 +51,7 @@
   }
 
   function resetExpenseForm() {
-    const { refs, state, clampDateToBounds, today, syncExpenseCatalogs, setExpenseNonBillableDefault } = deps();
+    const { refs, state, clampDateToBounds, today, setExpenseNonBillableDefault } = deps();
     if (!refs.expenseForm) return;
     refs.expenseForm.reset();
     state.expenseEditingId = null;
@@ -82,7 +82,7 @@
   }
 
   function setExpenseForm(expense) {
-    const { refs, clampDateToBounds, syncExpenseCatalogs, setExpenseNonBillableDefault, state } = deps();
+    const { refs, clampDateToBounds, setExpenseNonBillableDefault, state } = deps();
     if (!expense || !refs.expenseForm) return;
     syncExpenseCatalogs({
       userId: expense.userId,
