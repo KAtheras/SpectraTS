@@ -2879,7 +2879,7 @@ body[data-theme="dark"] .entry-approved td {
 
 .bulk-table-wrap {
   overflow-x: auto;
-  margin-bottom: 1.25rem;
+  margin-bottom: 6px;
 }
 
 .bulk-entry-table {
@@ -3006,12 +3006,16 @@ body[data-theme="dark"] .entry-approved td {
 }
 
 .bulk-actions {
-  margin-top: 1.5rem;
+  margin-top: 4px;
   display: flex;
   justify-content: flex-start;
   align-items: center;
   gap: 0.5rem;
   width: 100%;
+}
+
+.bulk-entry-container .bulk-actions {
+  margin-top: 4px;
 }
 
 .bulk-actions .spacer {
