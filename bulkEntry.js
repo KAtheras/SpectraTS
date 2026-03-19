@@ -99,7 +99,11 @@
       .map((row, idx) => {
         const projects = projectOptions(row.client);
         const tdStyle = 'border:1px solid #d5d9e1; padding:0; height:34px; background:#fff;';
-        const inputStyle = 'width:100%; height:100%; padding:6px 8px; border:none; border-radius:4px; background:transparent; box-shadow:none; outline:none; appearance:none;';
+        const tdHoursStyle = tdStyle + ' width:48px; max-width:48px;';
+        const tdBillableStyle = tdStyle + ' width:54px; max-width:54px;';
+        const tdDeleteStyle = tdStyle + ' width:44px; max-width:44px;';
+        const inputStyle = 'width:100%; height:100%; padding:6px 8px; border:none; border-radius:4px; background:transparent; box-shadow:none; outline:none; appearance:none; -webkit-appearance:none; -moz-appearance:textfield;';
+        const hoursInputStyle = inputStyle + ' text-align:right;';
         return `
           <tr class="bulk-entry-row" data-row="${idx}">
             <td class="bulk-entry-cell bulk-col-date" style="${tdStyle}"><input type="date" class="bulk-input" data-field="date" value="${row.date || ""}" style="${inputStyle}" /></td>
@@ -119,12 +123,12 @@
                   .join("")}
               </select>
             </td>
-            <td class="bulk-entry-cell bulk-col-hours" style="${tdStyle}"><input type="number" class="bulk-input" data-field="hours" min="0" step="0.25" value="${row.hours}" style="${inputStyle}" /></td>
-            <td class="bulk-entry-cell bulk-col-billable bulk-center" style="${tdStyle} text-align:center;">
+            <td class="bulk-entry-cell bulk-col-hours" style="${tdHoursStyle}"><input type="text" class="bulk-input" data-field="hours" value="${row.hours}" style="${hoursInputStyle}" /></td>
+            <td class="bulk-entry-cell bulk-col-billable bulk-center" style="${tdBillableStyle} text-align:center;">
               <input type="checkbox" class="bulk-checkbox" data-field="billable" ${row.billable ? "checked" : ""} style="margin:0 auto; display:block; width:16px; height:16px; transform:scale(0.9);" />
             </td>
             <td class="bulk-entry-cell bulk-col-notes" style="${tdStyle}"><input type="text" class="bulk-input" data-field="notes" value="${escapeHtml(row.notes)}" style="${inputStyle}" /></td>
-            <td class="bulk-entry-cell bulk-col-delete bulk-center" style="${tdStyle} text-align:center;">
+            <td class="bulk-entry-cell bulk-col-delete bulk-center" style="${tdDeleteStyle} text-align:center;">
               <button type="button" class="text-button danger bulk-delete" data-action="delete" aria-label="Delete row" style="border:none; background:transparent; padding:0; cursor:pointer; color:#b44; font-size:14px; line-height:1;">✕</button>
             </td>
           </tr>
