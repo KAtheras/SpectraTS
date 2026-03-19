@@ -1745,6 +1745,9 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   padding: 10px;
   background: var(--panel);
   border-bottom: 1px solid var(--group-border);
+  position: sticky;
+  top: 0;
+  z-index: 2;
 }
 
 .client-editor-card {
