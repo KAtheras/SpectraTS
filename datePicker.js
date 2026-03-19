@@ -5,26 +5,52 @@
   const TARGET_IDS = ['entry-date', 'expense-date'];
   const inputs = TARGET_IDS.map((id) => document.getElementById(id)).filter(Boolean);
   // Bottom filter targets (hidden inputs) with anchors for positioning.
-  const tsFilterFromInput = document.querySelector('#filter-form input[name="from"]');
-  const tsFilterToInput = document.querySelector('#filter-form input[name="to"]');
-  const tsFilterFromAnchor = document.querySelector('[data-filter-date="from"]');
-  const tsFilterToAnchor = document.querySelector('[data-filter-date="to"]');
-  const expFilterFromInput = document.querySelector('#expense-filter-form input[name="from"]');
-  const expFilterToInput = document.querySelector('#expense-filter-form input[name="to"]');
-  const expFilterFromAnchor = document.querySelector('[data-expense-filter-date="from"]');
-  const expFilterToAnchor = document.querySelector('[data-expense-filter-date="to"]');
-
   const filterTargets = [
-    { input: tsFilterFromInput, anchor: tsFilterFromAnchor, body: '#entries-body' },
-    { input: tsFilterToInput, anchor: tsFilterToAnchor, body: '#entries-body' },
-    { input: expFilterFromInput, anchor: expFilterFromAnchor, body: '#expenses-body' },
-    { input: expFilterToInput, anchor: expFilterToAnchor, body: '#expenses-body' },
+    {
+      input: document.querySelector('#filter-form input[name="from"]'),
+      anchor: document.querySelector('[data-filter-date="from"]'),
+      body: '#entries-body',
+      month: document.getElementById('filter-from-month'),
+      day: document.getElementById('filter-from-day'),
+      year: document.getElementById('filter-from-year'),
+    },
+    {
+      input: document.querySelector('#filter-form input[name="to"]'),
+      anchor: document.querySelector('[data-filter-date="to"]'),
+      body: '#entries-body',
+      month: document.getElementById('filter-to-month'),
+      day: document.getElementById('filter-to-day'),
+      year: document.getElementById('filter-to-year'),
+    },
+    {
+      input: document.querySelector('#expense-filter-form input[name="from"]'),
+      anchor: document.querySelector('[data-expense-filter-date="from"]'),
+      body: '#expenses-body',
+      month: document.getElementById('expense-filter-from-month'),
+      day: document.getElementById('expense-filter-from-day'),
+      year: document.getElementById('expense-filter-from-year'),
+    },
+    {
+      input: document.querySelector('#expense-filter-form input[name="to"]'),
+      anchor: document.querySelector('[data-expense-filter-date="to"]'),
+      body: '#expenses-body',
+      month: document.getElementById('expense-filter-to-month'),
+      day: document.getElementById('expense-filter-to-day'),
+      year: document.getElementById('expense-filter-to-year'),
+    },
   ].filter((t) => t.input && t.anchor);
 
   filterTargets.forEach((t) => {
     t.input.dataset.dpFilter = 'true';
     t.input._dpAnchor = t.anchor;
     t.input.dataset.dpBody = t.body;
+    t.input._dpMonth = t.month;
+    t.input._dpDay = t.day;
+    t.input._dpYear = t.year;
+    t.anchor.addEventListener('click', (e) => {
+      e.preventDefault();
+      openFor(t.input);
+    });
     inputs.push(t.input);
   });
   if (!inputs.length) return;
@@ -121,6 +147,28 @@
     return `${y}-${m}-${day}`;
   }
 
+  function setSelectsFromDate(input, date) {
+    if (!input || !input._dpMonth || !input._dpDay || !input._dpYear || !date) return;
+    input._dpMonth.value = String(date.getMonth() + 1).padStart(2, '0');
+    input._dpDay.value = String(date.getDate()).padStart(2, '0');
+    input._dpYear.value = String(date.getFullYear()).padStart(2, '0').slice(-2).padStart(2, '0');
+  }
+
+  function setCanonicalFromSelects(input) {
+    if (!input || !input._dpMonth || !input._dpDay || !input._dpYear) return;
+    const m = input._dpMonth.value;
+    const d = input._dpDay.value;
+    const y = input._dpYear.value;
+    if (m && d && y) {
+      const fullYear = y.length === 2 ? `20${y}` : y;
+      const iso = `${fullYear}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+      if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+        input.dataset.dpCanonical = iso;
+        setDisplay(input, new Date(iso + 'T00:00:00'));
+      }
+    }
+  }
+
   function clampToBounds(d, input) {
     const minAttr = input.getAttribute('min');
     const maxAttr = input.getAttribute('max');
@@ -187,6 +235,7 @@
           openInput.dataset.dpCanonical = canonical;
           if (openInput.dataset.dpFilter === 'true') {
             openInput.value = formatDisplay(date);
+            setSelectsFromDate(openInput, date);
           } else {
             openInput.value = canonical;
           }
@@ -210,6 +259,9 @@
   }
 
   function openFor(input) {
+    if (input.dataset.dpFilter === 'true') {
+      setCanonicalFromSelects(input);
+    }
     if (input.dataset.dpBody) {
       const range = visibleRange(input.dataset.dpBody);
       if (range?.min) {
