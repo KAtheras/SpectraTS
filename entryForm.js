@@ -428,6 +428,8 @@
     const spacer = document.createElement("div");
     spacer.className = "bulk-spacer";
     spacer.style.flex = "1";
+    spacer.style.minWidth = "8px";
+    actions.style.marginTop = "1.75rem";
     actions.style.display = "flex";
     actions.style.alignItems = "center";
     actions.insertBefore(spacer, actions.lastElementChild);
