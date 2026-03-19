@@ -2617,7 +2617,8 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
     border-color: color-mix(in srgb, var(--accent) 35%, transparent);
   }
 
-  .dp-day.is-disabled {
+  .dp-day.is-disabled,
+  .dp-day:disabled {
     color: color-mix(in srgb, var(--muted) 35%, transparent);
     border-color: color-mix(in srgb, var(--control-border) 35%, transparent);
     background: color-mix(in srgb, var(--surface-subtle) 65%, transparent);
@@ -2626,7 +2627,8 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
     opacity: 0.35;
   }
 
-  .dp-day.is-disabled:hover {
+  .dp-day.is-disabled:hover,
+  .dp-day:disabled:hover {
     background: color-mix(in srgb, var(--surface-subtle) 65%, transparent);
   }
 
@@ -2639,7 +2641,8 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
 }
 
 @media (pointer: fine) and (hover: hover) {
-  body:not([data-theme="dark"]) .dp-day.is-disabled {
+  body:not([data-theme="dark"]) .dp-day.is-disabled,
+  body:not([data-theme="dark"]) .dp-day:disabled {
     color: color-mix(in srgb, var(--muted) 30%, transparent);
     border-color: color-mix(in srgb, var(--line) 35%, transparent);
     background: color-mix(in srgb, var(--surface) 55%, #f0eee9 45%);
@@ -2648,7 +2651,8 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
     pointer-events: none;
   }
 
-  body:not([data-theme="dark"]) .dp-day.is-disabled:hover {
+  body:not([data-theme="dark"]) .dp-day.is-disabled:hover,
+  body:not([data-theme="dark"]) .dp-day:disabled:hover {
     background: color-mix(in srgb, var(--surface) 55%, #f0eee9 45%);
   }
 }
