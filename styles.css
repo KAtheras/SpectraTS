@@ -2960,9 +2960,6 @@ body[data-theme="dark"] .entry-approved td {
   min-height: 32px !important;
   box-shadow: none !important;
   background: var(--surface) !important;
-  appearance: none !important;
-  -webkit-appearance: none !important;
-  -moz-appearance: none !important;
 }
 
 .panel.panel-form .bulk-entry-table .bulk-checkbox {
