@@ -115,7 +115,7 @@
         <col style="width: 120px;">
         <col style="width: 170px;">
         <col style="width: 190px;">
-        <col style="width: 50px;">
+        <col style="width: 80px;">
         <col style="width: 60px;">
         <col style="width: auto;">
         <col style="width: 44px;">
