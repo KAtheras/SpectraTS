@@ -2618,10 +2618,11 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   }
 
   .dp-day.is-disabled {
-    color: var(--muted);
-    border-style: dashed;
-    cursor: not-allowed;
+    color: color-mix(in srgb, var(--muted) 70%, transparent);
+    border-color: color-mix(in srgb, var(--control-border) 70%, transparent);
     background: var(--surface-subtle);
+    cursor: not-allowed;
+    pointer-events: none;
   }
 
   .dp-day.dp-day--spacer {

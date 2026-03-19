@@ -107,16 +107,18 @@
       if (formatDate(date) === formatDate(todayDate)) {
         btn.classList.add('is-today');
       }
-      if (isDisabled(date, openInput)) {
+      const disabled = isDisabled(date, openInput);
+      if (disabled) {
         btn.classList.add('is-disabled');
         btn.disabled = true;
+      } else {
+        btn.addEventListener('click', () => {
+          openInput.value = formatDate(date);
+          openInput.dispatchEvent(new Event('input', { bubbles: true }));
+          openInput.dispatchEvent(new Event('change', { bubbles: true }));
+          closePopover();
+        });
       }
-      btn.addEventListener('click', () => {
-        openInput.value = formatDate(date);
-        openInput.dispatchEvent(new Event('input', { bubbles: true }));
-        openInput.dispatchEvent(new Event('change', { bubbles: true }));
-        closePopover();
-      });
       grid.appendChild(btn);
     }
   }
