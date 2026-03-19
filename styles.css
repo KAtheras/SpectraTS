@@ -2336,9 +2336,9 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
 }
 
 .billable-pill.is-billable {
-  background: color-mix(in srgb, var(--accent) 24%, var(--surface));
-  color: color-mix(in srgb, var(--selected-ink, #fff) 98%, var(--accent) 2%);
-  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  background: color-mix(in srgb, var(--accent) 36%, var(--surface));
+  color: #f6f8fb;
+  border-color: color-mix(in srgb, var(--accent) 62%, transparent);
 }
 
 .billable-pill.is-nonbillable {
