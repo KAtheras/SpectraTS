@@ -2859,7 +2859,7 @@ body[data-theme="dark"] .entry-approved td {
 .entry-mode-toggle {
   display: inline-flex;
   gap: 0.5rem;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0;
 }
 
 .entry-mode-button {
@@ -2942,6 +2942,16 @@ body[data-theme="dark"] .entry-approved td {
   transform: scale(0.9);
 }
 
+.bulk-entry-container .bulk-entry-table input[type="number"]::-webkit-inner-spin-button,
+.bulk-entry-container .bulk-entry-table input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.bulk-entry-container .bulk-entry-table input[type="number"] {
+  -moz-appearance: textfield;
+}
+
 .bulk-entry-container .bulk-entry-table .bulk-delete {
   border: none;
   background: transparent;
@@ -2970,19 +2980,19 @@ body[data-theme="dark"] .entry-approved td {
 }
 
 .bulk-col-hours {
-  width: 4.5rem;
+  width: 3.2rem;
 }
 
 .bulk-col-billable {
-  width: 3rem;
+  width: 2.6rem;
 }
 
 .bulk-col-notes {
-  width: 100%;
+  width: auto;
 }
 
 .bulk-col-delete {
-  width: 3rem;
+  width: 2.6rem;
 }
 
 .bulk-center {
