@@ -4,14 +4,44 @@
 
   const TARGET_IDS = ['entry-date', 'expense-date'];
   const inputs = TARGET_IDS.map((id) => document.getElementById(id)).filter(Boolean);
+  // Bottom filter targets (hidden inputs) with anchors for positioning.
+  const tsFilterFromInput = document.querySelector('#filter-form input[name="from"]');
+  const tsFilterToInput = document.querySelector('#filter-form input[name="to"]');
+  const tsFilterFromAnchor = document.querySelector('[data-filter-date="from"]');
+  const tsFilterToAnchor = document.querySelector('[data-filter-date="to"]');
+  const expFilterFromInput = document.querySelector('#expense-filter-form input[name="from"]');
+  const expFilterToInput = document.querySelector('#expense-filter-form input[name="to"]');
+  const expFilterFromAnchor = document.querySelector('[data-expense-filter-date="from"]');
+  const expFilterToAnchor = document.querySelector('[data-expense-filter-date="to"]');
+
+  const filterTargets = [
+    { input: tsFilterFromInput, anchor: tsFilterFromAnchor, body: '#entries-body' },
+    { input: tsFilterToInput, anchor: tsFilterToAnchor, body: '#entries-body' },
+    { input: expFilterFromInput, anchor: expFilterFromAnchor, body: '#expenses-body' },
+    { input: expFilterToInput, anchor: expFilterToAnchor, body: '#expenses-body' },
+  ].filter((t) => t.input && t.anchor);
+
+  filterTargets.forEach((t) => {
+    t.input.dataset.dpFilter = 'true';
+    t.input._dpAnchor = t.anchor;
+    t.input.dataset.dpBody = t.body;
+    inputs.push(t.input);
+  });
   if (!inputs.length) return;
+
+  function formatDisplay(date) {
+    return date
+      ? date.toLocaleDateString(undefined, { month: '2-digit', day: '2-digit', year: 'numeric' })
+      : '';
+  }
 
   function setDisplay(input, date) {
     if (!input) return;
-    const display = date
-      ? date.toLocaleDateString(undefined, { month: '2-digit', day: '2-digit', year: 'numeric' })
-      : '';
+    const display = formatDisplay(date);
     input.dataset.display = display;
+    if (input.dataset.dpFilter === 'true') {
+      input.value = display;
+    }
   }
 
   // Disable native desktop date picker for these inputs; keep mobile untouched.
@@ -47,10 +77,40 @@
     return new Date(now.getFullYear(), now.getMonth(), now.getDate());
   }
 
+  function parseDisplayedDate(text) {
+    const digits = String(text || '').replace(/\D/g, '');
+    if (digits.length === 8) {
+      const month = digits.slice(0, 2);
+      const day = digits.slice(2, 4);
+      const year = digits.slice(4);
+      const iso = `${year}-${month}-${day}`;
+      return /^\d{4}-\d{2}-\d{2}$/.test(iso) ? iso : null;
+    }
+    if (digits.length === 6) {
+      const month = digits.slice(0, 2);
+      const day = digits.slice(2, 4);
+      const year = `20${digits.slice(4)}`;
+      const iso = `${year}-${month}-${day}`;
+      return /^\d{4}-\d{2}-\d{2}$/.test(iso) ? iso : null;
+    }
+    return null;
+  }
+
+  function visibleRange(bodySelector) {
+    const body = document.querySelector(bodySelector);
+    if (!body) return null;
+    const dates = Array.from(body.querySelectorAll('tr td:first-child'))
+      .map((td) => parseDisplayedDate(td.textContent))
+      .filter(Boolean);
+    if (!dates.length) return null;
+    const sorted = dates.sort();
+    return { min: sorted[0], max: sorted[sorted.length - 1] };
+  }
+
   function parseInput(input) {
-    const val = input.value;
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(val)) return null;
-    const d = new Date(val + 'T00:00:00');
+    const canonical = input.dataset.dpCanonical || input.value;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(canonical)) return null;
+    const d = new Date(canonical + 'T00:00:00');
     return Number.isNaN(d.getTime()) ? null : d;
   }
 
@@ -123,7 +183,13 @@
         btn.disabled = true;
       } else {
         btn.addEventListener('click', () => {
-          openInput.value = formatDate(date);
+          const canonical = formatDate(date);
+          openInput.dataset.dpCanonical = canonical;
+          if (openInput.dataset.dpFilter === 'true') {
+            openInput.value = formatDisplay(date);
+          } else {
+            openInput.value = canonical;
+          }
           setDisplay(openInput, date);
           openInput.dispatchEvent(new Event('input', { bubbles: true }));
           openInput.dispatchEvent(new Event('change', { bubbles: true }));
@@ -135,7 +201,8 @@
   }
 
   function positionPopover(input) {
-    const rect = input.getBoundingClientRect();
+    const anchor = input._dpAnchor || input;
+    const rect = anchor.getBoundingClientRect();
     const top = rect.bottom + window.scrollY + 6;
     const left = rect.left + window.scrollX;
     popover.style.top = `${top}px`;
@@ -143,6 +210,19 @@
   }
 
   function openFor(input) {
+    if (input.dataset.dpBody) {
+      const range = visibleRange(input.dataset.dpBody);
+      if (range?.min) {
+        input.setAttribute('min', range.min);
+      } else {
+        input.removeAttribute('min');
+      }
+      if (range?.max) {
+        input.setAttribute('max', range.max);
+      } else {
+        input.removeAttribute('max');
+      }
+    }
     openInput = input;
     const parsed = parseInput(input) || today();
     viewDate = clampToBounds(parsed, input);
