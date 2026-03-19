@@ -71,19 +71,6 @@
     applyAuditFiltersFromForm,
   } = window.auditLog || {};
 
-  // Expose audit dependencies for auditLog.js (no behavior change).
-  window.auditLogDeps = {
-    refs,
-    state,
-    escapeHtml,
-    userNameById,
-    projectNameById,
-    clientNameById,
-    formatDateTimeLocal,
-    formatDisplayDate,
-    parseDisplayDate,
-  };
-
   const DEFAULT_CLIENT_PROJECTS = {};
 
   const today = formatDate(new Date());
@@ -339,12 +326,25 @@
     currentView: "main", // "main" | "expenses" | "clients" | "members" | "analytics" | "settings"
     expenseEditingId: null,
     auditLogs: [],
-    auditFilters: {
-      entity: "",
-      action: "",
-      actor: "",
-      date: "",
-    },
+  auditFilters: {
+    entity: "",
+    action: "",
+    actor: "",
+    date: "",
+  },
+};
+
+  // Expose audit dependencies for auditLog.js (no behavior change).
+  window.auditLogDeps = {
+    refs,
+    state,
+    escapeHtml,
+    userNameById,
+    projectNameById,
+    clientNameById,
+    formatDateTimeLocal,
+    formatDisplayDate,
+    parseDisplayDate,
   };
 
   function arrangeSettingsMenu(showAudit) {
