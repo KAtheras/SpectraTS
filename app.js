@@ -2982,9 +2982,9 @@
       return;
     }
 
-    // Store full-range dates for picker bounds
+    // Store full-range dates (unfiltered) for picker bounds
     if (refs.entriesBody) {
-      const dates = filteredEntries.map((e) => e.date).sort();
+      const dates = state.entries.map((e) => e.date).sort();
       refs.entriesBody.dataset.rangeMin = dates[0] || "";
       refs.entriesBody.dataset.rangeMax = dates[dates.length - 1] || "";
     }
@@ -3416,7 +3416,7 @@
     }
 
     if (refs.expensesBody) {
-      const dates = expenses.map((e) => e.expenseDate).sort();
+      const dates = state.expenses.map((e) => e.expenseDate).sort();
       refs.expensesBody.dataset.rangeMin = dates[0] || "";
       refs.expensesBody.dataset.rangeMax = dates[dates.length - 1] || "";
     }
