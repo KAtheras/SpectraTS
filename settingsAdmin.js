@@ -7,7 +7,6 @@
       refs,
       state,
       levelLabel,
-      sortedLevels,
       isAdmin,
       isGlobalAdmin,
       isManager,
