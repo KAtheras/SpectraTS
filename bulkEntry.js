@@ -87,40 +87,36 @@
   function renderTable() {
     const r = refs();
     if (!r.body) return;
-    const tableEl = r.body.closest("table");
-    if (tableEl) {
-      tableEl.setAttribute("style", "border-collapse: collapse !important;");
-    }
     const clients = clientOptions();
 
     r.body.innerHTML = state.rows
       .map((row, idx) => {
         const projects = projectOptions(row.client);
         return `
-          <tr class="bulk-entry-row" data-row="${idx}" style="border: 2px solid red !important;">
-            <td class="bulk-entry-cell bulk-col-date" style="border: 2px solid red !important;"><input type="date" class="bulk-input" data-field="date" value="${row.date || ""}" style="border-radius: 0 !important; height: 28px !important; padding: 2px 4px !important; background: #fff2cc !important;" /></td>
-            <td class="bulk-entry-cell bulk-col-client" style="border: 2px solid red !important;">
-              <select class="bulk-input" data-field="client" style="border-radius: 0 !important; height: 28px !important; padding: 2px 4px !important; background: #fff2cc !important;">
+          <tr class="bulk-entry-row" data-row="${idx}">
+            <td class="bulk-entry-cell bulk-col-date"><input type="date" class="bulk-input" data-field="date" value="${row.date || ""}" /></td>
+            <td class="bulk-entry-cell bulk-col-client">
+              <select class="bulk-input" data-field="client">
                 <option value=""></option>
                 ${clients
                   .map((c) => `<option value="${escapeHtml(c)}"${c === row.client ? " selected" : ""}>${escapeHtml(c)}</option>`)
                   .join("")}
               </select>
             </td>
-            <td class="bulk-entry-cell bulk-col-project" style="border: 2px solid red !important;">
-              <select class="bulk-input" data-field="project" style="border-radius: 0 !important; height: 28px !important; padding: 2px 4px !important; background: #fff2cc !important;">
+            <td class="bulk-entry-cell bulk-col-project">
+              <select class="bulk-input" data-field="project">
                 <option value=""></option>
                 ${projects
                   .map((p) => `<option value="${escapeHtml(p)}"${p === row.project ? " selected" : ""}>${escapeHtml(p)}</option>`)
                   .join("")}
               </select>
             </td>
-            <td class="bulk-entry-cell bulk-col-hours" style="border: 2px solid red !important;"><input type="number" class="bulk-input" data-field="hours" min="0" step="0.25" value="${row.hours}" style="border-radius: 0 !important; height: 28px !important; padding: 2px 4px !important; background: #fff2cc !important;" /></td>
-            <td class="bulk-entry-cell bulk-col-billable bulk-center" style="border: 2px solid red !important;">
+            <td class="bulk-entry-cell bulk-col-hours"><input type="number" class="bulk-input" data-field="hours" min="0" step="0.25" value="${row.hours}" /></td>
+            <td class="bulk-entry-cell bulk-col-billable bulk-center">
               <input type="checkbox" class="bulk-checkbox" data-field="billable" ${row.billable ? "checked" : ""} />
             </td>
-            <td class="bulk-entry-cell bulk-col-notes" style="border: 2px solid red !important;"><input type="text" class="bulk-input" data-field="notes" value="${escapeHtml(row.notes)}" style="border-radius: 0 !important; height: 28px !important; padding: 2px 4px !important; background: #fff2cc !important;" /></td>
-            <td class="bulk-entry-cell bulk-col-delete bulk-center" style="border: 2px solid red !important;">
+            <td class="bulk-entry-cell bulk-col-notes"><input type="text" class="bulk-input" data-field="notes" value="${escapeHtml(row.notes)}" /></td>
+            <td class="bulk-entry-cell bulk-col-delete bulk-center">
               <button type="button" class="text-button danger bulk-delete" data-action="delete" aria-label="Delete row">✕</button>
             </td>
           </tr>
