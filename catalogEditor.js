@@ -266,6 +266,322 @@
     };
   }
 
+  function normalizeCatalog(catalog, fallbackToDefault = true) {
+    const { uniqueValues, DEFAULT_CLIENT_PROJECTS } = deps();
+    const source =
+      catalog && typeof catalog === "object"
+        ? catalog
+        : fallbackToDefault
+          ? DEFAULT_CLIENT_PROJECTS
+          : {};
+    const normalized = {};
+
+    Object.entries(source).forEach(function ([client, projects]) {
+      const clientName = typeof client === "string" ? client.trim() : "";
+      if (!clientName) {
+        return;
+      }
+
+      const normalizedProjects = uniqueValues(
+        Array.isArray(projects)
+          ? projects.map((project) => (typeof project === "string" ? project.trim() : ""))
+          : []
+      );
+
+      normalized[clientName] = normalizedProjects;
+    });
+
+    return Object.keys(normalized).length
+      ? normalized
+      : fallbackToDefault
+        ? { ...DEFAULT_CLIENT_PROJECTS }
+        : {};
+  }
+
+  function normalizeClient(client) {
+    if (!client || typeof client !== "object") return null;
+    const name = typeof client.name === "string" ? client.name.trim() : "";
+    if (!name) return null;
+    const clean = (value) => (typeof value === "string" ? value.trim() : "");
+    const billingName =
+      clean(client.billingContactName || client.billing_contact_name) ||
+      clean(
+        [client.adminContactFirstName, client.admin_contact_first_name, client.adminContactLastName, client.admin_contact_last_name]
+          .filter(Boolean)
+          .join(" ")
+      );
+    return {
+      id: client.id,
+      name,
+      businessContactName: clean(
+        client.businessContactName ||
+          client.business_contact_name ||
+          [client.businessContactFirstName, client.business_contact_first_name, client.businessContactLastName, client.business_contact_last_name]
+            .filter(Boolean)
+            .join(" ")
+      ),
+      businessContactEmail: clean(client.businessContactEmail || client.business_contact_email),
+      businessContactPhone: clean(client.businessContactPhone || client.business_contact_phone),
+      billingContactName: billingName,
+      billingContactEmail: clean(client.billingContactEmail || client.billing_contact_email || client.adminContactEmail || client.admin_contact_email),
+      billingContactPhone: clean(client.billingContactPhone || client.billing_contact_phone || client.adminContactPhone || client.admin_contact_phone),
+      addressStreet: clean(client.addressStreet || client.address_street || client.clientAddress || client.client_address),
+      addressCity: clean(client.addressCity || client.address_city),
+      addressState: clean(client.addressState || client.address_state),
+      addressPostal: clean(client.addressPostal || client.address_postal),
+    };
+  }
+
+  function normalizeEntry(entry) {
+    const { state, isValidDateString, today } = deps();
+    if (!entry || typeof entry !== "object") {
+      return null;
+    }
+
+    const normalizedProject = typeof entry.project === "string" ? entry.project.trim() : "";
+    const normalizedClient =
+      typeof entry.client === "string" && entry.client.trim()
+        ? entry.client.trim()
+        : normalizedProject
+          ? "Unassigned Client"
+          : "";
+
+    const hours = Number(entry.hours);
+    const createdAt =
+      typeof entry.createdAt === "string" && entry.createdAt
+        ? entry.createdAt
+        : new Date().toISOString();
+    const updatedAt =
+      typeof entry.updatedAt === "string" && entry.updatedAt
+        ? entry.updatedAt
+        : createdAt;
+    const status =
+      typeof entry.status === "string" && entry.status.toLowerCase() === "approved"
+        ? "approved"
+        : "pending";
+    const billable =
+      typeof entry.billable === "boolean"
+        ? entry.billable
+        : !(typeof entry.nonBillable === "boolean" ? entry.nonBillable : false);
+
+    return {
+      id: typeof entry.id === "string" && entry.id ? entry.id : crypto.randomUUID(),
+      user:
+        typeof entry.user === "string" && entry.user.trim()
+          ? entry.user.trim()
+          : state.currentUser?.displayName || "",
+      date: isValidDateString(entry.date) ? entry.date : today,
+      client: normalizedClient,
+      project: normalizedProject,
+      task: typeof entry.task === "string" ? entry.task.trim() : "",
+      hours: Number.isFinite(hours) ? hours : 0,
+      notes: typeof entry.notes === "string" ? entry.notes.trim() : "",
+      createdAt,
+      updatedAt,
+      status,
+      billable,
+    };
+  }
+
+  function normalizeExpense(expense) {
+    const { today } = deps();
+    if (!expense || typeof expense !== "object") return null;
+    const createdAt =
+      typeof expense.createdAt === "string" && expense.createdAt
+        ? expense.createdAt
+        : new Date().toISOString();
+    const updatedAt =
+      typeof expense.updatedAt === "string" && expense.updatedAt
+        ? expense.updatedAt
+        : createdAt;
+    const status =
+      typeof expense.status === "string" && expense.status.toLowerCase() === "approved"
+        ? "approved"
+        : "pending";
+    const amount = Number(expense.amount);
+    const billableRaw =
+      expense.isBillable !== undefined
+        ? expense.isBillable
+        : expense.is_billable !== undefined
+          ? expense.is_billable
+          : undefined;
+    const isBillable =
+      billableRaw === false || billableRaw === 0 || billableRaw === "0"
+        ? false
+        : true;
+
+    return {
+      id: typeof expense.id === "string" && expense.id ? expense.id : crypto.randomUUID(),
+      userId: expense.userId || expense.user_id || "",
+      clientName: expense.clientName || expense.client_name || "",
+      projectName: expense.projectName || expense.project_name || "",
+      expenseDate: expense.expenseDate || expense.expense_date || today,
+      category: expense.category || "",
+      amount: Number.isFinite(amount) ? amount : 0,
+      isBillable,
+      notes: typeof expense.notes === "string" ? expense.notes : "",
+      status,
+      approvedAt: expense.approvedAt || expense.approved_at || null,
+      createdAt,
+      updatedAt,
+    };
+  }
+
+  function ensureCatalogSelection() {
+    const { state, visibleCatalogClientNames } = deps();
+    const clients = visibleCatalogClientNames();
+    if (!clients.length) {
+      state.selectedCatalogClient = "";
+      return;
+    }
+
+    if (!clients.includes(state.selectedCatalogClient)) {
+      state.selectedCatalogClient = clients[0];
+    }
+  }
+
+  function syncFormCatalogsUI(selection) {
+    const {
+      refs,
+      state,
+      field,
+      entryUserOptions,
+      visibleCatalogClientNames,
+      visibleCatalogProjectNames,
+      isStaff,
+      isValidDateString,
+      populateSelect,
+      uniqueValues,
+      escapeHtml,
+      syncFormCatalogs,
+    } = deps();
+    const selectedUserName = selection?.user || "";
+    const targetUser =
+      selectedUserName && state.users.length
+        ? state.users.find((u) => u.displayName === selectedUserName) || state.currentUser
+        : state.currentUser;
+
+    syncFormCatalogs?.(
+      {
+        refs,
+        state,
+        field,
+        entryUserOptions,
+        visibleCatalogClientNames,
+        visibleCatalogProjectNames,
+        targetUser,
+        isStaff,
+        isValidDateString,
+        populateSelect,
+        uniqueValues,
+        escapeHtml,
+      },
+      selection
+    );
+  }
+
+  function syncFilterCatalogsUI(selection) {
+    const {
+      refs,
+      state,
+      field,
+      isStaff,
+      isManager,
+      availableUsers,
+      defaultFilterUser,
+      allowedClientsForUser,
+      clientNames,
+      allowedProjectsForClient,
+      projectNames,
+      populateSelect,
+      uniqueValues,
+      escapeHtml,
+      formatDisplayDate,
+      syncFilterDatePicker,
+      isAdmin,
+      isValidDateString,
+      syncFilterCatalogs,
+    } = deps();
+    syncFilterCatalogs?.(
+      {
+        refs,
+        state,
+        field,
+        isStaff,
+        isManager,
+        availableUsers,
+        defaultFilterUser,
+        allowedClientsForUser,
+        clientNames,
+        allowedProjectsForClient,
+        projectNames,
+        populateSelect,
+        uniqueValues,
+        escapeHtml,
+        formatDisplayDate,
+        syncFilterDatePicker,
+        isAdmin,
+        isValidDateString,
+      },
+      selection
+    );
+  }
+
+  function syncExpenseFilterCatalogsUI(selection) {
+    const {
+      refs,
+      visibleCatalogClientNames,
+      setSelectOptionsWithPlaceholder,
+      visibleCatalogProjectNames,
+      getUserById,
+      escapeHtml,
+      entryUserOptions,
+      getUserByDisplayName,
+    } = deps();
+    const selectedUserId = selection?.user || "";
+    const selectedClient = selection?.client || "";
+    const selectedProject = selection?.project || "";
+
+    if (refs.expenseFilterUser) {
+      const users = entryUserOptions().map((name) => {
+        const user = getUserByDisplayName(name);
+        return { label: name, value: user?.id || name };
+      });
+      setSelectOptionsWithPlaceholder(
+        { escapeHtml },
+        refs.expenseFilterUser,
+        users,
+        selectedUserId,
+        "All users"
+      );
+    }
+
+    if (refs.expenseFilterClient) {
+      const clients = visibleCatalogClientNames();
+      setSelectOptionsWithPlaceholder(
+        { escapeHtml },
+        refs.expenseFilterClient,
+        clients,
+        selectedClient,
+        "All clients"
+      );
+    }
+
+    if (refs.expenseFilterProject) {
+      const projects = selectedClient
+        ? visibleCatalogProjectNames(selectedClient, getUserById?.(selectedUserId))
+        : [];
+      const placeholder = selectedClient ? "All projects" : "Choose client first";
+      setSelectOptionsWithPlaceholder(
+        { escapeHtml },
+        refs.expenseFilterProject,
+        projects,
+        selectedProject,
+        placeholder
+      );
+    }
+  }
+
   window.catalogEditor = {
     emptyClientDetails,
     buildClientEditorValues,
@@ -279,5 +595,13 @@
     renderCatalogAside,
     readClientEditorForm,
     clientByName,
+    normalizeCatalog,
+    normalizeClient,
+    normalizeEntry,
+    normalizeExpense,
+    ensureCatalogSelection,
+    syncFormCatalogsUI,
+    syncFilterCatalogsUI,
+    syncExpenseFilterCatalogsUI,
   };
 })();
