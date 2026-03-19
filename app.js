@@ -348,29 +348,6 @@
   },
 };
 
-  window.expensesDeps = {
-    refs,
-    state,
-    escapeHtml,
-    setSelectOptionsWithPlaceholder,
-    visibleCatalogClientNames,
-    visibleCatalogProjectNames,
-    getUserById,
-    entryUserOptions,
-    getUserByDisplayName,
-    clampDateToBounds,
-    today,
-    setExpenseNonBillableDefault,
-    parseDisplayDate,
-    feedback,
-    formatDisplayDate,
-    formatDisplayDateShort,
-    permissionGroupForUser,
-    canUserAccessProject,
-    isAdmin,
-    field,
-  };
-
   // Expose audit dependencies for auditLog.js (no behavior change).
   window.auditLogDeps = {
     refs,
