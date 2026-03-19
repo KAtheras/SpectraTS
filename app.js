@@ -2463,9 +2463,17 @@
     const userField = field(refs.form, "user");
     const userValue = userField ? userField.value : "";
     const rows = window.bulkEntry.getRows ? window.bulkEntry.getRows() : [];
+    const hasContent = (row) =>
+      (row.client && row.client.trim()) ||
+      (row.project && row.project.trim()) ||
+      (row.notes && row.notes.trim()) ||
+      (row.hours !== undefined &&
+        row.hours !== null &&
+        String(row.hours).trim() !== "");
+    const rowsToSave = rows.filter(hasContent);
     const errors = [];
     const entries = [];
-    rows.forEach(function (row, index) {
+    rowsToSave.forEach(function (row, index) {
       const nextEntry = {
         id: crypto.randomUUID(),
         user: userValue,
@@ -2487,6 +2495,11 @@
         entries.push(nextEntry);
       }
     });
+
+    if (!entries.length && !errors.length) {
+      feedback("No rows to save.", true);
+      return;
+    }
 
     if (errors.length) {
       feedback(errors.join(" "), true);
