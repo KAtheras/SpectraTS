@@ -1509,6 +1509,29 @@
     canUserAccessProject,
   } = accessControl;
 
+  window.expensesDeps = {
+    refs,
+    state,
+    escapeHtml,
+    setSelectOptionsWithPlaceholder,
+    visibleCatalogClientNames,
+    visibleCatalogProjectNames,
+    getUserById,
+    entryUserOptions,
+    getUserByDisplayName,
+    clampDateToBounds,
+    today,
+    setExpenseNonBillableDefault,
+    parseDisplayDate,
+    feedback,
+    formatDisplayDate,
+    formatDisplayDateShort,
+    permissionGroupForUser,
+    canUserAccessProject,
+    isAdmin,
+    field,
+  };
+
   function ensureCatalogSelection() {
     const clients = visibleCatalogClientNames();
     if (!clients.length) {
