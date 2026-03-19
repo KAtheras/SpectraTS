@@ -4503,7 +4503,7 @@
         setFieldError(form, "address_postal", true);
       }
       if (errors.length) {
-        const msg = errors.join(" ");
+        const msg = "Please correct values in the highlighted input fields.";
         setClientEditorMessage(form, msg);
         feedback(msg, true);
         return;
