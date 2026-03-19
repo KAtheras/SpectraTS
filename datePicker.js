@@ -12,6 +12,10 @@
       ? date.toLocaleDateString(undefined, { month: '2-digit', day: '2-digit', year: 'numeric' })
       : '';
     input.dataset.display = display;
+    const sibling = input.nextElementSibling;
+    if (sibling && sibling.classList.contains('dp-display-date')) {
+      sibling.textContent = display;
+    }
   }
 
   // Disable native desktop date picker for these inputs; keep mobile untouched.
