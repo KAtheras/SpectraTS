@@ -51,6 +51,17 @@
       e.preventDefault();
       openFor(t.input);
     });
+    [t.month, t.day, t.year]
+      .filter(Boolean)
+      .forEach((sel) => {
+        const handler = (e) => {
+          e.preventDefault();
+          openFor(t.input);
+        };
+        sel.addEventListener('mousedown', handler);
+        sel.addEventListener('click', handler);
+        sel.addEventListener('focus', handler);
+      });
     inputs.push(t.input);
   });
   if (!inputs.length) return;
