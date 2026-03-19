@@ -20,10 +20,19 @@
     input.type = 'text';
     input.readOnly = true;
     input.classList.add('dp-desktop-date');
+    const displayEl = document.createElement('span');
+    displayEl.className = 'dp-display-date';
+    input.insertAdjacentElement('afterend', displayEl);
     const parsed = parseInput(input);
     setDisplay(input, parsed);
+    displayEl.textContent = input.dataset.display || '';
+    displayEl.addEventListener('click', () => {
+      input.focus();
+      openFor(input);
+    });
     input.addEventListener('change', () => {
       setDisplay(input, parseInput(input));
+      displayEl.textContent = input.dataset.display || '';
     });
   });
 
@@ -126,13 +135,17 @@
         btn.disabled = true;
       } else {
         btn.addEventListener('click', () => {
-          openInput.value = formatDate(date);
-          setDisplay(openInput, date);
-          openInput.dispatchEvent(new Event('input', { bubbles: true }));
-          openInput.dispatchEvent(new Event('change', { bubbles: true }));
-          closePopover();
-        });
-      }
+        openInput.value = formatDate(date);
+        setDisplay(openInput, date);
+        const displaySibling = openInput.nextElementSibling;
+        if (displaySibling && displaySibling.classList.contains('dp-display-date')) {
+          displaySibling.textContent = openInput.dataset.display || '';
+        }
+        openInput.dispatchEvent(new Event('input', { bubbles: true }));
+        openInput.dispatchEvent(new Event('change', { bubbles: true }));
+        closePopover();
+      });
+    }
       grid.appendChild(btn);
     }
   }
