@@ -2463,11 +2463,6 @@
     const userField = field(refs.form, "user");
     const userValue = userField ? userField.value : "";
     const rows = window.bulkEntry.getRows ? window.bulkEntry.getRows() : [];
-    if (!rows.length) {
-      feedback("No rows to save.", true);
-      return;
-    }
-
     const errors = [];
     const entries = [];
     rows.forEach(function (row, index) {

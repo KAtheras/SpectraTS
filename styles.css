@@ -3002,7 +3002,8 @@ body[data-theme="dark"] .entry-approved td {
 .bulk-actions {
   margin-top: 0.5rem;
   display: flex;
-  justify-content: flex-start;
+  justify-content: flex-end;
+  gap: 0.5rem;
 }
 }
 
