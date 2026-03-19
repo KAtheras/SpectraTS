@@ -162,7 +162,7 @@
     if (!input || !input._dpMonth || !input._dpDay || !input._dpYear || !date) return;
     input._dpMonth.value = String(date.getMonth() + 1).padStart(2, '0');
     input._dpDay.value = String(date.getDate()).padStart(2, '0');
-    input._dpYear.value = String(date.getFullYear()).padStart(2, '0').slice(-2).padStart(2, '0');
+    input._dpYear.value = String(date.getFullYear());
   }
 
   function setCanonicalFromSelects(input) {
