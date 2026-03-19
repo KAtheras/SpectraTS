@@ -4487,7 +4487,7 @@
       }
       const emailOk = (email) => {
         if (!email.trim()) return true;
-        return /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email);
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
       };
       if (!emailOk(rawBizEmail)) {
         errors.push("Business contact email is not valid.");
