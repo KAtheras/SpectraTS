@@ -2856,20 +2856,6 @@ body[data-theme="dark"] .entry-approved td {
   align-items: stretch;
 }
 
-.entry-mode-toggle {
-  display: inline-flex;
-  gap: 0.5rem;
-  margin-bottom: 0;
-}
-
-.entry-mode-button {
-  border-radius: 8px;
-}
-
-.entry-mode-button.is-active {
-  background: var(--surface-200, #e9edf7);
-}
-
 .bulk-entry-container {
   border: 1px solid var(--border-200, #d7d7d7);
   border-radius: 10px;
