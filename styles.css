@@ -3008,10 +3008,14 @@ body[data-theme="dark"] .entry-approved td {
 .bulk-actions {
   margin-top: 1.5rem;
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-start;
   align-items: center;
   gap: 0.5rem;
   width: 100%;
+}
+
+.bulk-actions .spacer {
+  flex: 1;
 }
 }
 
