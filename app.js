@@ -4506,7 +4506,6 @@
         const msg = errors.join(" ");
         setClientEditorMessage(form, msg);
         feedback(msg, true);
-        window.alert(msg);
         return;
       }
 
