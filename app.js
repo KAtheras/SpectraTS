@@ -2982,6 +2982,13 @@
       return;
     }
 
+    // Store full-range dates for picker bounds
+    if (refs.entriesBody) {
+      const dates = filteredEntries.map((e) => e.date).sort();
+      refs.entriesBody.dataset.rangeMin = dates[0] || "";
+      refs.entriesBody.dataset.rangeMax = dates[dates.length - 1] || "";
+    }
+
     refs.entriesBody.innerHTML = filteredEntries
       .map(
         (entry) => `
@@ -3406,6 +3413,12 @@
         </tr>
       `;
       return;
+    }
+
+    if (refs.expensesBody) {
+      const dates = expenses.map((e) => e.expenseDate).sort();
+      refs.expensesBody.dataset.rangeMin = dates[0] || "";
+      refs.expensesBody.dataset.rangeMax = dates[dates.length - 1] || "";
     }
 
     refs.expensesBody.innerHTML = expenses

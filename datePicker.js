@@ -282,17 +282,13 @@
       setCanonicalFromSelects(input);
     }
     if (input.dataset.dpBody) {
-      const range = visibleRange(input.dataset.dpBody);
-      if (range?.min) {
-        input.setAttribute('min', range.min);
-      } else {
-        input.removeAttribute('min');
-      }
-      if (range?.max) {
-        input.setAttribute('max', range.max);
-      } else {
-        input.removeAttribute('max');
-      }
+      // Use full source data range (stored on body as data attributes); fallback to visible range.
+      const bodyEl = document.querySelector(input.dataset.dpBody);
+      const sourceMin = bodyEl?.dataset?.rangeMin;
+      const sourceMax = bodyEl?.dataset?.rangeMax;
+      const range = sourceMin && sourceMax ? { min: sourceMin, max: sourceMax } : visibleRange(input.dataset.dpBody);
+      if (range?.min) input.setAttribute('min', range.min); else input.removeAttribute('min');
+      if (range?.max) input.setAttribute('max', range.max); else input.removeAttribute('max');
     }
     openInput = input;
     const parsed = parseInput(input) || today();
