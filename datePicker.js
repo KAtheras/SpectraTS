@@ -2,7 +2,7 @@
   const isDesktop = window.matchMedia('(pointer: fine) and (hover: hover)').matches;
   if (!isDesktop) return;
 
-  const TARGET_IDS = ['entry-date', 'expense-date'];
+  const TARGET_IDS = ['entry-date', 'expense-date', 'audit-filter-date'];
   const inputs = TARGET_IDS.map((id) => document.getElementById(id)).filter(Boolean);
   // Bottom filter targets (hidden inputs) with anchors for positioning.
   const filterTargets = [
@@ -38,6 +38,11 @@
       day: document.getElementById('expense-filter-to-day'),
       year: document.getElementById('expense-filter-to-year'),
     },
+    {
+      input: document.getElementById('audit-filter-date'),
+      anchor: document.getElementById('audit-filter-date'),
+      body: '#audit-table-body',
+    },
   ].filter((t) => t.input && t.anchor);
 
   filterTargets.forEach((t) => {
@@ -47,17 +52,15 @@
     t.input._dpMonth = t.month;
     t.input._dpDay = t.day;
     t.input._dpYear = t.year;
-    t.anchor.addEventListener('click', (e) => {
+    const handler = (e) => {
       e.preventDefault();
       openFor(t.input);
-    });
+    };
+    t.anchor.addEventListener('click', handler);
+    t.anchor.addEventListener('focus', handler);
     [t.month, t.day, t.year]
       .filter(Boolean)
       .forEach((sel) => {
-        const handler = (e) => {
-          e.preventDefault();
-          openFor(t.input);
-        };
         sel.addEventListener('mousedown', handler);
         sel.addEventListener('click', handler);
         sel.addEventListener('focus', handler);

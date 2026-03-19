@@ -1975,6 +1975,14 @@
   function renderAuditTable(logs) {
     if (!refs.auditTableBody) return;
     const rows = Array.isArray(logs) ? logs : [];
+
+    // Store full-range dates for picker bounds using the full audit dataset, not the filtered subset.
+    if (refs.auditTableBody) {
+      const allDates = (state.auditLogs || []).map((row) => (row.changed_at || row.changedAt || "").slice(0, 10)).filter(Boolean).sort();
+      refs.auditTableBody.dataset.rangeMin = allDates[0] || "";
+      refs.auditTableBody.dataset.rangeMax = allDates[allDates.length - 1] || "";
+    }
+
     if (!rows.length) {
       refs.auditTableBody.innerHTML = `
         <tr>
@@ -3982,12 +3990,16 @@
   refs.expenseExportCsv?.addEventListener("click", exportExpensesCsv);
 
   function applyAuditFiltersFromForm() {
+    const dateIso = parseDisplayDate(refs.auditFilterDate?.value) || refs.auditFilterDate?.value || "";
     state.auditFilters = {
       entity: refs.auditFilterEntity?.value || "",
       action: refs.auditFilterAction?.value || "",
       actor: refs.auditFilterActor?.value || "",
-      date: refs.auditFilterDate?.value || "",
+      date: dateIso || "",
     };
+    if (refs.auditFilterDate) {
+      refs.auditFilterDate.value = dateIso;
+    }
     renderAuditTable(filterAuditLogs(state.auditLogs));
     loadAuditLogs();
   }
