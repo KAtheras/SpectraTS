@@ -93,7 +93,7 @@
   }
 
   function renderClientEditor() {
-    const { refs, state, escapeHtml, isAdmin, renderStateOptions } = deps();
+    const { refs, state, escapeHtml, isAdmin } = deps();
     if (!refs.clientEditor) return;
     const editor = state.clientEditor;
     if (!editor) {
