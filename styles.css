@@ -2891,15 +2891,17 @@ body[data-theme="dark"] .entry-approved td {
 
 .bulk-entry-container .bulk-entry-table th,
 .bulk-entry-container .bulk-entry-table td {
-  border: 1px solid var(--border-200, #c7ccd5) !important;
-  padding: 0.2rem 0.3rem !important;
+  border: 1px solid var(--border-color, #d0d5dd);
+  padding: 0;
+  height: 36px;
 }
 
 .bulk-entry-container .bulk-entry-table th {
   text-align: left;
-  background: var(--surface-100, #eef1f6) !important;
+  background: var(--surface-100, #eef1f6);
   font-weight: 600;
-  border-bottom-width: 2px !important;
+  padding: 6px 8px;
+  border-bottom-width: 2px;
 }
 
 .bulk-entry-row {
@@ -2907,88 +2909,52 @@ body[data-theme="dark"] .entry-approved td {
 }
 
 .bulk-entry-cell {
+  background: transparent;
   vertical-align: middle;
 }
 
 .bulk-entry-container .bulk-entry-table input.bulk-input,
 .bulk-entry-container .bulk-entry-table select.bulk-input,
 .bulk-entry-container .bulk-entry-table textarea.bulk-input {
-  width: 100%;
-  padding: 0.16rem 0.26rem !important;
-  border: 1px solid var(--border-200, #cfd3dc) !important;
-  border-radius: 4px !important;
-  font-size: 0.9rem !important;
-  height: 30px !important;
-  min-height: 30px !important;
-  line-height: 1.2 !important;
-  box-sizing: border-box !important;
-  background: var(--surface-0, #fff) !important;
+  border: none !important;
+  border-radius: 0 !important;
+  background: transparent !important;
   box-shadow: none !important;
+  outline: none;
+  width: 100%;
+  height: 100%;
+  padding: 6px 8px !important;
+  margin: 0;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
 }
 
 .bulk-entry-container .bulk-entry-table select.bulk-input {
-  appearance: none !important;
   background-position: right 0.35rem center;
   background-repeat: no-repeat;
 }
 
 .bulk-entry-container .bulk-entry-table .bulk-checkbox {
-  width: 1rem !important;
-  height: 1rem !important;
-  margin: 0 auto !important;
-  display: block !important;
-}
-
-.bulk-entry-container .bulk-entry-table td {
-  vertical-align: middle;
+  width: 16px !important;
+  height: 16px !important;
+  margin: 0 !important;
+  transform: scale(0.9);
 }
 
 .bulk-entry-container .bulk-entry-table .bulk-delete {
-  padding: 0.1rem 0.25rem !important;
-  min-width: auto !important;
-  font-size: 0.85rem !important;
-  line-height: 1.1 !important;
-}
-
-/* Hard opt-out of global panel form pill styles for bulk table */
-.panel.panel-form .bulk-entry-table input.bulk-input,
-.panel.panel-form .bulk-entry-table select.bulk-input,
-.panel.panel-form .bulk-entry-table textarea.bulk-input {
-  border-radius: 4px !important;
-  padding: 6px 8px !important;
-  height: 32px !important;
-  min-height: 32px !important;
-  box-shadow: none !important;
-  background: var(--surface) !important;
-}
-
-.panel.panel-form .bulk-entry-table .bulk-checkbox {
-  width: 16px !important;
-  height: 16px !important;
-  margin: 0 auto !important;
-}
-
-.bulk-entry-table {
-  border-collapse: collapse;
-  width: 100%;
-}
-
-.bulk-entry-table th,
-.bulk-entry-table td {
-  border: 1px solid var(--line);
-  padding: 4px 6px;
-}
-
-.bulk-entry-cell {
+  border: none;
   background: transparent;
+  padding: 0;
+  cursor: pointer;
 }
 
-.bulk-entry-table td.bulk-entry-cell {
-  padding: 0.22rem 0.3rem;
+.bulk-entry-container .bulk-col-billable {
+  text-align: center;
 }
 
-.bulk-entry-table th {
-  padding: 0.35rem 0.4rem;
+.bulk-entry-container .bulk-col-delete {
+  text-align: center;
 }
 
 .bulk-col-date {
