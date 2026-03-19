@@ -1784,6 +1784,19 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
 
 .client-editor-row {
   display: grid;
+  gap: 10px;
+}
+
+.client-editor-row-label {
+  font-family: var(--font-head);
+  font-size: 0.9rem;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.client-editor-row-fields {
+  display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 12px;
 }

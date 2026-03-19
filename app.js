@@ -1856,50 +1856,59 @@
               </label>
             </div>
             <div class="client-editor-row">
-              <label class="client-editor-field">
-                <span>Business contact — name</span>
-                <input type="text" name="business_contact_name" value="${escapeHtml(values.businessContactName || "")}" ${disabledAttr} />
-              </label>
-              <label class="client-editor-field">
-                <span>Business contact — email</span>
-                <input type="email" name="business_contact_email" value="${escapeHtml(values.businessContactEmail || "")}" ${disabledAttr} />
-              </label>
-              <label class="client-editor-field">
-                <span>Business contact — phone</span>
-                <input type="tel" name="business_contact_phone" value="${escapeHtml(values.businessContactPhone || "")}" ${disabledAttr} />
-              </label>
+              <div class="client-editor-row-label">Business Contact</div>
+              <div class="client-editor-row-fields">
+                <label class="client-editor-field">
+                  <span>Name</span>
+                  <input type="text" name="business_contact_name" value="${escapeHtml(values.businessContactName || "")}" ${disabledAttr} />
+                </label>
+                <label class="client-editor-field">
+                  <span>Email</span>
+                  <input type="email" name="business_contact_email" value="${escapeHtml(values.businessContactEmail || "")}" ${disabledAttr} />
+                </label>
+                <label class="client-editor-field">
+                  <span>Phone</span>
+                  <input type="tel" name="business_contact_phone" value="${escapeHtml(values.businessContactPhone || "")}" ${disabledAttr} />
+                </label>
+              </div>
             </div>
             <div class="client-editor-row">
-              <label class="client-editor-field">
-                <span>Billing contact — name</span>
-                <input type="text" name="billing_contact_name" value="${escapeHtml(values.billingContactName || "")}" ${disabledAttr} />
-              </label>
-              <label class="client-editor-field">
-                <span>Billing contact — email</span>
-                <input type="email" name="billing_contact_email" value="${escapeHtml(values.billingContactEmail || "")}" ${disabledAttr} />
-              </label>
-              <label class="client-editor-field">
-                <span>Billing contact — phone</span>
-                <input type="tel" name="billing_contact_phone" value="${escapeHtml(values.billingContactPhone || "")}" ${disabledAttr} />
-              </label>
+              <div class="client-editor-row-label">Billing Contact</div>
+              <div class="client-editor-row-fields">
+                <label class="client-editor-field">
+                  <span>Name</span>
+                  <input type="text" name="billing_contact_name" value="${escapeHtml(values.billingContactName || "")}" ${disabledAttr} />
+                </label>
+                <label class="client-editor-field">
+                  <span>Email</span>
+                  <input type="email" name="billing_contact_email" value="${escapeHtml(values.billingContactEmail || "")}" ${disabledAttr} />
+                </label>
+                <label class="client-editor-field">
+                  <span>Phone</span>
+                  <input type="tel" name="billing_contact_phone" value="${escapeHtml(values.billingContactPhone || "")}" ${disabledAttr} />
+                </label>
+              </div>
             </div>
             <div class="client-editor-row">
-              <label class="client-editor-field">
-                <span>Street address</span>
-                <input type="text" name="address_street" value="${escapeHtml(values.addressStreet || "")}" ${disabledAttr} />
-              </label>
-              <label class="client-editor-field">
-                <span>City</span>
-                <input type="text" name="address_city" value="${escapeHtml(values.addressCity || "")}" ${disabledAttr} />
-              </label>
-              <label class="client-editor-field">
-                <span>State</span>
-                <input type="text" name="address_state" value="${escapeHtml(values.addressState || "")}" ${disabledAttr} />
-              </label>
-              <label class="client-editor-field">
-                <span>Zip code</span>
-                <input type="text" name="address_postal" value="${escapeHtml(values.addressPostal || "")}" ${disabledAttr} />
-              </label>
+              <div class="client-editor-row-label">Address</div>
+              <div class="client-editor-row-fields">
+                <label class="client-editor-field">
+                  <span>Street</span>
+                  <input type="text" name="address_street" value="${escapeHtml(values.addressStreet || "")}" ${disabledAttr} />
+                </label>
+                <label class="client-editor-field">
+                  <span>City</span>
+                  <input type="text" name="address_city" value="${escapeHtml(values.addressCity || "")}" ${disabledAttr} />
+                </label>
+                <label class="client-editor-field">
+                  <span>State</span>
+                  <input type="text" name="address_state" value="${escapeHtml(values.addressState || "")}" ${disabledAttr} />
+                </label>
+                <label class="client-editor-field">
+                  <span>Zip code</span>
+                  <input type="text" name="address_postal" value="${escapeHtml(values.addressPostal || "")}" ${disabledAttr} />
+                </label>
+              </div>
             </div>
           </div>
           <div class="client-editor-actions">
