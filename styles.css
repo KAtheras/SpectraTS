@@ -2879,7 +2879,7 @@ body[data-theme="dark"] .entry-approved td {
 
 .bulk-table-wrap {
   overflow-x: auto;
-  margin-bottom: 1rem;
+  margin-bottom: 1.25rem;
 }
 
 .bulk-entry-table {
@@ -2895,6 +2895,7 @@ body[data-theme="dark"] .entry-approved td {
   border: 1px solid var(--border-color, #d0d5dd);
   padding: 0;
   height: 36px;
+  vertical-align: middle;
 }
 
 .bulk-entry-container .bulk-entry-table th {
@@ -2968,6 +2969,10 @@ body[data-theme="dark"] .entry-approved td {
   text-align: center;
 }
 
+.bulk-entry-container .bulk-entry-table th:last-child {
+  width: 2.2rem;
+}
+
 .bulk-col-date {
   width: 7.5rem;
 }
@@ -3001,7 +3006,7 @@ body[data-theme="dark"] .entry-approved td {
 }
 
 .bulk-actions {
-  margin-top: 1.25rem;
+  margin-top: 1.5rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
