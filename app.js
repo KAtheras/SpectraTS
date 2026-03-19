@@ -1083,6 +1083,29 @@
     refs.expenseNonBillable.checked = isNonBillableDefault(projectName);
   }
 
+  window.expensesDeps = {
+    refs,
+    state,
+    escapeHtml,
+    setSelectOptionsWithPlaceholder,
+    visibleCatalogClientNames,
+    visibleCatalogProjectNames,
+    getUserById,
+    entryUserOptions,
+    getUserByDisplayName,
+    clampDateToBounds,
+    today,
+    setExpenseNonBillableDefault,
+    parseDisplayDate,
+    feedback,
+    formatDisplayDate,
+    formatDisplayDateShort,
+    permissionGroupForUser,
+    canUserAccessProject,
+    isAdmin,
+    field,
+  };
+
   function normalizeEntry(entry) {
     if (!entry || typeof entry !== "object") {
       return null;
