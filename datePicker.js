@@ -255,6 +255,16 @@
             fireChange(openInput._dpMonth);
             fireChange(openInput._dpDay);
             fireChange(openInput._dpYear);
+            const form = openInput.closest('form');
+            const sibling = (name) => form?.elements?.namedItem(name);
+            if (openInput.name === 'from') {
+              const toInput = sibling('to');
+              if (toInput) toInput.setAttribute('min', canonical);
+            }
+            if (openInput.name === 'to') {
+              const fromInput = sibling('from');
+              if (fromInput) fromInput.setAttribute('max', canonical);
+            }
           } else {
             openInput.value = canonical;
           }
