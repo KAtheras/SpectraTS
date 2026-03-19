@@ -1396,6 +1396,20 @@
     })].join("");
   }
 
+  function setFieldError(form, name, isError) {
+    const input = field(form, name);
+    if (!input) return;
+    input.classList.toggle("field-error", Boolean(isError));
+  }
+
+  function setClientEditorMessage(form, message) {
+    const el = form?.querySelector?.("[data-client-editor-message]");
+    if (!el) return;
+    el.textContent = message || "";
+    el.hidden = !message;
+    el.dataset.error = message ? "true" : "false";
+  }
+
   function activeExpenseCategories() {
     return (state.expenseCategories || []).filter((c) => c.isActive);
   }
@@ -1853,6 +1867,7 @@
     refs.clientEditor.innerHTML = `
       <div class="client-editor-overlay" role="dialog" aria-modal="true" aria-label="${escapeHtml(title)}">
         <form class="client-editor-card" data-client-editor-form="${escapeHtml(editor.mode)}">
+          <p class="client-editor-message" data-client-editor-message hidden></p>
           <div class="client-editor-grid">
             <div class="client-editor-row">
               <label class="client-editor-field">
@@ -4445,16 +4460,53 @@
       const editor = state.clientEditor;
       if (!editor) return;
       const values = readClientEditorForm(form);
+      ["business_contact_phone", "billing_contact_phone", "business_contact_email", "billing_contact_email", "address_postal"].forEach((name) =>
+        setFieldError(form, name, false)
+      );
+      setClientEditorMessage(form, "");
       if (!values.name) {
-        feedback("Client name is required.", true);
+        const msg = "Client name is required.";
+        setClientEditorMessage(form, msg);
+        feedback(msg, true);
         return;
       }
-      if (!values.businessContactPhone && field(form, "business_contact_phone")?.value) {
-        feedback("Business contact phone must be 10 digits.", true);
-        return;
+      const errors = [];
+      const rawBizPhone = field(form, "business_contact_phone")?.value || "";
+      const rawBillPhone = field(form, "billing_contact_phone")?.value || "";
+      const rawBizEmail = field(form, "business_contact_email")?.value || "";
+      const rawBillEmail = field(form, "billing_contact_email")?.value || "";
+      const rawZip = field(form, "address_postal")?.value || "";
+
+      if (rawBizPhone.trim() && !values.businessContactPhone) {
+        errors.push("Business contact phone must be 10 digits.");
+        setFieldError(form, "business_contact_phone", true);
       }
-      if (!values.billingContactPhone && field(form, "billing_contact_phone")?.value) {
-        feedback("Billing contact phone must be 10 digits.", true);
+      if (rawBillPhone.trim() && !values.billingContactPhone) {
+        errors.push("Billing contact phone must be 10 digits.");
+        setFieldError(form, "billing_contact_phone", true);
+      }
+      const emailOk = (email) => {
+        if (!email.trim()) return true;
+        return /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email);
+      };
+      if (!emailOk(rawBizEmail)) {
+        errors.push("Business contact email is not valid.");
+        setFieldError(form, "business_contact_email", true);
+      }
+      if (!emailOk(rawBillEmail)) {
+        errors.push("Billing contact email is not valid.");
+        setFieldError(form, "billing_contact_email", true);
+      }
+      const zipDigits = rawZip.replace(/\\D/g, "");
+      if (rawZip.trim() && zipDigits.length < 5) {
+        errors.push("Zip code must have at least 5 digits.");
+        setFieldError(form, "address_postal", true);
+      }
+      if (errors.length) {
+        const msg = errors.join(" ");
+        setClientEditorMessage(form, msg);
+        feedback(msg, true);
+        window.alert(msg);
         return;
       }
 

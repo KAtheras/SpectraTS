@@ -1801,9 +1801,23 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   gap: 12px;
 }
 
+.client-editor-message {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #ffe8e8;
+  color: #6b0b0b;
+  font-weight: 600;
+}
+
 .client-editor-field {
   display: grid;
   gap: 6px;
+}
+
+.field-error {
+  background: #ffe8e8;
+  border-color: #e63946;
 }
 
 .client-editor-actions {
