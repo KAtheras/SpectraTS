@@ -88,41 +88,60 @@
     const r = refs();
     if (!r.body) return;
     const clients = clientOptions();
+    const tableEl = r.body.closest("table");
+    if (tableEl) {
+      tableEl.style.borderCollapse = "collapse";
+      tableEl.style.width = "100%";
+      tableEl.style.tableLayout = "fixed";
+    }
 
     r.body.innerHTML = state.rows
       .map((row, idx) => {
         const projects = projectOptions(row.client);
+        const tdStyle = 'border:1px solid #d5d9e1; padding:0; height:34px; background:#fff;';
+        const inputStyle = 'width:100%; height:100%; padding:6px 8px; border:none; border-radius:4px; background:transparent; box-shadow:none; outline:none; appearance:none;';
         return `
           <tr class="bulk-entry-row" data-row="${idx}">
-            <td class="bulk-entry-cell bulk-col-date"><input type="date" class="bulk-input" data-field="date" value="${row.date || ""}" /></td>
-            <td class="bulk-entry-cell bulk-col-client">
-              <select class="bulk-input" data-field="client">
+            <td class="bulk-entry-cell bulk-col-date" style="${tdStyle}"><input type="date" class="bulk-input" data-field="date" value="${row.date || ""}" style="${inputStyle}" /></td>
+            <td class="bulk-entry-cell bulk-col-client" style="${tdStyle}">
+              <select class="bulk-input" data-field="client" style="${inputStyle}">
                 <option value=""></option>
                 ${clients
                   .map((c) => `<option value="${escapeHtml(c)}"${c === row.client ? " selected" : ""}>${escapeHtml(c)}</option>`)
                   .join("")}
               </select>
             </td>
-            <td class="bulk-entry-cell bulk-col-project">
-              <select class="bulk-input" data-field="project">
+            <td class="bulk-entry-cell bulk-col-project" style="${tdStyle}">
+              <select class="bulk-input" data-field="project" style="${inputStyle}">
                 <option value=""></option>
                 ${projects
                   .map((p) => `<option value="${escapeHtml(p)}"${p === row.project ? " selected" : ""}>${escapeHtml(p)}</option>`)
                   .join("")}
               </select>
             </td>
-            <td class="bulk-entry-cell bulk-col-hours"><input type="number" class="bulk-input" data-field="hours" min="0" step="0.25" value="${row.hours}" /></td>
-            <td class="bulk-entry-cell bulk-col-billable bulk-center">
-              <input type="checkbox" class="bulk-checkbox" data-field="billable" ${row.billable ? "checked" : ""} />
+            <td class="bulk-entry-cell bulk-col-hours" style="${tdStyle}"><input type="number" class="bulk-input" data-field="hours" min="0" step="0.25" value="${row.hours}" style="${inputStyle}" /></td>
+            <td class="bulk-entry-cell bulk-col-billable bulk-center" style="${tdStyle} text-align:center;">
+              <input type="checkbox" class="bulk-checkbox" data-field="billable" ${row.billable ? "checked" : ""} style="margin:0 auto; display:block; width:16px; height:16px; transform:scale(0.9);" />
             </td>
-            <td class="bulk-entry-cell bulk-col-notes"><input type="text" class="bulk-input" data-field="notes" value="${escapeHtml(row.notes)}" /></td>
-            <td class="bulk-entry-cell bulk-col-delete bulk-center">
-              <button type="button" class="text-button danger bulk-delete" data-action="delete" aria-label="Delete row">✕</button>
+            <td class="bulk-entry-cell bulk-col-notes" style="${tdStyle}"><input type="text" class="bulk-input" data-field="notes" value="${escapeHtml(row.notes)}" style="${inputStyle}" /></td>
+            <td class="bulk-entry-cell bulk-col-delete bulk-center" style="${tdStyle} text-align:center;">
+              <button type="button" class="text-button danger bulk-delete" data-action="delete" aria-label="Delete row" style="border:none; background:transparent; padding:0; cursor:pointer; color:#b44; font-size:14px; line-height:1;">✕</button>
             </td>
           </tr>
         `;
       })
       .join("");
+
+    if (tableEl) {
+      tableEl.querySelectorAll("th").forEach((th) => {
+        th.style.border = "1px solid #d5d9e1";
+        th.style.padding = "6px 8px";
+        th.style.height = "36px";
+        th.style.background = "#f4f6fb";
+        th.style.fontWeight = "600";
+        th.style.textAlign = "left";
+      });
+    }
 
     wireRowEvents();
   }
