@@ -136,6 +136,7 @@
     setForm,
     validateEntry,
   } = window.timeEntries || {};
+  const { bulkEntry } = window;
 
   const DEFAULT_CLIENT_PROJECTS = {};
 
@@ -182,6 +183,10 @@
     themeToggle: document.getElementById("theme-toggle"),
     openCatalog: document.getElementById("open-catalog"),
     openAnalytics: document.getElementById("open-analytics"),
+    singleEntryContainer: document.getElementById("single-entry-container"),
+    bulkEntryContainer: document.getElementById("bulk-entry-container"),
+    entryModeSingle: document.getElementById("entry-mode-single"),
+    entryModeMultiple: document.getElementById("entry-mode-multiple"),
     mobileTabbar: document.getElementById("mobile-tabbar"),
     navSettingsMobile: document.getElementById("nav-settings-mobile"),
     navMembersMobile: document.getElementById("nav-members-mobile"),
@@ -228,6 +233,10 @@
     forcePasswordConfirm: document.getElementById("force-password-confirm"),
     membersModal: document.getElementById("members-modal"),
     closeUsers: document.getElementById("close-users"),
+    singleEntryContainer: document.getElementById("single-entry-container"),
+    bulkEntryContainer: document.getElementById("bulk-entry-container"),
+    entryModeSingle: document.getElementById("entry-mode-single"),
+    entryModeMultiple: document.getElementById("entry-mode-multiple"),
     closeMembers: document.getElementById("close-members"),
     hourPresets: document.getElementById("hour-presets"),
     otherHours: document.getElementById("other-hours"),
@@ -1493,6 +1502,28 @@
     render();
   }
 
+  function toggleEntryMode(mode) {
+    const isMultiple = mode === "multiple";
+    if (refs.singleEntryContainer) {
+      refs.singleEntryContainer.hidden = isMultiple;
+    }
+    if (refs.bulkEntryContainer) {
+      refs.bulkEntryContainer.hidden = !isMultiple;
+    }
+    setModeButtonActive(
+      isMultiple ? refs.entryModeMultiple : refs.entryModeSingle,
+      isMultiple ? refs.entryModeSingle : refs.entryModeMultiple
+    );
+    if (isMultiple && bulkEntry?.init) {
+      bulkEntry.init();
+    }
+  }
+
+  function setModeButtonActive(activeBtn, inactiveBtn) {
+    if (activeBtn) activeBtn.classList.add("is-active");
+    if (inactiveBtn) inactiveBtn.classList.remove("is-active");
+  }
+
   async function handleLogout() {
     const sessionToken = loadSessionToken();
 
@@ -2451,6 +2482,15 @@
       });
     });
   });
+
+  if (refs.entryModeSingle && refs.entryModeMultiple) {
+    refs.entryModeSingle.addEventListener("click", function () {
+      toggleEntryMode("single");
+    });
+    refs.entryModeMultiple.addEventListener("click", function () {
+      toggleEntryMode("multiple");
+    });
+  }
 
   // Mobile: replace wheel filter date selects with native date inputs for easier picking.
   const isTouch = window.matchMedia("(pointer: coarse)").matches;

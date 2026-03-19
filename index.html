@@ -144,6 +144,16 @@
                 </div>
               </div>
 
+            <div class="entry-mode-toggle" role="group" aria-label="Entry mode">
+              <button class="button button-ghost entry-mode-button is-active" type="button" data-entry-mode="single" id="entry-mode-single">
+                Single
+              </button>
+              <button class="button button-ghost entry-mode-button" type="button" data-entry-mode="multiple" id="entry-mode-multiple">
+                Multiple
+              </button>
+            </div>
+
+            <div id="single-entry-container">
             <form id="entry-form" class="entry-form">
               <label class="entry-pill">
                 <span>Team member</span>
@@ -215,6 +225,29 @@
                 </div>
               </div>
             </form>
+            </div>
+
+            <div id="bulk-entry-container" class="bulk-entry-container" hidden>
+              <div class="bulk-table-wrap">
+                <table class="bulk-entry-table">
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Client</th>
+                      <th>Project</th>
+                      <th>Hours</th>
+                      <th>Billable</th>
+                      <th>Notes</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody id="bulk-entry-body"></tbody>
+                </table>
+              </div>
+              <div class="bulk-actions">
+                <button type="button" class="button button-ghost" id="bulk-add-row">+ Add row</button>
+              </div>
+            </div>
           </section>
 
         <section class="panel">
@@ -724,6 +757,7 @@
     <script src="./timeEntries.js?v=1" defer></script>
     <script src="./catalogEditor.js?v=1" defer></script>
     <script src="./settingsAdmin.js?v=1" defer></script>
+    <script src="./bulkEntry.js?v=1" defer></script>
     <script src="./app.js?v=20260314-02" defer></script>
   </body>
 </html>
