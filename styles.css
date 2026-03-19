@@ -2637,6 +2637,7 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   }
 
   .dp-desktop-date {
+    position: relative;
     color: transparent;
     caret-color: transparent;
   }
@@ -2647,9 +2648,12 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
     right: 12px;
     top: 50%;
     transform: translateY(-50%);
+    height: 100%;
     color: var(--ink);
     pointer-events: none;
     font: inherit;
+    line-height: 1.2;
+    z-index: 1;
   }
 }
 
