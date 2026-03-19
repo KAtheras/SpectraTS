@@ -2617,21 +2617,19 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
     border-color: color-mix(in srgb, var(--accent) 35%, transparent);
   }
 
-  .dp-day.is-disabled,
-  .dp-day:disabled {
-    color: #9aa1ab;
-    border-color: #d0d4dc;
-    background: #eef0f3;
+  .dp-day.is-disabled {
+    color: #8b929e;
+    border-color: #d5d9e0;
+    background: #eceef2;
     cursor: not-allowed;
     pointer-events: none;
-    opacity: 0.32;
-    filter: grayscale(1) contrast(0.75);
+    opacity: 0.28;
+    filter: grayscale(1);
     box-shadow: none;
   }
 
-  .dp-day.is-disabled:hover,
-  .dp-day:disabled:hover {
-    background: #eef0f3;
+  .dp-day.is-disabled:hover {
+    background: #eceef2;
   }
 
   .dp-day.dp-day--spacer {
@@ -2643,21 +2641,19 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
 }
 
 @media (pointer: fine) and (hover: hover) {
-  body:not([data-theme="dark"]) .dp-day.is-disabled,
-  body:not([data-theme="dark"]) .dp-day:disabled {
-    color: #9aa1ab;
-    border-color: #d0d4dc;
-    background: #eef0f3;
-    opacity: 0.32;
+  body:not([data-theme="dark"]) .dp-day.is-disabled {
+    color: #8b929e;
+    border-color: #d5d9e0;
+    background: #eceef2;
+    opacity: 0.28;
     cursor: not-allowed;
     pointer-events: none;
-    filter: grayscale(1) contrast(0.75);
+    filter: grayscale(1);
     box-shadow: none;
   }
 
-  body:not([data-theme="dark"]) .dp-day.is-disabled:hover,
-  body:not([data-theme="dark"]) .dp-day:disabled:hover {
-    background: #eef0f3;
+  body:not([data-theme="dark"]) .dp-day.is-disabled:hover {
+    background: #eceef2;
   }
 }
 
