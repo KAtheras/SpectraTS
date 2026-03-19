@@ -57,6 +57,10 @@
     renderTable();
   }
 
+  function isNonBillableDefault(projectName) {
+    return /administrative|admin|internal/i.test(projectName || "");
+  }
+
   function updateRow(index, field, value, opts = {}) {
     const { render = true } = opts;
     const row = state.rows[index];
@@ -68,6 +72,9 @@
     }
     if (field === "client") {
       row.project = "";
+    }
+    if (field === "project") {
+      row.billable = !isNonBillableDefault(value);
     }
     if (render) {
       renderTable();
