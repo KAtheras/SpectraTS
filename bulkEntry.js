@@ -74,6 +74,11 @@
     }
   }
 
+  function resetRows() {
+    state.rows = [createEmptyRow(), createEmptyRow(), createEmptyRow()];
+    renderTable();
+  }
+
   function clientOptions() {
     const { visibleCatalogClientNames } = deps();
     return typeof visibleCatalogClientNames === "function"
@@ -226,5 +231,7 @@
 
   window.bulkEntry = {
     init,
+    getRows: () => state.rows.map((row) => ({ ...row })),
+    resetRows,
   };
 })();

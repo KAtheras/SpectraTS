@@ -185,6 +185,7 @@
     openAnalytics: document.getElementById("open-analytics"),
     singleEntryContainer: document.getElementById("single-entry-container"),
     bulkEntryContainer: document.getElementById("bulk-entry-container"),
+    bulkSaveRows: document.getElementById("bulk-save-rows"),
     entryModeSingle: document.getElementById("entry-mode-single"),
     entryModeMultiple: document.getElementById("entry-mode-multiple"),
     mobileTabbar: document.getElementById("mobile-tabbar"),
@@ -2457,6 +2458,60 @@
     handleOtherHoursInput?.({ refs, field });
   });
 
+  async function saveBulkRows() {
+    if (!window.bulkEntry) return;
+    const userField = field(refs.form, "user");
+    const userValue = userField ? userField.value : "";
+    const rows = window.bulkEntry.getRows ? window.bulkEntry.getRows() : [];
+    if (!rows.length) {
+      feedback("No rows to save.", true);
+      return;
+    }
+
+    const errors = [];
+    const entries = [];
+    rows.forEach(function (row, index) {
+      const nextEntry = {
+        id: crypto.randomUUID(),
+        user: userValue,
+        date: row.date || "",
+        client: row.client || "",
+        project: row.project || "",
+        task: "",
+        hours: Number(row.hours),
+        notes: (row.notes || "").trim(),
+        billable: row.billable !== false,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        status: "pending",
+      };
+      const error = validateEntry(nextEntry);
+      if (error) {
+        errors.push(`Row ${index + 1}: ${error}`);
+      } else {
+        entries.push(nextEntry);
+      }
+    });
+
+    if (errors.length) {
+      feedback(errors.join(" "), true);
+      return;
+    }
+
+    for (const entry of entries) {
+      try {
+        await mutatePersistentState("save_entry", { entry });
+      } catch (error) {
+        feedback(error.message || "Unable to save bulk rows.", true);
+        return;
+      }
+    }
+
+    feedback(`Saved ${entries.length} entr${entries.length === 1 ? "y" : "ies"}.`, false);
+    window.bulkEntry.resetRows?.();
+    render();
+  }
+
   ["from", "to"].forEach(function (name) {
     const refsForKind = filterDateRefs(refs, name);
     if (!refsForKind.month || !refsForKind.day || !refsForKind.year) {
@@ -2490,6 +2545,10 @@
     refs.entryModeMultiple.addEventListener("click", function () {
       toggleEntryMode("multiple");
     });
+  }
+
+  if (window.bulkEntry && refs.bulkSaveRows) {
+    refs.bulkSaveRows.addEventListener("click", saveBulkRows);
   }
 
   // Mobile: replace wheel filter date selects with native date inputs for easier picking.
