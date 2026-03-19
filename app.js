@@ -58,6 +58,7 @@
     defaultFilterUser,
     handleHourPresetClick,
     handleOtherHoursInput,
+    wireEntryModeToggle,
   } = window.entryForm || {};
   const { createAccessControl } = window.accessControl || {};
   const {
@@ -186,8 +187,7 @@
     singleEntryContainer: document.getElementById("single-entry-container"),
     bulkEntryContainer: document.getElementById("bulk-entry-container"),
     bulkSaveRows: document.getElementById("bulk-save-rows"),
-    entryModeSingle: document.getElementById("entry-mode-single"),
-    entryModeMultiple: document.getElementById("entry-mode-multiple"),
+    entryModeToggle: document.getElementById("entry-mode-toggle"),
     mobileTabbar: document.getElementById("mobile-tabbar"),
     navSettingsMobile: document.getElementById("nav-settings-mobile"),
     navMembersMobile: document.getElementById("nav-members-mobile"),
@@ -1503,26 +1503,28 @@
     render();
   }
 
+  let entryMode = "single";
+
+  function updateEntryModeToggle(mode) {
+    if (!refs.entryModeToggle) return;
+    refs.entryModeToggle.dataset.mode = mode;
+    refs.entryModeToggle.textContent =
+      mode === "multiple" ? "Single entry" : "Multiple entry";
+  }
+
   function toggleEntryMode(mode) {
     const isMultiple = mode === "multiple";
+    entryMode = mode;
     if (refs.singleEntryContainer) {
       refs.singleEntryContainer.hidden = isMultiple;
     }
     if (refs.bulkEntryContainer) {
       refs.bulkEntryContainer.hidden = !isMultiple;
     }
-    setModeButtonActive(
-      isMultiple ? refs.entryModeMultiple : refs.entryModeSingle,
-      isMultiple ? refs.entryModeSingle : refs.entryModeMultiple
-    );
+    updateEntryModeToggle(mode);
     if (isMultiple && bulkEntry?.init) {
       bulkEntry.init();
     }
-  }
-
-  function setModeButtonActive(activeBtn, inactiveBtn) {
-    if (activeBtn) activeBtn.classList.add("is-active");
-    if (inactiveBtn) inactiveBtn.classList.remove("is-active");
   }
 
   async function handleLogout() {
@@ -2546,13 +2548,10 @@
     });
   });
 
-  if (refs.entryModeSingle && refs.entryModeMultiple) {
-    refs.entryModeSingle.addEventListener("click", function () {
-      toggleEntryMode("single");
-    });
-    refs.entryModeMultiple.addEventListener("click", function () {
-      toggleEntryMode("multiple");
-    });
+  if (wireEntryModeToggle && refs.entryModeToggle) {
+    wireEntryModeToggle({ refs, toggleEntryMode });
+  } else {
+    toggleEntryMode("single");
   }
 
   if (window.bulkEntry && refs.bulkSaveRows) {

@@ -421,6 +421,26 @@
     renderHourSelection(deps);
   }
 
+  function wireEntryModeToggle(deps) {
+    const { refs, toggleEntryMode } = deps;
+    const btn = refs?.entryModeToggle;
+    if (!btn || typeof toggleEntryMode !== "function") return;
+
+    function setLabel(mode) {
+      btn.dataset.mode = mode;
+      btn.textContent = mode === "multiple" ? "Single entry" : "Multiple entry";
+    }
+
+    btn.addEventListener("click", function () {
+      const current = btn.dataset.mode === "multiple" ? "multiple" : "single";
+      const next = current === "multiple" ? "single" : "multiple";
+      toggleEntryMode(next);
+      setLabel(next);
+    });
+
+    setLabel("single");
+  }
+
   window.entryForm = {
     daysInMonth,
     yearOptions,
@@ -438,5 +458,6 @@
     defaultFilterUser,
     handleHourPresetClick,
     handleOtherHoursInput,
+    wireEntryModeToggle,
   };
 })();

@@ -138,14 +138,9 @@
                   <h2 id="form-heading">Add timesheet entry</h2>
                 </div>
                 <div class="panel-head-actions">
-                  <div class="entry-mode-toggle" role="group" aria-label="Entry mode">
-                    <button class="button button-ghost entry-mode-button is-active" type="button" data-entry-mode="single" id="entry-mode-single">
-                      Single
-                    </button>
-                    <button class="button button-ghost entry-mode-button" type="button" data-entry-mode="multiple" id="entry-mode-multiple">
-                      Multiple
-                    </button>
-                  </div>
+                  <button class="button button-ghost entry-mode-button" type="button" id="entry-mode-toggle" data-mode="single">
+                    Multiple entry
+                  </button>
                   <button class="button button-ghost" id="cancel-edit" hidden>
                     Cancel
                   </button>
@@ -245,7 +240,7 @@
               </div>
               <div class="bulk-actions">
                 <button type="button" class="button button-ghost" id="bulk-add-row">+ Add row</button>
-                <button type="button" class="button button-primary" id="bulk-save-rows">Save rows</button>
+                <button type="button" class="button button-primary" id="bulk-save-rows">Save</button>
               </div>
             </div>
           </section>
