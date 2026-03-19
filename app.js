@@ -106,7 +106,7 @@
     renderUsersList,
     renderLevelRows,
     renderExpenseCategories,
-    sortedLevels,
+    sortedLevels: sortedLevelsImport,
     getLevelDefinitions,
     syncUserManagementControls,
     handleAddLevel,
@@ -116,6 +116,10 @@
     openChangePasswordModal,
     closeChangePasswordModal,
   } = window.settingsAdmin || {};
+  const sortedLevels =
+    sortedLevelsImport ||
+    (window.settingsAdmin && window.settingsAdmin.sortedLevels) ||
+    function () { return []; };
   const {
     currentEntries,
     renderFilterState,
