@@ -71,7 +71,7 @@
     applyAuditFiltersFromForm,
   } = window.auditLog || {};
   const {
-    syncExpenseCatalogs,
+    syncExpenseCatalogs: syncExpenseCatalogsImport,
     activeExpenseCategories,
     resetExpenseForm,
     setExpenseForm,
@@ -84,6 +84,10 @@
     expenseFromForm,
     validateExpenseForm,
   } = window.expenses || {};
+  const syncExpenseCatalogs =
+    syncExpenseCatalogsImport ||
+    (window.expenses && window.expenses.syncExpenseCatalogs) ||
+    function () {};
   const {
     emptyClientDetails,
     buildClientEditorValues,
