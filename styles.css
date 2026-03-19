@@ -1040,13 +1040,13 @@ input[name="cost_rate"] {
 .entry-form label,
 .filters label {
   display: grid;
-  gap: 6px;
+  gap: 8px;
   width: 100%;
 }
 
 .entry-form .hours-field {
   display: grid;
-  gap: 6px;
+  gap: 8px;
   width: 100%;
 }
 
@@ -2336,15 +2336,15 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
 }
 
 .billable-pill.is-billable {
-  background: var(--surface-strong);
-  color: var(--accent);
-  border-color: color-mix(in srgb, var(--accent) 25%, transparent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+  color: color-mix(in srgb, var(--accent) 90%, black 5%);
+  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
 }
 
 .billable-pill.is-nonbillable {
-  background: color-mix(in srgb, var(--muted) 12%, transparent);
-  color: var(--muted-strong, #555);
-  border-color: color-mix(in srgb, var(--muted) 25%, transparent);
+  background: color-mix(in srgb, var(--muted) 14%, var(--surface));
+  color: color-mix(in srgb, var(--ink) 78%, var(--muted) 22%);
+  border-color: color-mix(in srgb, var(--muted) 28%, transparent);
 }
 
 .billable-pill.is-clickable {
@@ -2477,7 +2477,7 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
 
 .expense-entry-form .expense-row {
   display: grid;
-  gap: 14px;
+  gap: 16px;
   align-items: start;
 }
 
@@ -2509,7 +2509,7 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
 
 .expense-entry-form label {
   display: grid;
-  gap: 6px;
+  gap: 8px;
   width: 100%;
 }
 
