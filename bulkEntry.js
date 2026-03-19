@@ -93,30 +93,31 @@
       tableEl.style.borderCollapse = "collapse";
       tableEl.style.width = "100%";
       tableEl.style.tableLayout = "fixed";
-      if (!tableEl.querySelector("colgroup")) {
-        const colgroup = document.createElement("colgroup");
-        colgroup.innerHTML = `
-          <col style="width: 120px;">
-          <col style="width: 160px;">
-          <col style="width: 180px;">
-          <col style="width: 60px;">
-          <col style="width: 70px;">
-          <col style="width: auto;">
-          <col style="width: 48px;">
-        `;
-        tableEl.insertBefore(colgroup, tableEl.firstChild);
-      }
+      const existingColgroup = tableEl.querySelector("colgroup");
+      if (existingColgroup) tableEl.removeChild(existingColgroup);
+      const colgroup = document.createElement("colgroup");
+      colgroup.innerHTML = `
+        <col style="width: 120px;">
+        <col style="width: 170px;">
+        <col style="width: 190px;">
+        <col style="width: 50px;">
+        <col style="width: 60px;">
+        <col style="width: auto;">
+        <col style="width: 44px;">
+      `;
+      tableEl.insertBefore(colgroup, tableEl.firstChild);
     }
 
     r.body.innerHTML = state.rows
       .map((row, idx) => {
         const projects = projectOptions(row.client);
         const tdStyle = 'border:1px solid #d5d9e1; padding:0; height:34px; background:#fff;';
-        const tdHoursStyle = tdStyle + ' width:48px; max-width:48px;';
-        const tdBillableStyle = tdStyle + ' width:54px; max-width:54px;';
+        const tdHoursStyle = tdStyle + ' width:50px; max-width:50px;';
+        const tdBillableStyle = tdStyle + ' width:60px; max-width:60px;';
         const tdDeleteStyle = tdStyle + ' width:44px; max-width:44px;';
-        const inputStyle = 'width:100%; height:100%; padding:6px 8px; border:none; border-radius:4px; background:transparent; box-shadow:none; outline:none; appearance:none; -webkit-appearance:none; -moz-appearance:textfield;';
-        const hoursInputStyle = inputStyle + ' text-align:right;';
+        const baseInputStyle = 'width:100%; height:100%; padding:6px 6px; border:none; border-radius:4px; background:transparent; box-shadow:none; outline:none; box-sizing:border-box; min-width:0; appearance:none; -webkit-appearance:none; -moz-appearance:textfield;';
+        const inputStyle = baseInputStyle;
+        const hoursInputStyle = baseInputStyle + ' text-align:right;';
         return `
           <tr class="bulk-entry-row" data-row="${idx}">
             <td class="bulk-entry-cell bulk-col-date" style="${tdStyle}"><input type="date" class="bulk-input" data-field="date" value="${row.date || ""}" style="${inputStyle}" /></td>
