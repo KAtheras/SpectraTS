@@ -2879,7 +2879,7 @@ body[data-theme="dark"] .entry-approved td {
 
 .bulk-table-wrap {
   overflow-x: auto;
-  margin-bottom: 1.75rem;
+  margin-bottom: 1.25rem;
 }
 
 .bulk-entry-table {
@@ -2986,7 +2986,7 @@ body[data-theme="dark"] .entry-approved td {
 }
 
 .bulk-col-hours {
-  width: 2.75rem;
+  width: 2.3rem;
 }
 
 .bulk-col-billable {

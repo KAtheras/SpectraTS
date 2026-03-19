@@ -421,6 +421,18 @@
     renderHourSelection(deps);
   }
 
+  function positionBulkSave() {
+    const actions = document.querySelector(".bulk-actions");
+    if (!actions) return;
+    if (actions.querySelector(".bulk-spacer")) return;
+    const spacer = document.createElement("div");
+    spacer.className = "bulk-spacer";
+    spacer.style.flex = "1";
+    actions.style.display = "flex";
+    actions.style.alignItems = "center";
+    actions.insertBefore(spacer, actions.lastElementChild);
+  }
+
   function wireEntryModeToggle(deps) {
     const { refs, toggleEntryMode } = deps;
     const btn = refs?.entryModeToggle;
@@ -436,9 +448,11 @@
       const next = current === "multiple" ? "single" : "multiple";
       toggleEntryMode(next);
       setLabel(next);
+      positionBulkSave();
     });
 
     setLabel("single");
+    positionBulkSave();
   }
 
   window.entryForm = {
@@ -459,5 +473,6 @@
     handleHourPresetClick,
     handleOtherHoursInput,
     wireEntryModeToggle,
+    positionBulkSave,
   };
 })();
