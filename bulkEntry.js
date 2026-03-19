@@ -93,6 +93,19 @@
       tableEl.style.borderCollapse = "collapse";
       tableEl.style.width = "100%";
       tableEl.style.tableLayout = "fixed";
+      if (!tableEl.querySelector("colgroup")) {
+        const colgroup = document.createElement("colgroup");
+        colgroup.innerHTML = `
+          <col style="width: 120px;">
+          <col style="width: 160px;">
+          <col style="width: 180px;">
+          <col style="width: 60px;">
+          <col style="width: 70px;">
+          <col style="width: auto;">
+          <col style="width: 48px;">
+        `;
+        tableEl.insertBefore(colgroup, tableEl.firstChild);
+      }
     }
 
     r.body.innerHTML = state.rows
