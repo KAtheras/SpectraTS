@@ -20,6 +20,10 @@
     input.type = 'text';
     input.readOnly = true;
     input.classList.add('dp-desktop-date');
+    const parent = input.parentElement;
+    if (parent) {
+      parent.classList.add('dp-date-wrapper');
+    }
     const displayEl = document.createElement('span');
     displayEl.className = 'dp-display-date';
     input.insertAdjacentElement('afterend', displayEl);

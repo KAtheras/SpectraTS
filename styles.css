@@ -2636,6 +2636,10 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
     height: 34px;
   }
 
+  .dp-date-wrapper {
+    position: relative;
+  }
+
   .dp-desktop-date {
     position: relative;
     color: transparent;
