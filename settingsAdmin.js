@@ -99,12 +99,22 @@
   }
 
   function sortedLevels() {
-    const { state, DEFAULT_LEVEL_DEFS } = deps();
+    const { permissionGroupForUser, state, DEFAULT_LEVEL_DEFS } = deps();
+    const rank = (level) => {
+      const group = permissionGroupForUser({ level }) || "staff";
+      if (group === "staff") return 0;
+      if (group === "manager") return 1;
+      if (group === "executive") return 2;
+      return 3; // admin or anything higher
+    };
     const fromState = Object.keys(state.levelLabels || {}).map((l) => Number(l));
     const levels = fromState.length ? fromState : Object.keys(DEFAULT_LEVEL_DEFS).map((l) => Number(l));
     return Array.from(new Set(levels))
       .filter((l) => Number.isFinite(l))
-      .sort((a, b) => a - b);
+      .sort((a, b) => {
+        const rankDiff = rank(a) - rank(b);
+        return rankDiff !== 0 ? rankDiff : a - b;
+      });
   }
 
   function getLevelDefinitions() {
