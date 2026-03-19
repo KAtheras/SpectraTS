@@ -3811,6 +3811,49 @@
     });
   });
 
+  // Mobile: replace wheel filter date selects with native date inputs for easier picking.
+  const isTouch = window.matchMedia("(pointer: coarse)").matches;
+  if (isTouch) {
+    function initMobileFilterDate(kind) {
+      const hidden = field(refs.filterForm, kind);
+      const wheel = document.querySelector(`[data-filter-date="${kind}"]`);
+      if (!hidden || !wheel) return;
+      const input = document.createElement("input");
+      input.type = "date";
+      input.inputMode = "numeric";
+      input.className = "mobile-filter-date";
+      input.value = state.filters[kind] || "";
+      wheel.style.display = "none";
+      wheel.insertAdjacentElement("afterend", input);
+      input.addEventListener("change", function () {
+        const iso = input.value;
+        hidden.value = iso ? formatDisplayDate(iso) : "";
+        applyFiltersFromForm({ showErrors: false });
+      });
+    }
+
+    function initMobileExpenseFilterDate(kind) {
+      const hidden = field(refs.expenseFilterForm, kind);
+      const wheel = document.querySelector(`[data-expense-filter-date="${kind}"]`);
+      if (!hidden || !wheel) return;
+      const input = document.createElement("input");
+      input.type = "date";
+      input.inputMode = "numeric";
+      input.className = "mobile-filter-date";
+      input.value = state.expenseFilters[kind] || "";
+      wheel.style.display = "none";
+      wheel.insertAdjacentElement("afterend", input);
+      input.addEventListener("change", function () {
+        const iso = input.value;
+        hidden.value = iso ? formatDisplayDate(iso) : "";
+        applyExpenseFiltersFromForm({ showErrors: false });
+      });
+    }
+
+    ["from", "to"].forEach(initMobileFilterDate);
+    ["from", "to"].forEach(initMobileExpenseFilterDate);
+  }
+
   field(refs.form, "client").addEventListener("change", function () {
     const userField = field(refs.form, "user");
     const clientField = field(refs.form, "client");
