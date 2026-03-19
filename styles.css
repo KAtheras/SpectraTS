@@ -2950,6 +2950,39 @@ body[data-theme="dark"] .entry-approved td {
   line-height: 1.1 !important;
 }
 
+/* Hard opt-out of global panel form pill styles for bulk table */
+.panel.panel-form .bulk-entry-table input.bulk-input,
+.panel.panel-form .bulk-entry-table select.bulk-input,
+.panel.panel-form .bulk-entry-table textarea.bulk-input {
+  border-radius: 4px !important;
+  padding: 6px 8px !important;
+  height: 32px !important;
+  min-height: 32px !important;
+  box-shadow: none !important;
+  background: var(--surface) !important;
+}
+
+.panel.panel-form .bulk-entry-table .bulk-checkbox {
+  width: 16px !important;
+  height: 16px !important;
+  margin: 0 auto !important;
+}
+
+.bulk-entry-table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.bulk-entry-table th,
+.bulk-entry-table td {
+  border: 1px solid var(--line);
+  padding: 4px 6px;
+}
+
+.bulk-entry-cell {
+  background: transparent;
+}
+
 .bulk-entry-table td.bulk-entry-cell {
   padding: 0.22rem 0.3rem;
 }
