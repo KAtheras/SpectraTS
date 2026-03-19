@@ -1170,6 +1170,21 @@ input[name="cost_rate"] {
   background-repeat: no-repeat;
 }
 
+@media (pointer: fine) {
+  .entry-form .wheel-date-picker,
+  .entry-form .wheel-date-picker select {
+    height: 48px;
+    min-height: 48px;
+  }
+  .wheel-date-picker select {
+    font-size: 1rem;
+    background-size: 7px 7px, 7px 7px;
+    background-position:
+      calc(100% - 18px) calc(50% - 3px),
+      calc(100% - 12px) calc(50% - 3px);
+  }
+}
+
 .filters .wheel-date-picker select {
   height: calc(var(--filter-control-height) - 6px);
   min-height: calc(var(--filter-control-height) - 6px);
@@ -1410,15 +1425,15 @@ textarea {
 .form-actions-entry .button {
   min-width: 132px;
   padding: 0 20px;
-  height: 44px;
-  min-height: 44px;
+  height: var(--entry-control-height);
+  min-height: var(--entry-control-height);
   white-space: nowrap;
 }
 
 .notes-field textarea {
   height: var(--entry-control-height);
   min-height: var(--entry-control-height);
-  border-radius: 16px;
+  border-radius: 12px;
   padding-top: 8px;
   padding-bottom: 8px;
   resize: none;
@@ -2494,6 +2509,15 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   height: 100%;
 }
 
+.expense-entry-form .expense-notes-inline textarea {
+  height: var(--entry-control-height);
+  min-height: var(--entry-control-height);
+  border-radius: 12px;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  resize: none;
+}
+
 .expense-entry-form .expense-actions-inline {
   display: flex;
   align-items: flex-end;
@@ -2502,8 +2526,8 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
 .expense-actions-inline .button {
   min-width: 132px;
   padding: 0 20px;
-  height: 44px;
-  min-height: 44px;
+  height: var(--entry-control-height);
+  min-height: var(--entry-control-height);
   white-space: nowrap;
 }
 
