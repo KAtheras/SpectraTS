@@ -5005,6 +5005,30 @@
   });
 }
 
+  // Expose expenses dependencies for expenses.js (no behavior change).
+  window.expensesDeps = {
+    refs,
+    state,
+    escapeHtml,
+    setSelectOptionsWithPlaceholder,
+    visibleCatalogClientNames,
+    visibleCatalogProjectNames,
+    getUserById,
+    entryUserOptions,
+    getUserByDisplayName,
+    clampDateToBounds,
+    today,
+    setExpenseNonBillableDefault,
+    parseDisplayDate,
+    feedback,
+    formatDisplayDate,
+    formatDisplayDateShort,
+    permissionGroupForUser,
+    canUserAccessProject,
+    isAdmin,
+    field,
+  };
+
   window.addEventListener("resize", postHeight);
   window.addEventListener("load", postHeight);
   window.addEventListener("keydown", function (event) {
