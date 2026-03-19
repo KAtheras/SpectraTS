@@ -435,6 +435,36 @@
     actions.insertBefore(spacer, actions.lastElementChild);
   }
 
+  function stripBulkDeleteColumn() {
+    const table = document.querySelector(".bulk-entry-table");
+    if (!table || table.dataset.deleteStripper) return;
+
+    const strip = () => {
+      // Remove last colgroup column if present
+      const cg = table.querySelector("colgroup");
+      if (cg && cg.children.length > 0) {
+        const lastCol = cg.lastElementChild;
+        if (lastCol) lastCol.remove();
+      }
+      // Remove last header cell
+      const headerRow = table.querySelector("thead tr");
+      if (headerRow && headerRow.children.length) {
+        headerRow.lastElementChild.remove();
+      }
+      // Remove last cell in each body row
+      table.querySelectorAll("tbody tr").forEach((tr) => {
+        if (tr.children.length) {
+          tr.lastElementChild.remove();
+        }
+      });
+    };
+
+    strip();
+    const observer = new MutationObserver(strip);
+    observer.observe(table, { childList: true, subtree: true });
+    table.dataset.deleteStripper = "true";
+  }
+
   function enforceBulkHoursWidth() {
     const table = document.querySelector(".bulk-entry-table");
     if (!table || table.dataset.hoursWidthObserver) return;
@@ -484,6 +514,7 @@
 
     setLabel("single");
     positionBulkSave();
+    stripBulkDeleteColumn();
     enforceBulkHoursWidth();
   }
 
