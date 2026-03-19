@@ -2625,6 +2625,10 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
     pointer-events: none;
   }
 
+  .dp-day.is-disabled:hover {
+    background: var(--surface-subtle);
+  }
+
   .dp-day.dp-day--spacer {
     border: none;
     background: transparent;

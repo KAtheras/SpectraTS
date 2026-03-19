@@ -6,12 +6,22 @@
   const inputs = TARGET_IDS.map((id) => document.getElementById(id)).filter(Boolean);
   if (!inputs.length) return;
 
+  function setDisplay(input, date) {
+    if (!input) return;
+    const display = date
+      ? date.toLocaleDateString(undefined, { month: '2-digit', day: '2-digit', year: 'numeric' })
+      : '';
+    input.dataset.display = display;
+  }
+
   // Disable native desktop date picker for these inputs; keep mobile untouched.
   inputs.forEach((input) => {
     input.dataset.originalType = input.type || 'date';
     input.type = 'text';
     input.readOnly = true;
     input.classList.add('dp-desktop-date');
+    const parsed = parseInput(input);
+    setDisplay(input, parsed);
   });
 
   const popover = document.createElement('div');
@@ -114,6 +124,7 @@
       } else {
         btn.addEventListener('click', () => {
           openInput.value = formatDate(date);
+          setDisplay(openInput, date);
           openInput.dispatchEvent(new Event('input', { bubbles: true }));
           openInput.dispatchEvent(new Event('change', { bubbles: true }));
           closePopover();
