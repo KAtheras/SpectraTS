@@ -980,6 +980,13 @@
     const name = typeof client.name === "string" ? client.name.trim() : "";
     if (!name) return null;
     const clean = (value) => (typeof value === "string" ? value.trim() : "");
+    const billingName =
+      clean(client.billingContactName || client.billing_contact_name) ||
+      clean(
+        [client.adminContactFirstName, client.admin_contact_first_name, client.adminContactLastName, client.admin_contact_last_name]
+          .filter(Boolean)
+          .join(" ")
+      );
     return {
       id: client.id,
       name,
@@ -992,23 +999,7 @@
       ),
       businessContactEmail: clean(client.businessContactEmail || client.business_contact_email),
       businessContactPhone: clean(client.businessContactPhone || client.business_contact_phone),
-      billingContactName: clean(
-        client.billingContactName ||
-          client.billing_contact_name ||
-          client.adminContactFirstName ||
-          client.admin_contact_first_name ||
-          client.adminContactLastName ||
-          client.admin_contact_last_name
-          ? [
-              client.adminContactFirstName,
-              client.admin_contact_first_name,
-              client.adminContactLastName,
-              client.admin_contact_last_name,
-            ]
-              .filter(Boolean)
-              .join(" ")
-          : ""
-      ),
+      billingContactName: billingName,
       billingContactEmail: clean(client.billingContactEmail || client.billing_contact_email || client.adminContactEmail || client.admin_contact_email),
       billingContactPhone: clean(client.billingContactPhone || client.billing_contact_phone || client.adminContactPhone || client.admin_contact_phone),
       addressStreet: clean(client.addressStreet || client.address_street || client.clientAddress || client.client_address),
@@ -4401,14 +4392,18 @@
       const raw = formData.get(name);
       return typeof raw === "string" ? raw.trim() : "";
     };
+    const validatePhone = (phone) => {
+      const digits = (phone || "").replace(/\\D/g, "");
+      return digits.length === 10 ? phone.trim() : "";
+    };
     return {
       name: value("client_name"),
       businessContactName: value("business_contact_name"),
       businessContactEmail: value("business_contact_email"),
-      businessContactPhone: value("business_contact_phone"),
+      businessContactPhone: validatePhone(value("business_contact_phone")),
       billingContactName: value("billing_contact_name"),
       billingContactEmail: value("billing_contact_email"),
-      billingContactPhone: value("billing_contact_phone"),
+      billingContactPhone: validatePhone(value("billing_contact_phone")),
       addressStreet: value("address_street"),
       addressCity: value("address_city"),
       addressState: value("address_state"),
@@ -4437,10 +4432,6 @@
         closeClientEditor();
         render();
       }
-      if (event.target === refs.clientEditor || event.target.classList.contains("client-editor-overlay")) {
-        closeClientEditor();
-        render();
-      }
     });
 
     refs.clientEditor.addEventListener("submit", async function (event) {
@@ -4456,6 +4447,14 @@
       const values = readClientEditorForm(form);
       if (!values.name) {
         feedback("Client name is required.", true);
+        return;
+      }
+      if (!values.businessContactPhone && field(form, "business_contact_phone")?.value) {
+        feedback("Business contact phone must be 10 digits.", true);
+        return;
+      }
+      if (!values.billingContactPhone && field(form, "billing_contact_phone")?.value) {
+        feedback("Billing contact phone must be 10 digits.", true);
         return;
       }
 
