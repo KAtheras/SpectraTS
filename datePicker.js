@@ -6,15 +6,12 @@
   const inputs = TARGET_IDS.map((id) => document.getElementById(id)).filter(Boolean);
   if (!inputs.length) return;
 
-  function formatDisplay(date) {
-    return date
-      ? date.toLocaleDateString(undefined, { month: '2-digit', day: '2-digit', year: 'numeric' })
-      : '';
-  }
-
   function setDisplay(input, date) {
     if (!input) return;
-    input.value = formatDisplay(date);
+    const display = date
+      ? date.toLocaleDateString(undefined, { month: '2-digit', day: '2-digit', year: 'numeric' })
+      : '';
+    input.dataset.display = display;
   }
 
   // Disable native desktop date picker for these inputs; keep mobile untouched.
@@ -23,28 +20,8 @@
     input.type = 'text';
     input.readOnly = true;
     input.classList.add('dp-desktop-date');
-    const parent = input.parentElement;
-    if (parent) {
-      parent.classList.add('dp-date-wrapper');
-    }
-    if (!input.dataset.dpHiddenName) {
-      const hidden = document.createElement('input');
-      hidden.type = 'hidden';
-      hidden.name = input.name;
-      hidden.value = input.value;
-      hidden.dataset.dpHidden = 'true';
-      input.removeAttribute('name');
-      input.dataset.dpHiddenName = hidden.name;
-      input.insertAdjacentElement('afterend', hidden);
-    }
     const parsed = parseInput(input);
     setDisplay(input, parsed);
-    input.addEventListener('change', () => {
-      const parsedChange = parseInput(input);
-      setDisplay(input, parsedChange);
-      const hidden = findHidden(input);
-      if (hidden) hidden.value = parsedChange ? formatDate(parsedChange) : '';
-    });
   });
 
   const popover = document.createElement('div');
@@ -70,16 +47,9 @@
     return new Date(now.getFullYear(), now.getMonth(), now.getDate());
   }
 
-  function findHidden(input) {
-    const sibling = input.nextElementSibling;
-    if (sibling && sibling.dataset.dpHidden === 'true') return sibling;
-    return null;
-  }
-
   function parseInput(input) {
-    const hidden = findHidden(input);
-    const val = hidden ? hidden.value : input.value;
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(val)) return null;
+    const val = input.value;
+    if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(val)) return null;
     const d = new Date(val + 'T00:00:00');
     return Number.isNaN(d.getTime()) ? null : d;
   }
@@ -94,8 +64,8 @@
   function clampToBounds(d, input) {
     const minAttr = input.getAttribute('min');
     const maxAttr = input.getAttribute('max');
-    const min = minAttr && /^\d{4}-\d{2}-\d{2}$/.test(minAttr) ? new Date(minAttr + 'T00:00:00') : null;
-    const max = maxAttr && /^\d{4}-\d{2}-\d{2}$/.test(maxAttr) ? new Date(maxAttr + 'T00:00:00') : null;
+    const min = minAttr && /^\\d{4}-\\d{2}-\\d{2}$/.test(minAttr) ? new Date(minAttr + 'T00:00:00') : null;
+    const max = maxAttr && /^\\d{4}-\\d{2}-\\d{2}$/.test(maxAttr) ? new Date(maxAttr + 'T00:00:00') : null;
     let date = d;
     if (min && date < min) date = min;
     if (max && date > max) date = max;
@@ -105,8 +75,8 @@
   function isDisabled(date, input) {
     const minAttr = input.getAttribute('min');
     const maxAttr = input.getAttribute('max');
-    const min = minAttr && /^\d{4}-\d{2}-\d{2}$/.test(minAttr) ? new Date(minAttr + 'T00:00:00') : null;
-    const max = maxAttr && /^\d{4}-\d{2}-\d{2}$/.test(maxAttr) ? new Date(maxAttr + 'T00:00:00') : null;
+    const min = minAttr && /^\\d{4}-\\d{2}-\\d{2}$/.test(minAttr) ? new Date(minAttr + 'T00:00:00') : null;
+    const max = maxAttr && /^\\d{4}-\\d{2}-\\d{2}$/.test(maxAttr) ? new Date(maxAttr + 'T00:00:00') : null;
     if (min && date < min) return true;
     if (max && date > max) return true;
     return false;
@@ -153,12 +123,8 @@
         btn.disabled = true;
       } else {
         btn.addEventListener('click', () => {
-          const hidden = findHidden(openInput);
-          const canonical = formatDate(date);
-          if (hidden) hidden.value = canonical;
-          // Visible input should always show formatted (MM/DD/YYYY)
+          openInput.value = formatDate(date);
           setDisplay(openInput, date);
-          openInput.dataset.canonical = canonical;
           openInput.dispatchEvent(new Event('input', { bubbles: true }));
           openInput.dispatchEvent(new Event('change', { bubbles: true }));
           closePopover();
