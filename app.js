@@ -348,19 +348,6 @@
   },
 };
 
-  // Expose audit dependencies for auditLog.js (no behavior change).
-  window.auditLogDeps = {
-    refs,
-    state,
-    escapeHtml,
-    userNameById,
-    projectNameById,
-    clientNameById,
-    formatDateTimeLocal,
-    formatDisplayDate,
-    parseDisplayDate,
-  };
-
   window.expensesDeps = {
     refs,
     state,
@@ -382,6 +369,19 @@
     canUserAccessProject,
     isAdmin,
     field,
+  };
+
+  // Expose audit dependencies for auditLog.js (no behavior change).
+  window.auditLogDeps = {
+    refs,
+    state,
+    escapeHtml,
+    userNameById,
+    projectNameById,
+    clientNameById,
+    formatDateTimeLocal,
+    formatDisplayDate,
+    parseDisplayDate,
   };
 
   function arrangeSettingsMenu(showAudit) {
