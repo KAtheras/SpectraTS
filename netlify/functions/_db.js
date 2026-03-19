@@ -123,7 +123,17 @@ async function ensureSchema(sql) {
       id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
       account_id UUID REFERENCES accounts(id),
       name TEXT NOT NULL,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      business_contact_first_name TEXT,
+      business_contact_last_name TEXT,
+      business_contact_email TEXT,
+      business_contact_phone TEXT,
+      client_address TEXT,
+      admin_contact_first_name TEXT,
+      admin_contact_last_name TEXT,
+      admin_contact_email TEXT,
+      admin_contact_phone TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `;
 
@@ -131,6 +141,16 @@ async function ensureSchema(sql) {
     ALTER TABLE clients
     ADD COLUMN IF NOT EXISTS account_id UUID REFERENCES accounts(id)
   `;
+  await sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS business_contact_first_name TEXT`;
+  await sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS business_contact_last_name TEXT`;
+  await sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS business_contact_email TEXT`;
+  await sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS business_contact_phone TEXT`;
+  await sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS client_address TEXT`;
+  await sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS admin_contact_first_name TEXT`;
+  await sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS admin_contact_last_name TEXT`;
+  await sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS admin_contact_email TEXT`;
+  await sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS admin_contact_phone TEXT`;
+  await sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`;
   await sql`UPDATE clients SET account_id = ${accountUuid}::uuid WHERE account_id IS NULL`;
   await sql`
     DROP INDEX IF EXISTS clients_name_ci_idx
@@ -1286,7 +1306,18 @@ async function findClient(sql, clientName, accountId) {
   }
 
   const rows = await sql`
-    SELECT id, name
+    SELECT
+      id,
+      name,
+      business_contact_first_name AS business_contact_first_name,
+      business_contact_last_name AS business_contact_last_name,
+      business_contact_email AS business_contact_email,
+      business_contact_phone AS business_contact_phone,
+      client_address AS client_address,
+      admin_contact_first_name AS admin_contact_first_name,
+      admin_contact_last_name AS admin_contact_last_name,
+      admin_contact_email AS admin_contact_email,
+      admin_contact_phone AS admin_contact_phone
     FROM clients
     WHERE LOWER(name) = LOWER(${normalized})
       AND account_id = ${accountId}::uuid
@@ -1294,6 +1325,28 @@ async function findClient(sql, clientName, accountId) {
   `;
 
   return rows[0] || null;
+}
+
+async function listClients(sql, accountId) {
+  return sql`
+    SELECT
+      id,
+      name,
+      business_contact_first_name AS "businessContactFirstName",
+      business_contact_last_name AS "businessContactLastName",
+      business_contact_email AS "businessContactEmail",
+      business_contact_phone AS "businessContactPhone",
+      client_address AS "clientAddress",
+      admin_contact_first_name AS "adminContactFirstName",
+      admin_contact_last_name AS "adminContactLastName",
+      admin_contact_email AS "adminContactEmail",
+      admin_contact_phone AS "adminContactPhone",
+      created_at AS "createdAt",
+      updated_at AS "updatedAt"
+    FROM clients
+    WHERE account_id = ${accountId}::uuid
+    ORDER BY LOWER(name)
+  `;
 }
 
 async function findProject(sql, clientName, projectName, accountId) {
@@ -1534,6 +1587,8 @@ async function loadState(sql, currentUser) {
     ORDER BY LOWER(clients.name), LOWER(projects.name)
   `;
 
+  const clients = await listClients(sql, accountUuid);
+
   let entries = [];
   if (isAdminFlag) {
     entries = await sql`
@@ -1741,6 +1796,7 @@ async function loadState(sql, currentUser) {
     currentUser: normalizedUser,
     account: { id: accountUuid, name: accountRow?.name || null },
     users,
+    clients,
     catalog,
     entries,
     expenses,
@@ -1869,6 +1925,7 @@ module.exports = {
   listProjectMembers,
   listProjectMembersForProjects,
   listProjectMembersForUser,
+  listClients,
   listProjects,
   listExpenseCategories,
   listLevelLabels,

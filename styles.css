@@ -1741,6 +1741,50 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   background: var(--panel);
 }
 
+.client-editor {
+  padding: 10px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--group-border);
+}
+
+.client-editor-card {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--group-border);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06);
+}
+
+.client-editor-card h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-family: var(--font-head);
+}
+
+.client-editor-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.client-editor-field {
+  display: grid;
+  gap: 6px;
+}
+
+.client-editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.client-editor-note {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
 .catalog-create input {
   min-width: 0;
   min-height: 42px;

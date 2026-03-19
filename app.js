@@ -172,6 +172,7 @@
     entriesBody: document.getElementById("entries-body"),
     expensesBody: document.getElementById("expenses-body"),
     clientList: document.getElementById("client-list"),
+    clientEditor: document.getElementById("client-editor"),
     projectList: document.getElementById("project-list"),
     projectColumnLabel: document.getElementById("project-column-label"),
     userList: document.getElementById("user-list"),
@@ -271,6 +272,7 @@
 
   const state = {
     catalog: {},
+    clients: [],
     entries: [],
     expenses: [],
     filters: {
@@ -299,6 +301,7 @@
     expenseCategories: [],
     account: null,
     projects: [],
+    clientEditor: null,
     assignments: {
       managerClients: [],
       managerProjects: [],
@@ -455,6 +458,9 @@
       : [];
     state.bootstrapRequired = Boolean(data?.bootstrapRequired);
     state.catalog = normalizeCatalog(data?.catalog || {}, false);
+    state.clients = Array.isArray(data?.clients)
+      ? data.clients.map(normalizeClient).filter(Boolean)
+      : [];
     state.entries = Array.isArray(data?.entries) ? data.entries.map(normalizeEntry).filter(Boolean) : [];
     state.expenses = Array.isArray(data?.expenses)
       ? data.expenses.map(normalizeExpense).filter(Boolean)
@@ -481,6 +487,7 @@
     state.projects = normalizedProjects.length
       ? normalizedProjects
       : buildProjectsFromCatalog(state.catalog, {});
+    state.clientEditor = null;
   }
 
   function clearRemoteAppState() {
@@ -488,9 +495,11 @@
     state.users = [];
     state.bootstrapRequired = false;
     state.catalog = normalizeCatalog(DEFAULT_CLIENT_PROJECTS, true);
+    state.clients = [];
     state.entries = [];
     state.expenses = [];
     state.projects = [];
+    state.clientEditor = null;
     state.levelLabels = {};
     state.expenseCategories = [];
     state.account = null;
@@ -533,9 +542,11 @@
         state.bootstrapRequired = Boolean(error.payload?.bootstrapRequired);
         state.currentUser = null;
         state.users = [];
+        state.clients = [];
         state.entries = [];
         state.catalog = normalizeCatalog(DEFAULT_CLIENT_PROJECTS, true);
         state.projects = [];
+        state.clientEditor = null;
         state.assignments = {
           managerClients: [],
           managerProjects: [],
@@ -958,6 +969,26 @@
         : {};
   }
 
+  function normalizeClient(client) {
+    if (!client || typeof client !== "object") return null;
+    const name = typeof client.name === "string" ? client.name.trim() : "";
+    if (!name) return null;
+    const clean = (value) => (typeof value === "string" ? value.trim() : "");
+    return {
+      id: client.id,
+      name,
+      businessContactFirstName: clean(client.businessContactFirstName || client.business_contact_first_name),
+      businessContactLastName: clean(client.businessContactLastName || client.business_contact_last_name),
+      businessContactEmail: clean(client.businessContactEmail || client.business_contact_email),
+      businessContactPhone: clean(client.businessContactPhone || client.business_contact_phone),
+      clientAddress: clean(client.clientAddress || client.client_address),
+      adminContactFirstName: clean(client.adminContactFirstName || client.admin_contact_first_name),
+      adminContactLastName: clean(client.adminContactLastName || client.admin_contact_last_name),
+      adminContactEmail: clean(client.adminContactEmail || client.admin_contact_email),
+      adminContactPhone: clean(client.adminContactPhone || client.admin_contact_phone),
+    };
+  }
+
   function isNonBillableDefault(projectName) {
     return /administrative|admin|internal/i.test(projectName || "");
   }
@@ -1272,6 +1303,69 @@
 
   function projectCount(client) {
     return catalogProjectNames(client).length;
+  }
+
+  function clientByName(name) {
+    const target = typeof name === "string" ? name.trim().toLowerCase() : "";
+    if (!target) return null;
+    return state.clients.find((client) => client.name.toLowerCase() === target) || null;
+  }
+
+  function emptyClientDetails(name) {
+    return {
+      name: name || "",
+      businessContactFirstName: "",
+      businessContactLastName: "",
+      businessContactEmail: "",
+      businessContactPhone: "",
+      clientAddress: "",
+      adminContactFirstName: "",
+      adminContactLastName: "",
+      adminContactEmail: "",
+      adminContactPhone: "",
+    };
+  }
+
+  function buildClientEditorValues(name) {
+    const existing = clientByName(name) || {};
+    return {
+      ...emptyClientDetails(existing.name || name),
+      ...existing,
+    };
+  }
+
+  function applyClientNameChange(previousName, nextName) {
+    const prev = (previousName || "").trim();
+    const next = (nextName || "").trim();
+    if (!next) return;
+    if (state.selectedCatalogClient === prev) {
+      state.selectedCatalogClient = next;
+    }
+    if (state.filters.client === prev) {
+      state.filters.client = next;
+    }
+    if (state.expenseFilters?.client === prev) {
+      state.expenseFilters.client = next;
+    }
+  }
+
+  function openClientEditor({ mode, clientName }) {
+    const editorMode = mode === "edit" ? "edit" : "create";
+    const values = buildClientEditorValues(clientName || "");
+    state.clientEditor = {
+      mode: editorMode,
+      originalName: values.name || clientName || "",
+      values,
+    };
+    renderClientEditor();
+    postHeight();
+  }
+
+  function closeClientEditor() {
+    state.clientEditor = null;
+    if (refs.clientEditor) {
+      refs.clientEditor.innerHTML = "";
+    }
   }
 
   function activeExpenseCategories() {
@@ -1712,10 +1806,79 @@
     }
   }
 
+  function renderClientEditor() {
+    if (!refs.clientEditor) return;
+    const editor = state.clientEditor;
+    if (!editor) {
+      refs.clientEditor.innerHTML = "";
+      return;
+    }
+
+    const values = editor.values || {};
+    const isEditable = isAdmin(state.currentUser);
+    const saveLabel = editor.mode === "edit" ? "Save client" : "Create client";
+    const title = editor.mode === "edit" ? "Edit client" : "New client";
+    const disabledAttr = isEditable ? "" : "disabled";
+
+    refs.clientEditor.innerHTML = `
+      <form class="client-editor-card" data-client-editor-form="${escapeHtml(editor.mode)}">
+        <h3>${escapeHtml(title)}</h3>
+        <p class="client-editor-note">Client details stay on the left; selecting a card still loads projects on the right.</p>
+        <div class="client-editor-grid">
+          <label class="client-editor-field">
+            <span>Client name</span>
+            <input type="text" name="client_name" value="${escapeHtml(values.name || "")}" ${disabledAttr} required />
+          </label>
+          <label class="client-editor-field">
+            <span>Business contact — first</span>
+            <input type="text" name="business_contact_first_name" value="${escapeHtml(values.businessContactFirstName || "")}" ${disabledAttr} />
+          </label>
+          <label class="client-editor-field">
+            <span>Business contact — last</span>
+            <input type="text" name="business_contact_last_name" value="${escapeHtml(values.businessContactLastName || "")}" ${disabledAttr} />
+          </label>
+          <label class="client-editor-field">
+            <span>Business contact — email</span>
+            <input type="email" name="business_contact_email" value="${escapeHtml(values.businessContactEmail || "")}" ${disabledAttr} />
+          </label>
+          <label class="client-editor-field">
+            <span>Business contact — phone</span>
+            <input type="tel" name="business_contact_phone" value="${escapeHtml(values.businessContactPhone || "")}" ${disabledAttr} />
+          </label>
+          <label class="client-editor-field">
+            <span>Client address</span>
+            <textarea name="client_address" rows="2" ${disabledAttr}>${escapeHtml(values.clientAddress || "")}</textarea>
+          </label>
+          <label class="client-editor-field">
+            <span>Account admin — first</span>
+            <input type="text" name="admin_contact_first_name" value="${escapeHtml(values.adminContactFirstName || "")}" ${disabledAttr} />
+          </label>
+          <label class="client-editor-field">
+            <span>Account admin — last</span>
+            <input type="text" name="admin_contact_last_name" value="${escapeHtml(values.adminContactLastName || "")}" ${disabledAttr} />
+          </label>
+          <label class="client-editor-field">
+            <span>Account admin — email</span>
+            <input type="email" name="admin_contact_email" value="${escapeHtml(values.adminContactEmail || "")}" ${disabledAttr} />
+          </label>
+          <label class="client-editor-field">
+            <span>Account admin — phone</span>
+            <input type="tel" name="admin_contact_phone" value="${escapeHtml(values.adminContactPhone || "")}" ${disabledAttr} />
+          </label>
+        </div>
+        <div class="client-editor-actions">
+          <button type="button" class="button-ghost" data-cancel-client>Cancel</button>
+          <button type="submit" class="mini-button" ${disabledAttr}>${escapeHtml(saveLabel)}</button>
+        </div>
+      </form>
+    `;
+  }
+
   function renderCatalogAside() {
     if (!renderCatalogLists) {
       return;
     }
+    renderClientEditor();
     renderCatalogLists({
       refs,
       state,
@@ -2984,6 +3147,7 @@
     }
 
     if (view === "clients") {
+      renderClientEditor();
       renderCatalogLists({
         refs,
         state,
@@ -4169,41 +4333,106 @@
     });
   }
 
-  refs.addClientForm.addEventListener("submit", async function (event) {
+  function readClientEditorForm(form) {
+    const formData = new FormData(form);
+    const value = (name) => {
+      const raw = formData.get(name);
+      return typeof raw === "string" ? raw.trim() : "";
+    };
+    return {
+      name: value("client_name"),
+      businessContactFirstName: value("business_contact_first_name"),
+      businessContactLastName: value("business_contact_last_name"),
+      businessContactEmail: value("business_contact_email"),
+      businessContactPhone: value("business_contact_phone"),
+      clientAddress: value("client_address"),
+      adminContactFirstName: value("admin_contact_first_name"),
+      adminContactLastName: value("admin_contact_last_name"),
+      adminContactEmail: value("admin_contact_email"),
+      adminContactPhone: value("admin_contact_phone"),
+    };
+  }
+
+  refs.addClientForm.addEventListener("submit", function (event) {
     event.preventDefault();
     if (!isAdmin(state.currentUser)) {
       feedback("Only Admins can add clients.", true);
       return;
     }
     const clientNameField = field(refs.addClientForm, "client_name");
-    const formUserField = field(refs.form, "user");
-    const filterUserField = field(refs.filterForm, "user");
-    const filterClientField = field(refs.filterForm, "client");
-    const filterProjectField = field(refs.filterForm, "project");
-    try {
-      await mutatePersistentState("add_client", {
-        clientName: clientNameField.value,
-      });
-      state.selectedCatalogClient = clientNameField.value.trim();
-    } catch (error) {
-      feedback(error.message || "Unable to add client.", true);
+    const rawName = clientNameField.value.trim();
+    if (!rawName) {
+      feedback("Client name is required.", true);
       return;
     }
-
-    refs.addClientForm.reset();
-    syncFormCatalogsUI({
-      user: formUserField.value,
-      client: state.selectedCatalogClient,
-      project: "",
-    });
-    syncFilterCatalogsUI({
-      user: filterUserField.value,
-      client: filterClientField.value,
-      project: filterProjectField.value,
-    });
-    feedback("Client added.", false);
-    render();
+    openClientEditor({ mode: "create", clientName: rawName });
   });
+
+  if (refs.clientEditor) {
+    refs.clientEditor.addEventListener("click", function (event) {
+      if (event.target.closest("[data-cancel-client]")) {
+        closeClientEditor();
+        render();
+      }
+    });
+
+    refs.clientEditor.addEventListener("submit", async function (event) {
+      const form = event.target.closest("[data-client-editor-form]");
+      if (!form) return;
+      event.preventDefault();
+      if (!isAdmin(state.currentUser)) {
+        feedback("Only Admins can save clients.", true);
+        return;
+      }
+      const editor = state.clientEditor;
+      if (!editor) return;
+      const values = readClientEditorForm(form);
+      if (!values.name) {
+        feedback("Client name is required.", true);
+        return;
+      }
+
+      const action = editor.mode === "edit" ? "update_client" : "add_client";
+      const payload = {
+        clientName: editor.mode === "edit" ? editor.originalName : values.name,
+        nextName: values.name,
+        businessContactFirstName: values.businessContactFirstName,
+        businessContactLastName: values.businessContactLastName,
+        businessContactEmail: values.businessContactEmail,
+        businessContactPhone: values.businessContactPhone,
+        clientAddress: values.clientAddress,
+        adminContactFirstName: values.adminContactFirstName,
+        adminContactLastName: values.adminContactLastName,
+        adminContactEmail: values.adminContactEmail,
+        adminContactPhone: values.adminContactPhone,
+      };
+
+      const formUserField = field(refs.form, "user");
+      const filterUserField = field(refs.filterForm, "user");
+
+      try {
+        await mutatePersistentState(action, payload);
+        applyClientNameChange(editor.originalName, values.name);
+        state.selectedCatalogClient = values.name;
+        refs.addClientForm?.reset();
+        feedback(action === "add_client" ? "Client added." : "Client updated.", false);
+        closeClientEditor();
+        syncFormCatalogsUI({
+          user: formUserField?.value,
+          client: state.selectedCatalogClient,
+          project: "",
+        });
+        syncFilterCatalogsUI({
+          user: filterUserField?.value,
+          client: state.filters.client,
+          project: state.filters.project,
+        });
+      } catch (error) {
+        feedback(error.message || "Unable to save client.", true);
+      }
+      render();
+    });
+  }
 
   refs.addProjectForm.addEventListener("submit", async function (event) {
     event.preventDefault();
@@ -4251,40 +4480,7 @@
         return;
       }
       const clientName = editButton.dataset.editClient;
-      const dialogResult = await appDialog({
-        title: "Edit client name",
-        input: true,
-        defaultValue: clientName,
-        confirmText: "Save",
-      });
-      if (!dialogResult.confirmed) {
-        return;
-      }
-      const nextName = dialogResult.value || "";
-      if (!nextName.trim()) {
-        feedback("Client name cannot be empty.", true);
-        return;
-      }
-
-      try {
-        await mutatePersistentState("rename_client", {
-          clientName,
-          nextName,
-        });
-        if (state.selectedCatalogClient === clientName) {
-          state.selectedCatalogClient = nextName.trim();
-        }
-        if (state.filters.client === clientName) {
-          state.filters.client = nextName.trim();
-        }
-      } catch (error) {
-        feedback(error.message || "Unable to update client.", true);
-        return;
-      }
-
-      syncFilterCatalogsUI(state.filters);
-      feedback("Client updated.", false);
-      render();
+      openClientEditor({ mode: "edit", clientName });
       return;
     }
 

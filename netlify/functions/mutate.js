@@ -408,13 +408,47 @@ async function addClient(sql, payload, accountId) {
     return errorResponse(400, "Client name is required.");
   }
 
+  const clean = (value) => {
+    const text = normalizeText(value);
+    return text || null;
+  };
+
   if (await findClient(sql, clientName, accountId)) {
     return errorResponse(409, "That client already exists.");
   }
 
+  const now = new Date().toISOString();
   const inserted = await sql`
-    INSERT INTO clients (account_id, name)
-    VALUES (${accountId}::uuid, ${clientName})
+    INSERT INTO clients (
+      account_id,
+      name,
+      business_contact_first_name,
+      business_contact_last_name,
+      business_contact_email,
+      business_contact_phone,
+      client_address,
+      admin_contact_first_name,
+      admin_contact_last_name,
+      admin_contact_email,
+      admin_contact_phone,
+      created_at,
+      updated_at
+    )
+    VALUES (
+      ${accountId}::uuid,
+      ${clientName},
+      ${clean(payload.businessContactFirstName)},
+      ${clean(payload.businessContactLastName)},
+      ${clean(payload.businessContactEmail)},
+      ${clean(payload.businessContactPhone)},
+      ${clean(payload.clientAddress)},
+      ${clean(payload.adminContactFirstName)},
+      ${clean(payload.adminContactLastName)},
+      ${clean(payload.adminContactEmail)},
+      ${clean(payload.adminContactPhone)},
+      ${now},
+      ${now}
+    )
     RETURNING id, name
   `;
 
@@ -426,6 +460,67 @@ async function addClient(sql, payload, accountId) {
       VALUES (${clientId}, ${accountId}::uuid, 'Administrative')
     `;
   }
+  return null;
+}
+
+async function updateClient(sql, payload, accountId) {
+  const clientName = normalizeText(payload.clientName);
+  const nextNameRaw = normalizeText(payload.nextName) || clientName;
+  if (!clientName) {
+    return errorResponse(400, "Client name is required.");
+  }
+
+  const client = await findClient(sql, clientName, accountId);
+  if (!client) {
+    return errorResponse(404, "Client not found.");
+  }
+
+  const nextName = nextNameRaw || client.name;
+  if (nextName.toLowerCase() !== client.name.toLowerCase()) {
+    const conflict = await findClient(sql, nextName, accountId);
+    if (conflict && conflict.id !== client.id) {
+      return errorResponse(409, "That client already exists.");
+    }
+  }
+
+  const clean = (value) => {
+    const text = normalizeText(value);
+    return text || null;
+  };
+
+  await sql`
+    UPDATE clients
+    SET
+      name = ${nextName},
+      business_contact_first_name = ${clean(payload.businessContactFirstName)},
+      business_contact_last_name = ${clean(payload.businessContactLastName)},
+      business_contact_email = ${clean(payload.businessContactEmail)},
+      business_contact_phone = ${clean(payload.businessContactPhone)},
+      client_address = ${clean(payload.clientAddress)},
+      admin_contact_first_name = ${clean(payload.adminContactFirstName)},
+      admin_contact_last_name = ${clean(payload.adminContactLastName)},
+      admin_contact_email = ${clean(payload.adminContactEmail)},
+      admin_contact_phone = ${clean(payload.adminContactPhone)},
+      updated_at = NOW()
+    WHERE id = ${client.id}
+      AND account_id = ${accountId}::uuid
+  `;
+
+  if (nextName.toLowerCase() !== client.name.toLowerCase()) {
+    await sql`
+      UPDATE entries
+      SET client_name = ${nextName}
+      WHERE LOWER(client_name) = LOWER(${client.name})
+        AND account_id = ${accountId}::uuid
+    `;
+    await sql`
+      UPDATE expenses
+      SET client_name = ${nextName}
+      WHERE LOWER(client_name) = LOWER(${client.name})
+        AND account_id = ${accountId}::uuid
+    `;
+  }
+
   return null;
 }
 
@@ -774,35 +869,7 @@ async function updateManagerProjectRate(sql, payload, currentUser, accountId) {
 }
 
 async function renameClient(sql, payload, accountId) {
-  const clientName = normalizeText(payload.clientName);
-  const nextName = normalizeText(payload.nextName);
-  if (!clientName) {
-    return errorResponse(404, "Client not found.");
-  }
-  if (!nextName) {
-    return errorResponse(400, "Client name is required.");
-  }
-
-  const client = await findClient(sql, clientName, accountId);
-  if (!client) {
-    return errorResponse(404, "Client not found.");
-  }
-  if (client.name.toLowerCase() === nextName.toLowerCase()) {
-    return null;
-  }
-  if (await findClient(sql, nextName, accountId)) {
-    return errorResponse(409, "That client already exists.");
-  }
-
-  await sql`UPDATE clients SET name = ${nextName} WHERE id = ${client.id}`;
-  await sql`
-    UPDATE entries
-    SET client_name = ${nextName}
-    WHERE LOWER(client_name) = LOWER(${client.name})
-      AND account_id = ${accountId}::uuid
-  `;
-
-  return null;
+  return updateClient(sql, payload, accountId);
 }
 
 async function createExpense(sql, payload, currentUser, accountId) {
@@ -1974,6 +2041,12 @@ exports.handler = async function handler(event) {
         const adminError = requireAdmin(context);
         if (adminError) return adminError;
         mutationResult = await renameClient(sql, request.payload || {}, accountId);
+        break;
+      }
+      case "update_client": {
+        const adminError = requireAdmin(context);
+        if (adminError) return adminError;
+        mutationResult = await updateClient(sql, request.payload || {}, accountId);
         break;
       }
       case "rename_project": {
