@@ -11,11 +11,7 @@
     const display = date
       ? date.toLocaleDateString(undefined, { month: '2-digit', day: '2-digit', year: 'numeric' })
       : '';
-    input.dataset.display = display;
-    const sibling = input.nextElementSibling;
-    if (sibling && sibling.classList.contains('dp-display-date')) {
-      sibling.textContent = display;
-    }
+    input.value = display;
   }
 
   // Disable native desktop date picker for these inputs; keep mobile untouched.
@@ -28,19 +24,23 @@
     if (parent) {
       parent.classList.add('dp-date-wrapper');
     }
-    const displayEl = document.createElement('span');
-    displayEl.className = 'dp-display-date';
-    input.insertAdjacentElement('afterend', displayEl);
+    if (!input.dataset.dpHiddenName) {
+      const hidden = document.createElement('input');
+      hidden.type = 'hidden';
+      hidden.name = input.name;
+      hidden.value = input.value;
+      hidden.dataset.dpHidden = 'true';
+      input.removeAttribute('name');
+      input.dataset.dpHiddenName = hidden.name;
+      input.insertAdjacentElement('afterend', hidden);
+    }
     const parsed = parseInput(input);
     setDisplay(input, parsed);
-    displayEl.textContent = input.dataset.display || '';
-    displayEl.addEventListener('click', () => {
-      input.focus();
-      openFor(input);
-    });
     input.addEventListener('change', () => {
-      setDisplay(input, parseInput(input));
-      displayEl.textContent = input.dataset.display || '';
+      const parsedChange = parseInput(input);
+      setDisplay(input, parsedChange);
+      const hidden = findHidden(input);
+      if (hidden) hidden.value = parsedChange ? formatDate(parsedChange) : '';
     });
   });
 
@@ -67,8 +67,15 @@
     return new Date(now.getFullYear(), now.getMonth(), now.getDate());
   }
 
+  function findHidden(input) {
+    const sibling = input.nextElementSibling;
+    if (sibling && sibling.dataset.dpHidden === 'true') return sibling;
+    return null;
+  }
+
   function parseInput(input) {
-    const val = input.value;
+    const hidden = findHidden(input);
+    const val = hidden ? hidden.value : input.value;
     if (!/^\d{4}-\d{2}-\d{2}$/.test(val)) return null;
     const d = new Date(val + 'T00:00:00');
     return Number.isNaN(d.getTime()) ? null : d;
@@ -143,17 +150,15 @@
         btn.disabled = true;
       } else {
         btn.addEventListener('click', () => {
-        openInput.value = formatDate(date);
-        setDisplay(openInput, date);
-        const displaySibling = openInput.nextElementSibling;
-        if (displaySibling && displaySibling.classList.contains('dp-display-date')) {
-          displaySibling.textContent = openInput.dataset.display || '';
-        }
-        openInput.dispatchEvent(new Event('input', { bubbles: true }));
-        openInput.dispatchEvent(new Event('change', { bubbles: true }));
-        closePopover();
-      });
-    }
+          const hidden = findHidden(openInput);
+          const canonical = formatDate(date);
+          if (hidden) hidden.value = canonical;
+          setDisplay(openInput, date);
+          openInput.dispatchEvent(new Event('input', { bubbles: true }));
+          openInput.dispatchEvent(new Event('change', { bubbles: true }));
+          closePopover();
+        });
+      }
       grid.appendChild(btn);
     }
   }
