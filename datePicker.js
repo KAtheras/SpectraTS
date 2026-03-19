@@ -280,6 +280,16 @@
   function openFor(input) {
     if (input.dataset.dpFilter === 'true') {
       setCanonicalFromSelects(input);
+      const form = input.closest('form');
+      const sibling = (name) => form?.elements?.namedItem(name);
+      const fromVal = sibling('from')?.dataset?.dpCanonical || sibling('from')?.value || '';
+      const toVal = sibling('to')?.dataset?.dpCanonical || sibling('to')?.value || '';
+      if (input.name === 'to' && /^\d{4}-\d{2}-\d{2}$/.test(fromVal)) {
+        input.setAttribute('min', fromVal);
+      }
+      if (input.name === 'from' && /^\d{4}-\d{2}-\d{2}$/.test(toVal)) {
+        input.setAttribute('max', toVal);
+      }
     }
     if (input.dataset.dpBody) {
       // Use full source data range (stored on body as data attributes); fallback to visible range.
