@@ -2646,17 +2646,18 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
     caret-color: transparent;
   }
 
-.dp-display-date {
-  position: absolute;
-  left: 12px;
-  right: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  height: 100%;
-  color: var(--ink);
-  pointer-events: none;
-  font: inherit;
-  line-height: 1.2;
+  .dp-display-date {
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    top: auto;
+    bottom: 10px;
+    transform: none;
+    height: 100%;
+    color: var(--ink);
+    pointer-events: none;
+    font: inherit;
+    line-height: 1.2;
   z-index: 1;
 }
 }
