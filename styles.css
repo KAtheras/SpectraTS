@@ -2619,17 +2619,19 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
 
   .dp-day.is-disabled,
   .dp-day:disabled {
-    color: color-mix(in srgb, var(--muted) 35%, transparent);
-    border-color: color-mix(in srgb, var(--control-border) 35%, transparent);
-    background: color-mix(in srgb, var(--surface-subtle) 65%, transparent);
+    color: #9aa1ab;
+    border-color: #d0d4dc;
+    background: #eef0f3;
     cursor: not-allowed;
     pointer-events: none;
-    opacity: 0.35;
+    opacity: 0.32;
+    filter: grayscale(1) contrast(0.75);
+    box-shadow: none;
   }
 
   .dp-day.is-disabled:hover,
   .dp-day:disabled:hover {
-    background: color-mix(in srgb, var(--surface-subtle) 65%, transparent);
+    background: #eef0f3;
   }
 
   .dp-day.dp-day--spacer {
@@ -2643,17 +2645,19 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
 @media (pointer: fine) and (hover: hover) {
   body:not([data-theme="dark"]) .dp-day.is-disabled,
   body:not([data-theme="dark"]) .dp-day:disabled {
-    color: color-mix(in srgb, var(--muted) 30%, transparent);
-    border-color: color-mix(in srgb, var(--line) 35%, transparent);
-    background: color-mix(in srgb, var(--surface) 55%, #f0eee9 45%);
+    color: #9aa1ab;
+    border-color: #d0d4dc;
+    background: #eef0f3;
     opacity: 0.32;
     cursor: not-allowed;
     pointer-events: none;
+    filter: grayscale(1) contrast(0.75);
+    box-shadow: none;
   }
 
   body:not([data-theme="dark"]) .dp-day.is-disabled:hover,
   body:not([data-theme="dark"]) .dp-day:disabled:hover {
-    background: color-mix(in srgb, var(--surface) 55%, #f0eee9 45%);
+    background: #eef0f3;
   }
 }
 
