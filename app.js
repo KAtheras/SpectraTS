@@ -4460,7 +4460,7 @@
       const editor = state.clientEditor;
       if (!editor) return;
       const values = readClientEditorForm(form);
-      ["business_contact_phone", "billing_contact_phone", "business_contact_email", "billing_contact_email", "address_postal"].forEach((name) =>
+      ["business_contact_phone", "billing_contact_phone", "business_contact_email", "billing_contact_email", "address_postal", "address_street", "address_city", "address_state"].forEach((name) =>
         setFieldError(form, name, false)
       );
       setClientEditorMessage(form, "");
@@ -4476,6 +4476,9 @@
       const rawBizEmail = field(form, "business_contact_email")?.value || "";
       const rawBillEmail = field(form, "billing_contact_email")?.value || "";
       const rawZip = field(form, "address_postal")?.value || "";
+      const rawStreet = field(form, "address_street")?.value || "";
+      const rawCity = field(form, "address_city")?.value || "";
+      const rawState = field(form, "address_state")?.value || "";
 
       if (rawBizPhone.trim() && !values.businessContactPhone) {
         errors.push("Business contact phone must be 10 digits.");
@@ -4498,7 +4501,25 @@
         setFieldError(form, "billing_contact_email", true);
       }
       const zipDigits = rawZip.replace(/\\D/g, "");
-      if (rawZip.trim() && zipDigits.length < 5) {
+      const anyAddress = rawStreet.trim() || rawCity.trim() || rawState.trim() || rawZip.trim();
+      if (anyAddress) {
+        if (!rawStreet.trim()) {
+          errors.push("Street is required.");
+          setFieldError(form, "address_street", true);
+        }
+        if (!rawCity.trim()) {
+          errors.push("City is required.");
+          setFieldError(form, "address_city", true);
+        }
+        if (!rawState.trim()) {
+          errors.push("State is required.");
+          setFieldError(form, "address_state", true);
+        }
+        if (!rawZip.trim() || zipDigits.length < 5) {
+          errors.push("Zip code must have at least 5 digits.");
+          setFieldError(form, "address_postal", true);
+        }
+      } else if (rawZip.trim() && zipDigits.length < 5) {
         errors.push("Zip code must have at least 5 digits.");
         setFieldError(form, "address_postal", true);
       }
