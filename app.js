@@ -71,8 +71,8 @@
     applyAuditFiltersFromForm,
   } = window.auditLog || {};
   const {
-    activeExpenseCategories,
     syncExpenseCatalogs,
+    activeExpenseCategories,
     resetExpenseForm,
     setExpenseForm,
     currentExpenses,
