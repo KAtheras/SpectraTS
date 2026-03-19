@@ -2889,17 +2889,17 @@ body[data-theme="dark"] .entry-approved td {
   background: var(--surface-0, #fff);
 }
 
-.bulk-entry-table th,
-.bulk-entry-table td {
-  border: 1px solid var(--border-200, #d7d7d7);
-  padding: 0.25rem 0.35rem;
+.bulk-entry-container .bulk-entry-table th,
+.bulk-entry-container .bulk-entry-table td {
+  border: 1px solid var(--border-200, #c7ccd5) !important;
+  padding: 0.2rem 0.3rem !important;
 }
 
-.bulk-entry-table th {
+.bulk-entry-container .bulk-entry-table th {
   text-align: left;
-  background: var(--surface-100, #f1f3f7);
+  background: var(--surface-100, #eef1f6) !important;
   font-weight: 600;
-  border-bottom-width: 2px;
+  border-bottom-width: 2px !important;
 }
 
 .bulk-entry-row {
@@ -2910,40 +2910,44 @@ body[data-theme="dark"] .entry-approved td {
   vertical-align: middle;
 }
 
-.bulk-entry-table input.bulk-input,
-.bulk-entry-table select.bulk-input,
-.bulk-entry-table textarea.bulk-input {
+.bulk-entry-container .bulk-entry-table input.bulk-input,
+.bulk-entry-container .bulk-entry-table select.bulk-input,
+.bulk-entry-container .bulk-entry-table textarea.bulk-input {
   width: 100%;
-  padding: 0.18rem 0.28rem;
-  border: 1px solid var(--border-200, #cfd3dc);
+  padding: 0.16rem 0.26rem !important;
+  border: 1px solid var(--border-200, #cfd3dc) !important;
   border-radius: 4px !important;
-  font-size: 0.9rem;
-  height: 30px;
-  line-height: 1.2;
-  box-sizing: border-box;
-  background: var(--surface-0, #fff);
-  box-shadow: none;
+  font-size: 0.9rem !important;
+  height: 30px !important;
+  min-height: 30px !important;
+  line-height: 1.2 !important;
+  box-sizing: border-box !important;
+  background: var(--surface-0, #fff) !important;
+  box-shadow: none !important;
 }
 
-.bulk-entry-table select.bulk-input {
-  appearance: none;
+.bulk-entry-container .bulk-entry-table select.bulk-input {
+  appearance: none !important;
   background-position: right 0.35rem center;
   background-repeat: no-repeat;
 }
 
-.bulk-entry-container .bulk-entry-table input:not([type="checkbox"]),
-.bulk-entry-container .bulk-entry-table select,
-.bulk-entry-container .bulk-entry-table textarea {
-  border-radius: 4px !important;
-  padding: 0.18rem 0.28rem;
-  height: 30px;
-  box-shadow: none;
+.bulk-entry-container .bulk-entry-table .bulk-checkbox {
+  width: 1rem !important;
+  height: 1rem !important;
+  margin: 0 auto !important;
+  display: block !important;
 }
 
-.bulk-entry-table .bulk-checkbox {
-  width: 1rem;
-  height: 1rem;
-  margin: 0;
+.bulk-entry-container .bulk-entry-table td {
+  vertical-align: middle;
+}
+
+.bulk-entry-container .bulk-entry-table .bulk-delete {
+  padding: 0.1rem 0.25rem !important;
+  min-width: auto !important;
+  font-size: 0.85rem !important;
+  line-height: 1.1 !important;
 }
 
 .bulk-entry-table td.bulk-entry-cell {
