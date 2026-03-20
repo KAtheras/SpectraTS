@@ -339,7 +339,8 @@
   function categoryOptions() {
     const cats =
       (window.expenses && window.expenses.activeExpenseCategories?.()) || [];
-    return Array.isArray(cats) ? cats : [];
+    if (!Array.isArray(cats)) return [];
+    return cats.map((c) => (typeof c === "string" ? c : c.name || c.label || ""));
   }
 
   function addRow() {
@@ -370,6 +371,9 @@
       row[field] = value;
     }
     if (field === "client") row.project = "";
+    if (field === "project" && /administrative|admin|internal/i.test(String(value || ""))) {
+      row.billable = false;
+    }
     if (render) renderTable();
   }
 
@@ -451,7 +455,7 @@
                   .join("")}
               </select>
             </td>
-            <td class="bulk-entry-cell bulk-col-amount" style="${tdAmtStyle}"><input type="number" class="bulk-input" data-field="amount" min="0" step="0.01" value="${row.amount}" style="${amtInputStyle}" /></td>
+            <td class="bulk-entry-cell bulk-col-amount" style="${tdAmtStyle}"><input type="number" class="bulk-input" data-field="amount" min="0" step="0.01" value="${row.amount}" style="${amtInputStyle}" inputmode="decimal" /></td>
             <td class="bulk-entry-cell bulk-col-billable bulk-center" style="${tdBillableStyle} text-align:center;">
               <input type="checkbox" class="bulk-checkbox" data-field="billable" ${row.billable ? "checked" : ""} style="margin:0 auto; display:block; width:16px; height:16px; transform:scale(0.9);" />
             </td>
