@@ -2717,6 +2717,14 @@
   refs.expenseExportCsv?.addEventListener("click", exportExpensesCsv);
   refs.expenseBulkSave?.addEventListener("click", saveBulkExpenses);
 
+  // Fallback binding for dynamically created expense bulk save button.
+  document.addEventListener("click", function (event) {
+    const btn = event.target.closest("#expense-bulk-save");
+    if (btn) {
+      saveBulkExpenses();
+    }
+  });
+
   refs.auditFilterEntity?.addEventListener("change", applyAuditFiltersFromForm);
   refs.auditFilterAction?.addEventListener("change", applyAuditFiltersFromForm);
   refs.auditFilterActor?.addEventListener("change", applyAuditFiltersFromForm);
