@@ -2247,6 +2247,19 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   background: var(--surface);
 }
 
+.user-detail-card.is-editing input,
+.user-detail-card.is-editing select {
+  background: #ffffff;
+  border: 1px solid color-mix(in srgb, var(--panel-border) 70%, var(--line) 30%);
+  border-radius: 12px;
+}
+
+.user-detail-card.is-editing input:focus,
+.user-detail-card.is-editing select:focus {
+  outline: 2px solid color-mix(in srgb, var(--accent) 65%, transparent);
+  outline-offset: 1px;
+}
+
 .user-detail-card h4 {
   margin: 0;
   font-family: var(--font-head);
