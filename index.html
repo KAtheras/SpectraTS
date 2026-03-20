@@ -657,6 +657,9 @@
             <button type="button" class="settings-tab" data-settings-tab-button="locations" role="tab" aria-selected="false">
               Locations
             </button>
+            <button type="button" class="settings-tab" data-settings-tab-button="rates" role="tab" aria-selected="false">
+              Rates
+            </button>
           </div>
 
           <form id="level-labels-form" class="level-labels-form" data-settings-tab="levels">
@@ -700,6 +703,16 @@
               <div class="level-labels-actions">
                 <button class="button button-ghost" type="button" id="add-office">Add location</button>
                 <button class="button" type="submit" id="save-offices">Save locations</button>
+              </div>
+            </div>
+          </form>
+
+          <form id="rates-form" class="level-labels-form" data-settings-tab="rates" hidden>
+            <div class="level-labels-inner">
+              <h3>Member Rates</h3>
+              <div class="level-rows" id="rates-rows"></div>
+              <div class="level-labels-actions">
+                <button class="button" type="submit" id="save-rates">Save rates</button>
               </div>
             </div>
           </form>

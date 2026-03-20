@@ -114,6 +114,7 @@
   const {
     renderUsersList,
     renderLevelRows,
+    renderRatesRows,
     renderExpenseCategories,
     renderOfficeLocations,
     renderSettingsTabs,
@@ -281,6 +282,8 @@
     addUserForm: document.getElementById("add-user-form"),
     levelLabelsForm: document.getElementById("level-labels-form"),
     levelRows: document.getElementById("level-rows"),
+    ratesForm: document.getElementById("rates-form"),
+    ratesRows: document.getElementById("rates-rows"),
     addLevel: document.getElementById("add-level"),
     filterForm: document.getElementById("filter-form"),
     clearFilters: document.getElementById("clear-filters"),
@@ -1730,8 +1733,6 @@
           displayName: user.displayName,
           username: user.username,
           level: user.level,
-          baseRate: user.baseRate ?? "",
-          costRate: user.costRate ?? "",
           officeId: user.officeId ?? "",
         });
         render();
@@ -1751,16 +1752,10 @@
         const displayNameInput = detailCard.querySelector('[data-user-field="displayName"]');
         const usernameInput = detailCard.querySelector('[data-user-field="username"]');
         const levelSelect = detailCard.querySelector('[data-user-field="level"]');
-        const baseInput = detailCard.querySelector('[data-user-field="baseRate"]');
-        const costInput = detailCard.querySelector('[data-user-field="costRate"]');
         const officeSelect = detailCard.querySelector('[data-user-field="officeId"]');
         const nextDisplayName = displayNameInput?.value.trim() || "";
         const nextUsername = usernameInput?.value.trim() || "";
         const nextLevel = Number(levelSelect?.value || user.level);
-        const baseRaw = baseInput?.value.trim();
-        const costRaw = costInput?.value.trim();
-        const nextBase = baseRaw ? Number(baseRaw) : null;
-        const nextCost = costRaw ? Number(costRaw) : null;
         const nextOfficeIdRaw = officeSelect?.value || "";
         const nextOfficeId = nextOfficeIdRaw ? nextOfficeIdRaw : null;
         if (!nextDisplayName) {
@@ -1775,22 +1770,12 @@
           setUserFeedback("Invalid level.", true);
           return;
         }
-        if (nextBase !== null && (!Number.isFinite(nextBase) || nextBase < 0)) {
-          setUserFeedback("Base rate must be a non-negative number.", true);
-          return;
-        }
-        if (nextCost !== null && (!Number.isFinite(nextCost) || nextCost < 0)) {
-          setUserFeedback("Cost rate must be a non-negative number.", true);
-          return;
-        }
         try {
           await mutatePersistentState("update_user", {
             userId: user.id,
             displayName: nextDisplayName,
             username: nextUsername,
             level: nextLevel,
-            baseRate: nextBase,
-            costRate: nextCost,
             officeId: nextOfficeId,
           });
           usersSetDetailEditState?.(null, false, {});
@@ -2150,6 +2135,7 @@
 
     if (view === "settings") {
       renderLevelRows();
+      renderRatesRows?.();
       renderExpenseCategories();
       renderOfficeLocations();
       renderSettingsTabs?.();
@@ -3353,6 +3339,53 @@
     });
   }
 
+  if (refs.ratesForm) {
+    refs.ratesForm.addEventListener("submit", async function (event) {
+      event.preventDefault();
+      if (!isAdmin(state.currentUser)) {
+        feedback("Only Admins can update rates.", true);
+        return;
+      }
+      const rows = Array.from(refs.ratesRows?.querySelectorAll(".rate-row") || []);
+      const updates = [];
+      for (const row of rows) {
+        const userId = row.dataset.userId;
+        const baseInput = row.querySelector("[data-rate-base]");
+        const costInput = row.querySelector("[data-rate-cost]");
+        const baseRaw = baseInput?.value?.trim() ?? "";
+        const costRaw = costInput?.value?.trim() ?? "";
+        const baseRate = baseRaw === "" ? null : Number(baseRaw);
+        const costRate = costRaw === "" ? null : Number(costRaw);
+        if ((baseRate !== null && (!Number.isFinite(baseRate) || baseRate < 0)) ||
+            (costRate !== null && (!Number.isFinite(costRate) || costRate < 0))) {
+          feedback("Rates must be non-negative numbers.", true);
+          return;
+        }
+        updates.push({ userId, baseRate, costRate });
+      }
+      try {
+        for (const update of updates) {
+          const user = state.users.find((u) => u.id === update.userId);
+          if (!user) continue;
+          await mutatePersistentState("update_user", {
+            userId: user.id,
+            displayName: user.displayName,
+            username: user.username,
+            level: user.level,
+            officeId: user.officeId ?? null,
+            baseRate: update.baseRate,
+            costRate: update.costRate,
+          });
+        }
+        await loadPersistentState();
+        renderRatesRows?.();
+        feedback("Rates updated.", false);
+      } catch (error) {
+        feedback(error.message || "Unable to update rates.", true);
+      }
+    });
+  }
+
   if (refs.addCategory) {
     refs.addCategory.addEventListener("click", function () {
       if (!isAdmin(state.currentUser)) {
@@ -4390,6 +4423,7 @@
     isGlobalAdmin,
     isManager,
     isStaff,
+    renderRatesRows,
     managerClientAssignments,
     managerProjectAssignments,
     projectMembersForUser,

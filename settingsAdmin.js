@@ -1,6 +1,6 @@
 (function () {
   const deps = () => window.settingsAdminDeps || {};
-  const SETTINGS_TABS = ["levels", "categories", "locations"];
+  const SETTINGS_TABS = ["levels", "categories", "locations", "rates"];
   let activeSettingsTab = "levels";
   let tabsInitialized = false;
 
@@ -113,6 +113,26 @@
     if (refs.addLevel) {
       refs.addLevel.disabled = !editable;
     }
+  }
+
+  function renderRatesRows() {
+    const { refs, state, escapeHtml, isAdmin } = deps();
+    if (!refs.ratesRows) return;
+
+    const editable = isAdmin(state.currentUser);
+    const users = (state.users || []).filter((u) => u.isActive !== false);
+
+    refs.ratesRows.innerHTML = users
+      .map(
+        (user) => `
+          <div class="level-row rate-row" data-user-id="${escapeHtml(user.id)}">
+            <span class="level-num">${escapeHtml(user.displayName)}</span>
+            <input type="number" step="0.01" min="0" data-rate-base value="${user.baseRate ?? ""}" ${editable ? "" : "disabled"} />
+            <input type="number" step="0.01" min="0" data-rate-cost value="${user.costRate ?? ""}" ${editable ? "" : "disabled"} />
+          </div>
+        `
+      )
+      .join("");
   }
 
   function renderExpenseCategories() {
@@ -339,6 +359,7 @@
   window.settingsAdmin = {
     renderUsersList,
     renderLevelRows,
+    renderRatesRows,
     renderExpenseCategories,
     renderOfficeLocations,
     renderSettingsTabs,

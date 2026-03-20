@@ -225,12 +225,6 @@
     const draftDisplayName = editing
       ? detailDraft.displayName ?? selectedUser.displayName
       : selectedUser.displayName;
-    const draftBase = editing
-      ? detailDraft.baseRate ?? selectedUser.baseRate ?? ""
-      : selectedUser.baseRate;
-    const draftCost = editing
-      ? detailDraft.costRate ?? selectedUser.costRate ?? ""
-      : selectedUser.costRate;
     const draftOfficeId = editing
       ? detailDraft.officeId ?? selectedUser.officeId ?? ""
       : selectedUser.officeId ?? "";
@@ -270,30 +264,6 @@
                 editing
                   ? `<select data-user-field="level" ${disabledButtonAttrs(canChangeRole, changeLevelReason)}>${levelOptions}</select>`
                   : escapeHtml(levelLabel(selectedUser.level))
-              }
-            </dd>
-          </div>
-          <div>
-            <dt>Base Rate</dt>
-            <dd>
-              ${
-                editing
-                  ? `<input type="number" step="0.01" min="0" data-user-field="baseRate" value="${draftBase === null || draftBase === undefined ? "" : escapeHtml(String(draftBase))}" />`
-                  : selectedUser.baseRate !== null && selectedUser.baseRate !== undefined
-                    ? `$${Number(selectedUser.baseRate).toFixed(2)}`
-                    : "—"
-              }
-            </dd>
-          </div>
-          <div>
-            <dt>Cost Rate</dt>
-            <dd>
-              ${
-                editing
-                  ? `<input type="number" step="0.01" min="0" data-user-field="costRate" value="${draftCost === null || draftCost === undefined ? "" : escapeHtml(String(draftCost))}" />`
-                  : selectedUser.costRate !== null && selectedUser.costRate !== undefined
-                    ? `$${Number(selectedUser.costRate).toFixed(2)}`
-                    : "—"
               }
             </dd>
           </div>
