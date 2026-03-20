@@ -519,6 +519,91 @@
     enforceBulkHoursWidth();
   }
 
+  // Expense bulk toggle and container (Expenses tab only).
+  function buildExpenseBulkContainer() {
+    const form = document.getElementById("expense-form");
+    if (!form) return null;
+    const panel = form.closest(".panel");
+    if (!panel) return null;
+    const existing = document.getElementById("expense-bulk-container");
+    if (existing) return existing;
+
+    const container = document.createElement("div");
+    container.id = "expense-bulk-container";
+    container.className = "bulk-entry-container";
+    container.hidden = true;
+    container.innerHTML = `
+      <div class="bulk-section" style="display:flex;flex-direction:column;gap:6px;">
+        <div class="bulk-table-wrap" style="margin-bottom:0;">
+          <table class="bulk-entry-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Client</th>
+                <th>Project</th>
+                <th>Category</th>
+                <th>Amount</th>
+                <th>Billable</th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody id="expense-bulk-body"></tbody>
+          </table>
+        </div>
+        <div class="bulk-actions" style="margin-top:0;display:flex;align-items:center;gap:0.5rem;justify-content:flex-start;">
+          <button type="button" class="button button-ghost" id="expense-bulk-add-row">+ Add row</button>
+        </div>
+      </div>
+    `;
+    panel.appendChild(container);
+    return container;
+  }
+
+  function wireExpenseModeToggle() {
+    const form = document.getElementById("expense-form");
+    if (!form) return;
+    const panel = form.closest(".panel");
+    const panelHeadActions = panel?.querySelector(".panel-head-actions");
+    if (!panelHeadActions) return;
+
+    let toggleBtn = document.getElementById("expense-mode-toggle");
+    if (!toggleBtn) {
+      toggleBtn = document.createElement("button");
+      toggleBtn.id = "expense-mode-toggle";
+      toggleBtn.type = "button";
+      toggleBtn.className = "button button-ghost entry-mode-button";
+      panelHeadActions.insertBefore(toggleBtn, panelHeadActions.firstChild);
+    }
+
+    const bulkContainer = buildExpenseBulkContainer();
+    if (!bulkContainer) return;
+
+    const setLabel = (mode) => {
+      toggleBtn.dataset.mode = mode;
+      toggleBtn.textContent = mode === "multiple" ? "Single entry" : "Multiple entry";
+    };
+
+    const showMode = (mode) => {
+      const isMultiple = mode === "multiple";
+      form.hidden = isMultiple;
+      bulkContainer.hidden = !isMultiple;
+      setLabel(mode);
+      if (isMultiple && window.bulkExpenses?.init) {
+        window.bulkExpenses.init();
+      }
+    };
+
+    toggleBtn.addEventListener("click", () => {
+      const current = toggleBtn.dataset.mode === "multiple" ? "multiple" : "single";
+      const next = current === "multiple" ? "single" : "multiple";
+      showMode(next);
+    });
+
+    showMode("single");
+  }
+
+  wireExpenseModeToggle();
+
   window.entryForm = {
     daysInMonth,
     yearOptions,
@@ -538,5 +623,6 @@
     handleOtherHoursInput,
     wireEntryModeToggle,
     positionBulkSave,
+    wireExpenseModeToggle,
   };
 })();
