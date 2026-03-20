@@ -585,7 +585,7 @@
     state.levelLabels = data?.levelLabels && typeof data.levelLabels === "object"
       ? data.levelLabels
       : {};
-    state.officeLocations = Array.isArray(data?.officeLocations)
+    const remoteOffices = Array.isArray(data?.officeLocations)
       ? data.officeLocations
           .map(function (item) {
             const id = item.id || item.locationId || null;
@@ -595,7 +595,22 @@
             return { id, name, officeLeadUserId };
           })
           .filter(Boolean)
-      : previousOfficeLocations;
+      : null;
+
+    const cachedOffices = (() => {
+      try {
+        const raw = window.localStorage.getItem("timesheet.offices");
+        return raw ? JSON.parse(raw) : null;
+      } catch (e) {
+        return null;
+      }
+    })();
+
+    state.officeLocations = remoteOffices !== null
+      ? remoteOffices
+      : cachedOffices !== null
+        ? cachedOffices
+        : previousOfficeLocations;
     state.expenseCategories = Array.isArray(data?.expenseCategories)
       ? data.expenseCategories.map((item) => {
           const activeRaw =
@@ -3128,6 +3143,9 @@
     try {
       await mutatePersistentState("update_office_locations", { locations });
       feedback("Office locations updated.", false);
+      try {
+        window.localStorage.setItem("timesheet.offices", JSON.stringify(locations));
+      } catch (e) {}
       await loadPersistentState();
       renderOfficeLocations();
     } catch (error) {

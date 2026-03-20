@@ -115,11 +115,11 @@
         ].join("");
 
         return `
-          <div class="level-row office-row" data-office-id="${escapeHtml(item.id || "")}">
+          <div class="office-row" data-office-id="${escapeHtml(item.id || "")}">
             <div class="office-row-view" data-office-view>
-              <div class="office-row-text">
-                <span class="office-name">${escapeHtml(item.name)}</span>
-                <span class="office-lead">${escapeHtml(leadName)}</span>
+              <div class="office-row-main">
+                <div class="office-name">${escapeHtml(item.name)}</div>
+                <div class="office-lead">${escapeHtml(leadName)}</div>
               </div>
               <div class="office-actions">
                 <button type="button" class="expense-delete" data-office-edit>Edit</button>

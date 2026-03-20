@@ -940,26 +940,36 @@ input[name="cost_rate"] {
   align-items: center;
 }
 
-.office-row .office-row-view {
+.office-row {
   display: grid;
-  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--panel-border);
+  border-radius: 14px;
+  background: var(--panel);
+}
+
+.office-row + .office-row {
+  margin-top: 10px;
+}
+
+.office-row .office-row-view {
+  display: contents;
 }
 
 .office-row .office-row-edit {
   display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
   gap: 10px;
-  margin-top: 10px;
+  margin-top: 8px;
   align-items: center;
 }
 
-.office-row .office-row-text {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: nowrap;
+.office-row .office-row-main {
+  display: grid;
+  gap: 4px;
   min-width: 0;
 }
 
@@ -978,6 +988,7 @@ input[name="cost_rate"] {
   display: flex;
   align-items: center;
   gap: 8px;
+  justify-content: flex-end;
 }
 
 .level-labels-actions .button {
