@@ -176,20 +176,24 @@
       ).padStart(2, "0")}`;
       const masterMin = masterDate?.min || `${now.getFullYear() - 1}-01-01`;
       const masterMax = masterDate?.max || todayIso;
+      const clamp = (val) => {
+        if (masterMax && val && val > masterMax) return masterMax;
+        if (masterMin && val && val < masterMin) return masterMin;
+        return val || masterMax || todayIso;
+      };
       bulkDates.forEach((input) => {
         if (masterMin) input.min = masterMin;
         input.max = masterMax;
-        const val = input.value || "";
-        if (masterMax && val > masterMax) {
-          input.value = masterMax;
-        }
-        input.dataset.dpCanonical = input.value || masterMax || todayIso;
+        input.setAttribute("min", masterMin);
+        input.setAttribute("max", masterMax);
+        const clamped = clamp(input.value || "");
+        input.value = clamped;
+        input.dataset.dpCanonical = clamped;
         // Clamp on native change (in case picker not attached).
         input.addEventListener("change", () => {
-          const v = input.value;
-          if (masterMax && v > masterMax) input.value = masterMax;
-          if (masterMin && v && v < masterMin) input.value = masterMin;
-          input.dataset.dpCanonical = input.value || masterMax || todayIso;
+          const v = clamp(input.value);
+          input.value = v;
+          input.dataset.dpCanonical = v;
         });
       });
     }
