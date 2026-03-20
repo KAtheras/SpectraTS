@@ -97,6 +97,57 @@
       .join("");
   }
 
+  function renderOfficeLocations() {
+    const { refs, state, escapeHtml } = deps();
+    if (!refs.officeRows) return;
+
+    const usersById = new Map((state.users || []).map((u) => [u.id, u]));
+
+    refs.officeRows.innerHTML = (state.officeLocations || [])
+      .map(function (item) {
+        const lead = item.officeLeadUserId ? usersById.get(item.officeLeadUserId) : null;
+        const leadName = lead ? lead.displayName : "No lead";
+
+        const leadOptions = [
+          `<option value="">No lead</option>`,
+          ...state.users
+            .map((u) => `<option value="${escapeHtml(u.id)}"${u.id === item.officeLeadUserId ? " selected" : ""}>${escapeHtml(u.displayName)}</option>`),
+        ].join("");
+
+        return `
+          <div class="level-row office-row" data-office-id="${escapeHtml(item.id || "")}">
+            <div class="office-row-view" data-office-view>
+              <div class="office-row-text">
+                <span class="office-name">${escapeHtml(item.name)}</span>
+                <span class="office-lead">${escapeHtml(leadName)}</span>
+              </div>
+              <div class="office-actions">
+                <button type="button" class="expense-delete" data-office-edit>Edit</button>
+                <button type="button" class="expense-delete" data-office-delete>Remove</button>
+              </div>
+            </div>
+            <div class="office-row-edit" data-office-edit-row hidden>
+              <input type="text" value="${escapeHtml(item.name)}" data-office-name placeholder="Location name" />
+              <select data-office-lead>${leadOptions}</select>
+              <div class="office-actions">
+                <button type="button" class="expense-toggle is-active" data-office-save>Save</button>
+                <button type="button" class="expense-delete" data-office-cancel>Cancel</button>
+              </div>
+            </div>
+          </div>
+        `;
+      })
+      .join("");
+
+    if (refs.officeAddLead) {
+      const options = [
+        `<option value="">Office Lead (optional)</option>`,
+        ...state.users.map((u) => `<option value="${escapeHtml(u.id)}">${escapeHtml(u.displayName)}</option>`),
+      ];
+      refs.officeAddLead.innerHTML = options.join("");
+    }
+  }
+
   function sortedLevels() {
     const { permissionGroupForUser, state, DEFAULT_LEVEL_DEFS } = deps();
     const rank = (level) => {
@@ -255,6 +306,7 @@
     renderUsersList,
     renderLevelRows,
     renderExpenseCategories,
+    renderOfficeLocations,
     sortedLevels,
     getLevelDefinitions,
     syncUserManagementControls,

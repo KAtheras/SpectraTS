@@ -932,6 +932,50 @@ input[name="cost_rate"] {
   flex-wrap: wrap;
 }
 
+.office-add-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) auto;
+  gap: 10px;
+  margin-bottom: 12px;
+  align-items: center;
+}
+
+.office-row .office-row-view {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.office-row .office-row-edit {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) auto;
+  gap: 10px;
+  margin-top: 10px;
+  align-items: center;
+}
+
+.office-row .office-row-text {
+  display: grid;
+  gap: 4px;
+}
+
+.office-row .office-name {
+  font-family: var(--font-head);
+  font-weight: 700;
+}
+
+.office-row .office-lead {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.office-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .level-labels-actions .button {
   margin-top: 4px;
 }

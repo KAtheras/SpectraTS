@@ -662,6 +662,29 @@
               </div>
             </div>
           </form>
+
+          <form id="office-locations-form" class="level-labels-form">
+            <div class="level-labels-inner">
+              <h3>Office Locations</h3>
+              <div class="office-add-row">
+                <input
+                  type="text"
+                  id="office-add-name"
+                  name="office_add_name"
+                  placeholder="Location name"
+                  autocomplete="off"
+                />
+                <select id="office-add-lead" name="office_add_lead">
+                  <option value="">Office Lead (optional)</option>
+                </select>
+                <button class="button button-ghost" type="button" id="add-office">Add</button>
+              </div>
+              <div class="level-rows" id="office-rows"></div>
+              <div class="level-labels-actions">
+                <button class="button" type="submit" id="save-offices">Save locations</button>
+              </div>
+            </div>
+          </form>
         </div>
       </section>
 

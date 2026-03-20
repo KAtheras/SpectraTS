@@ -115,6 +115,8 @@
     renderUsersList,
     renderLevelRows,
     renderExpenseCategories,
+    renderOfficeLocations,
+    renderOfficeLocations,
     sortedLevels,
     getLevelDefinitions,
     syncUserManagementControls,
@@ -304,6 +306,11 @@
     expenseFilterToDay: document.getElementById("expense-filter-to-day"),
     expenseFilterToYear: document.getElementById("expense-filter-to-year"),
     expenseBulkSave: document.getElementById("expense-bulk-save"),
+    officeLocationsForm: document.getElementById("office-locations-form"),
+    officeRows: document.getElementById("office-rows"),
+    officeAddName: document.getElementById("office-add-name"),
+    officeAddLead: document.getElementById("office-add-lead"),
+    addOffice: document.getElementById("add-office"),
     navAudit: document.getElementById("nav-audit"),
     navAuditMobile: document.getElementById("nav-audit-mobile"),
     auditView: document.getElementById("audit-page"),
@@ -391,6 +398,7 @@
     users: [],
     bootstrapRequired: false,
     levelLabels: {},
+    officeLocations: [],
     expenseCategories: [],
     account: null,
     projects: [],
@@ -575,6 +583,17 @@
     state.levelLabels = data?.levelLabels && typeof data.levelLabels === "object"
       ? data.levelLabels
       : {};
+    state.officeLocations = Array.isArray(data?.officeLocations)
+      ? data.officeLocations
+          .map(function (item) {
+            const id = item.id || item.locationId || null;
+            const name = (item.name || "").trim();
+            const officeLeadUserId = item.officeLeadUserId || item.office_lead_user_id || "";
+            if (!name) return null;
+            return { id, name, officeLeadUserId };
+          })
+          .filter(Boolean)
+      : [];
     state.expenseCategories = Array.isArray(data?.expenseCategories)
       ? data.expenseCategories.map((item) => {
           const activeRaw =
@@ -607,6 +626,7 @@
     state.projects = [];
     state.clientEditor = null;
     state.levelLabels = {};
+    state.officeLocations = [];
     state.expenseCategories = [];
     state.account = null;
     state.assignments = {
@@ -2035,6 +2055,7 @@
     if (view === "settings") {
       renderLevelRows();
       renderExpenseCategories();
+      renderOfficeLocations();
       postHeight();
       postHeight();
       return;
@@ -3097,6 +3118,130 @@
         render();
       } catch (error) {
         feedback(error.message || "Unable to update expense categories.", true);
+      }
+    });
+  }
+
+  async function saveOfficeLocations(locations) {
+    try {
+      await mutatePersistentState("update_office_locations", { locations });
+      feedback("Office locations updated.", false);
+      await loadPersistentState();
+      renderOfficeLocations();
+    } catch (error) {
+      feedback(error.message || "Unable to update office locations.", true);
+    }
+  }
+
+  if (refs.officeLocationsForm) {
+    refs.officeLocationsForm.addEventListener("submit", async function (event) {
+      event.preventDefault();
+      const rows = Array.from(refs.officeRows?.querySelectorAll(".office-row") || []);
+      const seen = new Set();
+      const locations = [];
+      for (const row of rows) {
+        const id = (row.dataset.officeId || "").trim();
+        const nameInput = row.querySelector("[data-office-name]");
+        const leadSelect = row.querySelector("[data-office-lead]");
+        const name = (nameInput?.value || "").trim();
+        const officeLeadUserId = (leadSelect?.value || "").trim();
+        if (!name) {
+          feedback("Location name is required.", true);
+          return;
+        }
+        const key = name.toLowerCase();
+        if (seen.has(key)) {
+          feedback("Location names must be unique.", true);
+          return;
+        }
+        seen.add(key);
+        locations.push({ id: id || null, name, officeLeadUserId });
+      }
+      state.officeLocations = locations;
+      renderOfficeLocations();
+      await saveOfficeLocations(locations);
+    });
+  }
+
+  if (refs.addOffice) {
+    refs.addOffice.addEventListener("click", async function () {
+      if (!isAdmin(state.currentUser)) {
+        feedback("Only Admins can update office locations.", true);
+        return;
+      }
+      const name = (refs.officeAddName?.value || "").trim();
+      const officeLeadUserId = (refs.officeAddLead?.value || "").trim();
+      if (!name) {
+        feedback("Location name is required.", true);
+        return;
+      }
+      const newItem = {
+        id: `temp-office-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        name,
+        officeLeadUserId,
+      };
+      state.officeLocations = [...state.officeLocations, newItem];
+      renderOfficeLocations();
+      if (refs.officeAddName) refs.officeAddName.value = "";
+      if (refs.officeAddLead) refs.officeAddLead.value = "";
+      await saveOfficeLocations(state.officeLocations);
+    });
+  }
+
+  if (refs.officeRows) {
+    refs.officeRows.addEventListener("click", async function (event) {
+      const editBtn = event.target.closest("[data-office-edit]");
+      const deleteBtn = event.target.closest("[data-office-delete]");
+      const saveBtn = event.target.closest("[data-office-save]");
+      const cancelBtn = event.target.closest("[data-office-cancel]");
+      const row = event.target.closest(".office-row");
+      if (!row) return;
+
+      if (editBtn) {
+        row.querySelector("[data-office-view]")?.setAttribute("hidden", "");
+        row.querySelector("[data-office-edit-row]")?.removeAttribute("hidden");
+        return;
+      }
+
+      if (cancelBtn) {
+        renderOfficeLocations();
+        return;
+      }
+
+      if (deleteBtn) {
+        if (!isAdmin(state.currentUser)) {
+          feedback("Only Admins can update office locations.", true);
+          return;
+        }
+        const id = row.dataset.officeId;
+        state.officeLocations = state.officeLocations.filter((item) => item.id !== id);
+        renderOfficeLocations();
+        await saveOfficeLocations(state.officeLocations);
+        return;
+      }
+
+      if (saveBtn) {
+        if (!isAdmin(state.currentUser)) {
+          feedback("Only Admins can update office locations.", true);
+          return;
+        }
+        const nameInput = row.querySelector("[data-office-name]");
+        const leadSelect = row.querySelector("[data-office-lead]");
+        const name = (nameInput?.value || "").trim();
+        const officeLeadUserId = (leadSelect?.value || "").trim();
+        if (!name) {
+          feedback("Location name is required.", true);
+          return;
+        }
+        const id = row.dataset.officeId || null;
+        state.officeLocations = state.officeLocations.map(function (item) {
+          if ((item.id || null) === id) {
+            return { ...item, name, officeLeadUserId };
+          }
+          return item;
+        });
+        renderOfficeLocations();
+        await saveOfficeLocations(state.officeLocations);
       }
     });
   }
