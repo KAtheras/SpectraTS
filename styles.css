@@ -2219,8 +2219,8 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
 .user-list-column {
   display: grid;
   gap: 12px;
-  overflow: visible;
-  max-height: none;
+  overflow: hidden;
+  max-height: 100%;
   padding-right: 0;
 }
 
