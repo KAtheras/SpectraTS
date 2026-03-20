@@ -3065,8 +3065,10 @@
     refs.forcePasswordForm.addEventListener("submit", submitForcePassword);
   }
   refs.userList.addEventListener("click", handleUserListAction);
-  if (refs.levelLabelsForm) {
-    refs.levelLabelsForm.addEventListener("submit", async function (event) {
+  window.addEventListener("DOMContentLoaded", function () {
+    const levelLabelsForm = document.getElementById("level-labels-form");
+    if (!levelLabelsForm) return;
+    levelLabelsForm.addEventListener("submit", async function (event) {
       event.preventDefault();
       if (!isAdmin(state.currentUser)) {
         feedback("Only Admins can update levels.", true);
@@ -3130,7 +3132,7 @@
         feedback(error.message || "Unable to update levels.", true);
       }
     });
-  }
+  });
   if (refs.addLevel) {
     refs.addLevel.addEventListener("click", handleAddLevel);
   }
