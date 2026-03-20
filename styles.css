@@ -942,9 +942,9 @@ input[name="cost_rate"] {
 
 .office-row .office-row-view {
   display: grid;
-  grid-template-columns: minmax(0, 2fr) auto;
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) auto;
   align-items: center;
-  gap: 24px;
+  gap: 16px;
 }
 
 .office-row .office-row-edit {
@@ -956,8 +956,11 @@ input[name="cost_rate"] {
 }
 
 .office-row .office-row-text {
-  display: grid;
-  gap: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: nowrap;
+  min-width: 0;
 }
 
 .office-row .office-name {
@@ -968,6 +971,7 @@ input[name="cost_rate"] {
 .office-row .office-lead {
   color: var(--muted);
   font-size: 0.9rem;
+  white-space: nowrap;
 }
 
 .office-actions {
