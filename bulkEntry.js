@@ -548,4 +548,10 @@
       renderTable();
     },
   };
+
+  // Auto-init when the container already exists (entryForm builds it before this script loads).
+  const expenseContainer = document.getElementById("expense-bulk-container");
+  if (expenseContainer) {
+    init();
+  }
 })();
