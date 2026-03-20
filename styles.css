@@ -951,10 +951,7 @@ input[name="cost_rate"] {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
+  width: 100%;
 }
 
 .office-row .office-row-view {
