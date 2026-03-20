@@ -81,7 +81,7 @@
     }
 
     const previousScroll =
-      refs.userList.querySelector(".member-card-body")?.scrollTop ??
+      refs.userList.querySelector(".member-card-list")?.scrollTop ??
       refs.userList.querySelector(".user-list-column")?.scrollTop ??
       0;
     const wasSearchFocused =
@@ -332,7 +332,7 @@
                 </select>
               </label>
             </div>
-            <div class="member-card-body catalog-list">${listHtml}</div>
+            <div class="catalog-list member-card-list">${listHtml}</div>
           </div>
         </div>
         <div class="user-detail-column">${detailHtml}</div>
@@ -358,7 +358,7 @@
       });
     }
 
-    const newListBody = refs.userList.querySelector(".member-card-body");
+    const newListBody = refs.userList.querySelector(".member-card-list");
     if (newListBody) {
       newListBody.scrollTop = previousScroll;
     } else {

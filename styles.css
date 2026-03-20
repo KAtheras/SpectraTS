@@ -1967,6 +1967,10 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   position: relative;
 }
 
+.user-item {
+  background: var(--item-bg);
+}
+
 .catalog-item:hover {
   background: var(--surface-hover);
   transform: none;
@@ -2147,13 +2151,12 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   min-width: 200px;
 }
 
-.member-card-body {
+.member-card-list {
   min-height: 0;
   overflow: auto;
-  padding: 8px;
-  border: 1px solid color-mix(in srgb, var(--panel-border) 60%, transparent);
-  border-radius: 12px;
-  background: var(--surface);
+  padding: 0;
+  border: 0;
+  background: transparent;
 }
 
 .member-level-group {
