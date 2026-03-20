@@ -2345,6 +2345,11 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
 .billable-pill {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+  width: max-content;
+  min-width: max-content;
   padding: 4px 10px;
   border-radius: 999px;
   font-family: var(--font-head);
@@ -2789,6 +2794,11 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
 .expenses-view .entries-table th:last-child,
 .expenses-view .entries-table td:last-child {
   padding-right: 18px;
+}
+
+/* Prevent billable pill wrapping in expenses table */
+.expenses-view .entries-table td:nth-child(7) {
+  white-space: nowrap;
 }
 
 body[data-theme="dark"] .entry-status.entry-status-approved {
