@@ -169,10 +169,13 @@
     // Apply the same date bounds as the main entry date input (for picker disabled days).
     const masterDate = document.getElementById("entry-date");
     const bulkDates = r.body.querySelectorAll(".bulk-date-input");
-    if (masterDate && bulkDates.length) {
+    if (bulkDates.length) {
+      const todayIso = new Date().toISOString().slice(0, 10);
+      const masterMin = masterDate?.min;
+      const masterMax = masterDate?.max || todayIso;
       bulkDates.forEach((input) => {
-        if (masterDate.min) input.min = masterDate.min;
-        if (masterDate.max) input.max = masterDate.max;
+        if (masterMin) input.min = masterMin;
+        input.max = masterMax;
       });
     }
 
