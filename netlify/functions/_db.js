@@ -583,19 +583,30 @@ function permissionGroupForLevel(level) {
 }
 
 function permissionGroupForUser(user, levelLabels) {
-  if (!user) return "staff";
-  if (typeof user === "number") {
-    const normalized = normalizeLevel(user);
-    const mapped = levelLabels?.[normalized]?.permissionGroup;
-    if (mapped) return normalizeText(mapped);
-    return "staff";
+  if (!user && user !== 0) return "staff";
+
+  const raw =
+    (typeof user === "object" && user !== null
+      ? user.permissionGroup || user.permission_group || user.role
+      : user) || "";
+  const normalized = normalizeText(raw);
+  if (normalized) return normalized;
+
+  const levelValue =
+    typeof user === "number"
+      ? user
+      : typeof user === "object" && user !== null
+        ? user.level
+        : null;
+  if (levelLabels && levelValue !== null && levelValue !== undefined) {
+    const levelKey = normalizeLevel(levelValue);
+    const mapped =
+      levelLabels?.[levelKey]?.permissionGroup ||
+      levelLabels?.[levelKey]?.permission_group;
+    const mappedNormalized = normalizeText(mapped || "");
+    if (mappedNormalized) return mappedNormalized;
   }
-  if (user.permissionGroup) return normalizeText(user.permissionGroup);
-  if (levelLabels && user.level) {
-    const normalized = normalizeLevel(user.level);
-    const mapped = levelLabels[normalized]?.permissionGroup;
-    if (mapped) return mapped;
-  }
+
   return "staff";
 }
 
