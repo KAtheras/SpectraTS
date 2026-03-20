@@ -141,6 +141,37 @@
   } = window.timeEntries || {};
   const { bulkEntry } = window;
 
+  function deps() {
+    return { feedback };
+  }
+
+  document.addEventListener("submit", async function (event) {
+    if (!event.target || event.target.id !== "level-labels-form") return;
+
+    event.preventDefault();
+
+    const { feedback } = deps();
+    const rows = Array.from(
+      document.querySelectorAll("#level-labels-form .level-row")
+    );
+
+    const levels = rows
+      .map((row) => {
+        const level = Number(row.dataset.level);
+        const labelInput = row.querySelector("[data-level-label]");
+        const groupSelect = row.querySelector("[data-level-permission]");
+        const label = (labelInput?.value || "").trim();
+        const permissionGroup = (groupSelect?.value || "staff").trim();
+        return { level, label, permissionGroup };
+      })
+      .sort((a, b) => a.level - b.level);
+
+    await mutatePersistentState("update_level_labels", { levels });
+    await loadPersistentState();
+    renderLevelRows();
+    feedback("Levels updated.", false);
+  });
+
   const DEFAULT_CLIENT_PROJECTS = {};
 
   const today = formatDate(new Date());
@@ -3065,72 +3096,6 @@
     refs.forcePasswordForm.addEventListener("submit", submitForcePassword);
   }
   refs.userList.addEventListener("click", handleUserListAction);
-  document.addEventListener("submit", async function (event) {
-    const form = event.target;
-    if (!form || form.id !== "level-labels-form") return;
-    event.preventDefault();
-    if (!isAdmin(state.currentUser)) {
-      feedback("Only Admins can update levels.", true);
-      return;
-    }
-    const rows = Array.from(refs.levelRows?.querySelectorAll(".level-row") || []);
-    if (!rows.length) {
-      feedback("No levels to save.", true);
-      return;
-    }
-
-    const seen = new Set();
-    const validGroups = new Set(["staff", "manager", "executive", "admin"]);
-    const seenLabels = new Set();
-
-    const levels = rows.map(function (row) {
-      const level = Number(row.dataset.level);
-      const labelInput = row.querySelector("[data-level-label]");
-      const groupSelect = row.querySelector("[data-level-permission]");
-      const label = (labelInput?.value || "").trim();
-      const permissionGroup = (groupSelect?.value || "staff").trim();
-      return { level, label, permissionGroup };
-    }).sort((a, b) => a.level - b.level);
-
-    for (const item of levels) {
-      if (!item.level || Number.isNaN(item.level)) {
-        feedback("Level number is required for each row.", true);
-        return;
-      }
-      if (seen.has(item.level)) {
-        feedback("Duplicate level numbers are not allowed.", true);
-        return;
-      }
-      seen.add(item.level);
-      if (!item.label) {
-        feedback("Each level needs a label.", true);
-        return;
-      }
-      const labelKey = item.label.trim().toLowerCase();
-      if (seenLabels.has(labelKey)) {
-        feedback("Level labels must be unique.", true);
-        return;
-      }
-      seenLabels.add(labelKey);
-      if (!validGroups.has(item.permissionGroup)) {
-        feedback("Invalid permission group selected.", true);
-        return;
-      }
-    }
-    try {
-      state.levelLabels = levels.reduce((acc, item) => {
-        acc[item.level] = { label: item.label, permissionGroup: item.permissionGroup };
-        return acc;
-      }, {});
-      renderLevelRows();
-      await mutatePersistentState("update_level_labels", { levels });
-      await loadPersistentState();
-      renderLevelRows();
-      feedback("Levels updated.", false);
-    } catch (error) {
-      feedback(error.message || "Unable to update levels.", true);
-    }
-  });
   if (refs.addLevel) {
     refs.addLevel.addEventListener("click", handleAddLevel);
   }
