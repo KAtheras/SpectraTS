@@ -2231,7 +2231,7 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
 }
 
 .user-detail-card {
-  background: var(--modal-sticky-card);
+  background: var(--panel);
   border: 1px solid var(--group-border);
   border-radius: 16px;
   padding: 14px;
@@ -2240,6 +2240,10 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   gap: 6px;
   height: 100%;
   position: relative;
+}
+
+.user-detail-card.is-editing {
+  background: var(--surface);
 }
 
 .user-detail-card h4 {

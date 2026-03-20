@@ -222,7 +222,7 @@
       ? detailDraft.costRate ?? selectedUser.costRate ?? ""
       : selectedUser.costRate;
     const detailHtml = `
-      <div class="user-detail-card">
+      <div class="user-detail-card ${editing ? "is-editing" : ""}">
         <h4>
           ${
             editing
