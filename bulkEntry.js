@@ -338,7 +338,8 @@
 
   function categoryOptions() {
     const cats =
-      (window.expenses && window.expenses.activeExpenseCategories?.()) || [];
+      (window.expensesDeps?.state?.expenseCategories || []).filter((c) => c?.isActive) ||
+      [];
     if (!Array.isArray(cats)) return [];
     return cats.map((c) => {
       if (typeof c === "string") return c;
