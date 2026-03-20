@@ -116,7 +116,6 @@
     renderLevelRows,
     renderExpenseCategories,
     renderOfficeLocations,
-    renderOfficeLocations,
     sortedLevels,
     getLevelDefinitions,
     syncUserManagementControls,
