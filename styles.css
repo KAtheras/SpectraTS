@@ -958,6 +958,7 @@ input[name="cost_rate"] {
 .office-row input,
 .office-row select {
   width: 100%;
+  min-width: 0;
 }
 
 .office-row .office-row-view {
