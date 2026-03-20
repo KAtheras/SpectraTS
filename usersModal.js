@@ -90,6 +90,14 @@
       document.activeElement.classList.contains("member-card-search");
 
     const searchValue = (memberSearchTerm || "").trim().toLowerCase();
+    const officeNames = new Map(
+      (state.officeLocations || []).map((loc) => [loc.id != null ? String(loc.id) : "", loc.name || ""])
+    );
+    const officeNameFor = (id) => {
+      if (id === undefined || id === null) return "";
+      const key = String(id);
+      return officeNames.get(key) || "";
+    };
     const filteredUsers = state.users.filter(function (user) {
       if (memberLevelFilter && String(user.level) !== memberLevelFilter) {
         return false;
@@ -136,6 +144,7 @@
             const isCurrentUser = state.currentUser?.id === user.id;
             const canManageUsers = isAdmin(state.currentUser);
             const isSelected = selectedUserId === user.id;
+            const officeName = officeNameFor(user.officeId);
 
             const currentDot = isCurrentUser
               ? '<span class="user-current-dot" aria-label="Current session"></span>'
@@ -149,6 +158,7 @@
                   </span>
                   <span class="user-item-meta">
                     <span>${escapeHtml(roleLabelText)}</span>
+                    ${officeName ? `<span>${escapeHtml(officeName)}</span>` : ""}
                   </span>
                 </div>
               </article>
@@ -221,6 +231,17 @@
     const draftCost = editing
       ? detailDraft.costRate ?? selectedUser.costRate ?? ""
       : selectedUser.costRate;
+    const draftOfficeId = editing
+      ? detailDraft.officeId ?? selectedUser.officeId ?? ""
+      : selectedUser.officeId ?? "";
+    const officeOptions = [
+      '<option value="">No office</option>',
+      ...(state.officeLocations || []).map(function (loc) {
+        const id = loc.id != null ? String(loc.id) : "";
+        return `<option value="${escapeHtml(id)}"${id === String(draftOfficeId || "") ? " selected" : ""}>${escapeHtml(loc.name)}</option>`;
+      }),
+    ].join("");
+    const officeName = officeNameFor(selectedUser.officeId);
     const detailHtml = `
       <div class="user-detail-card ${editing ? "is-editing" : ""}">
         <h4>
@@ -273,6 +294,16 @@
                   : selectedUser.costRate !== null && selectedUser.costRate !== undefined
                     ? `$${Number(selectedUser.costRate).toFixed(2)}`
                     : "—"
+              }
+            </dd>
+          </div>
+          <div>
+            <dt>Office</dt>
+            <dd>
+              ${
+                editing
+                  ? `<select data-user-field="officeId">${officeOptions}</select>`
+                  : officeName || "—"
               }
             </dd>
           </div>

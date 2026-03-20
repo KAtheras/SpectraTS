@@ -72,6 +72,12 @@
         : user.cost_rate !== undefined && user.cost_rate !== null
           ? Number(user.cost_rate)
           : null;
+    const officeId =
+      user.officeId !== undefined && user.officeId !== null
+        ? user.officeId
+        : user.office_id !== undefined && user.office_id !== null
+          ? user.office_id
+          : null;
     const mustChangePassword =
       user.mustChangePassword !== undefined
         ? Boolean(user.mustChangePassword)
@@ -93,6 +99,7 @@
       costRate: Number.isFinite(costRate) ? costRate : null,
       mustChangePassword,
       accountId: user.accountId || "",
+      officeId: officeId !== null && officeId !== undefined ? String(officeId) : "",
     };
   }
 

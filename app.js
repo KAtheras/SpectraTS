@@ -1700,6 +1700,7 @@
           level: user.level,
           baseRate: user.baseRate ?? "",
           costRate: user.costRate ?? "",
+          officeId: user.officeId ?? "",
         });
         render();
         return;
@@ -1720,6 +1721,7 @@
         const levelSelect = detailCard.querySelector('[data-user-field="level"]');
         const baseInput = detailCard.querySelector('[data-user-field="baseRate"]');
         const costInput = detailCard.querySelector('[data-user-field="costRate"]');
+        const officeSelect = detailCard.querySelector('[data-user-field="officeId"]');
         const nextDisplayName = displayNameInput?.value.trim() || "";
         const nextUsername = usernameInput?.value.trim() || "";
         const nextLevel = Number(levelSelect?.value || user.level);
@@ -1727,6 +1729,8 @@
         const costRaw = costInput?.value.trim();
         const nextBase = baseRaw ? Number(baseRaw) : null;
         const nextCost = costRaw ? Number(costRaw) : null;
+        const nextOfficeIdRaw = officeSelect?.value || "";
+        const nextOfficeId = nextOfficeIdRaw ? nextOfficeIdRaw : null;
         if (!nextDisplayName) {
           setUserFeedback("Name is required.", true);
           return;
@@ -1755,6 +1759,7 @@
             level: nextLevel,
             baseRate: nextBase,
             costRate: nextCost,
+            officeId: nextOfficeId,
           });
           usersSetDetailEditState?.(null, false, {});
           setUserFeedback("Team member updated.", false);
