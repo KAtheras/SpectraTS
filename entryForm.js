@@ -429,10 +429,42 @@
     spacer.className = "bulk-spacer";
     spacer.style.flex = "1";
     spacer.style.minWidth = "8px";
-    actions.style.marginTop = "1.75rem";
     actions.style.display = "flex";
     actions.style.alignItems = "center";
     actions.insertBefore(spacer, actions.lastElementChild);
+  }
+
+  function tightenBulkSpacing() {
+    const container = document.getElementById("bulk-entry-container");
+    if (!container) return;
+    const tableWrap = container.querySelector(".bulk-table-wrap");
+    const actions = container.querySelector(".bulk-actions");
+    if (!tableWrap || !actions) return;
+
+    // Ensure both live in a single wrapper for controlled spacing.
+    let section = container.querySelector(".bulk-section");
+    if (!section) {
+      section = document.createElement("div");
+      section.className = "bulk-section";
+      section.style.display = "flex";
+      section.style.flexDirection = "column";
+      section.style.gap = "6px";
+      container.insertBefore(section, tableWrap);
+      section.appendChild(tableWrap);
+      if (actions.parentElement !== section) {
+        section.appendChild(actions);
+      }
+    } else {
+      section.style.display = "flex";
+      section.style.flexDirection = "column";
+      section.style.gap = "6px";
+      if (tableWrap.parentElement !== section) section.insertBefore(tableWrap, section.firstChild);
+      if (actions.parentElement !== section) section.appendChild(actions);
+    }
+
+    // Remove extra vertical margins so gap controls spacing.
+    tableWrap.style.marginBottom = "0";
+    actions.style.marginTop = "0";
   }
 
   function enforceBulkHoursWidth() {
@@ -477,11 +509,13 @@
       toggleEntryMode(next);
       setLabel(next);
       positionBulkSave();
+      tightenBulkSpacing();
       if (next === "multiple") enforceBulkHoursWidth();
     });
 
     setLabel("single");
     positionBulkSave();
+    tightenBulkSpacing();
     enforceBulkHoursWidth();
   }
 
