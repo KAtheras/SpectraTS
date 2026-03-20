@@ -3907,6 +3907,7 @@
     }
 
     if (action === "edit") {
+      toggleEntryMode("single");
       setForm(entry);
       return;
     }
