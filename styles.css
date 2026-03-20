@@ -1968,7 +1968,7 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
 }
 
 .user-item {
-  background: var(--item-bg);
+  background: var(--surface-strong);
 }
 
 .catalog-item:hover {
@@ -2130,6 +2130,11 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   justify-content: space-between;
   gap: 10px;
   flex-wrap: wrap;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding-bottom: 6px;
+  background: var(--panel);
 }
 
 .member-card-head input,
@@ -2157,6 +2162,8 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   padding: 0;
   border: 0;
   background: transparent;
+  display: grid;
+  gap: 10px;
 }
 
 .member-level-group {

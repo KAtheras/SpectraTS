@@ -316,23 +316,25 @@
       <div class="user-pane">
         <div class="user-list-column">
           <div class="member-card">
-            <div class="member-card-head">
-              <input
-                type="search"
-                class="member-card-search"
-                placeholder="Search members"
-                aria-label="Search members"
-                value="${escapeHtml(memberSearchTerm)}"
-              />
-              <label class="member-card-filter">
-                <span class="sr-only">Level</span>
-                <select aria-label="Filter by level">
-                  <option value="">All</option>
-                  ${levelFilterOptions}
-                </select>
-              </label>
+            <div class="catalog-list member-card-list">
+              <div class="member-card-head">
+                <input
+                  type="search"
+                  class="member-card-search"
+                  placeholder="Search members"
+                  aria-label="Search members"
+                  value="${escapeHtml(memberSearchTerm)}"
+                />
+                <label class="member-card-filter">
+                  <span class="sr-only">Level</span>
+                  <select aria-label="Filter by level">
+                    <option value="">All</option>
+                    ${levelFilterOptions}
+                  </select>
+                </label>
+              </div>
+              ${listHtml}
             </div>
-            <div class="catalog-list member-card-list">${listHtml}</div>
           </div>
         </div>
         <div class="user-detail-column">${detailHtml}</div>
