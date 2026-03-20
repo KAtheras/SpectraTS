@@ -2274,6 +2274,17 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   font-size: 0.74rem;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+  margin-left: auto;
+}
+
+.user-current-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #2fa94f;
+  display: inline-block;
+  margin-right: 8px;
+  vertical-align: middle;
 }
 
 .user-item-actions {

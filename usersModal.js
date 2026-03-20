@@ -133,13 +133,18 @@
             const canManageUsers = isAdmin(state.currentUser);
             const isSelected = selectedUserId === user.id;
 
+            const currentDot = isCurrentUser
+              ? '<span class="user-current-dot" aria-label="Current session"></span>'
+              : "";
+
             return `
               <article class="catalog-item user-item ${isSelected ? "is-selected" : ""}" data-user-id="${escapeHtml(user.id)}">
                 <div class="user-item-row">
-                  <span class="catalog-item-title">${escapeHtml(user.displayName)}</span>
+                  <span class="catalog-item-title">
+                    ${currentDot}<span>${escapeHtml(user.displayName)}</span>
+                  </span>
                   <span class="user-item-meta">
                     <span>${escapeHtml(roleLabelText)}</span>
-                    ${isCurrentUser ? "<span>Current session</span>" : ""}
                   </span>
                 </div>
               </article>
