@@ -2776,12 +2776,13 @@
     const expensesToSave = [];
 
     rowsToSave.forEach(function (row, index) {
+      const expenseDate = row.date || refs.expenseDate?.value || "";
       const expense = {
         id: crypto.randomUUID(),
         userId,
         clientName: row.client || "",
         projectName: row.project || "",
-        expenseDate: row.date || "",
+        expenseDate,
         category: row.category || "",
         amount: Number(row.amount),
         isBillable: row.billable !== false,
