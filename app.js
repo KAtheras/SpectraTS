@@ -1158,6 +1158,29 @@
     select.innerHTML = opts.join("");
   }
 
+  function syncAddUserOfficeOptions() {
+    const select = field(refs.addUserForm, "office_id");
+    if (!select) return;
+    const opts = [
+      '<option value=\"\">Office</option>',
+      ...state.officeLocations.map(function (loc) {
+        const id = loc.id != null ? String(loc.id) : "";
+        return `<option value=\"${escapeHtml(id)}\">${escapeHtml(loc.name)}</option>`;
+      }),
+    ];
+    const prevValue = select.value;
+    select.innerHTML = opts.join("");
+    const hasPrev = state.officeLocations.some(function (loc) {
+      const id = loc.id != null ? String(loc.id) : "";
+      return id === prevValue;
+    });
+    if (prevValue && hasPrev) {
+      select.value = prevValue;
+    } else {
+      select.value = "";
+    }
+  }
+
   function initExpenseFilterDatePickers() {
     const monthValues = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, "0"));
     const dayValues = Array.from({ length: 31 }, (_, i) => String(i + 1).padStart(2, "0"));
@@ -1604,6 +1627,8 @@
     const password = String(formData.get("password") || "");
     const selectedLevel = Number(formData.get("level") || 1);
     const level = isGlobalAdmin(state.currentUser) ? selectedLevel : 1;
+    const officeIdRaw = formData.get("office_id");
+    const officeId = officeIdRaw ? String(officeIdRaw) : null;
     const baseRateRaw = formData.get("base_rate");
     const baseRate =
       baseRateRaw !== null && baseRateRaw !== ""
@@ -1627,6 +1652,7 @@
         username,
         password,
         level,
+        officeId,
         baseRate,
         costRate,
       });
@@ -1639,6 +1665,10 @@
 
     refs.addUserForm.reset();
     field(refs.addUserForm, "level").value = "1";
+    const officeField = field(refs.addUserForm, "office_id");
+    if (officeField) {
+      officeField.value = "";
+    }
     setUserFeedback("Team member added.", false);
     render();
   }
@@ -2063,6 +2093,7 @@
     }
 
     if (view === "members") {
+      syncAddUserOfficeOptions();
       renderUsersList();
       syncUserManagementControls();
       postHeight();
