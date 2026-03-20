@@ -455,7 +455,7 @@
                   .join("")}
               </select>
             </td>
-            <td class="bulk-entry-cell bulk-col-amount" style="${tdAmtStyle}"><input type="number" class="bulk-input" data-field="amount" min="0" step="0.01" value="${row.amount}" style="${amtInputStyle}" inputmode="decimal" /></td>
+            <td class="bulk-entry-cell bulk-col-amount" style="${tdAmtStyle}"><input type="text" class="bulk-input" data-field="amount" value="${row.amount}" style="${amtInputStyle} appearance:none; -webkit-appearance:none; -moz-appearance:textfield;" inputmode="decimal" /></td>
             <td class="bulk-entry-cell bulk-col-billable bulk-center" style="${tdBillableStyle} text-align:center;">
               <input type="checkbox" class="bulk-checkbox" data-field="billable" ${row.billable ? "checked" : ""} style="margin:0 auto; display:block; width:16px; height:16px; transform:scale(0.9);" />
             </td>
@@ -534,7 +534,9 @@
     if (field === "billable") {
       value = event.target.checked;
     }
-    updateRow(index, field, value, { render: true });
+    const isLiveText =
+      event.type === "input" && (field === "notes" || field === "amount");
+    updateRow(index, field, value, { render: !isLiveText });
   }
 
   function initBulkRows() {
