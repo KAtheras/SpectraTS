@@ -2717,13 +2717,8 @@
   refs.expenseExportCsv?.addEventListener("click", exportExpensesCsv);
   refs.expenseBulkSave?.addEventListener("click", saveBulkExpenses);
 
-  // Fallback binding for dynamically created expense bulk save button.
-  document.addEventListener("click", function (event) {
-    const btn = event.target.closest("#expense-bulk-save");
-    if (btn) {
-      saveBulkExpenses();
-    }
-  });
+  document.getElementById("expense-bulk-save")
+    ?.addEventListener("click", saveBulkExpenses);
 
   refs.auditFilterEntity?.addEventListener("change", applyAuditFiltersFromForm);
   refs.auditFilterAction?.addEventListener("change", applyAuditFiltersFromForm);
@@ -2763,38 +2758,37 @@
     await mutatePersistentState("create_expense", { expense });
   }
 
-  async function saveBulkExpenses() {
+  function saveBulkExpenses() {
     const rows = window.bulkExpenses?.getRows?.() || [];
-    const userId = refs.expenseUser?.value || state.currentUser?.id || state.currentUser?.displayName || "";
-    const validRows = rows.filter(
-      (r) => r.date && r.client && r.project && r.category && r.amount
+    const userId =
+      refs.expenseUser?.value || state.currentUser?.id || state.currentUser?.displayName || "";
+
+    const valid = rows.filter((r) =>
+      r.date && r.client && r.project && r.category && r.amount
     );
-    if (!validRows.length) {
-      feedback("No valid expenses to save.", true);
+
+    if (!valid.length) {
+      feedback("No valid expenses.", true);
       return;
     }
 
-    try {
-      for (const row of validRows) {
-        await saveExpense({
-          id: crypto.randomUUID(),
-          userId,
-          clientName: row.client,
-          projectName: row.project,
-          expenseDate: row.date,
-          category: row.category,
-          amount: Number(row.amount),
-          isBillable: row.billable,
-          notes: row.notes || "",
-          status: "pending",
-        });
-      }
-      window.bulkExpenses?.resetRows?.();
-      feedback("Expenses saved.", false);
-      render();
-    } catch (err) {
-      feedback(err.message || "Unable to save expenses.", true);
-    }
+    valid.forEach((r) => {
+      saveExpense({
+        id: crypto.randomUUID(),
+        userId,
+        clientName: r.client,
+        projectName: r.project,
+        expenseDate: r.date,
+        category: r.category,
+        amount: Number(r.amount),
+        isBillable: r.billable,
+        notes: r.notes || "",
+        status: "pending",
+      });
+    });
+
+    window.bulkExpenses.resetRows();
+    feedback("Expenses saved.");
   }
 
   if (refs.expenseClient) {

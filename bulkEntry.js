@@ -548,6 +548,11 @@
     renderTable();
   }
 
+  function resetRows() {
+    state.rows = [createEmptyRow(), createEmptyRow(), createEmptyRow()];
+    renderTable();
+  }
+
   function init() {
     if (state.initialized) {
       renderTable();
@@ -562,10 +567,7 @@
   window.bulkExpenses = {
     init,
     getRows: () => state.rows.map((row) => ({ ...row })),
-    resetRows: () => {
-      state.rows = [createEmptyRow(), createEmptyRow(), createEmptyRow()];
-      renderTable();
-    },
+    resetRows,
   };
 
   // Auto-init when the container already exists (entryForm builds it before this script loads).
