@@ -2755,11 +2755,9 @@
   }
 
   async function saveBulkExpenses() {
-    feedback("bulk save clicked");
     if (!window.bulkExpenses) return;
     const userId = refs.expenseUser?.value || state.currentUser?.id || state.currentUser?.displayName || "";
     const rows = window.bulkExpenses.getRows ? window.bulkExpenses.getRows() : [];
-    feedback(`rows: ${rows.length}`);
 
     const hasContent = (row) =>
       (row.client && row.client.trim()) ||
@@ -2771,7 +2769,6 @@
         String(row.amount).trim() !== "");
 
     const rowsToSave = rows.filter(hasContent);
-    const validRows = rowsToSave;
     const errors = [];
     const expensesToSave = [];
 
@@ -2807,10 +2804,8 @@
       return;
     }
 
-    feedback(`valid rows: ${validRows.length}`);
     for (const expense of expensesToSave) {
       try {
-        feedback("calling create_expense");
         await mutatePersistentState("create_expense", { expense });
       } catch (error) {
         feedback(error.message || "Unable to save expenses.", true);
@@ -2821,7 +2816,6 @@
     feedback(`Saved ${expensesToSave.length} expense${expensesToSave.length === 1 ? "" : "s"}.`, false);
     window.bulkExpenses.resetRows?.();
     render();
-    feedback("bulk save finished");
   }
 
   // Expose for late binding in expense bulk container.
