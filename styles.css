@@ -956,6 +956,13 @@ input[name="cost_rate"] {
 
 .rate-row input {
   width: 100%;
+  -moz-appearance: textfield;
+}
+
+.rate-row input::-webkit-outer-spin-button,
+.rate-row input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 
 .level-labels-inner h3 {
