@@ -127,8 +127,8 @@
         (user) => `
           <div class="level-row rate-row" data-user-id="${escapeHtml(user.id)}">
             <span class="level-num">${escapeHtml(user.displayName)}</span>
-            <input type="number" step="0.01" min="0" data-rate-base value="${user.baseRate ?? ""}" ${editable ? "" : "disabled"} />
-            <input type="number" step="0.01" min="0" data-rate-cost value="${user.costRate ?? ""}" ${editable ? "" : "disabled"} />
+            <input type="number" step="0.01" min="0" data-rate-base value="${user.baseRate ?? ""}" ${editable ? "" : "disabled"} style="width:140px" />
+            <input type="number" step="0.01" min="0" data-rate-cost value="${user.costRate ?? ""}" ${editable ? "" : "disabled"} style="width:140px" />
           </div>
         `
       )

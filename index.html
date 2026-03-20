@@ -551,14 +551,6 @@
                 <option value="6">Admin</option>
               </select>
             </label>
-            <label>
-              <span>Base Rate</span>
-              <input type="number" name="base_rate" min="0" step="0.01" inputmode="decimal" />
-            </label>
-            <label>
-              <span>Cost Rate</span>
-              <input type="number" name="cost_rate" min="0" step="0.01" inputmode="decimal" />
-            </label>
             <button class="button add-user-button" type="submit">Add member</button>
           </form>
           <p id="user-feedback" class="feedback auth-feedback" aria-live="polite"></p>
@@ -710,6 +702,11 @@
           <form id="rates-form" class="level-labels-form" data-settings-tab="rates" hidden>
             <div class="level-labels-inner">
               <h3>Member Rates</h3>
+              <div class="level-row rate-row rate-header">
+                <span class="level-num">Member</span>
+                <span class="rate-col">Base rate</span>
+                <span class="rate-col">Cost rate</span>
+              </div>
               <div class="level-rows" id="rates-rows"></div>
               <div class="level-labels-actions">
                 <button class="button" type="submit" id="save-rates">Save rates</button>
