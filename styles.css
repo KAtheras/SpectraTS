@@ -842,9 +842,14 @@ body[data-theme="dark"] .mobile-tabbar {
 
 /* Members top form card should match Time/Expenses cards */
 .members-page #add-user-form {
-  background: var(--surface);
+  /* Match Time/Expenses top card background */
+  background: #F5F6F7;
   border: 1px solid var(--panel-border);
   border-radius: var(--card-radius);
+}
+
+body[data-theme="dark"] .members-page #add-user-form {
+  background: var(--surface);
 }
 
 .members-page .add-user-card {
