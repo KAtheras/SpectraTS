@@ -1,5 +1,53 @@
 (function () {
   const deps = () => window.settingsAdminDeps || {};
+  const SETTINGS_TABS = ["levels", "categories", "locations"];
+  let activeSettingsTab = "levels";
+  let tabsInitialized = false;
+
+  function settingsTabElements() {
+    const tabButtons = Array.from(document.querySelectorAll("[data-settings-tab-button]"));
+    const panels = Array.from(document.querySelectorAll("[data-settings-tab]"));
+    return { tabButtons, panels };
+  }
+
+  function setActiveSettingsTab(nextTab) {
+    if (!SETTINGS_TABS.includes(nextTab)) {
+      nextTab = "levels";
+    }
+    activeSettingsTab = nextTab;
+    const { tabButtons, panels } = settingsTabElements();
+    tabButtons.forEach(function (btn) {
+      const isActive = btn.dataset.settingsTabButton === nextTab;
+      btn.classList.toggle("is-active", isActive);
+      btn.setAttribute("aria-selected", isActive ? "true" : "false");
+      btn.setAttribute("tabindex", isActive ? "0" : "-1");
+    });
+    panels.forEach(function (panel) {
+      const isActive = panel.dataset.settingsTab === nextTab;
+      panel.hidden = !isActive;
+    });
+  }
+
+  function initSettingsTabs() {
+    if (tabsInitialized) {
+      setActiveSettingsTab(activeSettingsTab);
+      return;
+    }
+    tabsInitialized = true;
+    const { tabButtons } = settingsTabElements();
+    tabButtons.forEach(function (btn) {
+      btn.addEventListener("click", function (event) {
+        event.preventDefault();
+        const targetTab = btn.dataset.settingsTabButton;
+        setActiveSettingsTab(targetTab);
+      });
+    });
+    setActiveSettingsTab(activeSettingsTab);
+  }
+
+  function renderSettingsTabs() {
+    initSettingsTabs();
+  }
 
   function renderUsersList() {
     const {
@@ -292,6 +340,7 @@
     renderLevelRows,
     renderExpenseCategories,
     renderOfficeLocations,
+    renderSettingsTabs,
     sortedLevels,
     getLevelDefinitions,
     syncUserManagementControls,

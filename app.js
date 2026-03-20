@@ -116,6 +116,7 @@
     renderLevelRows,
     renderExpenseCategories,
     renderOfficeLocations,
+    renderSettingsTabs,
     sortedLevels,
     getLevelDefinitions,
     syncUserManagementControls,
@@ -2109,6 +2110,7 @@
       renderLevelRows();
       renderExpenseCategories();
       renderOfficeLocations();
+      renderSettingsTabs?.();
       postHeight();
       postHeight();
       return;

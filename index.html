@@ -647,7 +647,19 @@
 
       <section class="page-view level-page" id="settings-page" hidden>
         <div class="users-page-body">
-          <form id="level-labels-form" class="level-labels-form">
+          <div class="settings-tabs" role="tablist" aria-label="Settings sections">
+            <button type="button" class="settings-tab is-active" data-settings-tab-button="levels" role="tab" aria-selected="true">
+              Levels
+            </button>
+            <button type="button" class="settings-tab" data-settings-tab-button="categories" role="tab" aria-selected="false">
+              Categories
+            </button>
+            <button type="button" class="settings-tab" data-settings-tab-button="locations" role="tab" aria-selected="false">
+              Locations
+            </button>
+          </div>
+
+          <form id="level-labels-form" class="level-labels-form" data-settings-tab="levels">
             <div class="level-labels-inner">
               <h3>Permission Levels</h3>
               <div class="level-rows" id="level-rows"></div>
@@ -658,7 +670,7 @@
             </div>
           </form>
 
-          <form id="expense-categories-form" class="level-labels-form">
+          <form id="expense-categories-form" class="level-labels-form" data-settings-tab="categories" hidden>
             <div class="level-labels-inner">
               <h3>Expense Categories</h3>
               <div class="level-rows" id="expense-rows"></div>
@@ -669,7 +681,7 @@
             </div>
           </form>
 
-          <form id="office-locations-form" class="level-labels-form">
+          <form id="office-locations-form" class="level-labels-form" data-settings-tab="locations" hidden>
             <div class="level-labels-inner">
               <h3>Office Locations</h3>
               <div class="office-add-row">
