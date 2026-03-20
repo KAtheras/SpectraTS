@@ -194,6 +194,13 @@
         }));
       }
 
+      const group = permissionGroupForUser(user);
+      if (group === "executive" && user.officeId) {
+        return state.projects
+          .filter((project) => (project.officeId || null) === user.officeId)
+          .map((project) => ({ client: project.client, project: project.name }));
+      }
+
       if (isManager(user)) {
         const clientAssignments = managerClientAssignments(user.id).map((item) => item.client);
         const projectAssignments = managerProjectAssignments(user.id).map((item) => ({
@@ -221,6 +228,13 @@
     }
 
     function allowedClientsForUser(user) {
+      const group = permissionGroupForUser(user);
+      if (group === "executive" && user?.officeId) {
+        return state.clients
+          .filter((client) => (client.officeId || null) === user.officeId)
+          .map((client) => client.name)
+          .sort((a, b) => a.localeCompare(b));
+      }
       return uniqueValues(allowedProjectTuples(user).map((item) => item.client)).sort((a, b) =>
         a.localeCompare(b)
       );

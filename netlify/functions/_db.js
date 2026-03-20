@@ -1287,6 +1287,7 @@ async function getSessionContext(sql, event, request) {
       users.username,
       users.display_name AS "displayName",
       users.level,
+      users.office_id AS "officeId",
       users.account_id AS "accountId",
       level_labels.permission_group AS "permissionGroup"
     FROM sessions
@@ -1306,6 +1307,7 @@ async function getSessionContext(sql, event, request) {
           ...rows[0],
           level: normalizeLevel(rows[0].level),
           permissionGroup: rows[0].permissionGroup,
+          officeId: rows[0].officeId,
         }
       : null,
   };
@@ -1653,6 +1655,7 @@ async function loadState(sql, currentUser) {
     ? {
         ...currentUser,
         level: normalizeLevel(currentUser.level),
+        officeId: currentUser.officeId ?? null,
         baseRate:
           currentUser.baseRate ?? currentUser.base_rate ?? null,
         costRate:
