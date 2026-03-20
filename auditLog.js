@@ -4,11 +4,20 @@
     const { refs, state, escapeHtml, userNameById, projectNameById, clientNameById, formatDateTimeLocal } = deps();
     if (!refs.auditTableBody) return;
     const rows = Array.isArray(logs) ? logs : [];
+    const toLocalIso = (value) => {
+      if (!value) return "";
+      const d = new Date(value);
+      if (Number.isNaN(d.getTime())) return "";
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${day}`;
+    };
 
     // Store full-range dates for picker bounds using the full audit dataset, not the filtered subset.
     if (refs.auditTableBody) {
       const allDates = (state.auditLogs || [])
-        .map((row) => (row.changed_at || row.changedAt || "").slice(0, 10))
+        .map((row) => toLocalIso(row.changed_at || row.changedAt || ""))
         .filter(Boolean)
         .sort();
       refs.auditTableBody.dataset.rangeMin = allDates[0] || "";
