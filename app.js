@@ -3178,8 +3178,8 @@
         locations.push({ id: id || null, name, officeLeadUserId });
       }
       state.officeLocations = locations;
-      renderOfficeLocations();
       await saveOfficeLocations(locations);
+      renderOfficeLocations();
     });
   }
 
@@ -3191,10 +3191,6 @@
       }
       const name = (refs.officeAddName?.value || "").trim();
       const officeLeadUserId = (refs.officeAddLead?.value || "").trim();
-      if (!name) {
-        feedback("Location name is required.", true);
-        return;
-      }
       const newItem = {
         id: `temp-office-${Date.now()}-${Math.random().toString(16).slice(2)}`,
         name,
@@ -3204,7 +3200,6 @@
       renderOfficeLocations();
       if (refs.officeAddName) refs.officeAddName.value = "";
       if (refs.officeAddLead) refs.officeAddLead.value = "";
-      await saveOfficeLocations(state.officeLocations);
     });
   }
 
