@@ -166,6 +166,16 @@
       })
       .join("");
 
+    // Apply the same date bounds as the main entry date input (for picker disabled days).
+    const masterDate = document.getElementById("entry-date");
+    const bulkDates = r.body.querySelectorAll(".bulk-date-input");
+    if (masterDate && bulkDates.length) {
+      bulkDates.forEach((input) => {
+        if (masterDate.min) input.min = masterDate.min;
+        if (masterDate.max) input.max = masterDate.max;
+      });
+    }
+
     if (tableEl) {
       tableEl.querySelectorAll("th").forEach((th) => {
         th.style.border = "1px solid var(--line)";
