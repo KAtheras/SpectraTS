@@ -941,10 +941,10 @@ input[name="cost_rate"] {
 }
 
 .office-row .office-row-view {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) auto;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  gap: 24px;
 }
 
 .office-row .office-row-edit {

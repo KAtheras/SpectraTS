@@ -84,6 +84,10 @@
       refs.userList.querySelector(".member-card-body")?.scrollTop ??
       refs.userList.querySelector(".user-list-column")?.scrollTop ??
       0;
+    const wasSearchFocused =
+      document.activeElement &&
+      document.activeElement.classList &&
+      document.activeElement.classList.contains("member-card-search");
 
     const searchValue = (memberSearchTerm || "").trim().toLowerCase();
     const filteredUsers = state.users.filter(function (user) {
@@ -361,6 +365,16 @@
       const newListColumn = refs.userList.querySelector(".user-list-column");
       if (newListColumn) {
         newListColumn.scrollTop = previousScroll;
+      }
+    }
+
+    if (wasSearchFocused && searchInput) {
+      searchInput.focus({ preventScroll: true });
+      const end = searchInput.value.length;
+      try {
+        searchInput.setSelectionRange(end, end);
+      } catch (e) {
+        // ignore selection errors on some browsers
       }
     }
 
