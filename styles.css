@@ -2175,6 +2175,7 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
 .member-card-list {
   min-height: 0;
   overflow: auto;
+  max-height: 100%;
   padding: 0;
   border: 0;
   background: transparent;
@@ -2218,9 +2219,9 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
 .user-list-column {
   display: grid;
   gap: 12px;
-  overflow-y: auto;
-  max-height: 100%;
-  padding-right: 6px;
+  overflow: visible;
+  max-height: none;
+  padding-right: 0;
 }
 
 .user-detail-column {
