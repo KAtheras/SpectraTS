@@ -2000,12 +2000,21 @@
       refs.navMembersMobile.setAttribute("aria-current", view === "members" ? "page" : "false");
     }
     if (refs.openCatalog) {
-      refs.openCatalog.hidden = !(currentGroup === "manager" || currentGroup === "executive" || currentGroup === "admin");
+      refs.openCatalog.hidden = !(
+        currentGroup === "manager" ||
+        currentGroup === "executive" ||
+        currentGroup === "admin" ||
+        currentGroup === "superuser"
+      );
       refs.openCatalog.classList.toggle("is-active", view === "clients");
       refs.openCatalog.setAttribute("aria-current", view === "clients" ? "page" : "false");
     }
     if (refs.navClientsMobile) {
-      const showClients = currentGroup === "manager" || currentGroup === "executive" || currentGroup === "admin";
+      const showClients =
+        currentGroup === "manager" ||
+        currentGroup === "executive" ||
+        currentGroup === "admin" ||
+        currentGroup === "superuser";
       refs.navClientsMobile.hidden = !showClients;
       refs.navClientsMobile.classList.toggle("is-active", view === "clients");
       refs.navClientsMobile.setAttribute("aria-current", view === "clients" ? "page" : "false");
