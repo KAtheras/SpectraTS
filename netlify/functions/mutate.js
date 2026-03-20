@@ -402,6 +402,64 @@ async function updateExpenseCategories(sql, payload, accountId) {
 
   return null;
 }
+
+async function updateOfficeLocations(sql, payload, accountId) {
+  const locations = Array.isArray(payload?.locations) ? payload.locations : [];
+
+  const cleaned = [];
+  const seen = new Set();
+  for (const item of locations) {
+    const id = normalizeText(item.id) || randomId();
+    const name = normalizeText(item.name);
+    const officeLeadUserId = normalizeText(item.officeLeadUserId) || null;
+    if (!name) {
+      return errorResponse(400, "Location name cannot be blank.");
+    }
+    const key = name.toLowerCase();
+    if (seen.has(key)) {
+      return errorResponse(400, "Location names must be unique.");
+    }
+    seen.add(key);
+    cleaned.push({ id, name, officeLeadUserId });
+  }
+
+  const existing = await sql`
+    SELECT id, name
+    FROM office_locations
+    WHERE account_id = ${accountId}::uuid
+  `;
+  const existingByName = new Map(existing.map((row) => [row.name.toLowerCase(), row.id]));
+
+  for (const item of cleaned) {
+    const conflictId = existingByName.get(item.name.toLowerCase());
+    if (conflictId && conflictId !== item.id) {
+      return errorResponse(400, `Location "${item.name}" already exists.`);
+    }
+  }
+
+  const keepIds = new Set(cleaned.map((c) => c.id));
+  for (const existingRow of existing) {
+    if (existingRow.id && !keepIds.has(existingRow.id)) {
+      await sql`
+        DELETE FROM office_locations
+        WHERE account_id = ${accountId}::uuid
+          AND id = ${existingRow.id}
+      `;
+    }
+  }
+
+  for (const item of cleaned) {
+    await sql`
+      INSERT INTO office_locations (id, account_id, name, office_lead_user_id)
+      VALUES (${item.id}, ${accountId}::uuid, ${item.name}, ${item.officeLeadUserId})
+      ON CONFLICT (id) DO UPDATE SET
+        name = EXCLUDED.name,
+        office_lead_user_id = EXCLUDED.office_lead_user_id
+    `;
+  }
+
+  return null;
+}
 async function addClient(sql, payload, accountId) {
   const clientName = normalizeText(payload.clientName);
   if (!clientName) {
@@ -2338,6 +2396,12 @@ exports.handler = async function handler(event) {
         const adminError = requireAdmin(context);
         if (adminError) return adminError;
         mutationResult = await updateExpenseCategories(sql, request.payload || {}, accountId);
+        break;
+      }
+      case "update_office_locations": {
+        const adminError = requireAdmin(context);
+        if (adminError) return adminError;
+        mutationResult = await updateOfficeLocations(sql, request.payload || {}, accountId);
         break;
       }
       case "list_audit_logs": {

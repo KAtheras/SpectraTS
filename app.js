@@ -3141,14 +3141,17 @@
 
   async function saveOfficeLocations(locations) {
     try {
-      await mutatePersistentState("update_office_locations", { locations });
-      feedback("Office locations updated.", false);
       try {
         window.localStorage.setItem("timesheet.offices", JSON.stringify(locations));
       } catch (e) {}
+      await mutatePersistentState("update_office_locations", { locations });
+      feedback("Office locations updated.", false);
       await loadPersistentState();
       renderOfficeLocations();
     } catch (error) {
+      try {
+        window.localStorage.setItem("timesheet.offices", JSON.stringify(locations));
+      } catch (e) {}
       feedback(error.message || "Unable to update office locations.", true);
     }
   }

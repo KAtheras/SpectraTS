@@ -315,6 +315,16 @@ async function ensureSchema(sql) {
   `;
 
   await sql`
+    CREATE TABLE IF NOT EXISTS office_locations (
+      id TEXT PRIMARY KEY,
+      account_id UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      office_lead_user_id TEXT NULL REFERENCES users(id) ON DELETE SET NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+
+  await sql`
     CREATE TABLE IF NOT EXISTS expenses (
       id TEXT PRIMARY KEY,
       account_id UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
@@ -1425,6 +1435,18 @@ async function listExpenseCategories(sql, accountId) {
   }));
 }
 
+async function listOfficeLocations(sql, accountId) {
+  return sql`
+    SELECT
+      id,
+      name,
+      office_lead_user_id AS "officeLeadUserId"
+    FROM office_locations
+    WHERE account_id = ${accountId}::uuid
+    ORDER BY created_at, LOWER(name)
+  `;
+}
+
 async function listManagerClientAssignments(sql, accountId) {
   return sql`
     SELECT
@@ -1773,6 +1795,7 @@ async function loadState(sql, currentUser) {
 
   const projects = await listProjects(sql, accountUuid);
   const expenseCategories = await listExpenseCategories(sql, accountUuid);
+  const officeLocations = await listOfficeLocations(sql, accountUuid);
   const assignments = {
     managerClients: [],
     managerProjects: [],
@@ -1826,6 +1849,7 @@ async function loadState(sql, currentUser) {
     expenses,
     projects,
     expenseCategories,
+    officeLocations,
     assignments,
     levelLabels,
   };
@@ -1952,6 +1976,7 @@ module.exports = {
   listClients,
   listProjects,
   listExpenseCategories,
+  listOfficeLocations,
   listLevelLabels,
   listUsers,
   loadState,

@@ -904,6 +904,7 @@ input[name="cost_rate"] {
   display: grid;
   gap: 10px;
   max-width: 820px;
+  width: 100%;
 }
 
 .level-labels-inner h3 {
@@ -948,7 +949,7 @@ input[name="cost_rate"] {
 
 .office-row {
   display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr) 120px;
   align-items: center;
   gap: 10px;
   width: 100%;
@@ -989,6 +990,7 @@ input[name="cost_rate"] {
   gap: 8px;
   justify-content: flex-end;
   align-self: center;
+  min-width: 120px;
 }
 
 .level-labels-actions .button {
