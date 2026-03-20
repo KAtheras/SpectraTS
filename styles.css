@@ -840,6 +840,13 @@ body[data-theme="dark"] .mobile-tabbar {
   padding: 12px 14px 14px;
 }
 
+/* Members top form card should match Time/Expenses cards */
+.members-page #add-user-form {
+  background: var(--surface);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--card-radius);
+}
+
 .members-page .add-user-card {
   margin-inline: 22px;
   width: calc(100% - 44px);
