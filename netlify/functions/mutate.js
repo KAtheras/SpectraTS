@@ -1241,8 +1241,8 @@ async function deleteExpense(sql, payload, currentUser, accountId) {
         return errorResponse(403, "You are not assigned to this project.");
       }
     }
-    const targetLevel = targetUser ? normalizeLevel(targetUser.level) : 1;
-    if (targetUser && targetUser.id !== currentUser.id && targetLevel > 2) {
+    const targetGroup = permissionGroupForUser(targetUser);
+    if (targetUser && targetUser.id !== currentUser.id && targetGroup !== "staff") {
       return errorResponse(403, "Managers can only edit staff expenses.");
     }
   } else if (isStaff(currentUser)) {
@@ -2021,8 +2021,8 @@ async function deleteEntry(sql, payload, currentUser, accountId) {
       }
     }
     const targetUser = await findUserByDisplayName(sql, entry.user, accountId);
-    const targetLevel = targetUser ? normalizeLevel(targetUser.level) : 1;
-    if (targetUser && targetUser.id !== currentUser.id && targetLevel > 2) {
+    const targetGroup = permissionGroupForUser(targetUser);
+    if (targetUser && targetUser.id !== currentUser.id && targetGroup !== "staff") {
       return errorResponse(403, "Managers can only edit staff time.");
     }
   } else if (isStaff(currentUser)) {
@@ -2354,7 +2354,8 @@ exports.handler = async function handler(event) {
         const nextLevel = isGlobalAdmin(context.currentUser)
           ? desiredLevel
           : normalizeLevel(target.level);
-        if (!isGlobalAdmin(context.currentUser) && normalizeLevel(target.level) >= 6) {
+        const targetGroup = permissionGroupForUser(target);
+        if (!isGlobalAdmin(context.currentUser) && (targetGroup === "admin" || targetGroup === "superuser")) {
           return errorResponse(403, "Admin access required.");
         }
         const maybeCurrentUser = await updateUserRecord(
@@ -2374,7 +2375,8 @@ exports.handler = async function handler(event) {
         if (!target || !target.is_active) {
           return errorResponse(404, "User not found.");
         }
-        if (!isGlobalAdmin(context.currentUser) && normalizeLevel(target.level) >= 6) {
+        const targetGroup = permissionGroupForUser(target);
+        if (!isGlobalAdmin(context.currentUser) && (targetGroup === "admin" || targetGroup === "superuser")) {
           return errorResponse(403, "Admin access required.");
         }
         await updateUserPassword(sql, request.payload || {}, accountId);
@@ -2396,7 +2398,8 @@ exports.handler = async function handler(event) {
         if (!target || !target.is_active) {
           return errorResponse(404, "User not found.");
         }
-        if (!isGlobalAdmin(context.currentUser) && normalizeLevel(target.level) >= 6) {
+        const targetGroup = permissionGroupForUser(target);
+        if (!isGlobalAdmin(context.currentUser) && (targetGroup === "admin" || targetGroup === "superuser")) {
           return errorResponse(403, "Admin access required.");
         }
         await deactivateUser(sql, request.payload || {}, context.currentUser);
