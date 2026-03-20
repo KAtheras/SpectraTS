@@ -105,34 +105,19 @@
 
     refs.officeRows.innerHTML = (state.officeLocations || [])
       .map(function (item) {
-        const lead = item.officeLeadUserId ? usersById.get(item.officeLeadUserId) : null;
-        const leadName = lead ? lead.displayName : "No lead";
-
         const leadOptions = [
           `<option value="">No lead</option>`,
-          ...state.users
-            .map((u) => `<option value="${escapeHtml(u.id)}"${u.id === item.officeLeadUserId ? " selected" : ""}>${escapeHtml(u.displayName)}</option>`),
+          ...state.users.map((u) =>
+            `<option value="${escapeHtml(u.id)}"${u.id === item.officeLeadUserId ? " selected" : ""}>${escapeHtml(u.displayName)}</option>`
+          ),
         ].join("");
 
         return `
-          <div class="office-row" data-office-id="${escapeHtml(item.id || "")}">
-            <div class="office-row-view" data-office-view>
-              <div class="office-row-main">
-                <div class="office-name">${escapeHtml(item.name)}</div>
-                <div class="office-lead">${escapeHtml(leadName)}</div>
-              </div>
-              <div class="office-actions">
-                <button type="button" class="expense-delete" data-office-edit>Edit</button>
-                <button type="button" class="expense-delete" data-office-delete>Remove</button>
-              </div>
-            </div>
-            <div class="office-row-edit" data-office-edit-row hidden>
-              <input type="text" value="${escapeHtml(item.name)}" data-office-name placeholder="Location name" />
-              <select data-office-lead>${leadOptions}</select>
-              <div class="office-actions">
-                <button type="button" class="expense-toggle is-active" data-office-save>Save</button>
-                <button type="button" class="expense-delete" data-office-cancel>Cancel</button>
-              </div>
+          <div class="level-row office-row" data-office-id="${escapeHtml(item.id || "")}">
+            <input type="text" value="${escapeHtml(item.name)}" data-office-name placeholder="Location name" />
+            <select data-office-lead>${leadOptions}</select>
+            <div class="office-actions">
+              <button type="button" class="expense-delete" data-office-delete>Delete</button>
             </div>
           </div>
         `;

@@ -3210,23 +3210,9 @@
 
   if (refs.officeRows) {
     refs.officeRows.addEventListener("click", async function (event) {
-      const editBtn = event.target.closest("[data-office-edit]");
       const deleteBtn = event.target.closest("[data-office-delete]");
-      const saveBtn = event.target.closest("[data-office-save]");
-      const cancelBtn = event.target.closest("[data-office-cancel]");
       const row = event.target.closest(".office-row");
       if (!row) return;
-
-      if (editBtn) {
-        row.querySelector("[data-office-view]")?.setAttribute("hidden", "");
-        row.querySelector("[data-office-edit-row]")?.removeAttribute("hidden");
-        return;
-      }
-
-      if (cancelBtn) {
-        renderOfficeLocations();
-        return;
-      }
 
       if (deleteBtn) {
         if (!isAdmin(state.currentUser)) {
@@ -3235,31 +3221,6 @@
         }
         const id = row.dataset.officeId;
         state.officeLocations = state.officeLocations.filter((item) => item.id !== id);
-        renderOfficeLocations();
-        await saveOfficeLocations(state.officeLocations);
-        return;
-      }
-
-      if (saveBtn) {
-        if (!isAdmin(state.currentUser)) {
-          feedback("Only Admins can update office locations.", true);
-          return;
-        }
-        const nameInput = row.querySelector("[data-office-name]");
-        const leadSelect = row.querySelector("[data-office-lead]");
-        const name = (nameInput?.value || "").trim();
-        const officeLeadUserId = (leadSelect?.value || "").trim();
-        if (!name) {
-          feedback("Location name is required.", true);
-          return;
-        }
-        const id = row.dataset.officeId || null;
-        state.officeLocations = state.officeLocations.map(function (item) {
-          if ((item.id || null) === id) {
-            return { ...item, name, officeLeadUserId };
-          }
-          return item;
-        });
         renderOfficeLocations();
         await saveOfficeLocations(state.officeLocations);
       }

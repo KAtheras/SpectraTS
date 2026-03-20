@@ -948,13 +948,13 @@ input[name="cost_rate"] {
 
 .office-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
   align-items: center;
-  gap: 12px;
-  padding: 10px 12px;
-  border: 1px solid var(--panel-border);
-  border-radius: 14px;
-  background: var(--surface);
+  gap: 10px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .office-row .office-row-view {
@@ -965,7 +965,7 @@ input[name="cost_rate"] {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
   gap: 10px;
-  margin-top: 8px;
+  margin-top: 0;
   align-items: center;
 }
 
