@@ -1695,7 +1695,10 @@ async function loadState(sql, currentUser) {
     ORDER BY LOWER(clients.name), LOWER(projects.name)
   `;
 
-  const clients = await listClients(sql, accountUuid);
+  let clients = await listClients(sql, accountUuid);
+  if (currentGroup === "executive" && normalizedUser?.officeId) {
+    clients = clients.filter((client) => (client.officeId || null) === normalizedUser.officeId);
+  }
 
   let entries = [];
   if (isAdminFlag) {
@@ -1838,7 +1841,7 @@ async function loadState(sql, currentUser) {
     `;
   }
 
-  const users =
+  let users =
     isAdminFlag || isManagerFlag || isExecFlag
       ? await listUsers(sql, accountUuid)
       : normalizedUser
@@ -1852,8 +1855,13 @@ async function loadState(sql, currentUser) {
             mustChangePassword: normalizedUser.mustChangePassword ?? false,
             isActive: true,
             accountId: normalizedUser.accountId,
+            officeId: normalizedUser.officeId ?? null,
           }]
         : [];
+
+  if (currentGroup === "executive" && normalizedUser?.officeId) {
+    users = users.filter((user) => (user.officeId || null) === normalizedUser.officeId);
+  }
 
   const projects = await listProjects(sql, accountUuid);
   const expenseCategories = await listExpenseCategories(sql, accountUuid);
