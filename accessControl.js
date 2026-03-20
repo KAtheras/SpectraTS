@@ -58,7 +58,8 @@
     }
 
     function isAdmin(user) {
-      return permissionGroupForUser(user) === "admin";
+      const group = permissionGroupForUser(user);
+      return group === "admin" || group === "superuser";
     }
 
     function isGlobalAdmin(user) {
@@ -66,12 +67,18 @@
     }
 
     function isExecutive(user) {
-      return permissionGroupForUser(user) === "executive";
+      const group = permissionGroupForUser(user);
+      return group === "executive" || group === "superuser";
     }
 
     function isManager(user) {
       const group = permissionGroupForUser(user);
-      return group === "manager" || group === "executive" || group === "admin";
+      return (
+        group === "manager" ||
+        group === "executive" ||
+        group === "admin" ||
+        group === "superuser"
+      );
     }
 
     function isStaff(user) {

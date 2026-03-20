@@ -611,17 +611,23 @@ function permissionGroupForUser(user, levelLabels) {
 }
 
 function isAdmin(user, levelLabels) {
-  return permissionGroupForUser(user, levelLabels) === "admin";
+  const group = permissionGroupForUser(user, levelLabels);
+  return group === "admin" || group === "superuser";
 }
 
 function isExecutive(user, levelLabels) {
   const group = permissionGroupForUser(user, levelLabels);
-  return group === "executive" || group === "admin";
+  return group === "executive" || group === "admin" || group === "superuser";
 }
 
 function isManager(user, levelLabels) {
   const group = permissionGroupForUser(user, levelLabels);
-  return group === "manager" || group === "executive" || group === "admin";
+  return (
+    group === "manager" ||
+    group === "executive" ||
+    group === "admin" ||
+    group === "superuser"
+  );
 }
 
 function isStaff(user, levelLabels) {
@@ -817,7 +823,7 @@ async function adminCount(sql, accountId) {
               WHEN users.level >= 3 THEN 'manager'
               ELSE 'staff'
             END
-          ) = 'admin'
+          ) IN ('admin', 'superuser')
   `;
   return rows[0]?.count || 0;
 }
@@ -1662,8 +1668,8 @@ async function loadState(sql, currentUser) {
   const isSuperAdmin = normalizedUser && isAdmin(normalizedUser); // keep legacy flag equivalent to admin group
   const levelLabels = await listLevelLabels(sql, accountUuid);
   const currentGroup = normalizedUser ? permissionGroupForUser(normalizedUser, levelLabels) : null;
-  const isAdminFlag = currentGroup === "admin";
-  const isExecFlag = currentGroup === "executive";
+  const isAdminFlag = currentGroup === "admin" || currentGroup === "superuser";
+  const isExecFlag = currentGroup === "executive" || currentGroup === "superuser";
   const isManagerFlag = currentGroup === "manager" || isExecFlag || isAdminFlag;
   const isStaffFlag = currentGroup === "staff";
   if (normalizedUser) {

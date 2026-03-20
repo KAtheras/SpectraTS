@@ -110,16 +110,22 @@ function isStaff(user) {
 
 function isManager(user) {
   const group = permissionGroupForUser(user);
-  return group === "manager" || group === "admin";
+  return (
+    group === "manager" ||
+    group === "admin" ||
+    group === "superuser" ||
+    group === "executive"
+  );
 }
 
 function isExecutive(user) {
   const group = permissionGroupForUser(user);
-  return group === "executive" || group === "admin";
+  return group === "executive" || group === "admin" || group === "superuser";
 }
 
 function isAdmin(user) {
-  return permissionGroupForUser(user) === "admin";
+  const group = permissionGroupForUser(user);
+  return group === "admin" || group === "superuser";
 }
 
 function isGlobalAdmin(user) {
@@ -266,7 +272,7 @@ async function updateLevelLabels(sql, payload, accountId) {
     return errorResponse(400, "Level definitions are required.");
   }
 
-  const validGroups = new Set(["staff", "manager", "executive", "admin"]);
+  const validGroups = new Set(["staff", "manager", "executive", "admin", "superuser"]);
   const seenLevels = new Set();
   const seenLabels = new Set();
   const cleaned = [];

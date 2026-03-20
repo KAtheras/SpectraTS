@@ -93,7 +93,7 @@
             <span class="level-num">Level ${item.level}</span>
             <input type="text" value="${escapeHtml(item.label || "")}" data-level-label />
             <select data-level-permission>
-              ${["staff", "manager", "executive", "admin"]
+              ${["staff", "manager", "executive", "admin", "superuser"]
                 .map(
                   (group) =>
                     `<option value="${group}"${group === item.permissionGroup ? " selected" : ""}>${group}</option>`
@@ -313,6 +313,7 @@
   function normalizeModalLevel(level) {
     const { permissionGroupForUser } = deps();
     const group = permissionGroupForUser({ level });
+    if (group === "superuser") return 6;
     if (group === "admin") return 5;
     if (group === "executive") return 4;
     if (group === "manager") return 3;
