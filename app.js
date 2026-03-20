@@ -2716,10 +2716,6 @@
 
   refs.expenseExportCsv?.addEventListener("click", exportExpensesCsv);
 
-  if (window.bulkExpenses && refs.expenseBulkSave) {
-    refs.expenseBulkSave.addEventListener("click", saveBulkExpenses);
-  }
-
   refs.auditFilterEntity?.addEventListener("change", applyAuditFiltersFromForm);
   refs.auditFilterAction?.addEventListener("change", applyAuditFiltersFromForm);
   refs.auditFilterActor?.addEventListener("change", applyAuditFiltersFromForm);
@@ -2830,10 +2826,13 @@
 
   // Expose for late binding in expense bulk container.
   window.saveBulkExpenses = saveBulkExpenses;
-  const expenseBulkSaveBtn = document.getElementById("expense-bulk-save");
-  if (expenseBulkSaveBtn) {
-    expenseBulkSaveBtn.addEventListener("click", window.saveBulkExpenses);
-  }
+  document.addEventListener("click", function (e) {
+    const btn = e.target.closest("#expense-bulk-save");
+    if (!btn) return;
+    if (typeof window.saveBulkExpenses === "function") {
+      window.saveBulkExpenses();
+    }
+  });
 
   if (refs.expenseClient) {
     refs.expenseClient.addEventListener("change", function () {
