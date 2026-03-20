@@ -2037,6 +2037,9 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   font-size: 0.98rem;
   font-weight: 700;
   line-height: 1.15;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .catalog-item-copy small {
@@ -2307,6 +2310,7 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  flex-wrap: nowrap;
 }
 
 .user-item-meta {
@@ -2319,6 +2323,7 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   letter-spacing: 0.04em;
   text-transform: uppercase;
   margin-left: auto;
+  white-space: nowrap;
 }
 
 .user-current-dot {
