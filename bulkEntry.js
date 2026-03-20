@@ -139,7 +139,7 @@
         const hoursInputStyle = baseInputStyle + ' text-align:right;';
         return `
           <tr class="bulk-entry-row" data-row="${idx}">
-            <td class="bulk-entry-cell bulk-col-date" style="${tdStyle}"><input type="date" class="bulk-input" data-field="date" value="${row.date || ""}" style="${inputStyle}" /></td>
+            <td class="bulk-entry-cell bulk-col-date" style="${tdStyle}"><input type="date" class="bulk-input bulk-date-input" data-field="date" value="${row.date || ""}" style="${inputStyle}" /></td>
             <td class="bulk-entry-cell bulk-col-client" style="${tdStyle}">
               <select class="bulk-input" data-field="client" style="${inputStyle}">
                 <option value=""></option>
@@ -168,7 +168,7 @@
 
     // Apply the same date bounds as the main entry date input (for picker disabled days).
     const masterDate = document.getElementById("entry-date");
-    const bulkDates = r.body.querySelectorAll(".bulk-date-input");
+    const bulkDates = r.body.querySelectorAll('input[type="date"], .bulk-date-input');
     if (bulkDates.length) {
       const now = new Date();
       const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(
