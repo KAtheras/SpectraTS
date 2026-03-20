@@ -577,6 +577,10 @@
 
     const bulkContainer = buildExpenseBulkContainer();
     if (!bulkContainer) return;
+    // Ensure rows/render/listeners are ready even before first toggle.
+    if (window.bulkExpenses?.init) {
+      window.bulkExpenses.init();
+    }
 
     const setLabel = (mode) => {
       toggleBtn.dataset.mode = mode;
