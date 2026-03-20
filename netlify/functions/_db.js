@@ -925,6 +925,11 @@ async function createUserRecord(sql, payload) {
 
   const now = new Date().toISOString();
 
+  const levelLabels = await listLevelLabels(sql, accountUuid);
+  if (!levelLabels[level]) {
+    throw new Error("Invalid level.");
+  }
+
   if (existingUsername[0] && !existingUsername[0].is_active) {
     const userRecord = existingUsername[0];
     await sql`
@@ -1077,6 +1082,9 @@ async function updateUserRecord(sql, payload, actingUser) {
   }
 
   const levelLabelMap = await listLevelLabels(sql, existingUser.account_id);
+  if (!levelLabelMap[level]) {
+    throw new Error("Invalid level.");
+  }
   const currentIsAdmin = isAdmin(existingUser, levelLabelMap);
   const nextIsAdmin = isAdmin({ ...existingUser, level }, levelLabelMap);
   const admins = await adminCount(sql, existingUser.account_id);
