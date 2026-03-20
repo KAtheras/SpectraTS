@@ -822,13 +822,14 @@ body[data-theme="dark"] .mobile-tabbar {
 
 .add-user-form {
   grid-template-columns:
-    minmax(0, 1fr)
-    minmax(0, 0.95fr)
-    minmax(0, 0.9fr)
-    minmax(110px, 0.65fr)
-    minmax(100px, 0.55fr) /* Base Rate */
-    minmax(100px, 0.55fr) /* Cost Rate */
-    minmax(140px, 0.6fr); /* Add button */
+    minmax(0, 0.95fr)   /* Name */
+    minmax(0, 0.9fr)    /* Username */
+    minmax(0, 0.85fr)   /* Password */
+    minmax(110px, 0.65fr) /* Office */
+    minmax(100px, 0.55fr) /* Level */
+    minmax(90px, 0.5fr)  /* Base Rate */
+    minmax(90px, 0.5fr)  /* Cost Rate */
+    minmax(132px, 0.55fr); /* Add button */
   align-items: end;
   margin-top: 0;
 }
