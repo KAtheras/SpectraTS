@@ -2040,6 +2040,7 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  min-width: 0;
 }
 
 .catalog-item-copy small {
@@ -2306,11 +2307,10 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
 }
 
 .user-item-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto;
   align-items: center;
-  justify-content: space-between;
   gap: 12px;
-  flex-wrap: nowrap;
 }
 
 .user-item-meta {
@@ -2322,7 +2322,7 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   font-size: 0.74rem;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  margin-left: auto;
+  justify-content: flex-end;
   white-space: nowrap;
 }
 

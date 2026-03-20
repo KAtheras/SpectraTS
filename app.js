@@ -565,6 +565,9 @@
   }
 
   function applyLoadedState(data) {
+    const previousOfficeLocations = Array.isArray(state.officeLocations)
+      ? state.officeLocations.slice()
+      : [];
     state.currentUser = data?.currentUser ? normalizeUser(data.currentUser) : null;
     state.users = Array.isArray(data?.users)
       ? data.users.map(normalizeUser).filter(Boolean)
@@ -592,7 +595,7 @@
             return { id, name, officeLeadUserId };
           })
           .filter(Boolean)
-      : [];
+      : previousOfficeLocations;
     state.expenseCategories = Array.isArray(data?.expenseCategories)
       ? data.expenseCategories.map((item) => {
           const activeRaw =
