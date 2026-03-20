@@ -184,6 +184,13 @@
           input.value = masterMax;
         }
         input.dataset.dpCanonical = input.value || masterMax || todayIso;
+        // Clamp on native change (in case picker not attached).
+        input.addEventListener("change", () => {
+          const v = input.value;
+          if (masterMax && v > masterMax) input.value = masterMax;
+          if (masterMin && v && v < masterMin) input.value = masterMin;
+          input.dataset.dpCanonical = input.value || masterMax || todayIso;
+        });
       });
     }
 
