@@ -2258,9 +2258,16 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   color: var(--ink);
 }
 
-.user-item-meta {
+.user-item-row {
   display: flex;
-  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.user-item-meta {
+  display: inline-flex;
+  align-items: center;
   gap: 8px;
   color: var(--muted);
   font-family: var(--font-head);

@@ -135,13 +135,13 @@
 
             return `
               <article class="catalog-item user-item ${isSelected ? "is-selected" : ""}" data-user-id="${escapeHtml(user.id)}">
-                <span class="catalog-item-copy">
+                <div class="user-item-row">
                   <span class="catalog-item-title">${escapeHtml(user.displayName)}</span>
                   <span class="user-item-meta">
                     <span>${escapeHtml(roleLabelText)}</span>
                     ${isCurrentUser ? "<span>Current session</span>" : ""}
                   </span>
-                </span>
+                </div>
               </article>
             `;
           })
