@@ -2768,8 +2768,7 @@
       (row.notes && row.notes.trim()) ||
       (row.amount !== undefined &&
         row.amount !== null &&
-        String(row.amount).trim() !== "") ||
-      (row.date && row.date.trim());
+        String(row.amount).trim() !== "");
 
     const rowsToSave = rows.filter(hasContent);
     const validRows = rowsToSave;
