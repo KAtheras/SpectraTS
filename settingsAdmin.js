@@ -36,7 +36,7 @@
     const { refs, escapeHtml, isAdmin } = deps();
     if (!refs.levelRows) return;
 
-    const sorted = getLevelDefinitions();
+    const sorted = getLevelDefinitions().slice().sort((a, b) => a.level - b.level);
 
     refs.levelRows.innerHTML = sorted
       .map(
