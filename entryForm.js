@@ -558,6 +558,12 @@
       </div>
     `;
     panel.appendChild(container);
+
+    const saveBtn = container.querySelector("#expense-bulk-save");
+    if (saveBtn && window.saveBulkExpenses) {
+      saveBtn.addEventListener("click", window.saveBulkExpenses);
+    }
+
     return container;
   }
 

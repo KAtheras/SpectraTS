@@ -2822,6 +2822,9 @@
     render();
   }
 
+  // Expose for late binding in expense bulk container.
+  window.saveBulkExpenses = saveBulkExpenses;
+
   if (refs.expenseClient) {
     refs.expenseClient.addEventListener("change", function () {
       syncExpenseCatalogs({
