@@ -340,7 +340,11 @@
     const cats =
       (window.expenses && window.expenses.activeExpenseCategories?.()) || [];
     if (!Array.isArray(cats)) return [];
-    return cats.map((c) => (typeof c === "string" ? c : c.name || c.label || ""));
+    return cats.map((c) => {
+      if (typeof c === "string") return c;
+      if (c == null) return "";
+      return c.name || c.label || c.title || c.value || "";
+    });
   }
 
   function addRow() {
@@ -455,7 +459,7 @@
                   .join("")}
               </select>
             </td>
-            <td class="bulk-entry-cell bulk-col-amount" style="${tdAmtStyle}"><input type="text" class="bulk-input" data-field="amount" value="${row.amount}" style="${amtInputStyle} appearance:none; -webkit-appearance:none; -moz-appearance:textfield;" inputmode="decimal" /></td>
+            <td class="bulk-entry-cell bulk-col-amount" style="${tdAmtStyle}"><input type="text" class="bulk-input" data-field="amount" value="${row.amount}" style="${amtInputStyle} appearance:none; -webkit-appearance:none; -moz-appearance:textfield;" inputmode="decimal" autocomplete="off" /></td>
             <td class="bulk-entry-cell bulk-col-billable bulk-center" style="${tdBillableStyle} text-align:center;">
               <input type="checkbox" class="bulk-checkbox" data-field="billable" ${row.billable ? "checked" : ""} style="margin:0 auto; display:block; width:16px; height:16px; transform:scale(0.9);" />
             </td>
