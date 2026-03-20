@@ -3189,12 +3189,10 @@
         feedback("Only Admins can update office locations.", true);
         return;
       }
-      const name = (refs.officeAddName?.value || "").trim();
-      const officeLeadUserId = (refs.officeAddLead?.value || "").trim();
       const newItem = {
         id: `temp-office-${Date.now()}-${Math.random().toString(16).slice(2)}`,
-        name,
-        officeLeadUserId,
+        name: "",
+        officeLeadUserId: "",
       };
       state.officeLocations = [...state.officeLocations, newItem];
       renderOfficeLocations();
