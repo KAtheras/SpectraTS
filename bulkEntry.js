@@ -170,8 +170,11 @@
     const masterDate = document.getElementById("entry-date");
     const bulkDates = r.body.querySelectorAll(".bulk-date-input");
     if (bulkDates.length) {
-      const todayIso = new Date().toISOString().slice(0, 10);
-      const masterMin = masterDate?.min;
+      const now = new Date();
+      const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(
+        now.getDate()
+      ).padStart(2, "0")}`;
+      const masterMin = masterDate?.min || `${now.getFullYear() - 1}-01-01`;
       const masterMax = masterDate?.max || todayIso;
       bulkDates.forEach((input) => {
         if (masterMin) input.min = masterMin;
