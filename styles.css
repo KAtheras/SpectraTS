@@ -834,8 +834,8 @@ body[data-theme="dark"] .mobile-tabbar {
 }
 
 .add-user-card {
-  background: var(--modal-sticky-card);
-  border: 1px solid var(--group-border);
+  background: var(--surface);
+  border: 1px solid var(--panel-border);
   border-radius: var(--card-radius);
   padding: 12px 14px 14px;
 }
