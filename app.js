@@ -3298,7 +3298,7 @@
       const rows = Array.from(refs.levelRows.querySelectorAll(".level-row")).filter((r) => r !== row);
 
       const seen = new Set();
-      const validGroups = new Set(["staff", "manager", "executive", "admin"]);
+      const validGroups = new Set(["staff", "manager", "executive", "admin", "superuser"]);
       const levels = [];
       for (const r of rows) {
         const level = Number(r.dataset.level);
@@ -3327,7 +3327,7 @@
         levels.push({ level, label, permissionGroup });
       }
 
-      const adminCount = levels.filter((l) => l.permissionGroup === "admin").length;
+      const adminCount = levels.filter((l) => l.permissionGroup === "admin" || l.permissionGroup === "superuser").length;
       if (adminCount === 0) {
         feedback("At least one admin permission level is required.", true);
         return;
