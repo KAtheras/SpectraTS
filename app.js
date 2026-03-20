@@ -1771,7 +1771,7 @@
           setUserFeedback("Username is required.", true);
           return;
         }
-        if (!Number.isInteger(nextLevel) || nextLevel < 1 || nextLevel > 6) {
+        if (!Number.isInteger(nextLevel) || !state.levelLabels?.[nextLevel]) {
           setUserFeedback("Invalid level.", true);
           return;
         }
