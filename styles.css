@@ -948,7 +948,7 @@ input[name="cost_rate"] {
 
 .office-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
   width: 100%;
@@ -988,6 +988,7 @@ input[name="cost_rate"] {
   align-items: center;
   gap: 8px;
   justify-content: flex-end;
+  align-self: center;
 }
 
 .level-labels-actions .button {
