@@ -2715,10 +2715,13 @@
   });
 
   refs.expenseExportCsv?.addEventListener("click", exportExpensesCsv);
-  refs.expenseBulkSave?.addEventListener("click", saveBulkExpenses);
 
-  document.getElementById("expense-bulk-save")
-    ?.addEventListener("click", saveBulkExpenses);
+  // Delegate to catch dynamically rendered expense bulk save button.
+  document.addEventListener("click", function (event) {
+    const btn = event.target.closest("#expense-bulk-save");
+    if (!btn) return;
+    saveBulkExpenses();
+  });
 
   refs.auditFilterEntity?.addEventListener("change", applyAuditFiltersFromForm);
   refs.auditFilterAction?.addEventListener("change", applyAuditFiltersFromForm);
