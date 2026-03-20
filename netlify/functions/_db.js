@@ -57,6 +57,7 @@ async function ensureSchema(sql) {
       password_hash TEXT NOT NULL,
       role TEXT NOT NULL,
       level INT,
+      office_id TEXT NULL REFERENCES office_locations(id) ON DELETE SET NULL,
       account_id UUID REFERENCES accounts(id),
       must_change_password BOOLEAN NOT NULL DEFAULT FALSE,
       is_active BOOLEAN NOT NULL DEFAULT TRUE,
@@ -70,6 +71,10 @@ async function ensureSchema(sql) {
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS base_rate NUMERIC(10,2)`;
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS cost_rate NUMERIC(10,2)`;
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT FALSE`;
+  await sql`
+    ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS office_id TEXT NULL REFERENCES office_locations(id) ON DELETE SET NULL
+  `;
 
   await sql`ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check`;
   await sql`UPDATE users SET role = 'global_admin' WHERE role = 'admin'`;
@@ -762,6 +767,7 @@ async function listUsers(sql, accountId) {
       level,
       base_rate AS "baseRate",
       cost_rate AS "costRate",
+      office_id AS "officeId",
       must_change_password AS "mustChangePassword",
       account_id AS "accountId",
       is_active AS "isActive",
@@ -832,6 +838,7 @@ async function createUserRecord(sql, payload) {
   const displayName = normalizeText(payload.displayName);
   const password = String(payload.password || "");
   const level = normalizeLevel(payload.level ?? payload.role);
+  const officeId = normalizeText(payload.officeId ?? payload.office_id);
   const baseRate =
     payload.baseRate !== undefined && payload.baseRate !== null && payload.baseRate !== ""
       ? Number(payload.baseRate)
@@ -901,6 +908,7 @@ async function createUserRecord(sql, payload) {
       level = ${level},
       base_rate = ${baseRate},
       cost_rate = ${costRate},
+      office_id = ${officeId},
       is_active = TRUE,
       must_change_password = ${mustChangePassword},
       updated_at = ${now}
@@ -913,6 +921,7 @@ async function createUserRecord(sql, payload) {
       level,
       baseRate,
       costRate,
+      officeId: officeId || null,
       createdAt: userRecord.created_at,
       updatedAt: now,
       passwordHash: userRecord.password_hash,
@@ -931,6 +940,7 @@ async function createUserRecord(sql, payload) {
     updatedAt: now,
     passwordHash: hashPassword(password),
     accountId: accountUuid,
+    officeId: officeId || null,
     mustChangePassword,
   };
 
@@ -944,6 +954,7 @@ async function createUserRecord(sql, payload) {
       level,
       base_rate,
       cost_rate,
+      office_id,
       must_change_password,
       account_id,
       is_active,
@@ -959,6 +970,7 @@ async function createUserRecord(sql, payload) {
       ${user.level},
       ${user.baseRate},
       ${user.costRate},
+      ${user.officeId},
       ${user.mustChangePassword},
       ${user.accountId}::uuid,
       TRUE,
@@ -975,6 +987,12 @@ async function updateUserRecord(sql, payload, actingUser) {
   const displayName = normalizeText(payload.displayName);
   const username = normalizeText(payload.username);
   const level = normalizeLevel(payload.level ?? payload.role);
+  const officeId =
+    payload.officeId !== undefined && payload.officeId !== null && payload.officeId !== ""
+      ? normalizeText(payload.officeId)
+      : payload.office_id !== undefined && payload.office_id !== null && payload.office_id !== ""
+        ? normalizeText(payload.office_id)
+        : null;
   const existingUser = await findUserById(sql, userId, actingUser?.accountId);
   const rawBaseRate =
     payload.baseRate !== undefined && payload.baseRate !== null && payload.baseRate !== ""
@@ -1053,6 +1071,7 @@ async function updateUserRecord(sql, payload, actingUser) {
       level = ${level},
       base_rate = ${baseRate},
       cost_rate = ${costRate},
+      office_id = ${officeId},
       updated_at = ${updatedAt}
     WHERE id = ${existingUser.id}
   `;
@@ -1078,6 +1097,7 @@ async function updateUserRecord(sql, payload, actingUser) {
       level: normalizeLevel(refreshed.level),
       baseRate: refreshed.base_rate ?? null,
       costRate: refreshed.cost_rate ?? null,
+      officeId: refreshed.office_id || null,
       accountId: refreshed.account_id,
     };
   }
