@@ -2757,7 +2757,7 @@
 
   async function saveBulkExpenses() {
     const rows = window.bulkExpenses?.getRows?.() || [];
-    const userId = refs.expenseUser?.value || "";
+    const userId = refs.expenseUser?.value || state.currentUser?.id || state.currentUser?.displayName || "";
     const validRows = rows.filter(
       (r) => r.date && r.client && r.project && r.category && r.amount
     );
@@ -2783,6 +2783,7 @@
       }
       window.bulkExpenses?.resetRows?.();
       feedback("Expenses saved.", false);
+      render();
     } catch (err) {
       feedback(err.message || "Unable to save expenses.", true);
     }
@@ -2825,6 +2826,15 @@
       if (!expense) return;
 
       if (action === "expense-edit") {
+        const expForm = refs.expenseForm;
+        const expBulk = document.getElementById("expense-bulk-container");
+        const expToggle = document.getElementById("expense-mode-toggle");
+        if (expForm) expForm.hidden = false;
+        if (expBulk) expBulk.hidden = true;
+        if (expToggle) {
+          expToggle.dataset.mode = "single";
+          expToggle.textContent = "Multiple entry";
+        }
         setExpenseForm(expense);
         return;
       }
