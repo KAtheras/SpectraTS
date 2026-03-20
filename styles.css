@@ -847,9 +847,10 @@ body[data-theme="dark"] .mobile-tabbar {
 
 .add-user-form .add-user-button {
   align-self: end;
-  height: 44px;
+  height: 42px;
   white-space: nowrap;
-  padding: 0 18px;
+  padding: 0 16px;
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 /* Remove numeric spin buttons for the Base Rate input */
@@ -1913,8 +1914,8 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
 
 .catalog-item.is-selected {
   border-color: var(--accent);
-  background: var(--accent-soft);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent);
+  background: color-mix(in srgb, var(--accent) 14%, var(--panel));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 24%, transparent);
 }
 
 .catalog-item span {
@@ -1952,7 +1953,7 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
 .catalog-item-project {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
 .catalog-project-top {
@@ -1964,14 +1965,15 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
 
 .catalog-item-copy {
   display: grid;
-  gap: 6px;
+  gap: 8px;
   min-width: 0;
 }
 
 .catalog-item-actions {
   display: grid;
   justify-items: end;
-  gap: 8px;
+  gap: 12px;
+  align-content: start;
 }
 
 .catalog-item-title {
@@ -2134,16 +2136,16 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
 
 .detail-divider {
   grid-column: 1 / -1;
-  height: 2px;
-  background: var(--group-border);
-  margin: 4px 0 2px;
+  height: 1px;
+  background: var(--line);
+  margin: 8px 0 8px;
 }
 
 .detail-top-divider {
   grid-column: 1 / -1;
-  height: 2px;
-  background: var(--group-border);
-  margin: 32px 0 12px;
+  height: 1px;
+  background: var(--line);
+  margin: 20px 0 10px;
 }
 
 .user-detail-actions {
