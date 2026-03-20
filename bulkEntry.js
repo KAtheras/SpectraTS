@@ -131,10 +131,10 @@
     r.body.innerHTML = state.rows
       .map((row, idx) => {
         const projects = projectOptions(row.client);
-        const tdStyle = 'border:1px solid #d5d9e1; padding:0; height:34px; background:#fff;';
+        const tdStyle = 'border:1px solid var(--line); padding:0; height:34px; background:var(--surface); color:var(--ink);';
         const tdHoursStyle = tdStyle + ' width:50px; max-width:50px;';
         const tdBillableStyle = tdStyle + ' width:60px; max-width:60px;';
-        const baseInputStyle = 'width:100%; height:100%; padding:6px 6px; border:none; border-radius:4px; background:transparent; box-shadow:none; outline:none; box-sizing:border-box; min-width:0; appearance:none; -webkit-appearance:none; -moz-appearance:textfield;';
+        const baseInputStyle = 'width:100%; height:100%; padding:6px 6px; border:none; border-radius:4px; background:transparent; box-shadow:none; outline:none; box-sizing:border-box; min-width:0; appearance:none; -webkit-appearance:none; -moz-appearance:textfield; color:var(--ink);';
         const inputStyle = baseInputStyle;
         const hoursInputStyle = baseInputStyle + ' text-align:right;';
         return `
@@ -168,12 +168,13 @@
 
     if (tableEl) {
       tableEl.querySelectorAll("th").forEach((th) => {
-        th.style.border = "1px solid #d5d9e1";
+        th.style.border = "1px solid var(--line)";
         th.style.padding = "6px 8px";
         th.style.height = "36px";
-        th.style.background = "#f4f6fb";
+        th.style.background = "var(--surface-subtle)";
         th.style.fontWeight = "600";
         th.style.textAlign = "left";
+        th.style.color = "var(--ink)";
       });
     }
 
