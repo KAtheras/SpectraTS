@@ -2824,6 +2824,10 @@
 
   // Expose for late binding in expense bulk container.
   window.saveBulkExpenses = saveBulkExpenses;
+  const expenseBulkSaveBtn = document.getElementById("expense-bulk-save");
+  if (expenseBulkSaveBtn) {
+    expenseBulkSaveBtn.addEventListener("click", window.saveBulkExpenses);
+  }
 
   if (refs.expenseClient) {
     refs.expenseClient.addEventListener("change", function () {
