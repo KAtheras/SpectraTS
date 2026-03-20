@@ -2156,6 +2156,7 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   border: 1px solid var(--control-border);
   padding: 10px 12px;
   font-family: var(--font-head);
+  box-shadow: none;
 }
 
 .member-card-head select {
@@ -2194,7 +2195,7 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
 .user-item {
   display: grid;
   gap: 10px;
-  background: var(--panel);
+  background: var(--surface-strong);
   border: 1px solid var(--panel-border);
   border-radius: 14px;
   padding: 12px 14px;
