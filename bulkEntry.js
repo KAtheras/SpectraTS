@@ -176,6 +176,11 @@
       bulkDates.forEach((input) => {
         if (masterMin) input.min = masterMin;
         input.max = masterMax;
+        const val = input.value || "";
+        if (masterMax && val > masterMax) {
+          input.value = masterMax;
+        }
+        input.dataset.dpCanonical = input.value || masterMax || todayIso;
       });
     }
 
