@@ -178,6 +178,11 @@
       });
     }
 
+    const container = r.body.closest(".bulk-entry-container");
+    if (window.datePicker && typeof window.datePicker.registerAll === "function") {
+      window.datePicker.registerAll(container);
+    }
+
     wireRowEvents();
   }
 

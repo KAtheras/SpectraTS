@@ -370,4 +370,30 @@
     input.addEventListener('focus', () => openFor(input));
     input.addEventListener('click', () => openFor(input));
   });
+
+  function register(input) {
+    if (!input || input.dataset.dpBound === 'true') return;
+    input.dataset.dpBound = 'true';
+    inputs.push(input);
+    input.dataset.originalType = input.type || 'date';
+    input.type = 'text';
+    input.readOnly = true;
+    input.classList.add('dp-desktop-date', 'bulk-date-input');
+    const parsed = parseInput(input);
+    setDisplay(input, parsed);
+    input.setAttribute('autocomplete', 'off');
+    input.addEventListener('focus', () => openFor(input));
+    input.addEventListener('click', () => openFor(input));
+  }
+
+  function registerAll(root) {
+    if (!root) return;
+    const found = root.querySelectorAll('input[type=\"date\"], .bulk-date-input');
+    found.forEach(register);
+  }
+
+  window.datePicker = {
+    register,
+    registerAll,
+  };
 })();
