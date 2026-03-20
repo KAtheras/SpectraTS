@@ -938,20 +938,23 @@ input[name="cost_rate"] {
 
 .rate-row {
   display: grid;
-  grid-template-columns: minmax(260px, 3fr) minmax(140px, 1fr) minmax(140px, 1fr);
-  gap: 14px;
+  grid-template-columns: minmax(380px, 2fr) minmax(160px, 1fr) minmax(160px, 1fr);
+  gap: 16px;
   align-items: center;
 }
 
 .rate-row.rate-header {
   font-weight: 600;
   color: var(--muted);
+  justify-items: start;
 }
 
 .rate-row .level-num {
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+}
+
+.rate-row .rate-col {
+  white-space: nowrap;
 }
 
 .rate-row input {
