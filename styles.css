@@ -900,6 +900,12 @@ input[name="cost_rate"] {
   max-width: 820px;
 }
 
+#office-rows {
+  display: grid;
+  gap: 10px;
+  max-width: 820px;
+}
+
 .level-labels-inner h3 {
   margin: 0;
   font-family: var(--font-head);
@@ -948,11 +954,7 @@ input[name="cost_rate"] {
   padding: 10px 12px;
   border: 1px solid var(--panel-border);
   border-radius: 14px;
-  background: var(--panel);
-}
-
-.office-row + .office-row {
-  margin-top: 10px;
+  background: var(--surface);
 }
 
 .office-row .office-row-view {
