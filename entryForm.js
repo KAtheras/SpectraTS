@@ -552,6 +552,8 @@
         </div>
         <div class="bulk-actions" style="margin-top:0;display:flex;align-items:center;gap:0.5rem;justify-content:flex-start;">
           <button type="button" class="button button-ghost" id="expense-bulk-add-row">+ Add row</button>
+          <div style="flex:1"></div>
+          <button type="button" class="button button-primary" id="expense-bulk-save">Save</button>
         </div>
       </div>
     `;

@@ -303,6 +303,7 @@
     expenseFilterToMonth: document.getElementById("expense-filter-to-month"),
     expenseFilterToDay: document.getElementById("expense-filter-to-day"),
     expenseFilterToYear: document.getElementById("expense-filter-to-year"),
+    expenseBulkSave: document.getElementById("expense-bulk-save"),
     navAudit: document.getElementById("nav-audit"),
     navAuditMobile: document.getElementById("nav-audit-mobile"),
     auditView: document.getElementById("audit-page"),
@@ -2714,6 +2715,7 @@
   });
 
   refs.expenseExportCsv?.addEventListener("click", exportExpensesCsv);
+  refs.expenseBulkSave?.addEventListener("click", saveBulkExpenses);
 
   refs.auditFilterEntity?.addEventListener("change", applyAuditFiltersFromForm);
   refs.auditFilterAction?.addEventListener("change", applyAuditFiltersFromForm);
@@ -2745,6 +2747,45 @@
       resetExpenseForm();
       feedback("", false);
     });
+  }
+
+  async function saveExpense(expense) {
+    const error = validateExpenseForm(expense);
+    if (error) throw new Error(error);
+    await mutatePersistentState("create_expense", { expense });
+  }
+
+  async function saveBulkExpenses() {
+    const rows = window.bulkExpenses?.getRows?.() || [];
+    const userId = refs.expenseUser?.value || "";
+    const validRows = rows.filter(
+      (r) => r.date && r.client && r.project && r.category && r.amount
+    );
+    if (!validRows.length) {
+      feedback("No valid expenses to save.", true);
+      return;
+    }
+
+    try {
+      for (const row of validRows) {
+        await saveExpense({
+          id: crypto.randomUUID(),
+          userId,
+          clientName: row.client,
+          projectName: row.project,
+          expenseDate: row.date,
+          category: row.category,
+          amount: Number(row.amount),
+          isBillable: row.billable,
+          notes: row.notes || "",
+          status: "pending",
+        });
+      }
+      window.bulkExpenses?.resetRows?.();
+      feedback("Expenses saved.", false);
+    } catch (err) {
+      feedback(err.message || "Unable to save expenses.", true);
+    }
   }
 
   if (refs.expenseClient) {
