@@ -822,13 +822,11 @@ body[data-theme="dark"] .mobile-tabbar {
 
 .add-user-form {
   grid-template-columns:
-    minmax(0, 0.95fr)   /* Name */
-    minmax(0, 0.9fr)    /* Username */
-    minmax(0, 0.85fr)   /* Password */
-    minmax(110px, 0.65fr) /* Office */
-    minmax(100px, 0.55fr) /* Level */
-    minmax(90px, 0.5fr)  /* Base Rate */
-    minmax(90px, 0.5fr)  /* Cost Rate */
+    minmax(0, 1fr)       /* Name */
+    minmax(0, 1fr)       /* Username */
+    minmax(0, 1fr)       /* Password */
+    minmax(140px, 0.8fr) /* Office */
+    minmax(130px, 0.7fr) /* Level */
     minmax(132px, 0.55fr); /* Add button */
   align-items: end;
   margin-top: 0;
