@@ -1993,4 +1993,5 @@ module.exports = {
   verifyPassword,
   hashPassword,
   randomId,
+  updateOfficeLocations,
 };
