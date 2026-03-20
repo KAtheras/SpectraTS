@@ -240,7 +240,7 @@
     refs.otherHours.value = "";
     renderHourSelection?.({ refs, field });
     setNonBillableDefault(field(refs.form, "project")?.value || "");
-    refs.formHeading.textContent = "Add timesheet entry";
+    refs.formHeading.textContent = "Add time";
     refs.submitEntry.textContent = "Save";
     refs.cancelEdit.hidden = true;
   }
@@ -272,7 +272,7 @@
       refs.entryNonBillable.checked = entry.billable === false;
     }
     state.editingId = entry.id;
-    refs.formHeading.textContent = "Edit timesheet entry";
+    refs.formHeading.textContent = "Edit time";
     refs.submitEntry.textContent = "Save";
     refs.cancelEdit.hidden = false;
     const formCard = refs.form?.closest(".panel") || refs.form;

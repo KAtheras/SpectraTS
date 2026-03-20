@@ -1745,9 +1745,9 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
 .catalog-column {
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr);
-  border: 1px solid var(--group-border);
-  border-radius: 18px;
-  background: var(--column-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--card-radius);
+  background: var(--panel);
   overflow: hidden;
 }
 
@@ -1896,10 +1896,10 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   justify-content: space-between;
   gap: 16px;
   width: 100%;
-  border: 1px solid var(--group-border);
+  border: 1px solid var(--panel-border);
   border-radius: 14px;
   padding: 12px 14px;
-  background: var(--item-bg);
+  background: var(--panel);
   color: var(--ink);
   text-align: left;
   cursor: pointer;
@@ -1907,14 +1907,14 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
 }
 
 .catalog-item:hover {
-  background: var(--item-hover-bg);
+  background: var(--surface-hover);
   transform: none;
 }
 
 .catalog-item.is-selected {
-  border-color: var(--selected-border);
-  background: var(--selected-bg);
-  box-shadow: none;
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent);
 }
 
 .catalog-item span {
@@ -1925,15 +1925,15 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
 .catalog-item.is-selected .catalog-item-title,
 .catalog-item.is-selected .catalog-item-copy small,
 .catalog-item.is-selected strong {
-  color: var(--selected-ink);
+  color: var(--ink);
 }
 
 .catalog-item.is-selected .catalog-delete {
-  color: var(--selected-muted-ink);
+  color: var(--danger);
 }
 
 .catalog-item.is-selected .catalog-edit {
-  color: var(--selected-ink);
+  color: var(--ink);
 }
 
 .catalog-item strong {
@@ -2045,6 +2045,10 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
 .user-item {
   display: grid;
   gap: 10px;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 14px;
+  padding: 12px 14px;
 }
 
 .user-pane {
@@ -2162,20 +2166,20 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
 
 .user-item.is-selected {
   border-color: var(--accent);
-  box-shadow: 0 0 0 2px var(--accent-subtle, rgba(187, 98, 55, 0.18));
-  background: #4a4a4a;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent);
+  background: var(--accent-soft);
 }
 
 .user-item.is-selected .catalog-item-title {
-  color: #ffffff;
+  color: var(--ink);
 }
 
 .user-item.is-selected .user-item-meta {
-  color: #f4f4f4;
+  color: var(--muted);
 }
 
 .user-item.is-selected .user-item-actions button {
-  color: #ffffff;
+  color: var(--ink);
 }
 
 .user-item-meta {
