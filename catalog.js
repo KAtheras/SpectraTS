@@ -41,6 +41,11 @@
       field,
       ensureCatalogSelection,
     } = deps;
+    const officeMap = (state.officeLocations || []).reduce((acc, loc) => {
+      acc[loc.id != null ? String(loc.id) : ""] = loc.name;
+      return acc;
+    }, {});
+    const officeName = (id) => officeMap[id != null ? String(id) : ""] || "";
 
     const clients = visibleCatalogClientNames();
     const canManageClients = isAdmin(state.currentUser) || isExecutive(state.currentUser);
@@ -67,6 +72,7 @@
     refs.clientList.innerHTML = clients
       .map(
         (client) => {
+          const clientOffice = officeName(state.clients.find((c) => c.name === client)?.officeId);
           return `
           <article
             class="catalog-item${client === selectedClient ? " is-selected" : ""}"
@@ -79,6 +85,7 @@
                 <small>${visibleCatalogProjectNames(client).length} ${
                   visibleCatalogProjectNames(client).length === 1 ? "project" : "projects"
                 }</small>
+                ${clientOffice ? `<small>Office: ${escapeHtml(clientOffice)}</small>` : ""}
               </span>
             <span class="catalog-item-actions">
               <button
@@ -144,6 +151,12 @@
       ? projects
           .map(
             (project) => {
+              const projectOffice = officeName(
+                (state.projects || []).find(
+                  (p) => p.client === selectedClient && p.name === project
+                )?.officeId ||
+                  (state.clients.find((c) => c.name === selectedClient) || {}).officeId
+              );
               const canEditProject = isAdmin(state.currentUser) || isExecutive(state.currentUser);
               const canDeleteProject =
                 isAdmin(state.currentUser) ||
@@ -184,6 +197,7 @@
                       </button>
                     </span>
                     <small>${projectHours(selectedClient, project).toFixed(2)}h logged</small>
+                    ${projectOffice ? `<small>Office: ${escapeHtml(projectOffice)}</small>` : ""}
                     ${
                       projectBudgetMap[project] !== undefined
                         ? `<small>Budget: ${
