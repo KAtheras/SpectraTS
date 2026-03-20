@@ -3333,23 +3333,12 @@
         return;
       }
 
-      const previous = { ...state.levelLabels };
       state.levelLabels = levels.reduce((acc, item) => {
         acc[item.level] = { label: item.label, permissionGroup: item.permissionGroup };
         return acc;
       }, {});
       renderLevelRows();
-      try {
-        await mutatePersistentState("update_level_labels", { levels: levels.sort((a, b) => a.level - b.level) });
-        await loadPersistentState();
-        renderLevelRows();
-        feedback("Level deleted.", false);
-      } catch (error) {
-        // Restore UI on failure
-        state.levelLabels = { ...previous };
-        renderLevelRows();
-        feedback(error.message || "Unable to delete level.", true);
-      }
+      feedback("Level removed. Click Save Levels to persist.", false);
     });
   }
 
