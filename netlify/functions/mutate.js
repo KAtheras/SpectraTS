@@ -480,6 +480,7 @@ async function addClient(sql, payload, accountId) {
     INSERT INTO clients (
       account_id,
       name,
+      office_id,
       business_contact_name,
       business_contact_email,
       business_contact_phone,
@@ -497,6 +498,7 @@ async function addClient(sql, payload, accountId) {
     VALUES (
       ${accountId}::uuid,
       ${clientName},
+      ${clean(payload.officeId)},
       ${clean(payload.businessContactName)},
       ${clean(payload.businessContactEmail)},
       ${clean(payload.businessContactPhone)},
@@ -554,6 +556,7 @@ async function updateClient(sql, payload, accountId) {
     UPDATE clients
     SET
       name = ${nextName},
+      office_id = ${clean(payload.officeId)},
       business_contact_name = ${clean(payload.businessContactName)},
       business_contact_email = ${clean(payload.businessContactEmail)},
       business_contact_phone = ${clean(payload.businessContactPhone)},
@@ -567,6 +570,13 @@ async function updateClient(sql, payload, accountId) {
       client_address = ${clean(payload.addressStreet)},
       updated_at = NOW()
     WHERE id = ${client.id}
+      AND account_id = ${accountId}::uuid
+  `;
+
+  await sql`
+    UPDATE projects
+    SET office_id = ${clean(payload.officeId)}
+    WHERE client_id = ${client.id}
       AND account_id = ${accountId}::uuid
   `;
 
@@ -608,8 +618,8 @@ async function addProject(sql, payload, currentUser, accountId) {
   }
 
   await sql`
-    INSERT INTO projects (client_id, account_id, name, created_by)
-    VALUES (${client.id}, ${accountId}::uuid, ${projectName}, ${currentUser?.id || null})
+    INSERT INTO projects (client_id, account_id, office_id, name, created_by)
+    VALUES (${client.id}, ${accountId}::uuid, ${client.office_id || null}, ${projectName}, ${currentUser?.id || null})
   `;
 
   return null;

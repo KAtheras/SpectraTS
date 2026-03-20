@@ -20,6 +20,7 @@
       adminContactLastName: "",
       adminContactEmail: "",
       adminContactPhone: "",
+      officeId: "",
     };
   }
 
@@ -108,17 +109,31 @@
     const saveLabel = editor.mode === "edit" ? "Save client" : "Create client";
     const title = editor.mode === "edit" ? "Edit client" : "New client";
     const disabledAttr = isEditable ? "" : "disabled";
+    const officeOptions = [
+      '<option value="">No office</option>',
+      ...(state.officeLocations || []).map(function (loc) {
+        const id = loc.id != null ? String(loc.id) : "";
+        const selected = id === String(values.officeId || "") ? "selected" : "";
+        return `<option value="${escapeHtml(id)}" ${selected}>${escapeHtml(loc.name)}</option>`;
+      }),
+    ].join("");
 
     refs.clientEditor.innerHTML = `
       <div class="client-editor-overlay" role="dialog" aria-modal="true" aria-label="${escapeHtml(title)}">
         <form class="client-editor-card" data-client-editor-form="${escapeHtml(editor.mode)}">
           <p class="client-editor-message" data-client-editor-message hidden></p>
           <div class="client-editor-grid">
-            <div class="client-editor-row">
-              <label class="client-editor-field">
-                <span>Client name</span>
-                <input type="text" name="client_name" value="${escapeHtml(values.name || "")}" ${disabledAttr} required />
-              </label>
+            <div class="client-editor-row client-editor-top-row">
+              <div class="client-editor-row-fields client-editor-row-fields-top">
+                <label class="client-editor-field">
+                  <span>Client name</span>
+                  <input type="text" name="client_name" value="${escapeHtml(values.name || "")}" ${disabledAttr} required />
+                </label>
+                <label class="client-editor-field">
+                  <span>Office</span>
+                  <select name="office_id" ${disabledAttr}>${officeOptions}</select>
+                </label>
+              </div>
             </div>
             <div class="client-editor-row">
               <div class="client-editor-row-label">Business Contact</div>
@@ -253,6 +268,7 @@
     };
     return {
       name: value("client_name"),
+      officeId: value("office_id"),
       businessContactName: value("business_contact_name"),
       businessContactEmail: value("business_contact_email"),
       businessContactPhone: validatePhone(value("business_contact_phone")),
@@ -329,6 +345,7 @@
       addressCity: clean(client.addressCity || client.address_city),
       addressState: clean(client.addressState || client.address_state),
       addressPostal: clean(client.addressPostal || client.address_postal),
+      officeId: clean(client.officeId || client.office_id),
     };
   }
 

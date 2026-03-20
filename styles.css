@@ -1946,6 +1946,10 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   gap: 12px;
 }
 
+.client-editor-row-fields-top {
+  grid-template-columns: minmax(240px, 1.2fr) minmax(180px, 1fr);
+}
+
 .client-editor-message {
   margin: 0;
   padding: 10px 12px;

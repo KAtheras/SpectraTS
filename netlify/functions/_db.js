@@ -128,6 +128,7 @@ async function ensureSchema(sql) {
       id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
       account_id UUID REFERENCES accounts(id),
       name TEXT NOT NULL,
+      office_id TEXT NULL REFERENCES office_locations(id) ON DELETE SET NULL,
       business_contact_first_name TEXT,
       business_contact_last_name TEXT,
       business_contact_email TEXT,
@@ -145,6 +146,10 @@ async function ensureSchema(sql) {
   await sql`
     ALTER TABLE clients
     ADD COLUMN IF NOT EXISTS account_id UUID REFERENCES accounts(id)
+  `;
+  await sql`
+    ALTER TABLE clients
+    ADD COLUMN IF NOT EXISTS office_id TEXT NULL REFERENCES office_locations(id) ON DELETE SET NULL
   `;
   await sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS business_contact_name TEXT`;
   await sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS business_contact_first_name TEXT`;
@@ -178,6 +183,7 @@ async function ensureSchema(sql) {
       id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
       client_id BIGINT NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
       account_id UUID REFERENCES accounts(id),
+      office_id TEXT NULL REFERENCES office_locations(id) ON DELETE SET NULL,
       name TEXT NOT NULL,
       created_by TEXT REFERENCES users(id),
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -192,6 +198,10 @@ async function ensureSchema(sql) {
   await sql`
     ALTER TABLE projects
     ADD COLUMN IF NOT EXISTS account_id UUID REFERENCES accounts(id)
+  `;
+  await sql`
+    ALTER TABLE projects
+    ADD COLUMN IF NOT EXISTS office_id TEXT NULL REFERENCES office_locations(id) ON DELETE SET NULL
   `;
   await sql`UPDATE projects SET account_id = ${accountUuid}::uuid WHERE account_id IS NULL`;
   await sql`
@@ -1347,6 +1357,7 @@ async function findClient(sql, clientName, accountId) {
     SELECT
       id,
       name,
+      office_id AS office_id,
       business_contact_name,
       business_contact_first_name AS business_contact_first_name,
       business_contact_last_name AS business_contact_last_name,
@@ -1378,6 +1389,7 @@ async function listClients(sql, accountId) {
     SELECT
       id,
       name,
+      office_id AS "officeId",
       business_contact_name AS "businessContactName",
       business_contact_first_name AS "businessContactFirstName",
       business_contact_last_name AS "businessContactLastName",
@@ -1430,7 +1442,8 @@ async function listProjects(sql, accountId) {
       projects.name,
       clients.name AS client,
       projects.created_by AS "createdBy",
-      projects.budget_amount AS budget
+      projects.budget_amount AS budget,
+      projects.office_id AS "officeId"
     FROM projects
     JOIN clients ON clients.id = projects.client_id
     WHERE projects.account_id = ${accountId}::uuid

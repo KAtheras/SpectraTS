@@ -125,12 +125,19 @@
           return null;
         }
         const budgetRaw = project.budget !== undefined ? Number(project.budget) : null;
+        const officeId =
+          project.officeId !== undefined && project.officeId !== null
+            ? project.officeId
+            : project.office_id !== undefined && project.office_id !== null
+              ? project.office_id
+              : "";
         return {
           id: project.id || "",
           client,
           name,
           createdBy: project.createdBy || "",
           budget: Number.isFinite(budgetRaw) ? budgetRaw : null,
+          officeId: officeId ? String(officeId) : "",
         };
       })
       .filter(Boolean);
