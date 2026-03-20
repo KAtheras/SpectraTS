@@ -96,7 +96,6 @@
       return name.includes(searchValue) || username.includes(searchValue);
     });
 
-    const levelOrder = [];
     const levelGroups = new Map();
 
     filteredUsers.forEach(function (user) {
@@ -106,10 +105,21 @@
           label: levelLabel(user.level),
           users: [],
         });
-        levelOrder.push(levelKey);
       }
       levelGroups.get(levelKey).users.push(user);
     });
+
+    const configuredOrder = Array.isArray(levels)
+      ? Array.from(new Set(levels))
+          .sort(function (a, b) { return a - b; })
+          .map(function (lvl) { return String(lvl); })
+      : [];
+
+    const extraLevels = Array.from(levelGroups.keys()).filter(function (lvl) {
+      return configuredOrder.indexOf(lvl) === -1;
+    });
+
+    const levelOrder = configuredOrder.concat(extraLevels);
 
     const listHtml = levelOrder
       .map(function (levelKey) {
