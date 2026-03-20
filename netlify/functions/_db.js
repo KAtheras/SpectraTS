@@ -1655,6 +1655,10 @@ async function loadState(sql, currentUser) {
   const isExecFlag = currentGroup === "executive";
   const isManagerFlag = currentGroup === "manager" || isExecFlag || isAdminFlag;
   const isStaffFlag = currentGroup === "staff";
+  if (normalizedUser) {
+    normalizedUser.permissionGroup = currentGroup;
+    normalizedUser.permission_group = currentGroup;
+  }
 
   const catalogRows = await sql`
     SELECT
@@ -1873,7 +1877,13 @@ async function loadState(sql, currentUser) {
 
   return {
     bootstrapRequired: false,
-    currentUser: normalizedUser,
+    currentUser: normalizedUser
+      ? {
+          ...normalizedUser,
+          permissionGroup: currentGroup,
+          permission_group: currentGroup,
+        }
+      : null,
     account: { id: accountUuid, name: accountRow?.name || null },
     users,
     clients,
