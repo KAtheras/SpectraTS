@@ -2335,6 +2335,9 @@ exports.handler = async function handler(event) {
         const adminError = requireAdmin(context);
         if (adminError) return adminError;
         const desiredLevel = normalizeLevel(request.payload?.level ?? request.payload?.role);
+        if (!requestLevelLabels?.[desiredLevel]) {
+          return errorResponse(400, "Invalid level.");
+        }
         const level = isGlobalAdmin(context.currentUser) ? desiredLevel : 1;
         await createUserRecord(sql, {
           ...(request.payload || {}),
@@ -2351,6 +2354,9 @@ exports.handler = async function handler(event) {
           return errorResponse(404, "User not found.");
         }
         const desiredLevel = normalizeLevel(request.payload?.level ?? request.payload?.role);
+        if (!requestLevelLabels?.[desiredLevel]) {
+          return errorResponse(400, "Invalid level.");
+        }
         const nextLevel = isGlobalAdmin(context.currentUser)
           ? desiredLevel
           : normalizeLevel(target.level);
