@@ -2056,6 +2056,68 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   padding: 12px 22px 22px;
 }
 
+.member-card {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: 12px;
+  height: 100%;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--card-radius);
+  padding: 14px;
+  box-shadow: var(--shadow);
+}
+
+.member-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.member-card-head input,
+.member-card-head select {
+  min-height: var(--filter-control-height);
+  border-radius: 12px;
+  background: var(--control);
+  border: 1px solid var(--control-border);
+  padding: 10px 12px;
+  font-family: var(--font-head);
+}
+
+.member-card-head select {
+  min-width: 140px;
+}
+
+.member-card-head input {
+  flex: 1;
+  min-width: 200px;
+}
+
+.member-card-body {
+  min-height: 0;
+  overflow: auto;
+  padding: 8px;
+  border: 1px solid color-mix(in srgb, var(--panel-border) 60%, transparent);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.member-level-group {
+  display: grid;
+  gap: 6px;
+}
+
+.member-level-heading {
+  font-family: var(--font-head);
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 2px 4px;
+}
+
 .user-item {
   display: grid;
   gap: 10px;

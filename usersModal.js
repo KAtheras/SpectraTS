@@ -79,28 +79,68 @@
     }
 
     const previousScroll =
-      refs.userList.querySelector(".user-list-column")?.scrollTop ?? 0;
+      refs.userList.querySelector(".member-card-body")?.scrollTop ??
+      refs.userList.querySelector(".user-list-column")?.scrollTop ??
+      0;
 
-    const listHtml = state.users
-      .map(function (user) {
-        const roleLabelText = levelLabel(user.level);
-        const isCurrentUser = state.currentUser?.id === user.id;
-        const canManageUsers = isAdmin(state.currentUser);
-        const isSelected = selectedUserId === user.id;
+    const levelOrder = [];
+    const levelGroups = new Map();
+
+    state.users.forEach(function (user) {
+      const levelKey = String(user.level);
+      if (!levelGroups.has(levelKey)) {
+        levelGroups.set(levelKey, {
+          label: levelLabel(user.level),
+          users: [],
+        });
+        levelOrder.push(levelKey);
+      }
+      levelGroups.get(levelKey).users.push(user);
+    });
+
+    const listHtml = levelOrder
+      .map(function (levelKey) {
+        const group = levelGroups.get(levelKey);
+        if (!group) return "";
+
+        const itemsHtml = group.users
+          .map(function (user) {
+            const roleLabelText = levelLabel(user.level);
+            const isCurrentUser = state.currentUser?.id === user.id;
+            const canManageUsers = isAdmin(state.currentUser);
+            const isSelected = selectedUserId === user.id;
+
+            return `
+              <article class="catalog-item user-item ${isSelected ? "is-selected" : ""}" data-user-id="${escapeHtml(user.id)}">
+                <span class="catalog-item-copy">
+                  <span class="catalog-item-title">${escapeHtml(user.displayName)}</span>
+                  <span class="user-item-meta">
+                    <span>${escapeHtml(roleLabelText)}</span>
+                    ${isCurrentUser ? "<span>Current session</span>" : ""}
+                  </span>
+                </span>
+              </article>
+            `;
+          })
+          .join("");
 
         return `
-          <article class="catalog-item user-item ${isSelected ? "is-selected" : ""}" data-user-id="${escapeHtml(user.id)}">
-            <span class="catalog-item-copy">
-              <span class="catalog-item-title">${escapeHtml(user.displayName)}</span>
-              <span class="user-item-meta">
-                <span>${escapeHtml(roleLabelText)}</span>
-                ${isCurrentUser ? "<span>Current session</span>" : ""}
-              </span>
-            </span>
-          </article>
+          <div class="member-level-group">
+            <div class="member-level-heading">${escapeHtml(group.label)}</div>
+            ${itemsHtml}
+          </div>
         `;
       })
       .join("");
+
+    const levelFilterOptions = Array.isArray(levels)
+      ? Array.from(new Set(levels))
+          .sort(function (a, b) { return a - b; })
+          .map(function (level) {
+            return `<option value="${escapeHtml(String(level))}">${escapeHtml(levelLabel(level))}</option>`;
+          })
+          .join("")
+      : "";
 
     function assignmentSummary(user) {
       const clients =
@@ -242,14 +282,39 @@
 
     refs.userList.innerHTML = `
       <div class="user-pane">
-        <div class="user-list-column">${listHtml}</div>
+        <div class="user-list-column">
+          <div class="member-card">
+            <div class="member-card-head">
+              <input
+                type="search"
+                class="member-card-search"
+                placeholder="Search members"
+                aria-label="Search members"
+                disabled
+              />
+              <label class="member-card-filter">
+                <span class="sr-only">Level</span>
+                <select aria-label="Filter by level" disabled>
+                  <option value="">All</option>
+                  ${levelFilterOptions}
+                </select>
+              </label>
+            </div>
+            <div class="member-card-body catalog-list">${listHtml}</div>
+          </div>
+        </div>
         <div class="user-detail-column">${detailHtml}</div>
       </div>
     `;
 
-    const newListColumn = refs.userList.querySelector(".user-list-column");
-    if (newListColumn) {
-      newListColumn.scrollTop = previousScroll;
+    const newListBody = refs.userList.querySelector(".member-card-body");
+    if (newListBody) {
+      newListBody.scrollTop = previousScroll;
+    } else {
+      const newListColumn = refs.userList.querySelector(".user-list-column");
+      if (newListColumn) {
+        newListColumn.scrollTop = previousScroll;
+      }
     }
 
     refs.userList.querySelectorAll(".user-item").forEach(function (item) {
