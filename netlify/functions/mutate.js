@@ -303,26 +303,26 @@ async function updateLevelLabels(sql, payload, accountId) {
     FROM level_labels
     WHERE account_id = ${accountId}::uuid
   `;
-  const keepLevels = new Set(cleaned.map((c) => c.level));
-  for (const row of existing) {
-    if (!keepLevels.has(row.level)) {
-      await sql`
-        DELETE FROM level_labels
-        WHERE account_id = ${accountId}::uuid
-          AND level = ${row.level}
-      `;
-    }
-  }
+  const keepLevels = cleaned.map((c) => c.level);
 
   // Upsert submitted levels
+  const now = new Date().toISOString();
   for (const item of cleaned) {
     await sql`
       INSERT INTO level_labels (account_id, level, label, permission_group, updated_at)
-      VALUES (${accountId}::uuid, ${item.level}, ${item.label}, ${item.permissionGroup}, ${new Date().toISOString()})
+      VALUES (${accountId}::uuid, ${item.level}, ${item.label}, ${item.permissionGroup}, ${now})
       ON CONFLICT (account_id, level) DO UPDATE SET
         label = EXCLUDED.label,
         permission_group = EXCLUDED.permission_group,
         updated_at = EXCLUDED.updated_at
+    `;
+  }
+
+  if (existing.length && keepLevels.length) {
+    await sql`
+      DELETE FROM level_labels
+      WHERE account_id = ${accountId}::uuid
+        AND level <> ALL(${keepLevels})
     `;
   }
 
