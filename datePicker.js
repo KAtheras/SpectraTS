@@ -117,6 +117,15 @@
     return new Date(now.getFullYear(), now.getMonth(), now.getDate());
   }
 
+  function dateFromISO(iso) {
+    const parts = iso ? iso.split('-').map(Number) : [];
+    if (parts.length !== 3) return null;
+    const [y, m, d] = parts;
+    return Number.isFinite(y) && Number.isFinite(m) && Number.isFinite(d)
+      ? new Date(y, m - 1, d)
+      : null;
+  }
+
   function parseDisplayedDate(text) {
     const digits = String(text || '').replace(/\D/g, '');
     if (digits.length === 8) {
@@ -150,7 +159,7 @@
   function parseInput(input) {
     const canonical = input.dataset.dpCanonical || input.value;
     if (!/^\d{4}-\d{2}-\d{2}$/.test(canonical)) return null;
-    const d = new Date(canonical + 'T00:00:00');
+    const d = dateFromISO(canonical);
     return Number.isNaN(d.getTime()) ? null : d;
   }
 
@@ -183,7 +192,7 @@
       const iso = `${fullYear}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
       if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
         input.dataset.dpCanonical = iso;
-        setDisplay(input, new Date(iso + 'T00:00:00'));
+        setDisplay(input, dateFromISO(iso));
       }
     }
   }
@@ -191,8 +200,8 @@
   function clampToBounds(d, input) {
     const minAttr = input.getAttribute('min');
     const maxAttr = input.getAttribute('max');
-    const min = minAttr && /^\d{4}-\d{2}-\d{2}$/.test(minAttr) ? new Date(minAttr + 'T00:00:00') : null;
-    const max = maxAttr && /^\d{4}-\d{2}-\d{2}$/.test(maxAttr) ? new Date(maxAttr + 'T00:00:00') : null;
+    const min = minAttr && /^\d{4}-\d{2}-\d{2}$/.test(minAttr) ? dateFromISO(minAttr) : null;
+    const max = maxAttr && /^\d{4}-\d{2}-\d{2}$/.test(maxAttr) ? dateFromISO(maxAttr) : null;
     let date = d;
     if (min && date < min) date = min;
     if (max && date > max) date = max;
@@ -202,8 +211,8 @@
   function isDisabled(date, input) {
     const minAttr = input.getAttribute('min');
     const maxAttr = input.getAttribute('max');
-    const min = minAttr && /^\d{4}-\d{2}-\d{2}$/.test(minAttr) ? new Date(minAttr + 'T00:00:00') : null;
-    const max = maxAttr && /^\d{4}-\d{2}-\d{2}$/.test(maxAttr) ? new Date(maxAttr + 'T00:00:00') : null;
+    const min = minAttr && /^\d{4}-\d{2}-\d{2}$/.test(minAttr) ? dateFromISO(minAttr) : null;
+    const max = maxAttr && /^\d{4}-\d{2}-\d{2}$/.test(maxAttr) ? dateFromISO(maxAttr) : null;
     if (min && date < min) return true;
     if (max && date > max) return true;
     return false;
