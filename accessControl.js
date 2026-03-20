@@ -46,10 +46,13 @@
       const normalized = normalizeLevel(level);
       const value = state.levelLabels?.[normalized];
       if (value && typeof value === "object" && value.label) {
-        return value.label;
+        return String(value.label);
       }
-      if (typeof value === "string") {
+      if (typeof value === "string" && value.trim()) {
         return value;
+      }
+      if (DEFAULT_LEVEL_LABELS[normalized]) {
+        return DEFAULT_LEVEL_LABELS[normalized];
       }
       return `Level ${normalized}`;
     }

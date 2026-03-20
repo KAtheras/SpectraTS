@@ -3,6 +3,8 @@
   let detailEditUserId = null;
   let detailEditMode = false;
   let detailDraft = {};
+  let memberSearchTerm = "";
+  let memberLevelFilter = "";
 
   function setUserFeedback(deps, message, isError) {
     const { refs } = deps;
@@ -83,10 +85,21 @@
       refs.userList.querySelector(".user-list-column")?.scrollTop ??
       0;
 
+    const searchValue = (memberSearchTerm || "").trim().toLowerCase();
+    const filteredUsers = state.users.filter(function (user) {
+      if (memberLevelFilter && String(user.level) !== memberLevelFilter) {
+        return false;
+      }
+      if (!searchValue) return true;
+      const name = (user.displayName || "").toLowerCase();
+      const username = (user.username || "").toLowerCase();
+      return name.includes(searchValue) || username.includes(searchValue);
+    });
+
     const levelOrder = [];
     const levelGroups = new Map();
 
-    state.users.forEach(function (user) {
+    filteredUsers.forEach(function (user) {
       const levelKey = String(user.level);
       if (!levelGroups.has(levelKey)) {
         levelGroups.set(levelKey, {
@@ -137,7 +150,7 @@
       ? Array.from(new Set(levels))
           .sort(function (a, b) { return a - b; })
           .map(function (level) {
-            return `<option value="${escapeHtml(String(level))}">${escapeHtml(levelLabel(level))}</option>`;
+            return `<option value="${escapeHtml(String(level))}" ${memberLevelFilter === String(level) ? "selected" : ""}>${escapeHtml(levelLabel(level))}</option>`;
           })
           .join("")
       : "";
@@ -290,11 +303,11 @@
                 class="member-card-search"
                 placeholder="Search members"
                 aria-label="Search members"
-                disabled
+                value="${escapeHtml(memberSearchTerm)}"
               />
               <label class="member-card-filter">
                 <span class="sr-only">Level</span>
-                <select aria-label="Filter by level" disabled>
+                <select aria-label="Filter by level">
                   <option value="">All</option>
                   ${levelFilterOptions}
                 </select>
@@ -306,6 +319,25 @@
         <div class="user-detail-column">${detailHtml}</div>
       </div>
     `;
+
+    const searchInput = refs.userList.querySelector(".member-card-search");
+    const levelSelect = refs.userList.querySelector(".member-card-filter select");
+
+    if (searchInput) {
+      searchInput.value = memberSearchTerm;
+      searchInput.addEventListener("input", function (event) {
+        memberSearchTerm = event.target.value || "";
+        renderUsersList(deps);
+      });
+    }
+
+    if (levelSelect) {
+      levelSelect.value = memberLevelFilter;
+      levelSelect.addEventListener("change", function (event) {
+        memberLevelFilter = event.target.value || "";
+        renderUsersList(deps);
+      });
+    }
 
     const newListBody = refs.userList.querySelector(".member-card-body");
     if (newListBody) {
