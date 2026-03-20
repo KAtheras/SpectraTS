@@ -2395,22 +2395,22 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
 
 .user-item-row {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 .user-item-meta {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   color: var(--muted);
   font-family: var(--font-head);
-  font-size: 0.74rem;
-  letter-spacing: 0.04em;
+  font-size: 0.72rem;
+  letter-spacing: 0.03em;
   text-transform: uppercase;
   justify-content: flex-end;
-  white-space: nowrap;
+  flex-wrap: wrap;
 }
 
 .user-current-dot {
