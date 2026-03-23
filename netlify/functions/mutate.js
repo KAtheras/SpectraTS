@@ -1688,6 +1688,12 @@ async function saveEntry(sql, payload, currentUser, accountId) {
       : "pending";
   const approvedAt = status === "approved" && !hasContentChanges ? existing?.approved_at : null;
   const approvedBy = status === "approved" && !hasContentChanges ? existing?.approved_by_user_id : null;
+  const createdAt = entry.createdAt
+    ? normalizeText(entry.createdAt)
+    : existing?.created_at || new Date().toISOString();
+  const updatedAt = entry.updatedAt
+    ? normalizeText(entry.updatedAt)
+    : new Date().toISOString();
 
   await sql`
     INSERT INTO entries (
@@ -1721,8 +1727,8 @@ async function saveEntry(sql, payload, currentUser, accountId) {
       ${approvedAt},
       ${approvedBy},
       ${accountId},
-      ${normalizeText(entry.createdAt)},
-      ${normalizeText(entry.updatedAt)}
+      ${createdAt},
+      ${updatedAt}
     )
     ON CONFLICT (id) DO UPDATE SET
       user_name = EXCLUDED.user_name,

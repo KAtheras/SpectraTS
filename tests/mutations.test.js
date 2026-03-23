@@ -210,10 +210,10 @@ test("clients and projects add/update/remove with assignments", async () => {
     const renamed = (await sql`SELECT name FROM clients WHERE id = ${client.id}`)[0];
     assert.strictEqual(renamed.name, updatedName);
 
-    res = await callMutation("update_client", { clientName: updatedName, adminContactEmail: "admin@example.com" }, token);
+    res = await callMutation("update_client", { clientName: updatedName, billingContactEmail: "billing@example.com" }, token);
     assert.strictEqual(res.statusCode, 200, `update_client: ${JSON.stringify(res.body)}`);
-    const updated = (await sql`SELECT admin_contact_email FROM clients WHERE id = ${client.id}`)[0];
-    assert.strictEqual(updated.admin_contact_email, "admin@example.com");
+    const updated = (await sql`SELECT billing_contact_email FROM clients WHERE id = ${client.id}`)[0];
+    assert.strictEqual(updated.billing_contact_email, "billing@example.com");
 
     // project
     const projectName = rand("Project");
@@ -399,7 +399,7 @@ test("expenses lifecycle", async () => {
     const created = (await sql`SELECT amount, status FROM expenses WHERE id = ${expenseId}`)[0];
     assert.strictEqual(Number(created.amount), 100);
 
-    res = await callMutation("update_expense", { id: expenseId, amount: 120, notes: "updated" }, token);
+    res = await callMutation("update_expense", { expense: { id: expenseId, amount: 120, notes: "updated" } }, token);
     assert.strictEqual(res.statusCode, 200, `update_expense: ${JSON.stringify(res.body)}`);
     const updated = (await sql`SELECT amount, notes FROM expenses WHERE id = ${expenseId}`)[0];
     assert.strictEqual(Number(updated.amount), 120);
@@ -430,10 +430,14 @@ test("settings tables updates", async () => {
     const ll = (await sql`SELECT permission_group FROM level_labels WHERE account_id = ${TEST_ACCOUNT_ID}::uuid AND level = 2`)[0];
     assert.strictEqual(ll.permission_group, "manager");
 
-    const categories = ["Travel", "Meals", rand("Cat")];
+    const categories = [
+      { id: rand("cat1"), name: "Travel", isActive: true },
+      { id: rand("cat2"), name: "Meals", isActive: true },
+      { id: rand("cat3"), name: rand("Cat") },
+    ];
     res = await callMutation("update_expense_categories", { categories }, token);
     assert.strictEqual(res.statusCode, 200, `update_expense_categories: ${JSON.stringify(res.body)}`);
-    const catRow = (await sql`SELECT name FROM expense_categories WHERE account_uuid = ${TEST_ACCOUNT_ID}::uuid AND name = ${categories[2]}`)[0];
+    const catRow = (await sql`SELECT name FROM expense_categories WHERE account_uuid = ${TEST_ACCOUNT_ID}::uuid AND name = ${categories[2].name}`)[0];
     assert.ok(catRow);
 
     const offices = [{ id: OFFICE_ID, name: "Test Office" }, { id: "office-2", name: "Office 2" }];
