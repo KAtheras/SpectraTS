@@ -192,7 +192,13 @@
       mode === "user-role" && userId
         ? state.users.filter((user) => user.id === userId)
         : state.users;
-    const rows = usersToRender.map(function (user) {
+    const officeNameById = new Map(
+      (state.officeLocations || []).map((loc) => [loc.id || "", loc.name || ""])
+    );
+
+    const grouped = new Map();
+
+    usersToRender.forEach(function (user) {
       const currentLevel = normalizeLevel(user.level);
       const canonicalRole = (roleKey ? roleKey(user) : (user?.role || "")).toLowerCase();
       const isManagerEligible = ["manager", "admin", "superuser"].includes(canonicalRole);
@@ -265,7 +271,7 @@
       }
 
       if (!show) {
-        return "";
+        return;
       }
 
       const levelChoices =
@@ -333,7 +339,13 @@
             `
           : "";
 
-      return `
+      const officeId = user.officeId || "";
+      const groupKey = officeId || "__no_office";
+      const officeLabel = officeId
+        ? officeNameById.get(officeId) || officeId
+        : "No Office";
+
+      const rowHtml = `
         <article class="catalog-item member-item">
           <label class="member-select">
             <input
@@ -352,9 +364,28 @@
           </div>
         </article>
       `;
+      if (!grouped.has(groupKey)) {
+        grouped.set(groupKey, { label: officeLabel, rows: [] });
+      }
+      grouped.get(groupKey).rows.push(rowHtml);
     });
 
-    const html = rows.filter(Boolean).join("");
+    const sortedGroups = Array.from(grouped.values()).sort((a, b) => {
+      if (a.label === "No Office") return 1;
+      if (b.label === "No Office") return -1;
+      return a.label.localeCompare(b.label);
+    });
+
+    const html = sortedGroups
+      .map(
+        (group) => `
+          <div class="member-group">
+            <h3 class="member-group-title">${escapeHtml(group.label)}</h3>
+            ${group.rows.join("")}
+          </div>
+        `
+      )
+      .join("");
     refs.membersList.innerHTML = html || '<p class="empty-state">No matching members.</p>';
 
     refs.membersList.oninput = function (event) {
