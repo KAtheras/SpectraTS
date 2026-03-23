@@ -29,6 +29,7 @@ const {
   randomId,
   logAudit,
 } = require("./_db");
+const permissions = require("./permissions");
 
 function normalizeDateString(value) {
   if (!value) return "";
@@ -646,6 +647,28 @@ async function managerHasClient(sql, managerId, clientId, accountId) {
 async function managerHasProjectAccess(sql, managerId, projectId, accountId) {
   const scope = await getManagerScope(sql, managerId, accountId);
   return scope.projectIds.includes(projectId);
+}
+
+async function collectUserProjectIdsForClient(sql, user, clientId, accountId) {
+  if (!user) return [];
+  const userId = user.id;
+  const managerRows = await sql`
+    SELECT projects.id
+    FROM manager_projects
+    JOIN projects ON projects.id = manager_projects.project_id
+    WHERE manager_projects.manager_id = ${userId}
+      AND projects.client_id = ${clientId}
+      AND manager_projects.account_id = ${accountId}::uuid
+  `;
+  const memberRows = await sql`
+    SELECT projects.id
+    FROM project_members
+    JOIN projects ON projects.id = project_members.project_id
+    WHERE project_members.user_id = ${userId}
+      AND projects.client_id = ${clientId}
+      AND project_members.account_id = ${accountId}::uuid
+  `;
+  return [...new Set([...managerRows.map((r) => r.id), ...memberRows.map((r) => r.id)])];
 }
 
 async function assignManagerToClient(sql, payload, currentUser, accountId) {
@@ -2094,14 +2117,28 @@ exports.handler = async function handler(event) {
       return authError;
     }
     const accountId = context.currentUser?.accountId;
+    const permissionRows = await permissions.loadPermissionsFromDb(sql);
+    const permissionIndex = permissions.buildIndex({ permissions: permissionRows });
+    const can = (capabilityKey, ctx = {}) =>
+      permissions.can(context.currentUser, capabilityKey, {
+        permissionIndex,
+        actorOfficeId: context.currentUser?.officeId ?? null,
+        actorUserId: context.currentUser?.id ?? null,
+        ...ctx,
+      });
     requestLevelLabels = await listLevelLabels(sql, accountId);
 
     let mutationResult = null;
 
     switch (request.action) {
       case "add_client": {
-        const adminError = requireAdmin(context);
-        if (adminError) return adminError;
+        const targetOfficeId =
+          normalizeText(request.payload?.officeId) ||
+          normalizeText(request.payload?.office_id) ||
+          null;
+        if (!can("create_client", { resourceOfficeId: targetOfficeId })) {
+          return errorResponse(403, "Access denied.");
+        }
         mutationResult = await addClient(sql, request.payload || {}, accountId);
         break;
       }
@@ -2118,14 +2155,46 @@ exports.handler = async function handler(event) {
         break;
       }
       case "rename_client": {
-        const adminError = requireAdmin(context);
-        if (adminError) return adminError;
+        const targetClient = await findClient(sql, request.payload?.clientName, accountId);
+        if (!targetClient) {
+          return errorResponse(404, "Client not found.");
+        }
+        const projectIds = await collectUserProjectIdsForClient(
+          sql,
+          context.currentUser,
+          targetClient.id,
+          accountId
+        );
+        const canRename = can("edit_client", {
+          resourceOfficeId: targetClient.office_id || null,
+          projectId: projectIds[0] || null,
+          actorProjectIds: projectIds,
+        });
+        if (!canRename) {
+          return errorResponse(403, "Access denied.");
+        }
         mutationResult = await renameClient(sql, request.payload || {}, accountId);
         break;
       }
       case "update_client": {
-        const adminError = requireAdmin(context);
-        if (adminError) return adminError;
+        const targetClient = await findClient(sql, request.payload?.clientName, accountId);
+        if (!targetClient) {
+          return errorResponse(404, "Client not found.");
+        }
+        const projectIds = await collectUserProjectIdsForClient(
+          sql,
+          context.currentUser,
+          targetClient.id,
+          accountId
+        );
+        const canEdit = can("edit_client", {
+          resourceOfficeId: targetClient.office_id || null,
+          projectId: projectIds[0] || null,
+          actorProjectIds: projectIds,
+        });
+        if (!canEdit) {
+          return errorResponse(403, "Access denied.");
+        }
         mutationResult = await updateClient(sql, request.payload || {}, accountId);
         break;
       }
@@ -2142,8 +2211,17 @@ exports.handler = async function handler(event) {
         break;
       }
       case "remove_client": {
-        const adminError = requireAdmin(context);
-        if (adminError) return adminError;
+        const targetClient = await findClient(sql, request.payload?.clientName, accountId);
+        if (!targetClient) {
+          return errorResponse(404, "Client not found.");
+        }
+        if (
+          !can("archive_client", {
+            resourceOfficeId: targetClient.office_id || null,
+          })
+        ) {
+          return errorResponse(403, "Access denied.");
+        }
         mutationResult = await removeClient(sql, request.payload || {}, accountId);
         break;
       }
@@ -2332,13 +2410,16 @@ exports.handler = async function handler(event) {
         break;
       }
       case "add_user": {
-        const adminError = requireAdmin(context);
-        if (adminError) return adminError;
         const desiredLevel = normalizeLevel(request.payload?.level ?? request.payload?.role);
         if (!requestLevelLabels?.[desiredLevel]) {
           return errorResponse(400, "Invalid level.");
         }
-        const level = isGlobalAdmin(context.currentUser) ? desiredLevel : 1;
+        const targetOfficeId =
+          normalizeText(request.payload?.officeId) || normalizeText(request.payload?.office_id) || null;
+        if (!can("create_member", { resourceOfficeId: targetOfficeId })) {
+          return errorResponse(403, "Access denied.");
+        }
+        const level = desiredLevel;
         await createUserRecord(sql, {
           ...(request.payload || {}),
           level,
@@ -2347,8 +2428,6 @@ exports.handler = async function handler(event) {
         break;
       }
       case "update_user": {
-        const adminError = requireAdmin(context);
-        if (adminError) return adminError;
         const target = await findUserById(sql, request.payload?.userId, accountId);
         if (!target || !target.is_active) {
           return errorResponse(404, "User not found.");
@@ -2357,12 +2436,23 @@ exports.handler = async function handler(event) {
         if (!requestLevelLabels?.[desiredLevel]) {
           return errorResponse(400, "Invalid level.");
         }
-        const nextLevel = isGlobalAdmin(context.currentUser)
-          ? desiredLevel
-          : normalizeLevel(target.level);
-        const targetGroup = permissionGroupForUser(target);
-        if (!isGlobalAdmin(context.currentUser) && (targetGroup === "admin" || targetGroup === "superuser")) {
-          return errorResponse(403, "Admin access required.");
+        const nextLevel = desiredLevel;
+        const nextOfficeId =
+          request.payload?.officeId !== undefined && request.payload?.officeId !== null
+            ? normalizeText(request.payload.officeId)
+            : request.payload?.office_id !== undefined && request.payload?.office_id !== null
+              ? normalizeText(request.payload.office_id)
+              : target.office_id || target.officeId || null;
+        if (!can("edit_member_profile", { resourceOfficeId: nextOfficeId })) {
+          return errorResponse(403, "Access denied.");
+        }
+        const hasRateChange =
+          request.payload?.baseRate !== undefined ||
+          request.payload?.costRate !== undefined ||
+          request.payload?.base_rate !== undefined ||
+          request.payload?.cost_rate !== undefined;
+        if (hasRateChange && !can("edit_member_rates", { resourceOfficeId: nextOfficeId })) {
+          return errorResponse(403, "Access denied.");
         }
         const maybeCurrentUser = await updateUserRecord(
           sql,
@@ -2375,15 +2465,13 @@ exports.handler = async function handler(event) {
         break;
       }
       case "reset_user_password": {
-        const adminError = requireAdmin(context);
-        if (adminError) return adminError;
         const target = await findUserById(sql, request.payload?.userId, accountId);
         if (!target || !target.is_active) {
           return errorResponse(404, "User not found.");
         }
-        const targetGroup = permissionGroupForUser(target);
-        if (!isGlobalAdmin(context.currentUser) && (targetGroup === "admin" || targetGroup === "superuser")) {
-          return errorResponse(403, "Admin access required.");
+        const targetOfficeId = target.office_id || target.officeId || null;
+        if (!can("admin_reset_password", { resourceOfficeId: targetOfficeId, targetUserId: target.id })) {
+          return errorResponse(403, "Access denied.");
         }
         await updateUserPassword(sql, request.payload || {}, accountId);
         break;
@@ -2398,34 +2486,35 @@ exports.handler = async function handler(event) {
         break;
       }
       case "deactivate_user": {
-        const adminError = requireAdmin(context);
-        if (adminError) return adminError;
         const target = await findUserById(sql, request.payload?.userId, accountId);
         if (!target || !target.is_active) {
           return errorResponse(404, "User not found.");
         }
-        const targetGroup = permissionGroupForUser(target);
-        if (!isGlobalAdmin(context.currentUser) && (targetGroup === "admin" || targetGroup === "superuser")) {
-          return errorResponse(403, "Admin access required.");
+        const targetOfficeId = target.office_id || target.officeId || null;
+        if (!can("deactivate_member", { resourceOfficeId: targetOfficeId, targetUserId: target.id })) {
+          return errorResponse(403, "Access denied.");
         }
         await deactivateUser(sql, request.payload || {}, context.currentUser);
         break;
       }
       case "update_level_labels": {
-        const adminError = requireAdmin(context);
-        if (adminError) return adminError;
+        if (!can("edit_permission_matrix", { resourceOfficeId: context.currentUser?.officeId || null })) {
+          return errorResponse(403, "Access denied.");
+        }
         mutationResult = await updateLevelLabels(sql, request.payload || {}, accountId);
         break;
       }
       case "update_expense_categories": {
-        const adminError = requireAdmin(context);
-        if (adminError) return adminError;
+        if (!can("manage_categories", { resourceOfficeId: context.currentUser?.officeId || null })) {
+          return errorResponse(403, "Access denied.");
+        }
         mutationResult = await updateExpenseCategories(sql, request.payload || {}, accountId);
         break;
       }
       case "update_office_locations": {
-        const adminError = requireAdmin(context);
-        if (adminError) return adminError;
+        if (!can("manage_locations", { resourceOfficeId: context.currentUser?.officeId || null })) {
+          return errorResponse(403, "Access denied.");
+        }
         mutationResult = await updateOfficeLocations(sql, request.payload || {}, accountId);
         break;
       }

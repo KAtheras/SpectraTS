@@ -2,6 +2,7 @@
 
 const crypto = require("crypto");
 const { neon } = require("@netlify/neon");
+const permissions = require("./permissions");
 
 const DEFAULT_CLIENT_PROJECTS = {};
 
@@ -46,6 +47,50 @@ async function ensureDefaultAccount(sql) {
 async function ensureSchema(sql) {
   const accountId = await ensureDefaultAccount(sql);
   const accountUuid = accountId ? `${accountId}` : accountId;
+
+  // Permission schema (global, not per-account yet) driven by workbook seeds
+  await sql`
+    CREATE TABLE IF NOT EXISTS permission_roles (
+      id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+      key TEXT NOT NULL UNIQUE,
+      label TEXT NOT NULL,
+      is_global BOOLEAN NOT NULL DEFAULT FALSE,
+      is_active BOOLEAN NOT NULL DEFAULT TRUE
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS permission_capabilities (
+      id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+      key TEXT NOT NULL UNIQUE,
+      label TEXT NOT NULL,
+      category TEXT NOT NULL,
+      is_active BOOLEAN NOT NULL DEFAULT TRUE
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS permission_scopes (
+      id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+      key TEXT NOT NULL UNIQUE,
+      label TEXT NOT NULL,
+      is_active BOOLEAN NOT NULL DEFAULT TRUE
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS role_permissions (
+      id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+      role_id BIGINT NOT NULL REFERENCES permission_roles(id) ON DELETE CASCADE,
+      capability_id BIGINT NOT NULL REFERENCES permission_capabilities(id) ON DELETE CASCADE,
+      scope_id BIGINT NOT NULL REFERENCES permission_scopes(id) ON DELETE CASCADE,
+      allowed BOOLEAN NOT NULL DEFAULT FALSE,
+      subject_role_max TEXT NULL,
+      allow_self BOOLEAN NOT NULL DEFAULT FALSE,
+      policy_key TEXT NULL,
+      UNIQUE (role_id, capability_id, scope_id)
+    )
+  `;
 
   await sql`
     CREATE TABLE IF NOT EXISTS users (
@@ -1369,9 +1414,10 @@ function requireSuperAdmin(context) {
     return requireAuth(context);
   }
 
-  return isAdmin(context.currentUser)
+  const roleKey = permissions.roleKeyFromUser(context.currentUser);
+  return roleKey === "superuser"
     ? null
-    : errorResponse(403, "Admin access required.");
+    : errorResponse(403, "Superuser access required.");
 }
 
 async function findClient(sql, clientName, accountId) {
@@ -1688,6 +1734,16 @@ async function loadState(sql, currentUser) {
     normalizedUser.permission_group = currentGroup;
   }
 
+  const permissionRows = await permissions.loadPermissionsFromDb(sql);
+  const permissionIndex = permissions.buildIndex({ permissions: permissionRows });
+  const canCap = (capability, ctx = {}) =>
+    permissions.can(normalizedUser, capability, {
+      permissionIndex,
+      actorOfficeId: normalizedUser?.officeId ?? null,
+      actorUserId: normalizedUser?.id ?? null,
+      ...ctx,
+    });
+
   const catalogRows = await sql`
     SELECT
       clients.name AS client,
@@ -1699,9 +1755,9 @@ async function loadState(sql, currentUser) {
   `;
 
   let clients = await listClients(sql, accountUuid);
-  if (currentGroup === "executive" && normalizedUser?.officeId) {
-    clients = clients.filter((client) => (client.officeId || null) === normalizedUser.officeId);
-  }
+  clients = clients.filter((client) =>
+    canCap("view_clients", { resourceOfficeId: client.officeId || null })
+  );
 
   let entries = [];
   if (isAdminFlag) {
@@ -1844,26 +1900,33 @@ async function loadState(sql, currentUser) {
     `;
   }
 
-  let users =
-    isAdminFlag || isManagerFlag || isExecFlag
-      ? await listUsers(sql, accountUuid)
-      : normalizedUser
-        ? [{
-            id: normalizedUser.id,
-            username: normalizedUser.username,
-            displayName: normalizedUser.displayName,
-            level: normalizedUser.level,
-            baseRate: normalizedUser.baseRate ?? null,
-            costRate: normalizedUser.costRate ?? null,
-            mustChangePassword: normalizedUser.mustChangePassword ?? false,
-            isActive: true,
-            accountId: normalizedUser.accountId,
-            officeId: normalizedUser.officeId ?? null,
-          }]
-        : [];
-
-  if (currentGroup === "executive" && normalizedUser?.officeId) {
-    users = users.filter((user) => (user.officeId || null) === normalizedUser.officeId);
+  let users = [];
+  if (normalizedUser) {
+    const allUsers = await listUsers(sql, accountUuid);
+    const viewable = allUsers.filter((user) =>
+      canCap("view_members", { resourceOfficeId: user.officeId || null })
+    );
+    if (viewable.length) {
+      users = viewable.map((user) => {
+        const allowRates = canCap("view_member_rates", { resourceOfficeId: user.officeId || null });
+        return {
+          ...user,
+          baseRate: allowRates ? user.baseRate : null,
+          costRate: allowRates ? user.costRate : null,
+        };
+      });
+    } else {
+      const self = allUsers.find((user) => user.id === normalizedUser.id);
+      if (self) {
+        users = [
+          {
+            ...self,
+            baseRate: null,
+            costRate: null,
+          },
+        ];
+      }
+    }
   }
 
   const projects = await listProjects(sql, accountUuid);

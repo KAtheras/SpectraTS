@@ -1,0 +1,218 @@
+"use strict";
+
+const assert = require("assert");
+const path = require("path");
+const perms = require("./permissions");
+
+const workbookPath = path.join(__dirname, "..", "..", "final_permission_spec_clean.xlsx");
+const records = perms.parseWorkbook(workbookPath);
+const structs = perms.buildStructures(records);
+const index = perms.buildIndex(structs);
+
+function ctx(extra) {
+  return { permissionIndex: index, ...extra };
+}
+
+// Users used in tests
+const users = {
+  superuser: { id: "su", role: "superuser", office_id: "A" },
+  adminA: { id: "admA", role: "admin", office_id: "A" },
+  execA: { id: "execA", role: "executive", office_id: "A" },
+  managerA: { id: "mgrA", role: "manager", office_id: "A" },
+  staffA: { id: "stfA", role: "staff", office_id: "A" },
+  adminB: { id: "admB", role: "admin", office_id: "B" },
+};
+
+function test(name, fn) {
+  try {
+    fn();
+    console.log(`✔ ${name}`);
+  } catch (error) {
+    console.error(`✖ ${name}`);
+    console.error(error.message);
+    process.exitCode = 1;
+  }
+}
+
+test("superuser has global settings access", () => {
+  const allowed = perms.can(users.superuser, "view_member_rates", ctx({ resourceOfficeId: "Z" }));
+  assert.strictEqual(allowed, true);
+});
+
+test("admin rates only in own office", () => {
+  const sameOffice = perms.can(users.adminA, "edit_member_rates", ctx({ resourceOfficeId: "A", actorOfficeId: "A" }));
+  const otherOffice = perms.can(users.adminA, "edit_member_rates", ctx({ resourceOfficeId: "B", actorOfficeId: "A" }));
+  assert.strictEqual(sameOffice, true);
+  assert.strictEqual(otherOffice, false);
+});
+
+test("executive project ops limited to assigned projects", () => {
+  const granted = perms.can(
+    users.execA,
+    "approve_time",
+    ctx({ projectId: "p1", actorProjectIds: ["p1"], targetRoleKey: "manager", recordStatus: "pending" })
+  );
+  const denied = perms.can(
+    users.execA,
+    "approve_time",
+    ctx({ projectId: "p2", actorProjectIds: ["p1"], targetRoleKey: "manager", recordStatus: "pending" })
+  );
+  assert.strictEqual(granted, true);
+  assert.strictEqual(denied, false);
+});
+
+test("manager cannot approve executive time", () => {
+  const allowed = perms.can(
+    users.managerA,
+    "approve_time",
+    ctx({ projectId: "p1", actorProjectIds: ["p1"], targetRoleKey: "executive", recordStatus: "pending" })
+  );
+  assert.strictEqual(allowed, false);
+});
+
+test("executive can self-approve", () => {
+  const allowed = perms.can(
+    users.execA,
+    "approve_time",
+    ctx({ projectId: "p1", actorProjectIds: ["p1"], targetRoleKey: "executive", actorUserId: "execA", targetUserId: "execA", recordStatus: "pending" })
+  );
+  assert.strictEqual(allowed, true);
+});
+
+test("staff cannot view members", () => {
+  const allowed = perms.can(users.staffA, "view_members", ctx({ resourceOfficeId: "A", actorOfficeId: "A" }));
+  assert.strictEqual(allowed, false);
+});
+
+test("staff cannot view settings shell", () => {
+  const allowed = perms.can(users.staffA, "view_settings_shell", ctx({ resourceOfficeId: "A", actorOfficeId: "A" }));
+  assert.strictEqual(allowed, false);
+});
+
+test("staff cannot view projects", () => {
+  const allowed = perms.can(users.staffA, "view_projects", ctx({ actorProjectIds: [], projectId: "p1" }));
+  assert.strictEqual(allowed, false);
+});
+
+test("admin can view clients in own office", () => {
+  const allowed = perms.can(users.adminA, "view_clients", ctx({ resourceOfficeId: "A" }));
+  assert.strictEqual(allowed, true);
+});
+
+test("executive can view clients in own office", () => {
+  const allowed = perms.can(users.execA, "view_clients", ctx({ resourceOfficeId: "A" }));
+  assert.strictEqual(allowed, true);
+});
+
+test("staff cannot view clients", () => {
+  const allowed = perms.can(users.staffA, "view_clients", ctx({ resourceOfficeId: "A" }));
+  assert.strictEqual(allowed, false);
+});
+
+test("manager cannot view clients unless allowed", () => {
+  const allowed = perms.can(users.managerA, "view_clients", ctx({ resourceOfficeId: "A" }));
+  assert.strictEqual(allowed, false);
+});
+
+test("admin can edit client via assigned projects", () => {
+  const allowed = perms.can(users.adminA, "edit_client", ctx({ projectId: "p1", actorProjectIds: ["p1"] }));
+  assert.strictEqual(allowed, true);
+});
+
+test("executive can edit client via assigned projects", () => {
+  const allowed = perms.can(users.execA, "edit_client", ctx({ projectId: "p1", actorProjectIds: ["p1"] }));
+  assert.strictEqual(allowed, true);
+});
+
+test("executive cannot edit client when not assigned", () => {
+  const allowed = perms.can(users.execA, "edit_client", ctx({ projectId: "p1", actorProjectIds: [] }));
+  assert.strictEqual(allowed, false);
+});
+
+test("admin can archive client in own office", () => {
+  const allowed = perms.can(users.adminA, "archive_client", ctx({ resourceOfficeId: "A" }));
+  assert.strictEqual(allowed, true);
+});
+
+test("executive cannot archive client", () => {
+  const allowed = perms.can(users.execA, "archive_client", ctx({ resourceOfficeId: "A" }));
+  assert.strictEqual(allowed, false);
+});
+
+test("superuser can create/edit/archive client globally", () => {
+  const create = perms.can(users.superuser, "create_client", ctx({ resourceOfficeId: "Z" }));
+  const edit = perms.can(users.superuser, "edit_client", ctx({ resourceOfficeId: "Z" }));
+  const archive = perms.can(users.superuser, "archive_client", ctx({ resourceOfficeId: "Z" }));
+  assert.strictEqual(create && edit && archive, true);
+});
+
+test("executive can view members in own office", () => {
+  const allowed = perms.can(users.execA, "view_members", ctx({ resourceOfficeId: "A" }));
+  assert.strictEqual(allowed, true);
+});
+
+test("manager can view members in own office", () => {
+  const allowed = perms.can(users.managerA, "view_members", ctx({ resourceOfficeId: "A" }));
+  assert.strictEqual(allowed, true);
+});
+
+test("admin can view settings shell in own office", () => {
+  const allowed = perms.can(users.adminA, "view_settings_shell", ctx({ resourceOfficeId: "A", actorOfficeId: "A" }));
+  assert.strictEqual(allowed, true);
+});
+
+test("admin can edit member rates in own office", () => {
+  const allowed = perms.can(users.adminA, "edit_member_rates", ctx({ resourceOfficeId: "A", actorOfficeId: "A" }));
+  assert.strictEqual(allowed, true);
+});
+
+test("admin cannot edit member rates outside own office", () => {
+  const allowed = perms.can(users.adminA, "edit_member_rates", ctx({ resourceOfficeId: "B", actorOfficeId: "A" }));
+  assert.strictEqual(allowed, false);
+});
+
+test("admin cannot manage non-rates settings capabilities", () => {
+  const categories = perms.can(users.adminA, "manage_categories", ctx({ resourceOfficeId: "A", actorOfficeId: "A" }));
+  assert.strictEqual(categories, false);
+});
+
+test("executive cannot edit member profile", () => {
+  const allowed = perms.can(users.execA, "edit_member_profile", ctx({ resourceOfficeId: "A", actorOfficeId: "A" }));
+  assert.strictEqual(allowed, false);
+});
+
+test("manager cannot reset passwords", () => {
+  const allowed = perms.can(users.managerA, "admin_reset_password", ctx({ resourceOfficeId: "A", actorOfficeId: "A" }));
+  assert.strictEqual(allowed, false);
+});
+
+test("superuser can access all settings capabilities globally", () => {
+  const shell = perms.can(users.superuser, "view_settings_shell", ctx({ resourceOfficeId: "Z" }));
+  const rates = perms.can(users.superuser, "edit_member_rates", ctx({ resourceOfficeId: "Z" }));
+  const cats = perms.can(users.superuser, "manage_categories", ctx({ resourceOfficeId: "Z" }));
+  assert.strictEqual(shell && rates && cats, true);
+});
+
+test("own-record edit blocked once approved for non-admin", () => {
+  const beforeApproval = perms.can(
+    users.staffA,
+    "edit_expense",
+    ctx({ actorIsOwner: true, recordStatus: "pending" })
+  );
+  const afterApproval = perms.can(
+    users.staffA,
+    "edit_expense",
+    ctx({ actorIsOwner: true, recordStatus: "approved" })
+  );
+  assert.strictEqual(beforeApproval, true);
+  assert.strictEqual(afterApproval, false);
+});
+
+test("admin approved-entry override allowed", () => {
+  const allowed = perms.can(
+    users.adminA,
+    "edit_expense",
+    ctx({ actorOfficeId: "A", resourceOfficeId: "A", recordStatus: "approved" })
+  );
+  assert.strictEqual(allowed, true);
+});
