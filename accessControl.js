@@ -270,11 +270,13 @@
     function canViewUserByRole(viewer, target) {
       const viewerRole = roleKey(viewer) || "staff";
       const targetRole = roleKey(target) || "staff";
+      const isSelf = target?.id && viewer?.id && target.id === viewer.id;
+      if (isSelf) return true;
       if (viewerRole === "superuser") return true;
       if (viewerRole === "admin") return targetRole !== "superuser";
-      if (viewerRole === "executive") return targetRole === "executive" || targetRole === "manager" || targetRole === "staff" || target?.id === viewer?.id;
-      if (viewerRole === "manager") return targetRole === "manager" || targetRole === "staff" || target?.id === viewer?.id;
-      return target?.id === viewer?.id;
+      if (viewerRole === "executive") return targetRole === "executive" || targetRole === "manager" || targetRole === "staff";
+      if (viewerRole === "manager") return targetRole === "manager" || targetRole === "staff";
+      return false;
     }
 
     function canUserAccessProject(user, client, project) {
