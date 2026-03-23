@@ -9,12 +9,14 @@
 
     return [...state.entries]
       .filter((entry) => {
-        const targetUser = getUserByDisplayName(entry.user);
-        const canView = typeof canViewUserByRole === "function"
-          ? canViewUserByRole(state.currentUser, targetUser)
-          : true;
-        if (!canView) {
-          return false;
+        if (state.filters.project) {
+          const targetUser = getUserByDisplayName(entry.user);
+          const canView = typeof canViewUserByRole === "function"
+            ? canViewUserByRole(state.currentUser, targetUser)
+            : true;
+          if (!canView) {
+            return false;
+          }
         }
         if (state.filters.user && entry.user !== state.filters.user) {
           return false;
