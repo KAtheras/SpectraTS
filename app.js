@@ -1962,15 +1962,18 @@
       }
     }
     const currentGroup = permissionGroupForUser(state.currentUser);
+    const settingsShellAllowed = !!state.settingsAccess?.settingsShell;
     if (refs.navSettings) {
-      refs.navSettings.hidden = true;
-      refs.navSettings.classList.toggle("is-active", false);
-      refs.navSettings.setAttribute("aria-current", "false");
+      refs.navSettings.hidden = !settingsShellAllowed;
+      const isActive = settingsShellAllowed && view === "settings";
+      refs.navSettings.classList.toggle("is-active", isActive);
+      refs.navSettings.setAttribute("aria-current", isActive ? "page" : "false");
     }
     if (refs.navSettingsMobile) {
-      refs.navSettingsMobile.hidden = true;
-      refs.navSettingsMobile.classList.toggle("is-active", false);
-      refs.navSettingsMobile.setAttribute("aria-current", "false");
+      refs.navSettingsMobile.hidden = !settingsShellAllowed;
+      const isActive = settingsShellAllowed && view === "settings";
+      refs.navSettingsMobile.classList.toggle("is-active", isActive);
+      refs.navSettingsMobile.setAttribute("aria-current", isActive ? "page" : "false");
     }
     if (refs.navMembers) {
       const showMembers =
@@ -2456,7 +2459,7 @@
   }
   if (refs.navSettings) {
     refs.navSettings.addEventListener("click", function () {
-      if (!isAdmin(state.currentUser)) {
+      if (!state.settingsAccess?.settingsShell) {
         return;
       }
       setView("settings");
@@ -2464,7 +2467,7 @@
   }
   if (refs.navSettingsMobile) {
     refs.navSettingsMobile.addEventListener("click", function () {
-      if (!isAdmin(state.currentUser)) {
+      if (!state.settingsAccess?.settingsShell) {
         return;
       }
       setView("settings");

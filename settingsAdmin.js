@@ -24,6 +24,9 @@
 
   function setActiveSettingsTab(nextTab) {
     const allowed = allowedTabs();
+    if (!allowed.length) {
+      return;
+    }
     const allowedSet = new Set(allowed);
 
     // Remove disallowed tabs entirely so they do not render.
@@ -90,7 +93,8 @@
 
   function renderSettingsTabs() {
     const { state } = deps();
-    if (!state?.settingsAccess?.settingsShell) {
+    if (!state?.settingsAccess) return;
+    if (!state.settingsAccess.settingsShell) {
       const settingsPage = document.getElementById("settings-page");
       if (settingsPage) settingsPage.hidden = true;
       return;
