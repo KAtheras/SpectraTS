@@ -1,5 +1,6 @@
 "use strict";
 
+const fs = require("fs");
 const { execSync } = require("child_process");
 
 const ROLE_ORDER = {
@@ -55,9 +56,17 @@ function parseSheetXml(xml) {
 }
 
 function parseWorkbook(filePath) {
-  const resolved = filePath
-    ? require("path").resolve(filePath)
-    : require("path").resolve(__dirname, "..", "..", "final_permission_spec_clean.xlsx");
+  const path = require("path");
+  const candidates = filePath
+    ? [path.resolve(filePath)]
+    : [
+        path.resolve(__dirname, "..", "..", "final_permission_spec_clean.xlsx"),
+        path.resolve(process.cwd(), "final_permission_spec_clean.xlsx"),
+      ];
+  const resolved = candidates.find((p) => fs.existsSync(p));
+  if (!resolved) {
+    throw new Error("final_permission_spec_clean.xlsx not found.");
+  }
   const xml = execSync(`unzip -p ${resolved} xl/worksheets/sheet1.xml`, {
     encoding: "utf8",
   });
@@ -157,13 +166,13 @@ function buildIndex(structs) {
 
 function roleKeyFromUser(user) {
   if (!user) return null;
-  const raw =
+  const rawRole =
     user.permission_role_key ||
     user.permissionRoleKey ||
-    user.permission_group ||
-    user.permissionGroup ||
     user.role ||
     null;
+  const fallbackGroup = user.permission_group || user.permissionGroup || null;
+  const raw = rawRole || fallbackGroup;
   if (!raw) return null;
   const value = String(raw).toLowerCase();
   if (value === "global_admin") return "superuser";

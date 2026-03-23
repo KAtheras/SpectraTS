@@ -2,9 +2,9 @@
 
 const assert = require("assert");
 const path = require("path");
-const perms = require("./permissions");
+const perms = require("../netlify/functions/permissions");
 
-const workbookPath = path.join(__dirname, "..", "..", "final_permission_spec_clean.xlsx");
+const workbookPath = path.join(__dirname, "..", "final_permission_spec_clean.xlsx");
 const records = perms.parseWorkbook(workbookPath);
 const structs = perms.buildStructures(records);
 const index = perms.buildIndex(structs);
@@ -82,6 +82,18 @@ test("executive can self-approve", () => {
 test("staff cannot view members", () => {
   const allowed = perms.can(users.staffA, "view_members", ctx({ resourceOfficeId: "A", actorOfficeId: "A" }));
   assert.strictEqual(allowed, false);
+});
+
+test("superuser can view members in any office", () => {
+  const allowed = perms.can(users.superuser, "view_members", ctx({ resourceOfficeId: "Z" }));
+  assert.strictEqual(allowed, true);
+});
+
+test("admin can view members only in own office", () => {
+  const allowedOwn = perms.can(users.adminA, "view_members", ctx({ resourceOfficeId: "A", actorOfficeId: "A" }));
+  const deniedOther = perms.can(users.adminA, "view_members", ctx({ resourceOfficeId: "B", actorOfficeId: "A" }));
+  assert.strictEqual(allowedOwn, true);
+  assert.strictEqual(deniedOther, false);
 });
 
 test("staff cannot view settings shell", () => {
