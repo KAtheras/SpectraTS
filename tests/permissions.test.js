@@ -185,8 +185,23 @@ test("admin can view clients in own office", () => {
   assert.strictEqual(allowed, true);
 });
 
+test("admin cannot view clients outside own office", () => {
+  const allowed = perms.can(users.adminA, "view_clients", ctx({ resourceOfficeId: "B", actorOfficeId: "A" }));
+  assert.strictEqual(allowed, false);
+});
+
 test("executive can view clients in own office", () => {
   const allowed = perms.can(users.execA, "view_clients", ctx({ resourceOfficeId: "A" }));
+  assert.strictEqual(allowed, true);
+});
+
+test("executive cannot view clients outside own office", () => {
+  const allowed = perms.can(users.execA, "view_clients", ctx({ resourceOfficeId: "B", actorOfficeId: "A" }));
+  assert.strictEqual(allowed, false);
+});
+
+test("superuser can view clients in any office", () => {
+  const allowed = perms.can(users.superuser, "view_clients", ctx({ resourceOfficeId: "B", actorOfficeId: "A" }));
   assert.strictEqual(allowed, true);
 });
 
@@ -197,6 +212,24 @@ test("staff cannot view clients", () => {
 
 test("manager cannot view clients unless allowed", () => {
   const allowed = perms.can(users.managerA, "view_clients", ctx({ resourceOfficeId: "A" }));
+  assert.strictEqual(allowed, false);
+});
+
+test("executive can view assigned cross-office projects", () => {
+  const allowed = perms.can(
+    users.execA,
+    "view_projects",
+    ctx({ resourceOfficeId: "B", actorOfficeId: "A", projectId: "p1", actorProjectIds: ["p1"] })
+  );
+  assert.strictEqual(allowed, true);
+});
+
+test("executive cannot view unassigned cross-office projects", () => {
+  const allowed = perms.can(
+    users.execA,
+    "view_projects",
+    ctx({ resourceOfficeId: "B", actorOfficeId: "A", projectId: "p1", actorProjectIds: [] })
+  );
   assert.strictEqual(allowed, false);
 });
 

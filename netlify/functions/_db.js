@@ -1780,7 +1780,10 @@ async function loadState(sql, currentUser) {
 
   let clients = await listClients(sql, accountUuid);
   clients = clients.filter((client) =>
-    canCap("view_clients", { resourceOfficeId: client.officeId || null })
+    canCap("view_clients", {
+      resourceOfficeId: client.officeId ?? client.office_id ?? null,
+      actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+    })
   );
 
   let entries = [];
@@ -1959,7 +1962,26 @@ async function loadState(sql, currentUser) {
     }
   }
 
-  const projects = await listProjects(sql, accountUuid);
+  let actorProjectIds = [];
+  if (normalizedUser) {
+    const memberProjects = await listProjectMembersForUser(sql, normalizedUser.id, accountUuid);
+    const managerAssignments = await listManagerAssignmentsForUser(sql, normalizedUser.id, accountUuid);
+    actorProjectIds = [
+      ...new Set([
+        ...memberProjects.map((row) => row.projectId),
+        ...(managerAssignments?.projectRows || []).map((row) => row.projectId),
+      ]),
+    ];
+  }
+
+  const projects = (await listProjects(sql, accountUuid)).filter((project) =>
+    canCap("view_projects", {
+      resourceOfficeId: project.officeId ?? project.office_id ?? null,
+      actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+      projectId: project.id,
+      actorProjectIds,
+    })
+  );
   const expenseCategories = settingsShell && manageCategories
     ? await listExpenseCategories(sql, accountUuid)
     : [];
