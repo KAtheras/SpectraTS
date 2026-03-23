@@ -42,11 +42,12 @@ function parseSheetXml(xml) {
       const tMatch = body.match(/<t[^>]*>([\s\S]*?)<\/t>/);
       const vMatch = body.match(/<v[^>]*>([\s\S]*?)<\/v>/);
       const raw = tMatch ? tMatch[1] : vMatch ? vMatch[1] : "";
-      rowValues[col] = raw;
+      rowValues[col] = typeof raw === "string" ? raw.trim() : raw;
     }
     const rec = {};
     for (const [col, key] of Object.entries(HEADERS)) {
-      rec[key] = rowValues[col] || "";
+      const value = rowValues[col] || "";
+      rec[key] = typeof value === "string" ? value.trim() : value;
     }
     if (Object.values(rec).every((v) => v === "")) continue;
     rec.allowed = rec.allowed === "1" || rec.allowed === 1 || rec.allowed === true;

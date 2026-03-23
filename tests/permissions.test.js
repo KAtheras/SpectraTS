@@ -13,6 +13,12 @@ function ctx(extra) {
   return { permissionIndex: index, ...extra };
 }
 
+function hasPerm(role, capability, scope) {
+  return structs.permissions.some(
+    (p) => p.role_key === role && p.capability_key === capability && p.scope_key === scope && p.allowed
+  );
+}
+
 // Users used in tests
 const users = {
   superuser: { id: "su", role: "superuser", office_id: "A" },
@@ -37,6 +43,15 @@ function test(name, fn) {
 test("superuser has global settings access", () => {
   const allowed = perms.can(users.superuser, "view_member_rates", ctx({ resourceOfficeId: "Z" }));
   assert.strictEqual(allowed, true);
+});
+
+test("permissions table includes member visibility/rates rows", () => {
+  assert.strictEqual(hasPerm("superuser", "view_members", "all_offices"), true);
+  assert.strictEqual(hasPerm("superuser", "view_member_rates", "all_offices"), true);
+  assert.strictEqual(hasPerm("admin", "view_members", "own_office"), true);
+  assert.strictEqual(hasPerm("admin", "view_member_rates", "own_office"), true);
+  assert.strictEqual(hasPerm("executive", "view_members", "own_office"), true);
+  assert.strictEqual(hasPerm("manager", "view_members", "own_office"), true);
 });
 
 test("admin rates only in own office", () => {
@@ -89,9 +104,21 @@ test("superuser can view members in any office", () => {
   assert.strictEqual(allowed, true);
 });
 
+test("superuser can view member rates in any office", () => {
+  const allowed = perms.can(users.superuser, "view_member_rates", ctx({ resourceOfficeId: "Z" }));
+  assert.strictEqual(allowed, true);
+});
+
 test("admin can view members only in own office", () => {
   const allowedOwn = perms.can(users.adminA, "view_members", ctx({ resourceOfficeId: "A", actorOfficeId: "A" }));
   const deniedOther = perms.can(users.adminA, "view_members", ctx({ resourceOfficeId: "B", actorOfficeId: "A" }));
+  assert.strictEqual(allowedOwn, true);
+  assert.strictEqual(deniedOther, false);
+});
+
+test("admin can view member rates only in own office", () => {
+  const allowedOwn = perms.can(users.adminA, "view_member_rates", ctx({ resourceOfficeId: "A", actorOfficeId: "A" }));
+  const deniedOther = perms.can(users.adminA, "view_member_rates", ctx({ resourceOfficeId: "B", actorOfficeId: "A" }));
   assert.strictEqual(allowedOwn, true);
   assert.strictEqual(deniedOther, false);
 });
@@ -166,6 +193,11 @@ test("executive can view members in own office", () => {
 test("manager can view members in own office", () => {
   const allowed = perms.can(users.managerA, "view_members", ctx({ resourceOfficeId: "A" }));
   assert.strictEqual(allowed, true);
+});
+
+test("staff cannot view member rates", () => {
+  const allowed = perms.can(users.staffA, "view_member_rates", ctx({ resourceOfficeId: "A", actorOfficeId: "A" }));
+  assert.strictEqual(allowed, false);
 });
 
 test("admin can view settings shell in own office", () => {
