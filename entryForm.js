@@ -283,7 +283,6 @@
       isStaff,
       isManager,
       isAdmin,
-      availableUsers,
       defaultFilterUser,
       allowedClientsForUser,
       clientNames,
@@ -302,18 +301,7 @@
     const entryUsers = uniqueValues(
       (state.entries || []).map((entry) => entry.user).filter(Boolean)
     );
-    const authUsers = state.currentUser
-      ? isStaff(state.currentUser)
-        ? [state.currentUser.displayName]
-        : isManager(state.currentUser)
-          ? state.users
-              .filter((user) => isStaff(user) || user.id === state.currentUser.id)
-              .map((user) => user.displayName)
-              .filter(Boolean)
-          : availableUsers()
-      : availableUsers();
-    const filteredUsers = authUsers.filter((user) => entryUsers.includes(user));
-    const userOptions = filteredUsers;
+    const userOptions = entryUsers;
     const defaultUser = defaultFilterUser(state, isStaff);
     const requestedUser = selection?.user ?? userField?.value ?? defaultUser;
     const nextUser =
