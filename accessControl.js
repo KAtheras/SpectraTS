@@ -267,6 +267,16 @@
       );
     }
 
+    function canViewUserByRole(viewer, target) {
+      const viewerRole = roleKey(viewer) || "staff";
+      const targetRole = roleKey(target) || "staff";
+      if (viewerRole === "superuser") return true;
+      if (viewerRole === "admin") return targetRole !== "superuser";
+      if (viewerRole === "executive") return targetRole === "executive" || targetRole === "manager" || targetRole === "staff" || target?.id === viewer?.id;
+      if (viewerRole === "manager") return targetRole === "manager" || targetRole === "staff" || target?.id === viewer?.id;
+      return target?.id === viewer?.id;
+    }
+
     function canUserAccessProject(user, client, project) {
       if (!user) {
         return false;
@@ -310,6 +320,7 @@
       projectCreatedBy,
       isUserAssignedToProject,
       canUserAccessProject,
+      canViewUserByRole,
     };
   }
 

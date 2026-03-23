@@ -1403,6 +1403,7 @@
     projectCreatedBy,
     isUserAssignedToProject,
     canUserAccessProject,
+    canViewUserByRole,
   } = accessControl;
 
   function clientHours(client) {
@@ -4516,6 +4517,7 @@
     escapeHtml,
     formatDisplayDateShort,
     permissionGroupForUser,
+    canViewUserByRole,
     getUserByDisplayName,
     canUserAccessProject,
     isAdmin,
@@ -4540,6 +4542,7 @@
     getUserById,
     entryUserOptions,
     getUserByDisplayName,
+    canViewUserByRole,
     clampDateToBounds,
     today,
     setExpenseNonBillableDefault,

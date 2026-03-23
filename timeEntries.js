@@ -5,24 +5,14 @@
     const { state } = deps();
     const search = state.filters.search.trim().toLowerCase();
 
-    function isVisibleByRole(entry) {
-      if (!state.currentUser) return false;
-      if (!state.filters.project) return true;
-      const { permissionGroupForUser, getUserByDisplayName } = deps();
-      const currentGroup = permissionGroupForUser(state.currentUser);
-      const targetUser = getUserByDisplayName(entry.user);
-      const targetGroup = permissionGroupForUser(targetUser);
-      const isSelf = targetUser?.id === state.currentUser.id || entry.user === state.currentUser.displayName;
-
-      if (currentGroup === "superuser") return true;
-      if (currentGroup === "admin") return targetGroup !== "superuser";
-      if (currentGroup === "executive") return isSelf || targetGroup === "manager" || targetGroup === "staff";
-      if (currentGroup === "manager") return isSelf || targetGroup === "staff";
-      return isSelf;
-    }
+    const { getUserByDisplayName, canViewUserByRole } = deps();
 
     return [...state.entries]
       .filter((entry) => {
+        const targetUser = getUserByDisplayName(entry.user);
+        if (!canViewUserByRole(state.currentUser, targetUser)) {
+          return false;
+        }
         if (state.filters.user && entry.user !== state.filters.user) {
           return false;
         }
