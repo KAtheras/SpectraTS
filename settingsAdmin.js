@@ -11,11 +11,14 @@
   }
 
   function allowedTabs() {
-    const { state } = deps();
-    const group = state?.currentUser?.permissionGroup || state?.currentUser?.permission_group || "";
-    if (group === "superuser") return SETTINGS_TABS;
-    if (group === "admin") return ["rates"];
-    return [];
+    const { state, settingsAccess = {} } = deps();
+    const access = state?.settingsAccess || settingsAccess || {};
+    const tabs = [];
+    if (access.editPermissionMatrix) tabs.push("levels");
+    if (access.manageCategories) tabs.push("categories");
+    if (access.manageLocations) tabs.push("locations");
+    if (access.viewMemberRates || access.editMemberRates) tabs.push("rates");
+    return tabs;
   }
 
   function setActiveSettingsTab(nextTab) {

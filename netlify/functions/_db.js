@@ -1755,6 +1755,18 @@ async function loadState(sql, currentUser) {
     resourceOfficeId: normalizedUser?.officeId ?? null,
     actorOfficeId: normalizedUser?.officeId ?? null,
   });
+  const editPermissionMatrix = canCap("edit_permission_matrix", {
+    resourceOfficeId: normalizedUser?.officeId ?? null,
+    actorOfficeId: normalizedUser?.officeId ?? null,
+  });
+  const viewMemberRatesCap = canCap("view_member_rates", {
+    resourceOfficeId: normalizedUser?.officeId ?? null,
+    actorOfficeId: normalizedUser?.officeId ?? null,
+  });
+  const editMemberRatesCap = canCap("edit_member_rates", {
+    resourceOfficeId: normalizedUser?.officeId ?? null,
+    actorOfficeId: normalizedUser?.officeId ?? null,
+  });
 
   const catalogRows = await sql`
     SELECT
@@ -2005,6 +2017,14 @@ async function loadState(sql, currentUser) {
           permission_group: currentGroup,
         }
       : null,
+    settingsAccess: {
+      settingsShell,
+      viewMemberRates: viewMemberRatesCap,
+      editMemberRates: editMemberRatesCap,
+      manageCategories,
+      manageLocations,
+      editPermissionMatrix,
+    },
     account: { id: accountUuid, name: accountRow?.name || null },
     users,
     clients,

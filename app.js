@@ -4417,6 +4417,7 @@
   window.settingsAdminDeps = {
     refs,
     state,
+    settingsAccess: state.settingsAccess || {},
     usersRenderUsersList,
     levelLabel,
     isAdmin,
