@@ -1681,8 +1681,17 @@ async function getManagerScope(sql, managerId, accountId) {
     WHERE manager_id = ${managerId}
       AND account_id = ${accountId}::uuid
   `;
+  // Managers may also be staff on projects via project_members; include those
+  // so visibility/editing reflects actual assignments persisted in DB.
+  const memberProjectRows = await sql`
+    SELECT project_id
+    FROM project_members
+    WHERE user_id = ${managerId}
+      AND account_id = ${accountId}::uuid
+  `;
   const clientIds = clientRows.map((row) => row.client_id);
   const directProjectIds = projectRows.map((row) => row.project_id);
+  const memberProjectIds = memberProjectRows.map((row) => row.project_id);
   const clientProjectRows = clientIds.length
     ? await sql`
         SELECT id
@@ -1693,6 +1702,7 @@ async function getManagerScope(sql, managerId, accountId) {
   const projectIds = [
     ...new Set([
       ...directProjectIds,
+      ...memberProjectIds,
       ...clientProjectRows.map((row) => row.id),
     ]),
   ];

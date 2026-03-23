@@ -227,6 +227,45 @@ test("admin can view assigned cross-office projects via assigned_projects scope"
   assert.strictEqual(allowed, true);
 });
 
+test("manager scope includes projects where manager is a member", async () => {
+  // Only a structural check on scope helper; use DB when available
+  if (!process.env.NETLIFY_DATABASE_URL) {
+    console.log("Skipping DB-dependent manager scope test; NETLIFY_DATABASE_URL not set.");
+    return;
+  }
+  const sql = await db.getSql();
+  await db.ensureSchema(sql);
+  const accountId = await db.ensureDefaultAccount(sql);
+
+  // Seed one project, manager as member only
+  const [{ id: clientId }] = await sql`
+    INSERT INTO clients (account_id, name)
+    VALUES (${accountId}::uuid, 'ScopeTestClient')
+    ON CONFLICT (account_id, LOWER(name)) DO UPDATE SET name = EXCLUDED.name
+    RETURNING id
+  `;
+  const [{ id: projectId }] = await sql`
+    INSERT INTO projects (client_id, account_id, name)
+    VALUES (${clientId}, ${accountId}::uuid, 'ScopeTestProject')
+    ON CONFLICT (client_id, LOWER(name)) DO UPDATE SET name = EXCLUDED.name
+    RETURNING id
+  `;
+  const managerId = "mgr-scope";
+  await sql`
+    INSERT INTO users (id, username, display_name, password_hash, role, level, account_id, is_active)
+    VALUES (${managerId}, 'mgrscope', 'Mgr Scope', ${db.hashPassword("password123")}, 'manager', 3, ${accountId}::uuid, TRUE)
+    ON CONFLICT (id) DO NOTHING
+  `;
+  await sql`
+    INSERT INTO project_members (project_id, user_id, account_id)
+    VALUES (${projectId}, ${managerId}, ${accountId}::uuid)
+    ON CONFLICT (project_id, user_id) DO NOTHING
+  `;
+
+  const scope = await db.getManagerScope(sql, managerId, accountId);
+  assert.ok(scope.projectIds.includes(projectId), "manager scope should include projects where they are members");
+});
+
 test("admin can view clients in own office", () => {
   const allowed = perms.can(users.adminA, "view_clients", ctx({ resourceOfficeId: "A" }));
   assert.strictEqual(allowed, true);
