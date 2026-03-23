@@ -1905,15 +1905,15 @@ async function loadState(sql, currentUser) {
     const allUsers = await listUsers(sql, accountUuid);
     const viewable = allUsers.filter((user) =>
       canCap("view_members", {
-        resourceOfficeId: user.officeId || null,
-        actorOfficeId: normalizedUser?.officeId || null,
+        resourceOfficeId: user.officeId ?? user.office_id ?? null,
+        actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
       })
     );
     if (viewable.length) {
       users = viewable.map((user) => {
         const allowRates = canCap("view_member_rates", {
-          resourceOfficeId: user.officeId || null,
-          actorOfficeId: normalizedUser?.officeId || null,
+          resourceOfficeId: user.officeId ?? user.office_id ?? null,
+          actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
         });
         return {
           ...user,

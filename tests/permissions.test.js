@@ -3,6 +3,7 @@
 const assert = require("assert");
 const path = require("path");
 const perms = require("../netlify/functions/permissions");
+const db = require("../netlify/functions/_db");
 
 const workbookPath = path.join(__dirname, "..", "final_permission_spec_clean.xlsx");
 const records = perms.parseWorkbook(workbookPath);
@@ -139,6 +140,21 @@ test("manager can view members only in own office", () => {
   const deniedOther = perms.can(users.managerA, "view_members", ctx({ resourceOfficeId: "B", actorOfficeId: "A" }));
   assert.strictEqual(allowedOwn, true);
   assert.strictEqual(deniedOther, false);
+});
+
+test("listUsers returns officeId when DB is available", async () => {
+  if (!process.env.NETLIFY_DATABASE_URL) {
+    console.log("Skipping DB-dependent listUsers test; NETLIFY_DATABASE_URL not set.");
+    return;
+  }
+  const sql = await db.getSql();
+  await db.ensureSchema(sql);
+  const accountId = await db.ensureDefaultAccount(sql);
+  const rows = await db.listUsers(sql, accountId);
+  assert.ok(Array.isArray(rows));
+  rows.forEach((u) => {
+    assert.ok("officeId" in u);
+  });
 });
 
 test("admin can view member rates only in own office", () => {
