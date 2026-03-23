@@ -180,6 +180,38 @@ test("staff cannot view projects", () => {
   assert.strictEqual(allowed, false);
 });
 
+test("admin can view projects in own office", () => {
+  const allowed = perms.can(
+    users.adminA,
+    "view_projects",
+    ctx({ resourceOfficeId: "A", actorOfficeId: "A", projectId: "p1", actorProjectIds: [] })
+  );
+  assert.strictEqual(allowed, true);
+});
+
+test("roleKeyFromUser normalizes global_admin to superuser", () => {
+  const user = { role: "global_admin" };
+  assert.strictEqual(perms.roleKeyFromUser(user), "superuser");
+});
+
+test("admin cannot view unassigned cross-office projects", () => {
+  const allowed = perms.can(
+    users.adminA,
+    "view_projects",
+    ctx({ resourceOfficeId: "B", actorOfficeId: "A", projectId: "p1", actorProjectIds: [] })
+  );
+  assert.strictEqual(allowed, false);
+});
+
+test("admin can view assigned cross-office projects via assigned_projects scope", () => {
+  const allowed = perms.can(
+    users.adminA,
+    "view_projects",
+    ctx({ resourceOfficeId: "B", actorOfficeId: "A", projectId: "p1", actorProjectIds: ["p1"] })
+  );
+  assert.strictEqual(allowed, true);
+});
+
 test("admin can view clients in own office", () => {
   const allowed = perms.can(users.adminA, "view_clients", ctx({ resourceOfficeId: "A" }));
   assert.strictEqual(allowed, true);

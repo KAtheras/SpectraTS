@@ -122,13 +122,13 @@ async function ensureSchema(sql) {
   `;
 
   await sql`ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check`;
-  await sql`UPDATE users SET role = 'global_admin' WHERE role = 'admin'`;
+  await sql`UPDATE users SET role = 'superuser' WHERE role = 'global_admin'`;
   await sql`UPDATE users SET role = 'staff' WHERE role = 'member'`;
   await sql`
     UPDATE users
     SET level = CASE
       WHEN level IS NOT NULL THEN level
-      WHEN role = 'global_admin' THEN 6
+      WHEN role = 'superuser' THEN 6
       WHEN role = 'manager' THEN 3
       ELSE 1
     END
@@ -595,7 +595,7 @@ function normalizeLevel(value) {
   if (raw === "manager") return 3;
   if (raw === "director") return 4;
   if (raw === "partner") return 5;
-  if (raw === "admin" || raw === "global_admin") return 6;
+  if (raw === "admin" || raw === "superuser") return 6;
   if (raw === "member") return 1;
   return 1;
 }
