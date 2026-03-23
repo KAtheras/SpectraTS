@@ -11,8 +11,9 @@
   }
 
   function allowedTabs() {
-    const { state, settingsAccess = {} } = deps();
-    const access = state?.settingsAccess || settingsAccess || {};
+    const { state } = deps();
+    const access = state?.settingsAccess;
+    if (!access) return [];
     const tabs = [];
     if (access.editPermissionMatrix) tabs.push("levels");
     if (access.manageCategories) tabs.push("categories");
