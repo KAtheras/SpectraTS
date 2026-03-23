@@ -216,6 +216,22 @@
                     <button
                       type="button"
                       class="catalog-edit"
+                      aria-label="View time for ${escapeHtml(project)}"
+                      data-view-time-project="${escapeHtml(project)}"
+                    >
+                      View Time
+                    </button>
+                    <button
+                      type="button"
+                      class="catalog-edit"
+                      aria-label="View expenses for ${escapeHtml(project)}"
+                      data-view-expenses-project="${escapeHtml(project)}"
+                    >
+                      View Expenses
+                    </button>
+                    <button
+                      type="button"
+                      class="catalog-edit"
                       aria-label="Edit budget for ${escapeHtml(project)}"
                       data-edit-project-budget="${escapeHtml(project)}"
                       ${disabledButtonAttrs(canEditProject, "Admin only.")}

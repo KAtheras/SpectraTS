@@ -3674,6 +3674,28 @@
   });
 
   refs.projectList.addEventListener("click", async function (event) {
+    const viewTimeButton = event.target.closest("[data-view-time-project]");
+    if (viewTimeButton) {
+      const projectName = viewTimeButton.dataset.viewTimeProject;
+      state.filters.client = state.selectedCatalogClient;
+      state.filters.project = projectName;
+      syncFilterCatalogsUI(state.filters);
+      setView("main");
+      render();
+      return;
+    }
+
+    const viewExpensesButton = event.target.closest("[data-view-expenses-project]");
+    if (viewExpensesButton) {
+      const projectName = viewExpensesButton.dataset.viewExpensesProject;
+      state.expenseFilters.client = state.selectedCatalogClient;
+      state.expenseFilters.project = projectName;
+      syncExpenseFilterCatalogsUI(state.expenseFilters);
+      setView("expenses");
+      render();
+      return;
+    }
+
     const assignManagersProject = event.target.closest("[data-assign-managers-project]");
     if (assignManagersProject) {
       if (!isAdmin(state.currentUser)) {

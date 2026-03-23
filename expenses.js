@@ -109,6 +109,22 @@
     const { state } = deps();
     const search = state.expenseFilters.search.trim().toLowerCase();
 
+    function isVisibleByRole(expense) {
+      if (!state.currentUser) return false;
+      if (!state.expenseFilters.project) return true;
+      const { permissionGroupForUser, getUserById } = deps();
+      const currentGroup = permissionGroupForUser(state.currentUser);
+      const targetUser = getUserById(expense.userId);
+      const targetGroup = permissionGroupForUser(targetUser);
+      const isSelf = targetUser?.id === state.currentUser.id;
+
+      if (currentGroup === "superuser") return true;
+      if (currentGroup === "admin") return targetGroup !== "superuser";
+      if (currentGroup === "executive") return isSelf || targetGroup === "manager" || targetGroup === "staff";
+      if (currentGroup === "manager") return isSelf || targetGroup === "staff";
+      return isSelf;
+    }
+
     return [...state.expenses]
       .filter((expense) => {
         if (state.expenseFilters.user && expense.userId !== state.expenseFilters.user) {
@@ -118,6 +134,9 @@
           return false;
         }
         if (state.expenseFilters.project && expense.projectName !== state.expenseFilters.project) {
+          return false;
+        }
+        if (!isVisibleByRole(expense)) {
           return false;
         }
         if (state.expenseFilters.from && expense.expenseDate < state.expenseFilters.from) {
