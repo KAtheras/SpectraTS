@@ -1963,9 +1963,9 @@ async function loadState(sql, currentUser) {
   const expenseCategories = settingsShell && manageCategories
     ? await listExpenseCategories(sql, accountUuid)
     : [];
-  const officeLocations = settingsShell && manageLocations
-    ? await listOfficeLocations(sql, accountUuid)
-    : [];
+  // Office locations are needed for client office assignment even when the
+  // user cannot manage locations. Do not gate on manageLocations.
+  const officeLocations = await listOfficeLocations(sql, accountUuid);
   const assignments = {
     managerClients: [],
     managerProjects: [],
