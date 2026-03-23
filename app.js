@@ -1306,7 +1306,10 @@
   }
 
   function catalogClientNames() {
-    return Object.keys(state.catalog).sort((a, b) => a.localeCompare(b));
+    return (state.clients || [])
+      .map((c) => c.name)
+      .filter(Boolean)
+      .sort((a, b) => a.localeCompare(b));
   }
 
   function visibleCatalogClientNames(targetUser) {
@@ -1314,7 +1317,7 @@
     if (!user) {
       return catalogClientNames();
     }
-    return isAdmin(user)
+    return isAdmin(user) || isExecutive(user)
       ? catalogClientNames()
       : allowedClientsForUser(user);
   }
@@ -1332,10 +1335,8 @@
   }
 
   function catalogProjectNames(client) {
-    const configuredProjects = client
-      ? state.catalog[client] || []
-      : Object.values(state.catalog).flat();
-    return uniqueValues(configuredProjects).sort((a, b) => a.localeCompare(b));
+    const filtered = (state.projects || []).filter((p) => (client ? p.client === client : true));
+    return uniqueValues(filtered.map((p) => p.name)).sort((a, b) => a.localeCompare(b));
   }
 
   function visibleCatalogProjectNames(client, targetUser) {
@@ -1343,10 +1344,10 @@
     if (!user) {
       return catalogProjectNames(client);
     }
-    if (isAdmin(user)) {
+    if (isAdmin(user) || isExecutive(user)) {
       return catalogProjectNames(client);
     }
-    return allowedProjectsForClient(user, client);
+    return allowedProjectsForClient(user, client, { projects: state.projects });
   }
 
   function projectNames(client) {
