@@ -2003,9 +2003,10 @@ async function loadState(sql, currentUser) {
       actorProjectIds,
     })
   );
-  const expenseCategories = settingsShell && manageCategories
-    ? await listExpenseCategories(sql, accountUuid)
-    : [];
+  // Expense categories are needed for expense entry even if the user cannot
+  // manage categories in Settings. Always return active categories; the
+  // Settings UI is still gated by settingsAccess.manageCategories.
+  const expenseCategories = await listExpenseCategories(sql, accountUuid);
   // Office locations are needed for client office assignment even when the
   // user cannot manage locations. Do not gate on manageLocations.
   const officeLocations = await listOfficeLocations(sql, accountUuid);
