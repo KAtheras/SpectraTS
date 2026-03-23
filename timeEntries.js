@@ -5,21 +5,33 @@
     const { state } = deps();
     const search = state.filters.search.trim().toLowerCase();
 
-    const { getUserByDisplayName, canViewUserByRole } = deps();
+    const {
+      getUserByDisplayName,
+      canViewUserByRole,
+      getUserById: injectedGetUserById,
+    } = deps();
+
+    const getUserById =
+      typeof injectedGetUserById === "function"
+        ? injectedGetUserById
+        : (id) => state.users?.find((u) => u.id === id);
 
     return [...state.entries]
       .filter((entry) => {
         if (state.filters.project) {
-        const targetUser =
-          getUserById?.(entry.userId) ||
-          getUserByDisplayName(entry.user) ||
-          (state.currentUser && entry.user === state.currentUser.displayName ? state.currentUser : null);
-        const canView = typeof canViewUserByRole === "function"
-          ? canViewUserByRole(state.currentUser, targetUser)
-          : true;
-        if (!canView) {
-          return false;
-        }
+          const targetUser =
+            (entry.userId ? getUserById?.(entry.userId) : null) ||
+            getUserByDisplayName(entry.user) ||
+            (state.currentUser && entry.user === state.currentUser.displayName
+              ? state.currentUser
+              : null);
+          const canView =
+            typeof canViewUserByRole === "function"
+              ? canViewUserByRole(state.currentUser, targetUser)
+              : true;
+          if (!canView) {
+            return false;
+          }
         }
         if (state.filters.user && entry.user !== state.filters.user) {
           return false;

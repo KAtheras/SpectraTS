@@ -1811,21 +1811,25 @@ async function loadState(sql, currentUser) {
   if (isAdminFlag) {
     entries = await sql`
       SELECT
-        id,
-        user_name AS "user",
-        TO_CHAR(entry_date, 'YYYY-MM-DD') AS date,
-        client_name AS client,
-        project_name AS project,
-        task,
-        hours::FLOAT8 AS hours,
-        notes,
-        billable,
-        status,
-        created_at AS "createdAt",
-        updated_at AS "updatedAt"
+        entries.id,
+        entries.user_name AS "user",
+        u.id AS "userId",
+        TO_CHAR(entries.entry_date, 'YYYY-MM-DD') AS date,
+        entries.client_name AS client,
+        entries.project_name AS project,
+        entries.task,
+        entries.hours::FLOAT8 AS hours,
+        entries.notes,
+        entries.billable,
+        entries.status,
+        entries.created_at AS "createdAt",
+        entries.updated_at AS "updatedAt"
       FROM entries
-      WHERE account_id = ${accountUuid}::uuid
-      ORDER BY entry_date DESC, created_at DESC
+      LEFT JOIN users u
+        ON LOWER(u.display_name) = LOWER(entries.user_name)
+       AND u.account_id = ${accountUuid}::uuid
+      WHERE entries.account_id = ${accountUuid}::uuid
+      ORDER BY entries.entry_date DESC, entries.created_at DESC
     `;
   } else if (isManagerFlag) {
     const scope = await getManagerScope(sql, normalizedUser.id, accountUuid);
@@ -1834,6 +1838,7 @@ async function loadState(sql, currentUser) {
         SELECT DISTINCT ON (entries.id)
           entries.id,
           entries.user_name AS "user",
+          users.id AS "userId",
           TO_CHAR(entries.entry_date, 'YYYY-MM-DD') AS date,
           entries.client_name AS client,
           entries.project_name AS project,
@@ -1858,22 +1863,26 @@ async function loadState(sql, currentUser) {
   } else if (normalizedUser && isStaffFlag) {
     entries = await sql`
       SELECT
-        id,
-        user_name AS "user",
-        TO_CHAR(entry_date, 'YYYY-MM-DD') AS date,
-        client_name AS client,
-        project_name AS project,
-        task,
-        hours::FLOAT8 AS hours,
-        notes,
-        billable,
-        status,
-        created_at AS "createdAt",
-        updated_at AS "updatedAt"
+        entries.id,
+        entries.user_name AS "user",
+        u.id AS "userId",
+        TO_CHAR(entries.entry_date, 'YYYY-MM-DD') AS date,
+        entries.client_name AS client,
+        entries.project_name AS project,
+        entries.task,
+        entries.hours::FLOAT8 AS hours,
+        entries.notes,
+        entries.billable,
+        entries.status,
+        entries.created_at AS "createdAt",
+        entries.updated_at AS "updatedAt"
       FROM entries
-      WHERE user_name = ${normalizedUser.displayName}
-        AND account_id = ${accountUuid}::uuid
-      ORDER BY entry_date DESC, created_at DESC
+      LEFT JOIN users u
+        ON LOWER(u.display_name) = LOWER(entries.user_name)
+       AND u.account_id = ${accountUuid}::uuid
+      WHERE entries.user_name = ${normalizedUser.displayName}
+        AND entries.account_id = ${accountUuid}::uuid
+      ORDER BY entries.entry_date DESC, entries.created_at DESC
     `;
   }
 

@@ -383,6 +383,7 @@
 
     return {
       id: typeof entry.id === "string" && entry.id ? entry.id : crypto.randomUUID(),
+      userId: entry.userId || entry.user_id || "",
       user:
         typeof entry.user === "string" && entry.user.trim()
           ? entry.user.trim()
