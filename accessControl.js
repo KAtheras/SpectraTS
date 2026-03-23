@@ -20,26 +20,20 @@
       6: "admin",
     };
 
+    function roleKey(user) {
+      const raw =
+        user?.permission_role_key ||
+        user?.permissionRoleKey ||
+        user?.role ||
+        null;
+      if (!raw) return null;
+      const val = String(raw).toLowerCase();
+      if (val === "global_admin") return "superuser";
+      return val;
+    }
+
     function permissionGroupForUser(user) {
-      if (user === null || user === undefined) return "staff";
-      // allow a numeric level to be passed directly
-      if (typeof user === "number") {
-        const normalized = normalizeLevel(user);
-        const value = state.levelLabels?.[normalized];
-        if (value && typeof value === "object") {
-          if (value.permissionGroup) return String(value.permissionGroup).toLowerCase();
-          if (value.permission_group) return String(value.permission_group).toLowerCase();
-        }
-        return "staff";
-      }
-      if (user.permissionGroup) return String(user.permissionGroup).toLowerCase();
-      const normalized = normalizeLevel(user.level);
-      const value = state.levelLabels?.[normalized];
-      if (value && typeof value === "object") {
-        if (value.permissionGroup) return String(value.permissionGroup).toLowerCase();
-        if (value.permission_group) return String(value.permission_group).toLowerCase();
-      }
-      return "staff";
+      return roleKey(user) || "staff";
     }
 
     function levelLabel(level) {
@@ -58,8 +52,8 @@
     }
 
     function isAdmin(user) {
-      const group = permissionGroupForUser(user);
-      return group === "admin" || group === "superuser";
+      const role = roleKey(user);
+      return role === "admin" || role === "superuser";
     }
 
     function isGlobalAdmin(user) {
@@ -67,22 +61,18 @@
     }
 
     function isExecutive(user) {
-      const group = permissionGroupForUser(user);
-      return group === "executive" || group === "superuser";
+      const role = roleKey(user);
+      return role === "executive" || role === "superuser";
     }
 
     function isManager(user) {
-      const group = permissionGroupForUser(user);
-      return (
-        group === "manager" ||
-        group === "executive" ||
-        group === "admin" ||
-        group === "superuser"
-      );
+      const role = roleKey(user);
+      return role === "manager" || role === "executive" || role === "admin" || role === "superuser";
     }
 
     function isStaff(user) {
-      return permissionGroupForUser(user) === "staff";
+      const role = roleKey(user);
+      return role === "staff";
     }
 
     function getUserById(userId) {
@@ -183,36 +173,33 @@
       return `${names.slice(0, 3).join(", ")} +${names.length - 3} more`;
     }
 
-    function allowedProjectTuples(user) {
+    function allowedProjectTuples(user, projectsArg) {
       if (!user) {
         return [];
       }
-      if (isAdmin(user)) {
-        return state.projects.map((project) => ({
-          client: project.client,
-          project: project.name,
-        }));
+      const projects = projectsArg || state.projects || [];
+      const role = roleKey(user) || "staff";
+
+      if (role === "superuser" || role === "admin") {
+        return projects.map((project) => ({ client: project.client, project: project.name }));
       }
 
-      const group = permissionGroupForUser(user);
-      if (group === "executive" && user.officeId) {
-        return state.projects
+      if (role === "executive") {
+        if (!user.officeId) return [];
+        return projects
           .filter((project) => (project.officeId || null) === user.officeId)
           .map((project) => ({ client: project.client, project: project.name }));
       }
 
-      if (isManager(user)) {
+      if (role === "manager") {
         const clientAssignments = managerClientAssignments(user.id).map((item) => item.client);
         const projectAssignments = managerProjectAssignments(user.id).map((item) => ({
           client: item.client,
           project: item.project,
         }));
-        const clientProjects = [];
-        clientAssignments.forEach(function (client) {
-          catalogProjectNames(client).forEach(function (project) {
-            clientProjects.push({ client, project });
-          });
-        });
+        const clientProjects = projects
+          .filter((p) => clientAssignments.includes(p.client))
+          .map((p) => ({ client: p.client, project: p.name }));
         return uniqueValues(
           [...clientProjects, ...projectAssignments].map((item) => projectKey(item.client, item.project))
         ).map((key) => {
@@ -240,9 +227,10 @@
       );
     }
 
-    function allowedProjectsForClient(user, client) {
+    function allowedProjectsForClient(user, client, options = {}) {
+      const projects = options.projects || state.projects || [];
       return uniqueValues(
-        allowedProjectTuples(user)
+        allowedProjectTuples(user, projects)
           .filter((item) => item.client === client)
           .map((item) => item.project)
       ).sort((a, b) => a.localeCompare(b));

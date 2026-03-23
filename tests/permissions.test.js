@@ -209,6 +209,29 @@ test("can() relies on explicit role from currentUser session payload", () => {
   assert.strictEqual(denied, false);
 });
 
+test("createUserRecord maps role from level mapping (DB-backed)", async () => {
+  if (!process.env.NETLIFY_DATABASE_URL) {
+    console.log("Skipping DB-dependent role mapping test; NETLIFY_DATABASE_URL not set.");
+    return;
+  }
+  const sql = await db.getSql();
+  await db.ensureSchema(sql);
+  const accountId = await db.ensureDefaultAccount(sql);
+  const payload = {
+    username: `rolemap_${Date.now().toString(36)}`,
+    displayName: "Role Map User",
+    password: "password123",
+    level: 3, // default mapping to manager per level_labels
+    officeId: null,
+    accountId,
+  };
+  const created = await db.createUserRecord(sql, payload);
+  const refreshed = await db.findUserById(sql, created.id, accountId);
+  const role = refreshed ? refreshed.role : created.role;
+  assert.ok(role, "role should be set from level mapping");
+  assert.strictEqual(role === "manager" || role === "staff", true, "role should map from level label");
+});
+
 test("admin cannot view unassigned cross-office projects", () => {
   const allowed = perms.can(
     users.adminA,

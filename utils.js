@@ -58,7 +58,11 @@
         : displayName
           ? displayName.toLowerCase().replace(/\s+/g, ".")
           : "";
-    const level = normalizeLevel(user.level ?? user.role);
+    const level = normalizeLevel(user.level);
+    const role =
+      typeof user.role === "string" && user.role.trim()
+        ? user.role.trim().toLowerCase()
+        : null;
     const password = typeof user.password === "string" ? user.password : "";
     const baseRate =
       user.baseRate !== undefined && user.baseRate !== null
@@ -94,6 +98,7 @@
       displayName,
       username,
       level,
+      role,
       password,
       baseRate: Number.isFinite(baseRate) ? baseRate : null,
       costRate: Number.isFinite(costRate) ? costRate : null,

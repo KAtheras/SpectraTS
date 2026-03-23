@@ -836,6 +836,7 @@ async function listUsers(sql, accountId) {
       id,
       username,
       display_name AS "displayName",
+      role,
       level,
       base_rate AS "baseRate",
       cost_rate AS "costRate",
@@ -974,6 +975,8 @@ async function createUserRecord(sql, payload) {
   if (!levelLabels[level]) {
     throw new Error("Invalid level.");
   }
+  const mappedRole =
+    levelLabels[level]?.permissionGroup || levelLabels[level]?.permission_group || "staff";
 
   if (existingUsername[0] && !existingUsername[0].is_active) {
     const userRecord = existingUsername[0];
@@ -983,6 +986,7 @@ async function createUserRecord(sql, payload) {
         display_name = ${displayName},
       password_hash = ${hashPassword(password)},
       level = ${level},
+      role = ${mappedRole},
       base_rate = ${baseRate},
       cost_rate = ${costRate},
       office_id = ${officeId},
@@ -996,6 +1000,7 @@ async function createUserRecord(sql, payload) {
       username,
       displayName,
       level,
+      role: mappedRole,
       baseRate,
       costRate,
       officeId: officeId || null,
@@ -1011,6 +1016,7 @@ async function createUserRecord(sql, payload) {
     username,
     displayName,
     level,
+    role: mappedRole,
     baseRate,
     costRate,
     createdAt: now,
@@ -1043,7 +1049,7 @@ async function createUserRecord(sql, payload) {
       ${user.username},
       ${user.displayName},
       ${user.passwordHash},
-      'staff',
+      ${user.role},
       ${user.level},
       ${user.baseRate},
       ${user.costRate},
@@ -1130,6 +1136,8 @@ async function updateUserRecord(sql, payload, actingUser) {
   if (!levelLabelMap[level]) {
     throw new Error("Invalid level.");
   }
+  const mappedRole =
+    levelLabelMap[level]?.permissionGroup || levelLabelMap[level]?.permission_group || existingUser.role;
   const currentIsAdmin = isAdmin(existingUser, levelLabelMap);
   const nextIsAdmin = isAdmin({ ...existingUser, level }, levelLabelMap);
   const admins = await adminCount(sql, existingUser.account_id);
@@ -1149,6 +1157,7 @@ async function updateUserRecord(sql, payload, actingUser) {
       username = ${username},
       display_name = ${displayName},
       level = ${level},
+      role = ${mappedRole},
       base_rate = ${baseRate},
       cost_rate = ${costRate},
       office_id = ${officeId},
