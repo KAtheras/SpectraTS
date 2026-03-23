@@ -199,7 +199,7 @@ test("clients and projects add/update/remove with assignments", async () => {
     const { token } = await setupSuperuser(sql);
 
     const clientName = rand("Client");
-    let res = await callMutation("add_client", { name: clientName, officeId: OFFICE_ID }, token);
+    let res = await callMutation("add_client", { clientName, officeId: OFFICE_ID }, token);
     assert.strictEqual(res.statusCode, 200, `add_client: ${JSON.stringify(res.body)}`);
     const client = (await sql`SELECT id, name FROM clients WHERE account_id = ${TEST_ACCOUNT_ID}::uuid AND name = ${clientName}`)[0];
     assert.ok(client);
@@ -290,7 +290,7 @@ test("project members add/update/remove", async () => {
 
     const clientName = rand("Client");
     const projectName = rand("Project");
-    await callMutation("add_client", { name: clientName, officeId: OFFICE_ID }, token);
+    await callMutation("add_client", { clientName, officeId: OFFICE_ID }, token);
     await callMutation("add_project", { clientName, projectName, officeId: OFFICE_ID }, token);
     const project = (await sql`SELECT id FROM projects WHERE name = ${projectName} AND account_id = ${TEST_ACCOUNT_ID}::uuid`)[0];
 
@@ -329,22 +329,24 @@ test("entries lifecycle", async () => {
 
     const clientName = rand("Client");
     const projectName = rand("Project");
-    await callMutation("add_client", { name: clientName, officeId: OFFICE_ID }, token);
+    await callMutation("add_client", { clientName, officeId: OFFICE_ID }, token);
     await callMutation("add_project", { clientName, projectName, officeId: OFFICE_ID }, token);
 
     const entryId = crypto.randomUUID();
     const date = "2025-01-02";
 
     let res = await callMutation("save_entry", {
-      id: entryId,
-      user: user.displayName,
-      date,
-      client: clientName,
-      project: projectName,
-      task: "Testing",
-      hours: 2,
-      notes: "note",
-      billable: true,
+      entry: {
+        id: entryId,
+        user: user.displayName,
+        date,
+        client: clientName,
+        project: projectName,
+        task: "Testing",
+        hours: 2,
+        notes: "note",
+        billable: true,
+      }
     }, token);
     assert.strictEqual(res.statusCode, 200, `save_entry: ${JSON.stringify(res.body)}`);
     const entry = (await sql`SELECT status FROM entries WHERE id = ${entryId}`)[0];
@@ -376,20 +378,22 @@ test("expenses lifecycle", async () => {
 
     const clientName = rand("Client");
     const projectName = rand("Project");
-    await callMutation("add_client", { name: clientName, officeId: OFFICE_ID }, token);
+    await callMutation("add_client", { clientName, officeId: OFFICE_ID }, token);
     await callMutation("add_project", { clientName, projectName, officeId: OFFICE_ID }, token);
 
     const expenseId = rand("exp");
     let res = await callMutation("create_expense", {
-      id: expenseId,
-      userId: user.id,
-      clientName,
-      projectName,
-      expenseDate: "2025-01-03",
-      category: "Travel",
-      amount: 100,
-      isBillable: 1,
-      notes: "trip",
+      expense: {
+        id: expenseId,
+        userId: user.id,
+        clientName,
+        projectName,
+        expenseDate: "2025-01-03",
+        category: "Travel",
+        amount: 100,
+        isBillable: 1,
+        notes: "trip",
+      }
     }, token);
     assert.strictEqual(res.statusCode, 200, `create_expense: ${JSON.stringify(res.body)}`);
     const created = (await sql`SELECT amount, status FROM expenses WHERE id = ${expenseId}`)[0];
