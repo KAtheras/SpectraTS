@@ -11,6 +11,7 @@
       .filter((entry) => {
         if (state.filters.project) {
         const targetUser =
+          getUserById?.(entry.userId) ||
           getUserByDisplayName(entry.user) ||
           (state.currentUser && entry.user === state.currentUser.displayName ? state.currentUser : null);
         const canView = typeof canViewUserByRole === "function"
