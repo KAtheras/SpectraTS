@@ -604,9 +604,16 @@
     const previousOfficeLocations = Array.isArray(state.officeLocations)
       ? state.officeLocations.slice()
       : [];
-    state.currentUser = data?.currentUser ? normalizeUser(data.currentUser) : null;
+    const ensureRole = (user) => {
+      if (!user) return user;
+      if (!user.role && (user.permissionGroup || user.permission_group)) {
+        user.role = user.permissionGroup || user.permission_group;
+      }
+      return user;
+    };
+    state.currentUser = data?.currentUser ? ensureRole(normalizeUser(data.currentUser)) : null;
     state.users = Array.isArray(data?.users)
-      ? data.users.map(normalizeUser).filter(Boolean)
+      ? data.users.map((u) => ensureRole(normalizeUser(u))).filter(Boolean)
       : [];
     state.bootstrapRequired = Boolean(data?.bootstrapRequired);
     state.catalog = normalizeCatalog(data?.catalog || {}, false);
