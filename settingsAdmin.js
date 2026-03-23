@@ -24,23 +24,48 @@
 
   function setActiveSettingsTab(nextTab) {
     const allowed = allowedTabs();
-    if (!allowed.includes(nextTab)) {
-      nextTab = allowed[0] || null;
-    }
-    activeSettingsTab = nextTab;
-    const { tabButtons, panels } = settingsTabElements();
+    const allowedSet = new Set(allowed);
+
+    // Remove disallowed tabs entirely so they do not render.
+    let { tabButtons, panels } = settingsTabElements();
     tabButtons.forEach(function (btn) {
       const tabKey = btn.dataset.settingsTabButton;
-      const permitted = allowed.includes(tabKey);
-      btn.hidden = !permitted;
+      if (!allowedSet.has(tabKey) && btn.parentNode) {
+        btn.parentNode.removeChild(btn);
+      }
+    });
+    panels.forEach(function (panel) {
+      const tabKey = panel.dataset.settingsTab;
+      if (!allowedSet.has(tabKey) && panel.parentNode) {
+        panel.parentNode.removeChild(panel);
+      }
+    });
+
+    if (!allowed.length) {
+      activeSettingsTab = null;
+      return;
+    }
+
+    if (!allowedSet.has(nextTab)) {
+      nextTab = allowed[0];
+    }
+    activeSettingsTab = nextTab;
+
+    // Re-read elements after removals
+    ({ tabButtons, panels } = settingsTabElements());
+
+    tabButtons.forEach(function (btn) {
+      const tabKey = btn.dataset.settingsTabButton;
+      const permitted = allowedSet.has(tabKey);
       const isActive = permitted && tabKey === nextTab;
+      btn.hidden = !permitted;
       btn.classList.toggle("is-active", isActive);
       btn.setAttribute("aria-selected", isActive ? "true" : "false");
       btn.setAttribute("tabindex", isActive ? "0" : "-1");
     });
     panels.forEach(function (panel) {
       const tabKey = panel.dataset.settingsTab;
-      const permitted = allowed.includes(tabKey);
+      const permitted = allowedSet.has(tabKey);
       const isActive = permitted && tabKey === nextTab;
       panel.hidden = !isActive;
     });
@@ -64,6 +89,14 @@
   }
 
   function renderSettingsTabs() {
+    const { state } = deps();
+    if (!state?.settingsAccess?.settingsShell) {
+      const settingsPage = document.getElementById("settings-page");
+      if (settingsPage) settingsPage.hidden = true;
+      return;
+    }
+    const settingsPage = document.getElementById("settings-page");
+    if (settingsPage) settingsPage.hidden = false;
     initSettingsTabs();
   }
 
