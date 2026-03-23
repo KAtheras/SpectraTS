@@ -435,6 +435,7 @@
     officeLocations: [],
     expenseCategories: [],
     account: null,
+    settingsAccess: {},
     projects: [],
     clientEditor: null,
     assignments: {
@@ -660,6 +661,7 @@
         })
       : [];
     state.account = data?.account || null;
+    state.settingsAccess = data?.settingsAccess || {};
     const normalizedProjects = normalizeProjects(data?.projects);
     state.projects = normalizedProjects.length
       ? normalizedProjects
