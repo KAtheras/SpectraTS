@@ -873,7 +873,7 @@ async function removeProjectMember(sql, payload, currentUser, accountId) {
     DELETE FROM project_members
     WHERE project_id = ${project.id}
       AND user_id = ${userId}
-      AND account_id = ${accountId}::uuid
+      AND (account_id = ${accountId}::uuid OR account_id IS NULL)
   `;
   return null;
 }
