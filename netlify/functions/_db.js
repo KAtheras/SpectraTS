@@ -1743,6 +1743,18 @@ async function loadState(sql, currentUser) {
       actorUserId: normalizedUser?.id ?? null,
       ...ctx,
     });
+  const settingsShell = canCap("view_settings_shell", {
+    resourceOfficeId: normalizedUser?.officeId ?? null,
+    actorOfficeId: normalizedUser?.officeId ?? null,
+  });
+  const manageCategories = canCap("manage_categories", {
+    resourceOfficeId: normalizedUser?.officeId ?? null,
+    actorOfficeId: normalizedUser?.officeId ?? null,
+  });
+  const manageLocations = canCap("manage_locations", {
+    resourceOfficeId: normalizedUser?.officeId ?? null,
+    actorOfficeId: normalizedUser?.officeId ?? null,
+  });
 
   const catalogRows = await sql`
     SELECT
@@ -1936,8 +1948,12 @@ async function loadState(sql, currentUser) {
   }
 
   const projects = await listProjects(sql, accountUuid);
-  const expenseCategories = await listExpenseCategories(sql, accountUuid);
-  const officeLocations = await listOfficeLocations(sql, accountUuid);
+  const expenseCategories = settingsShell && manageCategories
+    ? await listExpenseCategories(sql, accountUuid)
+    : [];
+  const officeLocations = settingsShell && manageLocations
+    ? await listOfficeLocations(sql, accountUuid)
+    : [];
   const assignments = {
     managerClients: [],
     managerProjects: [],

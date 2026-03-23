@@ -267,6 +267,11 @@ test("admin cannot manage non-rates settings capabilities", () => {
   assert.strictEqual(categories, false);
 });
 
+test("admin cannot manage locations", () => {
+  const locations = perms.can(users.adminA, "manage_locations", ctx({ resourceOfficeId: "A", actorOfficeId: "A" }));
+  assert.strictEqual(locations, false);
+});
+
 test("executive cannot edit member profile", () => {
   const allowed = perms.can(users.execA, "edit_member_profile", ctx({ resourceOfficeId: "A", actorOfficeId: "A" }));
   assert.strictEqual(allowed, false);
@@ -281,7 +286,8 @@ test("superuser can access all settings capabilities globally", () => {
   const shell = perms.can(users.superuser, "view_settings_shell", ctx({ resourceOfficeId: "Z" }));
   const rates = perms.can(users.superuser, "edit_member_rates", ctx({ resourceOfficeId: "Z" }));
   const cats = perms.can(users.superuser, "manage_categories", ctx({ resourceOfficeId: "Z" }));
-  assert.strictEqual(shell && rates && cats, true);
+  const locs = perms.can(users.superuser, "manage_locations", ctx({ resourceOfficeId: "Z" }));
+  assert.strictEqual(shell && rates && cats && locs, true);
 });
 
 test("own-record edit blocked once approved for non-admin", () => {
