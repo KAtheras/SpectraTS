@@ -19,6 +19,10 @@ function hasPerm(role, capability, scope) {
   );
 }
 
+function indexFromRows(rows) {
+  return perms.buildIndex({ permissions: rows });
+}
+
 // Users used in tests
 const users = {
   superuser: { id: "su", role: "superuser", office_id: "A" },
@@ -52,6 +56,13 @@ test("permissions table includes member visibility/rates rows", () => {
   assert.strictEqual(hasPerm("admin", "view_member_rates", "own_office"), true);
   assert.strictEqual(hasPerm("executive", "view_members", "own_office"), true);
   assert.strictEqual(hasPerm("manager", "view_members", "own_office"), true);
+});
+
+test("can() works with DB-loaded rows for member visibility/rates", () => {
+  const dbIndex = indexFromRows(structs.permissions);
+  const canDb = (user, cap, extra) => perms.can(user, cap, { permissionIndex: dbIndex, ...extra });
+  assert.strictEqual(canDb(users.superuser, "view_members", {}), true);
+  assert.strictEqual(canDb(users.superuser, "view_member_rates", {}), true);
 });
 
 test("admin rates only in own office", () => {
@@ -112,6 +123,20 @@ test("superuser can view member rates in any office", () => {
 test("admin can view members only in own office", () => {
   const allowedOwn = perms.can(users.adminA, "view_members", ctx({ resourceOfficeId: "A", actorOfficeId: "A" }));
   const deniedOther = perms.can(users.adminA, "view_members", ctx({ resourceOfficeId: "B", actorOfficeId: "A" }));
+  assert.strictEqual(allowedOwn, true);
+  assert.strictEqual(deniedOther, false);
+});
+
+test("executive can view members only in own office", () => {
+  const allowedOwn = perms.can(users.execA, "view_members", ctx({ resourceOfficeId: "A", actorOfficeId: "A" }));
+  const deniedOther = perms.can(users.execA, "view_members", ctx({ resourceOfficeId: "B", actorOfficeId: "A" }));
+  assert.strictEqual(allowedOwn, true);
+  assert.strictEqual(deniedOther, false);
+});
+
+test("manager can view members only in own office", () => {
+  const allowedOwn = perms.can(users.managerA, "view_members", ctx({ resourceOfficeId: "A", actorOfficeId: "A" }));
+  const deniedOther = perms.can(users.managerA, "view_members", ctx({ resourceOfficeId: "B", actorOfficeId: "A" }));
   assert.strictEqual(allowedOwn, true);
   assert.strictEqual(deniedOther, false);
 });

@@ -1904,11 +1904,17 @@ async function loadState(sql, currentUser) {
   if (normalizedUser) {
     const allUsers = await listUsers(sql, accountUuid);
     const viewable = allUsers.filter((user) =>
-      canCap("view_members", { resourceOfficeId: user.officeId || null })
+      canCap("view_members", {
+        resourceOfficeId: user.officeId || null,
+        actorOfficeId: normalizedUser?.officeId || null,
+      })
     );
     if (viewable.length) {
       users = viewable.map((user) => {
-        const allowRates = canCap("view_member_rates", { resourceOfficeId: user.officeId || null });
+        const allowRates = canCap("view_member_rates", {
+          resourceOfficeId: user.officeId || null,
+          actorOfficeId: normalizedUser?.officeId || null,
+        });
         return {
           ...user,
           baseRate: allowRates ? user.baseRate : null,
