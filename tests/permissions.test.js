@@ -194,6 +194,13 @@ test("roleKeyFromUser normalizes global_admin to superuser", () => {
   assert.strictEqual(perms.roleKeyFromUser(user), "superuser");
 });
 
+test("roleKeyFromUser uses explicit role, not permission_group or level", () => {
+  const userWithGroup = { role: "staff", permission_group: "admin", level: 6 };
+  assert.strictEqual(perms.roleKeyFromUser(userWithGroup), "staff");
+  const userWithOnlyGroup = { permission_group: "admin" };
+  assert.strictEqual(perms.roleKeyFromUser(userWithOnlyGroup), null);
+});
+
 test("admin cannot view unassigned cross-office projects", () => {
   const allowed = perms.can(
     users.adminA,

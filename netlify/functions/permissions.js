@@ -172,8 +172,7 @@ function roleKeyFromUser(user) {
     user.permissionRoleKey ||
     user.role ||
     null;
-  const fallbackGroup = user.permission_group || user.permissionGroup || null;
-  const raw = rawRole || fallbackGroup;
+  const raw = rawRole;
   if (!raw) return null;
   const value = String(raw).toLowerCase();
   if (value === "global_admin") return "superuser";
