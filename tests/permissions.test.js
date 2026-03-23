@@ -142,6 +142,12 @@ test("manager can view members only in own office", () => {
   assert.strictEqual(deniedOther, false);
 });
 
+test("own_office checks fail when actor officeId is null", () => {
+  const actorNullOffice = { ...users.managerA, office_id: null, officeId: null };
+  const allowed = perms.can(actorNullOffice, "view_members", ctx({ resourceOfficeId: "A", actorOfficeId: null }));
+  assert.strictEqual(allowed, false);
+});
+
 test("listUsers returns officeId when DB is available", async () => {
   if (!process.env.NETLIFY_DATABASE_URL) {
     console.log("Skipping DB-dependent listUsers test; NETLIFY_DATABASE_URL not set.");
