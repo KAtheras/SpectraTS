@@ -1331,6 +1331,7 @@ async function getSessionContext(sql, event, request) {
       users.id,
       users.username,
       users.display_name AS "displayName",
+      users.role,
       users.level,
       users.office_id AS "officeId",
       users.account_id AS "accountId",
@@ -1350,6 +1351,7 @@ async function getSessionContext(sql, event, request) {
     currentUser: rows[0]
       ? {
           ...rows[0],
+          role: rows[0].role,
           level: normalizeLevel(rows[0].level),
           permissionGroup: rows[0].permissionGroup,
           officeId: rows[0].officeId,

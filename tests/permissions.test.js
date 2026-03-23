@@ -201,6 +201,14 @@ test("roleKeyFromUser uses explicit role, not permission_group or level", () => 
   assert.strictEqual(perms.roleKeyFromUser(userWithOnlyGroup), null);
 });
 
+test("can() relies on explicit role from currentUser session payload", () => {
+  const currentUser = { role: "admin", office_id: "A" };
+  const allowed = perms.can(currentUser, "view_clients", ctx({ resourceOfficeId: "A", actorOfficeId: "A" }));
+  assert.strictEqual(allowed, true);
+  const denied = perms.can(currentUser, "view_clients", ctx({ resourceOfficeId: "B", actorOfficeId: "A" }));
+  assert.strictEqual(denied, false);
+});
+
 test("admin cannot view unassigned cross-office projects", () => {
   const allowed = perms.can(
     users.adminA,
