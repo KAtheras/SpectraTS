@@ -114,7 +114,10 @@
     return [...state.expenses]
       .filter((expense) => {
         const targetUser = getUserById(expense.userId);
-        if (!canViewUserByRole(state.currentUser, targetUser)) {
+        const canView = typeof canViewUserByRole === "function"
+          ? canViewUserByRole(state.currentUser, targetUser)
+          : true;
+        if (!canView) {
           return false;
         }
         if (state.expenseFilters.user && expense.userId !== state.expenseFilters.user) {

@@ -10,7 +10,10 @@
     return [...state.entries]
       .filter((entry) => {
         const targetUser = getUserByDisplayName(entry.user);
-        if (!canViewUserByRole(state.currentUser, targetUser)) {
+        const canView = typeof canViewUserByRole === "function"
+          ? canViewUserByRole(state.currentUser, targetUser)
+          : true;
+        if (!canView) {
           return false;
         }
         if (state.filters.user && entry.user !== state.filters.user) {
