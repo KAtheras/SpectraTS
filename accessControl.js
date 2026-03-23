@@ -281,6 +281,7 @@
     }
 
     return {
+      roleKey,
       levelLabel,
       isGlobalAdmin,
       isManager,

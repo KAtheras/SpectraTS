@@ -137,6 +137,7 @@
       staffIdsForProject,
       managerIdsForClientScope,
       staffIdsForClient,
+      roleKey,
       escapeHtml,
     } = deps;
 
@@ -193,6 +194,8 @@
         : state.users;
     const rows = usersToRender.map(function (user) {
       const currentLevel = normalizeLevel(user.level);
+      const canonicalRole = (roleKey ? roleKey(user) : (user?.role || "")).toLowerCase();
+      const isManagerEligible = ["manager", "admin", "superuser"].includes(canonicalRole);
       const isAssignedToProject = project
         ? isUserAssignedToProject(user.id, client, project)
         : false;
@@ -211,7 +214,7 @@
       let show = true;
       let checkboxChecked = false;
 
-      if (mode === "project-add") {
+    if (mode === "project-add") {
         if (isAssignedToProject) {
           checkboxDisabled = true;
           checkboxTitle = "Already assigned.";
@@ -226,7 +229,7 @@
         show = isStaff(user);
         checkboxChecked = assignedSet.has(user.id);
       } else if (mode === "client-assign") {
-        const isEligible = normalizeLevel(user.level) >= 3;
+        const isEligible = isManagerEligible;
         show = isEligible;
         if (!isEligible) {
           checkboxDisabled = true;
@@ -237,10 +240,10 @@
           checkboxTitle = "Already assigned.";
         }
       } else if (mode === "client-unassign") {
-        show = isAssignedToClient && normalizeLevel(user.level) >= 3;
+        show = isAssignedToClient && isManagerEligible;
         checkboxChecked = show;
       } else if (mode === "project-assign-manager") {
-        const isEligible = normalizeLevel(user.level) >= 3;
+        const isEligible = isManagerEligible;
         show = isEligible;
         if (!isEligible) {
           checkboxDisabled = true;
@@ -251,10 +254,10 @@
           checkboxTitle = "Already assigned.";
         }
       } else if (mode === "project-unassign-manager") {
-        show = isDirectAssignedToProject && normalizeLevel(user.level) >= 3;
+        show = isDirectAssignedToProject && isManagerEligible;
         checkboxChecked = show;
       } else if (mode === "project-managers-edit") {
-        show = normalizeLevel(user.level) >= 3;
+        show = isManagerEligible;
         checkboxChecked = assignedSet.has(user.id);
       } else if (mode === "user-role") {
         checkboxDisabled = true;

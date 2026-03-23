@@ -363,6 +363,7 @@
       managerIdsForClientScope,
       staffIdsForClient,
       escapeHtml,
+      roleKey,
     } = deps();
     membersRenderMembersModal?.({
       refs,
@@ -381,6 +382,7 @@
       staffIdsForProject,
       managerIdsForClientScope,
       staffIdsForClient,
+      roleKey,
       escapeHtml,
     });
   }
