@@ -573,17 +573,10 @@
   // Build user options from the currently visible expense rows (ignoring the user filter only).
   function visibleExpenseUserOptions() {
     const names = new Set();
-    const originalUser = state.expenseFilters ? state.expenseFilters.user : "";
-    if (state.expenseFilters) {
-      state.expenseFilters.user = "";
-    }
     const rows =
       window.expenses && typeof window.expenses.currentExpenses === "function"
         ? window.expenses.currentExpenses()
         : [];
-    if (state.expenseFilters) {
-      state.expenseFilters.user = originalUser;
-    }
     rows.forEach((row) => {
       const match = state.users?.find((u) => u.id === row.userId);
       if (match?.displayName) {
