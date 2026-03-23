@@ -228,7 +228,7 @@ test("clients and projects add/update/remove with assignments", async () => {
     const projRenamed = (await sql`SELECT name FROM projects WHERE id = ${project.id}`)[0];
     assert.strictEqual(projRenamed.name, renamedProject);
 
-    res = await callMutation("update_project", { clientName: updatedName, projectName: renamedProject, budget: 5000 }, token);
+    res = await callMutation("update_project", { clientName: updatedName, projectName: renamedProject, budgetAmount: 5000 }, token);
     assert.strictEqual(res.statusCode, 200, `update_project: ${JSON.stringify(res.body)}`);
     const projUpdated = (await sql`SELECT budget_amount FROM projects WHERE id = ${project.id}`)[0];
     assert.strictEqual(Number(projUpdated.budget_amount), 5000);
@@ -399,7 +399,7 @@ test("expenses lifecycle", async () => {
     const created = (await sql`SELECT amount, status FROM expenses WHERE id = ${expenseId}`)[0];
     assert.strictEqual(Number(created.amount), 100);
 
-    res = await callMutation("update_expense", { expense: { id: expenseId, amount: 120, notes: "updated" } }, token);
+    res = await callMutation("update_expense", { expense: { id: expenseId, amount: 120, notes: "updated", expenseDate: "2025-01-03", clientName, projectName, userId: user.id, category: "Travel" } }, token);
     assert.strictEqual(res.statusCode, 200, `update_expense: ${JSON.stringify(res.body)}`);
     const updated = (await sql`SELECT amount, notes FROM expenses WHERE id = ${expenseId}`)[0];
     assert.strictEqual(Number(updated.amount), 120);
@@ -441,7 +441,7 @@ test("settings tables updates", async () => {
     assert.ok(catRow);
 
     const offices = [{ id: OFFICE_ID, name: "Test Office" }, { id: "office-2", name: "Office 2" }];
-    res = await callMutation("update_office_locations", { offices }, token);
+    res = await callMutation("update_office_locations", { locations: offices }, token);
     assert.strictEqual(res.statusCode, 200, `update_office_locations: ${JSON.stringify(res.body)}`);
     const offRow = (await sql`SELECT name FROM office_locations WHERE account_id = ${TEST_ACCOUNT_ID}::uuid AND id = 'office-2'`)[0];
     assert.strictEqual(offRow.name, "Office 2");
