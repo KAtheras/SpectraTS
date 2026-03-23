@@ -2010,7 +2010,7 @@
       refs.navClientsMobile.setAttribute("aria-current", view === "clients" ? "page" : "false");
     }
     if (refs.settingsMenuSettings) {
-      const showSettingsLink = isAdmin(state.currentUser);
+      const showSettingsLink = !!state.settingsAccess?.settingsShell;
       refs.settingsMenuSettings.hidden = !showSettingsLink;
       refs.settingsMenuSettings.setAttribute("aria-current", view === "settings" ? "page" : "false");
     }
