@@ -10,20 +10,34 @@
     return { tabButtons, panels };
   }
 
+  function allowedTabs() {
+    const { state } = deps();
+    const group = state?.currentUser?.permissionGroup || state?.currentUser?.permission_group || "";
+    if (group === "superuser") return SETTINGS_TABS;
+    if (group === "admin") return ["rates"];
+    return [];
+  }
+
   function setActiveSettingsTab(nextTab) {
-    if (!SETTINGS_TABS.includes(nextTab)) {
-      nextTab = "levels";
+    const allowed = allowedTabs();
+    if (!allowed.includes(nextTab)) {
+      nextTab = allowed[0] || null;
     }
     activeSettingsTab = nextTab;
     const { tabButtons, panels } = settingsTabElements();
     tabButtons.forEach(function (btn) {
-      const isActive = btn.dataset.settingsTabButton === nextTab;
+      const tabKey = btn.dataset.settingsTabButton;
+      const permitted = allowed.includes(tabKey);
+      btn.hidden = !permitted;
+      const isActive = permitted && tabKey === nextTab;
       btn.classList.toggle("is-active", isActive);
       btn.setAttribute("aria-selected", isActive ? "true" : "false");
       btn.setAttribute("tabindex", isActive ? "0" : "-1");
     });
     panels.forEach(function (panel) {
-      const isActive = panel.dataset.settingsTab === nextTab;
+      const tabKey = panel.dataset.settingsTab;
+      const permitted = allowed.includes(tabKey);
+      const isActive = permitted && tabKey === nextTab;
       panel.hidden = !isActive;
     });
   }
