@@ -5,8 +5,24 @@ const crypto = require("crypto");
 const mutate = require("../netlify/functions/mutate");
 const db = require("../netlify/functions/_db");
 
-const TEST_ACCOUNT_ID = "3ad1b415-22fe-41b6-a394-d22f1f53dfd5"; // ACME test account
+const PROTECTED_ACCOUNTS = new Set([
+  "3ad1b415-22fe-41b6-a394-d22f1f53dfd5", // ACME
+  "55f382d9-524f-46ef-b222-0167218a8c79", // Spectra
+]);
+
+const TEST_ACCOUNT_ID = process.env.TEST_ACCOUNT_ID;
+const TEST_ACCOUNT_NAME = process.env.TEST_ACCOUNT_NAME || "ZZ Automation Test Account";
 const OFFICE_ID = "office-test-1";
+
+if (!TEST_ACCOUNT_ID) {
+  console.error("TEST_ACCOUNT_ID env var is required for mutation tests.");
+  process.exit(1);
+}
+
+if (PROTECTED_ACCOUNTS.has(TEST_ACCOUNT_ID)) {
+  console.error("Refusing to run mutation tests against protected account.");
+  process.exit(1);
+}
 
 function rand(label) {
   return `${label}_${crypto.randomBytes(4).toString("hex")}`;
@@ -34,7 +50,7 @@ async function callMutation(action, payload, token) {
 async function ensureTestAccount(sql) {
   await sql`
     INSERT INTO accounts (id, name)
-    VALUES (${TEST_ACCOUNT_ID}::uuid, 'ACME Test Account')
+    VALUES (${TEST_ACCOUNT_ID}::uuid, ${TEST_ACCOUNT_NAME})
     ON CONFLICT (id) DO NOTHING
   `;
   await sql`
@@ -426,8 +442,8 @@ test("settings tables updates", async () => {
 
 async function main() {
   if (!process.env.NETLIFY_DATABASE_URL) {
-    console.log("Skipping mutation persistence tests; NETLIFY_DATABASE_URL not set.");
-    return;
+    console.error("NETLIFY_DATABASE_URL is required for mutation tests.");
+    process.exit(1);
   }
 
   for (const t of tests) {
@@ -443,3 +459,6 @@ async function main() {
 }
 
 main();
+
+// Run with:
+// TEST_ACCOUNT_ID=<uuid> NETLIFY_DATABASE_URL=<conn> node tests/mutations.test.js
