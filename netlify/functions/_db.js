@@ -848,7 +848,7 @@ async function findUserByDisplayName(sql, displayName, accountId) {
 async function listUsers(sql, accountId) {
   const rows = await sql`
     SELECT
-      id,
+      users.id,
       username,
       display_name AS "displayName",
       role,
