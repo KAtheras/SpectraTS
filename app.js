@@ -3557,19 +3557,32 @@
         updates.push({ userId, baseRate, costRate });
       }
       try {
+        // Rates
         for (const update of updates) {
-          await mutatePersistentState("update_user", {
-            userId: update.userId,
-            baseRate: update.baseRate,
-            costRate: update.costRate,
-          });
+          try {
+            await mutatePersistentState("update_user", {
+              userId: update.userId,
+              baseRate: update.baseRate,
+              costRate: update.costRate,
+            });
+          } catch (err) {
+            console.error(err);
+            window.alert("Save failed");
+            return;
+          }
         }
         if (isGlobalAdmin(state.currentUser)) {
           for (const update of deptUpdates) {
-            await mutatePersistentState("set_user_department", {
-              userId: update.userId,
-              departmentId: update.departmentId,
-            });
+            try {
+              await mutatePersistentState("set_user_department", {
+                userId: update.userId,
+                departmentId: update.departmentId,
+              });
+            } catch (err) {
+              console.error(err);
+              window.alert("Save failed");
+              return;
+            }
           }
         }
         window.location.reload();
