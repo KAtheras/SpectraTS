@@ -801,7 +801,11 @@
 
   async function loadPersistentState() {
     try {
-      const payload = await requestAuth("session");
+      // Use the full state payload (same as bootstrap) so derived state like users,
+      // departments, and settingsAccess stays in sync after mutations.
+      const payload = await requestJson(STATE_API_PATH, {
+        method: "GET",
+      });
       applyLoadedState(payload);
       return true;
     } catch (error) {
