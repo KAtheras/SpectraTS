@@ -9,6 +9,7 @@ const {
   loadState,
   requireAuth,
 } = require("./_db");
+const { can } = require("./permissions");
 
 exports.handler = async function handler(event) {
   if (event.httpMethod !== "GET") {
@@ -25,7 +26,15 @@ exports.handler = async function handler(event) {
     }
 
     const state = await loadState(sql, context.currentUser);
-    return json(200, state);
+    const currentUser = state.currentUser;
+    const permissions = {
+      edit_user_department: can(currentUser, "edit_user_department"),
+      view_settings_tab: can(currentUser, "view_settings_tab"),
+      view_members_page: can(currentUser, "view_members_page"),
+      edit_user_rates: can(currentUser, "edit_user_rates"),
+    };
+
+    return json(200, { ...state, permissions });
   } catch (error) {
     return errorResponse(500, error.message || "Unable to load database state.");
   }
