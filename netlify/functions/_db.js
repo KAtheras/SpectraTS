@@ -1763,6 +1763,8 @@ async function loadState(sql, currentUser) {
   const normalizedUser = currentUser
     ? {
         ...currentUser,
+        permissionGroup:
+          currentUser.permissionGroup || currentUser.permission_group || currentUser.permissiongroup,
         level: normalizeLevel(currentUser.level),
         officeId: currentUser.officeId ?? null,
         baseRate:
