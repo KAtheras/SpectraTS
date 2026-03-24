@@ -3578,9 +3578,7 @@
             });
           }
         }
-        await loadPersistentState();
-        renderRatesRows?.();
-        feedback("Rates updated.", false);
+        window.location.reload();
       } catch (error) {
         feedback(error.message || "Unable to update rates.", true);
       }
