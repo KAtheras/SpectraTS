@@ -646,6 +646,7 @@
     state.users = Array.isArray(data?.users)
       ? data.users.map((u) => ensureRole(normalizeUser(u))).filter(Boolean)
       : [];
+    state.departments = Array.isArray(data?.departments) ? data.departments.slice() : [];
     state.bootstrapRequired = Boolean(data?.bootstrapRequired);
     state.catalog = normalizeCatalog(data?.catalog || {}, false);
     state.clients = Array.isArray(data?.clients)

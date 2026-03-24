@@ -82,6 +82,16 @@
         : user.office_id !== undefined && user.office_id !== null
           ? user.office_id
           : null;
+    const departmentId =
+      user.departmentId !== undefined && user.departmentId !== null
+        ? user.departmentId
+        : user.department_id !== undefined && user.department_id !== null
+          ? user.department_id
+          : null;
+    const departmentName =
+      typeof user.departmentName === "string" && user.departmentName
+        ? user.departmentName
+        : user.department_name || null;
     const mustChangePassword =
       user.mustChangePassword !== undefined
         ? Boolean(user.mustChangePassword)
@@ -105,6 +115,8 @@
       mustChangePassword,
       accountId: user.accountId || "",
       officeId: officeId !== null && officeId !== undefined ? String(officeId) : "",
+      departmentId: departmentId !== null && departmentId !== undefined ? String(departmentId) : "",
+      departmentName: departmentName || "",
     };
   }
 

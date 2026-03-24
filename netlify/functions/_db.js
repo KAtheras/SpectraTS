@@ -93,6 +93,17 @@ async function ensureSchema(sql) {
   `;
 
   await sql`
+    CREATE TABLE IF NOT EXISTS departments (
+      id TEXT PRIMARY KEY,
+      account_id UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      is_active BOOLEAN NOT NULL DEFAULT TRUE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+
+  await sql`
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
       username TEXT NOT NULL,
@@ -119,6 +130,10 @@ async function ensureSchema(sql) {
   await sql`
     ALTER TABLE users
     ADD COLUMN IF NOT EXISTS office_id TEXT NULL REFERENCES office_locations(id) ON DELETE SET NULL
+  `;
+  await sql`
+    ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS department_id TEXT NULL REFERENCES departments(id) ON DELETE SET NULL
   `;
 
   await sql`ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check`;
@@ -841,11 +856,16 @@ async function listUsers(sql, accountId) {
       base_rate AS "baseRate",
       cost_rate AS "costRate",
       office_id AS "officeId",
+      department_id AS "departmentId",
+      d.name AS "departmentName",
       must_change_password AS "mustChangePassword",
       account_id AS "accountId",
       is_active AS "isActive",
       created_at AS "createdAt"
     FROM users
+    LEFT JOIN departments d
+      ON d.id = users.department_id
+     AND d.account_id = ${accountId}::uuid
     WHERE is_active = TRUE
       AND account_id = ${accountId}::uuid
     ORDER BY LOWER(display_name), LOWER(username)
@@ -1343,10 +1363,15 @@ async function getSessionContext(sql, event, request) {
       users.role,
       users.level,
       users.office_id AS "officeId",
+      users.department_id AS "departmentId",
+      d.name AS "departmentName",
       users.account_id AS "accountId",
       level_labels.permission_group AS "permissionGroup"
     FROM sessions
     JOIN users ON users.id = sessions.user_id
+    LEFT JOIN departments d
+      ON d.id = users.department_id
+     AND d.account_id = users.account_id
     LEFT JOIN level_labels ON level_labels.account_id = users.account_id
       AND level_labels.level = users.level
     WHERE sessions.token_hash = ${hashToken(token)}
@@ -1549,6 +1574,23 @@ async function listExpenseCategories(sql, accountId) {
     id: row.id,
     name: row.name,
     isActive: row.isActive === 0 ? false : true,
+  }));
+}
+
+async function listDepartments(sql, accountId) {
+  const rows = await sql`
+    SELECT
+      id,
+      name,
+      is_active AS "isActive"
+    FROM departments
+    WHERE account_id = ${accountId}::uuid
+    ORDER BY LOWER(name)
+  `;
+  return rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    isActive: row.isActive === false || row.isActive === 0 ? false : true,
   }));
 }
 
@@ -2016,6 +2058,7 @@ async function loadState(sql, currentUser) {
   // manage categories in Settings. Always return active categories; the
   // Settings UI is still gated by settingsAccess.manageCategories.
   const expenseCategories = await listExpenseCategories(sql, accountUuid);
+  const departments = await listDepartments(sql, accountUuid);
   // Office locations are needed for client office assignment even when the
   // user cannot manage locations. Do not gate on manageLocations.
   const officeLocations = await listOfficeLocations(sql, accountUuid);
@@ -2086,6 +2129,7 @@ async function loadState(sql, currentUser) {
     expenses,
     projects,
     expenseCategories,
+    departments,
     officeLocations,
     assignments,
     levelLabels,
@@ -2213,6 +2257,7 @@ module.exports = {
   listClients,
   listProjects,
   listExpenseCategories,
+  listDepartments,
   listOfficeLocations,
   listLevelLabels,
   listUsers,
