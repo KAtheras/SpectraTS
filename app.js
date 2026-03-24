@@ -3170,7 +3170,7 @@
   }
   if (refs.settingsMenuSettings) {
     refs.settingsMenuSettings.addEventListener("click", function () {
-      if (!isAdmin(state.currentUser)) {
+      if (!state.permissions.view_settings_tab) {
         return;
       }
       setView("settings");
