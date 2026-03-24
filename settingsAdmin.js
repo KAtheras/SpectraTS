@@ -1,6 +1,6 @@
 (function () {
   const deps = () => window.settingsAdminDeps || {};
-  const SETTINGS_TABS = ["levels", "categories", "locations", "rates"];
+  const SETTINGS_TABS = ["levels", "categories", "locations", "rates", "departments"];
   let activeSettingsTab = "levels";
   let tabsInitialized = false;
 
@@ -11,7 +11,7 @@
   }
 
   function allowedTabs() {
-    const { state } = deps();
+    const { state, isGlobalAdmin } = deps();
     const access = state?.settingsAccess;
     if (!access) return [];
     const tabs = [];
@@ -19,6 +19,7 @@
     if (access.manageCategories) tabs.push("categories");
     if (access.manageLocations) tabs.push("locations");
     if (access.viewMemberRates || access.editMemberRates) tabs.push("rates");
+    if (isGlobalAdmin?.(state.currentUser)) tabs.push("departments");
     return tabs;
   }
 
@@ -108,6 +109,35 @@
     const settingsPage = document.getElementById("settings-page");
     if (settingsPage) settingsPage.hidden = false;
     initSettingsTabs();
+  }
+
+  function renderDepartments() {
+    const { refs, state, escapeHtml } = deps();
+    if (!refs.departmentRows) return;
+
+    const departments = Array.isArray(state.departments) ? state.departments.slice() : [];
+
+    refs.departmentRows.innerHTML = departments
+      .map(
+        (item) => `
+          <div class="level-row department-row" data-department-id="${escapeHtml(item.id || "")}">
+            <span class="level-num sr-only">Department</span>
+            <input type="text" value="${escapeHtml(item.name || "")}" data-department-name placeholder="Department name" />
+            <div class="expense-actions">
+              <button
+                type="button"
+                class="expense-toggle ${item.isActive === false ? "is-inactive" : "is-active"}"
+                data-department-active
+                data-active="${item.isActive === false ? "false" : "true"}"
+                aria-pressed="${item.isActive === false ? "false" : "true"}"
+              >
+                ${item.isActive === false ? "Inactive" : "Active"}
+              </button>
+            </div>
+          </div>
+        `
+      )
+      .join("");
   }
 
   function renderUsersList() {
@@ -439,6 +469,7 @@
     renderRatesRows,
     renderExpenseCategories,
     renderOfficeLocations,
+    renderDepartments,
     renderSettingsTabs,
     sortedLevels,
     getLevelDefinitions,

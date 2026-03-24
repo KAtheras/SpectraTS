@@ -246,6 +246,10 @@
     addCategory: document.getElementById("add-category"),
     saveCategories: document.getElementById("save-categories"),
     expenseCategoriesForm: document.getElementById("expense-categories-form"),
+    departmentsForm: document.getElementById("departments-form"),
+    departmentRows: document.getElementById("department-rows"),
+    addDepartment: document.getElementById("add-department"),
+    saveDepartments: document.getElementById("save-departments"),
     dialog: document.getElementById("app-dialog"),
     dialogTitle: document.getElementById("dialog-title"),
     dialogMessage: document.getElementById("dialog-message"),
@@ -355,6 +359,51 @@
     auditTableBody: document.getElementById("audit-table-body"),
     appTopbar: document.querySelector(".app-topbar"),
   };
+
+  function ensureDepartmentSettingsUI() {
+    const settingsTabs = document.querySelector("#settings-page .settings-tabs");
+    const settingsBody = document.querySelector("#settings-page .users-page-body");
+    if (!settingsTabs || !settingsBody) return;
+
+    let deptButton = settingsTabs.querySelector('[data-settings-tab-button="departments"]');
+    if (!deptButton) {
+      deptButton = document.createElement("button");
+      deptButton.type = "button";
+      deptButton.className = "settings-tab";
+      deptButton.dataset.settingsTabButton = "departments";
+      deptButton.setAttribute("role", "tab");
+      deptButton.setAttribute("aria-selected", "false");
+      deptButton.textContent = "Departments";
+      settingsTabs.appendChild(deptButton);
+    }
+
+    let deptForm = document.querySelector('[data-settings-tab="departments"]');
+    if (!deptForm) {
+      deptForm = document.createElement("form");
+      deptForm.id = "departments-form";
+      deptForm.className = "level-labels-form";
+      deptForm.dataset.settingsTab = "departments";
+      deptForm.hidden = true;
+      deptForm.innerHTML = `
+        <div class="level-labels-inner">
+          <h3>Departments</h3>
+          <div class="level-rows" id="department-rows"></div>
+          <div class="level-labels-actions">
+            <button class="button button-ghost" type="button" id="add-department">Add department</button>
+            <button class="button" type="submit" id="save-departments">Save departments</button>
+          </div>
+        </div>
+      `;
+      settingsBody.appendChild(deptForm);
+    }
+
+    refs.departmentsForm = document.getElementById("departments-form");
+    refs.departmentRows = document.getElementById("department-rows");
+    refs.addDepartment = document.getElementById("add-department");
+    refs.saveDepartments = document.getElementById("save-departments");
+  }
+
+  ensureDepartmentSettingsUI();
 
   if (refs.entryDate) {
     refs.entryDate.min = minEntryDate;
@@ -2183,6 +2232,9 @@
       renderRatesRows?.();
       renderExpenseCategories();
       renderOfficeLocations();
+      if (window.settingsAdmin?.renderDepartments) {
+        window.settingsAdmin.renderDepartments();
+      }
       renderSettingsTabs?.();
       postHeight();
       postHeight();
@@ -3307,6 +3359,106 @@
         state.expenseCategories = previous;
         renderExpenseCategories();
         feedback(error.message || "Unable to delete category.", true);
+      }
+    });
+  }
+
+  if (refs.addDepartment) {
+    refs.addDepartment.addEventListener("click", function () {
+      if (!isGlobalAdmin(state.currentUser)) {
+        feedback("Only Superusers can update departments.", true);
+        return;
+      }
+      state.departments = [
+        ...state.departments,
+        {
+          id: `temp-dept-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+          name: "",
+          isActive: true,
+        },
+      ];
+      window.settingsAdmin?.renderDepartments();
+    });
+  }
+
+  if (refs.departmentRows) {
+    refs.departmentRows.addEventListener("click", function (event) {
+      const toggleBtn = event.target.closest("[data-department-active]");
+      if (!toggleBtn) return;
+      const next = toggleBtn.dataset.active !== "true";
+      toggleBtn.dataset.active = next ? "true" : "false";
+      toggleBtn.classList.toggle("is-active", next);
+      toggleBtn.classList.toggle("is-inactive", !next);
+      toggleBtn.textContent = next ? "Active" : "Inactive";
+      toggleBtn.setAttribute("aria-pressed", next ? "true" : "false");
+    });
+  }
+
+  if (refs.departmentsForm) {
+    refs.departmentsForm.addEventListener("submit", async function (event) {
+      event.preventDefault();
+      if (!isGlobalAdmin(state.currentUser)) {
+        feedback("Only Superusers can update departments.", true);
+        return;
+      }
+      const rows = Array.from(refs.departmentRows?.querySelectorAll(".department-row") || []);
+      if (!rows.length) {
+        feedback("Add at least one department.", true);
+        return;
+      }
+      const existingMap = new Map((state.departments || []).map((d) => [d.id, d]));
+      const seen = new Set();
+      const createOps = [];
+      const renameOps = [];
+      const activeOps = [];
+
+      for (const row of rows) {
+        const id = (row.dataset.departmentId || "").trim();
+        const nameInput = row.querySelector("[data-department-name]");
+        const activeBtn = row.querySelector("[data-department-active]");
+        const name = (nameInput?.value || "").trim();
+        const isActive = activeBtn ? activeBtn.dataset.active !== "false" : true;
+
+        if (!name) {
+          feedback("Department name is required.", true);
+          return;
+        }
+        const key = name.toLowerCase();
+        if (seen.has(key)) {
+          feedback("Department names must be unique.", true);
+          return;
+        }
+        seen.add(key);
+
+        if (!id || id.startsWith("temp-dept-")) {
+          createOps.push({ name, isActive });
+          continue;
+        }
+        const prev = existingMap.get(id) || {};
+        if (prev.name !== name) {
+          renameOps.push({ id, name });
+        }
+        const prevActive = prev.isActive === false ? false : true;
+        if (prevActive !== isActive) {
+          activeOps.push({ id, isActive });
+        }
+      }
+
+      try {
+        for (const op of createOps) {
+          await mutatePersistentState("create_department", { name: op.name, isActive: op.isActive });
+        }
+        for (const op of renameOps) {
+          await mutatePersistentState("rename_department", { id: op.id, name: op.name });
+        }
+        for (const op of activeOps) {
+          await mutatePersistentState("set_department_active", { id: op.id, isActive: op.isActive });
+        }
+        await loadPersistentState();
+        window.settingsAdmin?.renderDepartments();
+        feedback("Departments updated.", false);
+      } catch (error) {
+        feedback(error.message || "Unable to update departments.", true);
       }
     });
   }
