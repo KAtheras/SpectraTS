@@ -807,6 +807,7 @@
         method: "GET",
       });
       applyLoadedState(payload);
+      window.state = state;
       return true;
     } catch (error) {
       if (error.status === 401) {
