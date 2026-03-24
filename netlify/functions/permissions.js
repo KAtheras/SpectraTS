@@ -182,7 +182,12 @@ function roleKeyFromUser(user) {
 function scopeMatches(scopeKey, ctx) {
   if (scopeKey === "all_offices") return true;
   if (scopeKey === "own_office") {
-    return ctx.actorOfficeId && ctx.resourceOfficeId && ctx.actorOfficeId === ctx.resourceOfficeId;
+    const targetOffice = ctx.resourceOfficeId || ctx.targetOfficeId || null;
+    // For shell/global actions with no specific target, allow as long as actor has an office.
+    if (!targetOffice && !ctx.targetUserId && !ctx.targetRoleKey) {
+      return Boolean(ctx.actorOfficeId);
+    }
+    return ctx.actorOfficeId && targetOffice && ctx.actorOfficeId === targetOffice;
   }
   if (scopeKey === "assigned_projects") {
     if (!ctx.projectId) return false;
