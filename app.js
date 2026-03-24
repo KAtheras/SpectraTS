@@ -3550,11 +3550,24 @@
           return;
         }
         const departmentId = deptSelect ? (deptSelect.value || "") : "";
-        const prevDept = state.users.find((u) => u.id === userId)?.departmentId || "";
-        if (departmentId !== prevDept) {
+        const prevUser = state.users.find((u) => u.id === userId) || {};
+        const prevBase = prevUser.baseRate ?? null;
+        const prevCost = prevUser.costRate ?? null;
+        const prevDept = prevUser.departmentId || null;
+        const rateChanged =
+          (baseRate ?? null) !== (prevBase ?? null) ||
+          (costRate ?? null) !== (prevCost ?? null);
+        const deptChanged = (departmentId || null) !== (prevDept || null);
+        if (rateChanged) {
+          updates.push({ userId, baseRate, costRate });
+        }
+        if (deptChanged) {
           deptUpdates.push({ userId, departmentId: departmentId || null });
         }
-        updates.push({ userId, baseRate, costRate });
+      }
+      if (!updates.length && !deptUpdates.length) {
+        feedback("No changes to save.", false);
+        return;
       }
       try {
         // Rates
@@ -3585,7 +3598,9 @@
             }
           }
         }
-        window.location.reload();
+        await loadPersistentState();
+        render();
+        feedback("Member information saved.", false);
       } catch (error) {
         feedback(error.message || "Unable to update rates.", true);
       }
