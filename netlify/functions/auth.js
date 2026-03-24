@@ -32,6 +32,21 @@ exports.handler = async function handler(event) {
     await ensureSchema(sql);
     const context = await getSessionContext(sql, event, request);
 
+    const ensureCurrentUserRole = (state, fallbackUser) => {
+      if (!state?.currentUser) return state;
+      const already = state.currentUser.role;
+      if (already) return state;
+      const listMatch = Array.isArray(state.users)
+        ? state.users.find((u) => u.id === state.currentUser.id && u.role)
+        : null;
+      const role = listMatch?.role || fallbackUser?.role || null;
+      if (!role) return state;
+      return {
+        ...state,
+        currentUser: { ...state.currentUser, role },
+      };
+    };
+
     if (request.action === "session") {
       if (!context.currentUser) {
         return errorResponse(401, "Not signed in.", {
@@ -40,7 +55,8 @@ exports.handler = async function handler(event) {
         });
       }
 
-      const state = await loadState(sql, context.currentUser);
+      let state = await loadState(sql, context.currentUser);
+      state = ensureCurrentUserRole(state, context.currentUser);
       return json(200, {
         ...state,
         authenticated: true,
@@ -63,7 +79,7 @@ exports.handler = async function handler(event) {
       });
       const session = await createSession(sql, user.id);
 
-      const state = await loadState(sql, {
+      let state = await loadState(sql, {
         id: user.id,
         username: user.username,
         role: user.role,
@@ -73,6 +89,10 @@ exports.handler = async function handler(event) {
         costRate: user.costRate ?? user.cost_rate ?? null,
         mustChangePassword: user.mustChangePassword ?? user.must_change_password ?? false,
         accountId,
+      });
+      state = ensureCurrentUserRole(state, {
+        id: user.id,
+        role: user.role,
       });
 
       return json(200, {
@@ -100,7 +120,7 @@ exports.handler = async function handler(event) {
       }
 
       const session = await createSession(sql, user.id);
-      const state = await loadState(sql, {
+      let state = await loadState(sql, {
         id: user.id,
         username: user.username,
         role: user.role,
@@ -110,6 +130,10 @@ exports.handler = async function handler(event) {
         costRate: user.cost_rate ?? null,
         mustChangePassword: user.must_change_password ?? false,
         accountId: user.account_id,
+      });
+      state = ensureCurrentUserRole(state, {
+        id: user.id,
+        role: user.role,
       });
 
       return json(200, {
