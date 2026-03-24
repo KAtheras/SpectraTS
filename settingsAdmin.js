@@ -103,7 +103,7 @@
     const { tabButtons } = settingsTabElements();
     tabButtons.forEach(function (btn) {
       if (btn.dataset.settingsTabButton === "rates") {
-        btn.textContent = "Members";
+        btn.textContent = "Member Information";
       }
     });
     const settingsPage = document.getElementById("settings-page");
