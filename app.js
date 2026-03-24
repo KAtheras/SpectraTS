@@ -750,6 +750,7 @@
       : [];
     state.account = data?.account || null;
     state.settingsAccess = data?.settingsAccess || {};
+    state.permissions = data?.permissions || {};
     const normalizedProjects = normalizeProjects(data?.projects);
     state.projects = normalizedProjects.length
       ? normalizedProjects
