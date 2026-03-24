@@ -99,6 +99,12 @@
       if (settingsPage) settingsPage.hidden = true;
       return;
     }
+    const { tabButtons } = settingsTabElements();
+    tabButtons.forEach(function (btn) {
+      if (btn.dataset.settingsTabButton === "rates") {
+        btn.textContent = "Members";
+      }
+    });
     const settingsPage = document.getElementById("settings-page");
     if (settingsPage) settingsPage.hidden = false;
     initSettingsTabs();
@@ -171,11 +177,22 @@
   }
 
   function renderRatesRows() {
-    const { refs, state, escapeHtml, isAdmin } = deps();
+    const { refs, state, escapeHtml, isAdmin, isGlobalAdmin } = deps();
     if (!refs.ratesRows) return;
 
     const editable = isAdmin(state.currentUser);
+    const deptEditable = isGlobalAdmin(state.currentUser);
     const users = (state.users || []).filter((u) => u.isActive !== false);
+    const departments = (state.departments || []).filter((d) => d.isActive !== false);
+
+    const departmentOptions = (selected) =>
+      [`<option value="">No department</option>`]
+        .concat(
+          departments.map(
+            (d) => `<option value="${escapeHtml(d.id)}"${selected === d.id ? " selected" : ""}>${escapeHtml(d.name)}</option>`
+          )
+        )
+        .join("");
 
     refs.ratesRows.innerHTML = users
       .map(
@@ -184,6 +201,9 @@
             <span class="level-num">${escapeHtml(user.displayName)}</span>
             <input type="number" step="0.01" min="0" data-rate-base value="${user.baseRate ?? ""}" ${editable ? "" : "disabled"} style="width:140px" />
             <input type="number" step="0.01" min="0" data-rate-cost value="${user.costRate ?? ""}" ${editable ? "" : "disabled"} style="width:140px" />
+            <select data-department-select="${escapeHtml(user.id)}" ${deptEditable ? "" : "disabled"} style="width:160px">
+              ${departmentOptions(user.departmentId || "")}
+            </select>
           </div>
         `
       )

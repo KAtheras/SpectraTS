@@ -3378,10 +3378,12 @@
       }
       const rows = Array.from(refs.ratesRows?.querySelectorAll(".rate-row") || []);
       const updates = [];
+      const deptUpdates = [];
       for (const row of rows) {
         const userId = row.dataset.userId;
         const baseInput = row.querySelector("[data-rate-base]");
         const costInput = row.querySelector("[data-rate-cost]");
+        const deptSelect = row.querySelector("[data-department-select]");
         const baseRaw = baseInput?.value?.trim() ?? "";
         const costRaw = costInput?.value?.trim() ?? "";
         const baseRate = baseRaw === "" ? null : Number(baseRaw);
@@ -3390,6 +3392,11 @@
             (costRate !== null && (!Number.isFinite(costRate) || costRate < 0))) {
           feedback("Rates must be non-negative numbers.", true);
           return;
+        }
+        const departmentId = deptSelect ? (deptSelect.value || "") : "";
+        const prevDept = state.users.find((u) => u.id === userId)?.departmentId || "";
+        if (departmentId !== prevDept) {
+          deptUpdates.push({ userId, departmentId: departmentId || null });
         }
         updates.push({ userId, baseRate, costRate });
       }
@@ -3406,6 +3413,14 @@
             baseRate: update.baseRate,
             costRate: update.costRate,
           });
+        }
+        if (isGlobalAdmin(state.currentUser)) {
+          for (const update of deptUpdates) {
+            await mutatePersistentState("set_user_department", {
+              userId: update.userId,
+              departmentId: update.departmentId,
+            });
+          }
         }
         await loadPersistentState();
         renderRatesRows?.();

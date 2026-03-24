@@ -31,6 +31,93 @@ const {
 } = require("./_db");
 const permissions = require("./permissions");
 
+async function createDepartment(sql, payload, accountId) {
+  const name = normalizeText(payload.name);
+  if (!name) {
+    return errorResponse(400, "Department name is required.");
+  }
+  const id = normalizeText(payload.id) || randomId();
+  const now = new Date().toISOString();
+  await sql`
+    INSERT INTO departments (id, account_id, name, is_active, created_at, updated_at)
+    VALUES (${id}, ${accountId}::uuid, ${name}, TRUE, ${now}, ${now})
+    ON CONFLICT (id) DO NOTHING
+  `;
+  return { id, name, isActive: true };
+}
+
+async function renameDepartment(sql, payload, accountId) {
+  const id = normalizeText(payload.id);
+  const name = normalizeText(payload.name);
+  if (!id || !name) {
+    return errorResponse(400, "Department id and name are required.");
+  }
+  const now = new Date().toISOString();
+  const result = await sql`
+    UPDATE departments
+    SET name = ${name}, updated_at = ${now}
+    WHERE id = ${id}
+      AND account_id = ${accountId}::uuid
+    RETURNING id, name, is_active AS "isActive"
+  `;
+  if (!result[0]) {
+    return errorResponse(404, "Department not found.");
+  }
+  return result[0];
+}
+
+async function setDepartmentActive(sql, payload, accountId) {
+  const id = normalizeText(payload.id);
+  const isActive = payload.isActive === false ? false : true;
+  if (!id) {
+    return errorResponse(400, "Department id is required.");
+  }
+  const now = new Date().toISOString();
+  const result = await sql`
+    UPDATE departments
+    SET is_active = ${isActive}, updated_at = ${now}
+    WHERE id = ${id}
+      AND account_id = ${accountId}::uuid
+    RETURNING id, name, is_active AS "isActive"
+  `;
+  if (!result[0]) {
+    return errorResponse(404, "Department not found.");
+  }
+  return result[0];
+}
+
+async function setUserDepartment(sql, payload, accountId) {
+  const userId = normalizeText(payload.userId);
+  const departmentId = payload.departmentId ? normalizeText(payload.departmentId) : null;
+  if (!userId) {
+    return errorResponse(400, "User id is required.");
+  }
+  if (departmentId) {
+    const dept = await sql`
+      SELECT id
+      FROM departments
+      WHERE id = ${departmentId}
+        AND account_id = ${accountId}::uuid
+        AND is_active = TRUE
+      LIMIT 1
+    `;
+    if (!dept[0]) {
+      return errorResponse(404, "Department not found or inactive.");
+    }
+  }
+  const result = await sql`
+    UPDATE users
+    SET department_id = ${departmentId}, updated_at = ${new Date().toISOString()}
+    WHERE id = ${userId}
+      AND account_id = ${accountId}::uuid
+    RETURNING id, department_id AS "departmentId"
+  `;
+  if (!result[0]) {
+    return errorResponse(404, "User not found.");
+  }
+  return result[0];
+}
+
 function normalizeDateString(value) {
   if (!value) return "";
   // Already a YYYY-MM-DD string
@@ -2214,6 +2301,30 @@ exports.handler = async function handler(event) {
         const adminError = requireAdmin(context);
         if (adminError) return adminError;
         mutationResult = await updateProject(sql, request.payload || {}, context.currentUser, accountId);
+        break;
+      }
+      case "create_department": {
+        const superErr = requireSuperAdmin(context);
+        if (superErr) return superErr;
+        mutationResult = await createDepartment(sql, request.payload || {}, accountId);
+        break;
+      }
+      case "rename_department": {
+        const superErr = requireSuperAdmin(context);
+        if (superErr) return superErr;
+        mutationResult = await renameDepartment(sql, request.payload || {}, accountId);
+        break;
+      }
+      case "set_department_active": {
+        const superErr = requireSuperAdmin(context);
+        if (superErr) return superErr;
+        mutationResult = await setDepartmentActive(sql, request.payload || {}, accountId);
+        break;
+      }
+      case "set_user_department": {
+        const superErr = requireSuperAdmin(context);
+        if (superErr) return superErr;
+        mutationResult = await setUserDepartment(sql, request.payload || {}, accountId);
         break;
       }
       case "remove_client": {
