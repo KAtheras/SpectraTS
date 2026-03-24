@@ -244,6 +244,43 @@ function can(user, capabilityKey, ctx, permissionIndex) {
   return false;
 }
 
+// Lightweight evaluator for client-side use when `window.permissionData` is available.
+// Does not replace the primary `can` function above.
+const canFromWindow = function can(user, capability, context = {}) {
+  if (!user || !capability) return false;
+
+  const role = user.role || user.permissionGroup;
+  if (!role) return false;
+
+  const permissionData =
+    (typeof window !== "undefined" && window.permissionData) || {};
+  const rolePermissions = permissionData.rolePermissions || [];
+
+  const match = rolePermissions.find(
+    (p) => p.role === role && p.capability === capability
+  );
+
+  if (!match) return false;
+
+  const scope = match.scope;
+
+  if (scope === "global") return true;
+
+  if (scope === "self") {
+    return context.targetUser && context.targetUser.id === user.id;
+  }
+
+  if (scope === "office") {
+    return (
+      context.targetUser &&
+      user.officeId &&
+      context.targetUser.officeId === user.officeId
+    );
+  }
+
+  return false;
+};
+
 function loadPermissionsFromDb(sql) {
   return sql`
     SELECT
@@ -270,5 +307,6 @@ module.exports = {
   policySatisfied,
   subjectRuleSatisfied,
   can,
+  canFromWindow,
   loadPermissionsFromDb,
 };
