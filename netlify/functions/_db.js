@@ -2116,7 +2116,7 @@ async function loadState(sql, currentUser) {
     settingsAccess: {
       settingsShell,
       viewMemberRates: viewMemberRatesCap,
-      editMemberRates: editMemberRatesCap,
+      editMemberRates: currentGroup === "superuser" ? editMemberRatesCap : false,
       manageCategories,
       manageLocations,
       editPermissionMatrix,
