@@ -220,23 +220,29 @@ function subjectRuleSatisfied(subjectRoleMax, allowSelf, ctx) {
 }
 
 function can(user, capabilityKey, ctx, permissionIndex) {
-  if (!user || !capabilityKey) return false;
-  const role = user.role || user.permissionGroup;
-  if (!role) return false;
+  if (user && user.role === "superuser") return true;
+  const baseCtx = ctx || {};
+  const normalizedCtx = {
+    actorOfficeId: baseCtx.actorOfficeId ?? user?.office_id ?? user?.officeId,
+    actorUserId: baseCtx.actorUserId ?? user?.id,
+    ...baseCtx,
+  };
 
-  const table =
-    (ctx && Array.isArray(ctx.roleCapabilities) && ctx.roleCapabilities) ||
-    (Array.isArray(permissionIndex) ? permissionIndex : null) ||
-    (typeof window !== "undefined" && Array.isArray(window.permissionData?.roleCapabilities)
-      ? window.permissionData.roleCapabilities
-      : []);
-
-  return table.some(
-    (row) =>
-      row &&
-      (row.role === role || row.role_key === role) &&
-      (row.capability === capabilityKey || row.capability_key === capabilityKey)
-  );
+  const index = permissionIndex || normalizedCtx.permissionIndex;
+  if (!index) return false;
+  const roleKey = roleKeyFromUser(user);
+  if (!roleKey) return false;
+  const roleCaps = index.get(roleKey);
+  if (!roleCaps) return false;
+  const perms = roleCaps.get(capabilityKey) || [];
+  for (const perm of perms) {
+    if (!perm.allowed) continue;
+    if (!scopeMatches(perm.scope_key, normalizedCtx)) continue;
+    if (!policySatisfied(perm.policy_key, normalizedCtx)) continue;
+    if (!subjectRuleSatisfied(perm.subject_role_max, perm.allow_self, normalizedCtx)) continue;
+    return true;
+  }
+  return false;
 }
 
 // Lightweight evaluator for client-side use when `window.permissionData` is available.
