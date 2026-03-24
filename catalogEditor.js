@@ -555,6 +555,7 @@
       escapeHtml,
       entryUserOptions,
       getUserByDisplayName,
+      expenseClientOptions,
     } = deps();
     const selectedUserId = selection?.user || "";
     const selectedClient = selection?.client || "";
@@ -575,7 +576,7 @@
     }
 
     if (refs.expenseFilterClient) {
-      const clients = visibleCatalogClientNames();
+      const clients = expenseClientOptions ? expenseClientOptions() : visibleCatalogClientNames();
       setSelectOptionsWithPlaceholder(
         { escapeHtml },
         refs.expenseFilterClient,

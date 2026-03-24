@@ -586,6 +586,21 @@
     return Array.from(names);
   }
 
+  // Build client options from the currently visible expense rows (ignoring the client filter only).
+  function visibleExpenseClientOptions() {
+    const names = new Set();
+    const rows =
+      window.expenses && typeof window.expenses.currentExpenses === "function"
+        ? window.expenses.currentExpenses()
+        : [];
+    rows.forEach((row) => {
+      if (row?.clientName) {
+        names.add(row.clientName);
+      }
+    });
+    return Array.from(names);
+  }
+
   function entryUserOptions() {
     if (!state.currentUser) {
       return availableUsers();
@@ -4519,6 +4534,7 @@
     syncFilterCatalogs,
     isManager,
     availableUsers,
+    expenseClientOptions: visibleExpenseClientOptions,
     defaultFilterUser,
     allowedClientsForUser,
     clientNames,
