@@ -3558,14 +3558,8 @@
       }
       try {
         for (const update of updates) {
-          const user = state.users.find((u) => u.id === update.userId);
-          if (!user) continue;
           await mutatePersistentState("update_user", {
-            userId: user.id,
-            displayName: user.displayName,
-            username: user.username,
-            level: user.level,
-            officeId: user.officeId ?? null,
+            userId: update.userId,
             baseRate: update.baseRate,
             costRate: update.costRate,
           });
