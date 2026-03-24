@@ -18,7 +18,7 @@
     if (access.editPermissionMatrix) tabs.push("levels");
     if (access.manageCategories) tabs.push("categories");
     if (access.manageLocations) tabs.push("locations");
-    if (access.viewMemberRates || access.editMemberRates) tabs.push("rates");
+    if (access.editMemberRates) tabs.push("rates");
     if (isGlobalAdmin?.(state.currentUser)) tabs.push("departments");
     return tabs;
   }
