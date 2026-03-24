@@ -849,7 +849,8 @@
     render();
   }
 
-  async function mutatePersistentState(action, payload) {
+  async function mutatePersistentState(action, payload, options = {}) {
+    const { skipHydrate } = options;
     const sessionToken = loadSessionToken();
     const result = await requestJson(MUTATE_API_PATH, {
       method: "POST",
@@ -859,7 +860,7 @@
         ...(sessionToken ? { sessionToken } : {}),
       }),
     });
-    if (result && result.currentUser) {
+    if (!skipHydrate && result && result.currentUser) {
       applyLoadedState(result);
       render();
     }
@@ -3570,14 +3571,18 @@
         return;
       }
       try {
-        // Rates
+        // Rates (batched without intermediate hydrate)
         for (const update of updates) {
           try {
-            await mutatePersistentState("update_user_rates", {
-              userId: update.userId,
-              baseRate: update.baseRate,
-              costRate: update.costRate,
-            });
+            await mutatePersistentState(
+              "update_user_rates",
+              {
+                userId: update.userId,
+                baseRate: update.baseRate,
+                costRate: update.costRate,
+              },
+              { skipHydrate: true }
+            );
           } catch (err) {
             console.error(err);
             window.alert("Save failed");
@@ -3587,10 +3592,14 @@
         if (isGlobalAdmin(state.currentUser)) {
           for (const update of deptUpdates) {
             try {
-              await mutatePersistentState("set_user_department", {
-                userId: update.userId,
-                departmentId: update.departmentId,
-              });
+              await mutatePersistentState(
+                "set_user_department",
+                {
+                  userId: update.userId,
+                  departmentId: update.departmentId,
+                },
+                { skipHydrate: true }
+              );
             } catch (err) {
               console.error(err);
               window.alert("Save failed");
