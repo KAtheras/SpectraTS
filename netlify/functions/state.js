@@ -9,7 +9,7 @@ const {
   loadState,
   requireAuth,
 } = require("./_db");
-const { can } = require("./permissions");
+const { can, buildIndex, loadPermissionsFromDb } = require("./permissions");
 
 exports.handler = async function handler(event) {
   if (event.httpMethod !== "GET") {
@@ -25,59 +25,61 @@ exports.handler = async function handler(event) {
       return authError;
     }
 
+    const permissionRows = await loadPermissionsFromDb(sql);
+    const permissionIndex = buildIndex({ permissions: permissionRows });
     const state = await loadState(sql, context.currentUser);
     const currentUser = state.currentUser;
     const permissions = {
       // existing keys
-      edit_user_department: can(currentUser, "edit_user_department"),
-      view_settings_tab: can(currentUser, "view_settings_shell"),
-      view_members_page: can(currentUser, "view_members"),
-      edit_user_rates: can(currentUser, "edit_member_rates"),
+      edit_user_department: can(currentUser, "edit_user_department", {}, permissionIndex),
+      view_settings_tab: can(currentUser, "view_settings_shell", {}, permissionIndex),
+      view_members_page: can(currentUser, "view_members", {}, permissionIndex),
+      edit_user_rates: can(currentUser, "edit_member_rates", {}, permissionIndex),
 
       // settings management
-      manage_levels: can(currentUser, "manage_levels"),
-      manage_departments: can(currentUser, "manage_departments"),
-      manage_expense_categories: can(currentUser, "manage_expense_categories"),
-      manage_office_locations: can(currentUser, "manage_office_locations"),
+      manage_levels: can(currentUser, "manage_levels", {}, permissionIndex),
+      manage_departments: can(currentUser, "manage_departments", {}, permissionIndex),
+      manage_expense_categories: can(currentUser, "manage_expense_categories", {}, permissionIndex),
+      manage_office_locations: can(currentUser, "manage_office_locations", {}, permissionIndex),
 
       // user management
-      create_user: can(currentUser, "create_member"),
-      edit_user_profile: can(currentUser, "edit_member_profile"),
-      reset_user_password: can(currentUser, "admin_reset_password"),
-      deactivate_user: can(currentUser, "deactivate_member"),
+      create_user: can(currentUser, "create_member", {}, permissionIndex),
+      edit_user_profile: can(currentUser, "edit_member_profile", {}, permissionIndex),
+      reset_user_password: can(currentUser, "admin_reset_password", {}, permissionIndex),
+      deactivate_user: can(currentUser, "deactivate_member", {}, permissionIndex),
 
       // analytics & audit
-      view_analytics: can(currentUser, "view_analytics"),
-      view_audit_logs: can(currentUser, "view_audit_logs"),
+      view_analytics: can(currentUser, "view_analytics", {}, permissionIndex),
+      view_audit_logs: can(currentUser, "view_audit_logs", {}, permissionIndex),
 
       // projects
-      create_project: can(currentUser, "create_project"),
-      remove_project: can(currentUser, "archive_project"),
+      create_project: can(currentUser, "create_project", {}, permissionIndex),
+      remove_project: can(currentUser, "archive_project", {}, permissionIndex),
 
       // clients
-      create_client: can(currentUser, "create_client"),
-      edit_client: can(currentUser, "edit_client"),
-      archive_client: can(currentUser, "archive_client"),
+      create_client: can(currentUser, "create_client", {}, permissionIndex),
+      edit_client: can(currentUser, "edit_client", {}, permissionIndex),
+      archive_client: can(currentUser, "archive_client", {}, permissionIndex),
 
       // assignments
-      assign_project_members: can(currentUser, "assign_project_staff"),
-      assign_project_managers: can(currentUser, "assign_project_managers"),
+      assign_project_members: can(currentUser, "assign_project_staff", {}, permissionIndex),
+      assign_project_managers: can(currentUser, "assign_project_managers", {}, permissionIndex),
 
       // time entries
-      create_entry: can(currentUser, "create_time_entry"),
-      approve_entry: can(currentUser, "approve_time"),
-      view_entries: can(currentUser, "view_entries"),
+      create_entry: can(currentUser, "create_time_entry", {}, permissionIndex),
+      approve_entry: can(currentUser, "approve_time", {}, permissionIndex),
+      view_entries: can(currentUser, "view_entries", {}, permissionIndex),
 
       // expenses
-      create_expense: can(currentUser, "create_expense"),
-      update_expense: can(currentUser, "edit_expense"),
-      toggle_expense_status: can(currentUser, "approve_expense"),
-      view_expenses: can(currentUser, "view_expenses"),
+      create_expense: can(currentUser, "create_expense", {}, permissionIndex),
+      update_expense: can(currentUser, "edit_expense", {}, permissionIndex),
+      toggle_expense_status: can(currentUser, "approve_expense", {}, permissionIndex),
+      view_expenses: can(currentUser, "view_expenses", {}, permissionIndex),
 
       // visibility
-      view_users: can(currentUser, "view_users"),
-      view_clients: can(currentUser, "view_clients"),
-      view_projects: can(currentUser, "view_projects"),
+      view_users: can(currentUser, "view_users", {}, permissionIndex),
+      view_clients: can(currentUser, "view_clients", {}, permissionIndex),
+      view_projects: can(currentUser, "view_projects", {}, permissionIndex),
     };
 
     return json(200, { ...state, permissions });
