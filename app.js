@@ -3560,7 +3560,7 @@
         // Rates
         for (const update of updates) {
           try {
-            await mutatePersistentState("update_user", {
+            await mutatePersistentState("update_user_rates", {
               userId: update.userId,
               baseRate: update.baseRate,
               costRate: update.costRate,

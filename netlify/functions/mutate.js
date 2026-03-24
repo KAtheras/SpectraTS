@@ -2366,8 +2366,45 @@ exports.handler = async function handler(event) {
         const createdBy = projectRow[0]?.created_by || "";
         if (createdBy !== context.currentUser.id) {
           return errorResponse(403, "You can only remove projects you created.");
+      }
+      mutationResult = await removeProject(sql, request.payload || {}, accountId);
+      break;
+    }
+      case "update_user_rates": {
+        const adminError = requireAdmin(context);
+        if (adminError) return adminError;
+        const userId = normalizeText(request.payload?.userId);
+        const baseRateRaw = request.payload?.baseRate;
+        const costRateRaw = request.payload?.costRate;
+        if (!userId) {
+          return errorResponse(400, "User id is required.");
         }
-        mutationResult = await removeProject(sql, request.payload || {}, accountId);
+        const baseRate =
+          baseRateRaw === null || baseRateRaw === undefined || baseRateRaw === ""
+            ? null
+            : Number(baseRateRaw);
+        const costRate =
+          costRateRaw === null || costRateRaw === undefined || costRateRaw === ""
+            ? null
+            : Number(costRateRaw);
+        if (
+          (baseRate !== null && (!Number.isFinite(baseRate) || baseRate < 0)) ||
+          (costRate !== null && (!Number.isFinite(costRate) || costRate < 0))
+        ) {
+          return errorResponse(400, "Rates must be non-negative numbers.");
+        }
+        const now = new Date().toISOString();
+        const result = await sql`
+          UPDATE users
+          SET base_rate = ${baseRate}, cost_rate = ${costRate}, updated_at = ${now}
+          WHERE id = ${userId}
+            AND account_id = ${accountId}::uuid
+          RETURNING id
+        `;
+        if (!result[0]) {
+          return errorResponse(404, "User not found.");
+        }
+        mutationResult = await loadState(sql, context.currentUser);
         break;
       }
       case "save_entry":
