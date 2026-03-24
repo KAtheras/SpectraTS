@@ -2322,8 +2322,21 @@ exports.handler = async function handler(event) {
         break;
       }
       case "set_user_department": {
-        const superErr = requireSuperAdmin(context);
-        if (superErr) return superErr;
+        const targetUserId = normalizeText(request.payload?.userId);
+        if (!targetUserId) {
+          return errorResponse(400, "User id is required.");
+        }
+        const targetUser = await findUserById(sql, targetUserId, accountId);
+        if (!targetUser) {
+          return errorResponse(404, "User not found.");
+        }
+        const canEditDept = can("edit_member_profile", {
+          targetUserId,
+          targetOfficeId: targetUser.office_id || targetUser.officeId || null,
+        });
+        if (!canEditDept) {
+          return errorResponse(403, "Access denied.");
+        }
         mutationResult = await setUserDepartment(sql, request.payload || {}, accountId);
         break;
       }
@@ -2371,13 +2384,22 @@ exports.handler = async function handler(event) {
       break;
     }
       case "update_user_rates": {
-        const adminError = requireAdmin(context);
-        if (adminError) return adminError;
         const userId = normalizeText(request.payload?.userId);
         const baseRateRaw = request.payload?.baseRate;
         const costRateRaw = request.payload?.costRate;
         if (!userId) {
           return errorResponse(400, "User id is required.");
+        }
+        const targetUser = await findUserById(sql, userId, accountId);
+        if (!targetUser) {
+          return errorResponse(404, "User not found.");
+        }
+        const canEditRates = can("edit_member_rates", {
+          targetUserId: userId,
+          targetOfficeId: targetUser.office_id || targetUser.officeId || null,
+        });
+        if (!canEditRates) {
+          return errorResponse(403, "Access denied.");
         }
         const baseRate =
           baseRateRaw === null || baseRateRaw === undefined || baseRateRaw === ""
