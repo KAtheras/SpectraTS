@@ -30,9 +30,9 @@ exports.handler = async function handler(event) {
     const permissions = {
       // existing keys
       edit_user_department: can(currentUser, "edit_user_department"),
-      view_settings_tab: can(currentUser, "view_settings_tab"),
-      view_members_page: can(currentUser, "view_members_page"),
-      edit_user_rates: can(currentUser, "edit_user_rates"),
+      view_settings_tab: can(currentUser, "view_settings_shell"),
+      view_members_page: can(currentUser, "view_members"),
+      edit_user_rates: can(currentUser, "edit_member_rates"),
 
       // settings management
       manage_levels: can(currentUser, "manage_levels"),
@@ -41,10 +41,10 @@ exports.handler = async function handler(event) {
       manage_office_locations: can(currentUser, "manage_office_locations"),
 
       // user management
-      create_user: can(currentUser, "create_user"),
-      edit_user_profile: can(currentUser, "edit_user_profile"),
-      reset_user_password: can(currentUser, "reset_user_password"),
-      deactivate_user: can(currentUser, "deactivate_user"),
+      create_user: can(currentUser, "create_member"),
+      edit_user_profile: can(currentUser, "edit_member_profile"),
+      reset_user_password: can(currentUser, "admin_reset_password"),
+      deactivate_user: can(currentUser, "deactivate_member"),
 
       // analytics & audit
       view_analytics: can(currentUser, "view_analytics"),
@@ -52,7 +52,7 @@ exports.handler = async function handler(event) {
 
       // projects
       create_project: can(currentUser, "create_project"),
-      remove_project: can(currentUser, "remove_project"),
+      remove_project: can(currentUser, "archive_project"),
 
       // clients
       create_client: can(currentUser, "create_client"),
@@ -60,18 +60,18 @@ exports.handler = async function handler(event) {
       archive_client: can(currentUser, "archive_client"),
 
       // assignments
-      assign_project_members: can(currentUser, "assign_project_members"),
+      assign_project_members: can(currentUser, "assign_project_staff"),
       assign_project_managers: can(currentUser, "assign_project_managers"),
 
       // time entries
-      create_entry: can(currentUser, "create_entry"),
-      approve_entry: can(currentUser, "approve_entry"),
+      create_entry: can(currentUser, "create_time_entry"),
+      approve_entry: can(currentUser, "approve_time"),
       view_entries: can(currentUser, "view_entries"),
 
       // expenses
       create_expense: can(currentUser, "create_expense"),
-      update_expense: can(currentUser, "update_expense"),
-      toggle_expense_status: can(currentUser, "toggle_expense_status"),
+      update_expense: can(currentUser, "edit_expense"),
+      toggle_expense_status: can(currentUser, "approve_expense"),
       view_expenses: can(currentUser, "view_expenses"),
 
       // visibility
