@@ -4513,7 +4513,7 @@
     isValidDateString,
     today,
     syncFormCatalogs,
-    entryUserOptions,
+    entryUserOptions: visibleExpenseUserOptions,
     isStaff,
     populateSelect,
     syncFilterCatalogs,
