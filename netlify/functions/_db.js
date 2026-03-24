@@ -849,26 +849,26 @@ async function listUsers(sql, accountId) {
   const rows = await sql`
     SELECT
       users.id,
-      username,
-      display_name AS "displayName",
-      role,
-      level,
-      base_rate AS "baseRate",
-      cost_rate AS "costRate",
-      office_id AS "officeId",
-      department_id AS "departmentId",
+      users.username,
+      users.display_name AS "displayName",
+      users.role,
+      users.level,
+      users.base_rate AS "baseRate",
+      users.cost_rate AS "costRate",
+      users.office_id AS "officeId",
+      users.department_id AS "departmentId",
       d.name AS "departmentName",
-      must_change_password AS "mustChangePassword",
-      account_id AS "accountId",
-      is_active AS "isActive",
-      created_at AS "createdAt"
+      users.must_change_password AS "mustChangePassword",
+      users.account_id AS "accountId",
+      users.is_active AS "isActive",
+      users.created_at AS "createdAt"
     FROM users
     LEFT JOIN departments d
       ON d.id = users.department_id
      AND d.account_id = ${accountId}::uuid
-    WHERE is_active = TRUE
-      AND account_id = ${accountId}::uuid
-    ORDER BY LOWER(display_name), LOWER(username)
+    WHERE users.is_active = TRUE
+      AND users.account_id = ${accountId}::uuid
+    ORDER BY LOWER(users.display_name), LOWER(users.username)
   `;
   return rows.map((row) => ({ ...row, level: normalizeLevel(row.level) }));
 }
