@@ -1801,6 +1801,7 @@ async function loadState(sql, currentUser) {
 
   const permissionRows = await permissions.loadPermissionsFromDb(sql);
   const permissionIndex = permissions.buildIndex({ permissions: permissionRows });
+  const roleKey = normalizedUser ? permissions.roleKeyFromUser(normalizedUser) : null;
   const canCap = (capability, ctx = {}) =>
     permissions.can(normalizedUser, capability, {
       permissionIndex,
@@ -1828,10 +1829,12 @@ async function loadState(sql, currentUser) {
     resourceOfficeId: normalizedUser?.officeId ?? null,
     actorOfficeId: normalizedUser?.officeId ?? null,
   });
-  const editMemberRatesCap = canCap("edit_member_rates", {
-    resourceOfficeId: normalizedUser?.officeId ?? null,
-    actorOfficeId: normalizedUser?.officeId ?? null,
-  });
+  const editMemberRatesCap = roleKey === "superuser"
+    ? canCap("edit_member_rates", {
+        resourceOfficeId: normalizedUser?.officeId ?? null,
+        actorOfficeId: normalizedUser?.officeId ?? null,
+      })
+    : false;
 
   const catalogRows = await sql`
     SELECT
@@ -2118,7 +2121,7 @@ async function loadState(sql, currentUser) {
     settingsAccess: {
       settingsShell,
       viewMemberRates: viewMemberRatesCap,
-      editMemberRates: currentGroup === "superuser" ? editMemberRatesCap : false,
+      editMemberRates: editMemberRatesCap,
       manageCategories,
       manageLocations,
       editPermissionMatrix,
