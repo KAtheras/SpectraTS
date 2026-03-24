@@ -66,6 +66,7 @@ exports.handler = async function handler(event) {
       const state = await loadState(sql, {
         id: user.id,
         username: user.username,
+        role: user.role,
         displayName: user.displayName,
         level: user.level,
         baseRate: user.baseRate ?? user.base_rate ?? null,
@@ -102,6 +103,7 @@ exports.handler = async function handler(event) {
       const state = await loadState(sql, {
         id: user.id,
         username: user.username,
+        role: user.role,
         displayName: user.display_name,
         level: user.level,
         baseRate: user.base_rate ?? null,
