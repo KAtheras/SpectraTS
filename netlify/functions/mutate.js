@@ -2346,24 +2346,34 @@ exports.handler = async function handler(event) {
         const items = Array.isArray(request.payload?.rolePermissions)
           ? request.payload.rolePermissions
           : [];
-        const allowedPairs = items
-          .filter((item) => item && item.allowed)
+
+        const normalized = items
           .map((item) => ({
-            role: normalizeText(item.role || item.role_key),
-            capability: normalizeText(item.capability || item.capability_key),
+            role: normalizeText(item?.role || item?.role_key),
+            capability: normalizeText(item?.capability || item?.capability_key),
+            allowed: !!item?.allowed,
           }))
           .filter((item) => item.role && item.capability);
 
-        const roles = await sql`
-          SELECT id, key
-          FROM permission_roles
-          WHERE key = ANY(${allowedPairs.map((i) => i.role)})
-        `;
-        const caps = await sql`
-          SELECT id, key
-          FROM permission_capabilities
-          WHERE key = ANY(${allowedPairs.map((i) => i.capability)})
-        `;
+        const allowedPairs = normalized.filter((item) => item.allowed);
+
+        const roleKeysAll = Array.from(new Set(normalized.map((i) => i.role)));
+        const capKeysAll = Array.from(new Set(normalized.map((i) => i.capability)));
+
+        const roles = roleKeysAll.length
+          ? await sql`
+              SELECT id, key
+              FROM permission_roles
+              WHERE key = ANY(${roleKeysAll})
+            `
+          : [];
+        const caps = capKeysAll.length
+          ? await sql`
+              SELECT id, key
+              FROM permission_capabilities
+              WHERE key = ANY(${capKeysAll})
+            `
+          : [];
         const scopes = await sql`
           SELECT id
           FROM permission_scopes
@@ -2376,9 +2386,6 @@ exports.handler = async function handler(event) {
         }
         const roleIdByKey = new Map(roles.map((r) => [r.key, r.id]));
         const capIdByKey = new Map(caps.map((c) => [c.key, c.id]));
-
-        const roleKeys = Array.from(new Set(allowedPairs.map((i) => i.role)));
-        const capKeys = Array.from(new Set(allowedPairs.map((i) => i.capability)));
 
         // Upsert allowed pairs
         for (const { role, capability } of allowedPairs) {
@@ -2393,7 +2400,7 @@ exports.handler = async function handler(event) {
         }
 
         // Remove disallowed pairs in this matrix (own_office scope only)
-        if (roleKeys.length && capKeys.length) {
+        if (roleKeysAll.length && capKeysAll.length) {
           const keepPairs = new Set(allowedPairs.map((p) => `${p.role}|${p.capability}`));
           const rows = await sql`
             SELECT rp.id, pr.key AS role_key, pc.key AS capability_key
@@ -2401,8 +2408,8 @@ exports.handler = async function handler(event) {
             JOIN permission_roles pr ON pr.id = rp.role_id
             JOIN permission_capabilities pc ON pc.id = rp.capability_id
             WHERE rp.scope_id = ${scopeId}
-              AND pr.key = ANY(${roleKeys})
-              AND pc.key = ANY(${capKeys})
+              AND pr.key = ANY(${roleKeysAll})
+              AND pc.key = ANY(${capKeysAll})
           `;
           for (const row of rows) {
             const key = `${row.role_key}|${row.capability_key}`;
