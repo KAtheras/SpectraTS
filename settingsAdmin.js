@@ -1,6 +1,6 @@
 (function () {
   const deps = () => window.settingsAdminDeps || {};
-  const SETTINGS_TABS = ["levels", "categories", "locations", "rates", "departments"];
+  const SETTINGS_TABS = ["levels", "categories", "locations", "rates", "departments", "permissions"];
   let activeSettingsTab = "levels";
   let tabsInitialized = false;
 
@@ -20,6 +20,8 @@
     if (access.manageLocations) tabs.push("locations");
     if (access.viewMemberRates || access.editMemberRates) tabs.push("rates");
     if (access.editPermissionMatrix && access.viewMemberRates) tabs.push("departments");
+    const isSuperuser = state.currentUser?.role === "superuser";
+    if (isSuperuser) tabs.push("permissions");
     return tabs;
   }
 
@@ -108,7 +110,114 @@
     });
     const settingsPage = document.getElementById("settings-page");
     if (settingsPage) settingsPage.hidden = false;
+
+    // Ensure permissions tab exists for superusers
+    const isSuperuser = state.currentUser?.role === "superuser";
+    if (isSuperuser) {
+      const tabsContainer = document.querySelector("#settings-page .settings-tabs");
+      const panelsContainer = document.querySelector("#settings-page .settings-panels") || settingsPage;
+      if (tabsContainer && panelsContainer) {
+        let permBtn = tabsContainer.querySelector('[data-settings-tab-button="permissions"]');
+        if (!permBtn) {
+          permBtn = document.createElement("button");
+          permBtn.className = "settings-tab";
+          permBtn.type = "button";
+          permBtn.dataset.settingsTabButton = "permissions";
+          permBtn.textContent = "Access";
+          tabsContainer.appendChild(permBtn);
+          permBtn.addEventListener("click", function (event) {
+            event.preventDefault();
+            setActiveSettingsTab("permissions");
+          });
+        }
+        let permPanel = panelsContainer.querySelector('[data-settings-tab="permissions"]');
+        if (!permPanel) {
+          permPanel = document.createElement("div");
+          permPanel.dataset.settingsTab = "permissions";
+          permPanel.className = "settings-panel";
+          panelsContainer.appendChild(permPanel);
+        }
+      }
+    }
     initSettingsTabs();
+    renderPermissionsMatrix();
+  }
+
+  function renderPermissionsMatrix() {
+    const { state, escapeHtml } = deps();
+    const panel = document.querySelector('[data-settings-tab="permissions"]');
+    if (!panel) return;
+    const roles = Array.isArray(state.permissionRoles) ? state.permissionRoles : [];
+    const rolePerms = Array.isArray(state.rolePermissions) ? state.rolePermissions : [];
+    const caps = [
+      "view_settings_shell",
+      "view_members",
+      "edit_member_rates",
+      "edit_member_profile",
+      "manage_departments",
+      "manage_levels",
+      "manage_expense_categories",
+      "manage_office_locations",
+    ];
+
+    const allowedSet = new Set(
+      rolePerms
+        .filter((p) => p.allowed && p.scope_key === "own_office")
+        .map((p) => `${p.role_key}|${p.capability_key}`)
+    );
+
+    const rowsHtml = caps
+      .map((cap) => {
+        const cells = roles
+          .map((role) => {
+            const checked = allowedSet.has(`${role.key}|${cap}`);
+            return `<td><input type="checkbox" data-perm-role="${escapeHtml(role.key)}" data-perm-cap="${escapeHtml(cap)}" ${checked ? "checked" : ""}></td>`;
+          })
+          .join("");
+        return `<tr><th scope="row">${escapeHtml(cap)}</th>${cells}</tr>`;
+      })
+      .join("");
+
+    panel.innerHTML = `
+      <div class="settings-actions">
+        <button type="button" id="permissions-save" class="button">Save Access</button>
+      </div>
+      <div class="table-wrapper">
+        <table class="table perms-matrix">
+          <thead>
+            <tr>
+              <th scope="col">Capability</th>
+              ${roles.map((r) => `<th scope="col">${escapeHtml(r.label || r.key)}</th>`).join("")}
+            </tr>
+          </thead>
+          <tbody>
+            ${rowsHtml}
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    const saveBtn = document.getElementById("permissions-save");
+    if (saveBtn) {
+      saveBtn.addEventListener("click", async function () {
+        const inputs = Array.from(panel.querySelectorAll("[data-perm-role][data-perm-cap]"));
+        const next = [];
+        inputs.forEach((input) => {
+          const roleKey = input.dataset.permRole;
+          const capKey = input.dataset.permCap;
+          const allowed = input.checked;
+          next.push({ role: roleKey, capability: capKey, allowed });
+        });
+        try {
+          await deps().mutatePersistentState("update_role_permissions", { rolePermissions: next });
+          await deps().loadPersistentState();
+          renderPermissionsMatrix();
+          deps().feedback("Access updated.", false);
+        } catch (error) {
+          deps().feedback(error.message || "Unable to save access.", true);
+        }
+      });
+    }
   }
 
   function renderDepartments() {

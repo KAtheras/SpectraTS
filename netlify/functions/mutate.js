@@ -2340,6 +2340,81 @@ exports.handler = async function handler(event) {
         mutationResult = await setUserDepartment(sql, request.payload || {}, accountId);
         break;
       }
+      case "update_role_permissions": {
+        const superErr = requireSuperAdmin(context);
+        if (superErr) return superErr;
+        const items = Array.isArray(request.payload?.rolePermissions)
+          ? request.payload.rolePermissions
+          : [];
+        const allowedPairs = items
+          .filter((item) => item && item.allowed)
+          .map((item) => ({
+            role: normalizeText(item.role || item.role_key),
+            capability: normalizeText(item.capability || item.capability_key),
+          }))
+          .filter((item) => item.role && item.capability);
+
+        const roles = await sql`
+          SELECT id, key
+          FROM permission_roles
+          WHERE key = ANY(${allowedPairs.map((i) => i.role)})
+        `;
+        const caps = await sql`
+          SELECT id, key
+          FROM permission_capabilities
+          WHERE key = ANY(${allowedPairs.map((i) => i.capability)})
+        `;
+        const scopes = await sql`
+          SELECT id
+          FROM permission_scopes
+          WHERE key = 'own_office'
+          LIMIT 1
+        `;
+        const scopeId = scopes[0]?.id;
+        if (!scopeId) {
+          return errorResponse(500, "Scope not configured.");
+        }
+        const roleIdByKey = new Map(roles.map((r) => [r.key, r.id]));
+        const capIdByKey = new Map(caps.map((c) => [c.key, c.id]));
+
+        const roleKeys = Array.from(new Set(allowedPairs.map((i) => i.role)));
+        const capKeys = Array.from(new Set(allowedPairs.map((i) => i.capability)));
+
+        // Upsert allowed pairs
+        for (const { role, capability } of allowedPairs) {
+          const roleId = roleIdByKey.get(role);
+          const capId = capIdByKey.get(capability);
+          if (!roleId || !capId) continue;
+          await sql`
+            INSERT INTO role_permissions (role_id, capability_id, scope_id, allowed)
+            VALUES (${roleId}, ${capId}, ${scopeId}, TRUE)
+            ON CONFLICT (role_id, capability_id, scope_id) DO UPDATE SET allowed = EXCLUDED.allowed
+          `;
+        }
+
+        // Remove disallowed pairs in this matrix (own_office scope only)
+        if (roleKeys.length && capKeys.length) {
+          const keepPairs = new Set(allowedPairs.map((p) => `${p.role}|${p.capability}`));
+          const rows = await sql`
+            SELECT rp.id, pr.key AS role_key, pc.key AS capability_key
+            FROM role_permissions rp
+            JOIN permission_roles pr ON pr.id = rp.role_id
+            JOIN permission_capabilities pc ON pc.id = rp.capability_id
+            WHERE rp.scope_id = ${scopeId}
+              AND pr.key = ANY(${roleKeys})
+              AND pc.key = ANY(${capKeys})
+          `;
+          for (const row of rows) {
+            const key = `${row.role_key}|${row.capability_key}`;
+            if (!keepPairs.has(key)) {
+              await sql`DELETE FROM role_permissions WHERE id = ${row.id}`;
+            }
+          }
+        }
+
+        mutationResult = await loadState(sql, context.currentUser);
+        break;
+      }
       case "remove_client": {
         const targetClient = await findClient(sql, request.payload?.clientName, accountId);
         if (!targetClient) {

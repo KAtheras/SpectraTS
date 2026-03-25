@@ -28,6 +28,13 @@ exports.handler = async function handler(event) {
     const permissionRows = await loadPermissionsFromDb(sql);
     const permissionIndex = buildIndex({ permissions: permissionRows });
     const state = await loadState(sql, context.currentUser);
+    const permissionRows = await loadPermissionsFromDb(sql);
+    const permissionRoles = await sql`
+      SELECT key, label, is_active AS "isActive"
+      FROM permission_roles
+      WHERE is_active = TRUE
+      ORDER BY id
+    `;
     const currentUser = state.currentUser;
     const permissions = {
       // existing keys
@@ -82,7 +89,12 @@ exports.handler = async function handler(event) {
       view_projects: can(currentUser, "view_projects", {}, permissionIndex),
     };
 
-    return json(200, { ...state, permissions });
+    return json(200, {
+      ...state,
+      permissions,
+      permissionRoles,
+      rolePermissions: permissionRows,
+    });
   } catch (error) {
     return errorResponse(500, error.message || "Unable to load database state.");
   }

@@ -709,6 +709,8 @@
     state.levelLabels = data?.levelLabels && typeof data.levelLabels === "object"
       ? data.levelLabels
       : {};
+    state.permissionRoles = Array.isArray(data?.permissionRoles) ? data.permissionRoles.slice() : [];
+    state.rolePermissions = Array.isArray(data?.rolePermissions) ? data.rolePermissions.slice() : [];
     const remoteOffices = Array.isArray(data?.officeLocations)
       ? data.officeLocations
           .map(function (item) {
