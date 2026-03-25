@@ -28,7 +28,6 @@ exports.handler = async function handler(event) {
     const permissionRows = await loadPermissionsFromDb(sql);
     const permissionIndex = buildIndex({ permissions: permissionRows });
     const state = await loadState(sql, context.currentUser);
-    const permissionRows = await loadPermissionsFromDb(sql);
     const permissionRoles = await sql`
       SELECT key, label, is_active AS "isActive"
       FROM permission_roles
