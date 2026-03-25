@@ -4694,6 +4694,8 @@
     refs,
     state,
     settingsAccess: state.settingsAccess || {},
+    mutatePersistentState,
+    loadPersistentState,
     usersRenderUsersList,
     levelLabel,
     isAdmin,
