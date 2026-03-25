@@ -621,7 +621,7 @@
 
   // Build user options from the currently visible expense rows (ignoring the user filter only).
   function visibleExpenseUserOptions() {
-    const names = new Set();
+    const names = new Set(availableUsers());
     const rows =
       window.expenses && typeof window.expenses.currentExpenses === "function"
         ? window.expenses.currentExpenses()
