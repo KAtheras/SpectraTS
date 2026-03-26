@@ -65,6 +65,7 @@
       const isActive = permitted && tabKey === nextTab;
       btn.hidden = !permitted;
       btn.classList.toggle("is-active", isActive);
+      btn.classList.toggle("is-selected", isActive);
       btn.setAttribute("aria-selected", isActive ? "true" : "false");
       btn.setAttribute("tabindex", isActive ? "0" : "-1");
     });
@@ -172,6 +173,7 @@
     const { tabButtons } = settingsTabElements();
     tabButtons.forEach(function (btn) {
       const key = btn.dataset.settingsTabButton;
+      btn.classList.add("catalog-item");
       if (labelByTab[key]) {
         btn.textContent = labelByTab[key];
       }
@@ -244,22 +246,18 @@
             text-align:left;
             border-radius:var(--card-radius);
             padding:14px 16px;
-            border:1px solid var(--panel-border);
-            background:var(--panel);
-            color:var(--text);
+            color:var(--ink);
             font-weight:700;
-            transition:border-color .16s ease,box-shadow .16s ease,background .16s ease,transform .12s ease;
+            justify-content:flex-start;
+            transition:background .16s ease;
           }
           #settings-page .settings-tab:hover{
-            border-color:color-mix(in srgb, var(--panel-border) 55%, var(--group-border) 45%);
-            background:var(--surface-hover);
-            box-shadow:none;
             transform:none;
           }
           #settings-page .settings-tab.is-active{
-            border-color:var(--group-border);
-            background:var(--surface-strong);
-            box-shadow:0 0 0 1px color-mix(in srgb, var(--group-border) 40%, transparent);
+            border-color:inherit;
+            background:inherit;
+            box-shadow:none;
           }
           #settings-page .settings-panels{min-width:0}
           #settings-page .settings-panels [data-settings-tab]{width:100%}
