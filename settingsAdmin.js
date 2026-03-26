@@ -392,11 +392,24 @@
 
     refs.officeRows.innerHTML = (state.officeLocations || [])
       .map(function (item) {
+        const leadUserId = item.officeLeadUserId || "";
+        const leadUser =
+          usersById.get(leadUserId) ||
+          (leadUserId && item.officeLeadUserName
+            ? { id: leadUserId, displayName: item.officeLeadUserName }
+            : null);
         const leadOptions = [
           `<option value="">No lead</option>`,
           ...state.users.map((u) =>
-            `<option value="${escapeHtml(u.id)}"${u.id === item.officeLeadUserId ? " selected" : ""}>${escapeHtml(u.displayName)}</option>`
+            `<option value="${escapeHtml(u.id)}"${u.id === leadUserId ? " selected" : ""}>${escapeHtml(u.displayName)}</option>`
           ),
+          ...(leadUser && !usersById.has(leadUserId)
+            ? [
+                `<option value="${escapeHtml(leadUser.id)}" selected>${escapeHtml(
+                  leadUser.displayName
+                )}</option>`,
+              ]
+            : []),
         ].join("");
 
         return `

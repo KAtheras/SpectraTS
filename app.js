@@ -725,8 +725,9 @@
             const id = item.id || item.locationId || null;
             const name = (item.name || "").trim();
             const officeLeadUserId = item.officeLeadUserId || item.office_lead_user_id || "";
+            const officeLeadUserName = item.officeLeadUserName || item.office_lead_user_name || "";
             if (!name) return null;
-            return { id, name, officeLeadUserId };
+            return { id, name, officeLeadUserId, officeLeadUserName };
           })
           .filter(Boolean)
       : null;

@@ -1597,12 +1597,16 @@ async function listDepartments(sql, accountId) {
 async function listOfficeLocations(sql, accountId) {
   return sql`
     SELECT
-      id,
-      name,
-      office_lead_user_id AS "officeLeadUserId"
-    FROM office_locations
-    WHERE account_id = ${accountId}::uuid
-    ORDER BY created_at, LOWER(name)
+      ol.id,
+      ol.name,
+      ol.office_lead_user_id AS "officeLeadUserId",
+      u.display_name AS "officeLeadUserName"
+    FROM office_locations ol
+    LEFT JOIN users u
+      ON u.id = ol.office_lead_user_id
+     AND u.account_id = ol.account_id
+    WHERE ol.account_id = ${accountId}::uuid
+    ORDER BY ol.created_at, LOWER(ol.name)
   `;
 }
 
@@ -2013,10 +2017,15 @@ async function loadState(sql, currentUser) {
     );
     if (viewable.length) {
       users = viewable.map((user) => {
-        const allowRates = canCap("view_member_rates", {
+        const canViewRates = canCap("view_member_rates", {
           resourceOfficeId: user.officeId ?? user.office_id ?? null,
           actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
         });
+        const canEditRates = canCap("edit_member_rates", {
+          resourceOfficeId: user.officeId ?? user.office_id ?? null,
+          actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+        });
+        const allowRates = canViewRates || canEditRates;
         return {
           ...user,
           baseRate: allowRates ? user.baseRate : null,
