@@ -295,9 +295,19 @@
             text-align:center;
             vertical-align:middle;
           }
+          #settings-page .perms-matrix thead th{
+            text-transform:uppercase;
+            letter-spacing:.04em;
+            padding-bottom:14px;
+          }
+          #settings-page .perms-matrix tbody tr:first-child th,
+          #settings-page .perms-matrix tbody tr:first-child td{
+            padding-top:14px;
+          }
           #settings-page .perms-matrix th[scope="row"]{
             white-space:normal;
             line-height:1.35;
+            text-align:right;
           }
           #settings-page .perm-switch{
             position:relative;
@@ -317,7 +327,7 @@
             height:100%;
             border-radius:999px;
             border:1px solid var(--panel-border);
-            background:var(--surface);
+            background:color-mix(in srgb, var(--danger) 10%, var(--panel));
             position:relative;
             transition:background 140ms ease,border-color 140ms ease,opacity 140ms ease;
           }
@@ -334,13 +344,13 @@
             transition:transform 140ms ease,opacity 140ms ease,background 140ms ease;
           }
           #settings-page .perm-switch input:checked + .perm-switch-track{
-            background:color-mix(in srgb, var(--accent-soft) 65%, var(--panel));
-            border-color:color-mix(in srgb, var(--accent) 45%, var(--panel-border));
+            background:color-mix(in srgb, #39a96b 20%, var(--panel));
+            border-color:color-mix(in srgb, #39a96b 55%, var(--panel-border));
           }
           #settings-page .perm-switch input:checked + .perm-switch-track::after{
             transform:translateX(18px);
             opacity:1;
-            background:var(--accent);
+            background:#2f9d57;
           }
           #settings-page .perm-switch.is-locked .perm-switch-track{
             opacity:.65;
@@ -465,7 +475,7 @@
           <thead>
             <tr>
               <th scope="col">Capability</th>
-              ${roles.map((r) => `<th scope="col">${escapeHtml(r.label || r.key)}</th>`).join("")}
+              ${roles.map((r) => `<th scope="col">${escapeHtml(String(r.key || r.label || "").toUpperCase())}</th>`).join("")}
             </tr>
           </thead>
           <tbody>
