@@ -318,6 +318,9 @@
             gap:12px;
             align-items:center;
           }
+          #settings-page .settings-section-content .settings-structured-row-no-label{
+            grid-template-columns:minmax(0,1fr) minmax(96px,max-content);
+          }
           #settings-page .settings-row-label{
             min-width:0;
             overflow:visible;
@@ -437,7 +440,10 @@
               overflow:visible;
               padding:12px;
             }
-            #settings-page .settings-section-content .settings-structured-row{
+          #settings-page .settings-section-content .settings-structured-row{
+              grid-template-columns:1fr;
+            }
+            #settings-page .settings-section-content .settings-structured-row-no-label{
               grid-template-columns:1fr;
             }
             #settings-page .settings-row-actions{
@@ -630,8 +636,7 @@
     refs.departmentRows.innerHTML = departments
       .map(
         (item) => `
-          <div class="level-row settings-structured-row department-row" data-department-id="${escapeHtml(item.id || "")}">
-            <span class="settings-row-label">${escapeHtml(item.name || "Department")}</span>
+          <div class="level-row settings-structured-row settings-structured-row-no-label department-row" data-department-id="${escapeHtml(item.id || "")}">
             <div class="settings-row-main">
               <input type="text" value="${escapeHtml(item.name || "")}" data-department-name placeholder="Department name" ${editable ? "" : "disabled"} />
             </div>
@@ -767,8 +772,7 @@
     refs.expenseRows.innerHTML = categories
       .map(
         (item) => `
-          <div class="level-row settings-structured-row expense-row" data-expense-id="${escapeHtml(item.id || "")}">
-            <span class="settings-row-label">${escapeHtml(item.name || "Category")}</span>
+          <div class="level-row settings-structured-row settings-structured-row-no-label expense-row" data-expense-id="${escapeHtml(item.id || "")}">
             <div class="settings-row-main">
               <input type="text" value="${escapeHtml(item.name || "")}" data-expense-name placeholder="Category name" />
             </div>
@@ -819,8 +823,7 @@
         ].join("");
 
         return `
-          <div class="level-row settings-structured-row office-row" data-office-id="${escapeHtml(item.id || "")}">
-            <span class="settings-row-label">${escapeHtml(item.name || "Location")}</span>
+          <div class="level-row settings-structured-row settings-structured-row-no-label office-row" data-office-id="${escapeHtml(item.id || "")}">
             <div class="settings-row-main settings-row-main-split">
               <input type="text" value="${escapeHtml(item.name)}" data-office-name placeholder="Location name" />
               <select data-office-lead>${leadOptions}</select>
