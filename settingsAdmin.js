@@ -101,10 +101,19 @@
       if (settingsPage) settingsPage.hidden = true;
       return;
     }
+    const labelByTab = {
+      levels: "Member levels",
+      categories: "Expense categories",
+      locations: "Office locations",
+      rates: "Member information",
+      departments: "Practice departments",
+      permissions: "Member access levels",
+    };
     const { tabButtons } = settingsTabElements();
     tabButtons.forEach(function (btn) {
-      if (btn.dataset.settingsTabButton === "rates") {
-        btn.textContent = "Member Information";
+      const key = btn.dataset.settingsTabButton;
+      if (labelByTab[key]) {
+        btn.textContent = labelByTab[key];
       }
     });
     const settingsPage = document.getElementById("settings-page");
@@ -221,7 +230,7 @@
           permBtn.className = "settings-tab";
           permBtn.type = "button";
           permBtn.dataset.settingsTabButton = "permissions";
-          permBtn.textContent = "Access";
+          permBtn.textContent = "Member access levels";
           tabsContainer.appendChild(permBtn);
           permBtn.addEventListener("click", function (event) {
             event.preventDefault();
