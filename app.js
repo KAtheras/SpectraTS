@@ -1750,13 +1750,19 @@
     }
   }
 
+  function clearEntryAndExpenseDrafts() {
+    resetForm?.();
+    resetExpenseForm?.();
+    window.bulkEntry?.resetRows?.();
+  }
+
   async function handleLogout() {
     const sessionToken = loadSessionToken();
 
     persistSessionToken("");
     clearRemoteAppState();
     resetFilters();
-    resetForm();
+    clearEntryAndExpenseDrafts();
     setAuthFeedback("Signed out.", false);
     closeUsersModal();
     closeCatalogModal();
@@ -4842,6 +4848,7 @@
   async function initApp() {
     await loadPersistentState();
     resetFilters();
+    clearEntryAndExpenseDrafts();
 
     if (!state.currentUser) {
       if (loadSessionToken() && !state.bootstrapRequired) {
