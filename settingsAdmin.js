@@ -256,13 +256,14 @@
     if (!refs.departmentRows) return;
 
     const departments = Array.isArray(state.departments) ? state.departments.slice() : [];
+    const editable = Boolean(state.permissions?.manage_departments);
 
     refs.departmentRows.innerHTML = departments
       .map(
         (item) => `
           <div class="level-row department-row" data-department-id="${escapeHtml(item.id || "")}">
             <span class="level-num sr-only">Department</span>
-            <input type="text" value="${escapeHtml(item.name || "")}" data-department-name placeholder="Department name" />
+            <input type="text" value="${escapeHtml(item.name || "")}" data-department-name placeholder="Department name" ${editable ? "" : "disabled"} />
             <div class="expense-actions">
               <button
                 type="button"
@@ -270,9 +271,11 @@
                 data-department-active
                 data-active="${item.isActive === false ? "false" : "true"}"
                 aria-pressed="${item.isActive === false ? "false" : "true"}"
+                ${editable ? "" : "disabled"}
               >
                 ${item.isActive === false ? "Inactive" : "Active"}
               </button>
+              ${editable ? `<button type="button" class="expense-delete" data-department-delete>Delete</button>` : ""}
             </div>
           </div>
         `

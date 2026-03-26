@@ -491,6 +491,8 @@
     levelLabels: {},
     officeLocations: [],
     expenseCategories: [],
+    departments: [],
+    departmentsSnapshot: [],
     account: null,
     settingsAccess: {},
     projects: [],
@@ -704,6 +706,7 @@
       ? data.users.map((u) => ensureRole(normalizeUser(u))).filter(Boolean)
       : [];
     state.departments = Array.isArray(data?.departments) ? data.departments.slice() : [];
+    state.departmentsSnapshot = Array.isArray(data?.departments) ? data.departments.slice() : [];
     state.bootstrapRequired = Boolean(data?.bootstrapRequired);
     state.catalog = normalizeCatalog(data?.catalog || {}, false);
     state.clients = Array.isArray(data?.clients)
@@ -3450,6 +3453,19 @@
 
   if (refs.departmentRows) {
     refs.departmentRows.addEventListener("click", function (event) {
+      const deleteBtn = event.target.closest("[data-department-delete]");
+      if (deleteBtn) {
+        if (!state.permissions?.manage_departments) {
+          feedback("Access denied.", true);
+          return;
+        }
+        const row = deleteBtn.closest(".department-row");
+        if (!row) return;
+        const id = row.dataset.departmentId || "";
+        state.departments = (state.departments || []).filter((d) => String(d.id || "") !== String(id));
+        window.settingsAdmin?.renderDepartments();
+        return;
+      }
       const toggleBtn = event.target.closest("[data-department-active]");
       if (!toggleBtn) return;
       const next = toggleBtn.dataset.active !== "true";
@@ -3473,11 +3489,12 @@
         feedback("Add at least one department.", true);
         return;
       }
-      const existingMap = new Map((state.departments || []).map((d) => [d.id, d]));
+      const existingMap = new Map((state.departmentsSnapshot || []).map((d) => [d.id, d]));
       const seen = new Set();
       const createOps = [];
       const renameOps = [];
       const activeOps = [];
+      const remainingIds = new Set();
 
       for (const row of rows) {
         const id = (row.dataset.departmentId || "").trim();
@@ -3501,6 +3518,7 @@
           createOps.push({ name, isActive });
           continue;
         }
+        remainingIds.add(id);
         const prev = existingMap.get(id) || {};
         if (prev.name !== name) {
           renameOps.push({ id, name });
@@ -3508,6 +3526,15 @@
         const prevActive = prev.isActive === false ? false : true;
         if (prevActive !== isActive) {
           activeOps.push({ id, isActive });
+        }
+      }
+
+      for (const [id, prev] of existingMap.entries()) {
+        if (!id || !remainingIds.has(id)) {
+          const prevActive = prev?.isActive === false ? false : true;
+          if (prevActive) {
+            activeOps.push({ id, isActive: false });
+          }
         }
       }
 
