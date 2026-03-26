@@ -199,6 +199,7 @@
       let layout = settingsBody.querySelector(".settings-layout");
       const tabsContainer = settingsBody.querySelector(".settings-tabs");
       if (tabsContainer && panelsContainer) {
+        tabsContainer.classList.add("catalog-list");
         if (!layout) {
           layout = document.createElement("div");
           layout.className = "settings-layout";
@@ -241,29 +242,13 @@
           }
           #settings-page .settings-tabs{display:flex;flex-direction:column;gap:12px}
           #settings-page .settings-tab{
-            display:block;
             width:100%;
-            text-align:left;
-            border-radius:var(--card-radius);
-            padding:14px 16px;
-            color:var(--ink);
-            font-weight:700;
-            justify-content:flex-start;
-            transition:background .16s ease;
             outline:none;
           }
           #settings-page .settings-tab:focus{outline:none}
           #settings-page .settings-tab:focus-visible{
             outline:none;
             box-shadow:inset 0 0 0 2px color-mix(in srgb, var(--group-border) 55%, transparent);
-          }
-          #settings-page .settings-tab:hover{
-            transform:none;
-          }
-          #settings-page .settings-tab.is-active{
-            border-color:inherit;
-            background:inherit;
-            box-shadow:none;
           }
           #settings-page .settings-panels{min-width:0}
           #settings-page .settings-panels [data-settings-tab]{width:100%}
