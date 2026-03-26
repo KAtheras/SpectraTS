@@ -93,6 +93,66 @@
     setActiveSettingsTab(activeSettingsTab);
   }
 
+  function arrangeSettingsSectionHeaders() {
+    const settingsPage = document.getElementById("settings-page");
+    if (!settingsPage) return;
+    const sectionPanels = Array.from(
+      settingsPage.querySelectorAll(
+        '[data-settings-tab="levels"], [data-settings-tab="categories"], [data-settings-tab="locations"], [data-settings-tab="rates"], [data-settings-tab="departments"]'
+      )
+    );
+
+    sectionPanels.forEach((panel) => {
+      const inner = panel.querySelector(".level-labels-inner");
+      if (!inner) return;
+      const title = inner.querySelector("h3");
+      if (!title) return;
+
+      let header = inner.querySelector(".settings-section-header");
+      if (!header) {
+        header = document.createElement("div");
+        header.className = "settings-section-header";
+        inner.insertBefore(header, inner.firstChild);
+      }
+
+      let left = header.querySelector(".settings-section-left");
+      if (!left) {
+        left = document.createElement("div");
+        left.className = "settings-section-left";
+        header.appendChild(left);
+      }
+
+      let right = header.querySelector(".settings-section-right");
+      if (!right) {
+        right = document.createElement("div");
+        right.className = "settings-section-right";
+        header.appendChild(right);
+      }
+
+      if (title.parentElement !== left) {
+        left.appendChild(title);
+      }
+
+      const actions = inner.querySelector(".level-labels-actions");
+      if (actions) {
+        const buttons = Array.from(actions.querySelectorAll("button"));
+        buttons.forEach((btn) => {
+          const isAdd =
+            btn.id.startsWith("add-") ||
+            btn.classList.contains("button-ghost");
+          if (isAdd) {
+            if (btn.parentElement !== left) left.appendChild(btn);
+          } else if (btn.type === "submit" || btn.id.startsWith("save-")) {
+            if (btn.parentElement !== right) right.appendChild(btn);
+          }
+        });
+        if (!actions.querySelector("button")) {
+          actions.remove();
+        }
+      }
+    });
+  }
+
   function renderSettingsTabs() {
     const { state } = deps();
     if (!state?.permissions) return;
@@ -204,6 +264,35 @@
           #settings-page .settings-panels{min-width:0}
           #settings-page .settings-panels [data-settings-tab]{width:100%}
           #settings-page .settings-panels .level-labels-inner{max-width:none}
+          #settings-page .settings-section-header{
+            display:flex;
+            align-items:center;
+            justify-content:space-between;
+            gap:12px;
+            padding-bottom:12px;
+            margin-bottom:12px;
+            border-bottom:1px solid var(--group-border);
+          }
+          #settings-page .settings-section-left{
+            display:flex;
+            align-items:center;
+            gap:10px;
+            flex-wrap:wrap;
+            min-width:0;
+          }
+          #settings-page .settings-section-left h3{
+            margin:0;
+          }
+          #settings-page .settings-section-right{
+            display:flex;
+            align-items:center;
+            gap:10px;
+            margin-left:auto;
+          }
+          #settings-page .settings-section-right .button,
+          #settings-page .settings-section-left .button{
+            margin:0;
+          }
           @media (max-width: 980px){
             #settings-page .settings-layout{grid-template-columns:1fr;gap:14px}
             #settings-page .settings-nav-shell,
@@ -247,6 +336,7 @@
         }
       }
     }
+    arrangeSettingsSectionHeaders();
     initSettingsTabs();
     renderPermissionsMatrix();
   }
@@ -293,8 +383,13 @@
       .join("");
 
     panel.innerHTML = `
-      <div class="settings-actions">
-        <button type="button" id="permissions-save" class="button">Save Access</button>
+      <div class="settings-section-header">
+        <div class="settings-section-left">
+          <h3>Member access levels</h3>
+        </div>
+        <div class="settings-section-right">
+          <button type="button" id="permissions-save" class="button">Save Access</button>
+        </div>
       </div>
       <div class="table-wrapper">
         <table class="table perms-matrix">
