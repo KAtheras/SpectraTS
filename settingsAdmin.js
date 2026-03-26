@@ -350,7 +350,7 @@
           }
           #settings-page .settings-rates-row{
             display:grid;
-            grid-template-columns:minmax(220px,1.2fr) minmax(140px,.7fr) minmax(140px,.7fr) minmax(180px,1fr);
+            grid-template-columns:minmax(220px,1.2fr) minmax(120px,.55fr) minmax(120px,.55fr) minmax(170px,.9fr) minmax(180px,max-content);
             gap:12px;
             align-items:center;
           }
@@ -379,6 +379,16 @@
             letter-spacing:.06em;
             text-transform:uppercase;
             color:var(--muted);
+          }
+          #settings-page .settings-rates-actions{
+            display:flex;
+            justify-content:flex-end;
+            gap:8px;
+            flex-wrap:nowrap;
+          }
+          #settings-page .settings-rates-actions .button{
+            margin:0;
+            white-space:nowrap;
           }
           #settings-page .settings-section-content .settings-structured-row{
             display:grid;
@@ -538,7 +548,7 @@
               grid-template-columns:minmax(0,1fr) minmax(84px,max-content);
             }
             #settings-page .settings-rates-row{
-              grid-template-columns:minmax(140px,1fr) minmax(90px,.7fr) minmax(90px,.7fr) minmax(120px,.9fr);
+              grid-template-columns:minmax(120px,1fr) minmax(90px,.8fr) minmax(90px,.8fr) minmax(120px,1fr) minmax(168px,max-content);
             }
             #settings-page .settings-row-actions{
               width:auto;
@@ -883,6 +893,16 @@
             <select data-department-select="${escapeHtml(user.id)}" ${deptEditable ? "" : "disabled"}>
               ${departmentOptions(user.departmentId || "")}
             </select>
+            <div class="settings-rates-actions">
+              ${
+                deptEditable
+                  ? `
+                <button type="button" class="button button-ghost" data-user-password="${escapeHtml(user.id)}">Reset Password</button>
+                <button type="button" class="expense-delete" data-user-deactivate="${escapeHtml(user.id)}">Deactivate</button>
+              `
+                  : ""
+              }
+            </div>
           </div>
         `
       )
@@ -893,6 +913,7 @@
         <span>BASE RATE</span>
         <span>COST RATE</span>
         <span>DEPARTMENT</span>
+        <span>ACTIONS</span>
       </div>
       ${rowsHtml}
     `;

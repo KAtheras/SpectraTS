@@ -2274,6 +2274,7 @@
     if (view === "members") {
       syncAddUserOfficeOptions();
       renderUsersList();
+      removeMembersPageProfileActions();
       syncUserManagementControls();
       postHeight();
       return;
@@ -2349,11 +2350,19 @@
     const filteredEntries = currentEntries();
     renderCatalogAside();
     renderUsersList();
+    removeMembersPageProfileActions();
     syncUserManagementControls();
     renderLevelRows();
     renderFilterState(filteredEntries);
     renderTable(filteredEntries);
     postHeight();
+  }
+
+  function removeMembersPageProfileActions() {
+    if (!refs.usersPage) return;
+    refs.usersPage
+      .querySelectorAll("[data-user-password], [data-user-deactivate]")
+      .forEach((node) => node.remove());
   }
 
   function applyFiltersFromForm(options) {
