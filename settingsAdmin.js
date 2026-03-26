@@ -174,7 +174,7 @@
             const checked = allowedSet.has(`${role.key}|${cap}`);
             const isSuperuserRole = role.key === "superuser";
             const lockedAttrs = isSuperuserRole
-              ? 'disabled aria-disabled="true" class="locked-perm" title="Superuser permissions are fixed"'
+              ? `disabled aria-disabled="true" class="locked-perm" title="Superuser permissions are fixed" data-perm-locked="true" data-locked-value="${checked ? "true" : "false"}"`
               : "";
             return `<td><input type="checkbox" data-perm-role="${escapeHtml(role.key)}" data-perm-cap="${escapeHtml(cap)}" ${checked ? "checked" : ""} ${lockedAttrs}></td>`;
           })
@@ -203,12 +203,33 @@
     `;
 
     const saveBtn = document.getElementById("permissions-save");
+    panel.addEventListener("click", function (event) {
+      const input = event.target.closest('[data-perm-locked="true"]');
+      if (!input) return;
+      event.preventDefault();
+      event.stopPropagation();
+      input.checked = input.dataset.lockedValue === "true";
+    });
+    panel.addEventListener("keydown", function (event) {
+      const input = event.target.closest('[data-perm-locked="true"]');
+      if (!input) return;
+      event.preventDefault();
+      event.stopPropagation();
+    });
+    panel.addEventListener("change", function (event) {
+      const input = event.target.closest('[data-perm-locked="true"]');
+      if (!input) return;
+      input.checked = input.dataset.lockedValue === "true";
+    });
     if (saveBtn) {
       saveBtn.addEventListener("click", async function () {
         const inputs = Array.from(panel.querySelectorAll("[data-perm-role][data-perm-cap]"));
         const next = [];
         inputs.forEach((input) => {
           const roleKey = input.dataset.permRole;
+          if (roleKey === "superuser" || input.dataset.permLocked === "true") {
+            return;
+          }
           const capKey = input.dataset.permCap;
           const allowed = input.checked;
           next.push({ role: roleKey, capability: capKey, allowed });
