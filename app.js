@@ -376,6 +376,9 @@
     const clientsColumn = addForm.closest(".catalog-column");
     const header = clientsColumn?.querySelector(".catalog-column-head");
     if (!header) return;
+    header.style.display = "flex";
+    header.style.alignItems = "center";
+    header.style.gap = "10px";
 
     if (!addClientHeaderButton) {
       addClientHeaderButton = document.createElement("button");
