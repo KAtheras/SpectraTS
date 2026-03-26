@@ -386,26 +386,26 @@
             align-items:flex-end;
             justify-content:center;
             gap:6px;
-            flex-wrap:wrap;
+            flex-wrap:nowrap;
             width:100%;
           }
-          #settings-page .settings-rates-actions .button{
+          #settings-page .settings-user-action{
             margin:0;
-          }
-          #settings-page .settings-user-reset-btn{
-            font-size:.72rem;
-            line-height:1.1;
-            padding:6px 10px;
-            min-width:74px;
-            max-width:86px;
-            white-space:normal;
-            text-align:center;
-          }
-          #settings-page .settings-user-status-toggle{
-            min-width:86px;
-            justify-content:center;
-            padding:6px 10px;
+            padding:0;
+            border:none;
+            background:none;
             font-size:.78rem;
+            line-height:1.2;
+            font-family:var(--font-body);
+            font-weight:600;
+            cursor:pointer;
+            text-decoration:none;
+          }
+          #settings-page .settings-user-action.settings-user-action-secondary{
+            color:var(--muted);
+          }
+          #settings-page .settings-user-action.settings-user-action-danger{
+            color:var(--danger);
           }
           #settings-page .settings-section-content .settings-structured-row{
             display:grid;
@@ -914,8 +914,8 @@
               ${
                 deptEditable
                   ? `
-                <button type="button" class="button button-ghost settings-user-reset-btn" data-user-password="${escapeHtml(user.id)}">Reset Password</button>
-                <button type="button" class="expense-toggle is-active settings-user-status-toggle" data-user-deactivate="${escapeHtml(user.id)}" data-active="true" aria-pressed="true">Active</button>
+                <button type="button" class="settings-user-action settings-user-action-secondary" data-user-password="${escapeHtml(user.id)}">Reset password</button>
+                <button type="button" class="settings-user-action settings-user-action-danger" data-user-deactivate="${escapeHtml(user.id)}">Remove</button>
               `
                   : ""
               }
