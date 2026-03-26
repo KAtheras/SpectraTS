@@ -3227,8 +3227,8 @@
   if (refs.expenseCategoriesForm) {
     refs.expenseCategoriesForm.addEventListener("submit", async function (event) {
       event.preventDefault();
-      if (!isAdmin(state.currentUser)) {
-        feedback("Only Admins can update expense categories.", true);
+      if (!state.permissions?.manage_expense_categories) {
+        feedback("Access denied.", true);
         return;
       }
       const rows = Array.from(refs.expenseRows?.querySelectorAll(".level-row") || []);
@@ -3258,8 +3258,9 @@
       }
       try {
         await mutatePersistentState("update_expense_categories", { categories });
+        await loadPersistentState();
+        renderExpenseCategories();
         feedback("Expense categories updated.", false);
-        render();
       } catch (error) {
         feedback(error.message || "Unable to update expense categories.", true);
       }
@@ -3364,8 +3365,8 @@
         return;
       }
       if (!deleteBtn) return;
-      if (!isAdmin(state.currentUser)) {
-        feedback("Only Admins can update expense categories.", true);
+      if (!state.permissions?.manage_expense_categories) {
+        feedback("Access denied.", true);
         return;
       }
       const row = deleteBtn.closest(".expense-row");
@@ -3399,6 +3400,8 @@
       renderExpenseCategories();
       try {
         await mutatePersistentState("update_expense_categories", { categories });
+        await loadPersistentState();
+        renderExpenseCategories();
         feedback("Category deleted.", false);
       } catch (error) {
         state.expenseCategories = previous;

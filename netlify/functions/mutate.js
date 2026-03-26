@@ -2769,7 +2769,7 @@ exports.handler = async function handler(event) {
         break;
       }
       case "update_expense_categories": {
-        if (!can("manage_categories", { resourceOfficeId: context.currentUser?.officeId || null })) {
+        if (!can("manage_expense_categories", { resourceOfficeId: context.currentUser?.officeId || null })) {
           return errorResponse(403, "Access denied.");
         }
         mutationResult = await updateExpenseCategories(sql, request.payload || {}, accountId);

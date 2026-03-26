@@ -1813,7 +1813,7 @@ async function loadState(sql, currentUser) {
     resourceOfficeId: normalizedUser?.officeId ?? null,
     actorOfficeId: normalizedUser?.officeId ?? null,
   });
-  const manageCategories = canCap("manage_categories", {
+  const manageCategories = canCap("manage_expense_categories", {
     resourceOfficeId: normalizedUser?.officeId ?? null,
     actorOfficeId: normalizedUser?.officeId ?? null,
   });
