@@ -250,6 +250,12 @@
             font-weight:700;
             justify-content:flex-start;
             transition:background .16s ease;
+            outline:none;
+          }
+          #settings-page .settings-tab:focus{outline:none}
+          #settings-page .settings-tab:focus-visible{
+            outline:none;
+            box-shadow:inset 0 0 0 2px color-mix(in srgb, var(--group-border) 55%, transparent);
           }
           #settings-page .settings-tab:hover{
             transform:none;
