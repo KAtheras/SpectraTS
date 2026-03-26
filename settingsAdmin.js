@@ -152,6 +152,7 @@
     const caps = [
       "view_settings_shell",
       "view_members",
+      "view_member_rates",
       "edit_member_rates",
       "edit_member_profile",
       "manage_departments",
@@ -320,11 +321,11 @@
   }
 
   function renderRatesRows() {
-    const { refs, state, escapeHtml, isAdmin, isGlobalAdmin } = deps();
+    const { refs, state, escapeHtml } = deps();
     if (!refs.ratesRows) return;
 
-    const editable = isAdmin(state.currentUser);
-    const deptEditable = isGlobalAdmin(state.currentUser);
+    const editable = Boolean(state.permissions?.edit_user_rates || state.settingsAccess?.editMemberRates);
+    const deptEditable = Boolean(state.permissions?.edit_user_profile);
     const users = (state.users || []).filter((u) => u.isActive !== false);
     const departments = (state.departments || []).filter((d) => d.isActive !== false);
 

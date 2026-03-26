@@ -40,6 +40,7 @@ exports.handler = async function handler(event) {
       edit_user_department: can(currentUser, "edit_user_department", {}, permissionIndex),
       view_settings_tab: can(currentUser, "view_settings_shell", {}, permissionIndex),
       view_members_page: can(currentUser, "view_members", {}, permissionIndex),
+      view_member_rates: can(currentUser, "view_member_rates", {}, permissionIndex),
       edit_user_rates: can(currentUser, "edit_member_rates", {}, permissionIndex),
 
       // settings management

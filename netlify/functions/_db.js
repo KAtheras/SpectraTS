@@ -1829,12 +1829,10 @@ async function loadState(sql, currentUser) {
     resourceOfficeId: normalizedUser?.officeId ?? null,
     actorOfficeId: normalizedUser?.officeId ?? null,
   });
-  const editMemberRatesCap = roleKey === "superuser"
-    ? canCap("edit_member_rates", {
-        resourceOfficeId: normalizedUser?.officeId ?? null,
-        actorOfficeId: normalizedUser?.officeId ?? null,
-      })
-    : false;
+  const editMemberRatesCap = canCap("edit_member_rates", {
+    resourceOfficeId: normalizedUser?.officeId ?? null,
+    actorOfficeId: normalizedUser?.officeId ?? null,
+  });
 
   const catalogRows = await sql`
     SELECT
