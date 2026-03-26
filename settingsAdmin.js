@@ -15,7 +15,7 @@
     const tabs = [];
     if (state.permissions?.edit_permission_matrix || state.settingsAccess?.editPermissionMatrix) tabs.push("levels");
     if (state.permissions?.manage_expense_categories || state.settingsAccess?.manageCategories) tabs.push("categories");
-    if (state.permissions?.manage_office_locations || state.settingsAccess?.manageLocations) tabs.push("locations");
+    if (state.permissions?.manage_office_locations) tabs.push("locations");
     if (
       state.permissions?.view_member_rates ||
       state.permissions?.edit_member_rates ||

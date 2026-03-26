@@ -1817,7 +1817,7 @@ async function loadState(sql, currentUser) {
     resourceOfficeId: normalizedUser?.officeId ?? null,
     actorOfficeId: normalizedUser?.officeId ?? null,
   });
-  const manageLocations = canCap("manage_locations", {
+  const manageLocations = canCap("manage_office_locations", {
     resourceOfficeId: normalizedUser?.officeId ?? null,
     actorOfficeId: normalizedUser?.officeId ?? null,
   });
@@ -2067,9 +2067,12 @@ async function loadState(sql, currentUser) {
   })
     ? await listDepartments(sql, accountUuid)
     : [];
-  // Office locations are needed for client office assignment even when the
-  // user cannot manage locations. Do not gate on manageLocations.
-  const officeLocations = await listOfficeLocations(sql, accountUuid);
+  const officeLocations = canCap("manage_office_locations", {
+    resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+    actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+  })
+    ? await listOfficeLocations(sql, accountUuid)
+    : [];
   const assignments = {
     managerClients: [],
     managerProjects: [],

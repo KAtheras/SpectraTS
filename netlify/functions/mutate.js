@@ -2776,7 +2776,7 @@ exports.handler = async function handler(event) {
         break;
       }
       case "update_office_locations": {
-        if (!can("manage_locations", { resourceOfficeId: context.currentUser?.officeId || null })) {
+        if (!can("manage_office_locations", { resourceOfficeId: context.currentUser?.officeId || null })) {
           return errorResponse(403, "Access denied.");
         }
         mutationResult = await updateOfficeLocations(sql, request.payload || {}, accountId);
