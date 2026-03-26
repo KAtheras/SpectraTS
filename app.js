@@ -60,6 +60,11 @@
     handleOtherHoursInput,
     wireEntryModeToggle,
   } = window.entryForm || {};
+
+  const permissionGroupForUserWithSuper = (user) => {
+    const group = permissionGroupForUser(user);
+    return group === "superuser" ? "admin" : group;
+  };
   const { createAccessControl } = window.accessControl || {};
   const {
     renderAuditTable,
@@ -4782,7 +4787,7 @@
     formatDisplayDate,
     escapeHtml,
     formatDisplayDateShort,
-    permissionGroupForUser,
+    permissionGroupForUser: permissionGroupForUserWithSuper,
     canViewUserByRole,
     getUserByDisplayName,
     canUserAccessProject,
@@ -4816,7 +4821,7 @@
     feedback,
     formatDisplayDate,
     formatDisplayDateShort,
-    permissionGroupForUser,
+    permissionGroupForUser: permissionGroupForUserWithSuper,
     canUserAccessProject,
     isAdmin,
     field,
