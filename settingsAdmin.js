@@ -145,15 +145,44 @@
         const style = document.createElement("style");
         style.id = "settings-layout-style";
         style.textContent = `
-          #settings-page .settings-layout{display:grid;grid-template-columns:minmax(220px,280px) minmax(0,1fr);gap:20px;align-items:start}
-          #settings-page .settings-tabs{display:flex;flex-direction:column;gap:10px;position:sticky;top:10px}
-          #settings-page .settings-tab{display:block;width:100%;text-align:left;border-radius:12px;padding:12px 14px}
-          #settings-page .settings-tab.is-active{box-shadow:inset 0 0 0 2px rgba(0,0,0,.12)}
-          #settings-page .settings-panels{min-width:0}
+          #settings-page .settings-layout{display:grid;grid-template-columns:minmax(240px,300px) minmax(0,1fr);gap:22px;align-items:start}
+          #settings-page .settings-tabs{display:flex;flex-direction:column;gap:12px;position:sticky;top:10px}
+          #settings-page .settings-tab{
+            display:block;
+            width:100%;
+            text-align:left;
+            border-radius:var(--card-radius);
+            padding:14px 16px;
+            border:1px solid var(--line);
+            background:var(--card);
+            color:var(--text);
+            font-weight:700;
+            transition:border-color .16s ease,box-shadow .16s ease,background .16s ease,transform .12s ease;
+          }
+          #settings-page .settings-tab:hover{
+            border-color:var(--accent-strong);
+            box-shadow:0 8px 18px rgba(0,0,0,.08);
+            transform:translateY(-1px);
+          }
+          #settings-page .settings-tab.is-active{
+            border-color:var(--accent-strong);
+            background:linear-gradient(180deg, color-mix(in srgb, var(--accent-soft) 82%, transparent), var(--card));
+            box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--accent-strong) 32%, transparent), 0 10px 22px rgba(0,0,0,.1);
+          }
+          #settings-page .settings-panels{
+            min-width:0;
+            border:1px solid var(--line);
+            border-radius:var(--card-radius);
+            background:var(--card);
+            padding:18px 20px;
+            box-shadow:0 10px 24px rgba(0,0,0,.08);
+          }
           #settings-page .settings-panels [data-settings-tab]{width:100%}
+          #settings-page .settings-panels .level-labels-inner{max-width:none}
           @media (max-width: 980px){
             #settings-page .settings-layout{grid-template-columns:1fr;gap:14px}
             #settings-page .settings-tabs{position:static}
+            #settings-page .settings-panels{padding:14px}
           }
         `;
         document.head.appendChild(style);
