@@ -169,10 +169,10 @@
           #settings-page .settings-layout{display:grid;grid-template-columns:minmax(240px,300px) minmax(0,1fr);gap:22px;align-items:stretch}
           #settings-page .settings-nav-shell,
           #settings-page .settings-content-shell{
-            border:1px solid var(--line);
+            border:1px solid var(--panel-border);
             border-radius:var(--card-radius);
-            background:var(--card);
-            box-shadow:0 10px 24px rgba(0,0,0,.08);
+            background:var(--panel);
+            box-shadow:var(--shadow);
             padding:14px;
             height:clamp(500px, calc(100vh - 170px), 80vh);
             overflow:auto;
@@ -184,21 +184,22 @@
             text-align:left;
             border-radius:var(--card-radius);
             padding:14px 16px;
-            border:1px solid var(--line);
-            background:var(--card);
+            border:1px solid var(--panel-border);
+            background:var(--panel);
             color:var(--text);
             font-weight:700;
             transition:border-color .16s ease,box-shadow .16s ease,background .16s ease,transform .12s ease;
           }
           #settings-page .settings-tab:hover{
-            border-color:var(--accent-strong);
-            box-shadow:0 8px 18px rgba(0,0,0,.08);
-            transform:translateY(-1px);
+            border-color:color-mix(in srgb, var(--panel-border) 55%, var(--group-border) 45%);
+            background:var(--surface-hover);
+            box-shadow:none;
+            transform:none;
           }
           #settings-page .settings-tab.is-active{
-            border-color:var(--accent-strong);
-            background:linear-gradient(180deg, color-mix(in srgb, var(--accent-soft) 82%, transparent), var(--card));
-            box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--accent-strong) 32%, transparent), 0 10px 22px rgba(0,0,0,.1);
+            border-color:var(--group-border);
+            background:var(--surface-strong);
+            box-shadow:0 0 0 1px color-mix(in srgb, var(--group-border) 40%, transparent);
           }
           #settings-page .settings-panels{min-width:0}
           #settings-page .settings-panels [data-settings-tab]{width:100%}
