@@ -350,6 +350,23 @@
             align-items:center;
             gap:8px;
           }
+          #settings-page .settings-structured-row-header{
+            border-bottom:1px solid var(--group-border);
+            padding-bottom:8px;
+            margin-bottom:4px;
+          }
+          #settings-page .settings-structured-row-header .settings-row-label,
+          #settings-page .settings-structured-row-header .settings-row-main span{
+            font-family:var(--font-head);
+            font-size:.74rem;
+            font-weight:700;
+            letter-spacing:.06em;
+            text-transform:uppercase;
+            color:var(--muted);
+          }
+          #settings-page .settings-structured-row-header .settings-row-actions{
+            pointer-events:none;
+          }
           #settings-page .settings-row-actions .expense-toggle{
             min-width:0;
           }
@@ -696,7 +713,7 @@
 
     const sorted = getLevelDefinitions().slice().sort((a, b) => a.level - b.level);
 
-    refs.levelRows.innerHTML = sorted
+    const rowsHtml = sorted
       .map(
         (item) => `
           <div class="level-row settings-structured-row" data-level="${item.level}">
@@ -719,6 +736,17 @@
         `
       )
       .join("");
+    refs.levelRows.innerHTML = `
+      <div class="level-row settings-structured-row settings-structured-row-header" aria-hidden="true">
+        <span class="settings-row-label">LEVEL</span>
+        <div class="settings-row-main settings-row-main-split">
+          <span>TITLE</span>
+          <span>ROLE</span>
+        </div>
+        <div class="settings-row-actions"></div>
+      </div>
+      ${rowsHtml}
+    `;
 
     const editable = Boolean(state.permissions?.manage_levels);
     refs.levelRows.querySelectorAll("input, select").forEach(function (el) {
@@ -800,7 +828,7 @@
 
     const usersById = new Map((state.users || []).map((u) => [u.id, u]));
 
-    refs.officeRows.innerHTML = (state.officeLocations || [])
+    const rowsHtml = (state.officeLocations || [])
       .map(function (item) {
         const leadUserId = item.officeLeadUserId || "";
         const leadUser =
@@ -835,6 +863,16 @@
         `;
       })
       .join("");
+    refs.officeRows.innerHTML = `
+      <div class="level-row settings-structured-row settings-structured-row-no-label settings-structured-row-header" aria-hidden="true">
+        <div class="settings-row-main settings-row-main-split">
+          <span>OFFICE</span>
+          <span>OFFICE LEAD</span>
+        </div>
+        <div class="settings-row-actions"></div>
+      </div>
+      ${rowsHtml}
+    `;
 
     if (refs.officeAddLead) {
       const options = [
