@@ -1750,6 +1750,10 @@
     }
   }
 
+  function resetEntryMode() {
+    toggleEntryMode("single");
+  }
+
   function clearEntryAndExpenseDrafts() {
     resetForm?.();
     resetExpenseForm?.();
@@ -1763,6 +1767,7 @@
     clearRemoteAppState();
     resetFilters();
     clearEntryAndExpenseDrafts();
+    resetEntryMode();
     setAuthFeedback("Signed out.", false);
     closeUsersModal();
     closeCatalogModal();
@@ -4849,6 +4854,7 @@
     await loadPersistentState();
     resetFilters();
     clearEntryAndExpenseDrafts();
+    resetEntryMode();
 
     if (!state.currentUser) {
       if (loadSessionToken() && !state.bootstrapRequired) {
