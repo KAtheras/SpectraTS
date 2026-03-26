@@ -2344,8 +2344,9 @@ exports.handler = async function handler(event) {
         break;
       }
       case "update_role_permissions": {
-        const superErr = requireSuperAdmin(context);
-        if (superErr) return superErr;
+        if (!can("manage_settings_access", { resourceOfficeId: context.currentUser?.officeId || null })) {
+          return errorResponse(403, "Access denied.");
+        }
         const items = Array.isArray(request.payload?.rolePermissions)
           ? request.payload.rolePermissions
           : [];
@@ -2762,7 +2763,7 @@ exports.handler = async function handler(event) {
         break;
       }
       case "update_level_labels": {
-        if (!can("edit_permission_matrix", { resourceOfficeId: context.currentUser?.officeId || null })) {
+        if (!can("manage_levels", { resourceOfficeId: context.currentUser?.officeId || null })) {
           return errorResponse(403, "Access denied.");
         }
         mutationResult = await updateLevelLabels(sql, request.payload || {}, accountId);

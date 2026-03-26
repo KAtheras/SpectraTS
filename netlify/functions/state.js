@@ -28,13 +28,8 @@ exports.handler = async function handler(event) {
     const permissionRows = await loadPermissionsFromDb(sql);
     const permissionIndex = buildIndex({ permissions: permissionRows });
     const state = await loadState(sql, context.currentUser);
-    const permissionRoles = await sql`
-      SELECT key, label, is_active AS "isActive"
-      FROM permission_roles
-      WHERE is_active = TRUE
-      ORDER BY id
-    `;
     const currentUser = state.currentUser;
+    const canManageSettingsAccess = can(currentUser, "manage_settings_access", {}, permissionIndex);
     const permissions = {
       // existing keys
       edit_user_department: can(currentUser, "edit_user_department", {}, permissionIndex),
@@ -48,6 +43,7 @@ exports.handler = async function handler(event) {
       manage_departments: can(currentUser, "manage_departments", {}, permissionIndex),
       manage_expense_categories: can(currentUser, "manage_expense_categories", {}, permissionIndex),
       manage_office_locations: can(currentUser, "manage_office_locations", {}, permissionIndex),
+      manage_settings_access: canManageSettingsAccess,
 
       // user management
       create_user: can(currentUser, "create_member", {}, permissionIndex),
@@ -89,11 +85,20 @@ exports.handler = async function handler(event) {
       view_projects: can(currentUser, "view_projects", {}, permissionIndex),
     };
 
+    const permissionRoles = canManageSettingsAccess
+      ? await sql`
+          SELECT key, label, is_active AS "isActive"
+          FROM permission_roles
+          WHERE is_active = TRUE
+          ORDER BY id
+        `
+      : [];
+
     return json(200, {
       ...state,
       permissions,
       permissionRoles,
-      rolePermissions: permissionRows,
+      rolePermissions: canManageSettingsAccess ? permissionRows : [],
     });
   } catch (error) {
     return errorResponse(500, error.message || "Unable to load database state.");

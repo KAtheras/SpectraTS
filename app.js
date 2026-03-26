@@ -157,6 +157,10 @@
     event.preventDefault();
 
     const { feedback } = deps();
+    if (!state.permissions?.manage_levels) {
+      feedback("Access denied.", true);
+      return;
+    }
     const rows = Array.from(
       document.querySelectorAll("#level-labels-form .level-row")
     );
@@ -173,8 +177,7 @@
       .sort((a, b) => a.level - b.level);
 
     await mutatePersistentState("update_level_labels", { levels });
-    await loadPersistentState();
-    renderLevelRows();
+    await refreshSettingsTab("levels");
     feedback("Levels updated.", false);
   });
 
@@ -2100,7 +2103,6 @@
       }
     }
     const currentGroup = permissionGroupForUser(state.currentUser);
-    const settingsShellAllowed = !!state.settingsAccess?.settingsShell;
     if (refs.navSettings) {
       refs.navSettings.hidden = true;
       refs.navSettings.classList.toggle("is-active", false);
@@ -2146,7 +2148,7 @@
       refs.navClientsMobile.setAttribute("aria-current", view === "clients" ? "page" : "false");
     }
     if (refs.settingsMenuSettings) {
-      const showSettingsLink = !!state.settingsAccess?.settingsShell;
+      const showSettingsLink = !!state.permissions?.view_settings_tab;
       refs.settingsMenuSettings.hidden = !showSettingsLink;
       refs.settingsMenuSettings.setAttribute("aria-current", view === "settings" ? "page" : "false");
     }
@@ -3224,6 +3226,20 @@
     refs.addLevel.addEventListener("click", handleAddLevel);
   }
 
+  async function refreshSettingsTab(tabKey) {
+    await loadPersistentState();
+    render();
+    if (state.currentView !== "settings") {
+      return;
+    }
+    const btn = tabKey
+      ? document.querySelector(`[data-settings-tab-button="${tabKey}"]`)
+      : null;
+    if (btn) {
+      btn.click();
+    }
+  }
+
   if (refs.expenseCategoriesForm) {
     refs.expenseCategoriesForm.addEventListener("submit", async function (event) {
       event.preventDefault();
@@ -3258,8 +3274,7 @@
       }
       try {
         await mutatePersistentState("update_expense_categories", { categories });
-        await loadPersistentState();
-        renderExpenseCategories();
+        await refreshSettingsTab("categories");
         feedback("Expense categories updated.", false);
       } catch (error) {
         feedback(error.message || "Unable to update expense categories.", true);
@@ -3268,14 +3283,17 @@
   }
 
   async function saveOfficeLocations(locations) {
+    if (!state.permissions?.manage_office_locations) {
+      feedback("Access denied.", true);
+      return;
+    }
     try {
       try {
         window.localStorage.setItem("timesheet.offices", JSON.stringify(locations));
       } catch (e) {}
       await mutatePersistentState("update_office_locations", { locations });
       feedback("Office locations updated.", false);
-      await loadPersistentState();
-      renderOfficeLocations();
+      await refreshSettingsTab("locations");
     } catch (error) {
       try {
         window.localStorage.setItem("timesheet.offices", JSON.stringify(locations));
@@ -3316,8 +3334,8 @@
 
   if (refs.addOffice) {
     refs.addOffice.addEventListener("click", async function () {
-      if (!isAdmin(state.currentUser)) {
-        feedback("Only Admins can update office locations.", true);
+      if (!state.permissions?.manage_office_locations) {
+        feedback("Access denied.", true);
         return;
       }
       const newItem = {
@@ -3339,8 +3357,8 @@
       if (!row) return;
 
       if (deleteBtn) {
-        if (!isAdmin(state.currentUser)) {
-          feedback("Only Admins can update office locations.", true);
+        if (!state.permissions?.manage_office_locations) {
+          feedback("Access denied.", true);
           return;
         }
         const id = row.dataset.officeId;
@@ -3413,8 +3431,8 @@
 
   if (refs.addDepartment) {
     refs.addDepartment.addEventListener("click", function () {
-      if (!isGlobalAdmin(state.currentUser)) {
-        feedback("Only Superusers can update departments.", true);
+      if (!state.permissions?.manage_departments) {
+        feedback("Access denied.", true);
         return;
       }
       state.departments = [
@@ -3445,8 +3463,8 @@
   if (refs.departmentsForm) {
     refs.departmentsForm.addEventListener("submit", async function (event) {
       event.preventDefault();
-      if (!isGlobalAdmin(state.currentUser)) {
-        feedback("Only Superusers can update departments.", true);
+      if (!state.permissions?.manage_departments) {
+        feedback("Access denied.", true);
         return;
       }
       const rows = Array.from(refs.departmentRows?.querySelectorAll(".department-row") || []);
@@ -3502,8 +3520,7 @@
         for (const op of activeOps) {
           await mutatePersistentState("set_department_active", { id: op.id, isActive: op.isActive });
         }
-        await loadPersistentState();
-        window.settingsAdmin?.renderDepartments();
+        await refreshSettingsTab("departments");
         feedback("Departments updated.", false);
       } catch (error) {
         feedback(error.message || "Unable to update departments.", true);
@@ -3515,8 +3532,8 @@
     refs.levelRows.addEventListener("click", async function (event) {
       const deleteBtn = event.target.closest("[data-level-delete]");
       if (!deleteBtn) return;
-      if (!isAdmin(state.currentUser)) {
-        feedback("Only Admins can update levels.", true);
+      if (!state.permissions?.manage_levels) {
+        feedback("Access denied.", true);
         return;
       }
       const row = deleteBtn.closest(".level-row");
@@ -3572,8 +3589,10 @@
   if (refs.ratesForm) {
     refs.ratesForm.addEventListener("submit", async function (event) {
       event.preventDefault();
-      if (!isAdmin(state.currentUser)) {
-        feedback("Only Admins can update rates.", true);
+      const canEditRates = Boolean(state.permissions?.edit_user_rates);
+      const canEditProfile = Boolean(state.permissions?.edit_user_profile);
+      if (!canEditRates && !canEditProfile) {
+        feedback("Access denied.", true);
         return;
       }
       const rows = Array.from(refs.ratesRows?.querySelectorAll(".rate-row") || []);
@@ -3613,6 +3632,14 @@
         feedback("No changes to save.", false);
         return;
       }
+      if (updates.length && !canEditRates) {
+        feedback("Access denied.", true);
+        return;
+      }
+      if (deptUpdates.length && !canEditProfile) {
+        feedback("Access denied.", true);
+        return;
+      }
       try {
         // Rates (batched without intermediate hydrate)
         for (const update of updates) {
@@ -3632,26 +3659,23 @@
             return;
           }
         }
-        if (isGlobalAdmin(state.currentUser)) {
-          for (const update of deptUpdates) {
-            try {
-              await mutatePersistentState(
-                "set_user_department",
-                {
-                  userId: update.userId,
-                  departmentId: update.departmentId,
-                },
-                { skipHydrate: true }
-              );
-            } catch (err) {
-              console.error(err);
-              window.alert("Save failed");
-              return;
-            }
+        for (const update of deptUpdates) {
+          try {
+            await mutatePersistentState(
+              "set_user_department",
+              {
+                userId: update.userId,
+                departmentId: update.departmentId,
+              },
+              { skipHydrate: true }
+            );
+          } catch (err) {
+            console.error(err);
+            window.alert("Save failed");
+            return;
           }
         }
-        await loadPersistentState();
-        render();
+        await refreshSettingsTab("rates");
         feedback("Member information saved.", false);
       } catch (error) {
         feedback(error.message || "Unable to update rates.", true);
@@ -3661,8 +3685,8 @@
 
   if (refs.addCategory) {
     refs.addCategory.addEventListener("click", function () {
-      if (!isAdmin(state.currentUser)) {
-        feedback("Only Admins can update expense categories.", true);
+      if (!state.permissions?.manage_expense_categories) {
+        feedback("Access denied.", true);
         return;
       }
       state.expenseCategories = [

@@ -13,19 +13,14 @@
   function allowedTabs() {
     const { state } = deps();
     const tabs = [];
-    if (state.permissions?.edit_permission_matrix || state.settingsAccess?.editPermissionMatrix) tabs.push("levels");
-    if (state.permissions?.manage_expense_categories || state.settingsAccess?.manageCategories) tabs.push("categories");
+    if (state.permissions?.manage_levels) tabs.push("levels");
+    if (state.permissions?.manage_expense_categories) tabs.push("categories");
     if (state.permissions?.manage_office_locations) tabs.push("locations");
-    if (
-      state.permissions?.view_member_rates ||
-      state.permissions?.edit_member_rates ||
-      state.settingsAccess?.viewMemberRates ||
-      state.settingsAccess?.editMemberRates
-    ) {
+    if (state.permissions?.view_members_page) {
       tabs.push("rates");
     }
     if (state.permissions?.manage_departments) tabs.push("departments");
-    if (state.currentUser?.role === "superuser") tabs.push("permissions");
+    if (state.permissions?.manage_settings_access) tabs.push("permissions");
     return tabs;
   }
 
@@ -100,8 +95,8 @@
 
   function renderSettingsTabs() {
     const { state } = deps();
-    if (!state?.settingsAccess) return;
-    if (!state.settingsAccess.settingsShell) {
+    if (!state?.permissions) return;
+    if (!state.permissions.view_settings_tab) {
       const settingsPage = document.getElementById("settings-page");
       if (settingsPage) settingsPage.hidden = true;
       return;
@@ -116,8 +111,8 @@
     if (settingsPage) settingsPage.hidden = false;
 
     // Ensure permissions tab exists for superusers
-    const isSuperuser = state.currentUser?.role === "superuser";
-    if (isSuperuser) {
+    const canManageSettingsAccess = state.permissions?.manage_settings_access;
+    if (canManageSettingsAccess) {
       const tabsContainer = document.querySelector("#settings-page .settings-tabs");
       const panelsContainer = document.querySelector("#settings-page .settings-panels") || settingsPage;
       if (tabsContainer && panelsContainer) {
@@ -163,6 +158,7 @@
       "manage_levels",
       "manage_expense_categories",
       "manage_office_locations",
+      "manage_settings_access",
     ];
 
     const allowedSet = new Set(
@@ -290,7 +286,7 @@
   }
 
   function renderLevelRows() {
-    const { refs, escapeHtml, isAdmin } = deps();
+    const { refs, escapeHtml, state } = deps();
     if (!refs.levelRows) return;
 
     const sorted = getLevelDefinitions().slice().sort((a, b) => a.level - b.level);
@@ -315,7 +311,7 @@
       )
       .join("");
 
-    const editable = isAdmin(deps().state.currentUser);
+    const editable = Boolean(state.permissions?.manage_levels);
     refs.levelRows.querySelectorAll("input, select").forEach(function (el) {
       el.disabled = !editable;
     });
@@ -328,7 +324,7 @@
     const { refs, state, escapeHtml } = deps();
     if (!refs.ratesRows) return;
 
-    const editable = Boolean(state.permissions?.edit_user_rates || state.settingsAccess?.editMemberRates);
+    const editable = Boolean(state.permissions?.edit_user_rates);
     const deptEditable = Boolean(state.permissions?.edit_user_profile);
     const users = (state.users || []).filter((u) => u.isActive !== false);
     const departments = (state.departments || []).filter((d) => d.isActive !== false);
@@ -486,9 +482,9 @@
   }
 
   function handleAddLevel() {
-    const { isAdmin, state, feedback } = deps();
-    if (!isAdmin(state.currentUser)) {
-      feedback("Only Admins can edit levels.", true);
+    const { state, feedback } = deps();
+    if (!state.permissions?.manage_levels) {
+      feedback("Access denied.", true);
       return;
     }
     const currentLevels = sortedLevels();
