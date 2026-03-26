@@ -3,6 +3,23 @@
   const SETTINGS_TABS = ["levels", "categories", "locations", "rates", "departments", "permissions"];
   let activeSettingsTab = "levels";
   let tabsInitialized = false;
+  let mobileSettingsMode = "list";
+
+  function isMobileSettingsLayout() {
+    return typeof window !== "undefined" && window.matchMedia("(max-width: 980px)").matches;
+  }
+
+  function applyMobileSettingsLayout() {
+    const settingsPage = document.getElementById("settings-page");
+    if (!settingsPage) return;
+    settingsPage.classList.remove("settings-mobile-list", "settings-mobile-detail");
+    if (!isMobileSettingsLayout()) {
+      return;
+    }
+    settingsPage.classList.add(
+      mobileSettingsMode === "detail" ? "settings-mobile-detail" : "settings-mobile-list"
+    );
+  }
 
   function settingsTabElements() {
     const tabButtons = Array.from(document.querySelectorAll("[data-settings-tab-button]"));
@@ -24,7 +41,8 @@
     return tabs;
   }
 
-  function setActiveSettingsTab(nextTab) {
+  function setActiveSettingsTab(nextTab, options = {}) {
+    const fromUser = options.fromUser === true;
     const allowed = allowedTabs();
     if (!allowed.length) {
       return;
@@ -55,6 +73,9 @@
       nextTab = allowed[0];
     }
     activeSettingsTab = nextTab;
+    if (isMobileSettingsLayout() && fromUser) {
+      mobileSettingsMode = "detail";
+    }
 
     // Re-read elements after removals
     ({ tabButtons, panels } = settingsTabElements());
@@ -75,6 +96,7 @@
       const isActive = permitted && tabKey === nextTab;
       panel.hidden = !isActive;
     });
+    applyMobileSettingsLayout();
   }
 
   function initSettingsTabs() {
@@ -88,9 +110,10 @@
       btn.addEventListener("click", function (event) {
         event.preventDefault();
         const targetTab = btn.dataset.settingsTabButton;
-        setActiveSettingsTab(targetTab);
+        setActiveSettingsTab(targetTab, { fromUser: true });
       });
     });
+    window.addEventListener("resize", applyMobileSettingsLayout);
     setActiveSettingsTab(activeSettingsTab);
   }
 
@@ -244,6 +267,18 @@
         if (panelsContainer.parentElement !== contentShell) {
           contentShell.appendChild(panelsContainer);
         }
+        let mobileBack = contentShell.querySelector(".settings-mobile-back");
+        if (!mobileBack) {
+          mobileBack = document.createElement("button");
+          mobileBack.type = "button";
+          mobileBack.className = "button button-ghost settings-mobile-back";
+          mobileBack.textContent = "Back to sections";
+          mobileBack.addEventListener("click", function () {
+            mobileSettingsMode = "list";
+            applyMobileSettingsLayout();
+          });
+          contentShell.insertBefore(mobileBack, contentShell.firstChild);
+        }
       }
 
       if (!document.getElementById("settings-layout-style")) {
@@ -271,6 +306,7 @@
             outline:none;
             box-shadow:inset 0 0 0 2px color-mix(in srgb, var(--group-border) 55%, transparent);
           }
+          #settings-page .settings-mobile-back{display:none}
           #settings-page .settings-panels{min-width:0}
           #settings-page .settings-panels [data-settings-tab]{width:100%}
           #settings-page .settings-panels .level-labels-inner{max-width:none}
@@ -485,10 +521,34 @@
             #settings-page .settings-nav-shell,
             #settings-page .settings-content-shell{
               height:auto;
-              max-height:none;
-              overflow:visible;
+              max-height:calc(100vh - 180px);
+              overflow:auto;
               padding:12px;
             }
+            #settings-page.settings-mobile-list .settings-content-shell{display:none}
+            #settings-page.settings-mobile-detail .settings-nav-shell{display:none}
+            #settings-page .settings-mobile-back{
+              display:inline-flex;
+              margin:0 0 10px;
+            }
+            #settings-page .settings-section-content .settings-structured-row{
+              grid-template-columns:minmax(120px,.9fr) minmax(0,1fr) minmax(84px,max-content);
+            }
+            #settings-page .settings-section-content .settings-structured-row-no-label{
+              grid-template-columns:minmax(0,1fr) minmax(84px,max-content);
+            }
+            #settings-page .settings-rates-row{
+              grid-template-columns:minmax(140px,1fr) minmax(90px,.7fr) minmax(90px,.7fr) minmax(120px,.9fr);
+            }
+            #settings-page .settings-row-actions{
+              width:auto;
+              justify-content:flex-start;
+            }
+            #settings-page .settings-row-main-split{
+              grid-template-columns:minmax(0,1fr) minmax(140px,200px);
+            }
+          }
+          @media (max-width: 720px){
             #settings-page .settings-section-content .settings-structured-row{
               grid-template-columns:1fr;
             }
@@ -500,10 +560,6 @@
             }
             #settings-page .settings-rates-row-header{
               display:none;
-            }
-            #settings-page .settings-row-actions{
-              width:auto;
-              justify-content:flex-start;
             }
             #settings-page .settings-row-main-split{
               grid-template-columns:1fr;
@@ -530,7 +586,7 @@
           tabsContainer.appendChild(permBtn);
           permBtn.addEventListener("click", function (event) {
             event.preventDefault();
-            setActiveSettingsTab("permissions");
+            setActiveSettingsTab("permissions", { fromUser: true });
           });
         }
         let permPanel = panelsContainer.querySelector('[data-settings-tab="permissions"]');
@@ -543,6 +599,10 @@
       }
     }
     arrangeSettingsSectionHeaders();
+    if (!isMobileSettingsLayout()) {
+      mobileSettingsMode = "list";
+    }
+    applyMobileSettingsLayout();
     initSettingsTabs();
     renderPermissionsMatrix();
   }
