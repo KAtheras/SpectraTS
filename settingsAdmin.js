@@ -64,8 +64,8 @@
       const permitted = allowedSet.has(tabKey);
       const isActive = permitted && tabKey === nextTab;
       btn.hidden = !permitted;
-      btn.classList.toggle("is-active", isActive);
       btn.classList.toggle("is-selected", isActive);
+      btn.classList.remove("is-active");
       btn.setAttribute("aria-selected", isActive ? "true" : "false");
       btn.setAttribute("tabindex", isActive ? "0" : "-1");
     });
@@ -174,6 +174,7 @@
     tabButtons.forEach(function (btn) {
       const key = btn.dataset.settingsTabButton;
       btn.classList.add("catalog-item");
+      btn.classList.remove("settings-tab");
       if (labelByTab[key]) {
         btn.textContent = labelByTab[key];
       }
@@ -241,12 +242,12 @@
             overflow:auto;
           }
           #settings-page .settings-tabs{display:flex;flex-direction:column;gap:12px}
-          #settings-page .settings-tab{
+          #settings-page [data-settings-tab-button].catalog-item{
             width:100%;
             outline:none;
           }
-          #settings-page .settings-tab:focus{outline:none}
-          #settings-page .settings-tab:focus-visible{
+          #settings-page [data-settings-tab-button].catalog-item:focus{outline:none}
+          #settings-page [data-settings-tab-button].catalog-item:focus-visible{
             outline:none;
             box-shadow:inset 0 0 0 2px color-mix(in srgb, var(--group-border) 55%, transparent);
           }
