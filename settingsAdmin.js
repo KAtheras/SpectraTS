@@ -171,7 +171,11 @@
         const cells = roles
           .map((role) => {
             const checked = allowedSet.has(`${role.key}|${cap}`);
-            return `<td><input type="checkbox" data-perm-role="${escapeHtml(role.key)}" data-perm-cap="${escapeHtml(cap)}" ${checked ? "checked" : ""}></td>`;
+            const isSuperuserRole = role.key === "superuser";
+            const lockedAttrs = isSuperuserRole
+              ? 'disabled aria-disabled="true" class="locked-perm" title="Superuser permissions are fixed"'
+              : "";
+            return `<td><input type="checkbox" data-perm-role="${escapeHtml(role.key)}" data-perm-cap="${escapeHtml(cap)}" ${checked ? "checked" : ""} ${lockedAttrs}></td>`;
           })
           .join("");
         return `<tr><th scope="row">${escapeHtml(cap)}</th>${cells}</tr>`;

@@ -2355,10 +2355,13 @@ exports.handler = async function handler(event) {
           }))
           .filter((item) => item.role && item.capability);
 
-        const allowedPairs = normalized.filter((item) => item.allowed);
+        // Do not allow superuser permissions to be modified through this matrix.
+        const filtered = normalized.filter((item) => item.role !== "superuser");
 
-        const roleKeysAll = Array.from(new Set(normalized.map((i) => i.role)));
-        const capKeysAll = Array.from(new Set(normalized.map((i) => i.capability)));
+        const allowedPairs = filtered.filter((item) => item.allowed);
+
+        const roleKeysAll = Array.from(new Set(filtered.map((i) => i.role)));
+        const capKeysAll = Array.from(new Set(filtered.map((i) => i.capability)));
 
         const roles = roleKeysAll.length
           ? await sql`
