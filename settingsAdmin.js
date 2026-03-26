@@ -235,8 +235,13 @@
           next.push({ role: roleKey, capability: capKey, allowed });
         });
         try {
-          await deps().mutatePersistentState("update_role_permissions", { rolePermissions: next });
+          await deps().mutatePersistentState(
+            "update_role_permissions",
+            { rolePermissions: next },
+            { skipHydrate: true }
+          );
           await deps().loadPersistentState();
+          renderSettingsTabs();
           renderPermissionsMatrix();
           deps().feedback("Access updated.", false);
         } catch (error) {
