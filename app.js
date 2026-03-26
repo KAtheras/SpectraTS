@@ -371,6 +371,7 @@
   function ensureDepartmentSettingsUI() {
     const settingsTabs = document.querySelector("#settings-page .settings-tabs");
     const settingsBody = document.querySelector("#settings-page .users-page-body");
+    const settingsPanels = document.querySelector("#settings-page .settings-panels");
     if (!settingsTabs || !settingsBody) return;
 
     let deptButton = settingsTabs.querySelector('[data-settings-tab-button="departments"]');
@@ -402,7 +403,7 @@
           </div>
         </div>
       `;
-      settingsBody.appendChild(deptForm);
+      (settingsPanels || settingsBody).appendChild(deptForm);
     }
 
     refs.departmentsForm = document.getElementById("departments-form");

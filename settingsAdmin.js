@@ -109,6 +109,56 @@
     });
     const settingsPage = document.getElementById("settings-page");
     if (settingsPage) settingsPage.hidden = false;
+    const settingsBody = document.querySelector("#settings-page .users-page-body");
+    if (settingsBody) {
+      let panelsContainer = settingsBody.querySelector(".settings-panels");
+      if (!panelsContainer) {
+        panelsContainer = document.createElement("div");
+        panelsContainer.className = "settings-panels";
+        const existingPanels = Array.from(settingsBody.querySelectorAll("[data-settings-tab]"));
+        if (existingPanels.length) {
+          const anchor = existingPanels[0];
+          settingsBody.insertBefore(panelsContainer, anchor);
+          existingPanels.forEach((panel) => panelsContainer.appendChild(panel));
+        } else {
+          settingsBody.appendChild(panelsContainer);
+        }
+      }
+
+      let layout = settingsBody.querySelector(".settings-layout");
+      const tabsContainer = settingsBody.querySelector(".settings-tabs");
+      if (tabsContainer && panelsContainer) {
+        if (!layout) {
+          layout = document.createElement("div");
+          layout.className = "settings-layout";
+          settingsBody.insertBefore(layout, tabsContainer);
+        }
+        if (tabsContainer.parentElement !== layout) {
+          layout.appendChild(tabsContainer);
+        }
+        if (panelsContainer.parentElement !== layout) {
+          layout.appendChild(panelsContainer);
+        }
+      }
+
+      if (!document.getElementById("settings-layout-style")) {
+        const style = document.createElement("style");
+        style.id = "settings-layout-style";
+        style.textContent = `
+          #settings-page .settings-layout{display:grid;grid-template-columns:minmax(220px,280px) minmax(0,1fr);gap:20px;align-items:start}
+          #settings-page .settings-tabs{display:flex;flex-direction:column;gap:10px;position:sticky;top:10px}
+          #settings-page .settings-tab{display:block;width:100%;text-align:left;border-radius:12px;padding:12px 14px}
+          #settings-page .settings-tab.is-active{box-shadow:inset 0 0 0 2px rgba(0,0,0,.12)}
+          #settings-page .settings-panels{min-width:0}
+          #settings-page .settings-panels [data-settings-tab]{width:100%}
+          @media (max-width: 980px){
+            #settings-page .settings-layout{grid-template-columns:1fr;gap:14px}
+            #settings-page .settings-tabs{position:static}
+          }
+        `;
+        document.head.appendChild(style);
+      }
+    }
 
     // Ensure permissions tab exists for superusers
     const canManageSettingsAccess = state.permissions?.manage_settings_access;
