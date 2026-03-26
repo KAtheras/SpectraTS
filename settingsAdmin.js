@@ -283,6 +283,68 @@
           #settings-page .settings-section-left .button{
             margin:0;
           }
+          #settings-page .perms-matrix{
+            width:100%;
+            table-layout:fixed;
+          }
+          #settings-page .perms-matrix th:first-child{
+            width:38%;
+          }
+          #settings-page .perms-matrix th[scope="col"]:not(:first-child),
+          #settings-page .perms-matrix td{
+            text-align:center;
+            vertical-align:middle;
+          }
+          #settings-page .perms-matrix th[scope="row"]{
+            white-space:normal;
+            line-height:1.35;
+          }
+          #settings-page .perm-switch{
+            position:relative;
+            display:inline-flex;
+            width:42px;
+            height:24px;
+          }
+          #settings-page .perm-switch input{
+            position:absolute;
+            width:1px;
+            height:1px;
+            opacity:0;
+            pointer-events:none;
+          }
+          #settings-page .perm-switch-track{
+            width:100%;
+            height:100%;
+            border-radius:999px;
+            border:1px solid var(--panel-border);
+            background:var(--surface);
+            position:relative;
+            transition:background 140ms ease,border-color 140ms ease,opacity 140ms ease;
+          }
+          #settings-page .perm-switch-track::after{
+            content:"";
+            position:absolute;
+            top:2px;
+            left:2px;
+            width:18px;
+            height:18px;
+            border-radius:50%;
+            background:var(--ink);
+            opacity:.45;
+            transition:transform 140ms ease,opacity 140ms ease,background 140ms ease;
+          }
+          #settings-page .perm-switch input:checked + .perm-switch-track{
+            background:color-mix(in srgb, var(--accent-soft) 65%, var(--panel));
+            border-color:color-mix(in srgb, var(--accent) 45%, var(--panel-border));
+          }
+          #settings-page .perm-switch input:checked + .perm-switch-track::after{
+            transform:translateX(18px);
+            opacity:1;
+            background:var(--accent);
+          }
+          #settings-page .perm-switch.is-locked .perm-switch-track{
+            opacity:.65;
+          }
           @media (max-width: 980px){
             #settings-page .settings-layout{grid-template-columns:1fr;gap:14px}
             #settings-page .settings-nav-shell,
@@ -349,6 +411,18 @@
       "manage_office_locations",
       "manage_settings_access",
     ];
+    const capLabels = {
+      view_settings_shell: "Settings access",
+      view_members: "View member information",
+      view_member_rates: "View member rates",
+      edit_member_rates: "Edit member rates",
+      edit_member_profile: "Edit member profile",
+      manage_departments: "Manage practice departments",
+      manage_levels: "Manage member levels",
+      manage_expense_categories: "Manage expense categories",
+      manage_office_locations: "Manage office locations",
+      manage_settings_access: "Manage access settings",
+    };
 
     const allowedSet = new Set(
       rolePerms
@@ -365,10 +439,15 @@
             const lockedAttrs = isSuperuserRole
               ? `disabled aria-disabled="true" class="locked-perm" title="Superuser permissions are fixed" data-perm-locked="true" data-locked-value="${checked ? "true" : "false"}"`
               : "";
-            return `<td><input type="checkbox" data-perm-role="${escapeHtml(role.key)}" data-perm-cap="${escapeHtml(cap)}" ${checked ? "checked" : ""} ${lockedAttrs}></td>`;
+            return `<td>
+              <label class="perm-switch${isSuperuserRole ? " is-locked" : ""}">
+                <input type="checkbox" data-perm-role="${escapeHtml(role.key)}" data-perm-cap="${escapeHtml(cap)}" ${checked ? "checked" : ""} ${lockedAttrs}>
+                <span class="perm-switch-track" aria-hidden="true"></span>
+              </label>
+            </td>`;
           })
           .join("");
-        return `<tr><th scope="row">${escapeHtml(cap)}</th>${cells}</tr>`;
+        return `<tr><th scope="row">${escapeHtml(capLabels[cap] || cap)}</th>${cells}</tr>`;
       })
       .join("");
 
