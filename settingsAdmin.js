@@ -133,11 +133,23 @@
           layout.className = "settings-layout";
           settingsBody.insertBefore(layout, tabsContainer);
         }
-        if (tabsContainer.parentElement !== layout) {
-          layout.appendChild(tabsContainer);
+        let navShell = layout.querySelector(".settings-nav-shell");
+        if (!navShell) {
+          navShell = document.createElement("div");
+          navShell.className = "settings-nav-shell";
+          layout.appendChild(navShell);
         }
-        if (panelsContainer.parentElement !== layout) {
-          layout.appendChild(panelsContainer);
+        let contentShell = layout.querySelector(".settings-content-shell");
+        if (!contentShell) {
+          contentShell = document.createElement("div");
+          contentShell.className = "settings-content-shell";
+          layout.appendChild(contentShell);
+        }
+        if (tabsContainer.parentElement !== navShell) {
+          navShell.appendChild(tabsContainer);
+        }
+        if (panelsContainer.parentElement !== contentShell) {
+          contentShell.appendChild(panelsContainer);
         }
       }
 
@@ -145,8 +157,18 @@
         const style = document.createElement("style");
         style.id = "settings-layout-style";
         style.textContent = `
-          #settings-page .settings-layout{display:grid;grid-template-columns:minmax(240px,300px) minmax(0,1fr);gap:22px;align-items:start}
-          #settings-page .settings-tabs{display:flex;flex-direction:column;gap:12px;position:sticky;top:10px}
+          #settings-page .settings-layout{display:grid;grid-template-columns:minmax(240px,300px) minmax(0,1fr);gap:22px;align-items:stretch}
+          #settings-page .settings-nav-shell,
+          #settings-page .settings-content-shell{
+            border:1px solid var(--line);
+            border-radius:var(--card-radius);
+            background:var(--card);
+            box-shadow:0 10px 24px rgba(0,0,0,.08);
+            padding:14px;
+            height:clamp(500px, calc(100vh - 170px), 80vh);
+            overflow:auto;
+          }
+          #settings-page .settings-tabs{display:flex;flex-direction:column;gap:12px}
           #settings-page .settings-tab{
             display:block;
             width:100%;
@@ -169,20 +191,18 @@
             background:linear-gradient(180deg, color-mix(in srgb, var(--accent-soft) 82%, transparent), var(--card));
             box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--accent-strong) 32%, transparent), 0 10px 22px rgba(0,0,0,.1);
           }
-          #settings-page .settings-panels{
-            min-width:0;
-            border:1px solid var(--line);
-            border-radius:var(--card-radius);
-            background:var(--card);
-            padding:18px 20px;
-            box-shadow:0 10px 24px rgba(0,0,0,.08);
-          }
+          #settings-page .settings-panels{min-width:0}
           #settings-page .settings-panels [data-settings-tab]{width:100%}
           #settings-page .settings-panels .level-labels-inner{max-width:none}
           @media (max-width: 980px){
             #settings-page .settings-layout{grid-template-columns:1fr;gap:14px}
-            #settings-page .settings-tabs{position:static}
-            #settings-page .settings-panels{padding:14px}
+            #settings-page .settings-nav-shell,
+            #settings-page .settings-content-shell{
+              height:auto;
+              max-height:none;
+              overflow:visible;
+              padding:12px;
+            }
           }
         `;
         document.head.appendChild(style);
