@@ -99,14 +99,18 @@
     if (!settingsPage) return;
     const sectionPanels = Array.from(
       settingsPage.querySelectorAll(
-        '[data-settings-tab="levels"], [data-settings-tab="categories"], [data-settings-tab="locations"], [data-settings-tab="rates"], [data-settings-tab="departments"]'
+        '[data-settings-tab="levels"], [data-settings-tab="categories"], [data-settings-tab="locations"], [data-settings-tab="rates"], [data-settings-tab="departments"], [data-settings-tab="permissions"]'
       )
     );
 
     sectionPanels.forEach((panel) => {
-      const inner = panel.querySelector(".level-labels-inner");
+      const inner =
+        panel.querySelector(".level-labels-inner") ||
+        panel;
       if (!inner) return;
-      const title = inner.querySelector("h3");
+      const title =
+        inner.querySelector(".settings-section-header h3") ||
+        inner.querySelector("h3");
       if (!title) return;
 
       let header = inner.querySelector(".settings-section-header");
@@ -151,6 +155,22 @@
           actions.remove();
         }
       }
+
+      let content = inner.querySelector(".settings-section-content");
+      if (!content) {
+        content = document.createElement("div");
+        content.className = "settings-section-content";
+        if (header.nextSibling) {
+          inner.insertBefore(content, header.nextSibling);
+        } else {
+          inner.appendChild(content);
+        }
+      }
+
+      Array.from(inner.children).forEach((child) => {
+        if (child === header || child === content) return;
+        content.appendChild(child);
+      });
     });
   }
 
@@ -259,8 +279,8 @@
             align-items:center;
             justify-content:space-between;
             gap:12px;
-            padding-bottom:12px;
-            margin-bottom:12px;
+            padding:0 0 12px;
+            margin:0 0 14px;
             border-bottom:1px solid var(--group-border);
           }
           #settings-page .settings-section-left{
@@ -282,6 +302,59 @@
           #settings-page .settings-section-right .button,
           #settings-page .settings-section-left .button{
             margin:0;
+          }
+          #settings-page .settings-section-content{
+            display:grid;
+            gap:14px;
+            padding-bottom:2px;
+          }
+          #settings-page .settings-section-content .level-rows{
+            display:grid;
+            gap:10px;
+          }
+          #settings-page .settings-section-content .settings-structured-row{
+            display:grid;
+            grid-template-columns:minmax(180px,220px) minmax(0,1fr) minmax(96px,max-content);
+            gap:12px;
+            align-items:center;
+          }
+          #settings-page .settings-row-label{
+            min-width:0;
+            overflow:visible;
+            white-space:normal;
+            text-overflow:clip;
+            font-family:var(--font-head);
+            font-weight:700;
+            color:var(--ink);
+          }
+          #settings-page .settings-row-main{
+            min-width:0;
+            width:100%;
+          }
+          #settings-page .settings-row-main input,
+          #settings-page .settings-row-main select{
+            width:100%;
+          }
+          #settings-page .settings-row-main-split{
+            display:grid;
+            grid-template-columns:minmax(0,1fr) minmax(160px,230px);
+            gap:10px;
+            align-items:center;
+          }
+          #settings-page .settings-row-actions{
+            display:flex;
+            justify-content:flex-end;
+            align-items:center;
+            gap:8px;
+          }
+          #settings-page .settings-row-actions .expense-toggle{
+            min-width:0;
+          }
+          #settings-page .settings-section-content .table-wrapper{
+            margin:0;
+          }
+          #settings-page .settings-section-content .level-labels-actions{
+            margin-top:0;
           }
           #settings-page .perms-matrix{
             width:100%;
@@ -363,6 +436,16 @@
               max-height:none;
               overflow:visible;
               padding:12px;
+            }
+            #settings-page .settings-section-content .settings-structured-row{
+              grid-template-columns:1fr;
+            }
+            #settings-page .settings-row-actions{
+              width:auto;
+              justify-content:flex-start;
+            }
+            #settings-page .settings-row-main-split{
+              grid-template-columns:1fr;
             }
           }
         `;
@@ -470,18 +553,20 @@
           <button type="button" id="permissions-save" class="button">Save Access</button>
         </div>
       </div>
-      <div class="table-wrapper">
-        <table class="table perms-matrix">
-          <thead>
-            <tr>
-              <th scope="col">Capability</th>
-              ${roles.map((r) => `<th scope="col">${escapeHtml(String(r.key || r.label || "").toUpperCase())}</th>`).join("")}
-            </tr>
-          </thead>
-          <tbody>
-            ${rowsHtml}
-          </tbody>
-        </table>
+      <div class="settings-section-content">
+        <div class="table-wrapper">
+          <table class="table perms-matrix">
+            <thead>
+              <tr>
+                <th scope="col">Capability</th>
+                ${roles.map((r) => `<th scope="col">${escapeHtml(String(r.key || r.label || "").toUpperCase())}</th>`).join("")}
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+          </table>
+        </div>
       </div>
     `;
 
@@ -532,6 +617,7 @@
         }
       });
     }
+    arrangeSettingsSectionHeaders();
   }
 
   function renderDepartments() {
@@ -544,10 +630,12 @@
     refs.departmentRows.innerHTML = departments
       .map(
         (item) => `
-          <div class="level-row department-row" data-department-id="${escapeHtml(item.id || "")}">
-            <span class="level-num sr-only">Department</span>
-            <input type="text" value="${escapeHtml(item.name || "")}" data-department-name placeholder="Department name" ${editable ? "" : "disabled"} />
-            <div class="expense-actions">
+          <div class="level-row settings-structured-row department-row" data-department-id="${escapeHtml(item.id || "")}">
+            <span class="settings-row-label">${escapeHtml(item.name || "Department")}</span>
+            <div class="settings-row-main">
+              <input type="text" value="${escapeHtml(item.name || "")}" data-department-name placeholder="Department name" ${editable ? "" : "disabled"} />
+            </div>
+            <div class="settings-row-actions expense-actions">
               <button
                 type="button"
                 class="expense-toggle ${item.isActive === false ? "is-inactive" : "is-active"}"
@@ -606,18 +694,22 @@
     refs.levelRows.innerHTML = sorted
       .map(
         (item) => `
-          <div class="level-row" data-level="${item.level}">
-            <span class="level-num">Level ${item.level}</span>
-            <input type="text" value="${escapeHtml(item.label || "")}" data-level-label />
-            <select data-level-permission>
-              ${["staff", "manager", "executive", "admin", "superuser"]
-                .map(
-                  (group) =>
-                    `<option value="${group}"${group === item.permissionGroup ? " selected" : ""}>${group}</option>`
-                )
-                .join("")}
-            </select>
-            <button type="button" class="level-delete" data-level-delete aria-label="Delete level">Delete</button>
+          <div class="level-row settings-structured-row" data-level="${item.level}">
+            <span class="settings-row-label level-num">Level ${item.level}</span>
+            <div class="settings-row-main settings-row-main-split">
+              <input type="text" value="${escapeHtml(item.label || "")}" data-level-label />
+              <select data-level-permission>
+                ${["staff", "manager", "executive", "admin", "superuser"]
+                  .map(
+                    (group) =>
+                      `<option value="${group}"${group === item.permissionGroup ? " selected" : ""}>${group}</option>`
+                  )
+                  .join("")}
+              </select>
+            </div>
+            <div class="settings-row-actions">
+              <button type="button" class="level-delete" data-level-delete aria-label="Delete level">Delete</button>
+            </div>
           </div>
         `
       )
@@ -675,10 +767,12 @@
     refs.expenseRows.innerHTML = categories
       .map(
         (item) => `
-          <div class="level-row expense-row" data-expense-id="${escapeHtml(item.id || "")}">
-            <span class="level-num sr-only">Category</span>
-            <input type="text" value="${escapeHtml(item.name || "")}" data-expense-name placeholder="Category name" />
-            <div class="expense-actions">
+          <div class="level-row settings-structured-row expense-row" data-expense-id="${escapeHtml(item.id || "")}">
+            <span class="settings-row-label">${escapeHtml(item.name || "Category")}</span>
+            <div class="settings-row-main">
+              <input type="text" value="${escapeHtml(item.name || "")}" data-expense-name placeholder="Category name" />
+            </div>
+            <div class="settings-row-actions expense-actions">
               <button
                 type="button"
                 class="expense-toggle ${item.isActive === false ? "is-inactive" : "is-active"}"
@@ -725,10 +819,13 @@
         ].join("");
 
         return `
-          <div class="level-row office-row" data-office-id="${escapeHtml(item.id || "")}">
-            <input type="text" value="${escapeHtml(item.name)}" data-office-name placeholder="Location name" />
-            <select data-office-lead>${leadOptions}</select>
-            <div class="office-actions">
+          <div class="level-row settings-structured-row office-row" data-office-id="${escapeHtml(item.id || "")}">
+            <span class="settings-row-label">${escapeHtml(item.name || "Location")}</span>
+            <div class="settings-row-main settings-row-main-split">
+              <input type="text" value="${escapeHtml(item.name)}" data-office-name placeholder="Location name" />
+              <select data-office-lead>${leadOptions}</select>
+            </div>
+            <div class="settings-row-actions office-actions">
               <button type="button" class="expense-delete" data-office-delete>Delete</button>
             </div>
           </div>
