@@ -380,7 +380,7 @@
     if (!addClientHeaderButton) {
       addClientHeaderButton = document.createElement("button");
       addClientHeaderButton.type = "button";
-      addClientHeaderButton.className = "mini-button";
+      addClientHeaderButton.className = "button button-ghost";
       addClientHeaderButton.textContent = "Add client";
       addClientHeaderButton.style.marginLeft = "auto";
       addClientHeaderButton.addEventListener("click", function () {
