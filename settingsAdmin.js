@@ -312,6 +312,38 @@
             display:grid;
             gap:10px;
           }
+          #settings-page .settings-rates-row{
+            display:grid;
+            grid-template-columns:minmax(220px,1.2fr) minmax(140px,.7fr) minmax(140px,.7fr) minmax(180px,1fr);
+            gap:12px;
+            align-items:center;
+          }
+          #settings-page .settings-rates-row input,
+          #settings-page .settings-rates-row select{
+            width:100%;
+          }
+          #settings-page .settings-rates-member{
+            min-width:0;
+            font-family:var(--font-head);
+            font-weight:700;
+            color:var(--ink);
+            white-space:nowrap;
+            overflow:hidden;
+            text-overflow:ellipsis;
+          }
+          #settings-page .settings-rates-row-header{
+            border-bottom:1px solid var(--group-border);
+            padding-bottom:8px;
+            margin-bottom:4px;
+          }
+          #settings-page .settings-rates-row-header span{
+            font-family:var(--font-head);
+            font-size:.74rem;
+            font-weight:700;
+            letter-spacing:.06em;
+            text-transform:uppercase;
+            color:var(--muted);
+          }
           #settings-page .settings-section-content .settings-structured-row{
             display:grid;
             grid-template-columns:minmax(180px,220px) minmax(0,1fr) minmax(96px,max-content);
@@ -457,11 +489,17 @@
               overflow:visible;
               padding:12px;
             }
-          #settings-page .settings-section-content .settings-structured-row{
+            #settings-page .settings-section-content .settings-structured-row{
               grid-template-columns:1fr;
             }
             #settings-page .settings-section-content .settings-structured-row-no-label{
               grid-template-columns:1fr;
+            }
+            #settings-page .settings-rates-row{
+              grid-template-columns:1fr;
+            }
+            #settings-page .settings-rates-row-header{
+              display:none;
             }
             #settings-page .settings-row-actions{
               width:auto;
@@ -775,20 +813,29 @@
         )
         .join("");
 
-    refs.ratesRows.innerHTML = users
+    const rowsHtml = users
       .map(
         (user) => `
-          <div class="level-row rate-row" data-user-id="${escapeHtml(user.id)}">
-            <span class="level-num">${escapeHtml(user.displayName)}</span>
-            <input type="number" step="0.01" min="0" data-rate-base value="${user.baseRate ?? ""}" ${editable ? "" : "disabled"} style="width:140px" />
-            <input type="number" step="0.01" min="0" data-rate-cost value="${user.costRate ?? ""}" ${editable ? "" : "disabled"} style="width:140px" />
-            <select data-department-select="${escapeHtml(user.id)}" ${deptEditable ? "" : "disabled"} style="width:160px">
+          <div class="level-row settings-rates-row rate-row" data-user-id="${escapeHtml(user.id)}">
+            <span class="settings-rates-member">${escapeHtml(user.displayName)}</span>
+            <input type="number" step="0.01" min="0" data-rate-base value="${user.baseRate ?? ""}" ${editable ? "" : "disabled"} />
+            <input type="number" step="0.01" min="0" data-rate-cost value="${user.costRate ?? ""}" ${editable ? "" : "disabled"} />
+            <select data-department-select="${escapeHtml(user.id)}" ${deptEditable ? "" : "disabled"}>
               ${departmentOptions(user.departmentId || "")}
             </select>
           </div>
         `
       )
       .join("");
+    refs.ratesRows.innerHTML = `
+      <div class="level-row settings-rates-row settings-rates-row-header" aria-hidden="true">
+        <span>MEMBER NAME</span>
+        <span>BASE RATE</span>
+        <span>COST RATE</span>
+        <span>DEPARTMENT</span>
+      </div>
+      ${rowsHtml}
+    `;
   }
 
   function renderExpenseCategories() {
