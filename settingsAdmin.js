@@ -11,17 +11,21 @@
   }
 
   function allowedTabs() {
-    const { state, isGlobalAdmin } = deps();
-    const access = state?.settingsAccess;
-    if (!access) return [];
+    const { state } = deps();
     const tabs = [];
-    if (access.editPermissionMatrix) tabs.push("levels");
-    if (access.manageCategories) tabs.push("categories");
-    if (access.manageLocations) tabs.push("locations");
-    if (access.viewMemberRates || access.editMemberRates) tabs.push("rates");
-    if (access.editPermissionMatrix && access.viewMemberRates) tabs.push("departments");
-    const isSuperuser = state.currentUser?.role === "superuser";
-    if (isSuperuser) tabs.push("permissions");
+    if (state.permissions?.edit_permission_matrix || state.settingsAccess?.editPermissionMatrix) tabs.push("levels");
+    if (state.permissions?.manage_expense_categories || state.settingsAccess?.manageCategories) tabs.push("categories");
+    if (state.permissions?.manage_office_locations || state.settingsAccess?.manageLocations) tabs.push("locations");
+    if (
+      state.permissions?.view_member_rates ||
+      state.permissions?.edit_member_rates ||
+      state.settingsAccess?.viewMemberRates ||
+      state.settingsAccess?.editMemberRates
+    ) {
+      tabs.push("rates");
+    }
+    if (state.permissions?.manage_departments) tabs.push("departments");
+    if (state.currentUser?.role === "superuser") tabs.push("permissions");
     return tabs;
   }
 

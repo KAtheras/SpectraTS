@@ -2304,20 +2304,23 @@ exports.handler = async function handler(event) {
         break;
       }
       case "create_department": {
-        const superErr = requireSuperAdmin(context);
-        if (superErr) return superErr;
+        if (!can("manage_departments")) {
+          return errorResponse(403, "Access denied.");
+        }
         mutationResult = await createDepartment(sql, request.payload || {}, accountId);
         break;
       }
       case "rename_department": {
-        const superErr = requireSuperAdmin(context);
-        if (superErr) return superErr;
+        if (!can("manage_departments")) {
+          return errorResponse(403, "Access denied.");
+        }
         mutationResult = await renameDepartment(sql, request.payload || {}, accountId);
         break;
       }
       case "set_department_active": {
-        const superErr = requireSuperAdmin(context);
-        if (superErr) return superErr;
+        if (!can("manage_departments")) {
+          return errorResponse(403, "Access denied.");
+        }
         mutationResult = await setDepartmentActive(sql, request.payload || {}, accountId);
         break;
       }

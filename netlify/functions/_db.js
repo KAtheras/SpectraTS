@@ -2061,7 +2061,12 @@ async function loadState(sql, currentUser) {
   // manage categories in Settings. Always return active categories; the
   // Settings UI is still gated by settingsAccess.manageCategories.
   const expenseCategories = await listExpenseCategories(sql, accountUuid);
-  const departments = await listDepartments(sql, accountUuid);
+  const departments = canCap("manage_departments", {
+    resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+    actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+  })
+    ? await listDepartments(sql, accountUuid)
+    : [];
   // Office locations are needed for client office assignment even when the
   // user cannot manage locations. Do not gate on manageLocations.
   const officeLocations = await listOfficeLocations(sql, accountUuid);
