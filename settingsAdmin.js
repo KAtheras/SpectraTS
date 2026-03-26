@@ -382,13 +382,29 @@
           }
           #settings-page .settings-rates-actions{
             display:flex;
-            justify-content:flex-end;
-            gap:8px;
-            flex-wrap:nowrap;
+            flex-direction:column;
+            align-items:flex-end;
+            justify-content:center;
+            gap:6px;
+            width:100%;
           }
           #settings-page .settings-rates-actions .button{
             margin:0;
-            white-space:nowrap;
+          }
+          #settings-page .settings-user-reset-btn{
+            font-size:.72rem;
+            line-height:1.1;
+            padding:6px 10px;
+            min-width:74px;
+            max-width:86px;
+            white-space:normal;
+            text-align:center;
+          }
+          #settings-page .settings-user-status-toggle{
+            min-width:86px;
+            justify-content:center;
+            padding:6px 10px;
+            font-size:.78rem;
           }
           #settings-page .settings-section-content .settings-structured-row{
             display:grid;
@@ -897,8 +913,8 @@
               ${
                 deptEditable
                   ? `
-                <button type="button" class="button button-ghost" data-user-password="${escapeHtml(user.id)}">Reset Password</button>
-                <button type="button" class="expense-delete" data-user-deactivate="${escapeHtml(user.id)}">Deactivate</button>
+                <button type="button" class="button button-ghost settings-user-reset-btn" data-user-password="${escapeHtml(user.id)}">Reset Password</button>
+                <button type="button" class="expense-toggle is-active settings-user-status-toggle" data-user-deactivate="${escapeHtml(user.id)}" data-active="true" aria-pressed="true">Active</button>
               `
                   : ""
               }
