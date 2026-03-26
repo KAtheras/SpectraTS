@@ -368,6 +368,38 @@
     appTopbar: document.querySelector(".app-topbar"),
   };
 
+  let addClientHeaderButton = null;
+
+  function setupAddClientHeaderAction() {
+    const addForm = refs.addClientForm;
+    if (!addForm) return;
+    const clientsColumn = addForm.closest(".catalog-column");
+    const header = clientsColumn?.querySelector(".catalog-column-head");
+    if (!header) return;
+
+    if (!addClientHeaderButton) {
+      addClientHeaderButton = document.createElement("button");
+      addClientHeaderButton.type = "button";
+      addClientHeaderButton.className = "mini-button";
+      addClientHeaderButton.textContent = "Add client";
+      addClientHeaderButton.style.marginLeft = "auto";
+      addClientHeaderButton.addEventListener("click", function () {
+        if (!isAdmin(state.currentUser)) {
+          feedback("Only Admins can add clients.", true);
+          return;
+        }
+        openClientEditor({ mode: "create", clientName: "" });
+      });
+    }
+
+    if (!addClientHeaderButton.isConnected) {
+      header.appendChild(addClientHeaderButton);
+    }
+    if (addForm.isConnected) {
+      addForm.remove();
+    }
+  }
+
   function ensureDepartmentSettingsUI() {
     const settingsTabs = document.querySelector("#settings-page .settings-tabs");
     const settingsBody = document.querySelector("#settings-page .users-page-body");
@@ -413,6 +445,7 @@
   }
 
   ensureDepartmentSettingsUI();
+  setupAddClientHeaderAction();
 
   if (refs.entryDate) {
     refs.entryDate.min = minEntryDate;
@@ -3742,20 +3775,22 @@
     });
   }
 
-  refs.addClientForm.addEventListener("submit", function (event) {
-    event.preventDefault();
-    if (!isAdmin(state.currentUser)) {
-      feedback("Only Admins can add clients.", true);
-      return;
-    }
-    const clientNameField = field(refs.addClientForm, "client_name");
-    const rawName = clientNameField.value.trim();
-    if (!rawName) {
-      feedback("Client name is required.", true);
-      return;
-    }
-    openClientEditor({ mode: "create", clientName: rawName });
-  });
+  if (refs.addClientForm && refs.addClientForm.isConnected) {
+    refs.addClientForm.addEventListener("submit", function (event) {
+      event.preventDefault();
+      if (!isAdmin(state.currentUser)) {
+        feedback("Only Admins can add clients.", true);
+        return;
+      }
+      const clientNameField = field(refs.addClientForm, "client_name");
+      const rawName = clientNameField.value.trim();
+      if (!rawName) {
+        feedback("Client name is required.", true);
+        return;
+      }
+      openClientEditor({ mode: "create", clientName: rawName });
+    });
+  }
 
   if (refs.clientEditor) {
     refs.clientEditor.addEventListener("click", function (event) {
