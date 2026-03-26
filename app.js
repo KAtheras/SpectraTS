@@ -1609,12 +1609,12 @@
       }
       persistSessionToken(payload.sessionToken || "");
       setAuthFeedback("Credentials accepted. Loading workspace...", false);
-      refs.loginForm.reset();
       await loadPersistentState();
       resetFilters();
       resetAuditFilters();
       resetForm();
       resetExpenseForm();
+      refs.loginForm.reset();
       setAuthFeedback("", false);
       feedback("", false);
       closeUsersModal();
