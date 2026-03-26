@@ -382,10 +382,11 @@
           }
           #settings-page .settings-rates-actions{
             display:flex;
-            flex-direction:column;
+            flex-direction:row;
             align-items:flex-end;
             justify-content:center;
             gap:6px;
+            flex-wrap:wrap;
             width:100%;
           }
           #settings-page .settings-rates-actions .button{

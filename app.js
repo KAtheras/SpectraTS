@@ -3236,6 +3236,9 @@
     refs.forcePasswordForm.addEventListener("submit", submitForcePassword);
   }
   refs.userList.addEventListener("click", handleUserListAction);
+  if (refs.ratesRows) {
+    refs.ratesRows.addEventListener("click", handleUserListAction);
+  }
   if (refs.addLevel) {
     refs.addLevel.addEventListener("click", handleAddLevel);
   }
