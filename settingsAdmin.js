@@ -406,20 +406,26 @@
             display:grid;
             gap:12px;
           }
-          #settings-page .member-info-top{
+          #settings-page .member-info-row{
             display:grid;
-            grid-template-columns:minmax(220px,1.3fr) repeat(3, minmax(150px,1fr));
+            gap:12px;
+            min-width:0;
+          }
+          #settings-page .member-info-row-top{
+            grid-template-columns:minmax(220px,1.4fr) repeat(3, minmax(140px,1fr));
+          }
+          #settings-page .member-info-row-bottom{
+            grid-template-columns:minmax(220px,1.4fr) minmax(120px,1fr) minmax(120px,1fr) auto auto;
             gap:14px;
             align-items:end;
           }
-          #settings-page .member-info-bottom{
+          #settings-page .member-info-cell{
             display:grid;
-            grid-template-columns:minmax(220px,1.3fr) minmax(130px,1fr) minmax(130px,1fr) auto auto;
-            gap:12px;
-            align-items:end;
+            gap:3px;
+            min-width:0;
           }
-          #settings-page .member-info-top-name,
-          #settings-page .member-info-bottom-user{
+          #settings-page .member-info-name-cell,
+          #settings-page .member-info-user-cell{
             min-width:0;
           }
           #settings-page .member-info-name{
@@ -433,11 +439,6 @@
             margin-top:2px;
             font-size:.8rem;
             color:var(--muted);
-          }
-          #settings-page .member-info-field{
-            display:grid;
-            gap:3px;
-            min-width:0;
           }
           #settings-page .member-info-field-label{
             font-family:var(--font-head);
@@ -454,11 +455,11 @@
             overflow:hidden;
             text-overflow:ellipsis;
           }
-          #settings-page .member-info-actions{
+          #settings-page .member-info-action{
             display:flex;
             align-items:center;
             justify-content:flex-end;
-            flex-wrap:nowrap;
+            white-space:nowrap;
           }
           #settings-page .member-info-remove{
             margin:0;
@@ -652,14 +653,9 @@
             #settings-page .settings-rates-row{
               display:block;
             }
-            #settings-page .member-info-top{
+            #settings-page .member-info-row-top,
+            #settings-page .member-info-row-bottom{
               grid-template-columns:1fr;
-            }
-            #settings-page .member-info-bottom{
-              grid-template-columns:1fr 1fr;
-            }
-            #settings-page .member-info-bottom-user{
-              grid-column:1 / -1;
             }
             #settings-page .settings-row-main-split{
               grid-template-columns:1fr;
@@ -984,44 +980,44 @@
       .map(
         (user) => `
           <article class="member-info-card rate-row" data-user-id="${escapeHtml(user.id)}">
-            <div class="member-info-top">
-              <div class="member-info-top-name">
+            <div class="member-info-row member-info-row-top">
+              <div class="member-info-cell member-info-name-cell">
                 <div class="member-info-name">${escapeHtml(user.displayName)}</div>
               </div>
-              <div class="member-info-field">
+              <div class="member-info-cell">
                 <span class="member-info-field-label">Title</span>
                 <span class="member-info-field-value">${escapeHtml(levelLabel(user.level) || "No title")}</span>
               </div>
-              <div class="member-info-field">
+              <div class="member-info-cell">
                 <span class="member-info-field-label">Department</span>
                 <span class="member-info-field-value">${escapeHtml(departmentName(user.departmentId))}</span>
               </div>
-              <div class="member-info-field">
+              <div class="member-info-cell">
                 <span class="member-info-field-label">Office</span>
                 <span class="member-info-field-value">${escapeHtml(officeName(user.officeId, user.officeName))}</span>
               </div>
             </div>
-            <div class="member-info-bottom">
-              <div class="member-info-bottom-user">
+            <div class="member-info-row member-info-row-bottom">
+              <div class="member-info-cell member-info-user-cell">
                 <span class="member-info-field-label">User ID</span>
                 <div class="member-info-username">${escapeHtml(user.username || "")}</div>
               </div>
-              <div class="member-info-field">
+              <div class="member-info-cell">
                 <span class="member-info-field-label">Base rate</span>
                 <span class="member-info-field-value">${escapeHtml(user.baseRate ?? "—")}</span>
               </div>
-              <div class="member-info-field">
+              <div class="member-info-cell">
                 <span class="member-info-field-label">Cost rate</span>
                 <span class="member-info-field-value">${escapeHtml(user.costRate ?? "—")}</span>
               </div>
-              <div class="member-info-actions">
+              <div class="member-info-action">
                 ${
                   canEditAny
                     ? `<button type="button" class="button button-ghost member-info-edit" data-member-edit="${escapeHtml(user.id)}">Edit</button>`
                     : ""
                 }
               </div>
-              <div class="member-info-actions">
+              <div class="member-info-action">
                 ${
                   canEditProfile
                     ? `<button type="button" class="member-info-remove" data-user-deactivate="${escapeHtml(user.id)}">Remove</button>`
