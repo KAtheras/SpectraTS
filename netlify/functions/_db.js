@@ -2070,10 +2070,20 @@ async function loadState(sql, currentUser) {
   // manage categories in Settings. Always return active categories; the
   // Settings UI is still gated by settingsAccess.manageCategories.
   const expenseCategories = await listExpenseCategories(sql, accountUuid);
-  const departments = canCap("manage_departments", {
-    resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
-    actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
-  })
+  const canUseDepartmentsForMembers =
+    canCap("manage_departments", {
+      resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+      actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+    }) ||
+    canCap("edit_member_profile", {
+      resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+      actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+    }) ||
+    canCap("view_members", {
+      resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+      actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+    });
+  const departments = canUseDepartmentsForMembers
     ? await listDepartments(sql, accountUuid)
     : [];
   const officeLocations = canCap("manage_office_locations", {
