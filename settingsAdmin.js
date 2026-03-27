@@ -165,6 +165,10 @@
       if (actions) {
         const buttons = Array.from(actions.querySelectorAll("button"));
         buttons.forEach((btn) => {
+          if (panel.dataset.settingsTab === "rates" && btn.id === "save-rates") {
+            btn.remove();
+            return;
+          }
           const isAdd =
             btn.id.startsWith("add-") ||
             btn.classList.contains("button-ghost");
@@ -1015,11 +1019,9 @@
     `;
 
     const sectionRight = refs.ratesForm?.querySelector(".settings-section-right");
+    const straySaveButtons = Array.from(refs.ratesForm?.querySelectorAll("#save-rates") || []);
+    straySaveButtons.forEach((btn) => btn.remove());
     if (sectionRight) {
-      const saveBtn = sectionRight.querySelector("#save-rates");
-      if (saveBtn) {
-        saveBtn.remove();
-      }
       let addBtn = sectionRight.querySelector("[data-member-add]");
       if (!addBtn) {
         addBtn = document.createElement("button");
