@@ -3512,7 +3512,7 @@
   }
 
   if (refs.departmentRows) {
-    refs.departmentRows.addEventListener("click", function (event) {
+    refs.departmentRows.addEventListener("click", async function (event) {
       const deleteBtn = event.target.closest("[data-department-delete]");
       if (deleteBtn) {
         if (!state.permissions?.manage_departments) {
@@ -3522,6 +3522,18 @@
         const row = deleteBtn.closest(".department-row");
         if (!row) return;
         const id = row.dataset.departmentId || "";
+        const assignedMembers = (state.users || []).filter(function (user) {
+          return user?.isActive !== false && String(user?.departmentId || "") === String(id || "");
+        }).length;
+        const confirmation = await appDialog({
+          title: "Delete department?",
+          message: `Are you sure you would like to delete this department?\nCurrently there are ${assignedMembers} member${assignedMembers === 1 ? "" : "s"} assigned to this department.`,
+          confirmText: "Delete",
+          cancelText: "Cancel",
+        });
+        if (!confirmation.confirmed) {
+          return;
+        }
         state.departments = (state.departments || []).filter((d) => String(d.id || "") !== String(id));
         window.settingsAdmin?.renderDepartments();
         return;
