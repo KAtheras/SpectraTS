@@ -434,11 +434,11 @@
           </div>
           <form class="filters add-user-form" data-member-editor-form>
             <label><span>Member name</span><input type="text" name="display_name" required /></label>
-            <label><span>Username</span><input type="text" name="username" required /></label>
+            <label><span>User ID</span><input type="text" name="username" required /></label>
             <label><span>Password</span><input type="password" name="password" autocomplete="new-password" /></label>
             <label><span>Title</span><select name="level"></select></label>
             <label><span>Department</span><select name="department_id"><option value="">No department</option></select></label>
-            <label><span>Office</span><select name="office_id"><option value="">No office</option></select></label>
+            <label><span>Office</span><select name="office_id" required><option value="">Select office</option></select></label>
             <label><span>Base rate</span><input type="number" step="0.01" min="0" name="base_rate" /></label>
             <label><span>Cost rate</span><input type="number" step="0.01" min="0" name="cost_rate" /></label>
             <div class="level-labels-actions">
@@ -500,7 +500,7 @@
     deptField.innerHTML = ['<option value="">No department</option>']
       .concat((state.departments || []).filter((d) => d.isActive !== false).map((d) => `<option value="${escapeHtml(d.id)}">${escapeHtml(d.name)}</option>`))
       .join("");
-    officeField.innerHTML = ['<option value="">No office</option>']
+    officeField.innerHTML = ['<option value="">Select office</option>']
       .concat((state.officeLocations || []).map((o) => `<option value="${escapeHtml(o.id)}">${escapeHtml(o.name)}</option>`))
       .join("");
 
@@ -525,6 +525,11 @@
 
     memberEditorTitle.textContent = mode === "create" ? "Add member" : "Edit member";
     memberEditorSubmit.textContent = mode === "create" ? "Add member" : "Save changes";
+    const passwordField = field(memberEditorForm, "password");
+    if (passwordField) {
+      passwordField.required = mode === "create";
+      passwordField.placeholder = mode === "create" ? "Temporary password" : "Leave blank to keep current password";
+    }
     memberEditorModal.hidden = false;
     memberEditorModal.setAttribute("aria-hidden", "false");
     body.classList.add("modal-open");
@@ -946,7 +951,19 @@
     };
     state.currentUser = data?.currentUser ? ensureRole(normalizeUser(data.currentUser)) : null;
     state.users = Array.isArray(data?.users)
-      ? data.users.map((u) => ensureRole(normalizeUser(u))).filter(Boolean)
+      ? data.users
+          .map((u) => {
+            const normalized = ensureRole(normalizeUser(u));
+            if (!normalized) return null;
+            normalized.officeName =
+              typeof u?.officeName === "string" && u.officeName.trim()
+                ? u.officeName.trim()
+                : typeof u?.office_name === "string" && u.office_name.trim()
+                  ? u.office_name.trim()
+                  : "";
+            return normalized;
+          })
+          .filter(Boolean)
       : [];
     state.departments = Array.isArray(data?.departments) ? data.departments.slice() : [];
     state.departmentsSnapshot = Array.isArray(data?.departments) ? data.departments.slice() : [];

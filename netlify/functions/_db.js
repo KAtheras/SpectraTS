@@ -856,6 +856,7 @@ async function listUsers(sql, accountId) {
       users.base_rate AS "baseRate",
       users.cost_rate AS "costRate",
       users.office_id AS "officeId",
+      offices.name AS "officeName",
       users.department_id AS "departmentId",
       d.name AS "departmentName",
       users.must_change_password AS "mustChangePassword",
@@ -866,6 +867,9 @@ async function listUsers(sql, accountId) {
     LEFT JOIN departments d
       ON d.id = users.department_id
      AND d.account_id = ${accountId}::uuid
+    LEFT JOIN office_locations offices
+      ON offices.id = users.office_id
+     AND offices.account_id = ${accountId}::uuid
     WHERE users.is_active = TRUE
       AND users.account_id = ${accountId}::uuid
     ORDER BY LOWER(users.display_name), LOWER(users.username)
@@ -2086,10 +2090,20 @@ async function loadState(sql, currentUser) {
   const departments = canUseDepartmentsForMembers
     ? await listDepartments(sql, accountUuid)
     : [];
-  const officeLocations = canCap("manage_office_locations", {
-    resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
-    actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
-  })
+  const canUseOfficeLocationsForMembers =
+    canCap("manage_office_locations", {
+      resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+      actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+    }) ||
+    canCap("edit_member_profile", {
+      resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+      actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+    }) ||
+    canCap("create_member", {
+      resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+      actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+    });
+  const officeLocations = canUseOfficeLocationsForMembers
     ? await listOfficeLocations(sql, accountUuid)
     : [];
   const assignments = {

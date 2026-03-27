@@ -950,7 +950,8 @@
     const officeNameById = new Map((state.officeLocations || []).map((o) => [String(o.id), o.name || ""]));
     const deptNameById = new Map((departments || []).map((d) => [String(d.id), d.name || ""]));
     const departmentName = (id) => (id ? deptNameById.get(String(id)) || "No department" : "No department");
-    const officeName = (id) => (id ? officeNameById.get(String(id)) || "No office" : "No office");
+    const officeName = (id, fallbackName) =>
+      id ? officeNameById.get(String(id)) || fallbackName || "No office" : fallbackName || "No office";
 
     const rowsHtml = users
       .map(
@@ -959,7 +960,7 @@
             <div class="member-info-head">
               <div>
                 <div class="member-info-name">${escapeHtml(user.displayName)}</div>
-                <div class="member-info-username">${escapeHtml(user.username || "")}</div>
+                <div class="member-info-username">User ID: ${escapeHtml(user.username || "")}</div>
               </div>
               <div class="settings-rates-actions">
                 ${
@@ -985,7 +986,7 @@
               </div>
               <div class="member-info-field">
                 <span class="member-info-field-label">Office</span>
-                <span class="member-info-field-value">${escapeHtml(officeName(user.officeId))}</span>
+                <span class="member-info-field-value">${escapeHtml(officeName(user.officeId, user.officeName))}</span>
               </div>
               <div class="member-info-field">
                 <span class="member-info-field-label">Base rate</span>
