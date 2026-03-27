@@ -369,6 +369,12 @@
   };
 
   let addClientHeaderButton = null;
+  let memberEditorModal = null;
+  let memberEditorForm = null;
+  let memberEditorTitle = null;
+  let memberEditorSubmit = null;
+  let memberEditorMode = "create";
+  let memberEditorUserId = "";
 
   function setupAddClientHeaderAction() {
     const addForm = refs.addClientForm;
@@ -400,6 +406,204 @@
     }
     if (addForm.isConnected) {
       addForm.remove();
+    }
+  }
+
+  function removeMembersAddCard() {
+    if (refs.addUserForm && refs.addUserForm.isConnected) {
+      refs.addUserForm.remove();
+    }
+    refs.addUserForm = null;
+  }
+
+  function ensureMemberEditorModal() {
+    if (memberEditorModal) return;
+    memberEditorModal = document.createElement("div");
+    memberEditorModal.className = "modal-backdrop";
+    memberEditorModal.id = "member-editor-modal";
+    memberEditorModal.hidden = true;
+    memberEditorModal.setAttribute("aria-hidden", "true");
+    memberEditorModal.innerHTML = `
+      <div class="modal-shell" role="dialog" aria-modal="true" aria-labelledby="member-editor-title">
+        <section class="panel panel-modal">
+          <div class="panel-head">
+            <div>
+              <h2 id="member-editor-title">Member</h2>
+            </div>
+            <button class="mini-button" type="button" data-member-editor-close>Close</button>
+          </div>
+          <form class="filters add-user-form" data-member-editor-form>
+            <label><span>Member name</span><input type="text" name="display_name" required /></label>
+            <label><span>Username</span><input type="text" name="username" required /></label>
+            <label><span>Password</span><input type="password" name="password" autocomplete="new-password" /></label>
+            <label><span>Title</span><select name="level"></select></label>
+            <label><span>Department</span><select name="department_id"><option value="">No department</option></select></label>
+            <label><span>Office</span><select name="office_id"><option value="">No office</option></select></label>
+            <label><span>Base rate</span><input type="number" step="0.01" min="0" name="base_rate" /></label>
+            <label><span>Cost rate</span><input type="number" step="0.01" min="0" name="cost_rate" /></label>
+            <div class="level-labels-actions">
+              <button class="button button-ghost" type="button" data-member-editor-cancel>Cancel</button>
+              <button class="button" type="submit" data-member-editor-submit>Add member</button>
+            </div>
+          </form>
+        </section>
+      </div>
+    `;
+    document.body.appendChild(memberEditorModal);
+    memberEditorForm = memberEditorModal.querySelector("[data-member-editor-form]");
+    memberEditorTitle = memberEditorModal.querySelector("#member-editor-title");
+    memberEditorSubmit = memberEditorModal.querySelector("[data-member-editor-submit]");
+    memberEditorModal.addEventListener("click", function (event) {
+      if (event.target === memberEditorModal || event.target.closest("[data-member-editor-close]") || event.target.closest("[data-member-editor-cancel]")) {
+        closeMemberEditorModal();
+      }
+    });
+    memberEditorForm.addEventListener("submit", submitMemberEditorModal);
+  }
+
+  function closeMemberEditorModal() {
+    if (!memberEditorModal) return;
+    memberEditorModal.hidden = true;
+    memberEditorModal.setAttribute("aria-hidden", "true");
+    body.classList.remove("modal-open");
+  }
+
+  function openMemberEditorModal(mode, userId) {
+    ensureMemberEditorModal();
+    const canCreate = Boolean(state.permissions?.create_user);
+    const canEditProfile = Boolean(state.permissions?.edit_user_profile);
+    const canEditRates = Boolean(state.permissions?.edit_user_rates);
+    if (mode === "create" && !canCreate) {
+      feedback("Access denied.", true);
+      return;
+    }
+    if (mode === "edit" && !canEditProfile && !canEditRates) {
+      feedback("Access denied.", true);
+      return;
+    }
+
+    memberEditorMode = mode;
+    memberEditorUserId = userId || "";
+    const user = mode === "edit" ? state.users.find((u) => u.id === memberEditorUserId) : null;
+    if (mode === "edit" && !user) {
+      feedback("Team member not found.", true);
+      return;
+    }
+
+    const levelField = field(memberEditorForm, "level");
+    const deptField = field(memberEditorForm, "department_id");
+    const officeField = field(memberEditorForm, "office_id");
+    const sortedLevelEntries = Object.entries(state.levelLabels || {}).sort((a, b) => Number(a[0]) - Number(b[0]));
+    levelField.innerHTML = sortedLevelEntries
+      .map(([lvl, info]) => `<option value="${escapeHtml(String(lvl))}">${escapeHtml(info?.label || `Level ${lvl}`)}</option>`)
+      .join("");
+    deptField.innerHTML = ['<option value="">No department</option>']
+      .concat((state.departments || []).filter((d) => d.isActive !== false).map((d) => `<option value="${escapeHtml(d.id)}">${escapeHtml(d.name)}</option>`))
+      .join("");
+    officeField.innerHTML = ['<option value="">No office</option>']
+      .concat((state.officeLocations || []).map((o) => `<option value="${escapeHtml(o.id)}">${escapeHtml(o.name)}</option>`))
+      .join("");
+
+    field(memberEditorForm, "display_name").value = user?.displayName || "";
+    field(memberEditorForm, "username").value = user?.username || "";
+    field(memberEditorForm, "password").value = "";
+    field(memberEditorForm, "level").value = String(user?.level || sortedLevelEntries[0]?.[0] || "1");
+    field(memberEditorForm, "department_id").value = user?.departmentId || "";
+    field(memberEditorForm, "office_id").value = user?.officeId || "";
+    field(memberEditorForm, "base_rate").value = user?.baseRate ?? "";
+    field(memberEditorForm, "cost_rate").value = user?.costRate ?? "";
+
+    const profileEditable = mode === "create" ? canCreate : canEditProfile;
+    ["display_name", "username", "password", "level", "department_id", "office_id"].forEach((name) => {
+      const el = field(memberEditorForm, name);
+      if (el) el.disabled = !profileEditable;
+    });
+    ["base_rate", "cost_rate"].forEach((name) => {
+      const el = field(memberEditorForm, name);
+      if (el) el.disabled = !canEditRates;
+    });
+
+    memberEditorTitle.textContent = mode === "create" ? "Add member" : "Edit member";
+    memberEditorSubmit.textContent = mode === "create" ? "Add member" : "Save changes";
+    memberEditorModal.hidden = false;
+    memberEditorModal.setAttribute("aria-hidden", "false");
+    body.classList.add("modal-open");
+  }
+
+  async function submitMemberEditorModal(event) {
+    event.preventDefault();
+    const canEditProfile = Boolean(state.permissions?.edit_user_profile);
+    const canEditRates = Boolean(state.permissions?.edit_user_rates);
+    const canCreate = Boolean(state.permissions?.create_user);
+    const displayName = field(memberEditorForm, "display_name").value.trim();
+    const username = field(memberEditorForm, "username").value.trim();
+    const password = field(memberEditorForm, "password").value;
+    const level = normalizeLevel(field(memberEditorForm, "level").value || "1");
+    const departmentId = field(memberEditorForm, "department_id").value || null;
+    const officeId = field(memberEditorForm, "office_id").value || null;
+    const baseRaw = field(memberEditorForm, "base_rate").value.trim();
+    const costRaw = field(memberEditorForm, "cost_rate").value.trim();
+    const baseRate = baseRaw === "" ? null : Number(baseRaw);
+    const costRate = costRaw === "" ? null : Number(costRaw);
+    if ((baseRate !== null && (!Number.isFinite(baseRate) || baseRate < 0)) || (costRate !== null && (!Number.isFinite(costRate) || costRate < 0))) {
+      feedback("Rates must be non-negative numbers.", true);
+      return;
+    }
+
+    try {
+      if (memberEditorMode === "create") {
+        if (!canCreate) {
+          feedback("Access denied.", true);
+          return;
+        }
+        const result = await mutatePersistentState(
+          "add_user",
+          { displayName, username, password, level, officeId, baseRate, costRate },
+          { skipHydrate: true }
+        );
+        const created = (result?.users || []).find((u) => String(u.username || "").toLowerCase() === String(username).toLowerCase());
+        if (created && departmentId && canEditProfile) {
+          await mutatePersistentState("set_user_department", { userId: created.id, departmentId }, { skipHydrate: true });
+        }
+      } else {
+        const userId = memberEditorUserId;
+        const currentUser = (state.users || []).find((u) => u.id === userId);
+        if (!currentUser) {
+          feedback("Team member not found.", true);
+          return;
+        }
+        if (canEditProfile) {
+          await mutatePersistentState(
+            "update_user",
+            { userId, displayName, username, level, officeId },
+            { skipHydrate: true }
+          );
+          await mutatePersistentState(
+            "set_user_department",
+            { userId, departmentId },
+            { skipHydrate: true }
+          );
+          if (password && password.trim()) {
+            await mutatePersistentState(
+              "reset_user_password",
+              { userId, password },
+              { skipHydrate: true }
+            );
+          }
+        }
+        if (canEditRates) {
+          await mutatePersistentState(
+            "update_user_rates",
+            { userId, baseRate, costRate },
+            { skipHydrate: true }
+          );
+        }
+      }
+      closeMemberEditorModal();
+      await refreshSettingsTab("rates");
+      feedback(memberEditorMode === "create" ? "Member added." : "Member updated.", false);
+    } catch (error) {
+      feedback(error.message || "Unable to save member.", true);
     }
   }
 
@@ -449,6 +653,8 @@
 
   ensureDepartmentSettingsUI();
   setupAddClientHeaderAction();
+  removeMembersAddCard();
+  ensureMemberEditorModal();
 
   if (refs.entryDate) {
     refs.entryDate.min = minEntryDate;
@@ -3222,7 +3428,9 @@
       actionEl.click();
     });
   }
-  refs.addUserForm.addEventListener("submit", handleAddUser);
+  if (refs.addUserForm) {
+    refs.addUserForm.addEventListener("submit", handleAddUser);
+  }
   if (refs.openAnalytics) {
     refs.openAnalytics.addEventListener("click", openAnalyticsPage);
   }
@@ -3274,6 +3482,20 @@
   refs.userList.addEventListener("click", handleUserListAction);
   if (refs.ratesRows) {
     refs.ratesRows.addEventListener("click", handleUserListAction);
+    refs.ratesRows.addEventListener("click", function (event) {
+      const editBtn = event.target.closest("[data-member-edit]");
+      if (!editBtn) return;
+      event.preventDefault();
+      openMemberEditorModal("edit", editBtn.dataset.memberEdit);
+    });
+  }
+  if (refs.ratesForm) {
+    refs.ratesForm.addEventListener("click", function (event) {
+      const addBtn = event.target.closest("[data-member-add]");
+      if (!addBtn) return;
+      event.preventDefault();
+      openMemberEditorModal("create");
+    });
   }
   if (refs.addLevel) {
     refs.addLevel.addEventListener("click", handleAddLevel);

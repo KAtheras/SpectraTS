@@ -898,9 +898,9 @@
     const { refs, state, escapeHtml } = deps();
     if (!refs.ratesRows) return;
 
-    const editable = Boolean(state.permissions?.edit_user_rates);
-    const deptEditable = Boolean(state.permissions?.edit_user_profile);
-    const titleEditable = Boolean(state.permissions?.edit_user_profile);
+    const canEditRates = Boolean(state.permissions?.edit_user_rates);
+    const canEditProfile = Boolean(state.permissions?.edit_user_profile);
+    const canEditAny = canEditRates || canEditProfile;
     const users = (state.users || []).filter((u) => u.isActive !== false);
     const departments = (state.departments || []).filter((d) => d.isActive !== false);
     const titleOptions = Object.entries(state.levelLabels || {})
@@ -911,45 +911,30 @@
       .filter((item) => Number.isFinite(item.level))
       .sort((a, b) => a.level - b.level);
 
-    const departmentOptions = (selected) =>
-      [`<option value="">No department</option>`]
-        .concat(
-          departments.map(
-            (d) => `<option value="${escapeHtml(d.id)}"${selected === d.id ? " selected" : ""}>${escapeHtml(d.name)}</option>`
-          )
-        )
-        .join("");
-    const levelSelectOptions = (selectedLevel) =>
-      titleOptions
-        .map(
-          (item) =>
-            `<option value="${item.level}"${item.level === Number(selectedLevel) ? " selected" : ""}>${escapeHtml(item.label)}</option>`
-        )
-        .join("");
     const levelLabel = (selectedLevel) =>
       titleOptions.find((item) => item.level === Number(selectedLevel))?.label || "";
+    const deptNameById = new Map((departments || []).map((d) => [String(d.id), d.name || ""]));
+    const departmentName = (id) => (id ? deptNameById.get(String(id)) || "No department" : "No department");
 
     const rowsHtml = users
       .map(
         (user) => `
           <div class="level-row settings-rates-row rate-row" data-user-id="${escapeHtml(user.id)}">
             <span class="settings-rates-member">${escapeHtml(user.displayName)}</span>
-            ${
-              titleEditable
-                ? `<select data-title-level="${escapeHtml(user.id)}">${levelSelectOptions(user.level)}</select>`
-                : `<span class="settings-rates-title-readonly">${escapeHtml(levelLabel(user.level) || "No title")}</span>`
-            }
-            <input type="number" step="0.01" min="0" data-rate-base value="${user.baseRate ?? ""}" ${editable ? "" : "disabled"} />
-            <input type="number" step="0.01" min="0" data-rate-cost value="${user.costRate ?? ""}" ${editable ? "" : "disabled"} />
-            <select data-department-select="${escapeHtml(user.id)}" ${deptEditable ? "" : "disabled"}>
-              ${departmentOptions(user.departmentId || "")}
-            </select>
+            <span class="settings-rates-title-readonly">${escapeHtml(levelLabel(user.level) || "No title")}</span>
+            <span class="settings-rates-title-readonly">${escapeHtml(user.baseRate ?? "—")}</span>
+            <span class="settings-rates-title-readonly">${escapeHtml(user.costRate ?? "—")}</span>
+            <span class="settings-rates-title-readonly">${escapeHtml(departmentName(user.departmentId))}</span>
             <div class="settings-rates-actions">
               ${
-                deptEditable
+                canEditAny
                   ? `
-                <button type="button" class="settings-user-action settings-user-action-secondary" data-user-password="${escapeHtml(user.id)}">Reset password</button>
-                <button type="button" class="settings-user-action settings-user-action-danger" data-user-deactivate="${escapeHtml(user.id)}">Remove</button>
+                <button type="button" class="settings-user-action settings-user-action-secondary" data-member-edit="${escapeHtml(user.id)}">Edit</button>
+                ${
+                  canEditProfile
+                    ? `<button type="button" class="settings-user-action settings-user-action-danger" data-user-deactivate="${escapeHtml(user.id)}">Remove</button>`
+                    : ""
+                }
               `
                   : ""
               }
@@ -969,6 +954,20 @@
       </div>
       ${rowsHtml}
     `;
+
+    const sectionRight = refs.ratesForm?.querySelector(".settings-section-right");
+    if (sectionRight) {
+      let addBtn = sectionRight.querySelector("[data-member-add]");
+      if (!addBtn) {
+        addBtn = document.createElement("button");
+        addBtn.type = "button";
+        addBtn.className = "button button-ghost";
+        addBtn.dataset.memberAdd = "true";
+        addBtn.textContent = "Add member";
+        sectionRight.insertBefore(addBtn, sectionRight.firstChild);
+      }
+      addBtn.hidden = !Boolean(state.permissions?.create_user);
+    }
   }
 
   function renderExpenseCategories() {
