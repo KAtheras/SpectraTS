@@ -373,6 +373,7 @@
   let memberEditorForm = null;
   let memberEditorTitle = null;
   let memberEditorSubmit = null;
+  let memberEditorReset = null;
   let memberEditorMode = "create";
   let memberEditorUserId = "";
 
@@ -505,6 +506,7 @@
             </div>
             <div class="member-editor-footer">
               <button class="button button-ghost" type="button" data-member-editor-cancel>Cancel</button>
+              <button class="button button-ghost" type="button" data-member-editor-reset hidden>Reset password</button>
               <button class="button" type="submit" data-member-editor-submit>Add member</button>
             </div>
           </form>
@@ -515,12 +517,39 @@
     memberEditorForm = memberEditorModal.querySelector("[data-member-editor-form]");
     memberEditorTitle = memberEditorModal.querySelector("#member-editor-title");
     memberEditorSubmit = memberEditorModal.querySelector("[data-member-editor-submit]");
+    memberEditorReset = memberEditorModal.querySelector("[data-member-editor-reset]");
     memberEditorModal.addEventListener("click", function (event) {
       if (event.target === memberEditorModal || event.target.closest("[data-member-editor-close]") || event.target.closest("[data-member-editor-cancel]")) {
         closeMemberEditorModal();
       }
     });
     memberEditorForm.addEventListener("submit", submitMemberEditorModal);
+    if (memberEditorReset) {
+      memberEditorReset.addEventListener("click", async function () {
+        if (memberEditorMode !== "edit" || !memberEditorUserId) {
+          return;
+        }
+        if (!state.permissions?.reset_user_password) {
+          feedback("Access denied.", true);
+          return;
+        }
+        const targetUser = (state.users || []).find((u) => u.id === memberEditorUserId);
+        if (!targetUser) {
+          feedback("Team member not found.", true);
+          return;
+        }
+        try {
+          await mutatePersistentState(
+            "send_user_setup_link",
+            { userId: targetUser.id },
+            { skipHydrate: true }
+          );
+          feedback(`Password reset link sent to ${targetUser.displayName}.`, false);
+        } catch (error) {
+          feedback(error.message || "Unable to send reset link.", true);
+        }
+      });
+    }
   }
 
   function closeMemberEditorModal() {
@@ -588,6 +617,10 @@
 
     memberEditorTitle.textContent = mode === "create" ? "Add member" : "Edit member";
     memberEditorSubmit.textContent = mode === "create" ? "Add member" : "Save changes";
+    if (memberEditorReset) {
+      memberEditorReset.hidden = !(mode === "edit" && Boolean(state.permissions?.reset_user_password));
+      memberEditorReset.disabled = mode !== "edit" || !Boolean(state.permissions?.reset_user_password);
+    }
     const passwordField = field(memberEditorForm, "password");
     const passwordRow = memberEditorForm.querySelector("[data-member-editor-password-row]");
     if (passwordField) {

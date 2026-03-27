@@ -2813,6 +2813,31 @@ exports.handler = async function handler(event) {
         }
         break;
       }
+      case "send_user_setup_link": {
+        const target = await findUserById(sql, request.payload?.userId, accountId);
+        if (!target || !target.is_active) {
+          return errorResponse(404, "User not found.");
+        }
+        const targetOfficeId = target.office_id || target.officeId || null;
+        if (!can("admin_reset_password", { resourceOfficeId: targetOfficeId, targetUserId: target.id })) {
+          return errorResponse(403, "Access denied.");
+        }
+        const email = normalizeText(target.email || "");
+        if (!email || !email.includes("@")) {
+          return errorResponse(400, "Member email is required for reset link.");
+        }
+        const setup = await createPasswordSetupToken(sql, {
+          userId: target.id,
+          accountId,
+        });
+        await sendSetupEmail({
+          to: email,
+          username: target.username,
+          token: setup.token,
+        });
+        mutationResult = { ok: true };
+        break;
+      }
       case "reset_user_password": {
         const target = await findUserById(sql, request.payload?.userId, accountId);
         if (!target || !target.is_active) {
