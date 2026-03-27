@@ -406,15 +406,21 @@
             display:grid;
             gap:12px;
           }
-          #settings-page .member-info-body{
+          #settings-page .member-info-top{
             display:grid;
-            grid-template-columns:minmax(200px,1.2fr) minmax(220px,1fr) minmax(220px,1fr);
+            grid-template-columns:minmax(220px,1.3fr) repeat(3, minmax(150px,1fr));
             gap:14px;
-            align-items:start;
+            align-items:end;
           }
-          #settings-page .member-info-zone{
+          #settings-page .member-info-bottom{
             display:grid;
-            gap:8px;
+            grid-template-columns:minmax(220px,1.3fr) minmax(130px,1fr) minmax(130px,1fr) auto auto;
+            gap:12px;
+            align-items:end;
+          }
+          #settings-page .member-info-top-name,
+          #settings-page .member-info-bottom-user{
+            min-width:0;
           }
           #settings-page .member-info-name{
             font-family:var(--font-head);
@@ -451,12 +457,18 @@
           #settings-page .member-info-actions{
             display:flex;
             align-items:center;
-            gap:10px;
+            justify-content:flex-end;
             flex-wrap:nowrap;
           }
           #settings-page .member-info-remove{
             margin:0;
             padding:6px 12px;
+            border:1px solid color-mix(in srgb, var(--danger) 45%, var(--group-border));
+            border-radius:999px;
+            background:color-mix(in srgb, var(--panel) 88%, var(--danger) 12%);
+            color:var(--danger);
+            font-weight:700;
+            cursor:pointer;
           }
           #settings-page .member-info-edit{
             margin:0;
@@ -640,8 +652,14 @@
             #settings-page .settings-rates-row{
               display:block;
             }
-            #settings-page .member-info-body{
+            #settings-page .member-info-top{
               grid-template-columns:1fr;
+            }
+            #settings-page .member-info-bottom{
+              grid-template-columns:1fr 1fr;
+            }
+            #settings-page .member-info-bottom-user{
+              grid-column:1 / -1;
             }
             #settings-page .settings-row-main-split{
               grid-template-columns:1fr;
@@ -966,46 +984,49 @@
       .map(
         (user) => `
           <article class="member-info-card rate-row" data-user-id="${escapeHtml(user.id)}">
-            <div class="member-info-body">
-              <div class="member-info-zone">
+            <div class="member-info-top">
+              <div class="member-info-top-name">
                 <div class="member-info-name">${escapeHtml(user.displayName)}</div>
-                <div class="member-info-username">User ID: ${escapeHtml(user.username || "")}</div>
               </div>
-              <div class="member-info-zone">
-                <div class="member-info-field">
-                  <span class="member-info-field-label">Title</span>
-                  <span class="member-info-field-value">${escapeHtml(levelLabel(user.level) || "No title")}</span>
-                </div>
-                <div class="member-info-field">
-                  <span class="member-info-field-label">Department</span>
-                  <span class="member-info-field-value">${escapeHtml(departmentName(user.departmentId))}</span>
-                </div>
-                <div class="member-info-field">
-                  <span class="member-info-field-label">Office</span>
-                  <span class="member-info-field-value">${escapeHtml(officeName(user.officeId, user.officeName))}</span>
-                </div>
+              <div class="member-info-field">
+                <span class="member-info-field-label">Title</span>
+                <span class="member-info-field-value">${escapeHtml(levelLabel(user.level) || "No title")}</span>
               </div>
-              <div class="member-info-zone">
-                <div class="member-info-field">
-                  <span class="member-info-field-label">Base rate</span>
-                  <span class="member-info-field-value">${escapeHtml(user.baseRate ?? "—")}</span>
-                </div>
-                <div class="member-info-field">
-                  <span class="member-info-field-label">Cost rate</span>
-                  <span class="member-info-field-value">${escapeHtml(user.costRate ?? "—")}</span>
-                </div>
-                <div class="member-info-actions">
-                  ${
-                    canEditAny
-                      ? `<button type="button" class="button button-ghost member-info-edit" data-member-edit="${escapeHtml(user.id)}">Edit</button>`
-                      : ""
-                  }
-                  ${
-                    canEditProfile
-                      ? `<button type="button" class="expense-delete member-info-remove" data-user-deactivate="${escapeHtml(user.id)}">Remove</button>`
-                      : ""
-                  }
-                </div>
+              <div class="member-info-field">
+                <span class="member-info-field-label">Department</span>
+                <span class="member-info-field-value">${escapeHtml(departmentName(user.departmentId))}</span>
+              </div>
+              <div class="member-info-field">
+                <span class="member-info-field-label">Office</span>
+                <span class="member-info-field-value">${escapeHtml(officeName(user.officeId, user.officeName))}</span>
+              </div>
+            </div>
+            <div class="member-info-bottom">
+              <div class="member-info-bottom-user">
+                <span class="member-info-field-label">User ID</span>
+                <div class="member-info-username">${escapeHtml(user.username || "")}</div>
+              </div>
+              <div class="member-info-field">
+                <span class="member-info-field-label">Base rate</span>
+                <span class="member-info-field-value">${escapeHtml(user.baseRate ?? "—")}</span>
+              </div>
+              <div class="member-info-field">
+                <span class="member-info-field-label">Cost rate</span>
+                <span class="member-info-field-value">${escapeHtml(user.costRate ?? "—")}</span>
+              </div>
+              <div class="member-info-actions">
+                ${
+                  canEditAny
+                    ? `<button type="button" class="button button-ghost member-info-edit" data-member-edit="${escapeHtml(user.id)}">Edit</button>`
+                    : ""
+                }
+              </div>
+              <div class="member-info-actions">
+                ${
+                  canEditProfile
+                    ? `<button type="button" class="member-info-remove" data-user-deactivate="${escapeHtml(user.id)}">Remove</button>`
+                    : ""
+                }
               </div>
             </div>
           </article>
@@ -1042,6 +1063,10 @@
     const straySaveButtons = Array.from(refs.ratesForm?.querySelectorAll("#save-rates") || []);
     straySaveButtons.forEach((btn) => btn.remove());
     if (sectionRight) {
+      const sectionTitle = refs.ratesForm?.querySelector(".settings-section-left h3, .level-labels-inner > h3");
+      if (sectionTitle) {
+        sectionTitle.textContent = "Member information";
+      }
       let addBtn = sectionRight.querySelector("[data-member-add]");
       if (!addBtn) {
         addBtn = document.createElement("button");
