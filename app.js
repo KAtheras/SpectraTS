@@ -3609,8 +3609,8 @@
       openMemberEditorModal("edit", editBtn.dataset.memberEdit);
     });
   }
-  if (refs.ratesForm) {
-    refs.ratesForm.addEventListener("click", function (event) {
+  if (refs.settingsPage) {
+    refs.settingsPage.addEventListener("click", function (event) {
       const addBtn = event.target.closest("[data-member-add]");
       if (!addBtn) return;
       event.preventDefault();
