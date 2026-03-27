@@ -43,6 +43,11 @@ async function sendSetupEmail({ to, username, token }) {
     <p><a href="${setupLink}">${setupLink}</a></p>
     <p>This link expires in 48 hours and can only be used once.</p>
   `;
+  console.log("[add_user] setup email send triggered", {
+    to,
+    username,
+    endpoint: "/.netlify/functions/send-email",
+  });
   const result = await sendEmailHandler({
     httpMethod: "POST",
     body: JSON.stringify({ to, subject, html }),
@@ -2769,11 +2774,24 @@ exports.handler = async function handler(event) {
           userId: createdUser.id,
           accountId,
         });
-        await sendSetupEmail({
-          to: createdUser.email,
-          username: createdUser.username,
-          token: setup.token,
+        console.log("[add_user] setup token created", {
+          userId: createdUser.id,
+          email: createdUser.email,
+          expiresAt: setup.expiresAt,
         });
+        try {
+          await sendSetupEmail({
+            to: createdUser.email,
+            username: createdUser.username,
+            token: setup.token,
+          });
+        } catch (emailError) {
+          console.error("[add_user] setup email failed", {
+            userId: createdUser.id,
+            email: createdUser.email,
+            error: emailError?.message || String(emailError),
+          });
+        }
         break;
       }
       case "update_user": {
