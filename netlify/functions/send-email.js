@@ -2,7 +2,7 @@ const { Resend } = require('resend');
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-export async function handler(event) {
+exports.handler = async function handler(event) {
   try {
     const method = event?.httpMethod || 'GET';
     const from = process.env.EMAIL_FROM || 'no-reply@trakmetric.com';
@@ -63,4 +63,4 @@ export async function handler(event) {
       body: JSON.stringify({ error: error.message }),
     };
   }
-}
+};
