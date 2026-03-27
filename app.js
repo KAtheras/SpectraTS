@@ -424,45 +424,31 @@
       style.textContent = `
         #member-editor-modal .panel-modal{
           width:min(760px, calc(100vw - 32px));
-          max-height:min(88vh, 900px);
-          overflow:auto;
+          max-height:min(88vh, 860px);
+          display:flex;
+          flex-direction:column;
         }
         #member-editor-modal .panel-head{
           align-items:center;
-          margin-bottom:8px;
+          margin-bottom:10px;
         }
         #member-editor-modal .member-editor-form{
           display:grid;
-          gap:14px;
+          gap:10px;
+          min-height:0;
         }
-        #member-editor-modal .member-editor-section{
+        #member-editor-modal .member-editor-row{
           display:grid;
-          gap:8px;
-          padding-top:8px;
-        }
-        #member-editor-modal .member-editor-section + .member-editor-section{
-          border-top:1px solid var(--group-border);
-        }
-        #member-editor-modal .member-editor-section-title{
-          margin:0;
-          font-family:var(--font-head);
-          font-size:.75rem;
-          font-weight:700;
-          letter-spacing:.08em;
-          text-transform:uppercase;
-          color:var(--muted);
-        }
-        #member-editor-modal .member-editor-grid{
-          display:grid;
-          grid-template-columns:repeat(2, minmax(0, 1fr));
+          grid-template-columns:repeat(3, minmax(0, 1fr));
           gap:10px 12px;
+          align-items:end;
         }
-        #member-editor-modal .member-editor-grid label{
+        #member-editor-modal .member-editor-row label{
           margin:0;
           display:grid;
           gap:4px;
         }
-        #member-editor-modal .member-editor-grid label span{
+        #member-editor-modal .member-editor-row label span{
           font-family:var(--font-head);
           font-size:.72rem;
           font-weight:700;
@@ -470,14 +456,17 @@
           text-transform:uppercase;
           color:var(--muted);
         }
+        #member-editor-modal [data-member-editor-password-row] span{
+          display:none;
+        }
         #member-editor-modal .member-editor-footer{
           display:flex;
-          justify-content:flex-end;
+          justify-content:space-between;
           gap:10px;
-          padding-top:8px;
+          padding-top:6px;
         }
         @media (max-width: 700px){
-          #member-editor-modal .member-editor-grid{
+          #member-editor-modal .member-editor-row{
             grid-template-columns:1fr;
           }
         }
@@ -499,35 +488,21 @@
             <button class="mini-button" type="button" data-member-editor-close aria-label="Close member editor">✕</button>
           </div>
           <form class="member-editor-form" data-member-editor-form>
-            <section class="member-editor-section">
-              <h3 class="member-editor-section-title">Identity</h3>
-              <div class="member-editor-grid">
-                <label><span>Member name</span><input type="text" name="display_name" required /></label>
-                <label><span>User ID</span><input type="text" name="username" required /></label>
-                <label><span>Email</span><input type="email" name="email" required /></label>
-              </div>
-            </section>
-            <section class="member-editor-section">
-              <h3 class="member-editor-section-title">Organization</h3>
-              <div class="member-editor-grid">
-                <label><span>Title</span><select name="level"></select></label>
-                <label><span>Department</span><select name="department_id"><option value="">No department</option></select></label>
-                <label><span>Office</span><select name="office_id" required><option value="">Select office</option></select></label>
-              </div>
-            </section>
-            <section class="member-editor-section">
-              <h3 class="member-editor-section-title">Financial</h3>
-              <div class="member-editor-grid">
-                <label><span>Base rate</span><input type="number" step="0.01" min="0" name="base_rate" /></label>
-                <label><span>Cost rate</span><input type="number" step="0.01" min="0" name="cost_rate" /></label>
-              </div>
-            </section>
-            <section class="member-editor-section" data-member-editor-password-row>
-              <h3 class="member-editor-section-title">Password</h3>
-              <div class="member-editor-grid">
-                <label><span>Temporary password</span><input type="password" name="password" autocomplete="new-password" /></label>
-              </div>
-            </section>
+            <div class="member-editor-row">
+              <label><span>Member name</span><input type="text" name="display_name" required /></label>
+              <label><span>User ID</span><input type="text" name="username" required /></label>
+              <label><span>Email</span><input type="email" name="email" required /></label>
+            </div>
+            <div class="member-editor-row">
+              <label><span>Title</span><select name="level"></select></label>
+              <label><span>Department</span><select name="department_id"><option value="">No department</option></select></label>
+              <label><span>Office</span><select name="office_id" required><option value="">Select office</option></select></label>
+            </div>
+            <div class="member-editor-row">
+              <label><span>Base rate</span><input type="number" step="0.01" min="0" name="base_rate" /></label>
+              <label><span>Cost rate</span><input type="number" step="0.01" min="0" name="cost_rate" /></label>
+              <label data-member-editor-password-row><span></span><input type="password" name="password" autocomplete="new-password" aria-label="Temporary password" placeholder="Temporary password" /></label>
+            </div>
             <div class="member-editor-footer">
               <button class="button button-ghost" type="button" data-member-editor-cancel>Cancel</button>
               <button class="button" type="submit" data-member-editor-submit>Add member</button>
