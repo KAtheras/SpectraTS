@@ -433,12 +433,15 @@
             <button class="mini-button" type="button" data-member-editor-close>Close</button>
           </div>
           <form class="filters add-user-form" data-member-editor-form>
+            <div class="settings-subhead">Identity</div>
             <label><span>Member name</span><input type="text" name="display_name" required /></label>
             <label><span>User ID</span><input type="text" name="username" required /></label>
-            <label><span>Password</span><input type="password" name="password" autocomplete="new-password" /></label>
+            <label data-member-editor-password-row><span>Temporary password</span><input type="password" name="password" autocomplete="new-password" /></label>
+            <div class="settings-subhead">Organization</div>
             <label><span>Title</span><select name="level"></select></label>
             <label><span>Department</span><select name="department_id"><option value="">No department</option></select></label>
             <label><span>Office</span><select name="office_id" required><option value="">Select office</option></select></label>
+            <div class="settings-subhead">Financial</div>
             <label><span>Base rate</span><input type="number" step="0.01" min="0" name="base_rate" /></label>
             <label><span>Cost rate</span><input type="number" step="0.01" min="0" name="cost_rate" /></label>
             <div class="level-labels-actions">
@@ -526,9 +529,14 @@
     memberEditorTitle.textContent = mode === "create" ? "Add member" : "Edit member";
     memberEditorSubmit.textContent = mode === "create" ? "Add member" : "Save changes";
     const passwordField = field(memberEditorForm, "password");
+    const passwordRow = memberEditorForm.querySelector("[data-member-editor-password-row]");
     if (passwordField) {
       passwordField.required = mode === "create";
-      passwordField.placeholder = mode === "create" ? "Temporary password" : "Leave blank to keep current password";
+      passwordField.placeholder = mode === "create" ? "Temporary password" : "";
+      passwordField.value = "";
+    }
+    if (passwordRow) {
+      passwordRow.hidden = mode !== "create";
     }
     memberEditorModal.hidden = false;
     memberEditorModal.setAttribute("aria-hidden", "false");
@@ -588,13 +596,6 @@
             { userId, departmentId },
             { skipHydrate: true }
           );
-          if (password && password.trim()) {
-            await mutatePersistentState(
-              "reset_user_password",
-              { userId, password },
-              { skipHydrate: true }
-            );
-          }
         }
         if (canEditRates) {
           await mutatePersistentState(
@@ -3934,127 +3935,6 @@
       }, {});
       renderLevelRows();
       feedback("Level removed. Click Save Levels to persist.", false);
-    });
-  }
-
-  if (refs.ratesForm) {
-    refs.ratesForm.addEventListener("submit", async function (event) {
-      event.preventDefault();
-      const canEditRates = Boolean(state.permissions?.edit_user_rates);
-      const canEditProfile = Boolean(state.permissions?.edit_user_profile);
-      if (!canEditRates && !canEditProfile) {
-        feedback("Access denied.", true);
-        return;
-      }
-      const rows = Array.from(refs.ratesRows?.querySelectorAll(".rate-row") || []);
-      const updates = [];
-      const deptUpdates = [];
-      const titleUpdates = [];
-      for (const row of rows) {
-        const userId = row.dataset.userId;
-        const baseInput = row.querySelector("[data-rate-base]");
-        const costInput = row.querySelector("[data-rate-cost]");
-        const deptSelect = row.querySelector("[data-department-select]");
-        const titleSelect = row.querySelector("[data-title-level]");
-        const baseRaw = baseInput?.value?.trim() ?? "";
-        const costRaw = costInput?.value?.trim() ?? "";
-        const baseRate = baseRaw === "" ? null : Number(baseRaw);
-        const costRate = costRaw === "" ? null : Number(costRaw);
-        if ((baseRate !== null && (!Number.isFinite(baseRate) || baseRate < 0)) ||
-            (costRate !== null && (!Number.isFinite(costRate) || costRate < 0))) {
-          feedback("Rates must be non-negative numbers.", true);
-          return;
-        }
-        const departmentId = deptSelect ? (deptSelect.value || "") : "";
-        const prevUser = state.users.find((u) => u.id === userId) || {};
-        const prevBase = prevUser.baseRate ?? null;
-        const prevCost = prevUser.costRate ?? null;
-        const prevDept = prevUser.departmentId || null;
-        const prevLevel = normalizeLevel(prevUser.level);
-        const rateChanged =
-          (baseRate ?? null) !== (prevBase ?? null) ||
-          (costRate ?? null) !== (prevCost ?? null);
-        const deptChanged = (departmentId || null) !== (prevDept || null);
-        const nextLevel = titleSelect ? normalizeLevel(titleSelect.value) : prevLevel;
-        const levelChanged = nextLevel !== prevLevel;
-        if (rateChanged) {
-          updates.push({ userId, baseRate, costRate });
-        }
-        if (deptChanged) {
-          deptUpdates.push({ userId, departmentId: departmentId || null });
-        }
-        if (levelChanged) {
-          titleUpdates.push({ userId, level: nextLevel });
-        }
-      }
-      if (!updates.length && !deptUpdates.length && !titleUpdates.length) {
-        feedback("No changes to save.", false);
-        return;
-      }
-      if (updates.length && !canEditRates) {
-        feedback("Access denied.", true);
-        return;
-      }
-      if ((deptUpdates.length || titleUpdates.length) && !canEditProfile) {
-        feedback("Access denied.", true);
-        return;
-      }
-      try {
-        // Rates (batched without intermediate hydrate)
-        for (const update of updates) {
-          try {
-            await mutatePersistentState(
-              "update_user_rates",
-              {
-                userId: update.userId,
-                baseRate: update.baseRate,
-                costRate: update.costRate,
-              },
-              { skipHydrate: true }
-            );
-          } catch (err) {
-            console.error(err);
-            window.alert("Save failed");
-            return;
-          }
-        }
-        for (const update of deptUpdates) {
-          try {
-            await mutatePersistentState(
-              "set_user_department",
-              {
-                userId: update.userId,
-                departmentId: update.departmentId,
-              },
-              { skipHydrate: true }
-            );
-          } catch (err) {
-            console.error(err);
-            window.alert("Save failed");
-            return;
-          }
-        }
-        for (const update of titleUpdates) {
-          try {
-            await mutatePersistentState(
-              "set_user_level",
-              {
-                userId: update.userId,
-                level: update.level,
-              },
-              { skipHydrate: true }
-            );
-          } catch (err) {
-            console.error(err);
-            window.alert("Save failed");
-            return;
-          }
-        }
-        await refreshSettingsTab("rates");
-        feedback("Member information saved.", false);
-      } catch (error) {
-        feedback(error.message || "Unable to update rates.", true);
-      }
     });
   }
 

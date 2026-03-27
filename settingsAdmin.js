@@ -398,15 +398,19 @@
             border:1px solid var(--group-border);
             border-radius:14px;
             background:color-mix(in srgb, var(--panel) 92%, var(--input-bg));
-            padding:12px;
+            padding:14px;
             display:grid;
-            gap:10px;
+            gap:12px;
           }
-          #settings-page .member-info-head{
-            display:flex;
-            align-items:flex-start;
-            justify-content:space-between;
-            gap:10px;
+          #settings-page .member-info-body{
+            display:grid;
+            grid-template-columns:minmax(200px,1.2fr) minmax(220px,1fr) minmax(220px,1fr);
+            gap:14px;
+            align-items:start;
+          }
+          #settings-page .member-info-zone{
+            display:grid;
+            gap:8px;
           }
           #settings-page .member-info-name{
             font-family:var(--font-head);
@@ -419,11 +423,6 @@
             margin-top:2px;
             font-size:.8rem;
             color:var(--muted);
-          }
-          #settings-page .member-info-grid{
-            display:grid;
-            grid-template-columns:repeat(3, minmax(0, 1fr));
-            gap:10px 14px;
           }
           #settings-page .member-info-field{
             display:grid;
@@ -444,6 +443,12 @@
             white-space:nowrap;
             overflow:hidden;
             text-overflow:ellipsis;
+          }
+          #settings-page .member-info-actions{
+            display:flex;
+            align-items:center;
+            gap:10px;
+            flex-wrap:nowrap;
           }
           #settings-page .member-info-remove{
             margin:0;
@@ -631,7 +636,7 @@
             #settings-page .settings-rates-row{
               display:block;
             }
-            #settings-page .member-info-grid{
+            #settings-page .member-info-body{
               grid-template-columns:1fr;
             }
             #settings-page .settings-row-main-split{
@@ -957,44 +962,46 @@
       .map(
         (user) => `
           <article class="member-info-card rate-row" data-user-id="${escapeHtml(user.id)}">
-            <div class="member-info-head">
-              <div>
+            <div class="member-info-body">
+              <div class="member-info-zone">
                 <div class="member-info-name">${escapeHtml(user.displayName)}</div>
                 <div class="member-info-username">User ID: ${escapeHtml(user.username || "")}</div>
               </div>
-              <div class="settings-rates-actions">
-                ${
-                  canEditAny
-                    ? `<button type="button" class="button button-ghost member-info-edit" data-member-edit="${escapeHtml(user.id)}">Edit</button>`
-                    : ""
-                }
-                ${
-                  canEditProfile
-                    ? `<button type="button" class="expense-delete member-info-remove" data-user-deactivate="${escapeHtml(user.id)}">Remove</button>`
-                    : ""
-                }
+              <div class="member-info-zone">
+                <div class="member-info-field">
+                  <span class="member-info-field-label">Title</span>
+                  <span class="member-info-field-value">${escapeHtml(levelLabel(user.level) || "No title")}</span>
+                </div>
+                <div class="member-info-field">
+                  <span class="member-info-field-label">Department</span>
+                  <span class="member-info-field-value">${escapeHtml(departmentName(user.departmentId))}</span>
+                </div>
+                <div class="member-info-field">
+                  <span class="member-info-field-label">Office</span>
+                  <span class="member-info-field-value">${escapeHtml(officeName(user.officeId, user.officeName))}</span>
+                </div>
               </div>
-            </div>
-            <div class="member-info-grid">
-              <div class="member-info-field">
-                <span class="member-info-field-label">Title</span>
-                <span class="member-info-field-value">${escapeHtml(levelLabel(user.level) || "No title")}</span>
-              </div>
-              <div class="member-info-field">
-                <span class="member-info-field-label">Department</span>
-                <span class="member-info-field-value">${escapeHtml(departmentName(user.departmentId))}</span>
-              </div>
-              <div class="member-info-field">
-                <span class="member-info-field-label">Office</span>
-                <span class="member-info-field-value">${escapeHtml(officeName(user.officeId, user.officeName))}</span>
-              </div>
-              <div class="member-info-field">
-                <span class="member-info-field-label">Base rate</span>
-                <span class="member-info-field-value">${escapeHtml(user.baseRate ?? "—")}</span>
-              </div>
-              <div class="member-info-field">
-                <span class="member-info-field-label">Cost rate</span>
-                <span class="member-info-field-value">${escapeHtml(user.costRate ?? "—")}</span>
+              <div class="member-info-zone">
+                <div class="member-info-field">
+                  <span class="member-info-field-label">Base rate</span>
+                  <span class="member-info-field-value">${escapeHtml(user.baseRate ?? "—")}</span>
+                </div>
+                <div class="member-info-field">
+                  <span class="member-info-field-label">Cost rate</span>
+                  <span class="member-info-field-value">${escapeHtml(user.costRate ?? "—")}</span>
+                </div>
+                <div class="member-info-actions">
+                  ${
+                    canEditAny
+                      ? `<button type="button" class="button button-ghost member-info-edit" data-member-edit="${escapeHtml(user.id)}">Edit</button>`
+                      : ""
+                  }
+                  ${
+                    canEditProfile
+                      ? `<button type="button" class="expense-delete member-info-remove" data-user-deactivate="${escapeHtml(user.id)}">Remove</button>`
+                      : ""
+                  }
+                </div>
               </div>
             </div>
           </article>
