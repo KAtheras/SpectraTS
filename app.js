@@ -3415,6 +3415,17 @@
           return;
         }
         const id = row.dataset.officeId;
+        const activeClients = (state.clients || []).filter((client) => (client.officeId || "") === (id || "")).length;
+        const activeProjects = (state.projects || []).filter((project) => (project.officeId || "") === (id || "")).length;
+        const confirmation = await appDialog({
+          title: "Delete office location?",
+          message: `Are you sure you would like to delete this office location?\nCurrently there are ${activeClients} clients and ${activeProjects} projects active in this office location.`,
+          confirmText: "Delete",
+          cancelText: "Cancel",
+        });
+        if (!confirmation.confirmed) {
+          return;
+        }
         state.officeLocations = state.officeLocations.filter((item) => item.id !== id);
         renderOfficeLocations();
         await saveOfficeLocations(state.officeLocations);
@@ -3615,6 +3626,19 @@
       }
       const row = deleteBtn.closest(".level-row");
       if (!row) return;
+      const levelToRemove = Number(row.dataset.level);
+      const membersWithRole = (state.users || []).filter(function (user) {
+        return user?.isActive !== false && normalizeLevel(user?.level) === levelToRemove;
+      }).length;
+      const confirmDelete = await appDialog({
+        title: "Remove role?",
+        message: `Are you sure you would like to remove this role? There are currently ${membersWithRole} member${membersWithRole === 1 ? "" : "s"} with this role.`,
+        confirmText: "Remove",
+        cancelText: "Cancel",
+      });
+      if (!confirmDelete.confirmed) {
+        return;
+      }
 
       const rows = Array.from(refs.levelRows.querySelectorAll(".level-row[data-level]")).filter((r) => r !== row);
 
