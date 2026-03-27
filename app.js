@@ -162,7 +162,7 @@
       return;
     }
     const rows = Array.from(
-      document.querySelectorAll("#level-labels-form .level-row")
+      document.querySelectorAll("#level-labels-form .level-row[data-level]")
     );
 
     const levels = rows
@@ -3616,7 +3616,7 @@
       const row = deleteBtn.closest(".level-row");
       if (!row) return;
 
-      const rows = Array.from(refs.levelRows.querySelectorAll(".level-row")).filter((r) => r !== row);
+      const rows = Array.from(refs.levelRows.querySelectorAll(".level-row[data-level]")).filter((r) => r !== row);
 
       const seen = new Set();
       const validGroups = new Set(["staff", "manager", "executive", "admin", "superuser"]);
