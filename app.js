@@ -3710,11 +3710,13 @@
       const rows = Array.from(refs.ratesRows?.querySelectorAll(".rate-row") || []);
       const updates = [];
       const deptUpdates = [];
+      const titleUpdates = [];
       for (const row of rows) {
         const userId = row.dataset.userId;
         const baseInput = row.querySelector("[data-rate-base]");
         const costInput = row.querySelector("[data-rate-cost]");
         const deptSelect = row.querySelector("[data-department-select]");
+        const titleSelect = row.querySelector("[data-title-level]");
         const baseRaw = baseInput?.value?.trim() ?? "";
         const costRaw = costInput?.value?.trim() ?? "";
         const baseRate = baseRaw === "" ? null : Number(baseRaw);
@@ -3729,18 +3731,24 @@
         const prevBase = prevUser.baseRate ?? null;
         const prevCost = prevUser.costRate ?? null;
         const prevDept = prevUser.departmentId || null;
+        const prevLevel = normalizeLevel(prevUser.level);
         const rateChanged =
           (baseRate ?? null) !== (prevBase ?? null) ||
           (costRate ?? null) !== (prevCost ?? null);
         const deptChanged = (departmentId || null) !== (prevDept || null);
+        const nextLevel = titleSelect ? normalizeLevel(titleSelect.value) : prevLevel;
+        const levelChanged = nextLevel !== prevLevel;
         if (rateChanged) {
           updates.push({ userId, baseRate, costRate });
         }
         if (deptChanged) {
           deptUpdates.push({ userId, departmentId: departmentId || null });
         }
+        if (levelChanged) {
+          titleUpdates.push({ userId, level: nextLevel });
+        }
       }
-      if (!updates.length && !deptUpdates.length) {
+      if (!updates.length && !deptUpdates.length && !titleUpdates.length) {
         feedback("No changes to save.", false);
         return;
       }
@@ -3748,7 +3756,7 @@
         feedback("Access denied.", true);
         return;
       }
-      if (deptUpdates.length && !canEditProfile) {
+      if ((deptUpdates.length || titleUpdates.length) && !canEditProfile) {
         feedback("Access denied.", true);
         return;
       }
@@ -3778,6 +3786,22 @@
               {
                 userId: update.userId,
                 departmentId: update.departmentId,
+              },
+              { skipHydrate: true }
+            );
+          } catch (err) {
+            console.error(err);
+            window.alert("Save failed");
+            return;
+          }
+        }
+        for (const update of titleUpdates) {
+          try {
+            await mutatePersistentState(
+              "set_user_level",
+              {
+                userId: update.userId,
+                level: update.level,
               },
               { skipHydrate: true }
             );

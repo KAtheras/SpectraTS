@@ -118,6 +118,40 @@ async function setUserDepartment(sql, payload, accountId) {
   return result[0];
 }
 
+async function setUserLevel(sql, payload, accountId) {
+  const userId = normalizeText(payload.userId);
+  const level = normalizeLevel(payload.level);
+  if (!userId) {
+    return errorResponse(400, "User id is required.");
+  }
+  if (!level) {
+    return errorResponse(400, "Level is required.");
+  }
+
+  const valid = await sql`
+    SELECT 1
+    FROM level_labels
+    WHERE account_id = ${accountId}::uuid
+      AND level = ${level}
+    LIMIT 1
+  `;
+  if (!valid[0]) {
+    return errorResponse(400, "Invalid level.");
+  }
+
+  const result = await sql`
+    UPDATE users
+    SET level = ${level}, updated_at = ${new Date().toISOString()}
+    WHERE id = ${userId}
+      AND account_id = ${accountId}::uuid
+    RETURNING id, level
+  `;
+  if (!result[0]) {
+    return errorResponse(404, "User not found.");
+  }
+  return result[0];
+}
+
 function normalizeDateString(value) {
   if (!value) return "";
   // Already a YYYY-MM-DD string
@@ -2341,6 +2375,25 @@ exports.handler = async function handler(event) {
           return errorResponse(403, "Access denied.");
         }
         mutationResult = await setUserDepartment(sql, request.payload || {}, accountId);
+        break;
+      }
+      case "set_user_level": {
+        const targetUserId = normalizeText(request.payload?.userId);
+        if (!targetUserId) {
+          return errorResponse(400, "User id is required.");
+        }
+        const targetUser = await findUserById(sql, targetUserId, accountId);
+        if (!targetUser) {
+          return errorResponse(404, "User not found.");
+        }
+        const canEditProfile = can("edit_member_profile", {
+          targetUserId,
+          targetOfficeId: targetUser.office_id || targetUser.officeId || null,
+        });
+        if (!canEditProfile) {
+          return errorResponse(403, "Access denied.");
+        }
+        mutationResult = await setUserLevel(sql, request.payload || {}, accountId);
         break;
       }
       case "update_role_permissions": {

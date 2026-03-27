@@ -350,7 +350,7 @@
           }
           #settings-page .settings-rates-row{
             display:grid;
-            grid-template-columns:minmax(220px,1.2fr) minmax(120px,.55fr) minmax(120px,.55fr) minmax(170px,.9fr) minmax(180px,max-content);
+            grid-template-columns:minmax(180px,1fr) minmax(160px,.95fr) minmax(100px,.5fr) minmax(100px,.5fr) minmax(160px,.9fr) minmax(160px,max-content);
             gap:12px;
             align-items:center;
           }
@@ -389,6 +389,16 @@
             flex-wrap:nowrap;
             width:100%;
           }
+          #settings-page .settings-rates-title-readonly{
+            min-height:40px;
+            display:flex;
+            align-items:center;
+            padding:0 10px;
+            border:1px solid var(--input-border);
+            border-radius:16px;
+            background:var(--input-bg);
+            color:var(--ink);
+          }
           #settings-page .settings-user-action{
             margin:0;
             padding:0;
@@ -403,6 +413,8 @@
           }
           #settings-page .settings-user-action.settings-user-action-secondary{
             color:var(--muted);
+            max-width:74px;
+            text-align:right;
           }
           #settings-page .settings-user-action.settings-user-action-danger{
             color:var(--danger);
@@ -565,7 +577,7 @@
               grid-template-columns:minmax(0,1fr) minmax(84px,max-content);
             }
             #settings-page .settings-rates-row{
-              grid-template-columns:minmax(120px,1fr) minmax(90px,.8fr) minmax(90px,.8fr) minmax(120px,1fr) minmax(168px,max-content);
+              grid-template-columns:minmax(120px,1fr) minmax(120px,1fr) minmax(90px,.75fr) minmax(90px,.75fr) minmax(120px,1fr) minmax(152px,max-content);
             }
             #settings-page .settings-row-actions{
               width:auto;
@@ -888,8 +900,16 @@
 
     const editable = Boolean(state.permissions?.edit_user_rates);
     const deptEditable = Boolean(state.permissions?.edit_user_profile);
+    const titleEditable = Boolean(state.permissions?.edit_user_profile);
     const users = (state.users || []).filter((u) => u.isActive !== false);
     const departments = (state.departments || []).filter((d) => d.isActive !== false);
+    const titleOptions = Object.entries(state.levelLabels || {})
+      .map(([level, value]) => ({
+        level: Number(level),
+        label: value?.label || `Level ${level}`,
+      }))
+      .filter((item) => Number.isFinite(item.level))
+      .sort((a, b) => a.level - b.level);
 
     const departmentOptions = (selected) =>
       [`<option value="">No department</option>`]
@@ -899,12 +919,26 @@
           )
         )
         .join("");
+    const levelSelectOptions = (selectedLevel) =>
+      titleOptions
+        .map(
+          (item) =>
+            `<option value="${item.level}"${item.level === Number(selectedLevel) ? " selected" : ""}>${escapeHtml(item.label)}</option>`
+        )
+        .join("");
+    const levelLabel = (selectedLevel) =>
+      titleOptions.find((item) => item.level === Number(selectedLevel))?.label || "";
 
     const rowsHtml = users
       .map(
         (user) => `
           <div class="level-row settings-rates-row rate-row" data-user-id="${escapeHtml(user.id)}">
             <span class="settings-rates-member">${escapeHtml(user.displayName)}</span>
+            ${
+              titleEditable
+                ? `<select data-title-level="${escapeHtml(user.id)}">${levelSelectOptions(user.level)}</select>`
+                : `<span class="settings-rates-title-readonly">${escapeHtml(levelLabel(user.level) || "No title")}</span>`
+            }
             <input type="number" step="0.01" min="0" data-rate-base value="${user.baseRate ?? ""}" ${editable ? "" : "disabled"} />
             <input type="number" step="0.01" min="0" data-rate-cost value="${user.costRate ?? ""}" ${editable ? "" : "disabled"} />
             <select data-department-select="${escapeHtml(user.id)}" ${deptEditable ? "" : "disabled"}>
@@ -927,6 +961,7 @@
     refs.ratesRows.innerHTML = `
       <div class="level-row settings-rates-row settings-rates-row-header" aria-hidden="true">
         <span>MEMBER NAME</span>
+        <span>TITLE</span>
         <span>BASE RATE</span>
         <span>COST RATE</span>
         <span>DEPARTMENT</span>
