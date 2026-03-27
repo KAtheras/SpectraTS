@@ -3481,9 +3481,8 @@
       state.expenseCategories = categories;
       renderExpenseCategories();
       try {
-        await mutatePersistentState("update_expense_categories", { categories });
-        await loadPersistentState();
-        renderExpenseCategories();
+        await mutatePersistentState("update_expense_categories", { categories }, { skipHydrate: true });
+        await refreshSettingsTab("categories");
         feedback("Category deleted.", false);
       } catch (error) {
         state.expenseCategories = previous;
