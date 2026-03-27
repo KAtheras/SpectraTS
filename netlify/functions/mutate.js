@@ -2774,24 +2774,20 @@ exports.handler = async function handler(event) {
           userId: createdUser.id,
           accountId,
         });
+        const targetEmail = normalizeText(createdUser.email || request.payload?.email || "");
+        if (!targetEmail || !targetEmail.includes("@")) {
+          return errorResponse(400, "Member email is required for setup link.");
+        }
         console.log("[add_user] setup token created", {
           userId: createdUser.id,
-          email: createdUser.email,
+          email: targetEmail,
           expiresAt: setup.expiresAt,
         });
-        try {
-          await sendSetupEmail({
-            to: createdUser.email,
-            username: createdUser.username,
-            token: setup.token,
-          });
-        } catch (emailError) {
-          console.error("[add_user] setup email failed", {
-            userId: createdUser.id,
-            email: createdUser.email,
-            error: emailError?.message || String(emailError),
-          });
-        }
+        await sendSetupEmail({
+          to: targetEmail,
+          username: createdUser.username,
+          token: setup.token,
+        });
         break;
       }
       case "update_user": {
