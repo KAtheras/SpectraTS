@@ -19,10 +19,11 @@
     `;
     const form = document.getElementById("set-password-form");
     const feedback = document.getElementById("set-password-feedback");
-    form?.addEventListener("submit", function (event) {
+    form?.addEventListener("submit", async function (event) {
       event.preventDefault();
       const password = document.getElementById("set-password-new")?.value || "";
       const confirm = document.getElementById("set-password-confirm")?.value || "";
+      const submitBtn = form.querySelector('button[type="submit"]');
       if (!token) {
         feedback.textContent = "Missing setup token.";
         feedback.style.color = "#b2362e";
@@ -38,8 +39,34 @@
         feedback.style.color = "#b2362e";
         return;
       }
-      feedback.textContent = "Set password backend not connected yet.";
-      feedback.style.color = "#6d6258";
+      try {
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Setting...";
+        const response = await fetch("/.netlify/functions/mutate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "complete_password_setup",
+            payload: {
+              token,
+              password,
+            },
+          }),
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(payload?.error || "Unable to set password.");
+        }
+        feedback.textContent = "Password set successfully.";
+        feedback.style.color = "#2b6b3a";
+        form.reset();
+      } catch (error) {
+        feedback.textContent = error.message || "Unable to set password.";
+        feedback.style.color = "#b2362e";
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Set password";
+      }
     });
     return;
   }

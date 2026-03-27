@@ -1,4 +1,5 @@
 "use strict";
+const crypto = require("crypto");
 
 const {
   createUserRecord,
@@ -31,6 +32,58 @@ const {
   logAudit,
 } = require("./_db");
 const permissions = require("./permissions");
+
+function hashSetupToken(token) {
+  return crypto.createHash("sha256").update(token).digest("hex");
+}
+
+async function completePasswordSetup(sql, payload) {
+  const token = normalizeText(payload?.token);
+  const password = String(payload?.password || "");
+  if (!token) {
+    return errorResponse(400, "Setup token is required.");
+  }
+  if (password.length < 8) {
+    return errorResponse(400, "Password must be at least 8 characters.");
+  }
+
+  const tokenHash = hashSetupToken(token);
+  const rows = await sql`
+    SELECT id, user_id, account_id, expires_at, used_at
+    FROM password_setup_tokens
+    WHERE token_hash = ${tokenHash}
+    LIMIT 1
+  `;
+  const record = rows[0];
+  if (!record) {
+    return errorResponse(400, "Invalid setup token.");
+  }
+  if (record.used_at) {
+    return errorResponse(400, "This setup link has already been used.");
+  }
+  if (new Date(record.expires_at).getTime() <= Date.now()) {
+    return errorResponse(400, "This setup link has expired.");
+  }
+
+  const nowIso = new Date().toISOString();
+  await sql`
+    UPDATE users
+    SET
+      password_hash = ${hashPassword(password)},
+      must_change_password = FALSE,
+      updated_at = ${nowIso}
+    WHERE id = ${record.user_id}
+      AND account_id = ${record.account_id}::uuid
+  `;
+  await sql`
+    UPDATE password_setup_tokens
+    SET used_at = ${nowIso}
+    WHERE id = ${record.id}
+      AND used_at IS NULL
+  `;
+
+  return { ok: true };
+}
 
 async function sendSetupEmail({ to, username, token }) {
   const { handler: sendEmailHandler } = require("./send-email");
@@ -2282,6 +2335,13 @@ exports.handler = async function handler(event) {
   try {
     const sql = await getSql();
     await ensureSchema(sql);
+    if (request.action === "complete_password_setup") {
+      const setupResult = await completePasswordSetup(sql, request.payload || {});
+      if (setupResult?.statusCode) {
+        return setupResult;
+      }
+      return json(200, { success: true });
+    }
     const context = await getSessionContext(sql, event, request);
     const authError = requireAuth(context);
     if (authError) {
