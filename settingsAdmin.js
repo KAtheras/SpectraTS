@@ -979,7 +979,7 @@
     const rowsHtml = users
       .map(
         (user) => `
-          <article class="member-info-card rate-row" data-user-id="${escapeHtml(user.id)}">
+          <article class="member-info-card member-info-row-card" data-user-id="${escapeHtml(user.id)}">
             <div class="member-info-row member-info-row-top">
               <div class="member-info-cell member-info-name-cell">
                 <div class="member-info-name">${escapeHtml(user.displayName)}</div>
