@@ -2481,7 +2481,14 @@
 
         await mutatePersistentState("deactivate_user", {
           userId: user.id,
+        }, {
+          skipHydrate: true,
         });
+        if (state.currentView === "settings") {
+          await refreshSettingsTab("rates");
+          setUserFeedback(`${user.displayName} was deactivated.`, false);
+          return;
+        }
         setUserFeedback(`${user.displayName} was deactivated.`, false);
       }
     } catch (error) {
