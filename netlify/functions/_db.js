@@ -107,6 +107,7 @@ async function ensureSchema(sql) {
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
       username TEXT NOT NULL,
+      email TEXT NOT NULL DEFAULT '',
       display_name TEXT NOT NULL,
       base_rate NUMERIC(10,2),
       cost_rate NUMERIC(10,2),
@@ -124,6 +125,7 @@ async function ensureSchema(sql) {
 
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS level INT`;
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS account_id UUID REFERENCES accounts(id)`;
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT NOT NULL DEFAULT ''`;
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS base_rate NUMERIC(10,2)`;
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS cost_rate NUMERIC(10,2)`;
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT FALSE`;
@@ -149,6 +151,7 @@ async function ensureSchema(sql) {
     END
   `;
   await sql`UPDATE users SET account_id = ${accountUuid}::uuid WHERE account_id IS NULL`;
+  await sql`UPDATE users SET email = '' WHERE email IS NULL`;
   await sql`ALTER TABLE users DROP CONSTRAINT IF EXISTS users_level_check`;
   await sql`
     ALTER TABLE users
@@ -850,6 +853,7 @@ async function listUsers(sql, accountId) {
     SELECT
       users.id,
       users.username,
+      users.email,
       users.display_name AS "displayName",
       users.role,
       users.level,
@@ -932,6 +936,7 @@ async function listLevelLabels(sql, accountId) {
 
 async function createUserRecord(sql, payload) {
   const username = normalizeText(payload.username);
+  const email = normalizeText(payload.email);
   const displayName = normalizeText(payload.displayName);
   const password = String(payload.password || "");
   const level = normalizeLevel(payload.level ?? payload.role);
@@ -959,6 +964,9 @@ async function createUserRecord(sql, payload) {
   }
   if (!displayName) {
     throw new Error("Display name is required.");
+  }
+  if (!email || !email.includes("@")) {
+    throw new Error("Email is required.");
   }
   if (password.length < 8) {
     throw new Error("Password must be at least 8 characters.");
@@ -1008,6 +1016,7 @@ async function createUserRecord(sql, payload) {
       UPDATE users
       SET
         display_name = ${displayName},
+      email = ${email},
       password_hash = ${hashPassword(password)},
       level = ${level},
       role = ${mappedRole},
@@ -1022,6 +1031,7 @@ async function createUserRecord(sql, payload) {
     return {
       id: userRecord.id,
       username,
+      email,
       displayName,
       level,
       role: mappedRole,
@@ -1038,6 +1048,7 @@ async function createUserRecord(sql, payload) {
   const user = {
     id: randomId(),
     username,
+    email,
     displayName,
     level,
     role: mappedRole,
@@ -1055,6 +1066,7 @@ async function createUserRecord(sql, payload) {
     INSERT INTO users (
       id,
       username,
+      email,
       display_name,
       password_hash,
       role,
@@ -1071,6 +1083,7 @@ async function createUserRecord(sql, payload) {
     VALUES (
       ${user.id},
       ${user.username},
+      ${user.email},
       ${user.displayName},
       ${user.passwordHash},
       ${user.role},
@@ -1101,6 +1114,10 @@ async function updateUserRecord(sql, payload, actingUser) {
         ? normalizeText(payload.office_id)
         : null;
   const existingUser = await findUserById(sql, userId, actingUser?.accountId);
+  const email =
+    payload.email !== undefined && payload.email !== null && payload.email !== ""
+      ? normalizeText(payload.email)
+      : normalizeText(existingUser?.email || "");
   const rawBaseRate =
     payload.baseRate !== undefined && payload.baseRate !== null && payload.baseRate !== ""
       ? payload.baseRate
@@ -1122,6 +1139,9 @@ async function updateUserRecord(sql, payload, actingUser) {
   }
   if (!username) {
     throw new Error("Username is required.");
+  }
+  if (!email || !email.includes("@")) {
+    throw new Error("Email is required.");
   }
 
   const duplicateUsername = await sql`
@@ -1179,6 +1199,7 @@ async function updateUserRecord(sql, payload, actingUser) {
     UPDATE users
     SET
       username = ${username},
+      email = ${email},
       display_name = ${displayName},
       level = ${level},
       role = ${mappedRole},
@@ -1206,6 +1227,7 @@ async function updateUserRecord(sql, payload, actingUser) {
     return {
       id: refreshed.id,
       username: refreshed.username,
+      email: refreshed.email || "",
       displayName: refreshed.display_name,
       level: normalizeLevel(refreshed.level),
       baseRate: refreshed.base_rate ?? null,

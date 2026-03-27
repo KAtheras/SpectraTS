@@ -1001,6 +1001,7 @@
               <div class="member-info-cell member-info-user-cell">
                 <span class="member-info-field-label">User ID</span>
                 <div class="member-info-username">${escapeHtml(user.username || "")}</div>
+                <div class="member-info-username">Email: ${escapeHtml(user.email || "")}</div>
               </div>
               <div class="member-info-cell">
                 <span class="member-info-field-label">Base rate</span>

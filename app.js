@@ -436,6 +436,7 @@
             <div class="settings-subhead">Identity</div>
             <label><span>Member name</span><input type="text" name="display_name" required /></label>
             <label><span>User ID</span><input type="text" name="username" required /></label>
+            <label><span>Email</span><input type="email" name="email" required /></label>
             <label data-member-editor-password-row><span>Temporary password</span><input type="password" name="password" autocomplete="new-password" /></label>
             <div class="settings-subhead">Organization</div>
             <label><span>Title</span><select name="level"></select></label>
@@ -509,6 +510,7 @@
 
     field(memberEditorForm, "display_name").value = user?.displayName || "";
     field(memberEditorForm, "username").value = user?.username || "";
+    field(memberEditorForm, "email").value = user?.email || "";
     field(memberEditorForm, "password").value = "";
     field(memberEditorForm, "level").value = String(user?.level || sortedLevelEntries[0]?.[0] || "1");
     field(memberEditorForm, "department_id").value = user?.departmentId || "";
@@ -517,7 +519,7 @@
     field(memberEditorForm, "cost_rate").value = user?.costRate ?? "";
 
     const profileEditable = mode === "create" ? canCreate : canEditProfile;
-    ["display_name", "username", "password", "level", "department_id", "office_id"].forEach((name) => {
+    ["display_name", "username", "email", "password", "level", "department_id", "office_id"].forEach((name) => {
       const el = field(memberEditorForm, name);
       if (el) el.disabled = !profileEditable;
     });
@@ -550,6 +552,7 @@
     const canCreate = Boolean(state.permissions?.create_user);
     const displayName = field(memberEditorForm, "display_name").value.trim();
     const username = field(memberEditorForm, "username").value.trim();
+    const email = field(memberEditorForm, "email").value.trim();
     const password = field(memberEditorForm, "password").value;
     const level = normalizeLevel(field(memberEditorForm, "level").value || "1");
     const departmentId = field(memberEditorForm, "department_id").value || null;
@@ -562,6 +565,10 @@
       feedback("Rates must be non-negative numbers.", true);
       return;
     }
+    if (!email || !email.includes("@")) {
+      feedback("Email must include @.", true);
+      return;
+    }
 
     try {
       if (memberEditorMode === "create") {
@@ -571,7 +578,7 @@
         }
         const result = await mutatePersistentState(
           "add_user",
-          { displayName, username, password, level, officeId, baseRate, costRate },
+          { displayName, username, email, password, level, officeId, baseRate, costRate },
           { skipHydrate: true }
         );
         const created = (result?.users || []).find((u) => String(u.username || "").toLowerCase() === String(username).toLowerCase());
@@ -588,7 +595,7 @@
         if (canEditProfile) {
           await mutatePersistentState(
             "update_user",
-            { userId, displayName, username, level, officeId },
+            { userId, displayName, username, email, level, officeId },
             { skipHydrate: true }
           );
           await mutatePersistentState(
@@ -962,6 +969,10 @@
                 : typeof u?.office_name === "string" && u.office_name.trim()
                   ? u.office_name.trim()
                   : "";
+            normalized.email =
+              typeof u?.email === "string" && u.email.trim()
+                ? u.email.trim()
+                : "";
             return normalized;
           })
           .filter(Boolean)
