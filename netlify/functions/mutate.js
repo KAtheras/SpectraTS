@@ -48,9 +48,23 @@ async function sendSetupEmail({ to, username, token }) {
     username,
     endpoint: "/.netlify/functions/send-email",
   });
-  const result = await sendEmailHandler({
-    httpMethod: "POST",
-    body: JSON.stringify({ to, subject, html }),
+  let result;
+  try {
+    result = await sendEmailHandler({
+      httpMethod: "POST",
+      body: JSON.stringify({ to, subject, html }),
+    });
+  } catch (error) {
+    console.error("[add_user] send-email invocation failed", {
+      to,
+      username,
+      error: error?.message || String(error),
+    });
+    throw error;
+  }
+  console.log("[add_user] send-email result", {
+    statusCode: result?.statusCode,
+    body: result?.body || null,
   });
   if (!result || Number(result.statusCode) >= 400) {
     const parsed = JSON.parse(result?.body || "{}");
