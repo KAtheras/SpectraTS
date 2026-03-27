@@ -187,6 +187,22 @@ async function ensureSchema(sql) {
   `;
 
   await sql`
+    CREATE TABLE IF NOT EXISTS password_setup_tokens (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      account_id UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      token_hash TEXT NOT NULL UNIQUE,
+      expires_at TIMESTAMPTZ NOT NULL,
+      used_at TIMESTAMPTZ NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+  await sql`
+    CREATE INDEX IF NOT EXISTS password_setup_tokens_user_idx
+      ON password_setup_tokens (user_id, account_id, used_at, expires_at)
+  `;
+
+  await sql`
     CREATE TABLE IF NOT EXISTS clients (
       id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
       account_id UUID REFERENCES accounts(id),
@@ -968,9 +984,10 @@ async function createUserRecord(sql, payload) {
   if (!email || !email.includes("@")) {
     throw new Error("Email is required.");
   }
-  if (password.length < 8) {
-    throw new Error("Password must be at least 8 characters.");
-  }
+  const passwordValue =
+    password.length >= 8
+      ? password
+      : `${crypto.randomUUID()}${crypto.randomBytes(12).toString("hex")}`;
   if (baseRate !== null && !(Number.isFinite(baseRate) && baseRate >= 0)) {
     throw new Error("Base rate must be a non-negative number.");
   }
@@ -1017,7 +1034,7 @@ async function createUserRecord(sql, payload) {
       SET
         display_name = ${displayName},
       email = ${email},
-      password_hash = ${hashPassword(password)},
+      password_hash = ${hashPassword(passwordValue)},
       level = ${level},
       role = ${mappedRole},
       base_rate = ${baseRate},
@@ -1056,7 +1073,7 @@ async function createUserRecord(sql, payload) {
     costRate,
     createdAt: now,
     updatedAt: now,
-    passwordHash: hashPassword(password),
+    passwordHash: hashPassword(passwordValue),
     accountId: accountUuid,
     officeId: officeId || null,
     mustChangePassword,
@@ -1100,6 +1117,51 @@ async function createUserRecord(sql, payload) {
   `;
 
   return user;
+}
+
+function hashSetupToken(token) {
+  return crypto.createHash("sha256").update(token).digest("hex");
+}
+
+async function createPasswordSetupToken(sql, { userId, accountId, ttlHours = 48 }) {
+  const token = `${crypto.randomUUID()}${crypto.randomBytes(20).toString("hex")}`;
+  const tokenHash = hashSetupToken(token);
+  const expiresAt = new Date(Date.now() + ttlHours * 60 * 60 * 1000).toISOString();
+
+  await sql`
+    UPDATE password_setup_tokens
+    SET used_at = NOW()
+    WHERE user_id = ${userId}
+      AND account_id = ${accountId}::uuid
+      AND used_at IS NULL
+  `;
+
+  await sql`
+    INSERT INTO password_setup_tokens (
+      id,
+      user_id,
+      account_id,
+      token_hash,
+      expires_at
+    )
+    VALUES (
+      ${randomId()},
+      ${userId},
+      ${accountId}::uuid,
+      ${tokenHash},
+      ${expiresAt}
+    )
+  `;
+
+  await sql`
+    UPDATE users
+    SET must_change_password = TRUE,
+        updated_at = NOW()
+    WHERE id = ${userId}
+      AND account_id = ${accountId}::uuid
+  `;
+
+  return { token, expiresAt };
 }
 
 async function updateUserRecord(sql, payload, actingUser) {
@@ -2301,6 +2363,7 @@ module.exports = {
   clearSession,
   createSession,
   createUserRecord,
+  createPasswordSetupToken,
   deactivateUser,
   ensureDefaultAccount,
   ensureSchema,

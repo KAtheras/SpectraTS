@@ -2,6 +2,7 @@
 
 const {
   createUserRecord,
+  createPasswordSetupToken,
   deactivateUser,
   ensureSchema,
   errorResponse,
@@ -30,6 +31,27 @@ const {
   logAudit,
 } = require("./_db");
 const permissions = require("./permissions");
+
+async function sendSetupEmail({ to, username, token }) {
+  const { handler: sendEmailHandler } = await import("./send-email.js");
+  const setupLink = `https://trakmetric.com/set-password?token=${encodeURIComponent(token)}`;
+  const subject = "Set up your Trakmetric password";
+  const html = `
+    <p>Your Trakmetric account has been created.</p>
+    <p><strong>User ID:</strong> ${username}</p>
+    <p>Set your password by clicking the link below:</p>
+    <p><a href="${setupLink}">${setupLink}</a></p>
+    <p>This link expires in 48 hours and can only be used once.</p>
+  `;
+  const result = await sendEmailHandler({
+    httpMethod: "POST",
+    body: JSON.stringify({ to, subject, html }),
+  });
+  if (!result || Number(result.statusCode) >= 400) {
+    const parsed = JSON.parse(result?.body || "{}");
+    throw new Error(parsed.error || "Unable to send setup email.");
+  }
+}
 
 async function createDepartment(sql, payload, accountId) {
   const name = normalizeText(payload.name);
@@ -2738,10 +2760,19 @@ exports.handler = async function handler(event) {
           return errorResponse(403, "Access denied.");
         }
         const level = desiredLevel;
-        await createUserRecord(sql, {
+        const createdUser = await createUserRecord(sql, {
           ...(request.payload || {}),
           level,
           accountId,
+        });
+        const setup = await createPasswordSetupToken(sql, {
+          userId: createdUser.id,
+          accountId,
+        });
+        await sendSetupEmail({
+          to: createdUser.email,
+          username: createdUser.username,
+          token: setup.token,
         });
         break;
       }

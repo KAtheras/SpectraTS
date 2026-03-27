@@ -577,7 +577,7 @@
     field(memberEditorForm, "cost_rate").value = user?.costRate ?? "";
 
     const profileEditable = mode === "create" ? canCreate : canEditProfile;
-    ["display_name", "username", "email", "password", "level", "department_id", "office_id"].forEach((name) => {
+    ["display_name", "username", "email", "level", "department_id", "office_id"].forEach((name) => {
       const el = field(memberEditorForm, name);
       if (el) el.disabled = !profileEditable;
     });
@@ -591,12 +591,13 @@
     const passwordField = field(memberEditorForm, "password");
     const passwordRow = memberEditorForm.querySelector("[data-member-editor-password-row]");
     if (passwordField) {
-      passwordField.required = mode === "create";
-      passwordField.placeholder = mode === "create" ? "Temporary password" : "";
+      passwordField.required = false;
+      passwordField.placeholder = "Temporary password";
+      passwordField.disabled = true;
       passwordField.value = "";
     }
     if (passwordRow) {
-      passwordRow.hidden = mode !== "create";
+      passwordRow.hidden = true;
     }
     memberEditorModal.hidden = false;
     memberEditorModal.setAttribute("aria-hidden", "false");
@@ -611,7 +612,6 @@
     const displayName = field(memberEditorForm, "display_name").value.trim();
     const username = field(memberEditorForm, "username").value.trim();
     const email = field(memberEditorForm, "email").value.trim();
-    const password = field(memberEditorForm, "password").value;
     const level = normalizeLevel(field(memberEditorForm, "level").value || "1");
     const departmentId = field(memberEditorForm, "department_id").value || null;
     const officeId = field(memberEditorForm, "office_id").value || null;
@@ -636,7 +636,7 @@
         }
         const result = await mutatePersistentState(
           "add_user",
-          { displayName, username, email, password, level, officeId, baseRate, costRate },
+          { displayName, username, email, level, officeId, baseRate, costRate },
           { skipHydrate: true }
         );
         const created = (result?.users || []).find((u) => String(u.username || "").toLowerCase() === String(username).toLowerCase());
