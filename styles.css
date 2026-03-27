@@ -3544,8 +3544,8 @@ body[data-theme="dark"] .entry-approved td {
 
 #settings-page .settings-rates-cards .member-info-card.member-info-card--enhanced .member-info-layout {
   display: grid;
-  grid-template-columns: minmax(220px, 0.96fr) minmax(0, 2.04fr);
-  gap: 14px 8px;
+  grid-template-columns: minmax(230px, 1fr) minmax(0, 1.9fr);
+  gap: 14px 14px;
   align-items: start;
 }
 
@@ -3562,11 +3562,11 @@ body[data-theme="dark"] .entry-approved td {
 
 #settings-page .settings-rates-cards .member-info-card.member-info-card--enhanced .member-info-grid {
   display: grid;
-  grid-template-columns: minmax(120px, 1fr) minmax(120px, 1fr) minmax(150px, 1.04fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   grid-template-areas:
     "title department office"
     "base cost actions";
-  gap: 10px 8px;
+  gap: 10px 10px;
   min-width: 0;
   align-items: start;
 }
@@ -3631,58 +3631,53 @@ body[data-theme="dark"] .entry-approved td {
 #settings-page .settings-rates-cards .member-info-card.member-info-card--enhanced .member-info-action.member-info-action-enhanced {
   grid-area: actions;
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: flex-end;
-  gap: 6px;
+  gap: 8px;
   min-width: 0;
   flex-wrap: nowrap;
-  align-self: center;
+  align-self: end;
 }
 
 #settings-page .settings-rates-cards .member-info-card.member-info-card--enhanced .member-info-action.member-info-action-enhanced .member-info-edit,
 #settings-page .settings-rates-cards .member-info-card.member-info-card--enhanced .member-info-action.member-info-action-enhanced .member-info-remove {
-  width: 88px !important;
-  min-width: 88px !important;
-  height: 32px !important;
-  min-height: 32px !important;
-  max-height: 32px !important;
+  width: 84px;
+  min-width: 84px;
+  max-width: 84px;
+  height: 30px;
+  min-height: 30px;
+  max-height: 30px;
   margin: 0;
-  padding: 0 8px !important;
+  padding: 0 8px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
   white-space: nowrap;
   border-radius: 999px;
-  font-size: 0.86rem;
+  font-size: 0.88rem;
   line-height: 1;
+  box-shadow: none;
+  flex: 0 0 auto;
 }
 
 @media (max-width: 1100px) {
   #settings-page .settings-rates-cards .member-info-card.member-info-card--enhanced .member-info-layout {
-    grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-areas:
-      "identity actions"
-      "grid actions";
-    align-items: start;
-  }
-
-  #settings-page .settings-rates-cards .member-info-card.member-info-card--enhanced .member-info-identity {
-    grid-area: identity;
+    grid-template-columns: 1fr;
+    gap: 12px;
   }
 
   #settings-page .settings-rates-cards .member-info-card.member-info-card--enhanced .member-info-grid {
-    grid-area: grid;
-    grid-template-columns: repeat(2, minmax(160px, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     grid-template-areas:
       "title department"
-      "base cost"
       "office office"
+      "base cost"
       "actions actions";
   }
 
   #settings-page .settings-rates-cards .member-info-card.member-info-card--enhanced .member-info-action.member-info-action-enhanced {
-    justify-content: flex-start;
+    justify-content: flex-end;
   }
 }
 
