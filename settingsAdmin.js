@@ -1026,10 +1026,10 @@
         addBtn.type = "button";
         addBtn.className = "button button-ghost";
         addBtn.dataset.memberAdd = "true";
-        addBtn.textContent = "Add member";
+        addBtn.textContent = "Edit member";
         sectionRight.insertBefore(addBtn, sectionRight.firstChild);
       }
-      addBtn.hidden = !Boolean(state.permissions?.create_user);
+      addBtn.hidden = !Boolean(state.permissions?.edit_user_profile || state.permissions?.edit_user_rates);
     }
   }
 
