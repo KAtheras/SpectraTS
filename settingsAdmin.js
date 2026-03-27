@@ -1018,7 +1018,27 @@
       </div>
     `;
 
-    const sectionRight = refs.ratesForm?.querySelector(".settings-section-right");
+    if (!refs.ratesForm?.querySelector(".settings-section-right")) {
+      arrangeSettingsSectionHeaders();
+    }
+    let sectionRight = refs.ratesForm?.querySelector(".settings-section-right");
+    if (!sectionRight) {
+      const inner = refs.ratesForm?.querySelector(".level-labels-inner");
+      const title = inner?.querySelector("h3");
+      if (inner && title) {
+        const header = document.createElement("div");
+        header.className = "settings-section-header";
+        const left = document.createElement("div");
+        left.className = "settings-section-left";
+        const right = document.createElement("div");
+        right.className = "settings-section-right";
+        left.appendChild(title);
+        header.appendChild(left);
+        header.appendChild(right);
+        inner.insertBefore(header, inner.firstChild);
+        sectionRight = right;
+      }
+    }
     const straySaveButtons = Array.from(refs.ratesForm?.querySelectorAll("#save-rates") || []);
     straySaveButtons.forEach((btn) => btn.remove());
     if (sectionRight) {
