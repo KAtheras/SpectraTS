@@ -403,30 +403,6 @@
             border-radius:14px;
             background:color-mix(in srgb, var(--panel) 92%, var(--input-bg));
             padding:14px;
-            display:grid;
-            gap:12px;
-          }
-          #settings-page .member-info-row{
-            display:grid;
-            gap:12px;
-            min-width:0;
-          }
-          #settings-page .member-info-row-top{
-            grid-template-columns:minmax(220px,1.4fr) repeat(3, minmax(140px,1fr));
-          }
-          #settings-page .member-info-row-bottom{
-            grid-template-columns:minmax(220px,1.4fr) minmax(140px,1fr) minmax(140px,1fr) minmax(190px,1fr);
-            gap:14px;
-            align-items:end;
-          }
-          #settings-page .member-info-cell{
-            display:grid;
-            gap:3px;
-            min-width:0;
-          }
-          #settings-page .member-info-name-cell,
-          #settings-page .member-info-user-cell{
-            min-width:0;
           }
           #settings-page .member-info-name{
             font-family:var(--font-head);
@@ -434,12 +410,6 @@
             font-weight:700;
             color:var(--ink);
             line-height:1.2;
-          }
-          #settings-page .member-info-username{
-            margin-top:2px;
-            font-size:.8rem;
-            color:var(--muted);
-            line-height:1.25;
           }
           #settings-page .member-info-field-label{
             font-family:var(--font-head);
@@ -654,10 +624,6 @@
             }
             #settings-page .settings-rates-row{
               display:block;
-            }
-            #settings-page .member-info-row-top,
-            #settings-page .member-info-row-bottom{
-              grid-template-columns:1fr;
             }
             #settings-page .settings-row-main-split{
               grid-template-columns:1fr;
@@ -981,43 +947,47 @@
     const rowsHtml = users
       .map(
         (user) => {
-          const emailLine = user.email
-            ? `<div class="member-info-username">Email: ${escapeHtml(user.email)}</div>`
-            : "";
+          const valueOrDash = (value) => {
+            const raw = value == null ? "" : String(value).trim();
+            return raw ? escapeHtml(raw) : "—";
+          };
           return `
-          <article class="member-info-card member-info-row-card" data-user-id="${escapeHtml(user.id)}">
-            <div class="member-info-row member-info-row-top">
-              <div class="member-info-cell member-info-name-cell">
+          <article class="member-info-card member-info-card--enhanced" data-user-id="${escapeHtml(user.id)}">
+            <div class="member-info-layout">
+              <div class="member-info-identity">
                 <div class="member-info-name">${escapeHtml(user.displayName)}</div>
+                <div class="member-info-item member-info-item-inline">
+                  <span class="member-info-field-label">User ID</span>
+                  <span class="member-info-field-value">${valueOrDash(user.username)}</span>
+                </div>
               </div>
-              <div class="member-info-cell">
-                <span class="member-info-field-label">Title</span>
-                <span class="member-info-field-value">${escapeHtml(levelLabel(user.level) || "No title")}</span>
+              <div class="member-info-grid">
+                <div class="member-info-item">
+                  <span class="member-info-field-label">Title</span>
+                  <span class="member-info-field-value">${valueOrDash(levelLabel(user.level) || "No title")}</span>
+                </div>
+                <div class="member-info-item">
+                  <span class="member-info-field-label">Department</span>
+                  <span class="member-info-field-value">${valueOrDash(departmentName(user.departmentId))}</span>
+                </div>
+                <div class="member-info-item">
+                  <span class="member-info-field-label">Office</span>
+                  <span class="member-info-field-value">${valueOrDash(officeName(user.officeId, user.officeName))}</span>
+                </div>
+                <div class="member-info-item">
+                  <span class="member-info-field-label">Email</span>
+                  <span class="member-info-field-value">${valueOrDash(user.email)}</span>
+                </div>
+                <div class="member-info-item">
+                  <span class="member-info-field-label">Base rate</span>
+                  <span class="member-info-field-value">${valueOrDash(user.baseRate)}</span>
+                </div>
+                <div class="member-info-item">
+                  <span class="member-info-field-label">Cost rate</span>
+                  <span class="member-info-field-value">${valueOrDash(user.costRate)}</span>
+                </div>
               </div>
-              <div class="member-info-cell">
-                <span class="member-info-field-label">Department</span>
-                <span class="member-info-field-value">${escapeHtml(departmentName(user.departmentId))}</span>
-              </div>
-              <div class="member-info-cell">
-                <span class="member-info-field-label">Office</span>
-                <span class="member-info-field-value">${escapeHtml(officeName(user.officeId, user.officeName))}</span>
-              </div>
-            </div>
-            <div class="member-info-row member-info-row-bottom">
-              <div class="member-info-cell member-info-user-cell">
-                <span class="member-info-field-label">User ID</span>
-                <div class="member-info-username">${escapeHtml(user.username || "")}</div>
-                ${emailLine}
-              </div>
-              <div class="member-info-cell">
-                <span class="member-info-field-label">Base rate</span>
-                <span class="member-info-field-value">${escapeHtml(user.baseRate ?? "—")}</span>
-              </div>
-              <div class="member-info-cell">
-                <span class="member-info-field-label">Cost rate</span>
-                <span class="member-info-field-value">${escapeHtml(user.costRate ?? "—")}</span>
-              </div>
-              <div class="member-info-action">
+              <div class="member-info-action member-info-action-enhanced">
                 ${
                   canEditAny
                     ? `<button type="button" class="button button-ghost member-info-edit" data-member-edit="${escapeHtml(user.id)}">Edit</button>`

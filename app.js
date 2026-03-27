@@ -57,9 +57,20 @@
         if (!response.ok) {
           throw new Error(payload?.error || "Unable to set password.");
         }
-        feedback.textContent = "Password set successfully.";
+        const sessionToken = String(payload?.sessionToken || "");
+        if (sessionToken) {
+          if (window.api?.saveSessionToken) {
+            window.api.saveSessionToken(sessionToken);
+          } else {
+            window.localStorage.setItem("timesheet-studio.session-token.v1", sessionToken);
+          }
+        }
+        feedback.textContent = "Password set successfully. Redirecting...";
         feedback.style.color = "#2b6b3a";
         form.reset();
+        window.setTimeout(function () {
+          window.location.assign("/");
+        }, 250);
       } catch (error) {
         feedback.textContent = error.message || "Unable to set password.";
         feedback.style.color = "#b2362e";
@@ -555,7 +566,6 @@
             <div>
               <h2 id="member-editor-title">Member</h2>
             </div>
-            <button class="mini-button" type="button" data-member-editor-close aria-label="Close member editor">✕</button>
           </div>
           <form class="member-editor-form" data-member-editor-form>
             <div class="member-editor-row">
@@ -588,7 +598,7 @@
     memberEditorSubmit = memberEditorModal.querySelector("[data-member-editor-submit]");
     memberEditorReset = memberEditorModal.querySelector("[data-member-editor-reset]");
     memberEditorModal.addEventListener("click", function (event) {
-      if (event.target === memberEditorModal || event.target.closest("[data-member-editor-close]") || event.target.closest("[data-member-editor-cancel]")) {
+      if (event.target === memberEditorModal || event.target.closest("[data-member-editor-cancel]")) {
         closeMemberEditorModal();
       }
     });

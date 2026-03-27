@@ -3535,3 +3535,117 @@ body[data-theme="dark"] .entry-approved td {
   cursor: not-allowed;
   pointer-events: none;
 }
+
+/* Settings > Member Information card cleanup */
+#settings-page .settings-rates-cards .member-info-card.member-info-card--enhanced {
+  padding: 16px;
+  display: block;
+}
+
+#settings-page .settings-rates-cards .member-info-card.member-info-card--enhanced .member-info-layout {
+  display: grid;
+  grid-template-columns: minmax(200px, 1.1fr) minmax(0, 2fr) auto;
+  gap: 16px 18px;
+  align-items: center;
+}
+
+#settings-page .settings-rates-cards .member-info-card.member-info-card--enhanced .member-info-identity {
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+  align-self: start;
+}
+
+#settings-page .settings-rates-cards .member-info-card.member-info-card--enhanced .member-info-name {
+  line-height: 1.2;
+}
+
+#settings-page .settings-rates-cards .member-info-card.member-info-card--enhanced .member-info-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(150px, 1fr));
+  gap: 12px 16px;
+  min-width: 0;
+}
+
+#settings-page .settings-rates-cards .member-info-card.member-info-card--enhanced .member-info-item {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+#settings-page .settings-rates-cards .member-info-card.member-info-card--enhanced .member-info-item-inline {
+  max-width: 100%;
+}
+
+#settings-page .settings-rates-cards .member-info-card.member-info-card--enhanced .member-info-field-value {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#settings-page .settings-rates-cards .member-info-card.member-info-card--enhanced .member-info-action.member-info-action-enhanced {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  min-width: 0;
+  flex-wrap: nowrap;
+  align-self: center;
+}
+
+#settings-page .settings-rates-cards .member-info-card.member-info-card--enhanced .member-info-action.member-info-action-enhanced .member-info-edit,
+#settings-page .settings-rates-cards .member-info-card.member-info-card--enhanced .member-info-action.member-info-action-enhanced .member-info-remove {
+  width: 112px;
+  min-width: 112px;
+  height: 40px;
+  margin: 0;
+  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  white-space: nowrap;
+}
+
+@media (max-width: 1100px) {
+  #settings-page .settings-rates-cards .member-info-card.member-info-card--enhanced .member-info-layout {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "identity actions"
+      "grid actions";
+    align-items: start;
+  }
+
+  #settings-page .settings-rates-cards .member-info-card.member-info-card--enhanced .member-info-identity {
+    grid-area: identity;
+  }
+
+  #settings-page .settings-rates-cards .member-info-card.member-info-card--enhanced .member-info-grid {
+    grid-area: grid;
+    grid-template-columns: repeat(2, minmax(160px, 1fr));
+  }
+
+  #settings-page .settings-rates-cards .member-info-card.member-info-card--enhanced .member-info-action.member-info-action-enhanced {
+    grid-area: actions;
+  }
+}
+
+@media (max-width: 720px) {
+  #settings-page .settings-rates-cards .member-info-card.member-info-card--enhanced .member-info-layout {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "identity"
+      "grid"
+      "actions";
+    gap: 14px;
+  }
+
+  #settings-page .settings-rates-cards .member-info-card.member-info-card--enhanced .member-info-grid {
+    grid-template-columns: 1fr;
+  }
+
+  #settings-page .settings-rates-cards .member-info-card.member-info-card--enhanced .member-info-action.member-info-action-enhanced {
+    justify-content: flex-start;
+  }
+}

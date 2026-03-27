@@ -2,6 +2,7 @@
 const crypto = require("crypto");
 
 const {
+  createSession,
   createUserRecord,
   createPasswordSetupToken,
   deactivateUser,
@@ -82,7 +83,8 @@ async function completePasswordSetup(sql, payload) {
       AND used_at IS NULL
   `;
 
-  return { ok: true };
+  const session = await createSession(sql, record.user_id);
+  return { ok: true, sessionToken: session?.token || null };
 }
 
 async function sendSetupEmail({ to, username, token }) {
@@ -2340,7 +2342,10 @@ exports.handler = async function handler(event) {
       if (setupResult?.statusCode) {
         return setupResult;
       }
-      return json(200, { success: true });
+      return json(200, {
+        success: true,
+        sessionToken: setupResult?.sessionToken || null,
+      });
     }
     const context = await getSessionContext(sql, event, request);
     const authError = requireAuth(context);
