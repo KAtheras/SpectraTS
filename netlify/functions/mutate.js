@@ -33,7 +33,7 @@ const {
 const permissions = require("./permissions");
 
 async function sendSetupEmail({ to, username, token }) {
-  const { handler: sendEmailHandler } = await import("./send-email.js");
+  const { handler: sendEmailHandler } = require("./send-email");
   const setupLink = `https://trakmetric.com/set-password?token=${encodeURIComponent(token)}`;
   const subject = "Set up your Trakmetric password";
   const html = `
@@ -48,6 +48,9 @@ async function sendSetupEmail({ to, username, token }) {
     username,
     endpoint: "/.netlify/functions/send-email",
   });
+  if (typeof sendEmailHandler !== "function") {
+    throw new Error("send-email handler is unavailable");
+  }
   let result;
   try {
     result = await sendEmailHandler({
