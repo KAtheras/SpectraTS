@@ -415,7 +415,7 @@
             grid-template-columns:minmax(220px,1.4fr) repeat(3, minmax(140px,1fr));
           }
           #settings-page .member-info-row-bottom{
-            grid-template-columns:minmax(220px,1.4fr) minmax(120px,1fr) minmax(120px,1fr) auto auto;
+            grid-template-columns:minmax(220px,1.4fr) minmax(140px,1fr) minmax(140px,1fr) minmax(190px,1fr);
             gap:14px;
             align-items:end;
           }
@@ -439,6 +439,7 @@
             margin-top:2px;
             font-size:.8rem;
             color:var(--muted);
+            line-height:1.25;
           }
           #settings-page .member-info-field-label{
             font-family:var(--font-head);
@@ -460,6 +461,7 @@
             align-items:center;
             justify-content:flex-end;
             white-space:nowrap;
+            gap:10px;
           }
           #settings-page .member-info-remove{
             margin:0;
@@ -978,7 +980,11 @@
 
     const rowsHtml = users
       .map(
-        (user) => `
+        (user) => {
+          const emailLine = user.email
+            ? `<div class="member-info-username">Email: ${escapeHtml(user.email)}</div>`
+            : "";
+          return `
           <article class="member-info-card member-info-row-card" data-user-id="${escapeHtml(user.id)}">
             <div class="member-info-row member-info-row-top">
               <div class="member-info-cell member-info-name-cell">
@@ -1001,7 +1007,7 @@
               <div class="member-info-cell member-info-user-cell">
                 <span class="member-info-field-label">User ID</span>
                 <div class="member-info-username">${escapeHtml(user.username || "")}</div>
-                <div class="member-info-username">Email: ${escapeHtml(user.email || "")}</div>
+                ${emailLine}
               </div>
               <div class="member-info-cell">
                 <span class="member-info-field-label">Base rate</span>
@@ -1017,8 +1023,6 @@
                     ? `<button type="button" class="button button-ghost member-info-edit" data-member-edit="${escapeHtml(user.id)}">Edit</button>`
                     : ""
                 }
-              </div>
-              <div class="member-info-action">
                 ${
                   canEditProfile
                     ? `<button type="button" class="member-info-remove" data-user-deactivate="${escapeHtml(user.id)}">Remove</button>`
@@ -1027,7 +1031,8 @@
               </div>
             </div>
           </article>
-        `
+        `;
+        }
       )
       .join("");
     refs.ratesRows.innerHTML = `
