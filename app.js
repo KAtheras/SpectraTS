@@ -1,6 +1,48 @@
 (function () {
   const THEME_STORAGE_KEY = "timesheet-studio.theme.v1";
   const body = document.body;
+  const normalizedPath = window.location.pathname.replace(/\/+$/, "") || "/";
+  if (normalizedPath === "/set-password") {
+    const token = new URLSearchParams(window.location.search).get("token") || "";
+    body.innerHTML = `
+      <main style="min-height:100vh;display:grid;place-items:center;padding:24px;">
+        <section style="width:min(460px,100%);background:#fff;border:1px solid #ddd;border-radius:16px;padding:24px;">
+          <h1 style="margin:0 0 16px 0;font-size:1.5rem;">Set your password</h1>
+          <form id="set-password-form" style="display:grid;gap:12px;">
+            <input type="password" id="set-password-new" placeholder="Password" required autocomplete="new-password" />
+            <input type="password" id="set-password-confirm" placeholder="Confirm password" required autocomplete="new-password" />
+            <button type="submit" style="padding:10px 14px;border-radius:10px;border:1px solid #2f5f90;background:#2f5f90;color:#fff;font-weight:700;">Set password</button>
+          </form>
+          <p id="set-password-feedback" style="margin:12px 0 0 0;color:#6d6258;font-size:.95rem;"></p>
+        </section>
+      </main>
+    `;
+    const form = document.getElementById("set-password-form");
+    const feedback = document.getElementById("set-password-feedback");
+    form?.addEventListener("submit", function (event) {
+      event.preventDefault();
+      const password = document.getElementById("set-password-new")?.value || "";
+      const confirm = document.getElementById("set-password-confirm")?.value || "";
+      if (!token) {
+        feedback.textContent = "Missing setup token.";
+        feedback.style.color = "#b2362e";
+        return;
+      }
+      if (!password || password.length < 8) {
+        feedback.textContent = "Password must be at least 8 characters.";
+        feedback.style.color = "#b2362e";
+        return;
+      }
+      if (password !== confirm) {
+        feedback.textContent = "Passwords do not match.";
+        feedback.style.color = "#b2362e";
+        return;
+      }
+      feedback.textContent = "Set password backend not connected yet.";
+      feedback.style.color = "#6d6258";
+    });
+    return;
+  }
   const embedded = window.self !== window.top || window.location.search.includes("embed=1");
   const themeMedia = window.matchMedia("(prefers-color-scheme: dark)");
   const {
