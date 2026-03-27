@@ -3512,11 +3512,7 @@
       const addBtn = event.target.closest("[data-member-add]");
       if (!addBtn) return;
       event.preventDefault();
-      if (!state.currentUser?.id) {
-        feedback("Team member not found.", true);
-        return;
-      }
-      openMemberEditorModal("edit", state.currentUser.id);
+      openMemberEditorModal("create");
     });
   }
   if (refs.addLevel) {
