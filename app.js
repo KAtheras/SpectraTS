@@ -2973,6 +2973,9 @@
 
     const existingEntry = state.entries.find((entry) => entry.id === state.editingId);
     const userField = field(refs.form, "user");
+    if (userField) {
+      userField.value = state.currentUser?.displayName || "";
+    }
     const dateField = field(refs.form, "date");
     const clientField = field(refs.form, "client");
     const projectField = field(refs.form, "project");
@@ -3423,6 +3426,9 @@
   if (refs.expenseForm) {
     refs.expenseForm.addEventListener("submit", async function (event) {
       event.preventDefault();
+      if (refs.expenseUser) {
+        refs.expenseUser.value = state.currentUser?.id || "";
+      }
       const expense = expenseFromForm();
       const error = validateExpenseForm(expense);
       if (error) {

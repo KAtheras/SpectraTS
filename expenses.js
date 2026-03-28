@@ -7,7 +7,7 @@
   }
 
   function syncExpenseCatalogs({ userId, client, project }) {
-    const { visibleCatalogClientNames, setSelectOptionsWithPlaceholder, escapeHtml, refs, visibleCatalogProjectNames, getUserById, entryUserOptions, getUserByDisplayName } = deps();
+    const { visibleCatalogClientNames, setSelectOptionsWithPlaceholder, escapeHtml, refs, visibleCatalogProjectNames, getUserById, entryUserOptions, getUserByDisplayName, state } = deps();
     const clients = visibleCatalogClientNames();
     setSelectOptionsWithPlaceholder({ escapeHtml }, refs.expenseClient, clients, client || "", "Select client");
     if (client && clients.includes(client)) {
@@ -42,8 +42,9 @@
       userId || "",
       "Select team member"
     );
-    if (userId && refs.expenseUser) {
-      refs.expenseUser.value = userId;
+    if (refs.expenseUser) {
+      refs.expenseUser.value = state.currentUser?.id || userId || "";
+      refs.expenseUser.disabled = true;
     }
 
     const categories = activeExpenseCategories().map((c) => c.name);

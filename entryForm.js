@@ -234,20 +234,13 @@
       entryUserOptions,
       visibleCatalogClientNames,
       visibleCatalogProjectNames,
-      isStaff,
     } = deps;
     const userField = field(refs.form, "user");
     const clientField = field(refs.form, "client");
     const projectField = field(refs.form, "project");
     const authUsers = entryUserOptions();
     const defaultUser = defaultEntryUser(state);
-    const requestedUser = selection?.user ?? userField?.value ?? defaultUser;
-    const nextUser =
-      requestedUser === ""
-        ? ""
-        : authUsers.includes(requestedUser)
-          ? requestedUser
-          : authUsers[0] || "";
+    const nextUser = authUsers.includes(defaultUser) ? defaultUser : authUsers[0] || "";
     const requestedClient = selection?.client ?? clientField?.value ?? "";
     const clients = visibleCatalogClientNames();
     const nextClient = clients.includes(requestedClient) ? requestedClient : "";
@@ -265,12 +258,8 @@
       nextProject
     );
 
-    if (state.currentUser && isStaff(state.currentUser)) {
-      userField.value = state.currentUser.displayName || "";
-      userField.disabled = true;
-    } else {
-      userField.disabled = false;
-    }
+    userField.value = nextUser;
+    userField.disabled = true;
     projectField.disabled = !nextClient;
   }
 
