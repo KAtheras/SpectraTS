@@ -8,27 +8,78 @@
 
   function syncExpenseCatalogs({ userId, client, project }) {
     const { visibleCatalogClientNames, setSelectOptionsWithPlaceholder, escapeHtml, refs, visibleCatalogProjectNames, getUserById, entryUserOptions, getUserByDisplayName, state } = deps();
+    const comboField = refs.expenseClientProject || document.getElementById("expense-client-project");
+    const comboKey = "\u001f";
+    const encodeCombo = (clientName, projectName) => `${clientName}${comboKey}${projectName}`;
+    const decodeCombo = (value) => {
+      const text = String(value || "");
+      const splitAt = text.indexOf(comboKey);
+      if (splitAt < 0) return ["", ""];
+      return [text.slice(0, splitAt), text.slice(splitAt + comboKey.length)];
+    };
+    const effectiveUserId = state.currentUser?.id || userId || "";
+    let requestedClient = client;
+    let requestedProject = project;
+    if ((requestedClient === undefined || requestedProject === undefined) && comboField?.value) {
+      const [comboClient, comboProject] = decodeCombo(comboField.value);
+      if (requestedClient === undefined) requestedClient = comboClient;
+      if (requestedProject === undefined) requestedProject = comboProject;
+    }
+    requestedClient = requestedClient || "";
+    requestedProject = requestedProject || "";
     const clients = visibleCatalogClientNames();
-    setSelectOptionsWithPlaceholder({ escapeHtml }, refs.expenseClient, clients, client || "", "Select client");
-    if (client && clients.includes(client)) {
-      refs.expenseClient.value = client;
+    setSelectOptionsWithPlaceholder({ escapeHtml }, refs.expenseClient, clients, requestedClient, "Select client");
+    if (requestedClient && clients.includes(requestedClient)) {
+      refs.expenseClient.value = requestedClient;
     }
 
-    const hasClient = Boolean(client);
+    const hasClient = Boolean(requestedClient);
     const projects = hasClient
-      ? visibleCatalogProjectNames(client, getUserById?.(userId))
+      ? visibleCatalogProjectNames(requestedClient, getUserById?.(effectiveUserId))
       : [];
     const placeholder = hasClient ? "Select project" : "Choose client first";
-    setSelectOptionsWithPlaceholder({ escapeHtml }, refs.expenseProject, projects, project || "", placeholder);
+    setSelectOptionsWithPlaceholder({ escapeHtml }, refs.expenseProject, projects, requestedProject, placeholder);
     if (refs.expenseProject) {
       refs.expenseProject.disabled = !hasClient;
     }
-    if (hasClient && project && projects.includes(project)) {
-      refs.expenseProject.value = project;
+    if (hasClient && requestedProject && projects.includes(requestedProject)) {
+      refs.expenseProject.value = requestedProject;
     } else if (hasClient && !refs.expenseProject?.value && projects.length) {
       refs.expenseProject.value = projects[0];
     } else if (!hasClient && refs.expenseProject) {
       refs.expenseProject.value = "";
+    }
+    const comboOptions = clients.flatMap((clientName) =>
+      visibleCatalogProjectNames(clientName, getUserById?.(effectiveUserId)).map((projectName) => ({
+        label: `${clientName} / ${projectName}`,
+        value: encodeCombo(clientName, projectName),
+      }))
+    );
+    if (comboField) {
+      const selectedCombo = refs.expenseClient?.value && refs.expenseProject?.value
+        ? encodeCombo(refs.expenseClient.value, refs.expenseProject.value)
+        : "";
+      setSelectOptionsWithPlaceholder(
+        { escapeHtml },
+        comboField,
+        comboOptions,
+        selectedCombo,
+        "Select client / project"
+      );
+      comboField.disabled = comboOptions.length === 0;
+      if (!comboField.dataset.boundCombo) {
+        comboField.addEventListener("change", function () {
+          const [comboClient, comboProject] = decodeCombo(comboField.value);
+          syncExpenseCatalogs({
+            userId: effectiveUserId,
+            client: comboClient || "",
+            project: comboProject || "",
+          });
+          refs.expenseClient?.dispatchEvent(new Event("change", { bubbles: true }));
+          refs.expenseProject?.dispatchEvent(new Event("change", { bubbles: true }));
+        });
+        comboField.dataset.boundCombo = "true";
+      }
     }
 
     const users = entryUserOptions();
@@ -43,7 +94,7 @@
       "Select team member"
     );
     if (refs.expenseUser) {
-      refs.expenseUser.value = state.currentUser?.id || userId || "";
+      refs.expenseUser.value = effectiveUserId;
       refs.expenseUser.disabled = true;
     }
 

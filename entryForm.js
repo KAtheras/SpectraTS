@@ -234,19 +234,46 @@
       entryUserOptions,
       visibleCatalogClientNames,
       visibleCatalogProjectNames,
+      targetUser,
+      escapeHtml,
     } = deps;
+    const comboField = refs.entryClientProject || document.getElementById("entry-client-project");
+    const comboKey = "\u001f";
+    const encodeCombo = (client, project) => `${client}${comboKey}${project}`;
+    const decodeCombo = (value) => {
+      const text = String(value || "");
+      const splitAt = text.indexOf(comboKey);
+      if (splitAt < 0) return ["", ""];
+      return [text.slice(0, splitAt), text.slice(splitAt + comboKey.length)];
+    };
     const userField = field(refs.form, "user");
     const clientField = field(refs.form, "client");
     const projectField = field(refs.form, "project");
     const authUsers = entryUserOptions();
     const defaultUser = defaultEntryUser(state);
     const nextUser = authUsers.includes(defaultUser) ? defaultUser : authUsers[0] || "";
-    const requestedClient = selection?.client ?? clientField?.value ?? "";
-    const clients = visibleCatalogClientNames();
+    let requestedClient = selection?.client;
+    let requestedProject = selection?.project;
+    if ((requestedClient === undefined || requestedProject === undefined) && comboField?.value) {
+      const [comboClient, comboProject] = decodeCombo(comboField.value);
+      if (requestedClient === undefined) requestedClient = comboClient;
+      if (requestedProject === undefined) requestedProject = comboProject;
+    }
+    if (requestedClient === undefined) requestedClient = clientField?.value || "";
+    if (requestedProject === undefined) requestedProject = projectField?.value || "";
+
+    const clients = visibleCatalogClientNames(targetUser);
     const nextClient = clients.includes(requestedClient) ? requestedClient : "";
-    const requestedProject = selection?.project ?? projectField?.value ?? "";
-    const projects = nextClient ? visibleCatalogProjectNames(nextClient) : [];
+    const projects = nextClient ? visibleCatalogProjectNames(nextClient, targetUser) : [];
     const nextProject = projects.includes(requestedProject) ? requestedProject : "";
+    const comboOptions = clients.flatMap((clientName) =>
+      visibleCatalogProjectNames(clientName, targetUser).map((projectName) => ({
+        label: `${clientName} / ${projectName}`,
+        value: encodeCombo(clientName, projectName),
+      }))
+    );
+    const selectedComboValue =
+      nextClient && nextProject ? encodeCombo(nextClient, nextProject) : "";
 
     populateSelect(deps, userField, authUsers, "Select team member", nextUser);
     populateSelect(deps, clientField, clients, "Select client", nextClient);
@@ -257,6 +284,33 @@
       nextClient ? "Select project" : "Choose client first",
       nextProject
     );
+    if (comboField) {
+      comboField.innerHTML =
+        `<option value="">${escapeHtml("Select client / project")}</option>` +
+        comboOptions
+          .map(
+            (option) =>
+              `<option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>`
+          )
+          .join("");
+      comboField.value = comboOptions.some((option) => option.value === selectedComboValue)
+        ? selectedComboValue
+        : "";
+      comboField.disabled = comboOptions.length === 0;
+      if (!comboField.dataset.boundCombo) {
+        comboField.addEventListener("change", function () {
+          const [comboClient, comboProject] = decodeCombo(comboField.value);
+          syncFormCatalogs(deps, {
+            user: state.currentUser?.displayName || "",
+            client: comboClient || "",
+            project: comboProject || "",
+          });
+          clientField.dispatchEvent(new Event("change", { bubbles: true }));
+          projectField.dispatchEvent(new Event("change", { bubbles: true }));
+        });
+        comboField.dataset.boundCombo = "true";
+      }
+    }
 
     userField.value = nextUser;
     userField.disabled = true;
