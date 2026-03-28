@@ -798,14 +798,17 @@ body[data-theme="dark"] .mobile-tabbar {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  flex-wrap: nowrap;
 }
 
 .input-header h2 {
   margin: 0;
+  white-space: nowrap;
 }
 
 .input-switch-action {
   white-space: nowrap;
+  margin-left: auto;
 }
 
 .input-grid {
@@ -896,7 +899,7 @@ body[data-theme="dark"] .mobile-tabbar {
 #inputs-panel-time .input-grid {
   gap: 0;
   border: 1px solid color-mix(in srgb, var(--ink) 14%, transparent);
-  background: var(--panel);
+  background: #ffffff;
 }
 
 #inputs-panel-time .input-row {
@@ -940,8 +943,19 @@ body[data-theme="dark"] .mobile-tabbar {
 #inputs-panel-time .input-row-head > * {
   min-height: 42px;
   color: inherit;
-  background: color-mix(in srgb, var(--panel) 96%, var(--ink) 4%);
+  background: #ffffff;
   border-right: 1px solid color-mix(in srgb, var(--ink) 8%, transparent);
+}
+
+#app-shell.page-inputs,
+#app-shell.page-inputs .app-frame,
+#app-shell.page-inputs #inputs-view,
+#app-shell.page-inputs #inputs-view .input-shell {
+  background: #ffffff;
+}
+
+#app-shell.page-inputs .app-topbar {
+  background: #ffffff;
 }
 
 #inputs-panel-time .input-row-head > *:last-child {
