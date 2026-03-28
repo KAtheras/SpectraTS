@@ -9,13 +9,17 @@
   function syncExpenseCatalogs({ userId, client, project }) {
     const { visibleCatalogClientNames, setSelectOptionsWithPlaceholder, escapeHtml, refs, visibleCatalogProjectNames, getUserById, entryUserOptions, getUserByDisplayName, state } = deps();
     const comboField = refs.expenseClientProject || document.getElementById("expense-client-project");
-    const comboKey = "\u001f";
-    const encodeCombo = (clientName, projectName) => `${clientName}${comboKey}${projectName}`;
+    const comboKey = "::";
+    const encodeCombo = (clientName, projectName) =>
+      `${encodeURIComponent(clientName)}${comboKey}${encodeURIComponent(projectName)}`;
     const decodeCombo = (value) => {
       const text = String(value || "");
       const splitAt = text.indexOf(comboKey);
       if (splitAt < 0) return ["", ""];
-      return [text.slice(0, splitAt), text.slice(splitAt + comboKey.length)];
+      return [
+        decodeURIComponent(text.slice(0, splitAt) || ""),
+        decodeURIComponent(text.slice(splitAt + comboKey.length) || ""),
+      ];
     };
     const effectiveUserId = state.currentUser?.id || userId || "";
     let requestedClient = client;

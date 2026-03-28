@@ -238,13 +238,17 @@
       escapeHtml,
     } = deps;
     const comboField = refs.entryClientProject || document.getElementById("entry-client-project");
-    const comboKey = "\u001f";
-    const encodeCombo = (client, project) => `${client}${comboKey}${project}`;
+    const comboKey = "::";
+    const encodeCombo = (client, project) =>
+      `${encodeURIComponent(client)}${comboKey}${encodeURIComponent(project)}`;
     const decodeCombo = (value) => {
       const text = String(value || "");
       const splitAt = text.indexOf(comboKey);
       if (splitAt < 0) return ["", ""];
-      return [text.slice(0, splitAt), text.slice(splitAt + comboKey.length)];
+      return [
+        decodeURIComponent(text.slice(0, splitAt) || ""),
+        decodeURIComponent(text.slice(splitAt + comboKey.length) || ""),
+      ];
     };
     const userField = field(refs.form, "user");
     const clientField = field(refs.form, "client");
