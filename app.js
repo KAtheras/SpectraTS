@@ -294,6 +294,7 @@
     accountName: document.getElementById("account-name"),
     navTimesheet: document.getElementById("nav-timesheet"),
     navExpenses: document.getElementById("nav-expenses"),
+    navInputs: document.getElementById("nav-inputs"),
     navSettings: document.getElementById("nav-settings"),
     navMembers: document.getElementById("nav-members"),
     timesheetView: document.getElementById("timesheet-view"),
@@ -316,6 +317,7 @@
     navClientsMobile: document.getElementById("nav-clients-mobile"),
     navTimesheetMobile: document.getElementById("nav-timesheet-mobile"),
     navExpensesMobile: document.getElementById("nav-expenses-mobile"),
+    navInputsMobile: document.getElementById("nav-inputs-mobile"),
     navAnalyticsMobile: document.getElementById("nav-analytics-mobile"),
     closeCatalog: document.getElementById("close-catalog"),
     clientsNavMembers: document.getElementById("clients-nav-members"),
@@ -330,6 +332,11 @@
     usersPage: document.getElementById("members-page"),
     analyticsPage: document.getElementById("analytics-page"),
     settingsPage: document.getElementById("settings-page"),
+    inputsView: document.getElementById("inputs-view"),
+    inputSubtabTime: document.getElementById("input-subtab-time"),
+    inputSubtabExpenses: document.getElementById("input-subtab-expenses"),
+    inputsPanelTime: document.getElementById("inputs-panel-time"),
+    inputsPanelExpenses: document.getElementById("inputs-panel-expenses"),
     expenseRows: document.getElementById("expense-rows"),
     addCategory: document.getElementById("add-category"),
     saveCategories: document.getElementById("save-categories"),
@@ -930,7 +937,8 @@
       managerProjects: [],
       projectMembers: [],
     },
-    currentView: "main", // "main" | "expenses" | "clients" | "members" | "analytics" | "settings"
+    currentView: "main", // "main" | "inputs" | "expenses" | "clients" | "members" | "analytics" | "settings"
+    inputSubtab: "time", // "time" | "expenses"
     expenseEditingId: null,
     auditLogs: [],
   auditFilters: {
@@ -2570,6 +2578,7 @@
       refs.appShell.classList.toggle("page-clients", view === "clients");
       refs.appShell.classList.toggle("page-members", view === "members");
       refs.appShell.classList.toggle("page-analytics", view === "analytics");
+      refs.appShell.classList.toggle("page-inputs", view === "inputs");
     }
 
     const currentLevel = normalizeLevel(state.currentUser?.level);
@@ -2647,10 +2656,20 @@
       refs.navTimesheet.classList.toggle("is-active", view === "main");
       refs.navTimesheet.setAttribute("aria-current", view === "main" ? "page" : "false");
     }
+    if (refs.navInputs) {
+      refs.navInputs.hidden = false;
+      refs.navInputs.classList.toggle("is-active", view === "inputs");
+      refs.navInputs.setAttribute("aria-current", view === "inputs" ? "page" : "false");
+    }
     if (refs.navTimesheetMobile) {
       refs.navTimesheetMobile.hidden = false;
       refs.navTimesheetMobile.classList.toggle("is-active", view === "main");
       refs.navTimesheetMobile.setAttribute("aria-current", view === "main" ? "page" : "false");
+    }
+    if (refs.navInputsMobile) {
+      refs.navInputsMobile.hidden = false;
+      refs.navInputsMobile.classList.toggle("is-active", view === "inputs");
+      refs.navInputsMobile.setAttribute("aria-current", view === "inputs" ? "page" : "false");
     }
     if (refs.navExpenses) {
       refs.navExpenses.hidden = false;
@@ -2724,8 +2743,29 @@
     if (refs.settingsPage) {
       refs.settingsPage.hidden = view !== "settings";
     }
+    if (refs.inputsView) {
+      refs.inputsView.hidden = view !== "inputs";
+    }
     if (refs.auditView) {
       refs.auditView.hidden = view !== "audit";
+    }
+
+    const inputSubtab = state.inputSubtab === "expenses" ? "expenses" : "time";
+    if (refs.inputSubtabTime) {
+      const isActive = inputSubtab === "time";
+      refs.inputSubtabTime.classList.toggle("is-active", isActive);
+      refs.inputSubtabTime.setAttribute("aria-selected", isActive ? "true" : "false");
+    }
+    if (refs.inputSubtabExpenses) {
+      const isActive = inputSubtab === "expenses";
+      refs.inputSubtabExpenses.classList.toggle("is-active", isActive);
+      refs.inputSubtabExpenses.setAttribute("aria-selected", isActive ? "true" : "false");
+    }
+    if (refs.inputsPanelTime) {
+      refs.inputsPanelTime.hidden = inputSubtab !== "time";
+    }
+    if (refs.inputsPanelExpenses) {
+      refs.inputsPanelExpenses.hidden = inputSubtab !== "expenses";
     }
 
     if (view === "clients") {
@@ -2791,6 +2831,11 @@
       if (!state.auditLogs.length) {
         loadAuditLogs();
       }
+      postHeight();
+      return;
+    }
+
+    if (view === "inputs") {
       postHeight();
       return;
     }
@@ -3076,9 +3121,19 @@
       setView("main");
     });
   }
+  if (refs.navInputs) {
+    refs.navInputs.addEventListener("click", function () {
+      setView("inputs");
+    });
+  }
   if (refs.navTimesheetMobile) {
     refs.navTimesheetMobile.addEventListener("click", function () {
       setView("main");
+    });
+  }
+  if (refs.navInputsMobile) {
+    refs.navInputsMobile.addEventListener("click", function () {
+      setView("inputs");
     });
   }
   if (refs.navExpenses) {
@@ -3089,6 +3144,18 @@
   if (refs.navExpensesMobile) {
     refs.navExpensesMobile.addEventListener("click", function () {
       setView("expenses");
+    });
+  }
+  if (refs.inputSubtabTime) {
+    refs.inputSubtabTime.addEventListener("click", function () {
+      state.inputSubtab = "time";
+      render();
+    });
+  }
+  if (refs.inputSubtabExpenses) {
+    refs.inputSubtabExpenses.addEventListener("click", function () {
+      state.inputSubtab = "expenses";
+      render();
     });
   }
   if (refs.navAudit) {

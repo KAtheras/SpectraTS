@@ -87,6 +87,7 @@
               <div class="topbar-center">
                 <div class="top-nav">
                   <button class="nav-pill" id="nav-settings" type="button">Settings</button>
+                  <button class="nav-pill" id="nav-inputs" type="button">Inputs</button>
                   <button class="nav-pill" id="nav-timesheet" type="button">Time</button>
                   <button class="nav-pill" id="nav-expenses" type="button">Expenses</button>
                   <button class="nav-pill" id="open-analytics" type="button">Analytics</button>
@@ -122,6 +123,7 @@
 
       <nav class="mobile-tabbar" id="mobile-tabbar" aria-label="Primary navigation" hidden>
         <button class="nav-pill" id="nav-settings-mobile" type="button">Settings</button>
+        <button class="nav-pill" id="nav-inputs-mobile" type="button">Inputs</button>
         <button class="nav-pill" id="nav-timesheet-mobile" type="button">Time</button>
         <button class="nav-pill" id="nav-expenses-mobile" type="button">Expenses</button>
         <button class="nav-pill" id="nav-analytics-mobile" type="button">Analytics</button>
@@ -495,6 +497,45 @@
           </section>
         </main>
       </div>
+
+      <section class="page-view inputs-view" id="inputs-view" hidden aria-labelledby="inputs-view-title">
+        <div class="input-shell">
+          <div class="input-subtabs" role="tablist" aria-label="Input type">
+            <button class="input-subtab is-active" id="input-subtab-time" type="button" role="tab" aria-selected="true">
+              Time
+            </button>
+            <button class="input-subtab" id="input-subtab-expenses" type="button" role="tab" aria-selected="false">
+              Expenses
+            </button>
+          </div>
+
+          <section class="input-panel" id="inputs-panel-time" role="tabpanel" aria-labelledby="input-subtab-time">
+            <h2 id="inputs-view-title">Inputs</h2>
+            <div class="input-grid">
+              <div class="input-row">
+                <div class="cell-project">Time row grid placeholder</div>
+                <div class="cell-date">Date</div>
+                <div class="cell-hours">Hours</div>
+                <div class="cell-notes">Notes</div>
+                <div class="cell-actions">Actions</div>
+              </div>
+            </div>
+          </section>
+
+          <section class="input-panel" id="inputs-panel-expenses" role="tabpanel" aria-labelledby="input-subtab-expenses" hidden>
+            <h2>Inputs</h2>
+            <div class="input-grid">
+              <div class="input-row">
+                <div class="cell-project">Expense row grid placeholder</div>
+                <div class="cell-date">Date</div>
+                <div class="cell-amount">Amount</div>
+                <div class="cell-notes">Notes</div>
+                <div class="cell-actions">Actions</div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </section>
 
       <section class="page-view clients-page" id="clients-page" hidden aria-labelledby="catalog-page-title">
         <div class="catalog-grid catalog-grid-narrow">
