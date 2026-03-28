@@ -2778,7 +2778,7 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
     minmax(0, 1.55fr)
     minmax(0, 0.85fr)
     minmax(0, 0.75fr)
-    var(--expense-save-col);
+    auto;
   align-items: end;
 }
 
@@ -3037,9 +3037,9 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
 .expense-billable-group {
   display: flex;
   align-items: flex-end;
-  justify-content: flex-end;
+  justify-content: flex-start;
   align-self: end;
-  width: 100%;
+  width: auto;
   min-width: 0;
 }
 
