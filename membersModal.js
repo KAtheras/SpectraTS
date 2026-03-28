@@ -343,6 +343,15 @@
       const officeLabel = officeId
         ? officeNameById.get(officeId) || officeId
         : "No Office";
+      const showRoleSecondary = new Set([
+        "project-add",
+        "project-remove",
+        "project-assign-manager",
+        "project-unassign-manager",
+      ]).has(mode);
+      const secondaryLabel = showRoleSecondary
+        ? levelLabel(currentLevel)
+        : user.username;
 
       const rowHtml = `
         <article class="catalog-item member-item">
@@ -355,7 +364,7 @@
               ${checkboxTitle ? `title="${escapeHtml(checkboxTitle)}"` : ""}
             />
             <span class="member-name">${escapeHtml(user.displayName)}</span>
-            <span class="member-username">${escapeHtml(user.username)}</span>
+            <span class="member-username">${escapeHtml(secondaryLabel || "")}</span>
           </label>
           <div class="member-controls">
             ${roleSelect}
