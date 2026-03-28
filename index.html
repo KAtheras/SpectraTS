@@ -500,17 +500,14 @@
 
       <section class="page-view inputs-view" id="inputs-view" hidden aria-labelledby="inputs-view-title">
         <div class="input-shell">
-          <div class="input-subtabs" role="tablist" aria-label="Input type">
-            <button class="input-subtab is-active" id="input-subtab-time" type="button" role="tab" aria-selected="true">
-              Time
-            </button>
-            <button class="input-subtab" id="input-subtab-expenses" type="button" role="tab" aria-selected="false">
-              Expenses
+          <div class="input-header">
+            <h2 id="inputs-view-title">Enter Time</h2>
+            <button class="button button-ghost input-switch-action" id="inputs-switch-action" type="button">
+              Enter Expenses
             </button>
           </div>
 
-          <section class="input-panel" id="inputs-panel-time" role="tabpanel" aria-labelledby="input-subtab-time">
-            <h2 id="inputs-view-title">Inputs</h2>
+          <section class="input-panel" id="inputs-panel-time">
             <div class="input-grid">
               <div class="input-row input-row-head" aria-hidden="true">
                 <div class="cell-project">Client / Project</div>
@@ -518,7 +515,6 @@
                 <div class="cell-hours">Hours</div>
                 <div class="cell-billable">Billable</div>
                 <div class="cell-notes">Notes</div>
-                <div class="cell-actions">Save</div>
               </div>
 
               <form id="inputs-time-form" class="input-row input-row-body">
@@ -554,8 +550,7 @@
             </div>
           </section>
 
-          <section class="input-panel" id="inputs-panel-expenses" role="tabpanel" aria-labelledby="input-subtab-expenses" hidden>
-            <h2>Inputs</h2>
+          <section class="input-panel" id="inputs-panel-expenses" hidden>
             <div class="input-grid">
               <div class="input-row">
                 <div class="cell-project">Expenses grid coming next phase</div>

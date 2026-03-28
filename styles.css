@@ -793,6 +793,21 @@ body[data-theme="dark"] .mobile-tabbar {
   gap: 10px;
 }
 
+.input-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.input-header h2 {
+  margin: 0;
+}
+
+.input-switch-action {
+  white-space: nowrap;
+}
+
 .input-grid {
   display: grid;
   gap: 8px;
@@ -909,18 +924,24 @@ body[data-theme="dark"] .mobile-tabbar {
 }
 
 #inputs-panel-time .input-row-head {
-  font-size: 0.92rem;
+  font-size: 0.86rem;
   letter-spacing: 0.01em;
   text-transform: none;
-  color: #ffffff !important;
-  font-weight: 650;
+  color: color-mix(in srgb, var(--ink) 86%, var(--muted));
+  font-weight: 600;
+  grid-template-columns:
+    minmax(340px, 2.8fr)
+    minmax(84px, 0.6fr)
+    minmax(72px, 0.42fr)
+    minmax(83px, 0.45fr)
+    minmax(390px, 3fr);
 }
 
 #inputs-panel-time .input-row-head > * {
-  min-height: 48px;
-  color: #ffffff !important;
-  background: #4a4a4a !important;
-  border-right: 1px solid rgba(255, 255, 255, 0.18);
+  min-height: 42px;
+  color: inherit;
+  background: color-mix(in srgb, var(--panel) 96%, var(--ink) 4%);
+  border-right: 1px solid color-mix(in srgb, var(--ink) 8%, transparent);
 }
 
 #inputs-panel-time .input-row-head > *:last-child {
