@@ -337,6 +337,15 @@
     inputSubtabExpenses: document.getElementById("input-subtab-expenses"),
     inputsPanelTime: document.getElementById("inputs-panel-time"),
     inputsPanelExpenses: document.getElementById("inputs-panel-expenses"),
+    inputsTimeForm: document.getElementById("inputs-time-form"),
+    inputsTimeClientProject: document.getElementById("inputs-time-client-project"),
+    inputsTimeClient: document.getElementById("inputs-time-client"),
+    inputsTimeProject: document.getElementById("inputs-time-project"),
+    inputsTimeDate: document.getElementById("inputs-time-date"),
+    inputsTimeHours: document.getElementById("inputs-time-hours"),
+    inputsTimeNonBillable: document.getElementById("inputs-time-nonbillable"),
+    inputsTimeNotes: document.getElementById("inputs-time-notes"),
+    inputsTimeSave: document.getElementById("inputs-time-save"),
     expenseRows: document.getElementById("expense-rows"),
     addCategory: document.getElementById("add-category"),
     saveCategories: document.getElementById("save-categories"),
@@ -1730,6 +1739,162 @@
     return isValidDateString(iso) ? iso : null;
   }
 
+  function encodeInputsTimeCombo(clientName, projectName) {
+    return `${encodeURIComponent(clientName || "")}::${encodeURIComponent(projectName || "")}`;
+  }
+
+  function decodeInputsTimeCombo(value) {
+    const text = String(value || "");
+    const splitAt = text.indexOf("::");
+    if (splitAt < 0) return ["", ""];
+    return [
+      decodeURIComponent(text.slice(0, splitAt) || ""),
+      decodeURIComponent(text.slice(splitAt + 2) || ""),
+    ];
+  }
+
+  function parseInputsTimeDateValue(value) {
+    const raw = String(value || "").trim();
+    if (!raw) return "";
+    if (isValidDateString(raw)) {
+      return clampDateToBounds(raw);
+    }
+    const digits = raw.replace(/\D/g, "");
+    if (digits.length === 8) {
+      const month = digits.slice(0, 2);
+      const day = digits.slice(2, 4);
+      const year = digits.slice(4);
+      const iso = `${year}-${month}-${day}`;
+      return isValidDateString(iso) ? clampDateToBounds(iso) : "";
+    }
+    if (digits.length === 6) {
+      const month = digits.slice(0, 2);
+      const day = digits.slice(2, 4);
+      const year = `20${digits.slice(4)}`;
+      const iso = `${year}-${month}-${day}`;
+      return isValidDateString(iso) ? clampDateToBounds(iso) : "";
+    }
+    return "";
+  }
+
+  function syncInputsTimeDateField() {
+    const dateField = refs.inputsTimeDate;
+    if (!dateField) return;
+    const isDesktop = window.matchMedia("(pointer: fine) and (hover: hover)").matches;
+    const iso = dateField.dataset.dpCanonical || parseInputsTimeDateValue(dateField.value) || clampDateToBounds(today);
+    dateField.dataset.dpCanonical = iso;
+    if (isDesktop) {
+      dateField.value = formatDisplayDateShort(iso);
+    } else {
+      dateField.value = iso;
+    }
+  }
+
+  function syncInputsTimeForm() {
+    if (!refs.inputsTimeForm || !refs.inputsTimeClientProject) return;
+    const comboField = refs.inputsTimeClientProject;
+    const tuples = assignedProjectTuplesForCurrentUser();
+    const comboOptions = tuples.map((item) => ({
+      label: `${item.client} / ${item.project}`,
+      value: encodeInputsTimeCombo(item.client, item.project),
+    }));
+
+    const currentSelection = comboField.value || "";
+    setSelectOptionsWithPlaceholder(
+      { escapeHtml },
+      comboField,
+      comboOptions,
+      currentSelection,
+      "Select client / project"
+    );
+
+    if (!comboField.value && comboOptions.length) {
+      comboField.value = comboOptions[0].value;
+    }
+    comboField.disabled = comboOptions.length === 0;
+
+    const [selectedClient, selectedProject] = decodeInputsTimeCombo(comboField.value);
+    if (refs.inputsTimeClient) refs.inputsTimeClient.value = selectedClient || "";
+    if (refs.inputsTimeProject) refs.inputsTimeProject.value = selectedProject || "";
+    if (refs.inputsTimeNonBillable) {
+      refs.inputsTimeNonBillable.checked = isNonBillableDefault(selectedProject || "");
+    }
+
+    if (refs.inputsTimeDate) {
+      refs.inputsTimeDate.min = minEntryDate;
+      refs.inputsTimeDate.max = today;
+      const desktopDatePicker = window.datePicker && typeof window.datePicker.register === "function";
+      if (desktopDatePicker && refs.inputsTimeDate.dataset.dpBound !== "true") {
+        refs.inputsTimeDate.type = "date";
+        refs.inputsTimeDate.value = clampDateToBounds(today);
+        window.datePicker.register(refs.inputsTimeDate);
+      }
+      syncInputsTimeDateField();
+    }
+
+    if (!refs.inputsTimeForm.dataset.boundHandlers) {
+      refs.inputsTimeClientProject.addEventListener("change", function () {
+        const [clientName, projectName] = decodeInputsTimeCombo(refs.inputsTimeClientProject.value);
+        if (refs.inputsTimeClient) refs.inputsTimeClient.value = clientName || "";
+        if (refs.inputsTimeProject) refs.inputsTimeProject.value = projectName || "";
+        if (refs.inputsTimeNonBillable) {
+          refs.inputsTimeNonBillable.checked = isNonBillableDefault(projectName || "");
+        }
+      });
+
+      refs.inputsTimeDate?.addEventListener("change", function () {
+        syncInputsTimeDateField();
+      });
+
+      refs.inputsTimeForm.addEventListener("submit", async function (event) {
+        event.preventDefault();
+        const client = refs.inputsTimeClient?.value || "";
+        const project = refs.inputsTimeProject?.value || "";
+        const dateValue = parseInputsTimeDateValue(refs.inputsTimeDate?.value || "");
+        const hours = Number(refs.inputsTimeHours?.value);
+        const notes = (refs.inputsTimeNotes?.value || "").trim();
+        const isBillable = refs.inputsTimeNonBillable ? !refs.inputsTimeNonBillable.checked : true;
+        const nextEntry = {
+          id: crypto.randomUUID(),
+          user: state.currentUser?.displayName || "",
+          date: dateValue,
+          client,
+          project,
+          task: "",
+          hours,
+          notes,
+          billable: isBillable,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          status: "pending",
+        };
+
+        const error = validateEntry(nextEntry);
+        if (error) {
+          feedback(error, true);
+          return;
+        }
+
+        try {
+          await mutatePersistentState("save_entry", { entry: nextEntry });
+        } catch (error) {
+          feedback(error.message || "Unable to save entry.", true);
+          return;
+        }
+
+        feedback("Entry saved.", false);
+        if (refs.inputsTimeHours) refs.inputsTimeHours.value = "";
+        if (refs.inputsTimeNotes) refs.inputsTimeNotes.value = "";
+        if (refs.inputsTimeNonBillable) {
+          refs.inputsTimeNonBillable.checked = isNonBillableDefault(project);
+        }
+        render();
+      });
+
+      refs.inputsTimeForm.dataset.boundHandlers = "true";
+    }
+  }
+
   function feedback(message, isError) {
     refs.feedback.textContent = message || "";
     refs.feedback.dataset.error = isError ? "true" : "false";
@@ -2836,6 +3001,9 @@
     }
 
     if (view === "inputs") {
+      if (state.inputSubtab === "time") {
+        syncInputsTimeForm();
+      }
       postHeight();
       return;
     }
