@@ -294,6 +294,7 @@
     accountName: document.getElementById("account-name"),
     navTimesheet: document.getElementById("nav-timesheet"),
     navExpenses: document.getElementById("nav-expenses"),
+    navInputs: document.getElementById("nav-inputs"),
     navSettings: document.getElementById("nav-settings"),
     navMembers: document.getElementById("nav-members"),
     timesheetView: document.getElementById("timesheet-view"),
@@ -316,6 +317,7 @@
     navClientsMobile: document.getElementById("nav-clients-mobile"),
     navTimesheetMobile: document.getElementById("nav-timesheet-mobile"),
     navExpensesMobile: document.getElementById("nav-expenses-mobile"),
+    navInputsMobile: document.getElementById("nav-inputs-mobile"),
     navAnalyticsMobile: document.getElementById("nav-analytics-mobile"),
     closeCatalog: document.getElementById("close-catalog"),
     clientsNavMembers: document.getElementById("clients-nav-members"),
@@ -330,6 +332,19 @@
     usersPage: document.getElementById("members-page"),
     analyticsPage: document.getElementById("analytics-page"),
     settingsPage: document.getElementById("settings-page"),
+    inputsView: document.getElementById("inputs-view"),
+    inputSubtabTime: document.getElementById("input-subtab-time"),
+    inputSubtabExpenses: document.getElementById("input-subtab-expenses"),
+    inputsPanelTime: document.getElementById("inputs-panel-time"),
+    inputsPanelExpenses: document.getElementById("inputs-panel-expenses"),
+    inputsTimeForm: document.getElementById("inputs-time-form"),
+    inputsTimeClientProject: document.getElementById("inputs-time-client-project"),
+    inputsTimeClient: document.getElementById("inputs-time-client"),
+    inputsTimeProject: document.getElementById("inputs-time-project"),
+    inputsTimeDate: document.getElementById("inputs-time-date"),
+    inputsTimeHours: document.getElementById("inputs-time-hours"),
+    inputsTimeNonBillable: document.getElementById("inputs-time-nonbillable"),
+    inputsTimeNotes: document.getElementById("inputs-time-notes"),
     expenseRows: document.getElementById("expense-rows"),
     addCategory: document.getElementById("add-category"),
     saveCategories: document.getElementById("save-categories"),
@@ -930,7 +945,8 @@
       managerProjects: [],
       projectMembers: [],
     },
-    currentView: "main", // "main" | "expenses" | "clients" | "members" | "analytics" | "settings"
+    currentView: "main", // "main" | "inputs" | "expenses" | "clients" | "members" | "analytics" | "settings"
+    inputSubtab: "time", // "time" | "expenses"
     expenseEditingId: null,
     auditLogs: [],
   auditFilters: {
@@ -1720,6 +1736,155 @@
     const iso = `${year}-${month}-${day}`;
 
     return isValidDateString(iso) ? iso : null;
+  }
+
+  function encodeInputsTimeCombo(clientName, projectName) {
+    return `${encodeURIComponent(clientName || "")}::${encodeURIComponent(projectName || "")}`;
+  }
+
+  function decodeInputsTimeCombo(value) {
+    const text = String(value || "");
+    const splitAt = text.indexOf("::");
+    if (splitAt < 0) return ["", ""];
+    return [
+      decodeURIComponent(text.slice(0, splitAt) || ""),
+      decodeURIComponent(text.slice(splitAt + 2) || ""),
+    ];
+  }
+
+  function parseInputsTimeDateValue(value) {
+    const raw = String(value || "").trim();
+    if (!raw) {
+      return "";
+    }
+    if (isValidDateString(raw)) {
+      return clampDateToBounds(raw);
+    }
+    const digits = raw.replace(/\D/g, "");
+    if (digits.length === 6) {
+      const month = digits.slice(0, 2);
+      const day = digits.slice(2, 4);
+      const year = `20${digits.slice(4)}`;
+      const iso = `${year}-${month}-${day}`;
+      return isValidDateString(iso) ? clampDateToBounds(iso) : "";
+    }
+    if (digits.length === 8) {
+      const month = digits.slice(0, 2);
+      const day = digits.slice(2, 4);
+      const year = digits.slice(4);
+      const iso = `${year}-${month}-${day}`;
+      return isValidDateString(iso) ? clampDateToBounds(iso) : "";
+    }
+    return "";
+  }
+
+  function syncInputsTimeDateField() {
+    if (!refs.inputsTimeDate) return;
+    const isDesktop = window.matchMedia("(pointer: fine) and (hover: hover)").matches;
+    const iso =
+      refs.inputsTimeDate.dataset.dpCanonical ||
+      parseInputsTimeDateValue(refs.inputsTimeDate.value) ||
+      clampDateToBounds(today);
+    refs.inputsTimeDate.dataset.dpCanonical = iso;
+    refs.inputsTimeDate.value = isDesktop ? formatDisplayDateShort(iso) : iso;
+  }
+
+  function syncInputsTimeRow() {
+    if (!refs.inputsTimeForm || !refs.inputsTimeClientProject) return;
+    const tuples = assignedProjectTuplesForCurrentUser();
+    const options = tuples.map((item) => ({
+      label: `${item.client} / ${item.project}`,
+      value: encodeInputsTimeCombo(item.client, item.project),
+    }));
+    const selected = refs.inputsTimeClientProject.value || "";
+    setSelectOptionsWithPlaceholder(
+      { escapeHtml },
+      refs.inputsTimeClientProject,
+      options,
+      selected,
+      "Client / Project"
+    );
+    if (!refs.inputsTimeClientProject.value && options.length) {
+      refs.inputsTimeClientProject.value = options[0].value;
+    }
+    refs.inputsTimeClientProject.disabled = options.length === 0;
+
+    const [clientName, projectName] = decodeInputsTimeCombo(refs.inputsTimeClientProject.value);
+    if (refs.inputsTimeClient) refs.inputsTimeClient.value = clientName || "";
+    if (refs.inputsTimeProject) refs.inputsTimeProject.value = projectName || "";
+    if (refs.inputsTimeNonBillable) {
+      refs.inputsTimeNonBillable.checked = isNonBillableDefault(projectName || "");
+    }
+
+    if (refs.inputsTimeDate) {
+      refs.inputsTimeDate.min = minEntryDate;
+      refs.inputsTimeDate.max = today;
+      if (window.datePicker && typeof window.datePicker.register === "function" && refs.inputsTimeDate.dataset.dpBound !== "true") {
+        refs.inputsTimeDate.type = "date";
+        refs.inputsTimeDate.value = clampDateToBounds(today);
+        window.datePicker.register(refs.inputsTimeDate);
+      }
+      if (!refs.inputsTimeDate.value) {
+        refs.inputsTimeDate.value = clampDateToBounds(today);
+      }
+      syncInputsTimeDateField();
+    }
+
+    if (!refs.inputsTimeForm.dataset.boundHandlers) {
+      refs.inputsTimeClientProject.addEventListener("change", function () {
+        const [nextClient, nextProject] = decodeInputsTimeCombo(refs.inputsTimeClientProject.value);
+        if (refs.inputsTimeClient) refs.inputsTimeClient.value = nextClient || "";
+        if (refs.inputsTimeProject) refs.inputsTimeProject.value = nextProject || "";
+        if (refs.inputsTimeNonBillable) {
+          refs.inputsTimeNonBillable.checked = isNonBillableDefault(nextProject || "");
+        }
+      });
+
+      refs.inputsTimeDate?.addEventListener("change", function () {
+        syncInputsTimeDateField();
+      });
+
+      refs.inputsTimeForm.addEventListener("submit", async function (event) {
+        event.preventDefault();
+        const nextEntry = {
+          id: crypto.randomUUID(),
+          user: state.currentUser?.displayName || "",
+          date: parseInputsTimeDateValue(refs.inputsTimeDate?.value || ""),
+          client: refs.inputsTimeClient?.value || "",
+          project: refs.inputsTimeProject?.value || "",
+          task: "",
+          hours: Number(refs.inputsTimeHours?.value),
+          notes: (refs.inputsTimeNotes?.value || "").trim(),
+          billable: refs.inputsTimeNonBillable ? !refs.inputsTimeNonBillable.checked : true,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          status: "pending",
+        };
+
+        const error = validateEntry(nextEntry);
+        if (error) {
+          feedback(error, true);
+          return;
+        }
+
+        try {
+          await mutatePersistentState("save_entry", { entry: nextEntry });
+        } catch (error) {
+          feedback(error.message || "Unable to save entry.", true);
+          return;
+        }
+
+        feedback("Entry saved.", false);
+        if (refs.inputsTimeHours) refs.inputsTimeHours.value = "";
+        if (refs.inputsTimeNotes) refs.inputsTimeNotes.value = "";
+        if (refs.inputsTimeNonBillable) {
+          refs.inputsTimeNonBillable.checked = isNonBillableDefault(refs.inputsTimeProject?.value || "");
+        }
+        render();
+      });
+
+      refs.inputsTimeForm.dataset.boundHandlers = "true";
+    }
   }
 
   function feedback(message, isError) {
@@ -2570,6 +2735,7 @@
       refs.appShell.classList.toggle("page-clients", view === "clients");
       refs.appShell.classList.toggle("page-members", view === "members");
       refs.appShell.classList.toggle("page-analytics", view === "analytics");
+      refs.appShell.classList.toggle("page-inputs", view === "inputs");
     }
 
     const currentLevel = normalizeLevel(state.currentUser?.level);
@@ -2647,10 +2813,20 @@
       refs.navTimesheet.classList.toggle("is-active", view === "main");
       refs.navTimesheet.setAttribute("aria-current", view === "main" ? "page" : "false");
     }
+    if (refs.navInputs) {
+      refs.navInputs.hidden = false;
+      refs.navInputs.classList.toggle("is-active", view === "inputs");
+      refs.navInputs.setAttribute("aria-current", view === "inputs" ? "page" : "false");
+    }
     if (refs.navTimesheetMobile) {
       refs.navTimesheetMobile.hidden = false;
       refs.navTimesheetMobile.classList.toggle("is-active", view === "main");
       refs.navTimesheetMobile.setAttribute("aria-current", view === "main" ? "page" : "false");
+    }
+    if (refs.navInputsMobile) {
+      refs.navInputsMobile.hidden = false;
+      refs.navInputsMobile.classList.toggle("is-active", view === "inputs");
+      refs.navInputsMobile.setAttribute("aria-current", view === "inputs" ? "page" : "false");
     }
     if (refs.navExpenses) {
       refs.navExpenses.hidden = false;
@@ -2724,8 +2900,29 @@
     if (refs.settingsPage) {
       refs.settingsPage.hidden = view !== "settings";
     }
+    if (refs.inputsView) {
+      refs.inputsView.hidden = view !== "inputs";
+    }
     if (refs.auditView) {
       refs.auditView.hidden = view !== "audit";
+    }
+
+    const inputSubtab = state.inputSubtab === "expenses" ? "expenses" : "time";
+    if (refs.inputSubtabTime) {
+      const active = inputSubtab === "time";
+      refs.inputSubtabTime.classList.toggle("is-active", active);
+      refs.inputSubtabTime.setAttribute("aria-selected", active ? "true" : "false");
+    }
+    if (refs.inputSubtabExpenses) {
+      const active = inputSubtab === "expenses";
+      refs.inputSubtabExpenses.classList.toggle("is-active", active);
+      refs.inputSubtabExpenses.setAttribute("aria-selected", active ? "true" : "false");
+    }
+    if (refs.inputsPanelTime) {
+      refs.inputsPanelTime.hidden = inputSubtab !== "time";
+    }
+    if (refs.inputsPanelExpenses) {
+      refs.inputsPanelExpenses.hidden = inputSubtab !== "expenses";
     }
 
     if (view === "clients") {
@@ -2790,6 +2987,14 @@
       renderAuditTable(state.auditLogs);
       if (!state.auditLogs.length) {
         loadAuditLogs();
+      }
+      postHeight();
+      return;
+    }
+
+    if (view === "inputs") {
+      if (state.inputSubtab === "time") {
+        syncInputsTimeRow();
       }
       postHeight();
       return;
@@ -3076,9 +3281,19 @@
       setView("main");
     });
   }
+  if (refs.navInputs) {
+    refs.navInputs.addEventListener("click", function () {
+      setView("inputs");
+    });
+  }
   if (refs.navTimesheetMobile) {
     refs.navTimesheetMobile.addEventListener("click", function () {
       setView("main");
+    });
+  }
+  if (refs.navInputsMobile) {
+    refs.navInputsMobile.addEventListener("click", function () {
+      setView("inputs");
     });
   }
   if (refs.navExpenses) {
@@ -3089,6 +3304,18 @@
   if (refs.navExpensesMobile) {
     refs.navExpensesMobile.addEventListener("click", function () {
       setView("expenses");
+    });
+  }
+  if (refs.inputSubtabTime) {
+    refs.inputSubtabTime.addEventListener("click", function () {
+      state.inputSubtab = "time";
+      render();
+    });
+  }
+  if (refs.inputSubtabExpenses) {
+    refs.inputSubtabExpenses.addEventListener("click", function () {
+      state.inputSubtab = "expenses";
+      render();
     });
   }
   if (refs.navAudit) {
