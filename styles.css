@@ -3586,10 +3586,9 @@ body[data-theme="dark"] .entry-approved td {
 
 #settings-page .settings-rates-cards .member-info-card.member-info-card--enhanced .member-info-action.member-info-action-enhanced {
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
+  align-items: center;
   justify-content: flex-end;
-  gap: 6px;
+  gap: 10px;
   min-width: 0;
   flex-wrap: nowrap;
   align-self: center;
@@ -3597,18 +3596,16 @@ body[data-theme="dark"] .entry-approved td {
 
 #settings-page .settings-rates-cards .member-info-card.member-info-card--enhanced .member-info-action.member-info-action-enhanced .member-info-edit,
 #settings-page .settings-rates-cards .member-info-card.member-info-card--enhanced .member-info-action.member-info-action-enhanced .member-info-remove {
-  width: 96px;
-  min-width: 96px;
-  height: 34px;
+  width: 112px;
+  min-width: 112px;
+  height: 40px;
   margin: 0;
-  padding: 0 10px;
+  padding: 0 14px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
   white-space: nowrap;
-  font-size: 0.9rem;
-  line-height: 1;
 }
 
 @media (max-width: 1100px) {
@@ -3650,6 +3647,5 @@ body[data-theme="dark"] .entry-approved td {
 
   #settings-page .settings-rates-cards .member-info-card.member-info-card--enhanced .member-info-action.member-info-action-enhanced {
     justify-content: flex-start;
-    align-items: flex-start;
   }
 }
