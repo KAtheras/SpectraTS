@@ -2763,6 +2763,7 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   grid-auto-rows: auto;
   gap: 14px;
   --expense-col: minmax(200px, 1fr);
+  --expense-save-col: 240px;
 }
 
 .expense-entry-form .expense-row {
@@ -2772,12 +2773,17 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
 }
 
 .expense-entry-form .expense-row-1 {
-  grid-template-columns: repeat(5, var(--expense-col));
+  grid-template-columns:
+    minmax(280px, 1.45fr)
+    minmax(220px, 1.1fr)
+    minmax(190px, 0.95fr)
+    minmax(170px, 0.85fr)
+    minmax(var(--expense-save-col), var(--expense-save-col));
   align-items: end;
 }
 
 .expense-entry-form .expense-row-2 {
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) var(--expense-save-col);
   align-items: end;
   width: 100%;
 }
@@ -2805,7 +2811,8 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
 }
 
 .expense-actions-inline .button {
-  min-width: 132px;
+  width: var(--expense-save-col);
+  min-width: var(--expense-save-col);
   padding: 0 20px;
   height: 48px;
   min-height: 48px;
