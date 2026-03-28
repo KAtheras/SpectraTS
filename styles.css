@@ -873,18 +873,19 @@ body[data-theme="dark"] .mobile-tabbar {
 
 #inputs-panel-time {
   padding: 0;
+  border-radius: 0;
   border: none;
   background: transparent;
 }
 
 #inputs-panel-time .input-grid {
-  gap: 8px;
-  border: none;
-  background: transparent;
+  gap: 0;
+  border: 1px solid color-mix(in srgb, var(--ink) 18%, transparent);
+  background: var(--panel);
 }
 
 #inputs-panel-time .input-row {
-  gap: 8px;
+  gap: 0;
   grid-template-columns:
     minmax(340px, 2.8fr)
     minmax(140px, 1fr)
@@ -895,19 +896,24 @@ body[data-theme="dark"] .mobile-tabbar {
 }
 
 #inputs-panel-time .input-row > * {
-  min-height: 48px;
+  min-height: 56px;
   display: flex;
   align-items: center;
-  padding: 0;
-  border: none;
+  padding: 0 12px;
+  border-right: 1px solid color-mix(in srgb, var(--ink) 14%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--ink) 14%, transparent);
+}
+
+#inputs-panel-time .input-row > *:last-child {
+  border-right: none;
 }
 
 #inputs-panel-time .input-row-head {
-  font-size: 0.82rem;
-  letter-spacing: 0.02em;
+  font-size: 1.05rem;
+  letter-spacing: 0;
   text-transform: none;
-  color: var(--muted);
-  font-weight: 600;
+  color: var(--ink);
+  font-weight: 700;
 }
 
 #inputs-panel-time .input-row-body .cell-project,
@@ -921,23 +927,17 @@ body[data-theme="dark"] .mobile-tabbar {
 #inputs-panel-time .input-row-body .cell-date input,
 #inputs-panel-time .input-row-body .cell-hours input,
 #inputs-panel-time .input-row-body .cell-notes input {
-  width: 100%;
-  height: 48px;
-  min-height: 48px;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: var(--panel);
-  padding: 0 14px;
+  height: 56px;
+  min-height: 56px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  padding: 0 12px;
 }
 
 #inputs-panel-time .input-row-body .cell-billable {
   justify-content: center;
   padding: 0;
-}
-
-#inputs-panel-time .input-row-body .cell-billable input[type="checkbox"] {
-  width: 20px;
-  height: 20px;
 }
 
 #inputs-panel-time .input-row-body .cell-actions {
@@ -946,9 +946,10 @@ body[data-theme="dark"] .mobile-tabbar {
 
 #inputs-panel-time .input-row-body .cell-actions .button {
   width: 100%;
-  height: 48px;
-  min-height: 48px;
-  border-radius: 14px;
+  height: 56px;
+  min-height: 56px;
+  border-radius: 0;
+  border: none;
   padding: 0 10px;
 }
 
