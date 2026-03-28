@@ -888,9 +888,9 @@ body[data-theme="dark"] .mobile-tabbar {
   gap: 0;
   grid-template-columns:
     minmax(340px, 2.8fr)
-    minmax(70px, 0.5fr)
-    minmax(60px, 0.35fr)
-    minmax(92px, 0.5fr)
+    minmax(84px, 0.6fr)
+    minmax(72px, 0.42fr)
+    minmax(83px, 0.45fr)
     minmax(390px, 3fr)
     minmax(110px, 0.8fr);
 }
