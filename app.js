@@ -2761,6 +2761,8 @@
     if (view === "expenses") {
       if (refs.timesheetView) refs.timesheetView.hidden = true;
       if (refs.expensesView) refs.expensesView.hidden = false;
+      if (refs.expenseUser) refs.expenseUser.value = state.currentUser?.id || "";
+      if (refs.expenseUser) refs.expenseUser.closest("label")?.classList.add("entry-hidden-control");
       syncExpenseFilterCatalogsUI(state.expenseFilters);
       const filteredExpenses = currentExpenses();
       renderExpenses(filteredExpenses);
@@ -2790,6 +2792,9 @@
 
     if (refs.timesheetView) refs.timesheetView.hidden = false;
     if (refs.expensesView) refs.expensesView.hidden = true;
+    const entryUserField = field(refs.form, "user");
+    if (entryUserField) entryUserField.value = state.currentUser?.displayName || "";
+    if (entryUserField) entryUserField.closest("label")?.classList.add("entry-hidden-control");
 
     syncFormCatalogsUI({});
     syncFilterCatalogsUI(state.filters);
@@ -3158,8 +3163,7 @@
 
   async function saveBulkRows() {
     if (!window.bulkEntry) return;
-    const userField = field(refs.form, "user");
-    const userValue = userField ? userField.value : "";
+    const userValue = state.currentUser?.displayName || "";
     const rows = window.bulkEntry.getRows ? window.bulkEntry.getRows() : [];
     const hasContent = (row) =>
       (row.client && row.client.trim()) ||
@@ -3451,7 +3455,7 @@
 
   async function saveBulkExpenses() {
     if (!window.bulkExpenses) return;
-    const userId = refs.expenseUser?.value || state.currentUser?.id || state.currentUser?.displayName || "";
+    const userId = state.currentUser?.id || "";
     const rows = window.bulkExpenses.getRows ? window.bulkExpenses.getRows() : [];
 
     const hasContent = (row) =>
@@ -3541,13 +3545,8 @@
   }
 
   if (refs.expenseUser) {
-    refs.expenseUser.addEventListener("change", function () {
-      syncExpenseCatalogs({
-        userId: refs.expenseUser.value,
-        client: refs.expenseClient?.value || "",
-        project: refs.expenseProject?.value || "",
-      });
-    });
+    refs.expenseUser.value = state.currentUser?.id || "";
+    refs.expenseUser.closest("label")?.classList.add("entry-hidden-control");
   }
 
   if (refs.expensesBody) {
