@@ -333,8 +333,8 @@
     analyticsPage: document.getElementById("analytics-page"),
     settingsPage: document.getElementById("settings-page"),
     inputsView: document.getElementById("inputs-view"),
-    inputsViewTitle: document.getElementById("inputs-view-title"),
-    inputsSwitchAction: document.getElementById("inputs-switch-action"),
+    inputSubtabTime: document.getElementById("input-subtab-time"),
+    inputSubtabExpenses: document.getElementById("input-subtab-expenses"),
     inputsPanelTime: document.getElementById("inputs-panel-time"),
     inputsPanelExpenses: document.getElementById("inputs-panel-expenses"),
     inputsTimeForm: document.getElementById("inputs-time-form"),
@@ -2974,12 +2974,15 @@
     }
 
     const inputSubtab = state.inputSubtab === "expenses" ? "expenses" : "time";
-    if (refs.inputsViewTitle) {
-      refs.inputsViewTitle.textContent = inputSubtab === "expenses" ? "Enter Expenses" : "Enter Time";
+    if (refs.inputSubtabTime) {
+      const active = inputSubtab === "time";
+      refs.inputSubtabTime.classList.toggle("is-active", active);
+      refs.inputSubtabTime.setAttribute("aria-selected", active ? "true" : "false");
     }
-    if (refs.inputsSwitchAction) {
-      refs.inputsSwitchAction.textContent =
-        inputSubtab === "expenses" ? "Enter Time" : "Enter Expenses";
+    if (refs.inputSubtabExpenses) {
+      const active = inputSubtab === "expenses";
+      refs.inputSubtabExpenses.classList.toggle("is-active", active);
+      refs.inputSubtabExpenses.setAttribute("aria-selected", active ? "true" : "false");
     }
     if (refs.inputsPanelTime) {
       refs.inputsPanelTime.hidden = inputSubtab !== "time";
@@ -3369,9 +3372,15 @@
       setView("expenses");
     });
   }
-  if (refs.inputsSwitchAction) {
-    refs.inputsSwitchAction.addEventListener("click", function () {
-      state.inputSubtab = state.inputSubtab === "expenses" ? "time" : "expenses";
+  if (refs.inputSubtabTime) {
+    refs.inputSubtabTime.addEventListener("click", function () {
+      state.inputSubtab = "time";
+      render();
+    });
+  }
+  if (refs.inputSubtabExpenses) {
+    refs.inputSubtabExpenses.addEventListener("click", function () {
+      state.inputSubtab = "expenses";
       render();
     });
   }
