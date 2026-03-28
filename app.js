@@ -1778,113 +1778,179 @@
     return "";
   }
 
-  function syncInputsTimeDateField() {
-    if (!refs.inputsTimeDate) return;
+  function syncInputsTimeDateField(dateField) {
+    const input = dateField || refs.inputsTimeDate;
+    if (!input) return;
     const isDesktop = window.matchMedia("(pointer: fine) and (hover: hover)").matches;
     const iso =
-      refs.inputsTimeDate.dataset.dpCanonical ||
-      parseInputsTimeDateValue(refs.inputsTimeDate.value) ||
+      input.dataset.dpCanonical ||
+      parseInputsTimeDateValue(input.value) ||
       clampDateToBounds(today);
-    refs.inputsTimeDate.dataset.dpCanonical = iso;
-    refs.inputsTimeDate.value = isDesktop ? formatDisplayDateShort(iso) : iso;
+    input.dataset.dpCanonical = iso;
+    input.value = isDesktop ? formatDisplayDateShort(iso) : iso;
   }
 
-  function syncInputsTimeRow() {
-    if (!refs.inputsTimeForm || !refs.inputsTimeClientProject) return;
-    const tuples = assignedProjectTuplesForCurrentUser();
-    const options = tuples.map((item) => ({
+  function inputsTimeRowFields(row) {
+    if (!row) return {};
+    return {
+      row,
+      clientProject: row.querySelector(".cell-project select"),
+      date: row.querySelector(".cell-date input"),
+      hours: row.querySelector(".cell-hours input"),
+      billable: row.querySelector(".cell-billable input[type='checkbox']"),
+      notes: row.querySelector(".cell-notes input"),
+    };
+  }
+
+  function inputsTimeComboOptions() {
+    return assignedProjectTuplesForCurrentUser().map((item) => ({
       label: `${item.client} / ${item.project}`,
       value: encodeInputsTimeCombo(item.client, item.project),
     }));
-    const selected = refs.inputsTimeClientProject.value || "";
+  }
+
+  function applyInputsTimeBillableDefaultForRow(row) {
+    const fields = inputsTimeRowFields(row);
+    if (!fields.clientProject || !fields.billable) return;
+    const [, projectName] = decodeInputsTimeCombo(fields.clientProject.value);
+    fields.billable.checked = !isNonBillableDefault(projectName || "");
+  }
+
+  function syncInputsTimeDateInput(input) {
+    if (!input) return;
+    input.min = minEntryDate;
+    input.max = today;
+    if (window.datePicker && typeof window.datePicker.register === "function" && input.dataset.dpBound !== "true") {
+      input.type = "date";
+      input.value = clampDateToBounds(today);
+      window.datePicker.register(input);
+    }
+    if (!input.value) {
+      input.value = clampDateToBounds(today);
+    }
+    syncInputsTimeDateField(input);
+  }
+
+  function syncInputsTimeFormRow(row, options) {
+    const fields = inputsTimeRowFields(row);
+    if (!fields.clientProject) return;
+    const selected = fields.clientProject.value || "";
     setSelectOptionsWithPlaceholder(
       { escapeHtml },
-      refs.inputsTimeClientProject,
+      fields.clientProject,
       options,
       selected,
       "Client / Project"
     );
-    if (!refs.inputsTimeClientProject.value && options.length) {
-      refs.inputsTimeClientProject.value = options[0].value;
+    if (!fields.clientProject.value && options.length) {
+      fields.clientProject.value = options[0].value;
     }
-    refs.inputsTimeClientProject.disabled = options.length === 0;
+    fields.clientProject.disabled = options.length === 0;
 
-    const [clientName, projectName] = decodeInputsTimeCombo(refs.inputsTimeClientProject.value);
-    if (refs.inputsTimeClient) refs.inputsTimeClient.value = clientName || "";
-    if (refs.inputsTimeProject) refs.inputsTimeProject.value = projectName || "";
-    if (refs.inputsTimeBillable) {
-      refs.inputsTimeBillable.checked = !isNonBillableDefault(projectName || "");
+    if (fields.billable && row.dataset.lastCombo !== fields.clientProject.value) {
+      applyInputsTimeBillableDefaultForRow(row);
     }
+    row.dataset.lastCombo = fields.clientProject.value || "";
 
-    if (refs.inputsTimeDate) {
-      refs.inputsTimeDate.min = minEntryDate;
-      refs.inputsTimeDate.max = today;
-      if (window.datePicker && typeof window.datePicker.register === "function" && refs.inputsTimeDate.dataset.dpBound !== "true") {
-        refs.inputsTimeDate.type = "date";
-        refs.inputsTimeDate.value = clampDateToBounds(today);
-        window.datePicker.register(refs.inputsTimeDate);
+    syncInputsTimeDateInput(fields.date);
+  }
+
+  function addInputsTimeRowFrom(sourceRow, options) {
+    const template = refs.inputsTimeForm;
+    const container = template?.parentElement;
+    if (!template || !container) return null;
+    const source = inputsTimeRowFields(sourceRow);
+    const next = template.cloneNode(true);
+    next.removeAttribute("id");
+    next.dataset.boundHandlers = "";
+    next.dataset.lastCombo = "";
+    container.appendChild(next);
+
+    const nextFields = inputsTimeRowFields(next);
+    if (nextFields.hours) nextFields.hours.value = "";
+    if (nextFields.notes) nextFields.notes.value = "";
+    if (nextFields.date) {
+      const sourceIso =
+        source.date?.dataset.dpCanonical ||
+        parseInputsTimeDateValue(source.date?.value || "") ||
+        clampDateToBounds(today);
+      nextFields.date.dataset.dpCanonical = sourceIso;
+      const isDesktop = window.matchMedia("(pointer: fine) and (hover: hover)").matches;
+      nextFields.date.value = isDesktop ? formatDisplayDateShort(sourceIso) : sourceIso;
+    }
+    if (nextFields.clientProject && source.clientProject) {
+      nextFields.clientProject.value = source.clientProject.value || "";
+    }
+    syncInputsTimeFormRow(next, options);
+    bindInputsTimeFormRow(next);
+    nextFields.hours?.focus();
+    return next;
+  }
+
+  function bindInputsTimeFormRow(row) {
+    if (!row || row.dataset.boundHandlers === "true") return;
+    const fields = inputsTimeRowFields(row);
+    if (!fields.clientProject) return;
+
+    fields.clientProject.addEventListener("change", function () {
+      applyInputsTimeBillableDefaultForRow(row);
+      row.dataset.lastCombo = fields.clientProject.value || "";
+    });
+
+    fields.date?.addEventListener("change", function () {
+      syncInputsTimeDateField(fields.date);
+    });
+
+    row.addEventListener("submit", async function (event) {
+      event.preventDefault();
+      const current = inputsTimeRowFields(row);
+      const [clientName, projectName] = decodeInputsTimeCombo(current.clientProject?.value || "");
+      const nextEntry = {
+        id: crypto.randomUUID(),
+        user: state.currentUser?.displayName || "",
+        date: parseInputsTimeDateValue(current.date?.value || ""),
+        client: clientName || "",
+        project: projectName || "",
+        task: "",
+        hours: Number(current.hours?.value),
+        notes: (current.notes?.value || "").trim(),
+        billable: current.billable ? current.billable.checked : true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        status: "pending",
+      };
+
+      const error = validateEntry(nextEntry);
+      if (error) {
+        feedback(error, true);
+        return;
       }
-      if (!refs.inputsTimeDate.value) {
-        refs.inputsTimeDate.value = clampDateToBounds(today);
+
+      try {
+        await mutatePersistentState("save_entry", { entry: nextEntry });
+      } catch (error) {
+        feedback(error.message || "Unable to save entry.", true);
+        return;
       }
-      syncInputsTimeDateField();
-    }
 
-    if (!refs.inputsTimeForm.dataset.boundHandlers) {
-      refs.inputsTimeClientProject.addEventListener("change", function () {
-        const [nextClient, nextProject] = decodeInputsTimeCombo(refs.inputsTimeClientProject.value);
-        if (refs.inputsTimeClient) refs.inputsTimeClient.value = nextClient || "";
-        if (refs.inputsTimeProject) refs.inputsTimeProject.value = nextProject || "";
-        if (refs.inputsTimeBillable) {
-          refs.inputsTimeBillable.checked = !isNonBillableDefault(nextProject || "");
-        }
-      });
+      feedback("Entry saved.", false);
+      addInputsTimeRowFrom(row, inputsTimeComboOptions());
+      postHeight();
+    });
 
-      refs.inputsTimeDate?.addEventListener("change", function () {
-        syncInputsTimeDateField();
-      });
+    row.dataset.boundHandlers = "true";
+  }
 
-      refs.inputsTimeForm.addEventListener("submit", async function (event) {
-        event.preventDefault();
-        const nextEntry = {
-          id: crypto.randomUUID(),
-          user: state.currentUser?.displayName || "",
-          date: parseInputsTimeDateValue(refs.inputsTimeDate?.value || ""),
-          client: refs.inputsTimeClient?.value || "",
-          project: refs.inputsTimeProject?.value || "",
-          task: "",
-          hours: Number(refs.inputsTimeHours?.value),
-          notes: (refs.inputsTimeNotes?.value || "").trim(),
-          billable: refs.inputsTimeBillable ? refs.inputsTimeBillable.checked : true,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          status: "pending",
-        };
-
-        const error = validateEntry(nextEntry);
-        if (error) {
-          feedback(error, true);
-          return;
-        }
-
-        try {
-          await mutatePersistentState("save_entry", { entry: nextEntry });
-        } catch (error) {
-          feedback(error.message || "Unable to save entry.", true);
-          return;
-        }
-
-        feedback("Entry saved.", false);
-        if (refs.inputsTimeHours) refs.inputsTimeHours.value = "";
-        if (refs.inputsTimeNotes) refs.inputsTimeNotes.value = "";
-        if (refs.inputsTimeBillable) {
-          refs.inputsTimeBillable.checked = !isNonBillableDefault(refs.inputsTimeProject?.value || "");
-        }
-        render();
-      });
-
-      refs.inputsTimeForm.dataset.boundHandlers = "true";
-    }
+  function syncInputsTimeRow() {
+    if (!refs.inputsTimeForm) return;
+    const container = refs.inputsTimeForm.parentElement;
+    if (!container) return;
+    const options = inputsTimeComboOptions();
+    const rows = Array.from(container.querySelectorAll("form.input-row.input-row-body"));
+    rows.forEach((row) => {
+      syncInputsTimeFormRow(row, options);
+      bindInputsTimeFormRow(row);
+    });
   }
 
   function feedback(message, isError) {
