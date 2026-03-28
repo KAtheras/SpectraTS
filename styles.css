@@ -2772,7 +2772,7 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
 }
 
 .expense-entry-form .expense-row-1 {
-  grid-template-columns: repeat(4, var(--expense-col));
+  grid-template-columns: repeat(5, var(--expense-col));
 }
 
 .expense-entry-form .expense-row-2 {
@@ -3026,17 +3026,20 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   flex-wrap: nowrap;
 }
 
+.expense-billable-group {
+  align-content: start;
+}
+
 .expense-nonbillable-live {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   white-space: nowrap;
-  flex-shrink: 1;
+  flex-shrink: 0;
   flex-direction: row;
-  justify-content: flex-end;
-  width: 100%;
+  justify-content: flex-start;
+  width: auto;
   margin: 0;
-  margin-top: 6px;
 }
 
 .expense-nonbillable-live input {
