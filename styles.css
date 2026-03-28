@@ -3037,7 +3037,7 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
 .expense-billable-group {
   display: flex;
   align-items: flex-end;
-  justify-content: flex-start;
+  justify-content: flex-end;
   align-self: end;
   width: 100%;
   min-width: 0;
@@ -3051,7 +3051,7 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   flex-shrink: 0;
   flex-direction: row;
   justify-content: flex-start;
-  width: 100%;
+  width: auto;
   min-width: 0;
   height: 48px;
   min-height: 48px;
