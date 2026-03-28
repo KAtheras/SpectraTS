@@ -956,48 +956,48 @@
             <div class="member-info-layout">
               <div class="member-info-identity">
                 <div class="member-info-name">${escapeHtml(user.displayName)}</div>
-                <div class="member-info-item member-info-id-inline">
-                  <span class="member-info-field-label">User ID:</span>
+                <div class="member-info-item member-info-item-inline">
+                  <span class="member-info-field-label">User ID</span>
                   <span class="member-info-field-value">${valueOrDash(user.username)}</span>
-                </div>
-                <div class="member-info-item member-info-email-inline">
-                  <span class="member-info-field-label">Email:</span>
-                  <span class="member-info-field-value">${valueOrDash(user.email)}</span>
                 </div>
               </div>
               <div class="member-info-grid">
-                <div class="member-info-item member-info-item-title">
+                <div class="member-info-item">
                   <span class="member-info-field-label">Title</span>
                   <span class="member-info-field-value">${valueOrDash(levelLabel(user.level) || "No title")}</span>
                 </div>
-                <div class="member-info-item member-info-item-department">
+                <div class="member-info-item">
                   <span class="member-info-field-label">Department</span>
                   <span class="member-info-field-value">${valueOrDash(departmentName(user.departmentId))}</span>
                 </div>
-                <div class="member-info-item member-info-item-office">
+                <div class="member-info-item">
                   <span class="member-info-field-label">Office</span>
                   <span class="member-info-field-value">${valueOrDash(officeName(user.officeId, user.officeName))}</span>
                 </div>
-                <div class="member-info-item member-info-item-base-rate">
+                <div class="member-info-item">
+                  <span class="member-info-field-label">Email</span>
+                  <span class="member-info-field-value">${valueOrDash(user.email)}</span>
+                </div>
+                <div class="member-info-item">
                   <span class="member-info-field-label">Base rate</span>
                   <span class="member-info-field-value">${valueOrDash(user.baseRate)}</span>
                 </div>
-                <div class="member-info-item member-info-item-cost-rate">
+                <div class="member-info-item">
                   <span class="member-info-field-label">Cost rate</span>
                   <span class="member-info-field-value">${valueOrDash(user.costRate)}</span>
                 </div>
-                <div class="member-info-action member-info-action-enhanced">
-                  ${
-                    canEditAny
-                      ? `<button type="button" class="button button-ghost member-info-edit" data-member-edit="${escapeHtml(user.id)}">Edit</button>`
-                      : ""
-                  }
-                  ${
-                    canEditProfile
-                      ? `<button type="button" class="member-info-remove" data-user-deactivate="${escapeHtml(user.id)}">Remove</button>`
-                      : ""
-                  }
-                </div>
+              </div>
+              <div class="member-info-action member-info-action-enhanced">
+                ${
+                  canEditAny
+                    ? `<button type="button" class="button button-ghost member-info-edit" data-member-edit="${escapeHtml(user.id)}">Edit</button>`
+                    : ""
+                }
+                ${
+                  canEditProfile
+                    ? `<button type="button" class="member-info-remove" data-user-deactivate="${escapeHtml(user.id)}">Remove</button>`
+                    : ""
+                }
               </div>
             </div>
           </article>

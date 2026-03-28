@@ -3544,9 +3544,9 @@ body[data-theme="dark"] .entry-approved td {
 
 #settings-page .settings-rates-cards .member-info-card.member-info-card--enhanced .member-info-layout {
   display: grid;
-  grid-template-columns: minmax(260px, 1.15fr) minmax(0, 2fr);
+  grid-template-columns: minmax(200px, 1.1fr) minmax(0, 2fr) auto;
   gap: 16px 18px;
-  align-items: start;
+  align-items: center;
 }
 
 #settings-page .settings-rates-cards .member-info-card.member-info-card--enhanced .member-info-identity {
@@ -3563,12 +3563,8 @@ body[data-theme="dark"] .entry-approved td {
 #settings-page .settings-rates-cards .member-info-card.member-info-card--enhanced .member-info-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(150px, 1fr));
-  grid-template-areas:
-    "title department office"
-    "base cost actions";
   gap: 12px 16px;
   min-width: 0;
-  align-items: start;
 }
 
 #settings-page .settings-rates-cards .member-info-card.member-info-card--enhanced .member-info-item {
@@ -3577,28 +3573,8 @@ body[data-theme="dark"] .entry-approved td {
   min-width: 0;
 }
 
-#settings-page .settings-rates-cards .member-info-card.member-info-card--enhanced .member-info-item-inline,
-#settings-page .settings-rates-cards .member-info-card.member-info-card--enhanced .member-info-id-inline,
-#settings-page .settings-rates-cards .member-info-card.member-info-card--enhanced .member-info-email-inline {
+#settings-page .settings-rates-cards .member-info-card.member-info-card--enhanced .member-info-item-inline {
   max-width: 100%;
-}
-
-#settings-page .settings-rates-cards .member-info-card.member-info-card--enhanced .member-info-id-inline,
-#settings-page .settings-rates-cards .member-info-card.member-info-card--enhanced .member-info-email-inline {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-}
-
-#settings-page .settings-rates-cards .member-info-card.member-info-card--enhanced .member-info-id-inline .member-info-field-label,
-#settings-page .settings-rates-cards .member-info-card.member-info-card--enhanced .member-info-email-inline .member-info-field-label {
-  white-space: nowrap;
-}
-
-#settings-page .settings-rates-cards .member-info-card.member-info-card--enhanced .member-info-id-inline .member-info-field-value,
-#settings-page .settings-rates-cards .member-info-card.member-info-card--enhanced .member-info-email-inline .member-info-field-value {
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 #settings-page .settings-rates-cards .member-info-card.member-info-card--enhanced .member-info-field-value {
@@ -3608,28 +3584,7 @@ body[data-theme="dark"] .entry-approved td {
   text-overflow: ellipsis;
 }
 
-#settings-page .settings-rates-cards .member-info-card.member-info-card--enhanced .member-info-item-title {
-  grid-area: title;
-}
-
-#settings-page .settings-rates-cards .member-info-card.member-info-card--enhanced .member-info-item-department {
-  grid-area: department;
-}
-
-#settings-page .settings-rates-cards .member-info-card.member-info-card--enhanced .member-info-item-office {
-  grid-area: office;
-}
-
-#settings-page .settings-rates-cards .member-info-card.member-info-card--enhanced .member-info-item-base-rate {
-  grid-area: base;
-}
-
-#settings-page .settings-rates-cards .member-info-card.member-info-card--enhanced .member-info-item-cost-rate {
-  grid-area: cost;
-}
-
 #settings-page .settings-rates-cards .member-info-card.member-info-card--enhanced .member-info-action.member-info-action-enhanced {
-  grid-area: actions;
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -3669,15 +3624,10 @@ body[data-theme="dark"] .entry-approved td {
   #settings-page .settings-rates-cards .member-info-card.member-info-card--enhanced .member-info-grid {
     grid-area: grid;
     grid-template-columns: repeat(2, minmax(160px, 1fr));
-    grid-template-areas:
-      "title department"
-      "base cost"
-      "office office"
-      "actions actions";
   }
 
   #settings-page .settings-rates-cards .member-info-card.member-info-card--enhanced .member-info-action.member-info-action-enhanced {
-    justify-content: flex-start;
+    grid-area: actions;
   }
 }
 
@@ -3693,13 +3643,6 @@ body[data-theme="dark"] .entry-approved td {
 
   #settings-page .settings-rates-cards .member-info-card.member-info-card--enhanced .member-info-grid {
     grid-template-columns: 1fr;
-    grid-template-areas:
-      "title"
-      "department"
-      "office"
-      "base"
-      "cost"
-      "actions";
   }
 
   #settings-page .settings-rates-cards .member-info-card.member-info-card--enhanced .member-info-action.member-info-action-enhanced {
