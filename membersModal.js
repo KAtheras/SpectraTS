@@ -200,8 +200,7 @@
 
     usersToRender.forEach(function (user) {
       const currentLevel = normalizeLevel(user.level);
-      const canonicalRole = (roleKey ? roleKey(user) : (user?.role || "")).toLowerCase();
-      const isManagerEligible = ["manager", "admin", "superuser"].includes(canonicalRole);
+      const isManagerEligible = isManager(user);
       const isAssignedToProject = project
         ? isUserAssignedToProject(user.id, client, project)
         : false;
