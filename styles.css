@@ -3544,8 +3544,8 @@ body[data-theme="dark"] .entry-approved td {
 
 #settings-page .settings-rates-cards .member-info-card.member-info-card--enhanced .member-info-layout {
   display: grid;
-  grid-template-columns: minmax(200px, 1.1fr) minmax(0, 2fr) auto;
-  gap: 16px 18px;
+  grid-template-columns: minmax(180px, 0.95fr) minmax(0, 2.05fr) auto;
+  gap: 14px 12px;
   align-items: center;
 }
 
@@ -3562,7 +3562,7 @@ body[data-theme="dark"] .entry-approved td {
 
 #settings-page .settings-rates-cards .member-info-card.member-info-card--enhanced .member-info-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(150px, 1fr));
+  grid-template-columns: minmax(180px, 1.35fr) minmax(110px, 0.78fr) minmax(140px, 1fr);
   gap: 12px 16px;
   min-width: 0;
 }
