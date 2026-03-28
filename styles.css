@@ -2774,11 +2774,11 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
 
 .expense-entry-form .expense-row-1 {
   grid-template-columns:
-    minmax(280px, 1.45fr)
-    minmax(220px, 1.1fr)
-    minmax(190px, 0.95fr)
-    minmax(170px, 0.85fr)
-    minmax(var(--expense-save-col), var(--expense-save-col));
+    minmax(0, 1.35fr)
+    minmax(0, 1.15fr)
+    minmax(0, 1fr)
+    minmax(0, 1fr)
+    minmax(0, 1fr);
   align-items: end;
 }
 
