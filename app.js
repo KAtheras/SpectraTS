@@ -343,7 +343,7 @@
     inputsTimeProject: document.getElementById("inputs-time-project"),
     inputsTimeDate: document.getElementById("inputs-time-date"),
     inputsTimeHours: document.getElementById("inputs-time-hours"),
-    inputsTimeNonBillable: document.getElementById("inputs-time-nonbillable"),
+    inputsTimeBillable: document.getElementById("inputs-time-billable"),
     inputsTimeNotes: document.getElementById("inputs-time-notes"),
     expenseRows: document.getElementById("expense-rows"),
     addCategory: document.getElementById("add-category"),
@@ -1812,8 +1812,8 @@
     const [clientName, projectName] = decodeInputsTimeCombo(refs.inputsTimeClientProject.value);
     if (refs.inputsTimeClient) refs.inputsTimeClient.value = clientName || "";
     if (refs.inputsTimeProject) refs.inputsTimeProject.value = projectName || "";
-    if (refs.inputsTimeNonBillable) {
-      refs.inputsTimeNonBillable.checked = isNonBillableDefault(projectName || "");
+    if (refs.inputsTimeBillable) {
+      refs.inputsTimeBillable.checked = !isNonBillableDefault(projectName || "");
     }
 
     if (refs.inputsTimeDate) {
@@ -1835,8 +1835,8 @@
         const [nextClient, nextProject] = decodeInputsTimeCombo(refs.inputsTimeClientProject.value);
         if (refs.inputsTimeClient) refs.inputsTimeClient.value = nextClient || "";
         if (refs.inputsTimeProject) refs.inputsTimeProject.value = nextProject || "";
-        if (refs.inputsTimeNonBillable) {
-          refs.inputsTimeNonBillable.checked = isNonBillableDefault(nextProject || "");
+        if (refs.inputsTimeBillable) {
+          refs.inputsTimeBillable.checked = !isNonBillableDefault(nextProject || "");
         }
       });
 
@@ -1855,7 +1855,7 @@
           task: "",
           hours: Number(refs.inputsTimeHours?.value),
           notes: (refs.inputsTimeNotes?.value || "").trim(),
-          billable: refs.inputsTimeNonBillable ? !refs.inputsTimeNonBillable.checked : true,
+          billable: refs.inputsTimeBillable ? refs.inputsTimeBillable.checked : true,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
           status: "pending",
@@ -1877,8 +1877,8 @@
         feedback("Entry saved.", false);
         if (refs.inputsTimeHours) refs.inputsTimeHours.value = "";
         if (refs.inputsTimeNotes) refs.inputsTimeNotes.value = "";
-        if (refs.inputsTimeNonBillable) {
-          refs.inputsTimeNonBillable.checked = isNonBillableDefault(refs.inputsTimeProject?.value || "");
+        if (refs.inputsTimeBillable) {
+          refs.inputsTimeBillable.checked = !isNonBillableDefault(refs.inputsTimeProject?.value || "");
         }
         render();
       });
