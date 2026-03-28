@@ -3031,6 +3031,8 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
 }
 
 .expense-billable-group .expense-billable-spacer {
+  display: block;
+  height: 20px;
   visibility: hidden;
   pointer-events: none;
   user-select: none;
@@ -3044,7 +3046,12 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   flex-shrink: 0;
   flex-direction: row;
   justify-content: flex-start;
-  width: auto;
+  width: 100%;
+  min-height: 48px;
+  padding: 0 14px;
+  border: 1px solid var(--control-border);
+  border-radius: 12px;
+  background: var(--control);
   margin: 0;
 }
 
