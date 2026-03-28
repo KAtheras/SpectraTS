@@ -255,7 +255,8 @@
     const projectField = field(refs.form, "project");
     const authUsers = entryUserOptions();
     const defaultUser = defaultEntryUser(state);
-    const nextUser = authUsers.includes(defaultUser) ? defaultUser : authUsers[0] || "";
+    const userOptions = Array.from(new Set([defaultUser, ...authUsers].filter(Boolean)));
+    const nextUser = defaultUser || authUsers[0] || "";
     let requestedClient = selection?.client;
     let requestedProject = selection?.project;
     if ((requestedClient === undefined || requestedProject === undefined) && comboField?.value) {
@@ -279,7 +280,7 @@
     const selectedComboValue =
       nextClient && nextProject ? encodeCombo(nextClient, nextProject) : "";
 
-    populateSelect(deps, userField, authUsers, "Select team member", nextUser);
+    populateSelect(deps, userField, userOptions, "Select team member", nextUser);
     populateSelect(deps, clientField, clients, "Select client", nextClient);
     populateSelect(
       deps,

@@ -3307,12 +3307,11 @@
   }
 
   field(refs.form, "client").addEventListener("change", function () {
-    const userField = field(refs.form, "user");
     const clientField = field(refs.form, "client");
     const projectField = field(refs.form, "project");
     state.selectedCatalogClient = clientField.value || state.selectedCatalogClient;
     syncFormCatalogsUI({
-      user: userField.value,
+      user: state.currentUser?.displayName || "",
       client: clientField.value,
       project: projectField?.value || "",
     });
