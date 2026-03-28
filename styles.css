@@ -3030,6 +3030,12 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   align-content: start;
 }
 
+.expense-billable-group .expense-billable-spacer {
+  visibility: hidden;
+  pointer-events: none;
+  user-select: none;
+}
+
 .expense-nonbillable-live {
   display: inline-flex;
   align-items: center;
