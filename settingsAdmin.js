@@ -428,24 +428,41 @@
           }
           #settings-page .member-info-action{
             display:flex;
-            align-items:center;
+            flex-direction:column;
+            align-items:flex-end;
             justify-content:flex-end;
             white-space:nowrap;
-            gap:10px;
+            gap:6px;
           }
           #settings-page .member-info-remove{
             margin:0;
-            padding:6px 12px;
+            width:96px;
+            min-width:96px;
+            height:34px;
+            padding:0 10px;
             border:1px solid color-mix(in srgb, var(--danger) 45%, var(--group-border));
             border-radius:999px;
             background:color-mix(in srgb, var(--panel) 88%, var(--danger) 12%);
             color:var(--danger);
             font-weight:700;
+            font-size:.9rem;
+            line-height:1;
+            display:inline-flex;
+            align-items:center;
+            justify-content:center;
             cursor:pointer;
           }
           #settings-page .member-info-edit{
             margin:0;
-            padding:6px 12px;
+            width:96px;
+            min-width:96px;
+            height:34px;
+            padding:0 10px;
+            font-size:.9rem;
+            line-height:1;
+            display:inline-flex;
+            align-items:center;
+            justify-content:center;
           }
           #settings-page .settings-section-content .settings-structured-row{
             display:grid;
