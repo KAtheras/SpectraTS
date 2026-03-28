@@ -512,50 +512,13 @@
           <section class="input-panel" id="inputs-panel-time" role="tabpanel" aria-labelledby="input-subtab-time">
             <h2 id="inputs-view-title">Inputs</h2>
             <div class="input-grid">
-              <form id="inputs-time-form" class="input-row input-row--time">
-                <label class="cell-project">
-                  <span>Client / Project</span>
-                  <select id="inputs-time-client-project" required></select>
-                </label>
-
-                <label class="cell-date">
-                  <span>Date</span>
-                  <input type="date" id="inputs-time-date" required />
-                </label>
-
-                <label class="cell-hours">
-                  <span>Hours</span>
-                  <input
-                    type="number"
-                    id="inputs-time-hours"
-                    min="0.25"
-                    max="24"
-                    step="0.25"
-                    placeholder="0.00"
-                    required
-                  />
-                </label>
-
-                <label class="cell-billable">
-                  <span>Billable</span>
-                  <span class="nonbillable-toggle">
-                    <input type="checkbox" id="inputs-time-nonbillable" />
-                    <span>Non-billable</span>
-                  </span>
-                </label>
-
-                <label class="cell-notes">
-                  <span>Notes</span>
-                  <input type="text" id="inputs-time-notes" placeholder="Add a note (optional)" />
-                </label>
-
-                <div class="cell-actions">
-                  <button class="button button-primary" id="inputs-time-save" type="submit">Save</button>
-                </div>
-
-                <input type="hidden" id="inputs-time-client" />
-                <input type="hidden" id="inputs-time-project" />
-              </form>
+              <div class="input-row">
+                <div class="cell-project">Time row grid placeholder</div>
+                <div class="cell-date">Date</div>
+                <div class="cell-hours">Hours</div>
+                <div class="cell-notes">Notes</div>
+                <div class="cell-actions">Actions</div>
+              </div>
             </div>
           </section>
 
