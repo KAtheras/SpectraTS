@@ -1919,7 +1919,38 @@
   }
 
   function assignedProjectTuplesForCurrentUser() {
-    return allowedProjectTuples(state.currentUser || null, state.projects || []);
+    const userId = state.currentUser?.id || "";
+    if (!userId) {
+      return [];
+    }
+    const assignments = state.assignments || {};
+    const projects = state.projects || [];
+    const memberTuples = (assignments.projectMembers || [])
+      .filter((item) => item.userId === userId)
+      .map((item) => ({ client: item.client || "", project: item.project || "" }));
+    const managerProjectTuples = (assignments.managerProjects || [])
+      .filter((item) => item.managerId === userId)
+      .map((item) => ({ client: item.client || "", project: item.project || "" }));
+    const managerClients = new Set(
+      (assignments.managerClients || [])
+        .filter((item) => item.managerId === userId)
+        .map((item) => item.client || "")
+        .filter(Boolean)
+    );
+    const managerClientTuples = projects
+      .filter((project) => managerClients.has(project.client))
+      .map((project) => ({ client: project.client || "", project: project.name || "" }));
+    const tupleMap = new Map();
+    [...memberTuples, ...managerProjectTuples, ...managerClientTuples].forEach((item) => {
+      if (!item.client || !item.project) return;
+      tupleMap.set(projectKey(item.client, item.project), item);
+    });
+    return Array.from(tupleMap.values()).sort((a, b) => {
+      if (a.client === b.client) {
+        return a.project.localeCompare(b.project);
+      }
+      return a.client.localeCompare(b.client);
+    });
   }
 
   const accessControl = createAccessControl?.({

@@ -472,6 +472,7 @@
       uniqueValues,
       escapeHtml,
       syncFormCatalogs,
+      assignedProjectTuplesForCurrentUser,
     } = deps();
     const selectedUserName = selection?.user || "";
     const targetUser =
@@ -493,6 +494,7 @@
         populateSelect,
         uniqueValues,
         escapeHtml,
+        assignedProjectTuplesForCurrentUser,
       },
       selection
     );
