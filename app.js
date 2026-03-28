@@ -1918,6 +1918,10 @@
     return catalogProjectNames(client).length;
   }
 
+  function assignedProjectTuplesForCurrentUser() {
+    return allowedProjectTuples(state.currentUser || null, state.projects || []);
+  }
+
   const accessControl = createAccessControl?.({
     state,
     normalizeLevel,
@@ -5268,6 +5272,7 @@
     getUserById,
     getUserByDisplayName,
     ensureCatalogSelection,
+    assignedProjectTuplesForCurrentUser,
   };
 
   // Expose time entry dependencies for timeEntries.js (no behavior change).
@@ -5315,6 +5320,7 @@
     canUserAccessProject,
     isAdmin,
     field,
+    assignedProjectTuplesForCurrentUser,
   };
 
   window.addEventListener("resize", postHeight);

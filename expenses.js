@@ -7,7 +7,7 @@
   }
 
   function syncExpenseCatalogs({ userId, client, project }) {
-    const { visibleCatalogClientNames, setSelectOptionsWithPlaceholder, escapeHtml, refs, visibleCatalogProjectNames, getUserById, entryUserOptions, getUserByDisplayName, state } = deps();
+    const { setSelectOptionsWithPlaceholder, escapeHtml, refs, entryUserOptions, getUserByDisplayName, state, assignedProjectTuplesForCurrentUser } = deps();
     const comboField = refs.expenseClientProject || document.getElementById("expense-client-project");
     const comboKey = "::";
     const encodeCombo = (clientName, projectName) =>
@@ -31,7 +31,23 @@
     }
     requestedClient = requestedClient || "";
     requestedProject = requestedProject || "";
-    const clients = visibleCatalogClientNames();
+    const assignedTuplesRaw =
+      typeof assignedProjectTuplesForCurrentUser === "function"
+        ? assignedProjectTuplesForCurrentUser()
+        : [];
+    const assignedTupleKeys = new Set();
+    const assignedTuples = assignedTuplesRaw.filter((item) => {
+      const clientName = item?.client || "";
+      const projectName = item?.project || "";
+      if (!clientName || !projectName) return false;
+      const key = `${clientName}::${projectName}`;
+      if (assignedTupleKeys.has(key)) return false;
+      assignedTupleKeys.add(key);
+      return true;
+    });
+    const clients = Array.from(new Set(assignedTuples.map((item) => item.client))).sort((a, b) =>
+      a.localeCompare(b)
+    );
     setSelectOptionsWithPlaceholder({ escapeHtml }, refs.expenseClient, clients, requestedClient, "Select client");
     if (requestedClient && clients.includes(requestedClient)) {
       refs.expenseClient.value = requestedClient;
@@ -39,7 +55,10 @@
 
     const hasClient = Boolean(requestedClient);
     const projects = hasClient
-      ? visibleCatalogProjectNames(requestedClient, getUserById?.(effectiveUserId))
+      ? assignedTuples
+          .filter((item) => item.client === requestedClient)
+          .map((item) => item.project)
+          .sort((a, b) => a.localeCompare(b))
       : [];
     const placeholder = hasClient ? "Select project" : "Choose client first";
     setSelectOptionsWithPlaceholder({ escapeHtml }, refs.expenseProject, projects, requestedProject, placeholder);
@@ -54,7 +73,11 @@
       refs.expenseProject.value = "";
     }
     const comboOptions = clients.flatMap((clientName) =>
-      visibleCatalogProjectNames(clientName, getUserById?.(effectiveUserId)).map((projectName) => ({
+      assignedTuples
+        .filter((item) => item.client === clientName)
+        .map((item) => item.project)
+        .sort((a, b) => a.localeCompare(b))
+        .map((projectName) => ({
         label: `${clientName} / ${projectName}`,
         value: encodeCombo(clientName, projectName),
       }))

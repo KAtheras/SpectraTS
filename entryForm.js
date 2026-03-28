@@ -232,10 +232,8 @@
       state,
       field,
       entryUserOptions,
-      visibleCatalogClientNames,
-      visibleCatalogProjectNames,
-      targetUser,
       escapeHtml,
+      assignedProjectTuplesForCurrentUser,
     } = deps;
     const comboField = refs.entryClientProject || document.getElementById("entry-client-project");
     const comboKey = "::";
@@ -267,12 +265,37 @@
     if (requestedClient === undefined) requestedClient = clientField?.value || "";
     if (requestedProject === undefined) requestedProject = projectField?.value || "";
 
-    const clients = visibleCatalogClientNames(targetUser);
+    const assignedTuplesRaw =
+      typeof assignedProjectTuplesForCurrentUser === "function"
+        ? assignedProjectTuplesForCurrentUser()
+        : [];
+    const assignedTupleKeys = new Set();
+    const assignedTuples = assignedTuplesRaw.filter((item) => {
+      const clientName = item?.client || "";
+      const projectName = item?.project || "";
+      if (!clientName || !projectName) return false;
+      const key = `${clientName}::${projectName}`;
+      if (assignedTupleKeys.has(key)) return false;
+      assignedTupleKeys.add(key);
+      return true;
+    });
+    const clients = Array.from(new Set(assignedTuples.map((item) => item.client))).sort((a, b) =>
+      a.localeCompare(b)
+    );
     const nextClient = clients.includes(requestedClient) ? requestedClient : "";
-    const projects = nextClient ? visibleCatalogProjectNames(nextClient, targetUser) : [];
+    const projects = nextClient
+      ? assignedTuples
+          .filter((item) => item.client === nextClient)
+          .map((item) => item.project)
+          .sort((a, b) => a.localeCompare(b))
+      : [];
     const nextProject = projects.includes(requestedProject) ? requestedProject : "";
     const comboOptions = clients.flatMap((clientName) =>
-      visibleCatalogProjectNames(clientName, targetUser).map((projectName) => ({
+      assignedTuples
+        .filter((item) => item.client === clientName)
+        .map((item) => item.project)
+        .sort((a, b) => a.localeCompare(b))
+        .map((projectName) => ({
         label: `${clientName} / ${projectName}`,
         value: encodeCombo(clientName, projectName),
       }))
