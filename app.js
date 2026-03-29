@@ -307,9 +307,18 @@
     settingsPage: document.getElementById("settings-page"),
     inputsView: document.getElementById("inputs-view"),
     inputsViewTitle: document.getElementById("inputs-view-title"),
+    inputsTimeViewToggle: document.getElementById("inputs-time-view-toggle"),
+    inputsTimeViewEntry: document.getElementById("inputs-time-view-entry"),
+    inputsTimeViewCalendar: document.getElementById("inputs-time-view-calendar"),
     inputsSwitchAction: document.getElementById("inputs-switch-action"),
     inputsPanelTime: document.getElementById("inputs-panel-time"),
     inputsPanelExpenses: document.getElementById("inputs-panel-expenses"),
+    inputsTimeEntryView: document.getElementById("inputs-time-entry-view"),
+    inputsTimeCalendarView: document.getElementById("inputs-time-calendar-view"),
+    inputsTimeCalendarPrev: document.getElementById("inputs-time-calendar-prev"),
+    inputsTimeCalendarNext: document.getElementById("inputs-time-calendar-next"),
+    inputsTimeCalendarRange: document.getElementById("inputs-time-calendar-range"),
+    inputsTimeCalendarGrid: document.getElementById("inputs-time-calendar-grid"),
     inputsTimeForm: document.getElementById("inputs-time-form"),
     inputsTimeClientProject: document.getElementById("inputs-time-client-project"),
     inputsTimeClient: document.getElementById("inputs-time-client"),
@@ -889,6 +898,8 @@
     },
     currentView: "inputs", // "inputs" | "entries" | "clients" | "members" | "analytics" | "settings" | "audit"
     inputSubtab: "time", // "time" | "expenses"
+    inputsTimeView: "entry", // "entry" | "calendar"
+    inputsTimeCalendarEndDate: today,
     entriesSubtab: "time", // "time" | "expenses"
     expenseEditingId: null,
     auditLogs: [],
@@ -1675,6 +1686,141 @@
     const iso = `${year}-${month}-${day}`;
 
     return isValidDateString(iso) ? iso : null;
+  }
+
+  function shiftIsoDate(value, deltaDays) {
+    const base = isValidDateString(value) ? value : today;
+    const date = new Date(`${base}T00:00:00`);
+    date.setDate(date.getDate() + deltaDays);
+    return formatDate(date);
+  }
+
+  function getInputsTimeCalendarDates() {
+    const endDate = isValidDateString(state.inputsTimeCalendarEndDate)
+      ? state.inputsTimeCalendarEndDate
+      : today;
+    const dates = [];
+    for (let offset = 6; offset >= 0; offset -= 1) {
+      const iso = shiftIsoDate(endDate, -offset);
+      const date = new Date(`${iso}T00:00:00`);
+      const dayLabel = date.toLocaleDateString(undefined, { weekday: "short" });
+      const dateLabel = date.toLocaleDateString(undefined, {
+        month: "2-digit",
+        day: "2-digit",
+      });
+      dates.push({ iso, dayLabel, dateLabel });
+    }
+    return dates;
+  }
+
+  function formatCalendarHours(value) {
+    if (!Number.isFinite(value) || value <= 0) return "";
+    return value.toFixed(2).replace(/\.00$/, "");
+  }
+
+  function renderInputsTimeCalendar() {
+    if (!refs.inputsTimeCalendarGrid) return;
+    const dates = getInputsTimeCalendarDates();
+    if (!dates.length) {
+      refs.inputsTimeCalendarGrid.innerHTML = "";
+      if (refs.inputsTimeCalendarRange) {
+        refs.inputsTimeCalendarRange.textContent = "";
+      }
+      return;
+    }
+
+    const firstDate = dates[0]?.iso || "";
+    const lastDate = dates[dates.length - 1]?.iso || "";
+    if (refs.inputsTimeCalendarRange) {
+      refs.inputsTimeCalendarRange.textContent = `${formatDisplayDateShort(firstDate)} - ${formatDisplayDateShort(lastDate)}`;
+    }
+
+    const dateSet = new Set(dates.map((item) => item.iso));
+    const perProject = new Map();
+    const totalsByDate = Object.create(null);
+
+    dates.forEach((item) => {
+      totalsByDate[item.iso] = 0;
+    });
+
+    (state.entries || []).forEach((entry) => {
+      if (!entry || !dateSet.has(entry.date)) return;
+      const hours = Number(entry.hours);
+      if (!Number.isFinite(hours) || hours <= 0) return;
+      const client = `${entry.client || ""}`.trim();
+      const project = `${entry.project || ""}`.trim();
+      if (!client || !project) return;
+      const projectKeyValue = `${client}|||${project}`;
+      if (!perProject.has(projectKeyValue)) {
+        perProject.set(projectKeyValue, {
+          client,
+          project,
+          byDate: Object.create(null),
+        });
+      }
+      const row = perProject.get(projectKeyValue);
+      row.byDate[entry.date] = (row.byDate[entry.date] || 0) + hours;
+      totalsByDate[entry.date] += hours;
+    });
+
+    const projectRows = Array.from(perProject.values()).sort((a, b) => {
+      const left = `${a.client} / ${a.project}`.toLowerCase();
+      const right = `${b.client} / ${b.project}`.toLowerCase();
+      return left.localeCompare(right);
+    });
+
+    const headerCells = dates
+      .map(
+        (item) =>
+          `<div class="inputs-time-calendar-cell inputs-time-calendar-head-cell">
+            <span class="inputs-time-calendar-day">${escapeHtml(item.dayLabel)}</span>
+            <span class="inputs-time-calendar-date">${escapeHtml(item.dateLabel)}</span>
+          </div>`
+      )
+      .join("");
+
+    const bodyRows = projectRows
+      .map((row) => {
+        const label = `${row.client} / ${row.project}`;
+        const values = dates
+          .map((item) => {
+            const total = Number(row.byDate[item.iso] || 0);
+            const text = formatCalendarHours(total);
+            return `<div class="inputs-time-calendar-cell">${text ? escapeHtml(text) : "&nbsp;"}</div>`;
+          })
+          .join("");
+        return `<div class="inputs-time-calendar-row">
+          <div class="inputs-time-calendar-cell inputs-time-calendar-project">${escapeHtml(label)}</div>
+          ${values}
+        </div>`;
+      })
+      .join("");
+
+    const totalCells = dates
+      .map((item) => {
+        const total = Number(totalsByDate[item.iso] || 0);
+        const text = formatCalendarHours(total);
+        return `<div class="inputs-time-calendar-cell">${text ? escapeHtml(text) : "&nbsp;"}</div>`;
+      })
+      .join("");
+
+    refs.inputsTimeCalendarGrid.innerHTML = `
+      <div class="inputs-time-calendar-row inputs-time-calendar-head-row">
+        <div class="inputs-time-calendar-cell inputs-time-calendar-project">Client / Project</div>
+        ${headerCells}
+      </div>
+      ${
+        bodyRows ||
+        `<div class="inputs-time-calendar-row inputs-time-calendar-empty-row">
+          <div class="inputs-time-calendar-cell inputs-time-calendar-project">No entries</div>
+          ${dates.map(() => `<div class="inputs-time-calendar-cell">&nbsp;</div>`).join("")}
+        </div>`
+      }
+      <div class="inputs-time-calendar-row inputs-time-calendar-total-row">
+        <div class="inputs-time-calendar-cell inputs-time-calendar-project">Total</div>
+        ${totalCells}
+      </div>
+    `;
   }
 
   function encodeInputsTimeCombo(clientName, projectName) {
@@ -3577,6 +3723,9 @@
     if (refs.inputsViewTitle) {
       refs.inputsViewTitle.textContent = inputSubtab === "expenses" ? "Enter Expenses" : "Enter Time";
     }
+    if (refs.inputsTimeViewToggle) {
+      refs.inputsTimeViewToggle.hidden = inputSubtab !== "time";
+    }
     if (refs.inputsSwitchAction) {
       refs.inputsSwitchAction.textContent =
         inputSubtab === "expenses" ? "Enter Time" : "Enter Expenses";
@@ -3586,6 +3735,22 @@
     }
     if (refs.inputsPanelExpenses) {
       refs.inputsPanelExpenses.hidden = inputSubtab !== "expenses";
+    }
+
+    const inputsTimeView = state.inputsTimeView === "calendar" ? "calendar" : "entry";
+    if (refs.inputsTimeViewEntry) {
+      refs.inputsTimeViewEntry.classList.toggle("is-active", inputsTimeView === "entry");
+      refs.inputsTimeViewEntry.setAttribute("aria-selected", inputsTimeView === "entry" ? "true" : "false");
+    }
+    if (refs.inputsTimeViewCalendar) {
+      refs.inputsTimeViewCalendar.classList.toggle("is-active", inputsTimeView === "calendar");
+      refs.inputsTimeViewCalendar.setAttribute("aria-selected", inputsTimeView === "calendar" ? "true" : "false");
+    }
+    if (refs.inputsTimeEntryView) {
+      refs.inputsTimeEntryView.hidden = inputSubtab !== "time" || inputsTimeView !== "entry";
+    }
+    if (refs.inputsTimeCalendarView) {
+      refs.inputsTimeCalendarView.hidden = inputSubtab !== "time" || inputsTimeView !== "calendar";
     }
 
     const entriesSubtab = state.entriesSubtab === "expenses" ? "expenses" : "time";
@@ -3679,7 +3844,11 @@
 
     if (view === "inputs") {
       if (state.inputSubtab === "time") {
-        syncInputsTimeRow();
+        if (inputsTimeView === "calendar") {
+          renderInputsTimeCalendar();
+        } else {
+          syncInputsTimeRow();
+        }
       } else {
         syncInputsExpenseRow();
       }
@@ -3890,6 +4059,36 @@
     refs.inputsSwitchAction.addEventListener("click", function () {
       state.inputSubtab = state.inputSubtab === "expenses" ? "time" : "expenses";
       render();
+    });
+  }
+  if (refs.inputsTimeViewEntry) {
+    refs.inputsTimeViewEntry.addEventListener("click", function () {
+      state.inputsTimeView = "entry";
+      render();
+    });
+  }
+  if (refs.inputsTimeViewCalendar) {
+    refs.inputsTimeViewCalendar.addEventListener("click", function () {
+      state.inputsTimeView = "calendar";
+      render();
+    });
+  }
+  if (refs.inputsTimeCalendarPrev) {
+    refs.inputsTimeCalendarPrev.addEventListener("click", function () {
+      state.inputsTimeCalendarEndDate = shiftIsoDate(state.inputsTimeCalendarEndDate || today, -7);
+      if (state.currentView === "inputs" && state.inputSubtab === "time" && state.inputsTimeView === "calendar") {
+        renderInputsTimeCalendar();
+        postHeight();
+      }
+    });
+  }
+  if (refs.inputsTimeCalendarNext) {
+    refs.inputsTimeCalendarNext.addEventListener("click", function () {
+      state.inputsTimeCalendarEndDate = shiftIsoDate(state.inputsTimeCalendarEndDate || today, 7);
+      if (state.currentView === "inputs" && state.inputSubtab === "time" && state.inputsTimeView === "calendar") {
+        renderInputsTimeCalendar();
+        postHeight();
+      }
     });
   }
   if (refs.entriesSubtabTime) {

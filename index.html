@@ -137,13 +137,33 @@
         <div class="input-shell">
           <div class="input-header">
             <h2 id="inputs-view-title">Enter Time</h2>
+            <div class="inputs-time-view-toggle" id="inputs-time-view-toggle" role="tablist" aria-label="Inputs Time view">
+              <button
+                class="inputs-time-view-tab is-active"
+                id="inputs-time-view-entry"
+                type="button"
+                role="tab"
+                aria-selected="true"
+              >
+                Entry
+              </button>
+              <button
+                class="inputs-time-view-tab"
+                id="inputs-time-view-calendar"
+                type="button"
+                role="tab"
+                aria-selected="false"
+              >
+                Calendar
+              </button>
+            </div>
             <button class="button button-ghost input-switch-action" id="inputs-switch-action" type="button">
               Enter Expenses
             </button>
           </div>
 
           <section class="input-panel" id="inputs-panel-time">
-            <div class="input-grid">
+            <div class="input-grid" id="inputs-time-entry-view">
               <div class="input-row input-row-head" aria-hidden="true">
                 <div class="cell-project">Client / Project</div>
                 <div class="cell-date">Date</div>
@@ -183,6 +203,19 @@
                 <input type="hidden" id="inputs-time-project" />
               </form>
             </div>
+
+            <section class="inputs-time-calendar-view" id="inputs-time-calendar-view" hidden>
+              <div class="inputs-time-calendar-controls">
+                <button class="inputs-time-calendar-shift" id="inputs-time-calendar-prev" type="button" aria-label="Previous 7 days">
+                  &larr;
+                </button>
+                <div class="inputs-time-calendar-range" id="inputs-time-calendar-range"></div>
+                <button class="inputs-time-calendar-shift" id="inputs-time-calendar-next" type="button" aria-label="Next 7 days">
+                  &rarr;
+                </button>
+              </div>
+              <div class="inputs-time-calendar-grid" id="inputs-time-calendar-grid"></div>
+            </section>
           </section>
 
           <section class="input-panel" id="inputs-panel-expenses" hidden>
