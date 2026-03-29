@@ -383,6 +383,25 @@ body[data-theme="dark"] .button {
   gap: 8px;
 }
 
+.inbox-head-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.inbox-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.inbox-delete-read,
+#inbox-delete-selected {
+  min-height: 34px;
+  padding: 7px 12px;
+}
+
 .inbox-filters .button {
   min-height: 34px;
   padding: 7px 12px;
@@ -413,25 +432,55 @@ body[data-theme="dark"] .button {
   border-radius: 12px;
   background: #ffffff;
   color: inherit;
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 12px 14px;
-  text-align: left;
-  cursor: pointer;
-}
-
-.inbox-item:hover,
-.inbox-item:focus-visible {
-  border-color: color-mix(in srgb, var(--accent) 44%, var(--line));
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 10%, transparent);
-  outline: none;
+  gap: 10px;
+  padding: 10px 12px;
 }
 
 .inbox-item.is-unread {
   background: color-mix(in srgb, var(--accent) 8%, #ffffff);
   border-color: color-mix(in srgb, var(--accent) 22%, var(--line));
+}
+
+.inbox-item-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+}
+
+.inbox-item-check input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  cursor: pointer;
+}
+
+.inbox-item-open {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 2px 0;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.inbox-item-open:hover .inbox-item-message,
+.inbox-item-open:focus-visible .inbox-item-message {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+}
+
+.inbox-item-open:focus-visible {
+  outline: none;
 }
 
 .inbox-item-main {
@@ -458,6 +507,34 @@ body[data-theme="dark"] .button {
   border-radius: 999px;
   background: var(--accent);
   flex: 0 0 auto;
+}
+
+.inbox-item-delete {
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: transparent;
+  color: color-mix(in srgb, var(--text-muted) 85%, var(--text) 15%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+}
+
+.inbox-item-delete svg {
+  width: 15px;
+  height: 15px;
+  display: block;
+}
+
+.inbox-item-delete:hover,
+.inbox-item-delete:focus-visible {
+  color: #a64646;
+  border-color: color-mix(in srgb, #b75a5a 42%, var(--line));
+  background: color-mix(in srgb, #b75a5a 8%, #ffffff);
+  outline: none;
 }
 
 .analytics-tabs {

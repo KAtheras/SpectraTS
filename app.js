@@ -357,6 +357,9 @@
     inboxList: document.getElementById("inbox-list"),
     inboxFilterAll: document.getElementById("inbox-filter-all"),
     inboxFilterUnread: document.getElementById("inbox-filter-unread"),
+    inboxActions: document.getElementById("inbox-actions"),
+    inboxDeleteSelected: document.getElementById("inbox-delete-selected"),
+    inboxDeleteRead: document.getElementById("inbox-delete-read"),
     expenseRows: document.getElementById("expense-rows"),
     addCategory: document.getElementById("add-category"),
     saveCategories: document.getElementById("save-categories"),
@@ -925,6 +928,7 @@
     expenseEditingId: null,
     inboxItems: [],
     inboxFilter: "all",
+    inboxSelectedIds: [],
     auditLogs: [],
   auditFilters: {
     entity: "",
@@ -1224,6 +1228,7 @@
     state.inboxItems = Array.isArray(data?.inboxItems)
       ? data.inboxItems.map(normalizeInboxItem).filter(Boolean)
       : [];
+    state.inboxSelectedIds = [];
     state.permissions = data?.permissions || {};
     const normalizedProjects = normalizeProjects(data?.projects);
     state.projects = normalizedProjects.length
@@ -1254,6 +1259,7 @@
     state.auditLogs = [];
     state.inboxItems = [];
     state.inboxFilter = "all";
+    state.inboxSelectedIds = [];
     resetAuditFilters();
   }
 
@@ -1298,6 +1304,7 @@
         state.projects = [];
         state.inboxItems = [];
         state.inboxFilter = "all";
+        state.inboxSelectedIds = [];
         state.clientEditor = null;
         state.assignments = {
           managerClients: [],
@@ -4687,6 +4694,10 @@
     return (state.inboxItems || []).reduce((count, item) => count + (item?.isRead ? 0 : 1), 0);
   }
 
+  function inboxReadCount() {
+    return (state.inboxItems || []).reduce((count, item) => count + (item?.isRead ? 1 : 0), 0);
+  }
+
   function visibleInboxItems() {
     const items = Array.isArray(state.inboxItems) ? state.inboxItems.slice() : [];
     items.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
@@ -4713,9 +4724,82 @@
     }
   }
 
+  function selectedInboxIds() {
+    return Array.from(
+      new Set((state.inboxSelectedIds || []).map((id) => `${id || ""}`.trim()).filter(Boolean))
+    );
+  }
+
+  function setInboxSelected(id, checked) {
+    const normalizedId = `${id || ""}`.trim();
+    if (!normalizedId) return;
+    const set = new Set(selectedInboxIds());
+    if (checked) {
+      set.add(normalizedId);
+    } else {
+      set.delete(normalizedId);
+    }
+    state.inboxSelectedIds = Array.from(set);
+  }
+
+  function clearInboxSelection() {
+    state.inboxSelectedIds = [];
+  }
+
+  function syncInboxBulkControls() {
+    const selectedCount = selectedInboxIds().length;
+    if (refs.inboxActions) {
+      refs.inboxActions.hidden = selectedCount <= 0;
+    }
+    if (refs.inboxDeleteSelected) {
+      refs.inboxDeleteSelected.disabled = selectedCount <= 0;
+      refs.inboxDeleteSelected.textContent =
+        selectedCount > 0 ? `Delete selected (${selectedCount})` : "Delete selected";
+    }
+    if (refs.inboxDeleteRead) {
+      refs.inboxDeleteRead.disabled = inboxReadCount() <= 0;
+    }
+  }
+
+  async function deleteInboxItem(itemId) {
+    const id = `${itemId || ""}`.trim();
+    if (!id) return;
+    try {
+      await mutatePersistentState("delete_inbox_item", { id });
+      setInboxSelected(id, false);
+      feedback("", false);
+    } catch (error) {
+      feedback(error.message || "Unable to delete inbox item.", true);
+    }
+  }
+
+  async function deleteSelectedInboxItems() {
+    const ids = selectedInboxIds();
+    if (!ids.length) return;
+    try {
+      await mutatePersistentState("delete_inbox_items", { ids });
+      clearInboxSelection();
+      feedback("", false);
+    } catch (error) {
+      feedback(error.message || "Unable to delete selected inbox items.", true);
+    }
+  }
+
+  async function deleteAllReadInboxItems() {
+    try {
+      await mutatePersistentState("delete_all_read_inbox_items", {});
+      clearInboxSelection();
+      feedback("", false);
+    } catch (error) {
+      feedback(error.message || "Unable to delete read inbox items.", true);
+    }
+  }
+
   function renderInboxList() {
     if (!refs.inboxList) return;
     const items = visibleInboxItems();
+    const selected = new Set(selectedInboxIds());
+    syncInboxBulkControls();
     if (!items.length) {
       refs.inboxList.innerHTML = `
         <div class="inbox-empty">
@@ -4729,14 +4813,26 @@
       .map((item) => {
         const unreadClass = item.isRead ? "" : " is-unread";
         const createdAt = formatDateTimeLocal(item.createdAt);
+        const isSelected = selected.has(item.id);
         return `
-          <button class="inbox-item${unreadClass}" type="button" data-inbox-id="${escapeHtml(item.id)}">
-            <div class="inbox-item-main">
-              <div class="inbox-item-message">${escapeHtml(item.message || "Notification")}</div>
-              <div class="inbox-item-time">${escapeHtml(createdAt)}</div>
-            </div>
-            ${item.isRead ? "" : '<span class="inbox-item-dot" aria-hidden="true"></span>'}
-          </button>
+          <div class="inbox-item${unreadClass}" data-inbox-id="${escapeHtml(item.id)}">
+            <label class="inbox-item-check">
+              <input type="checkbox" data-inbox-select="${escapeHtml(item.id)}" ${isSelected ? "checked" : ""} />
+            </label>
+            <button class="inbox-item-open" type="button" data-inbox-open="${escapeHtml(item.id)}">
+              <div class="inbox-item-main">
+                <div class="inbox-item-message">${escapeHtml(item.message || "Notification")}</div>
+                <div class="inbox-item-time">${escapeHtml(createdAt)}</div>
+              </div>
+              ${item.isRead ? "" : '<span class="inbox-item-dot" aria-hidden="true"></span>'}
+            </button>
+            <button class="inbox-item-delete" type="button" data-inbox-action="delete" data-inbox-id="${escapeHtml(item.id)}" aria-label="Delete notification">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M4 7h16M9.5 4h5M8 7l.7 12.2a1 1 0 0 0 1 .8h4.6a1 1 0 0 0 1-.8L16 7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M10.2 10.2v6.6M13.8 10.2v6.6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+              </svg>
+            </button>
+          </div>
         `;
       })
       .join("");
@@ -4999,27 +5095,43 @@
   if (refs.inboxFilterAll) {
     refs.inboxFilterAll.addEventListener("click", function () {
       state.inboxFilter = "all";
+      clearInboxSelection();
       render();
     });
   }
   if (refs.inboxFilterUnread) {
     refs.inboxFilterUnread.addEventListener("click", function () {
       state.inboxFilter = "unread";
+      clearInboxSelection();
       render();
+    });
+  }
+  if (refs.inboxDeleteSelected) {
+    refs.inboxDeleteSelected.addEventListener("click", async function () {
+      await deleteSelectedInboxItems();
+    });
+  }
+  if (refs.inboxDeleteRead) {
+    refs.inboxDeleteRead.addEventListener("click", async function () {
+      await deleteAllReadInboxItems();
     });
   }
   if (refs.inboxList) {
     refs.inboxList.addEventListener("click", async function (event) {
-      const itemEl = event.target.closest("[data-inbox-id]");
-      if (!itemEl) return;
-      await openInboxItem(itemEl.dataset.inboxId);
+      const deleteButton = event.target.closest("[data-inbox-action='delete']");
+      if (deleteButton) {
+        await deleteInboxItem(deleteButton.dataset.inboxId);
+        return;
+      }
+      const openButton = event.target.closest("[data-inbox-open]");
+      if (!openButton) return;
+      await openInboxItem(openButton.dataset.inboxOpen);
     });
-    refs.inboxList.addEventListener("keydown", function (event) {
-      if (event.key !== "Enter" && event.key !== " ") return;
-      const itemEl = event.target.closest("[data-inbox-id]");
-      if (!itemEl) return;
-      event.preventDefault();
-      itemEl.click();
+    refs.inboxList.addEventListener("change", function (event) {
+      const checkbox = event.target.closest("[data-inbox-select]");
+      if (!checkbox) return;
+      setInboxSelected(checkbox.dataset.inboxSelect, checkbox.checked);
+      syncInboxBulkControls();
     });
   }
   if (refs.navAudit) {

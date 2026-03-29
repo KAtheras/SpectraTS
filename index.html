@@ -594,15 +594,25 @@
       <section class="page-view inbox-page" id="inbox-page" hidden aria-labelledby="inbox-page-title">
         <header class="page-head">
           <h2 id="inbox-page-title">Inbox</h2>
-          <div class="inbox-filters" role="tablist" aria-label="Inbox filters">
-            <button class="button button-ghost is-active" id="inbox-filter-all" type="button" aria-selected="true">
-              All
-            </button>
-            <button class="button button-ghost" id="inbox-filter-unread" type="button" aria-selected="false">
-              Unread
+          <div class="inbox-head-controls">
+            <div class="inbox-filters" role="tablist" aria-label="Inbox filters">
+              <button class="button button-ghost is-active" id="inbox-filter-all" type="button" aria-selected="true">
+                All
+              </button>
+              <button class="button button-ghost" id="inbox-filter-unread" type="button" aria-selected="false">
+                Unread
+              </button>
+            </div>
+            <button class="button button-ghost inbox-delete-read" id="inbox-delete-read" type="button">
+              Delete all read
             </button>
           </div>
         </header>
+        <div class="inbox-actions" id="inbox-actions" hidden>
+          <button class="button button-ghost" id="inbox-delete-selected" type="button">
+            Delete selected
+          </button>
+        </div>
         <div class="inbox-list" id="inbox-list" aria-live="polite"></div>
       </section>
 

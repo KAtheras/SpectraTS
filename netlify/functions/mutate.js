@@ -385,6 +385,58 @@ async function markInboxItemRead(sql, payload, currentUser, accountId) {
   return null;
 }
 
+async function deleteInboxItem(sql, payload, currentUser, accountId) {
+  const id = normalizeText(payload?.id);
+  if (!id) {
+    return errorResponse(400, "Inbox item id is required.");
+  }
+  const rows = await sql`
+    UPDATE inbox_items
+    SET is_deleted = TRUE
+    WHERE id = ${id}
+      AND account_id = ${accountId}::uuid
+      AND recipient_user_id = ${currentUser.id}
+      AND is_deleted = FALSE
+    RETURNING id
+  `;
+  if (!rows[0]) {
+    return errorResponse(404, "Inbox item not found.");
+  }
+  return null;
+}
+
+async function deleteInboxItems(sql, payload, currentUser, accountId) {
+  const ids = Array.isArray(payload?.ids)
+    ? Array.from(new Set(payload.ids.map((id) => normalizeText(id)).filter(Boolean)))
+    : [];
+  if (!ids.length) {
+    return errorResponse(400, "At least one inbox item id is required.");
+  }
+  for (const id of ids) {
+    await sql`
+      UPDATE inbox_items
+      SET is_deleted = TRUE
+      WHERE id = ${id}
+        AND account_id = ${accountId}::uuid
+        AND recipient_user_id = ${currentUser.id}
+        AND is_deleted = FALSE
+    `;
+  }
+  return null;
+}
+
+async function deleteAllReadInboxItems(sql, _payload, currentUser, accountId) {
+  await sql`
+    UPDATE inbox_items
+    SET is_deleted = TRUE
+    WHERE account_id = ${accountId}::uuid
+      AND recipient_user_id = ${currentUser.id}
+      AND is_read = TRUE
+      AND is_deleted = FALSE
+  `;
+  return null;
+}
+
 function diffKeys(before, after) {
   const keys = new Set([
     ...Object.keys(before || {}),
@@ -2941,6 +2993,33 @@ exports.handler = async function handler(event) {
       }
       case "mark_inbox_item_read": {
         mutationResult = await markInboxItemRead(
+          sql,
+          request.payload || {},
+          context.currentUser,
+          accountId
+        );
+        break;
+      }
+      case "delete_inbox_item": {
+        mutationResult = await deleteInboxItem(
+          sql,
+          request.payload || {},
+          context.currentUser,
+          accountId
+        );
+        break;
+      }
+      case "delete_inbox_items": {
+        mutationResult = await deleteInboxItems(
+          sql,
+          request.payload || {},
+          context.currentUser,
+          accountId
+        );
+        break;
+      }
+      case "delete_all_read_inbox_items": {
+        mutationResult = await deleteAllReadInboxItems(
           sql,
           request.payload || {},
           context.currentUser,
