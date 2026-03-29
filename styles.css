@@ -4045,10 +4045,10 @@ body[data-theme="dark"] .entry-approved td {
 #inputs-view .input-row-body .cell-actions {
   justify-content: center;
   align-items: center;
-  gap: 0;
+  gap: 6px;
   min-width: 0;
   overflow: hidden;
-  padding: 0;
+  padding: 0 6px;
 }
 
 #inputs-view .input-row-body .cell-actions .button {
@@ -4077,7 +4077,7 @@ body[data-theme="dark"] .entry-approved td {
 
 #inputs-view .input-row-body.has-edit-action .cell-actions {
   justify-content: center;
-  gap: 4px;
+  gap: 6px;
 }
 
 #inputs-view .input-row-body.has-edit-action .cell-actions .button {
@@ -4099,9 +4099,9 @@ body[data-theme="dark"] .entry-approved td {
 #inputs-view .input-row-body .cell-actions .inputs-time-edit {
   height: 36px;
   min-height: 36px;
-  width: 52px;
-  min-width: 52px;
-  max-width: 52px;
+  width: 56px;
+  min-width: 56px;
+  max-width: 56px;
   padding: 0 8px;
   border: 1px solid #cbd5e1;
   border-radius: 4px;
@@ -4127,9 +4127,9 @@ body[data-theme="dark"] .entry-approved td {
 #inputs-view .input-row-body .cell-actions .inputs-time-delete {
   height: 36px;
   min-height: 36px;
-  width: 32px;
-  min-width: 32px;
-  max-width: 32px;
+  width: 30px;
+  min-width: 30px;
+  max-width: 30px;
   padding: 0;
   border: 1px solid #d5dce6;
   border-radius: 4px;
