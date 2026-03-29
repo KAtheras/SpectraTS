@@ -1772,6 +1772,8 @@
       row.byDateEntries[entry.date].push({
         hours,
         notes: typeof entry.notes === "string" ? entry.notes.trim() : "",
+        billable: entry.billable !== false,
+        status: entry.status === "approved" ? "approved" : "pending",
       });
       totalsByDate[entry.date] += hours;
     });
@@ -1881,9 +1883,15 @@
                 const hourText = formatSummaryHours(detail.hours);
                 const noteText = detail.notes ? escapeHtml(detail.notes) : "No note";
                 const noteClass = detail.notes ? "" : " is-empty";
+                const billableText = detail.billable ? "Billable" : "Non-billable";
+                const statusText = detail.status === "approved" ? "Approved" : "Pending";
                 return `<div class="inputs-time-calendar-detail-row">
                   <span class="inputs-time-calendar-detail-hours">${escapeHtml(hourText)}</span>
                   <span class="inputs-time-calendar-detail-notes${noteClass}">${noteText}</span>
+                  <span class="inputs-time-calendar-detail-meta">
+                    <span class="inputs-time-calendar-detail-chip">${escapeHtml(billableText)}</span>
+                    <span class="inputs-time-calendar-detail-chip">${escapeHtml(statusText)}</span>
+                  </span>
                 </div>`;
               })
               .join("");
