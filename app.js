@@ -1818,7 +1818,7 @@
       editButton.dataset.inputsTimeEdit = "true";
       fields.actions.appendChild(editButton);
     }
-    if (editButton.dataset.boundClick !== "true") {
+    if (!editButton.__inputsTimeBoundClick) {
       editButton.addEventListener("click", function () {
         if (row.dataset.saving === "true" || row.dataset.deleting === "true") return;
         setInputsTimeRowState(row, "editing-saved");
@@ -1835,7 +1835,7 @@
         );
         current.hours?.focus();
       });
-      editButton.dataset.boundClick = "true";
+      editButton.__inputsTimeBoundClick = true;
     }
     return editButton;
   }
@@ -1854,7 +1854,7 @@
       deleteButton.title = "Delete";
       fields.actions.appendChild(deleteButton);
     }
-    if (deleteButton.dataset.boundClick !== "true") {
+    if (!deleteButton.__inputsTimeBoundClick) {
       deleteButton.addEventListener("click", async function () {
         if (row.dataset.saving === "true" || row.dataset.deleting === "true") return;
         const id = `${row.dataset.entryId || ""}`.trim();
@@ -1896,7 +1896,7 @@
         feedback("Entry deleted.", false);
         postHeight();
       });
-      deleteButton.dataset.boundClick = "true";
+      deleteButton.__inputsTimeBoundClick = true;
     }
     return deleteButton;
   }
