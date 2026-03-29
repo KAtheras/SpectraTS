@@ -130,7 +130,7 @@ body {
 }
 
 body.is-embedded {
-  background: transparent;
+  background: #ffffff;
 }
 
 body.modal-open {
@@ -1059,7 +1059,7 @@ body[data-theme="dark"] .mobile-tabbar {
 /* Members top form card should match Time/Expenses cards */
 .members-page #add-user-form {
   /* Match Time/Expenses top card background */
-  background: #F5F6F7;
+  background: var(--bg);
   border: 1px solid var(--panel-border);
   border-radius: var(--card-radius);
 }
