@@ -3894,3 +3894,144 @@ body[data-theme="dark"] .entry-approved td {
     justify-content: flex-start;
   }
 }
+
+/* ================================
+   INPUTS VIEW (ISOLATED SYSTEM)
+   ================================ */
+#inputs-view {
+  background: #ffffff;
+}
+
+#inputs-view #inputs-panel-time {
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: #ffffff;
+}
+
+#inputs-view .input-grid {
+  gap: 0;
+  background: #ffffff;
+  border: 1px solid #e6eaf0;
+}
+
+#inputs-view .input-row {
+  gap: 0;
+  align-items: stretch;
+}
+
+#inputs-view #inputs-panel-time .input-row {
+  grid-template-columns:
+    minmax(340px, 2.8fr)
+    minmax(84px, 0.6fr)
+    minmax(72px, 0.42fr)
+    minmax(83px, 0.45fr)
+    minmax(390px, 3fr)
+    minmax(110px, 0.8fr);
+}
+
+#inputs-view .input-row-head {
+  font-size: 0.82rem;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  color: #5f6b7a;
+  font-weight: 620;
+}
+
+#inputs-view .input-row-head .cell-project,
+#inputs-view .input-row-head .cell-date,
+#inputs-view .input-row-head .cell-hours,
+#inputs-view .input-row-head .cell-billable,
+#inputs-view .input-row-head .cell-notes,
+#inputs-view .input-row-head .cell-actions {
+  min-height: 44px;
+  background: #f7f9fc !important;
+  color: #5f6b7a !important;
+}
+
+#inputs-view .input-row-body .cell-project,
+#inputs-view .input-row-body .cell-date,
+#inputs-view .input-row-body .cell-hours,
+#inputs-view .input-row-body .cell-billable,
+#inputs-view .input-row-body .cell-notes,
+#inputs-view .input-row-body .cell-actions {
+  min-height: 52px;
+  background: #ffffff;
+}
+
+#inputs-view .cell-project,
+#inputs-view .cell-date,
+#inputs-view .cell-hours,
+#inputs-view .cell-billable,
+#inputs-view .cell-notes,
+#inputs-view .cell-actions {
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  border-right: 1px solid #edf1f5;
+  border-bottom: 1px solid #edf1f5;
+  box-sizing: border-box;
+}
+
+#inputs-view .input-row .cell-actions {
+  border-right: none;
+}
+
+#inputs-view input,
+#inputs-view select,
+#inputs-view button {
+  height: 38px;
+  min-height: 38px;
+  padding: 0 10px;
+  border: 1px solid #d5dce6;
+  border-radius: 6px;
+  background: #ffffff;
+  font: inherit;
+  box-sizing: border-box;
+}
+
+#inputs-view .input-row-body .cell-project select,
+#inputs-view .input-row-body .cell-date input,
+#inputs-view .input-row-body .cell-hours input,
+#inputs-view .input-row-body .cell-notes input {
+  width: 100%;
+}
+
+#inputs-view .input-row-body .cell-billable {
+  justify-content: center;
+  align-items: center;
+  padding: 0;
+}
+
+#inputs-view .input-row-body .cell-billable input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+}
+
+#inputs-view .input-row-body .cell-actions {
+  justify-content: center;
+  padding: 0 8px;
+}
+
+#inputs-view .input-row-body .cell-actions .button {
+  width: 100%;
+  max-width: 110px;
+  height: 36px;
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 6px;
+  border: 1px solid #4c74c9;
+  background: #5f87da;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+#inputs-view .input-row-body .cell-actions .button:disabled,
+#inputs-view .input-row-body .cell-actions .button.is-saved {
+  border-color: #d5dce6;
+  background: #eef2f6;
+  color: #738196;
+  opacity: 1;
+  cursor: not-allowed;
+}
