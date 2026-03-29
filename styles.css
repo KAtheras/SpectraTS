@@ -4443,8 +4443,8 @@ body[data-theme="dark"] .entry-approved td {
   left: 50%;
   top: calc(100% + 6px);
   transform: translateX(-50%);
-  min-width: 184px;
-  max-width: 280px;
+  min-width: 320px;
+  max-width: 520px;
   display: none;
   flex-direction: column;
   gap: 4px;
@@ -4463,7 +4463,8 @@ body[data-theme="dark"] .entry-approved td {
 }
 
 #inputs-view .inputs-time-calendar-detail-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: 52px 84px 104px minmax(0, 1fr);
   align-items: center;
   gap: 6px;
   color: #334155;
@@ -4501,6 +4502,7 @@ body[data-theme="dark"] .entry-approved td {
   color: #1f2937;
   font-weight: 600;
   white-space: nowrap;
+  min-width: 52px;
 }
 
 #inputs-view .inputs-time-calendar-detail-notes {
@@ -4508,7 +4510,9 @@ body[data-theme="dark"] .entry-approved td {
   text-align: left;
   flex: 1 1 auto;
   min-width: 0;
-  word-break: break-word;
+  white-space: normal;
+  word-break: normal;
+  overflow-wrap: anywhere;
 }
 
 #inputs-view .inputs-time-calendar-detail-notes.is-empty {
