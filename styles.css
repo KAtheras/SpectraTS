@@ -4443,8 +4443,8 @@ body[data-theme="dark"] .entry-approved td {
   left: 50%;
   top: calc(100% + 6px);
   transform: translateX(-50%);
-  min-width: 320px;
-  max-width: min(520px, calc(100vw - 16px));
+  min-width: 360px;
+  max-width: min(760px, calc(100vw - 16px));
   display: none;
   flex-direction: column;
   gap: 4px;
@@ -4476,7 +4476,7 @@ body[data-theme="dark"] .entry-approved td {
 
 #inputs-view .inputs-time-calendar-detail-row {
   display: grid;
-  grid-template-columns: 50px 66px 84px minmax(0, 1fr);
+  grid-template-columns: max-content max-content max-content minmax(0, 1fr);
   align-items: center;
   gap: 3px;
   color: #334155;
