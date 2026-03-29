@@ -3934,7 +3934,7 @@ body[data-theme="dark"] .entry-approved td {
   font-size: 0.82rem;
   letter-spacing: 0.02em;
   text-transform: none;
-  color: #5f6b7a;
+  color: #334155;
   font-weight: 620;
 }
 
@@ -3942,11 +3942,18 @@ body[data-theme="dark"] .entry-approved td {
 #inputs-view .input-row-head .cell-date,
 #inputs-view .input-row-head .cell-hours,
 #inputs-view .input-row-head .cell-billable,
-#inputs-view .input-row-head .cell-notes,
+#inputs-view .input-row-head .cell-notes {
+  min-height: 44px;
+  background: #e7edf5 !important;
+  color: #334155 !important;
+}
+
 #inputs-view .input-row-head .cell-actions {
   min-height: 44px;
-  background: #f7f9fc !important;
-  color: #5f6b7a !important;
+  background: transparent !important;
+  color: transparent !important;
+  border: none !important;
+  padding: 0;
 }
 
 #inputs-view .input-row-body .cell-project,
@@ -4021,8 +4028,8 @@ body[data-theme="dark"] .entry-approved td {
   min-height: 36px;
   padding: 0 12px;
   border-radius: 6px;
-  border: 1px solid #4c74c9;
-  background: #5f87da;
+  border: 1px solid #2f4f95;
+  background: #3e64b8;
   color: #ffffff;
   font-weight: 600;
 }
