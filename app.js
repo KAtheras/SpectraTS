@@ -1799,7 +1799,51 @@
       hours: row.querySelector(".cell-hours input"),
       billable: row.querySelector(".cell-billable input[type='checkbox']"),
       notes: row.querySelector(".cell-notes input"),
+      save: row.querySelector(".cell-actions .button"),
     };
+  }
+
+  function setInputsTimeRowSaved(row) {
+    if (!row) return;
+    row.dataset.saved = "true";
+    row.dataset.saving = "false";
+    const fields = inputsTimeRowFields(row);
+    [fields.clientProject, fields.date, fields.hours, fields.billable, fields.notes].forEach((input) => {
+      if (input) input.disabled = true;
+    });
+    if (fields.save) {
+      fields.save.textContent = "Saved";
+      fields.save.disabled = true;
+      fields.save.classList.add("is-saved");
+    }
+  }
+
+  function syncInputsTimeRowInteractivity(rows) {
+    const list = Array.isArray(rows) ? rows : [];
+    const unsavedRows = list.filter((row) => row.dataset.saved !== "true");
+    const activeRow = unsavedRows.length ? unsavedRows[unsavedRows.length - 1] : null;
+
+    list.forEach((row) => {
+      const fields = inputsTimeRowFields(row);
+      const isSaved = row.dataset.saved === "true";
+      const isSaving = row.dataset.saving === "true";
+      const isActiveUnsaved = !isSaved && row === activeRow;
+
+      if (isSaved) {
+        setInputsTimeRowSaved(row);
+        return;
+      }
+
+      [fields.clientProject, fields.date, fields.hours, fields.billable, fields.notes].forEach((input) => {
+        if (input) input.disabled = !isActiveUnsaved || isSaving;
+      });
+
+      if (fields.save) {
+        fields.save.classList.remove("is-saved");
+        fields.save.textContent = isSaving ? "Saving..." : "Save";
+        fields.save.disabled = !isActiveUnsaved || isSaving;
+      }
+    });
   }
 
   function inputsTimeComboOptions() {
@@ -1883,6 +1927,8 @@
     }
     syncInputsTimeFormRow(next, options);
     bindInputsTimeFormRow(next);
+    const rows = Array.from(container.querySelectorAll("form.input-row.input-row-body"));
+    syncInputsTimeRowInteractivity(rows);
     nextFields.hours?.focus();
     return next;
   }
@@ -1903,6 +1949,13 @@
 
     row.addEventListener("submit", async function (event) {
       event.preventDefault();
+      if (row.dataset.saved === "true" || row.dataset.saving === "true") {
+        return;
+      }
+      row.dataset.saving = "true";
+      syncInputsTimeRowInteractivity(
+        Array.from(row.parentElement?.querySelectorAll("form.input-row.input-row-body") || [])
+      );
       const current = inputsTimeRowFields(row);
       const [clientName, projectName] = decodeInputsTimeCombo(current.clientProject?.value || "");
       const nextEntry = {
@@ -1929,11 +1982,16 @@
       try {
         await mutatePersistentState("save_entry", { entry: nextEntry });
       } catch (error) {
+        row.dataset.saving = "false";
+        syncInputsTimeRowInteractivity(
+          Array.from(row.parentElement?.querySelectorAll("form.input-row.input-row-body") || [])
+        );
         feedback(error.message || "Unable to save entry.", true);
         return;
       }
 
       feedback("Entry saved.", false);
+      setInputsTimeRowSaved(row);
       addInputsTimeRowFrom(row, inputsTimeComboOptions());
       postHeight();
     });
@@ -1951,6 +2009,7 @@
       syncInputsTimeFormRow(row, options);
       bindInputsTimeFormRow(row);
     });
+    syncInputsTimeRowInteractivity(rows);
   }
 
   function feedback(message, isError) {

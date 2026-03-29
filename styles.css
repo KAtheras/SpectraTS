@@ -987,6 +987,12 @@ body[data-theme="dark"] .mobile-tabbar {
   padding: 0 10px;
 }
 
+#inputs-panel-time .input-row-body .cell-actions .button:disabled,
+#inputs-panel-time .input-row-body .cell-actions .button.is-saved {
+  opacity: 0.52;
+  cursor: not-allowed;
+}
+
 .panel {
   border-radius: var(--card-radius);
   padding: 22px;
