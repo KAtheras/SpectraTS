@@ -4476,9 +4476,9 @@ body[data-theme="dark"] .entry-approved td {
 
 #inputs-view .inputs-time-calendar-detail-row {
   display: grid;
-  grid-template-columns: 52px 72px 92px minmax(0, 1fr);
+  grid-template-columns: 50px 66px 84px minmax(0, 1fr);
   align-items: center;
-  gap: 5px;
+  gap: 3px;
   color: #334155;
   font-size: 0.76rem;
   line-height: 1.3;
