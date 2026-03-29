@@ -4495,16 +4495,16 @@ body[data-theme="dark"] .entry-approved td {
 
 #inputs-view .inputs-time-calendar-detail-row {
   display: grid;
-  grid-template-columns: 56px 88px 110px minmax(0, 1fr);
+  grid-template-columns: 52px 84px 102px minmax(0, 1fr);
   align-items: center;
-  gap: 4px;
+  gap: 0;
   color: #334155;
   font-size: 0.76rem;
   line-height: 1.3;
 }
 
 #inputs-view .inputs-expense-calendar-detail-row {
-  grid-template-columns: 68px 88px 110px 110px minmax(0, 1fr);
+  grid-template-columns: 60px 84px 102px 96px minmax(0, 1fr);
 }
 
 #inputs-view .inputs-time-calendar-detail-chip {
