@@ -3936,7 +3936,15 @@ body[data-theme="dark"] .entry-approved td {
   text-transform: none;
   color: #FFFFFF;
   font-weight: 620;
+  position: relative;
+}
+
+#inputs-view .input-row-head::after {
+  content: "";
+  grid-column: 6;
+  min-height: 44px;
   background: #4B5563;
+  border-bottom: 1px solid #edf1f5;
 }
 
 #inputs-view .input-row-head .cell-project,
