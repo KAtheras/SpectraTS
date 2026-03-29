@@ -12,7 +12,6 @@
   --accent-deep: #244a6e;
   --accent-soft: rgba(47, 92, 138, 0.15);
   --danger: #9f2f28;
-  --shadow: 0 22px 60px rgba(24, 18, 12, 0.16);
   --surface: #f9f8f5;
   --surface-strong: #fdfcf9;
   --surface-soft: #f6f4f0;
@@ -62,7 +61,6 @@ body[data-theme="dark"] {
   --accent-deep: #4b79a8;
   --accent-soft: rgba(75, 121, 168, 0.24);
   --danger: #ff8f88;
-  --shadow: 0 26px 70px rgba(0, 0, 0, 0.34);
   --surface: #1b2432;
   --surface-strong: #202b3a;
   --surface-soft: #192331;
@@ -152,7 +150,6 @@ body.modal-open {
   width: min(520px, calc(100vw - 32px));
   background: var(--panel);
   border: 1px solid var(--panel-border);
-  box-shadow: var(--shadow);
   border-radius: var(--card-radius);
   padding: 22px 22px 16px;
   display: grid;
@@ -209,7 +206,6 @@ body.modal-open {
   width: min(520px, calc(100vw - 32px));
   display: grid;
   gap: 12px;
-  box-shadow: var(--shadow);
 }
 
 .force-password-card form {
@@ -424,7 +420,6 @@ body[data-theme="dark"] .button {
   z-index: 20;
   background: var(--bg);
   backdrop-filter: none;
-  box-shadow: none;
   border-bottom: 1px solid rgba(0, 0, 0, 0.05);
   padding: 12px 0;
   border-radius: 0;
@@ -432,7 +427,6 @@ body[data-theme="dark"] .button {
 
 body[data-theme="dark"] .app-topbar {
   background: var(--bg);
-  box-shadow: none;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 0;
 }
@@ -631,7 +625,6 @@ body[data-theme="dark"] .app-topbar {
   background: #fff;
   border: 1px solid rgba(0, 0, 0, 0.05);
   border-radius: 12px;
-  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.12);
   padding: 6px;
   display: grid;
   gap: 4px;
@@ -659,7 +652,6 @@ body[data-theme="dark"] .app-topbar {
 body[data-theme="dark"] .settings-menu {
   background: #1f2027;
   border-color: rgba(255, 255, 255, 0.08);
-  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.45);
 }
 
 body[data-theme="dark"] label span,
@@ -687,7 +679,6 @@ body[data-theme="dark"] .settings-item:hover {
   padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
   background: var(--bg); /* global app background */
   border-top: 1px solid color-mix(in srgb, var(--muted-strong) 18%, transparent);
-  box-shadow: 0 -4px 12px color-mix(in srgb, black 10%, transparent);
   z-index: 30;
 }
 
@@ -736,7 +727,6 @@ body[data-theme="dark"] .mobile-tabbar {
   border: 1px solid color-mix(in srgb, var(--panel-border) 70%, var(--line) 30%);
   background: var(--panel);
   backdrop-filter: blur(14px);
-  box-shadow: var(--shadow);
   width: 100%;
 }
 
@@ -1087,7 +1077,6 @@ body[data-theme="dark"] .members-page #add-user-form {
   height: 42px;
   white-space: nowrap;
   padding: 0 16px;
-  box-shadow: 0 8px 18px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 /* Remove numeric spin buttons for the Base Rate input */
@@ -1137,7 +1126,6 @@ input[name="cost_rate"] {
   background: #fff;
   border-color: var(--accent);
   color: var(--ink);
-  box-shadow: 0 6px 14px color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
 .settings-tab:hover {
@@ -1527,7 +1515,6 @@ input[name="cost_rate"] {
   font-family: var(--font-head);
   font-size: 0.96rem;
   font-weight: 700;
-  box-shadow: none;
   background-image:
     linear-gradient(45deg, transparent 50%, var(--muted) 50%),
     linear-gradient(135deg, var(--muted) 50%, transparent 50%);
@@ -1579,7 +1566,6 @@ input[name="cost_rate"] {
 
 .wheel-date-picker select:focus {
   border-color: transparent;
-  box-shadow: none;
 }
 
 input,
@@ -1592,7 +1578,7 @@ textarea {
   background: var(--control);
   color: var(--ink);
   font: inherit;
-  transition: background 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
+  transition: background 140ms ease, border-color 140ms ease;
 }
 
 input:focus,
@@ -1600,7 +1586,6 @@ select:focus,
 textarea:focus {
   outline: none;
   border-color: var(--accent);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent);
   background: var(--surface);
 }
 
@@ -1625,7 +1610,7 @@ textarea {
   font-size: 0.85rem;
   font-weight: 700;
   cursor: pointer;
-  transition: background 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
+  transition: background 140ms ease, border-color 140ms ease;
 }
 
 .mini-button:hover {
@@ -1656,7 +1641,6 @@ textarea {
   border-radius: 0;
   background: transparent;
   padding: 0;
-  box-shadow: none;
 }
 
 .entry-helpers-hours .chip-button,
@@ -1731,21 +1715,18 @@ textarea {
   font-size: 0.95rem;
   font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 10px 24px color-mix(in srgb, var(--accent) 25%, transparent);
-  transition: transform 160ms ease, background 160ms ease, opacity 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+  transition: transform 160ms ease, background 160ms ease, opacity 160ms ease, border-color 160ms ease;
 }
 
 .button:hover {
   background: var(--accent-deep);
   transform: translateY(-1px);
-  box-shadow: 0 12px 28px color-mix(in srgb, var(--accent) 30%, transparent);
 }
 
 .button-ghost {
   background: transparent;
   border: 1px solid var(--control-border);
   color: var(--ink);
-  box-shadow: none;
 }
 
 .button-ghost:hover {
@@ -1976,7 +1957,6 @@ body[data-theme="dark"] .audit-detail-col {
   position: static;
   width: 100%;
   max-height: none;
-  box-shadow: none;
   overflow: visible;
 }
 
@@ -2005,7 +1985,6 @@ body[data-theme="dark"] .audit-detail-col {
 
 .modal-backdrop.as-page .panel,
 .modal-backdrop.as-page .panel-modal {
-  box-shadow: none;
   border: none;
   border-radius: 0;
   width: 100%;
@@ -2168,7 +2147,6 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   border: 1px solid var(--group-border);
   border-radius: 16px;
   background: var(--surface);
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18);
   width: min(960px, 100%);
   margin-top: 20px;
 }
@@ -2290,7 +2268,6 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
 .catalog-item.is-selected {
   border-color: var(--accent);
   background: color-mix(in srgb, var(--accent) 14%, var(--panel));
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 24%, transparent);
 }
 
 .catalog-item span {
@@ -2396,7 +2373,6 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   justify-content: center;
   text-transform: uppercase;
   line-height: 1.1;
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.1);
   cursor: pointer;
   position: absolute;
   top: 50%;
@@ -2433,7 +2409,6 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   border: 1px solid var(--panel-border);
   border-radius: var(--card-radius);
   padding: 14px;
-  box-shadow: var(--shadow);
 }
 
 .member-card-head {
@@ -2448,7 +2423,6 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   padding-bottom: 8px;
   background: var(--panel);
   border-bottom: 1px solid var(--panel-border);
-  box-shadow: 0 8px 12px -12px rgba(0, 0, 0, 0.25);
 }
 
 .member-card-head input,
@@ -2459,7 +2433,6 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   border: 1px solid var(--control-border);
   padding: 10px 12px;
   font-family: var(--font-head);
-  box-shadow: none;
 }
 
 .member-card-head select {
@@ -2638,7 +2611,6 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
 
 .user-item.is-selected {
   border-color: var(--accent);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent);
   background: var(--accent-soft);
 }
 
@@ -2964,13 +2936,12 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
 
 .entry-status.entry-status-clickable {
   cursor: pointer;
-  transition: box-shadow 120ms ease, transform 80ms ease;
+  transition: transform 80ms ease;
 }
 
 .entry-status.entry-status-clickable:hover,
 .entry-status.entry-status-clickable:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent);
   transform: translateY(-1px);
 }
 
@@ -3052,7 +3023,6 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
     display: none;
     background: var(--panel);
     border: 1px solid color-mix(in srgb, var(--panel-border) 75%, var(--line) 25%);
-    box-shadow: var(--shadow);
     border-radius: 12px;
   }
 
@@ -3139,7 +3109,6 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
     pointer-events: none;
     opacity: 0.28;
     filter: grayscale(1);
-    box-shadow: none;
   }
 
   .dp-day.is-disabled:hover {
@@ -3163,7 +3132,6 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
     cursor: not-allowed;
     pointer-events: none;
     filter: grayscale(1);
-    box-shadow: none;
   }
 
   body:not([data-theme="dark"]) .dp-day.is-disabled:hover {
@@ -3457,7 +3425,6 @@ body[data-theme="dark"] .entry-approved td {
   border: none !important;
   border-radius: 0 !important;
   background: transparent !important;
-  box-shadow: none !important;
   outline: none;
   width: 100%;
   height: 100%;
