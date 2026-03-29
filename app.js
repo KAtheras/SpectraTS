@@ -4776,7 +4776,7 @@
       return count + 1;
     }, 0);
     if (refs.inboxMarkSelectedRead) {
-      refs.inboxMarkSelectedRead.hidden = selectedCount <= 0;
+      refs.inboxMarkSelectedRead.hidden = selectedCount <= 0 || selectedUnreadCount <= 0;
       refs.inboxMarkSelectedRead.disabled = selectedUnreadCount <= 0;
       refs.inboxMarkSelectedRead.textContent =
         selectedCount > 0 ? `Mark selected read (${selectedCount})` : "Mark selected read";
