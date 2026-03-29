@@ -4,7 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "node server.js",
-    "start": "node server.js"
+    "start": "node server.js",
+    "version:assets": "node scripts/update-asset-version.js",
+    "build": "npm run version:assets"
   },
   "dependencies": {
     "@netlify/neon": "^0.1.2",
