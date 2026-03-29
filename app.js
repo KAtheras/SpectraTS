@@ -1798,9 +1798,9 @@
     }
     if (refs.inputsTimeSummarySignal) {
       if (!peakDay || peakDay.total <= 0) {
-        refs.inputsTimeSummarySignal.textContent = "Peak --";
+        refs.inputsTimeSummarySignal.textContent = "Peak: --";
       } else {
-        refs.inputsTimeSummarySignal.textContent = `Peak ${peakDay.dayLabel} ${formatSummaryHours(
+        refs.inputsTimeSummarySignal.textContent = `Peak: ${peakDay.dayLabel} ${formatSummaryHours(
           peakDay.total
         )}`;
       }

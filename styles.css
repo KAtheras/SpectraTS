@@ -4287,7 +4287,7 @@ body[data-theme="dark"] .entry-approved td {
 #inputs-view .inputs-time-summary {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   padding: 6px 10px;
   border: 1px solid #d7dde6;
   background: #f8fafc;
@@ -4295,7 +4295,7 @@ body[data-theme="dark"] .entry-approved td {
 
 #inputs-view .inputs-time-summary-metric {
   display: inline-flex;
-  align-items: baseline;
+  align-items: center;
   gap: 6px;
   white-space: nowrap;
 }
@@ -4316,24 +4316,25 @@ body[data-theme="dark"] .entry-approved td {
 
 #inputs-view .inputs-time-summary-signal {
   display: inline-flex;
-  align-items: baseline;
-  color: #64748b;
+  align-items: center;
+  color: #475569;
   font-size: 0.75rem;
   line-height: 1;
+  font-weight: 600;
   white-space: nowrap;
 }
 
 #inputs-view .inputs-time-summary-metric + .inputs-time-summary-metric::before,
 #inputs-view .inputs-time-summary-signal::before {
   content: "|";
-  color: #cbd5e1;
-  margin-right: 10px;
+  color: #dde3eb;
+  margin-right: 12px;
 }
 
 #inputs-view .inputs-time-summary-toggle {
   margin-left: auto;
-  height: 28px;
-  min-height: 28px;
+  height: 27px;
+  min-height: 27px;
   padding: 0 9px;
   border: 1px solid #cbd5e1;
   border-radius: 5px;
