@@ -117,7 +117,7 @@ body {
 
 body {
   margin: 0;
-  background: var(--bg);
+  background: #ffffff;
   color: var(--ink);
   font-family: var(--font-body);
   transition: background 180ms ease, color 180ms ease;
