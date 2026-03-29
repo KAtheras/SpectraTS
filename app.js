@@ -913,6 +913,8 @@
     inputsTimeCalendarEndDate: today,
     inputsExpenseCalendarExpanded: false,
     inputsExpenseCalendarEndDate: today,
+    pendingInputsTimeEditId: "",
+    pendingInputsExpenseEditId: "",
     entriesSubtab: "time", // "time" | "expenses"
     expenseEditingId: null,
     auditLogs: [],
@@ -2794,6 +2796,72 @@
     row.dataset.boundHandlers = "true";
   }
 
+  function populateInputsTimeRowForEntryEdit(row, entry, options) {
+    if (!row || !entry) return;
+    const comboValue = encodeInputsTimeCombo(entry.client || "", entry.project || "");
+    const comboLabel = `${entry.client || ""} / ${entry.project || ""}`;
+    const optionList = Array.isArray(options) ? options : [];
+    const hydratedOptions =
+      comboValue && !optionList.some((item) => item?.value === comboValue)
+        ? [{ label: comboLabel, value: comboValue }, ...optionList]
+        : optionList;
+    syncInputsTimeFormRow(row, hydratedOptions);
+    bindInputsTimeFormRow(row);
+    const fields = inputsTimeRowFields(row);
+    const dateIso = parseInputsTimeDateValue(entry.date || "") || clampDateToBounds(today);
+    const isDesktop = window.matchMedia("(pointer: fine) and (hover: hover)").matches;
+    const hours = Number(entry.hours);
+
+    setInputsTimeRowState(row, "editing-saved");
+    row.dataset.entryId = `${entry.id || ""}`.trim();
+    row.dataset.createdAt = `${entry.createdAt || new Date().toISOString()}`.trim();
+    row.dataset.saving = "false";
+    row.dataset.deleting = "false";
+    row.dataset.lastCombo = comboValue;
+
+    [fields.clientProject, fields.date, fields.hours, fields.billable, fields.notes].forEach((input) => {
+      if (input) input.disabled = false;
+    });
+    if (fields.clientProject) {
+      fields.clientProject.value = comboValue;
+    }
+    if (fields.date) {
+      fields.date.dataset.dpCanonical = dateIso;
+      fields.date.value = isDesktop ? formatDisplayDateShort(dateIso) : dateIso;
+    }
+    if (fields.hours) {
+      fields.hours.value = Number.isFinite(hours) && hours > 0 ? String(hours) : "";
+    }
+    if (fields.billable) {
+      fields.billable.checked = entry.billable !== false;
+    }
+    if (fields.notes) {
+      fields.notes.value = typeof entry.notes === "string" ? entry.notes : "";
+    }
+    if (fields.save) {
+      fields.save.hidden = false;
+      fields.save.disabled = false;
+      fields.save.classList.remove("is-saved");
+      fields.save.textContent = "Save";
+    }
+    setInputsTimeEditButtonVisible(row, false);
+    setInputsTimeDeleteButtonVisible(row, false);
+  }
+
+  function consumePendingInputsTimeEdit(options) {
+    const pendingId = `${state.pendingInputsTimeEditId || ""}`.trim();
+    if (!pendingId) return;
+    state.pendingInputsTimeEditId = "";
+    const entry = (state.entries || []).find((item) => `${item?.id || ""}`.trim() === pendingId);
+    if (!entry || !refs.inputsTimeForm) return;
+    const container = refs.inputsTimeForm.parentElement;
+    populateInputsTimeRowForEntryEdit(refs.inputsTimeForm, entry, options);
+    const rows = Array.from(container?.querySelectorAll("form.input-row.input-row-body") || []);
+    syncInputsTimeRowInteractivity(rows);
+    const fields = inputsTimeRowFields(refs.inputsTimeForm);
+    fields.hours?.focus();
+  }
+
   function syncInputsTimeRow() {
     if (!refs.inputsTimeForm) return;
     const container = refs.inputsTimeForm.parentElement;
@@ -2807,6 +2875,7 @@
       syncInputsTimeFormRow(row, options);
       bindInputsTimeFormRow(row);
     });
+    consumePendingInputsTimeEdit(options);
     syncInputsTimeRowInteractivity(rows);
   }
 
@@ -3142,6 +3211,83 @@
     row.dataset.boundHandlers = "true";
   }
 
+  function populateInputsExpenseRowForEdit(row, expense, comboOptions, categoryOptions) {
+    if (!row || !expense) return;
+    const comboValue = encodeInputsTimeCombo(expense.clientName || "", expense.projectName || "");
+    const comboLabel = `${expense.clientName || ""} / ${expense.projectName || ""}`;
+    const safeComboOptions = Array.isArray(comboOptions) ? comboOptions : [];
+    const safeCategoryOptions = Array.isArray(categoryOptions) ? categoryOptions : [];
+    const hydratedComboOptions =
+      comboValue && !safeComboOptions.some((item) => item?.value === comboValue)
+        ? [{ label: comboLabel, value: comboValue }, ...safeComboOptions]
+        : safeComboOptions;
+    const hydratedCategoryOptions =
+      expense.category && !safeCategoryOptions.some((item) => item?.value === expense.category)
+        ? [{ label: expense.category, value: expense.category }, ...safeCategoryOptions]
+        : safeCategoryOptions;
+    syncInputsExpenseFormRow(row, hydratedComboOptions, hydratedCategoryOptions);
+    bindInputsExpenseFormRow(row);
+    const fields = inputsExpenseRowFields(row);
+    const dateIso =
+      parseInputsTimeDateValue(expense.expenseDate || expense.date || "") || clampDateToBounds(today);
+    const isDesktop = window.matchMedia("(pointer: fine) and (hover: hover)").matches;
+    const amount = Number(expense.amount);
+
+    setInputsExpenseRowState(row, "editing-saved");
+    row.dataset.entryId = `${expense.id || ""}`.trim();
+    row.dataset.createdAt = `${expense.createdAt || new Date().toISOString()}`.trim();
+    row.dataset.saving = "false";
+    row.dataset.deleting = "false";
+    row.dataset.lastCombo = comboValue;
+
+    [fields.clientProject, fields.date, fields.category, fields.amount, fields.billable, fields.notes].forEach(
+      (input) => {
+        if (input) input.disabled = false;
+      }
+    );
+    if (fields.clientProject) {
+      fields.clientProject.value = comboValue;
+    }
+    if (fields.date) {
+      fields.date.dataset.dpCanonical = dateIso;
+      fields.date.value = isDesktop ? formatDisplayDateShort(dateIso) : dateIso;
+    }
+    if (fields.category) {
+      fields.category.value = typeof expense.category === "string" ? expense.category : "";
+    }
+    if (fields.amount) {
+      fields.amount.value = Number.isFinite(amount) && amount > 0 ? String(amount) : "";
+    }
+    if (fields.billable) {
+      fields.billable.checked = expense.isBillable !== false;
+    }
+    if (fields.notes) {
+      fields.notes.value = typeof expense.notes === "string" ? expense.notes : "";
+    }
+    if (fields.save) {
+      fields.save.hidden = false;
+      fields.save.disabled = false;
+      fields.save.classList.remove("is-saved");
+      fields.save.textContent = "Save";
+    }
+    setInputsExpenseEditButtonVisible(row, false);
+    setInputsExpenseDeleteButtonVisible(row, false);
+  }
+
+  function consumePendingInputsExpenseEdit(comboOptions, categoryOptions) {
+    const pendingId = `${state.pendingInputsExpenseEditId || ""}`.trim();
+    if (!pendingId) return;
+    state.pendingInputsExpenseEditId = "";
+    const expense = (state.expenses || []).find((item) => `${item?.id || ""}`.trim() === pendingId);
+    if (!expense || !refs.inputsExpenseForm) return;
+    const container = refs.inputsExpenseForm.parentElement;
+    populateInputsExpenseRowForEdit(refs.inputsExpenseForm, expense, comboOptions, categoryOptions);
+    const rows = Array.from(container?.querySelectorAll("form.input-row.input-row-body") || []);
+    syncInputsExpenseRowInteractivity(rows);
+    const fields = inputsExpenseRowFields(refs.inputsExpenseForm);
+    fields.amount?.focus();
+  }
+
   function syncInputsExpenseRow() {
     if (!refs.inputsExpenseForm) return;
     const container = refs.inputsExpenseForm.parentElement;
@@ -3156,6 +3302,7 @@
       syncInputsExpenseFormRow(row, comboOptions, categoryOptions);
       bindInputsExpenseFormRow(row);
     });
+    consumePendingInputsExpenseEdit(comboOptions, categoryOptions);
     syncInputsExpenseRowInteractivity(rows);
   }
 
@@ -4862,9 +5009,9 @@
     if (!expense) return;
 
     if (action === "expense-edit") {
+      state.pendingInputsExpenseEditId = `${expense.id || ""}`.trim();
       state.inputSubtab = "expenses";
       setView("inputs");
-      feedback("Edit this expense from Inputs > Expenses.", false);
       return;
     }
 
@@ -6114,9 +6261,9 @@
     }
 
     if (action === "edit") {
+      state.pendingInputsTimeEditId = `${entry.id || ""}`.trim();
       state.inputSubtab = "time";
       setView("inputs");
-      feedback("Edit this entry from Inputs > Time.", false);
       return;
     }
 
