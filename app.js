@@ -313,6 +313,7 @@
     inputsTimeSummary: document.getElementById("inputs-time-summary"),
     inputsTimeSummaryTotal: document.getElementById("inputs-time-summary-total"),
     inputsTimeSummaryToday: document.getElementById("inputs-time-summary-today"),
+    inputsTimeSummarySignal: document.getElementById("inputs-time-summary-signal"),
     inputsTimeSummaryToggle: document.getElementById("inputs-time-summary-toggle"),
     inputsTimeCalendarView: document.getElementById("inputs-time-calendar-view"),
     inputsTimeCalendarPrev: document.getElementById("inputs-time-calendar-prev"),
@@ -1718,6 +1719,16 @@
     return value.toFixed(2).replace(/\.00$/, "");
   }
 
+  function formatSummaryHours(value) {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric) || numeric <= 0) return "0h";
+    const rounded = Math.round(numeric * 10) / 10;
+    if (Number.isInteger(rounded)) {
+      return `${rounded.toFixed(0)}h`;
+    }
+    return `${rounded.toFixed(1)}h`;
+  }
+
   function buildInputsTimeCalendarData() {
     const dates = getInputsTimeCalendarDates();
     const dateSet = new Set(dates.map((item) => item.iso));
@@ -1756,27 +1767,48 @@
 
     const weekTotal = dates.reduce((sum, item) => sum + Number(totalsByDate[item.iso] || 0), 0);
     const todayTotal = Number(totalsByDate[today] || 0);
+    let peakDay = null;
+    dates.forEach((item) => {
+      const total = Number(totalsByDate[item.iso] || 0);
+      if (!peakDay || total > peakDay.total) {
+        peakDay = {
+          iso: item.iso,
+          dayLabel: item.dayLabel,
+          total,
+        };
+      }
+    });
     return {
       dates,
       totalsByDate,
       projectRows,
       weekTotal,
       todayTotal,
+      peakDay,
     };
   }
 
   function renderInputsTimeSummaryAndCalendarMeta() {
-    const { dates, weekTotal, todayTotal } = buildInputsTimeCalendarData();
+    const { dates, weekTotal, todayTotal, peakDay } = buildInputsTimeCalendarData();
     if (refs.inputsTimeSummaryTotal) {
-      refs.inputsTimeSummaryTotal.textContent = `${weekTotal.toFixed(2)}h`;
+      refs.inputsTimeSummaryTotal.textContent = formatSummaryHours(weekTotal);
     }
     if (refs.inputsTimeSummaryToday) {
-      refs.inputsTimeSummaryToday.textContent = `${todayTotal.toFixed(2)}h`;
+      refs.inputsTimeSummaryToday.textContent = formatSummaryHours(todayTotal);
+    }
+    if (refs.inputsTimeSummarySignal) {
+      if (!peakDay || peakDay.total <= 0) {
+        refs.inputsTimeSummarySignal.textContent = "Peak day: --";
+      } else {
+        refs.inputsTimeSummarySignal.textContent = `Peak day: ${peakDay.dayLabel} ${formatSummaryHours(
+          peakDay.total
+        )}`;
+      }
     }
     if (refs.inputsTimeSummaryToggle) {
       refs.inputsTimeSummaryToggle.textContent = state.inputsTimeCalendarExpanded
-        ? "Hide weekly breakdown ▲"
-        : "View weekly breakdown ▼";
+        ? "Hide week ▲"
+        : "View week ▼";
       refs.inputsTimeSummaryToggle.setAttribute(
         "aria-expanded",
         state.inputsTimeCalendarExpanded ? "true" : "false"
