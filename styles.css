@@ -4094,10 +4094,15 @@ body[data-theme="dark"] .entry-approved td {
   min-height: 52px;
   border: none;
   border-radius: 0;
-  background: transparent;
+  background-color: transparent;
   padding: 0 10px;
   font-size: 0.98rem;
   line-height: 1.2;
+}
+
+#inputs-view #inputs-panel-expenses .input-row-body .cell-project select,
+#inputs-view #inputs-panel-expenses .input-row-body .cell-category select {
+  padding: 0 30px 0 10px;
 }
 
 #inputs-view .input-row-body .cell-amount input::-webkit-outer-spin-button,
