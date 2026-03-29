@@ -320,6 +320,16 @@
     inputsTimeCalendarNext: document.getElementById("inputs-time-calendar-next"),
     inputsTimeCalendarRange: document.getElementById("inputs-time-calendar-range"),
     inputsTimeCalendarGrid: document.getElementById("inputs-time-calendar-grid"),
+    inputsExpenseSummary: document.getElementById("inputs-expense-summary"),
+    inputsExpenseSummaryTotal: document.getElementById("inputs-expense-summary-total"),
+    inputsExpenseSummaryToday: document.getElementById("inputs-expense-summary-today"),
+    inputsExpenseSummarySignal: document.getElementById("inputs-expense-summary-signal"),
+    inputsExpenseSummaryToggle: document.getElementById("inputs-expense-summary-toggle"),
+    inputsExpenseCalendarView: document.getElementById("inputs-expense-calendar-view"),
+    inputsExpenseCalendarPrev: document.getElementById("inputs-expense-calendar-prev"),
+    inputsExpenseCalendarNext: document.getElementById("inputs-expense-calendar-next"),
+    inputsExpenseCalendarRange: document.getElementById("inputs-expense-calendar-range"),
+    inputsExpenseCalendarGrid: document.getElementById("inputs-expense-calendar-grid"),
     inputsTimeForm: document.getElementById("inputs-time-form"),
     inputsTimeClientProject: document.getElementById("inputs-time-client-project"),
     inputsTimeClient: document.getElementById("inputs-time-client"),
@@ -901,6 +911,8 @@
     inputSubtab: "time", // "time" | "expenses"
     inputsTimeCalendarExpanded: false,
     inputsTimeCalendarEndDate: today,
+    inputsExpenseCalendarExpanded: false,
+    inputsExpenseCalendarEndDate: today,
     entriesSubtab: "time", // "time" | "expenses"
     expenseEditingId: null,
     auditLogs: [],
@@ -1714,6 +1726,24 @@
     return dates;
   }
 
+  function getInputsExpenseCalendarDates() {
+    const endDate = isValidDateString(state.inputsExpenseCalendarEndDate)
+      ? state.inputsExpenseCalendarEndDate
+      : today;
+    const dates = [];
+    for (let offset = 6; offset >= 0; offset -= 1) {
+      const iso = shiftIsoDate(endDate, -offset);
+      const date = new Date(`${iso}T00:00:00`);
+      const dayLabel = date.toLocaleDateString(undefined, { weekday: "short" });
+      const dateLabel = date.toLocaleDateString(undefined, {
+        month: "2-digit",
+        day: "2-digit",
+      });
+      dates.push({ iso, dayLabel, dateLabel });
+    }
+    return dates;
+  }
+
   function formatCalendarHours(value) {
     if (!Number.isFinite(value) || value <= 0) return "";
     return value.toFixed(2).replace(/\.00$/, "");
@@ -1727,6 +1757,18 @@
       return `${rounded.toFixed(0)}h`;
     }
     return `${rounded.toFixed(1)}h`;
+  }
+
+  function formatSummaryCurrency(value) {
+    const amount = Number(value);
+    if (!Number.isFinite(amount) || amount <= 0) return "$0.00";
+    return `$${amount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
+  }
+
+  function formatCalendarCurrency(value) {
+    const amount = Number(value);
+    if (!Number.isFinite(amount) || amount <= 0) return "";
+    return `$${amount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
   }
 
   function buildInputsTimeCalendarData() {
@@ -1938,9 +1980,18 @@
       </div>
     `;
 
+    bindInputsCalendarHoverAlignment(
+      refs.inputsTimeCalendarGrid,
+      ".inputs-time-calendar-cell-detail",
+      ".inputs-time-calendar-detail"
+    );
+  }
+
+  function bindInputsCalendarHoverAlignment(grid, cellSelector, panelSelector) {
+    if (!grid) return;
     const alignCalendarHoverDetail = function (cell) {
       if (!cell) return;
-      const panel = cell.querySelector(".inputs-time-calendar-detail");
+      const panel = cell.querySelector(panelSelector);
       if (!panel) return;
       const previousDisplay = panel.style.display;
       const previousVisibility = panel.style.visibility;
@@ -1967,8 +2018,8 @@
       panel.style.visibility = previousVisibility;
     };
 
-    refs.inputsTimeCalendarGrid
-      .querySelectorAll(".inputs-time-calendar-cell-detail")
+    grid
+      .querySelectorAll(cellSelector)
       .forEach((cell) => {
         cell.addEventListener("mouseenter", function () {
           alignCalendarHoverDetail(cell);
@@ -1977,6 +2028,233 @@
           alignCalendarHoverDetail(cell);
         });
       });
+  }
+
+  function buildInputsExpenseCalendarData() {
+    const dates = getInputsExpenseCalendarDates();
+    const dateSet = new Set(dates.map((item) => item.iso));
+    const perProject = new Map();
+    const totalsByDate = Object.create(null);
+    const currentUserId = `${state.currentUser?.id || ""}`.trim();
+    const currentUserName = `${state.currentUser?.displayName || ""}`.trim();
+
+    dates.forEach((item) => {
+      totalsByDate[item.iso] = 0;
+    });
+
+    (state.expenses || []).forEach((expense) => {
+      if (!expense) return;
+      const expenseUserId = `${expense.userId || ""}`.trim();
+      const expenseUserName = `${expense.userName || expense.user || userNameById(expense.userId) || ""}`.trim();
+      const isCurrentUserExpense =
+        (currentUserId && expenseUserId && expenseUserId === currentUserId) ||
+        (!expenseUserId && currentUserName && expenseUserName === currentUserName);
+      if (!isCurrentUserExpense) return;
+
+      const expenseDate = isValidDateString(expense.expenseDate)
+        ? expense.expenseDate
+        : isValidDateString(expense.date)
+        ? expense.date
+        : "";
+      if (!expenseDate || !dateSet.has(expenseDate)) return;
+
+      const amount = Number(expense.amount);
+      if (!Number.isFinite(amount) || amount <= 0) return;
+      const client = `${expense.clientName || expense.client || ""}`.trim();
+      const project = `${expense.projectName || expense.project || ""}`.trim();
+      if (!client || !project) return;
+      const projectKeyValue = `${client}|||${project}`;
+      if (!perProject.has(projectKeyValue)) {
+        perProject.set(projectKeyValue, {
+          client,
+          project,
+          byDate: Object.create(null),
+          byDateEntries: Object.create(null),
+        });
+      }
+      const row = perProject.get(projectKeyValue);
+      row.byDate[expenseDate] = (row.byDate[expenseDate] || 0) + amount;
+      if (!row.byDateEntries[expenseDate]) {
+        row.byDateEntries[expenseDate] = [];
+      }
+      row.byDateEntries[expenseDate].push({
+        amount,
+        notes: typeof expense.notes === "string" ? expense.notes.trim() : "",
+        billable: expense.isBillable !== false,
+        category: typeof expense.category === "string" ? expense.category.trim() : "",
+        status: expense.status === "approved" ? "approved" : "pending",
+      });
+      totalsByDate[expenseDate] += amount;
+    });
+
+    const projectRows = Array.from(perProject.values()).sort((a, b) => {
+      const left = `${a.client} / ${a.project}`.toLowerCase();
+      const right = `${b.client} / ${b.project}`.toLowerCase();
+      return left.localeCompare(right);
+    });
+
+    const weekTotal = dates.reduce((sum, item) => sum + Number(totalsByDate[item.iso] || 0), 0);
+    const todayTotal = Number(totalsByDate[today] || 0);
+    let peakDay = null;
+    dates.forEach((item) => {
+      const total = Number(totalsByDate[item.iso] || 0);
+      if (!peakDay || total > peakDay.total) {
+        peakDay = {
+          iso: item.iso,
+          dayLabel: item.dayLabel,
+          total,
+        };
+      }
+    });
+    return {
+      dates,
+      totalsByDate,
+      projectRows,
+      weekTotal,
+      todayTotal,
+      peakDay,
+    };
+  }
+
+  function renderInputsExpenseSummaryAndCalendarMeta() {
+    const { dates, weekTotal, todayTotal, peakDay } = buildInputsExpenseCalendarData();
+    if (refs.inputsExpenseSummaryTotal) {
+      refs.inputsExpenseSummaryTotal.textContent = formatSummaryCurrency(weekTotal);
+    }
+    if (refs.inputsExpenseSummaryToday) {
+      refs.inputsExpenseSummaryToday.textContent = formatSummaryCurrency(todayTotal);
+    }
+    if (refs.inputsExpenseSummarySignal) {
+      if (!peakDay || peakDay.total <= 0) {
+        refs.inputsExpenseSummarySignal.textContent = "Peak: --";
+      } else {
+        refs.inputsExpenseSummarySignal.textContent = `Peak: ${peakDay.dayLabel} ${formatSummaryCurrency(
+          peakDay.total
+        )}`;
+      }
+    }
+    if (refs.inputsExpenseSummaryToggle) {
+      refs.inputsExpenseSummaryToggle.textContent = state.inputsExpenseCalendarExpanded
+        ? "Hide week ▲"
+        : "View week ▼";
+      refs.inputsExpenseSummaryToggle.setAttribute(
+        "aria-expanded",
+        state.inputsExpenseCalendarExpanded ? "true" : "false"
+      );
+    }
+    if (refs.inputsExpenseCalendarView) {
+      refs.inputsExpenseCalendarView.hidden = !state.inputsExpenseCalendarExpanded;
+    }
+    if (refs.inputsExpenseCalendarRange) {
+      const firstDate = dates[0]?.iso || "";
+      const lastDate = dates[dates.length - 1]?.iso || "";
+      refs.inputsExpenseCalendarRange.textContent =
+        firstDate && lastDate
+          ? `${formatDisplayDateShort(firstDate)} - ${formatDisplayDateShort(lastDate)}`
+          : "";
+    }
+  }
+
+  function renderInputsExpenseCalendar() {
+    if (!refs.inputsExpenseCalendarGrid) return;
+    const { dates, totalsByDate, projectRows } = buildInputsExpenseCalendarData();
+    if (!dates.length) {
+      refs.inputsExpenseCalendarGrid.innerHTML = "";
+      if (refs.inputsExpenseCalendarRange) {
+        refs.inputsExpenseCalendarRange.textContent = "";
+      }
+      return;
+    }
+
+    const headerCells = dates
+      .map(
+        (item) =>
+          `<div class="inputs-time-calendar-cell inputs-time-calendar-head-cell">
+            <span class="inputs-time-calendar-day">${escapeHtml(item.dayLabel)}</span>
+            <span class="inputs-time-calendar-date">${escapeHtml(item.dateLabel)}</span>
+          </div>`
+      )
+      .join("");
+
+    const bodyRows = projectRows
+      .map((row) => {
+        const label = `${row.client} / ${row.project}`;
+        const values = dates
+          .map((item) => {
+            const total = Number(row.byDate[item.iso] || 0);
+            const text = formatCalendarCurrency(total);
+            if (!text) {
+              return `<div class="inputs-time-calendar-cell">&nbsp;</div>`;
+            }
+            const entries = Array.isArray(row.byDateEntries?.[item.iso]) ? row.byDateEntries[item.iso] : [];
+            const detailRows = entries
+              .map((detail) => {
+                const amountText = formatSummaryCurrency(detail.amount);
+                const noteText = detail.notes ? escapeHtml(detail.notes) : "No note";
+                const noteClass = detail.notes ? "" : " is-empty";
+                const billableText = detail.billable ? "Billable" : "Non-billable";
+                const statusText = detail.status === "approved" ? "Approved" : "Pending";
+                const categoryText = detail.category ? escapeHtml(detail.category) : "Uncategorized";
+                const categoryClass = detail.category ? "" : " is-empty";
+                return `<div class="inputs-time-calendar-detail-row inputs-expense-calendar-detail-row">
+                  <span class="inputs-time-calendar-detail-hours">${escapeHtml(amountText)}</span>
+                  <span class="inputs-time-calendar-detail-chip inputs-time-calendar-detail-chip-status inputs-time-calendar-detail-chip-status-${
+                    detail.status === "approved" ? "approved" : "pending"
+                  }">${escapeHtml(statusText)}</span>
+                  <span class="inputs-time-calendar-detail-chip inputs-time-calendar-detail-chip-billable">${escapeHtml(
+                    billableText
+                  )}</span>
+                  <span class="inputs-time-calendar-detail-category${categoryClass}">${categoryText}</span>
+                  <span class="inputs-time-calendar-detail-notes${noteClass}">${noteText}</span>
+                </div>`;
+              })
+              .join("");
+            return `<div class="inputs-time-calendar-cell inputs-time-calendar-cell-detail" tabindex="0">
+              ${escapeHtml(text)}
+              <div class="inputs-time-calendar-detail" role="tooltip">
+                ${detailRows}
+              </div>
+            </div>`;
+          })
+          .join("");
+        return `<div class="inputs-time-calendar-row">
+          <div class="inputs-time-calendar-cell inputs-time-calendar-project">${escapeHtml(label)}</div>
+          ${values}
+        </div>`;
+      })
+      .join("");
+
+    const totalCells = dates
+      .map((item) => {
+        const total = Number(totalsByDate[item.iso] || 0);
+        const text = formatCalendarCurrency(total);
+        return `<div class="inputs-time-calendar-cell">${text ? escapeHtml(text) : "&nbsp;"}</div>`;
+      })
+      .join("");
+
+    refs.inputsExpenseCalendarGrid.innerHTML = `
+      <div class="inputs-time-calendar-row inputs-time-calendar-head-row">
+        <div class="inputs-time-calendar-cell inputs-time-calendar-project">Client / Project</div>
+        ${headerCells}
+      </div>
+      ${
+        bodyRows ||
+        `<div class="inputs-time-calendar-row inputs-time-calendar-empty-row">
+          <div class="inputs-time-calendar-cell inputs-time-calendar-project">No expenses</div>
+          ${dates.map(() => `<div class="inputs-time-calendar-cell">&nbsp;</div>`).join("")}
+        </div>`
+      }
+      <div class="inputs-time-calendar-row inputs-time-calendar-total-row">
+        <div class="inputs-time-calendar-cell inputs-time-calendar-project">Total</div>
+        ${totalCells}
+      </div>
+    `;
+
+    bindInputsCalendarHoverAlignment(
+      refs.inputsExpenseCalendarGrid,
+      ".inputs-time-calendar-cell-detail",
+      ".inputs-time-calendar-detail"
+    );
   }
 
   function encodeInputsTimeCombo(clientName, projectName) {
@@ -3994,6 +4272,10 @@
         }
       } else {
         syncInputsExpenseRow();
+        renderInputsExpenseSummaryAndCalendarMeta();
+        if (state.inputsExpenseCalendarExpanded) {
+          renderInputsExpenseCalendar();
+        }
       }
       postHeight();
       return;
@@ -4226,6 +4508,32 @@
       if (state.currentView === "inputs" && state.inputSubtab === "time") {
         renderInputsTimeSummaryAndCalendarMeta();
         renderInputsTimeCalendar();
+        postHeight();
+      }
+    });
+  }
+  if (refs.inputsExpenseSummaryToggle) {
+    refs.inputsExpenseSummaryToggle.addEventListener("click", function () {
+      state.inputsExpenseCalendarExpanded = !state.inputsExpenseCalendarExpanded;
+      render();
+    });
+  }
+  if (refs.inputsExpenseCalendarPrev) {
+    refs.inputsExpenseCalendarPrev.addEventListener("click", function () {
+      state.inputsExpenseCalendarEndDate = shiftIsoDate(state.inputsExpenseCalendarEndDate || today, -7);
+      if (state.currentView === "inputs" && state.inputSubtab === "expenses") {
+        renderInputsExpenseSummaryAndCalendarMeta();
+        renderInputsExpenseCalendar();
+        postHeight();
+      }
+    });
+  }
+  if (refs.inputsExpenseCalendarNext) {
+    refs.inputsExpenseCalendarNext.addEventListener("click", function () {
+      state.inputsExpenseCalendarEndDate = shiftIsoDate(state.inputsExpenseCalendarEndDate || today, 7);
+      if (state.currentView === "inputs" && state.inputSubtab === "expenses") {
+        renderInputsExpenseSummaryAndCalendarMeta();
+        renderInputsExpenseCalendar();
         postHeight();
       }
     });

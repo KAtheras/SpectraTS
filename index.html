@@ -257,6 +257,36 @@
                 </div>
               </form>
             </div>
+
+            <section class="inputs-time-summary inputs-expense-summary" id="inputs-expense-summary">
+              <div class="inputs-time-summary-metrics">
+                <div class="inputs-time-summary-metric">
+                  <span class="inputs-time-summary-label">Week total</span>
+                  <strong class="inputs-time-summary-value" id="inputs-expense-summary-total">$0.00</strong>
+                </div>
+                <div class="inputs-time-summary-metric">
+                  <span class="inputs-time-summary-label">Today</span>
+                  <strong class="inputs-time-summary-value" id="inputs-expense-summary-today">$0.00</strong>
+                </div>
+                <div class="inputs-time-summary-signal" id="inputs-expense-summary-signal">Peak: --</div>
+              </div>
+              <button class="inputs-time-summary-toggle" id="inputs-expense-summary-toggle" type="button" aria-expanded="false">
+                View week ▼
+              </button>
+            </section>
+
+            <section class="inputs-time-calendar-view inputs-expense-calendar-view" id="inputs-expense-calendar-view" hidden>
+              <div class="inputs-time-calendar-controls">
+                <button class="inputs-time-calendar-shift" id="inputs-expense-calendar-prev" type="button" aria-label="Previous 7 days">
+                  &larr; Previous week
+                </button>
+                <div class="inputs-time-calendar-range" id="inputs-expense-calendar-range"></div>
+                <button class="inputs-time-calendar-shift" id="inputs-expense-calendar-next" type="button" aria-label="Next 7 days">
+                  Next week &rarr;
+                </button>
+              </div>
+              <div class="inputs-time-calendar-grid" id="inputs-expense-calendar-grid"></div>
+            </section>
           </section>
         </div>
       </section>
