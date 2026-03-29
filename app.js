@@ -1761,10 +1761,18 @@
           client,
           project,
           byDate: Object.create(null),
+          byDateEntries: Object.create(null),
         });
       }
       const row = perProject.get(projectKeyValue);
       row.byDate[entry.date] = (row.byDate[entry.date] || 0) + hours;
+      if (!row.byDateEntries[entry.date]) {
+        row.byDateEntries[entry.date] = [];
+      }
+      row.byDateEntries[entry.date].push({
+        hours,
+        notes: typeof entry.notes === "string" ? entry.notes.trim() : "",
+      });
       totalsByDate[entry.date] += hours;
     });
 
@@ -1864,7 +1872,27 @@
           .map((item) => {
             const total = Number(row.byDate[item.iso] || 0);
             const text = formatCalendarHours(total);
-            return `<div class="inputs-time-calendar-cell">${text ? escapeHtml(text) : "&nbsp;"}</div>`;
+            if (!text) {
+              return `<div class="inputs-time-calendar-cell">&nbsp;</div>`;
+            }
+            const entries = Array.isArray(row.byDateEntries?.[item.iso]) ? row.byDateEntries[item.iso] : [];
+            const detailRows = entries
+              .map((detail) => {
+                const hourText = formatSummaryHours(detail.hours);
+                const noteText = detail.notes ? escapeHtml(detail.notes) : "No note";
+                const noteClass = detail.notes ? "" : " is-empty";
+                return `<div class="inputs-time-calendar-detail-row">
+                  <span class="inputs-time-calendar-detail-hours">${escapeHtml(hourText)}</span>
+                  <span class="inputs-time-calendar-detail-notes${noteClass}">${noteText}</span>
+                </div>`;
+              })
+              .join("");
+            return `<div class="inputs-time-calendar-cell inputs-time-calendar-cell-detail" tabindex="0">
+              ${escapeHtml(text)}
+              <div class="inputs-time-calendar-detail" role="tooltip">
+                ${detailRows}
+              </div>
+            </div>`;
           })
           .join("");
         return `<div class="inputs-time-calendar-row">
