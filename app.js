@@ -1907,7 +1907,14 @@
     postHeight();
   }
 
-  function syncInputsRowInteractivity(rows, fieldsForRow, setRowSaved, setEditVisible, setDeleteVisible) {
+  function syncInputsRowInteractivity(
+    rows,
+    fieldsForRow,
+    setRowSaved,
+    setEditVisible,
+    setDeleteVisible,
+    canSaveRow
+  ) {
     const list = Array.isArray(rows) ? rows : [];
     list.forEach((row) => {
       if (!row.dataset.rowState) {
@@ -1949,10 +1956,11 @@
         });
 
       if (fields.save) {
+        const canSave = typeof canSaveRow === "function" ? !!canSaveRow(row) : true;
         fields.save.hidden = false;
         fields.save.classList.remove("is-saved");
         fields.save.textContent = isSaving ? "Saving..." : "Save";
-        fields.save.disabled = !isActiveUnsaved || isSaving;
+        fields.save.disabled = !isActiveUnsaved || isSaving || !canSave;
       }
     });
   }
@@ -2065,7 +2073,8 @@
       inputsTimeRowFields,
       setInputsTimeRowSaved,
       setInputsTimeEditButtonVisible,
-      setInputsTimeDeleteButtonVisible
+      setInputsTimeDeleteButtonVisible,
+      isInputsTimeRowReadyToSave
     );
   }
 
@@ -2109,9 +2118,6 @@
       selected,
       "Client / Project"
     );
-    if (!fields.clientProject.value && options.length) {
-      fields.clientProject.value = options[0].value;
-    }
     fields.clientProject.disabled = options.length === 0;
 
     if (fields.billable && row.dataset.lastCombo !== fields.clientProject.value) {
@@ -2120,6 +2126,13 @@
     row.dataset.lastCombo = fields.clientProject.value || "";
 
     syncInputsTimeDateInput(fields.date);
+  }
+
+  function isInputsTimeRowReadyToSave(row) {
+    const fields = inputsTimeRowFields(row);
+    const hours = Number(fields.hours?.value);
+    const normalizedDate = parseInputsTimeDateValue(fields.date?.value || "");
+    return Boolean(fields.clientProject?.value) && Boolean(normalizedDate) && Number.isFinite(hours) && hours > 0;
   }
 
   function addInputsTimeRowFrom(sourceRow, options) {
@@ -2188,6 +2201,14 @@
     fields.date?.addEventListener("change", function () {
       syncInputsTimeDateField(fields.date);
     });
+
+    const refreshTimeRowInteractivity = function () {
+      syncInputsTimeRowInteractivity(
+        Array.from(row.parentElement?.querySelectorAll("form.input-row.input-row-body") || [])
+      );
+    };
+    row.addEventListener("input", refreshTimeRowInteractivity);
+    row.addEventListener("change", refreshTimeRowInteractivity);
 
     row.addEventListener("submit", async function (event) {
       event.preventDefault();
@@ -2389,7 +2410,8 @@
       inputsExpenseRowFields,
       setInputsExpenseRowSaved,
       setInputsExpenseEditButtonVisible,
-      setInputsExpenseDeleteButtonVisible
+      setInputsExpenseDeleteButtonVisible,
+      isInputsExpenseRowReadyToSave
     );
   }
 
@@ -2425,9 +2447,6 @@
       selectedCombo,
       "Client / Project"
     );
-    if (!fields.clientProject.value && comboOptions.length) {
-      fields.clientProject.value = comboOptions[0].value;
-    }
     fields.clientProject.disabled = comboOptions.length === 0;
 
     const selectedCategory = fields.category?.value || "";
@@ -2448,6 +2467,19 @@
     row.dataset.lastCombo = fields.clientProject.value || "";
 
     syncInputsTimeDateInput(fields.date);
+  }
+
+  function isInputsExpenseRowReadyToSave(row) {
+    const fields = inputsExpenseRowFields(row);
+    const amount = Number(fields.amount?.value);
+    const normalizedDate = parseInputsTimeDateValue(fields.date?.value || "");
+    return (
+      Boolean(fields.clientProject?.value) &&
+      Boolean(normalizedDate) &&
+      Boolean(fields.category?.value) &&
+      Number.isFinite(amount) &&
+      amount > 0
+    );
   }
 
   function addInputsExpenseRowFrom(sourceRow, comboOptions, categoryOptions) {
@@ -2517,6 +2549,14 @@
     fields.date?.addEventListener("change", function () {
       syncInputsTimeDateField(fields.date);
     });
+
+    const refreshExpenseRowInteractivity = function () {
+      syncInputsExpenseRowInteractivity(
+        Array.from(row.parentElement?.querySelectorAll("form.input-row.input-row-body") || [])
+      );
+    };
+    row.addEventListener("input", refreshExpenseRowInteractivity);
+    row.addEventListener("change", refreshExpenseRowInteractivity);
 
     row.addEventListener("submit", async function (event) {
       event.preventDefault();
