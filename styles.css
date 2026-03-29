@@ -792,6 +792,22 @@ body[data-theme="dark"] .mobile-tabbar {
   gap: 10px;
 }
 
+.input-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.input-header h2 {
+  margin: 0;
+}
+
+.input-switch-action {
+  margin-left: auto;
+  white-space: nowrap;
+}
+
 .input-grid {
   display: grid;
   gap: 8px;
