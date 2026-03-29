@@ -3954,12 +3954,13 @@ body[data-theme="dark"] .entry-approved td {
 
 #inputs-view .input-row-head .cell-actions {
   min-height: 44px;
-  background: transparent !important;
+  background: #4B5563 !important;
   color: transparent !important;
   border: none !important;
   box-shadow: none;
   border-right: none !important;
   border-bottom: none !important;
+  border-left: 1px solid rgba(255, 255, 255, 0.08) !important;
   padding: 0;
 }
 
