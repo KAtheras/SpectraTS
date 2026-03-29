@@ -1817,9 +1817,8 @@
     editButton.dataset.inputsTimeEdit = "true";
     editButton.addEventListener("click", function () {
       if (row.dataset.saving === "true") return;
-      row.dataset.saved = "false";
+      setInputsTimeRowState(row, "editing-saved");
       row.dataset.saving = "false";
-      row.dataset.editing = "true";
       const current = inputsTimeRowFields(row);
       if (current.save) {
         current.save.classList.remove("is-saved");
@@ -1842,11 +1841,36 @@
     row.classList.toggle("has-edit-action", !!visible);
   }
 
+  function setInputsTimeRowState(row, state) {
+    if (!row) return;
+    row.dataset.rowState = state;
+    row.dataset.saved = state === "saved" ? "true" : "false";
+    row.dataset.editing = state === "editing-saved" ? "true" : "false";
+  }
+
+  function isInputsTimeRowBlank(row) {
+    if (!row) return false;
+    const fields = inputsTimeRowFields(row);
+    const hoursRaw = `${fields.hours?.value || ""}`.trim();
+    const notesRaw = `${fields.notes?.value || ""}`.trim();
+    const hasHours = hoursRaw !== "" && !Number.isNaN(Number(hoursRaw)) && Number(hoursRaw) > 0;
+    return !hasHours && notesRaw === "";
+  }
+
+  function hasTrailingBlankInputsTimeRow(container) {
+    if (!container) return false;
+    const rows = Array.from(container.querySelectorAll("form.input-row.input-row-body"));
+    if (!rows.length) return false;
+    const last = rows[rows.length - 1];
+    const rowState = last.dataset.rowState || (last.dataset.saved === "true" ? "saved" : "new");
+    if (rowState !== "new" || last.dataset.saving === "true") return false;
+    return isInputsTimeRowBlank(last);
+  }
+
   function setInputsTimeRowSaved(row) {
     if (!row) return;
-    row.dataset.saved = "true";
+    setInputsTimeRowState(row, "saved");
     row.dataset.saving = "false";
-    row.dataset.editing = "false";
     const fields = inputsTimeRowFields(row);
     [fields.clientProject, fields.date, fields.hours, fields.billable, fields.notes].forEach((input) => {
       if (input) input.disabled = true;
@@ -1861,21 +1885,28 @@
 
   function syncInputsTimeRowInteractivity(rows) {
     const list = Array.isArray(rows) ? rows : [];
-    const unsavedRows = list.filter((row) => row.dataset.saved !== "true");
-    const editingRow = unsavedRows.find((row) => row.dataset.editing === "true") || null;
+    list.forEach((row) => {
+      if (!row.dataset.rowState) {
+        setInputsTimeRowState(row, row.dataset.saved === "true" ? "saved" : "new");
+      }
+    });
+    const unsavedRows = list.filter((row) => row.dataset.rowState !== "saved");
+    const editingRow = unsavedRows.find((row) => row.dataset.rowState === "editing-saved") || null;
     const activeRow = editingRow || (unsavedRows.length ? unsavedRows[unsavedRows.length - 1] : null);
 
     list.forEach((row) => {
       const fields = inputsTimeRowFields(row);
-      const isSaved = row.dataset.saved === "true";
+      const isSaved = row.dataset.rowState === "saved";
       const isSaving = row.dataset.saving === "true";
       const isActiveUnsaved = !isSaved && row === activeRow;
+      const isEditingSaved = row.dataset.rowState === "editing-saved";
 
       if (isSaved) {
         setInputsTimeRowSaved(row);
         return;
       }
-      row.dataset.editing = isActiveUnsaved && row.dataset.editing === "true" ? "true" : "false";
+      setInputsTimeRowState(row, isEditingSaved ? "editing-saved" : "new");
+      row.dataset.editing = isActiveUnsaved && isEditingSaved ? "true" : "false";
       setInputsTimeEditButtonVisible(row, false);
 
       [fields.clientProject, fields.date, fields.hours, fields.billable, fields.notes].forEach((input) => {
@@ -1952,9 +1983,8 @@
     next.removeAttribute("id");
     next.dataset.boundHandlers = "";
     next.dataset.lastCombo = "";
-    next.dataset.saved = "false";
+    setInputsTimeRowState(next, "new");
     next.dataset.saving = "false";
-    next.dataset.editing = "false";
     container.appendChild(next);
 
     const nextFields = inputsTimeRowFields(next);
@@ -2007,18 +2037,21 @@
 
     row.addEventListener("submit", async function (event) {
       event.preventDefault();
-      if (row.dataset.saved === "true" || row.dataset.saving === "true") {
+      if (row.dataset.rowState === "saved" || row.dataset.saving === "true") {
         return;
       }
+      const wasEditingSavedRow = row.dataset.rowState === "editing-saved";
       row.dataset.saving = "true";
       row.dataset.editing = "false";
       syncInputsTimeRowInteractivity(
         Array.from(row.parentElement?.querySelectorAll("form.input-row.input-row-body") || [])
       );
       const current = inputsTimeRowFields(row);
+      const existingId = `${row.dataset.entryId || ""}`.trim();
+      const existingCreatedAt = `${row.dataset.createdAt || ""}`.trim();
       const [clientName, projectName] = decodeInputsTimeCombo(current.clientProject?.value || "");
       const nextEntry = {
-        id: crypto.randomUUID(),
+        id: existingId || crypto.randomUUID(),
         user: state.currentUser?.displayName || "",
         date: parseInputsTimeDateValue(current.date?.value || ""),
         client: clientName || "",
@@ -2027,13 +2060,18 @@
         hours: Number(current.hours?.value),
         notes: (current.notes?.value || "").trim(),
         billable: current.billable ? current.billable.checked : true,
-        createdAt: new Date().toISOString(),
+        createdAt: existingCreatedAt || new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         status: "pending",
       };
 
       const error = validateEntry(nextEntry);
       if (error) {
+        row.dataset.saving = "false";
+        setInputsTimeRowState(row, wasEditingSavedRow ? "editing-saved" : "new");
+        syncInputsTimeRowInteractivity(
+          Array.from(row.parentElement?.querySelectorAll("form.input-row.input-row-body") || [])
+        );
         feedback(error, true);
         return;
       }
@@ -2042,6 +2080,7 @@
         await mutatePersistentState("save_entry", { entry: nextEntry });
       } catch (error) {
         row.dataset.saving = "false";
+        setInputsTimeRowState(row, wasEditingSavedRow ? "editing-saved" : "new");
         syncInputsTimeRowInteractivity(
           Array.from(row.parentElement?.querySelectorAll("form.input-row.input-row-body") || [])
         );
@@ -2050,8 +2089,18 @@
       }
 
       feedback("Entry saved.", false);
+      row.dataset.entryId = nextEntry.id;
+      row.dataset.createdAt = nextEntry.createdAt;
       setInputsTimeRowSaved(row);
-      addInputsTimeRowFrom(row, inputsTimeComboOptions());
+      const container = row.parentElement;
+      const shouldAddNextRow = !wasEditingSavedRow && !hasTrailingBlankInputsTimeRow(container);
+      if (shouldAddNextRow) {
+        addInputsTimeRowFrom(row, inputsTimeComboOptions());
+      } else if (container) {
+        syncInputsTimeRowInteractivity(
+          Array.from(container.querySelectorAll("form.input-row.input-row-body"))
+        );
+      }
       postHeight();
     });
 
@@ -2065,6 +2114,9 @@
     const options = inputsTimeComboOptions();
     const rows = Array.from(container.querySelectorAll("form.input-row.input-row-body"));
     rows.forEach((row) => {
+      if (!row.dataset.rowState) {
+        setInputsTimeRowState(row, row.dataset.saved === "true" ? "saved" : "new");
+      }
       syncInputsTimeFormRow(row, options);
       bindInputsTimeFormRow(row);
     });
