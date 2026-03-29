@@ -307,13 +307,13 @@
     settingsPage: document.getElementById("settings-page"),
     inputsView: document.getElementById("inputs-view"),
     inputsViewTitle: document.getElementById("inputs-view-title"),
-    inputsTimeViewToggle: document.getElementById("inputs-time-view-toggle"),
-    inputsTimeViewEntry: document.getElementById("inputs-time-view-entry"),
-    inputsTimeViewCalendar: document.getElementById("inputs-time-view-calendar"),
     inputsSwitchAction: document.getElementById("inputs-switch-action"),
     inputsPanelTime: document.getElementById("inputs-panel-time"),
     inputsPanelExpenses: document.getElementById("inputs-panel-expenses"),
-    inputsTimeEntryView: document.getElementById("inputs-time-entry-view"),
+    inputsTimeSummary: document.getElementById("inputs-time-summary"),
+    inputsTimeSummaryTotal: document.getElementById("inputs-time-summary-total"),
+    inputsTimeSummaryToday: document.getElementById("inputs-time-summary-today"),
+    inputsTimeSummaryToggle: document.getElementById("inputs-time-summary-toggle"),
     inputsTimeCalendarView: document.getElementById("inputs-time-calendar-view"),
     inputsTimeCalendarPrev: document.getElementById("inputs-time-calendar-prev"),
     inputsTimeCalendarNext: document.getElementById("inputs-time-calendar-next"),
@@ -898,7 +898,7 @@
     },
     currentView: "inputs", // "inputs" | "entries" | "clients" | "members" | "analytics" | "settings" | "audit"
     inputSubtab: "time", // "time" | "expenses"
-    inputsTimeView: "entry", // "entry" | "calendar"
+    inputsTimeCalendarExpanded: false,
     inputsTimeCalendarEndDate: today,
     entriesSubtab: "time", // "time" | "expenses"
     expenseEditingId: null,
@@ -1718,23 +1718,8 @@
     return value.toFixed(2).replace(/\.00$/, "");
   }
 
-  function renderInputsTimeCalendar() {
-    if (!refs.inputsTimeCalendarGrid) return;
+  function buildInputsTimeCalendarData() {
     const dates = getInputsTimeCalendarDates();
-    if (!dates.length) {
-      refs.inputsTimeCalendarGrid.innerHTML = "";
-      if (refs.inputsTimeCalendarRange) {
-        refs.inputsTimeCalendarRange.textContent = "";
-      }
-      return;
-    }
-
-    const firstDate = dates[0]?.iso || "";
-    const lastDate = dates[dates.length - 1]?.iso || "";
-    if (refs.inputsTimeCalendarRange) {
-      refs.inputsTimeCalendarRange.textContent = `${formatDisplayDateShort(firstDate)} - ${formatDisplayDateShort(lastDate)}`;
-    }
-
     const dateSet = new Set(dates.map((item) => item.iso));
     const perProject = new Map();
     const totalsByDate = Object.create(null);
@@ -1768,6 +1753,58 @@
       const right = `${b.client} / ${b.project}`.toLowerCase();
       return left.localeCompare(right);
     });
+
+    const weekTotal = dates.reduce((sum, item) => sum + Number(totalsByDate[item.iso] || 0), 0);
+    const todayTotal = Number(totalsByDate[today] || 0);
+    return {
+      dates,
+      totalsByDate,
+      projectRows,
+      weekTotal,
+      todayTotal,
+    };
+  }
+
+  function renderInputsTimeSummaryAndCalendarMeta() {
+    const { dates, weekTotal, todayTotal } = buildInputsTimeCalendarData();
+    if (refs.inputsTimeSummaryTotal) {
+      refs.inputsTimeSummaryTotal.textContent = `${weekTotal.toFixed(2)}h`;
+    }
+    if (refs.inputsTimeSummaryToday) {
+      refs.inputsTimeSummaryToday.textContent = `${todayTotal.toFixed(2)}h`;
+    }
+    if (refs.inputsTimeSummaryToggle) {
+      refs.inputsTimeSummaryToggle.textContent = state.inputsTimeCalendarExpanded
+        ? "Hide weekly breakdown ▲"
+        : "View weekly breakdown ▼";
+      refs.inputsTimeSummaryToggle.setAttribute(
+        "aria-expanded",
+        state.inputsTimeCalendarExpanded ? "true" : "false"
+      );
+    }
+    if (refs.inputsTimeCalendarView) {
+      refs.inputsTimeCalendarView.hidden = !state.inputsTimeCalendarExpanded;
+    }
+    if (refs.inputsTimeCalendarRange) {
+      const firstDate = dates[0]?.iso || "";
+      const lastDate = dates[dates.length - 1]?.iso || "";
+      refs.inputsTimeCalendarRange.textContent =
+        firstDate && lastDate
+          ? `${formatDisplayDateShort(firstDate)} - ${formatDisplayDateShort(lastDate)}`
+          : "";
+    }
+  }
+
+  function renderInputsTimeCalendar() {
+    if (!refs.inputsTimeCalendarGrid) return;
+    const { dates, totalsByDate, projectRows } = buildInputsTimeCalendarData();
+    if (!dates.length) {
+      refs.inputsTimeCalendarGrid.innerHTML = "";
+      if (refs.inputsTimeCalendarRange) {
+        refs.inputsTimeCalendarRange.textContent = "";
+      }
+      return;
+    }
 
     const headerCells = dates
       .map(
@@ -3723,8 +3760,8 @@
     if (refs.inputsViewTitle) {
       refs.inputsViewTitle.textContent = inputSubtab === "expenses" ? "Enter Expenses" : "Enter Time";
     }
-    if (refs.inputsTimeViewToggle) {
-      refs.inputsTimeViewToggle.hidden = inputSubtab !== "time";
+    if (refs.inputsTimeSummary) {
+      refs.inputsTimeSummary.hidden = inputSubtab !== "time";
     }
     if (refs.inputsSwitchAction) {
       refs.inputsSwitchAction.textContent =
@@ -3736,21 +3773,8 @@
     if (refs.inputsPanelExpenses) {
       refs.inputsPanelExpenses.hidden = inputSubtab !== "expenses";
     }
-
-    const inputsTimeView = state.inputsTimeView === "calendar" ? "calendar" : "entry";
-    if (refs.inputsTimeViewEntry) {
-      refs.inputsTimeViewEntry.classList.toggle("is-active", inputsTimeView === "entry");
-      refs.inputsTimeViewEntry.setAttribute("aria-selected", inputsTimeView === "entry" ? "true" : "false");
-    }
-    if (refs.inputsTimeViewCalendar) {
-      refs.inputsTimeViewCalendar.classList.toggle("is-active", inputsTimeView === "calendar");
-      refs.inputsTimeViewCalendar.setAttribute("aria-selected", inputsTimeView === "calendar" ? "true" : "false");
-    }
-    if (refs.inputsTimeEntryView) {
-      refs.inputsTimeEntryView.hidden = inputSubtab !== "time" || inputsTimeView !== "entry";
-    }
-    if (refs.inputsTimeCalendarView) {
-      refs.inputsTimeCalendarView.hidden = inputSubtab !== "time" || inputsTimeView !== "calendar";
+    if (refs.inputsTimeCalendarView && inputSubtab !== "time") {
+      refs.inputsTimeCalendarView.hidden = true;
     }
 
     const entriesSubtab = state.entriesSubtab === "expenses" ? "expenses" : "time";
@@ -3844,10 +3868,10 @@
 
     if (view === "inputs") {
       if (state.inputSubtab === "time") {
-        if (inputsTimeView === "calendar") {
+        syncInputsTimeRow();
+        renderInputsTimeSummaryAndCalendarMeta();
+        if (state.inputsTimeCalendarExpanded) {
           renderInputsTimeCalendar();
-        } else {
-          syncInputsTimeRow();
         }
       } else {
         syncInputsExpenseRow();
@@ -4061,22 +4085,17 @@
       render();
     });
   }
-  if (refs.inputsTimeViewEntry) {
-    refs.inputsTimeViewEntry.addEventListener("click", function () {
-      state.inputsTimeView = "entry";
-      render();
-    });
-  }
-  if (refs.inputsTimeViewCalendar) {
-    refs.inputsTimeViewCalendar.addEventListener("click", function () {
-      state.inputsTimeView = "calendar";
+  if (refs.inputsTimeSummaryToggle) {
+    refs.inputsTimeSummaryToggle.addEventListener("click", function () {
+      state.inputsTimeCalendarExpanded = !state.inputsTimeCalendarExpanded;
       render();
     });
   }
   if (refs.inputsTimeCalendarPrev) {
     refs.inputsTimeCalendarPrev.addEventListener("click", function () {
       state.inputsTimeCalendarEndDate = shiftIsoDate(state.inputsTimeCalendarEndDate || today, -7);
-      if (state.currentView === "inputs" && state.inputSubtab === "time" && state.inputsTimeView === "calendar") {
+      if (state.currentView === "inputs" && state.inputSubtab === "time") {
+        renderInputsTimeSummaryAndCalendarMeta();
         renderInputsTimeCalendar();
         postHeight();
       }
@@ -4085,7 +4104,8 @@
   if (refs.inputsTimeCalendarNext) {
     refs.inputsTimeCalendarNext.addEventListener("click", function () {
       state.inputsTimeCalendarEndDate = shiftIsoDate(state.inputsTimeCalendarEndDate || today, 7);
-      if (state.currentView === "inputs" && state.inputSubtab === "time" && state.inputsTimeView === "calendar") {
+      if (state.currentView === "inputs" && state.inputSubtab === "time") {
+        renderInputsTimeSummaryAndCalendarMeta();
         renderInputsTimeCalendar();
         postHeight();
       }
