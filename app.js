@@ -4138,35 +4138,32 @@
         if (!control) return;
 
         const active = document.activeElement;
-        if (
-          !(active instanceof HTMLElement) ||
-          active === control ||
-          !refs.inputsView.contains(active)
-        ) {
+        if (active instanceof HTMLElement && active !== control && refs.inputsView.contains(active)) {
+          if (isInputsDateControl(active)) {
+            closeInputsDesktopDatePopover();
+          }
+          if (active instanceof HTMLSelectElement) {
+            active.blur();
+          }
+        }
+
+        if (isInputsDateControl(control)) {
           return;
         }
 
-        if (isInputsDateControl(active)) {
+        if (control instanceof HTMLSelectElement) {
           closeInputsDesktopDatePopover();
-        }
-
-        if (active instanceof HTMLSelectElement) {
-          active.blur();
-
-          if (control instanceof HTMLSelectElement) {
-            if (typeof control.showPicker === "function") {
-              try {
-                control.showPicker();
-                event.preventDefault();
-                return;
-              } catch (error) {
-                // Fall through to click-based open.
-              }
+          if (typeof control.showPicker === "function") {
+            try {
+              control.focus();
+              control.showPicker();
+              event.preventDefault();
+              return;
+            } catch (error) {
+              // Fall through to click-based open.
             }
-            control.focus();
-            control.click();
-            event.preventDefault();
           }
+          control.focus();
         }
       },
       true
