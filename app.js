@@ -3842,10 +3842,7 @@
       if (refs.expensesView) refs.expensesView.hidden = false;
       if (refs.expenseUser) refs.expenseUser.value = state.currentUser?.id || "";
       if (refs.expenseUser) refs.expenseUser.closest("label")?.classList.add("entry-hidden-control");
-      syncExpenseFilterCatalogsUI(state.expenseFilters);
-      const filteredExpenses = currentExpenses();
-      renderExpenses(filteredExpenses);
-      renderExpenseFilterState(filteredExpenses);
+      syncExpenseReviewSurface(oldExpenseReviewSurfaceRefs());
       syncExpenseCatalogs({
         userId: refs.expenseUser?.value || state.currentUser?.id || "",
         client: refs.expenseClient?.value || "",
@@ -3925,6 +3922,18 @@
     };
   }
 
+  function oldExpenseReviewSurfaceRefs() {
+    return {
+      expenseFilterForm: refs.expenseFilterForm,
+      expenseFilterTotal: refs.expenseFilterTotal,
+      expenseActiveFilters: refs.expenseActiveFilters,
+      expenseFilterUser: refs.expenseFilterUser,
+      expenseFilterClient: refs.expenseFilterClient,
+      expenseFilterProject: refs.expenseFilterProject,
+      expensesBody: refs.expensesBody,
+    };
+  }
+
   function withExpenseReviewSurface(surfaceRefs, callback) {
     if (!surfaceRefs || typeof callback !== "function") return null;
     const keys = [
@@ -3952,15 +3961,18 @@
     }
   }
 
-  function syncEntriesExpenseReviewSurface() {
-    const surface = entriesExpenseReviewSurfaceRefs();
-    if (!surface.expenseFilterForm || !surface.expensesBody) return;
+  function syncExpenseReviewSurface(surface) {
+    if (!surface?.expenseFilterForm || !surface?.expensesBody) return;
     withExpenseReviewSurface(surface, function () {
       syncExpenseFilterCatalogsUI(state.expenseFilters);
       const filteredExpenses = currentExpenses();
       renderExpenses(filteredExpenses);
       renderExpenseFilterState(filteredExpenses);
     });
+  }
+
+  function syncEntriesExpenseReviewSurface() {
+    syncExpenseReviewSurface(entriesExpenseReviewSurfaceRefs());
   }
 
   function removeMembersPageProfileActions() {
@@ -4563,85 +4575,94 @@
     applyFiltersFromForm();
   });
 
-  field(refs.expenseFilterForm, "client")?.addEventListener("change", function () {
-    const userField = field(refs.expenseFilterForm, "user");
-    const clientField = field(refs.expenseFilterForm, "client");
-    syncExpenseFilterCatalogsUI({
-      user: userField?.value || "",
-      client: clientField?.value || "",
-      project: "",
+  function bindExpenseReviewSurface(surface, options = {}) {
+    const surfaceRefs = surface || {};
+    const form = surfaceRefs.expenseFilterForm;
+    if (!form) return;
+    const shouldResetWheel = options.resetWheel === true;
+
+    const runOnSurface = function (callback) {
+      return withExpenseReviewSurface(surfaceRefs, callback);
+    };
+    const applySurfaceFilters = function (settings) {
+      return runOnSurface(function () {
+        return applyExpenseFiltersFromForm(settings);
+      });
+    };
+
+    field(form, "client")?.addEventListener("change", function () {
+      runOnSurface(function () {
+        const userField = field(refs.expenseFilterForm, "user");
+        const clientField = field(refs.expenseFilterForm, "client");
+        syncExpenseFilterCatalogsUI({
+          user: userField?.value || "",
+          client: clientField?.value || "",
+          project: "",
+        });
+        applyExpenseFiltersFromForm();
+      });
     });
-    applyExpenseFiltersFromForm();
-  });
 
-  field(refs.expenseFilterForm, "project")?.addEventListener("change", function () {
-    applyExpenseFiltersFromForm();
-  });
-
-  field(refs.expenseFilterForm, "user")?.addEventListener("change", function () {
-    const userField = field(refs.expenseFilterForm, "user");
-    const clientField = field(refs.expenseFilterForm, "client");
-    syncExpenseFilterCatalogsUI({
-      user: userField?.value || "",
-      client: clientField?.value || "",
-      project: field(refs.expenseFilterForm, "project")?.value || "",
+    field(form, "project")?.addEventListener("change", function () {
+      applySurfaceFilters();
     });
-    applyExpenseFiltersFromForm();
-  });
 
-  field(refs.expenseFilterForm, "search")?.addEventListener("input", function () {
-    applyExpenseFiltersFromForm({ showErrors: false });
-  });
-
-  refs.expenseFilterForm?.addEventListener("submit", function (event) {
-    event.preventDefault();
-    applyExpenseFiltersFromForm();
-  });
-
-  function applyEntriesExpenseFiltersFromForm(options) {
-    return withExpenseReviewSurface(entriesExpenseReviewSurfaceRefs(), function () {
-      return applyExpenseFiltersFromForm(options);
+    field(form, "user")?.addEventListener("change", function () {
+      runOnSurface(function () {
+        const userField = field(refs.expenseFilterForm, "user");
+        const clientField = field(refs.expenseFilterForm, "client");
+        syncExpenseFilterCatalogsUI({
+          user: userField?.value || "",
+          client: clientField?.value || "",
+          project: field(refs.expenseFilterForm, "project")?.value || "",
+        });
+        applyExpenseFiltersFromForm();
+      });
     });
+
+    field(form, "search")?.addEventListener("input", function () {
+      applySurfaceFilters({ showErrors: false });
+    });
+
+    form.addEventListener("submit", function (event) {
+      event.preventDefault();
+      applySurfaceFilters();
+    });
+
+    if (surface.clearButton) {
+      surface.clearButton.addEventListener("click", function () {
+        form.reset();
+        runOnSurface(function () {
+          syncExpenseFilterCatalogsUI({
+            user: "",
+            client: "",
+            project: "",
+          });
+        });
+        state.expenseFilters = {
+          user: "",
+          client: "",
+          project: "",
+          from: "",
+          to: "",
+          search: "",
+        };
+        if (shouldResetWheel) {
+          ["from", "to"].forEach(function (name) {
+            const refsForKind = expenseFilterDateRefs(name);
+            if (refsForKind.month) refsForKind.month.value = "";
+            if (refsForKind.day) refsForKind.day.value = "";
+            if (refsForKind.year) refsForKind.year.value = "";
+          });
+        }
+        applySurfaceFilters({ showErrors: false });
+      });
+    }
+
+    if (surface.exportButton) {
+      surface.exportButton.addEventListener("click", exportExpensesCsv);
+    }
   }
-
-  field(refs.entriesExpenseFilterForm, "client")?.addEventListener("change", function () {
-    withExpenseReviewSurface(entriesExpenseReviewSurfaceRefs(), function () {
-      const userField = field(refs.expenseFilterForm, "user");
-      const clientField = field(refs.expenseFilterForm, "client");
-      syncExpenseFilterCatalogsUI({
-        user: userField?.value || "",
-        client: clientField?.value || "",
-        project: "",
-      });
-      applyExpenseFiltersFromForm();
-    });
-  });
-
-  field(refs.entriesExpenseFilterForm, "project")?.addEventListener("change", function () {
-    applyEntriesExpenseFiltersFromForm();
-  });
-
-  field(refs.entriesExpenseFilterForm, "user")?.addEventListener("change", function () {
-    withExpenseReviewSurface(entriesExpenseReviewSurfaceRefs(), function () {
-      const userField = field(refs.expenseFilterForm, "user");
-      const clientField = field(refs.expenseFilterForm, "client");
-      syncExpenseFilterCatalogsUI({
-        user: userField?.value || "",
-        client: clientField?.value || "",
-        project: field(refs.expenseFilterForm, "project")?.value || "",
-      });
-      applyExpenseFiltersFromForm();
-    });
-  });
-
-  field(refs.entriesExpenseFilterForm, "search")?.addEventListener("input", function () {
-    applyEntriesExpenseFiltersFromForm({ showErrors: false });
-  });
-
-  refs.entriesExpenseFilterForm?.addEventListener("submit", function (event) {
-    event.preventDefault();
-    applyEntriesExpenseFiltersFromForm();
-  });
 
   ["user", "project"].forEach(function (name) {
     field(refs.filterForm, name).addEventListener("change", function () {
@@ -4667,53 +4688,22 @@
 
   refs.exportCsv.addEventListener("click", exportCsv);
 
-  refs.expenseClearFilters?.addEventListener("click", function () {
-    refs.expenseFilterForm?.reset();
-    syncExpenseFilterCatalogsUI({
-      user: "",
-      client: "",
-      project: "",
-    });
-    state.expenseFilters = {
-      user: "",
-      client: "",
-      project: "",
-      from: "",
-      to: "",
-      search: "",
-    };
-    ["from", "to"].forEach(function (name) {
-      const refsForKind = expenseFilterDateRefs(name);
-      if (refsForKind.month) refsForKind.month.value = "";
-      if (refsForKind.day) refsForKind.day.value = "";
-      if (refsForKind.year) refsForKind.year.value = "";
-    });
-    applyExpenseFiltersFromForm({ showErrors: false });
-  });
-
-  refs.expenseExportCsv?.addEventListener("click", exportExpensesCsv);
-
-  refs.entriesExpenseClearFilters?.addEventListener("click", function () {
-    refs.entriesExpenseFilterForm?.reset();
-    withExpenseReviewSurface(entriesExpenseReviewSurfaceRefs(), function () {
-      syncExpenseFilterCatalogsUI({
-        user: "",
-        client: "",
-        project: "",
-      });
-    });
-    state.expenseFilters = {
-      user: "",
-      client: "",
-      project: "",
-      from: "",
-      to: "",
-      search: "",
-    };
-    applyEntriesExpenseFiltersFromForm({ showErrors: false });
-  });
-
-  refs.entriesExpenseExportCsv?.addEventListener("click", exportExpensesCsv);
+  bindExpenseReviewSurface(
+    {
+      ...oldExpenseReviewSurfaceRefs(),
+      clearButton: refs.expenseClearFilters,
+      exportButton: refs.expenseExportCsv,
+    },
+    { resetWheel: true }
+  );
+  bindExpenseReviewSurface(
+    {
+      ...entriesExpenseReviewSurfaceRefs(),
+      clearButton: refs.entriesExpenseClearFilters,
+      exportButton: refs.entriesExpenseExportCsv,
+    },
+    { resetWheel: false }
+  );
 
   refs.auditFilterEntity?.addEventListener("change", applyAuditFiltersFromForm);
   refs.auditFilterAction?.addEventListener("change", applyAuditFiltersFromForm);
