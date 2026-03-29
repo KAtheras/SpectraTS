@@ -1799,14 +1799,54 @@
       hours: row.querySelector(".cell-hours input"),
       billable: row.querySelector(".cell-billable input[type='checkbox']"),
       notes: row.querySelector(".cell-notes input"),
+      actions: row.querySelector(".cell-actions"),
       save: row.querySelector(".cell-actions .button"),
+      edit: row.querySelector(".cell-actions [data-inputs-time-edit]"),
     };
+  }
+
+  function ensureInputsTimeEditButton(row) {
+    const fields = inputsTimeRowFields(row);
+    if (!fields.actions) return null;
+    if (fields.edit) return fields.edit;
+    const editButton = document.createElement("button");
+    editButton.type = "button";
+    editButton.className = "inputs-time-edit";
+    editButton.textContent = "Edit";
+    editButton.hidden = true;
+    editButton.dataset.inputsTimeEdit = "true";
+    editButton.addEventListener("click", function () {
+      if (row.dataset.saving === "true") return;
+      row.dataset.saved = "false";
+      row.dataset.saving = "false";
+      row.dataset.editing = "true";
+      const current = inputsTimeRowFields(row);
+      if (current.save) {
+        current.save.classList.remove("is-saved");
+        current.save.textContent = "Save";
+        current.save.disabled = false;
+      }
+      syncInputsTimeRowInteractivity(
+        Array.from(row.parentElement?.querySelectorAll("form.input-row.input-row-body") || [])
+      );
+      current.hours?.focus();
+    });
+    fields.actions.appendChild(editButton);
+    return editButton;
+  }
+
+  function setInputsTimeEditButtonVisible(row, visible) {
+    const editButton = ensureInputsTimeEditButton(row);
+    if (!editButton) return;
+    editButton.hidden = !visible;
+    row.classList.toggle("has-edit-action", !!visible);
   }
 
   function setInputsTimeRowSaved(row) {
     if (!row) return;
     row.dataset.saved = "true";
     row.dataset.saving = "false";
+    row.dataset.editing = "false";
     const fields = inputsTimeRowFields(row);
     [fields.clientProject, fields.date, fields.hours, fields.billable, fields.notes].forEach((input) => {
       if (input) input.disabled = true;
@@ -1816,12 +1856,14 @@
       fields.save.disabled = true;
       fields.save.classList.add("is-saved");
     }
+    setInputsTimeEditButtonVisible(row, true);
   }
 
   function syncInputsTimeRowInteractivity(rows) {
     const list = Array.isArray(rows) ? rows : [];
     const unsavedRows = list.filter((row) => row.dataset.saved !== "true");
-    const activeRow = unsavedRows.length ? unsavedRows[unsavedRows.length - 1] : null;
+    const editingRow = unsavedRows.find((row) => row.dataset.editing === "true") || null;
+    const activeRow = editingRow || (unsavedRows.length ? unsavedRows[unsavedRows.length - 1] : null);
 
     list.forEach((row) => {
       const fields = inputsTimeRowFields(row);
@@ -1833,6 +1875,8 @@
         setInputsTimeRowSaved(row);
         return;
       }
+      row.dataset.editing = isActiveUnsaved && row.dataset.editing === "true" ? "true" : "false";
+      setInputsTimeEditButtonVisible(row, false);
 
       [fields.clientProject, fields.date, fields.hours, fields.billable, fields.notes].forEach((input) => {
         if (input) input.disabled = !isActiveUnsaved || isSaving;
@@ -1910,6 +1954,7 @@
     next.dataset.lastCombo = "";
     next.dataset.saved = "false";
     next.dataset.saving = "false";
+    next.dataset.editing = "false";
     container.appendChild(next);
 
     const nextFields = inputsTimeRowFields(next);
@@ -1918,6 +1963,7 @@
       nextFields.save.disabled = false;
       nextFields.save.classList.remove("is-saved");
     }
+    setInputsTimeEditButtonVisible(next, false);
     [nextFields.clientProject, nextFields.date, nextFields.hours, nextFields.billable, nextFields.notes].forEach(
       (input) => {
         if (input) input.disabled = false;
@@ -1965,6 +2011,7 @@
         return;
       }
       row.dataset.saving = "true";
+      row.dataset.editing = "false";
       syncInputsTimeRowInteractivity(
         Array.from(row.parentElement?.querySelectorAll("form.input-row.input-row-body") || [])
       );

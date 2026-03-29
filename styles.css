@@ -4059,3 +4059,35 @@ body[data-theme="dark"] .entry-approved td {
   opacity: 1;
   cursor: not-allowed;
 }
+
+#inputs-view .input-row-body.has-edit-action .cell-actions {
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+#inputs-view .input-row-body.has-edit-action .cell-actions .button {
+  width: auto;
+  max-width: none;
+  min-width: 66px;
+  flex: 0 0 auto;
+}
+
+#inputs-view .input-row-body .cell-actions .inputs-time-edit {
+  height: 28px;
+  min-height: 28px;
+  padding: 0 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  background: transparent;
+  color: #475569;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+#inputs-view .input-row-body .cell-actions .inputs-time-edit[hidden] {
+  display: none;
+}
