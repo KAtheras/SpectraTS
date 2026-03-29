@@ -284,6 +284,7 @@
     accountName: document.getElementById("account-name"),
     navInputs: document.getElementById("nav-inputs"),
     navEntries: document.getElementById("nav-entries"),
+    navInbox: document.getElementById("nav-inbox"),
     navSettings: document.getElementById("nav-settings"),
     navMembers: document.getElementById("nav-members"),
     settingsToggle: document.getElementById("settings-toggle"),
@@ -300,6 +301,7 @@
     navClientsMobile: document.getElementById("nav-clients-mobile"),
     navInputsMobile: document.getElementById("nav-inputs-mobile"),
     navEntriesMobile: document.getElementById("nav-entries-mobile"),
+    navInboxMobile: document.getElementById("nav-inbox-mobile"),
     navAnalyticsMobile: document.getElementById("nav-analytics-mobile"),
     clientsPage: document.getElementById("clients-page"),
     usersPage: document.getElementById("members-page"),
@@ -351,6 +353,10 @@
     entriesSubtabExpenses: document.getElementById("entries-subtab-expenses"),
     entriesPanelTime: document.getElementById("entries-panel-time"),
     entriesPanelExpenses: document.getElementById("entries-panel-expenses"),
+    inboxView: document.getElementById("inbox-page"),
+    inboxList: document.getElementById("inbox-list"),
+    inboxFilterAll: document.getElementById("inbox-filter-all"),
+    inboxFilterUnread: document.getElementById("inbox-filter-unread"),
     expenseRows: document.getElementById("expense-rows"),
     addCategory: document.getElementById("add-category"),
     saveCategories: document.getElementById("save-categories"),
@@ -907,7 +913,7 @@
       managerProjects: [],
       projectMembers: [],
     },
-    currentView: "inputs", // "inputs" | "entries" | "clients" | "members" | "analytics" | "settings" | "audit"
+    currentView: "inputs", // "inputs" | "entries" | "inbox" | "clients" | "members" | "analytics" | "settings" | "audit"
     inputSubtab: "time", // "time" | "expenses"
     inputsTimeCalendarExpanded: false,
     inputsTimeCalendarEndDate: today,
@@ -917,6 +923,8 @@
     pendingInputsExpenseEditId: "",
     entriesSubtab: "time", // "time" | "expenses"
     expenseEditingId: null,
+    inboxItems: [],
+    inboxFilter: "all",
     auditLogs: [],
   auditFilters: {
     entity: "",
@@ -1103,6 +1111,26 @@
       .filter(Boolean);
   }
 
+  function normalizeInboxItem(item) {
+    if (!item || typeof item !== "object") return null;
+    const id = `${item.id || ""}`.trim();
+    if (!id) return null;
+    const deepLink = item.deepLink && typeof item.deepLink === "object" ? item.deepLink : null;
+    return {
+      id,
+      type: `${item.type || ""}`.trim(),
+      recipientUserId: `${item.recipientUserId || item.recipient_user_id || ""}`.trim(),
+      actorUserId: `${item.actorUserId || item.actor_user_id || ""}`.trim(),
+      subjectType: `${item.subjectType || item.subject_type || ""}`.trim(),
+      subjectId: `${item.subjectId || item.subject_id || ""}`.trim(),
+      message: `${item.message || ""}`.trim(),
+      isRead: item.isRead === true || item.is_read === true || item.is_read === 1,
+      projectNameSnapshot: `${item.projectNameSnapshot || item.project_name_snapshot || ""}`.trim(),
+      deepLink,
+      createdAt: item.createdAt || item.created_at || null,
+    };
+  }
+
   function applyLoadedState(data) {
     const previousOfficeLocations = Array.isArray(state.officeLocations)
       ? state.officeLocations.slice()
@@ -1193,6 +1221,9 @@
       : [];
     state.account = data?.account || null;
     state.settingsAccess = data?.settingsAccess || {};
+    state.inboxItems = Array.isArray(data?.inboxItems)
+      ? data.inboxItems.map(normalizeInboxItem).filter(Boolean)
+      : [];
     state.permissions = data?.permissions || {};
     const normalizedProjects = normalizeProjects(data?.projects);
     state.projects = normalizedProjects.length
@@ -1221,6 +1252,8 @@
       projectMembers: [],
     };
     state.auditLogs = [];
+    state.inboxItems = [];
+    state.inboxFilter = "all";
     resetAuditFilters();
   }
 
@@ -1263,6 +1296,8 @@
         state.entries = [];
         state.catalog = normalizeCatalog(DEFAULT_CLIENT_PROJECTS, true);
         state.projects = [];
+        state.inboxItems = [];
+        state.inboxFilter = "all";
         state.clientEditor = null;
         state.assignments = {
           managerClients: [],
@@ -4244,6 +4279,7 @@
       refs.appShell.classList.toggle("page-analytics", view === "analytics");
       refs.appShell.classList.toggle("page-inputs", view === "inputs");
       refs.appShell.classList.toggle("page-entries", view === "entries");
+      refs.appShell.classList.toggle("page-inbox", view === "inbox");
     }
 
     const currentLevel = normalizeLevel(state.currentUser?.level);
@@ -4326,6 +4362,12 @@
       refs.navEntries.classList.toggle("is-active", view === "entries");
       refs.navEntries.setAttribute("aria-current", view === "entries" ? "page" : "false");
     }
+    if (refs.navInbox) {
+      refs.navInbox.hidden = false;
+      refs.navInbox.classList.toggle("is-active", view === "inbox");
+      refs.navInbox.setAttribute("aria-current", view === "inbox" ? "page" : "false");
+      updateInboxNavLabel(refs.navInbox, "Inbox");
+    }
     if (refs.navInputsMobile) {
       refs.navInputsMobile.hidden = false;
       refs.navInputsMobile.classList.toggle("is-active", view === "inputs");
@@ -4335,6 +4377,12 @@
       refs.navEntriesMobile.hidden = false;
       refs.navEntriesMobile.classList.toggle("is-active", view === "entries");
       refs.navEntriesMobile.setAttribute("aria-current", view === "entries" ? "page" : "false");
+    }
+    if (refs.navInboxMobile) {
+      refs.navInboxMobile.hidden = false;
+      refs.navInboxMobile.classList.toggle("is-active", view === "inbox");
+      refs.navInboxMobile.setAttribute("aria-current", view === "inbox" ? "page" : "false");
+      updateInboxNavLabel(refs.navInboxMobile, "Inbox");
     }
     const showAudit = isAdmin(state.currentUser);
     arrangeSettingsMenu(showAudit);
@@ -4393,6 +4441,9 @@
     }
     if (refs.entriesView) {
       refs.entriesView.hidden = view !== "entries";
+    }
+    if (refs.inboxView) {
+      refs.inboxView.hidden = view !== "inbox";
     }
     if (refs.auditView) {
       refs.auditView.hidden = view !== "audit";
@@ -4504,6 +4555,22 @@
       if (!state.auditLogs.length) {
         loadAuditLogs();
       }
+      postHeight();
+      return;
+    }
+
+    if (view === "inbox") {
+      if (refs.inboxFilterAll) {
+        const isAll = state.inboxFilter !== "unread";
+        refs.inboxFilterAll.classList.toggle("is-active", isAll);
+        refs.inboxFilterAll.setAttribute("aria-selected", isAll ? "true" : "false");
+      }
+      if (refs.inboxFilterUnread) {
+        const isUnread = state.inboxFilter === "unread";
+        refs.inboxFilterUnread.classList.toggle("is-active", isUnread);
+        refs.inboxFilterUnread.setAttribute("aria-selected", isUnread ? "true" : "false");
+      }
+      renderInboxList();
       postHeight();
       return;
     }
@@ -4627,6 +4694,115 @@
       .replaceAll("'", "&#039;");
   }
 
+  function inboxUnreadCount() {
+    return (state.inboxItems || []).reduce((count, item) => count + (item?.isRead ? 0 : 1), 0);
+  }
+
+  function visibleInboxItems() {
+    const items = Array.isArray(state.inboxItems) ? state.inboxItems.slice() : [];
+    items.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+    if (state.inboxFilter === "unread") {
+      return items.filter((item) => !item.isRead);
+    }
+    return items;
+  }
+
+  function updateInboxNavLabel(button, baseLabel) {
+    if (!button) return;
+    const unread = inboxUnreadCount();
+    button.textContent = unread > 0 ? `${baseLabel} (${unread})` : baseLabel;
+  }
+
+  function renderInboxList() {
+    if (!refs.inboxList) return;
+    const items = visibleInboxItems();
+    if (!items.length) {
+      refs.inboxList.innerHTML = `
+        <div class="inbox-empty">
+          ${state.inboxFilter === "unread" ? "No unread notifications." : "No notifications yet."}
+        </div>
+      `;
+      return;
+    }
+
+    refs.inboxList.innerHTML = items
+      .map((item) => {
+        const unreadClass = item.isRead ? "" : " is-unread";
+        const createdAt = formatDateTimeLocal(item.createdAt);
+        return `
+          <button class="inbox-item${unreadClass}" type="button" data-inbox-id="${escapeHtml(item.id)}">
+            <div class="inbox-item-main">
+              <div class="inbox-item-message">${escapeHtml(item.message || "Notification")}</div>
+              <div class="inbox-item-time">${escapeHtml(createdAt)}</div>
+            </div>
+            ${item.isRead ? "" : '<span class="inbox-item-dot" aria-hidden="true"></span>'}
+          </button>
+        `;
+      })
+      .join("");
+  }
+
+  function routeInboxDeepLink(item) {
+    if (!item) return;
+    const deepLink = item.deepLink && typeof item.deepLink === "object" ? item.deepLink : null;
+    const view = `${deepLink?.view || ""}`.trim();
+    const subtab = `${deepLink?.subtab || ""}`.trim();
+    const subjectId = `${item.subjectId || deepLink?.subjectId || ""}`.trim();
+    const subjectType = `${item.subjectType || deepLink?.subjectType || ""}`.trim();
+
+    if (view === "entries") {
+      state.entriesSubtab = subtab === "expenses" ? "expenses" : "time";
+      setView("entries");
+      return;
+    }
+
+    if (view === "inputs") {
+      if (subtab === "expenses") {
+        state.inputSubtab = "expenses";
+        if (subjectId && subjectType === "expense") {
+          state.pendingInputsExpenseEditId = subjectId;
+        }
+      } else {
+        state.inputSubtab = "time";
+        if (subjectId && subjectType === "time") {
+          state.pendingInputsTimeEditId = subjectId;
+        }
+      }
+      setView("inputs");
+      return;
+    }
+
+    if (subjectType === "expense") {
+      state.entriesSubtab = "expenses";
+      setView("entries");
+      return;
+    }
+    if (subjectType === "time") {
+      state.entriesSubtab = "time";
+      setView("entries");
+      return;
+    }
+    setView("inbox");
+  }
+
+  async function openInboxItem(itemId) {
+    const id = `${itemId || ""}`.trim();
+    if (!id) return;
+    const item = (state.inboxItems || []).find((inboxItem) => inboxItem.id === id);
+    if (!item) return;
+
+    if (!item.isRead) {
+      try {
+        await mutatePersistentState("mark_inbox_item_read", { id });
+      } catch (error) {
+        feedback(error.message || "Unable to mark inbox item as read.", true);
+      }
+    }
+
+    const refreshedItem = (state.inboxItems || []).find((inboxItem) => inboxItem.id === id) || item;
+    routeInboxDeepLink(refreshedItem);
+  }
+
   function exportCsv() {
     const entries = currentEntries();
     if (!entries.length) {
@@ -4715,6 +4891,11 @@
       setView("entries");
     });
   }
+  if (refs.navInbox) {
+    refs.navInbox.addEventListener("click", function () {
+      setView("inbox");
+    });
+  }
   if (refs.navInputsMobile) {
     refs.navInputsMobile.addEventListener("click", function () {
       setView("inputs");
@@ -4723,6 +4904,11 @@
   if (refs.navEntriesMobile) {
     refs.navEntriesMobile.addEventListener("click", function () {
       setView("entries");
+    });
+  }
+  if (refs.navInboxMobile) {
+    refs.navInboxMobile.addEventListener("click", function () {
+      setView("inbox");
     });
   }
   if (refs.inputsSwitchAction) {
@@ -4813,6 +4999,32 @@
     refs.entriesSubtabExpenses.addEventListener("click", function () {
       state.entriesSubtab = "expenses";
       render();
+    });
+  }
+  if (refs.inboxFilterAll) {
+    refs.inboxFilterAll.addEventListener("click", function () {
+      state.inboxFilter = "all";
+      render();
+    });
+  }
+  if (refs.inboxFilterUnread) {
+    refs.inboxFilterUnread.addEventListener("click", function () {
+      state.inboxFilter = "unread";
+      render();
+    });
+  }
+  if (refs.inboxList) {
+    refs.inboxList.addEventListener("click", async function (event) {
+      const itemEl = event.target.closest("[data-inbox-id]");
+      if (!itemEl) return;
+      await openInboxItem(itemEl.dataset.inboxId);
+    });
+    refs.inboxList.addEventListener("keydown", function (event) {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      const itemEl = event.target.closest("[data-inbox-id]");
+      if (!itemEl) return;
+      event.preventDefault();
+      itemEl.click();
     });
   }
   if (refs.navAudit) {

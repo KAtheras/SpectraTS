@@ -373,6 +373,93 @@ body[data-theme="dark"] .button {
   flex: 1;
 }
 
+.inbox-page {
+  overflow: auto;
+}
+
+.inbox-filters {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.inbox-filters .button {
+  min-height: 34px;
+  padding: 7px 12px;
+}
+
+.inbox-filters .button.is-active {
+  background: color-mix(in srgb, var(--accent) 12%, #ffffff);
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--line));
+  color: color-mix(in srgb, var(--accent) 76%, var(--text) 24%);
+}
+
+.inbox-list {
+  display: grid;
+  gap: 10px;
+}
+
+.inbox-empty {
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+  padding: 18px;
+  color: var(--muted);
+  font-family: var(--font-body);
+}
+
+.inbox-item {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #ffffff;
+  color: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.inbox-item:hover,
+.inbox-item:focus-visible {
+  border-color: color-mix(in srgb, var(--accent) 44%, var(--line));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 10%, transparent);
+  outline: none;
+}
+
+.inbox-item.is-unread {
+  background: color-mix(in srgb, var(--accent) 8%, #ffffff);
+  border-color: color-mix(in srgb, var(--accent) 22%, var(--line));
+}
+
+.inbox-item-main {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.inbox-item-message {
+  font-family: var(--font-body);
+  font-size: 0.98rem;
+  color: var(--text);
+}
+
+.inbox-item-time {
+  font-family: var(--font-body);
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.inbox-item-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--accent);
+  flex: 0 0 auto;
+}
+
 .analytics-tabs {
   display: flex;
   gap: 10px;

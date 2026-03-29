@@ -466,6 +466,26 @@ async function ensureSchema(sql) {
     CREATE INDEX IF NOT EXISTS audit_log_account_idx
       ON audit_log (account_id, changed_at DESC)
   `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS inbox_items (
+      id TEXT PRIMARY KEY,
+      account_id UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      type TEXT NOT NULL,
+      recipient_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      actor_user_id TEXT NULL REFERENCES users(id) ON DELETE SET NULL,
+      subject_type TEXT NOT NULL,
+      subject_id TEXT NOT NULL,
+      message TEXT NOT NULL,
+      is_read BOOLEAN NOT NULL DEFAULT FALSE,
+      project_name_snapshot TEXT NULL,
+      deep_link_json JSONB NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+  await sql`
+    CREATE INDEX IF NOT EXISTS inbox_items_recipient_idx
+      ON inbox_items (account_id, recipient_user_id, is_read, created_at DESC)
+  `;
   await sql`ALTER TABLE level_labels DROP CONSTRAINT IF EXISTS level_labels_level_check`;
 
   const labelRows = await sql`
@@ -1620,7 +1640,12 @@ async function findProject(sql, clientName, projectName, accountId) {
   }
 
   const rows = await sql`
-    SELECT projects.id, projects.name, clients.name AS client, projects.budget_amount AS budget
+    SELECT
+      projects.id,
+      projects.client_id AS client_id,
+      projects.name,
+      clients.name AS client,
+      projects.budget_amount AS budget
     FROM projects
     JOIN clients ON clients.id = projects.client_id
     WHERE projects.client_id = ${client.id}
@@ -1695,6 +1720,29 @@ async function listOfficeLocations(sql, accountId) {
      AND u.account_id = ol.account_id
     WHERE ol.account_id = ${accountId}::uuid
     ORDER BY ol.created_at, LOWER(ol.name)
+  `;
+}
+
+async function listInboxItems(sql, accountId, recipientUserId) {
+  if (!accountId || !recipientUserId) return [];
+  return sql`
+    SELECT
+      id,
+      type,
+      recipient_user_id AS "recipientUserId",
+      actor_user_id AS "actorUserId",
+      subject_type AS "subjectType",
+      subject_id AS "subjectId",
+      message,
+      is_read AS "isRead",
+      project_name_snapshot AS "projectNameSnapshot",
+      deep_link_json AS "deepLink",
+      created_at AS "createdAt"
+    FROM inbox_items
+    WHERE account_id = ${accountId}::uuid
+      AND recipient_user_id = ${recipientUserId}
+    ORDER BY created_at DESC
+    LIMIT 200
   `;
 }
 
@@ -2232,6 +2280,10 @@ async function loadState(sql, currentUser) {
     }
   }
 
+  const inboxItems = normalizedUser
+    ? await listInboxItems(sql, accountUuid, normalizedUser.id)
+    : [];
+
   return {
     bootstrapRequired: false,
     currentUser: normalizedUser
@@ -2261,6 +2313,7 @@ async function loadState(sql, currentUser) {
     officeLocations,
     assignments,
     levelLabels,
+    inboxItems,
   };
 }
 
@@ -2388,6 +2441,7 @@ module.exports = {
   listExpenseCategories,
   listDepartments,
   listOfficeLocations,
+  listInboxItems,
   listLevelLabels,
   listUsers,
   loadState,

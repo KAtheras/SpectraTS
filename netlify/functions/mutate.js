@@ -33,6 +33,11 @@ const {
   logAudit,
 } = require("./_db");
 const permissions = require("./permissions");
+const {
+  buildInboxMessage,
+  listManagerRecipientUserIds,
+  createSystemInboxItems,
+} = require("./_inbox");
 
 function hashSetupToken(token) {
   return crypto.createHash("sha256").update(token).digest("hex");
@@ -359,6 +364,25 @@ function normalizeStatus(status) {
     .toLowerCase() === "approved"
     ? "approved"
     : "pending";
+}
+
+async function markInboxItemRead(sql, payload, currentUser, accountId) {
+  const id = normalizeText(payload?.id);
+  if (!id) {
+    return errorResponse(400, "Inbox item id is required.");
+  }
+  const rows = await sql`
+    UPDATE inbox_items
+    SET is_read = TRUE
+    WHERE id = ${id}
+      AND account_id = ${accountId}::uuid
+      AND recipient_user_id = ${currentUser.id}
+    RETURNING id
+  `;
+  if (!rows[0]) {
+    return errorResponse(404, "Inbox item not found.");
+  }
+  return null;
 }
 
 function diffKeys(before, after) {
@@ -1306,6 +1330,34 @@ async function createExpense(sql, payload, currentUser, accountId) {
     changedFieldsJson: diffKeys({}, afterSnapshot || {}),
   });
 
+  const managerRecipientUserIds = await listManagerRecipientUserIds(sql, {
+    accountId,
+    clientId: project?.client_id || null,
+    projectId: project?.id || null,
+  });
+  const recipients = managerRecipientUserIds.filter((userId) => userId !== currentUser?.id);
+  await createSystemInboxItems(sql, {
+    accountId,
+    type: "expense_entry_created",
+    recipientUserIds: recipients,
+    actorUserId: currentUser?.id || null,
+    subjectType: "expense",
+    subjectId: id,
+    projectName: expense.projectName,
+    message: buildInboxMessage("expense_entry_created", {
+      actorName: currentUser?.displayName || "",
+      clientName: expense.clientName,
+      projectName: expense.projectName,
+      date: normalizeText(expense.expenseDate),
+      amount: normalizeAmount(expense.amount),
+    }),
+    deepLink: {
+      view: "entries",
+      subtab: "expenses",
+      subjectId: id,
+    },
+  });
+
   return null;
 }
 
@@ -2004,6 +2056,36 @@ async function saveEntry(sql, payload, currentUser, accountId) {
     changedFieldsJson: diffKeys(beforeSnapshot || {}, afterSnapshot || {}),
   });
 
+  if (!existing) {
+    const managerRecipientUserIds = await listManagerRecipientUserIds(sql, {
+      accountId,
+      clientId: project?.client_id || null,
+      projectId: project?.id || null,
+    });
+    const recipients = managerRecipientUserIds.filter((userId) => userId !== currentUser?.id);
+    await createSystemInboxItems(sql, {
+      accountId,
+      type: "time_entry_created",
+      recipientUserIds: recipients,
+      actorUserId: currentUser?.id || null,
+      subjectType: "time",
+      subjectId: normalizeText(entry.id),
+      projectName: normalizeText(entry.project),
+      message: buildInboxMessage("time_entry_created", {
+        actorName: currentUser?.displayName || "",
+        clientName: normalizeText(entry.client),
+        projectName: normalizeText(entry.project),
+        date: normalizeText(entry.date),
+        hours: normalizeHours(entry.hours),
+      }),
+      deepLink: {
+        view: "entries",
+        subtab: "time",
+        subjectId: normalizeText(entry.id),
+      },
+    });
+  }
+
   return null;
 }
 
@@ -2110,6 +2192,27 @@ async function approveEntry(sql, payload, currentUser, accountId) {
     beforeJson: beforeSnapshot,
     afterJson: afterSnapshot,
     changedFieldsJson: diffKeys(beforeSnapshot || {}, afterSnapshot || {}),
+  });
+
+  await createSystemInboxItems(sql, {
+    accountId,
+    type: "entry_approved",
+    recipientUserIds: targetUser?.id ? [targetUser.id] : [],
+    actorUserId: currentUser?.id || null,
+    subjectType: "time",
+    subjectId: entry.id,
+    projectName: entry.project_name || "",
+    message: buildInboxMessage("entry_approved", {
+      actorName: currentUser?.displayName || "",
+      clientName: entry.client_name || "",
+      projectName: entry.project_name || "",
+      date: normalizeDateString(entry.entry_date),
+    }),
+    deepLink: {
+      view: "entries",
+      subtab: "time",
+      subjectId: entry.id,
+    },
   });
 
   return null;
@@ -2829,6 +2932,15 @@ exports.handler = async function handler(event) {
       }
       case "toggle_expense_status": {
         mutationResult = await toggleExpenseStatus(
+          sql,
+          request.payload || {},
+          context.currentUser,
+          accountId
+        );
+        break;
+      }
+      case "mark_inbox_item_read": {
+        mutationResult = await markInboxItemRead(
           sql,
           request.payload || {},
           context.currentUser,

@@ -89,6 +89,7 @@
                   <button class="nav-pill" id="nav-settings" type="button">Settings</button>
                   <button class="nav-pill" id="nav-inputs" type="button">Inputs</button>
                   <button class="nav-pill" id="nav-entries" type="button">Entries</button>
+                  <button class="nav-pill" id="nav-inbox" type="button">Inbox</button>
                   <button class="nav-pill" id="open-analytics" type="button">Analytics</button>
                   <button class="nav-pill" id="open-catalog" type="button">Clients</button>
                   <button class="nav-pill" id="nav-members" type="button">Members</button>
@@ -124,6 +125,7 @@
         <button class="nav-pill" id="nav-settings-mobile" type="button">Settings</button>
         <button class="nav-pill" id="nav-inputs-mobile" type="button">Inputs</button>
         <button class="nav-pill" id="nav-entries-mobile" type="button">Entries</button>
+        <button class="nav-pill" id="nav-inbox-mobile" type="button">Inbox</button>
         <button class="nav-pill" id="nav-analytics-mobile" type="button">Analytics</button>
         <button class="nav-pill" id="nav-clients-mobile" type="button">Clients</button>
         <button class="nav-pill" id="nav-members-mobile" type="button">Members</button>
@@ -571,6 +573,21 @@
             <p>Team utilization coming soon.</p>
           </div>
         </div>
+      </section>
+
+      <section class="page-view inbox-page" id="inbox-page" hidden aria-labelledby="inbox-page-title">
+        <header class="page-head">
+          <h2 id="inbox-page-title">Inbox</h2>
+          <div class="inbox-filters" role="tablist" aria-label="Inbox filters">
+            <button class="button button-ghost is-active" id="inbox-filter-all" type="button" aria-selected="true">
+              All
+            </button>
+            <button class="button button-ghost" id="inbox-filter-unread" type="button" aria-selected="false">
+              Unread
+            </button>
+          </div>
+        </header>
+        <div class="inbox-list" id="inbox-list" aria-live="polite"></div>
       </section>
 
       <section class="page-view audit-page" id="audit-page" hidden aria-labelledby="audit-page-title">
