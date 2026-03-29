@@ -1797,6 +1797,166 @@
     input.value = isDesktop ? formatDisplayDateShort(iso) : iso;
   }
 
+  function setInputsRowState(row, state) {
+    if (!row) return;
+    row.dataset.rowState = state;
+    row.dataset.saved = state === "saved" ? "true" : "false";
+    row.dataset.editing = state === "editing-saved" ? "true" : "false";
+  }
+
+  function hasTrailingBlankInputsRow(container, isBlankRow) {
+    if (!container) return false;
+    const rows = Array.from(container.querySelectorAll("form.input-row.input-row-body"));
+    if (!rows.length) return false;
+    const last = rows[rows.length - 1];
+    const rowState = last.dataset.rowState || (last.dataset.saved === "true" ? "saved" : "new");
+    if (rowState !== "new" || last.dataset.saving === "true") return false;
+    return isBlankRow(last);
+  }
+
+  function ensureInputsRowActionButton(row, fieldsForRow, config) {
+    const fields = fieldsForRow(row);
+    if (!fields.actions) return null;
+    const button = fields[config.existingKey] || document.createElement("button");
+    if (!fields[config.existingKey]) {
+      button.type = "button";
+      button.className = config.className;
+      button.textContent = config.text;
+      button.hidden = true;
+      if (config.datasetKey) {
+        button.dataset[config.datasetKey] = "true";
+      }
+      if (config.ariaLabel) {
+        button.setAttribute("aria-label", config.ariaLabel);
+      }
+      if (config.title) {
+        button.title = config.title;
+      }
+      fields.actions.appendChild(button);
+    }
+    if (!button[config.boundFlag]) {
+      button.addEventListener("click", function (event) {
+        config.onClick(event);
+      });
+      button[config.boundFlag] = true;
+    }
+    return button;
+  }
+
+  function startInputsRowEdit(row, fieldsForRow, syncRows, focusField) {
+    if (row.dataset.saving === "true" || row.dataset.deleting === "true") return;
+    setInputsRowState(row, "editing-saved");
+    row.dataset.saving = "false";
+    const current = fieldsForRow(row);
+    if (current.save) {
+      current.save.hidden = false;
+      current.save.classList.remove("is-saved");
+      current.save.textContent = "Save";
+      current.save.disabled = false;
+    }
+    syncRows(Array.from(row.parentElement?.querySelectorAll("form.input-row.input-row-body") || []));
+    current[focusField]?.focus();
+  }
+
+  async function deleteInputsSavedRow(
+    row,
+    fieldsForRow,
+    deleteAction,
+    errorMessage,
+    templateRefKey,
+    templateId,
+    syncRows,
+    successMessage
+  ) {
+    if (row.dataset.saving === "true" || row.dataset.deleting === "true") return;
+    const id = `${row.dataset.entryId || ""}`.trim();
+    if (!id) {
+      feedback(errorMessage, true);
+      return;
+    }
+    row.dataset.deleting = "true";
+    const current = fieldsForRow(row);
+    if (current.save) current.save.disabled = true;
+    if (current.edit) current.edit.disabled = true;
+    if (current.remove) current.remove.disabled = true;
+    try {
+      await mutatePersistentState(deleteAction, { id });
+    } catch (error) {
+      row.dataset.deleting = "false";
+      if (current.save) current.save.disabled = true;
+      if (current.edit) current.edit.disabled = false;
+      if (current.remove) current.remove.disabled = false;
+      feedback(error.message || errorMessage, true);
+      return;
+    }
+
+    const container = row.parentElement;
+    const deletingTemplateRow = row === refs[templateRefKey];
+    row.remove();
+    if (deletingTemplateRow && container) {
+      const nextTemplate = container.querySelector("form.input-row.input-row-body");
+      if (nextTemplate) {
+        refs[templateRefKey] = nextTemplate;
+        refs[templateRefKey].id = templateId;
+      }
+    }
+    if (container) {
+      syncRows(Array.from(container.querySelectorAll("form.input-row.input-row-body")));
+    }
+    feedback(successMessage, false);
+    postHeight();
+  }
+
+  function syncInputsRowInteractivity(rows, fieldsForRow, setRowSaved, setEditVisible, setDeleteVisible) {
+    const list = Array.isArray(rows) ? rows : [];
+    list.forEach((row) => {
+      if (!row.dataset.rowState) {
+        setInputsRowState(row, row.dataset.saved === "true" ? "saved" : "new");
+      }
+    });
+    const unsavedRows = list.filter((row) => row.dataset.rowState !== "saved");
+    const editingRow = unsavedRows.find((row) => row.dataset.rowState === "editing-saved") || null;
+    const activeRow = editingRow || (unsavedRows.length ? unsavedRows[unsavedRows.length - 1] : null);
+
+    list.forEach((row) => {
+      const fields = fieldsForRow(row);
+      const isSaved = row.dataset.rowState === "saved";
+      const isSaving = row.dataset.saving === "true";
+      const isActiveUnsaved = !isSaved && row === activeRow;
+      const isEditingSaved = row.dataset.rowState === "editing-saved";
+
+      if (isSaved) {
+        setRowSaved(row);
+        return;
+      }
+      setInputsRowState(row, isEditingSaved ? "editing-saved" : "new");
+      row.dataset.editing = isActiveUnsaved && isEditingSaved ? "true" : "false";
+      row.dataset.deleting = "false";
+      setEditVisible(row, false);
+      setDeleteVisible(row, false);
+
+      Object.values(fields)
+        .filter(
+          (value) =>
+            value &&
+            typeof value.disabled === "boolean" &&
+            value !== fields.save &&
+            value !== fields.edit &&
+            value !== fields.remove
+        )
+        .forEach((input) => {
+          input.disabled = !isActiveUnsaved || isSaving;
+        });
+
+      if (fields.save) {
+        fields.save.hidden = false;
+        fields.save.classList.remove("is-saved");
+        fields.save.textContent = isSaving ? "Saving..." : "Save";
+        fields.save.disabled = !isActiveUnsaved || isSaving;
+      }
+    });
+  }
+
   function inputsTimeRowFields(row) {
     if (!row) return {};
     return {
@@ -1808,104 +1968,46 @@
       notes: row.querySelector(".cell-notes input"),
       actions: row.querySelector(".cell-actions"),
       save: row.querySelector(".cell-actions .button"),
-      edit: row.querySelector(".cell-actions [data-inputs-time-edit]"),
-      remove: row.querySelector(".cell-actions [data-inputs-time-delete]"),
+      edit: row.querySelector(".cell-actions [data-inputs-row-edit]"),
+      remove: row.querySelector(".cell-actions [data-inputs-row-delete]"),
     };
   }
 
   function ensureInputsTimeEditButton(row) {
-    const fields = inputsTimeRowFields(row);
-    if (!fields.actions) return null;
-    const editButton = fields.edit || document.createElement("button");
-    if (!fields.edit) {
-      editButton.type = "button";
-      editButton.className = "inputs-time-edit";
-      editButton.textContent = "Edit";
-      editButton.hidden = true;
-      editButton.dataset.inputsTimeEdit = "true";
-      fields.actions.appendChild(editButton);
-    }
-    if (!editButton.__inputsTimeBoundClick) {
-      editButton.addEventListener("click", function () {
-        if (row.dataset.saving === "true" || row.dataset.deleting === "true") return;
-        setInputsTimeRowState(row, "editing-saved");
-        row.dataset.saving = "false";
-        const current = inputsTimeRowFields(row);
-        if (current.save) {
-          current.save.hidden = false;
-          current.save.classList.remove("is-saved");
-          current.save.textContent = "Save";
-          current.save.disabled = false;
-        }
-        syncInputsTimeRowInteractivity(
-          Array.from(row.parentElement?.querySelectorAll("form.input-row.input-row-body") || [])
-        );
-        current.hours?.focus();
-      });
-      editButton.__inputsTimeBoundClick = true;
-    }
-    return editButton;
+    return ensureInputsRowActionButton(row, inputsTimeRowFields, {
+      existingKey: "edit",
+      className: "inputs-row-edit",
+      text: "Edit",
+      datasetKey: "inputsRowEdit",
+      boundFlag: "__inputsTimeBoundClick",
+      onClick: function () {
+        startInputsRowEdit(row, inputsTimeRowFields, syncInputsTimeRowInteractivity, "hours");
+      },
+    });
   }
 
   function ensureInputsTimeDeleteButton(row) {
-    const fields = inputsTimeRowFields(row);
-    if (!fields.actions) return null;
-    const deleteButton = fields.remove || document.createElement("button");
-    if (!fields.remove) {
-      deleteButton.type = "button";
-      deleteButton.className = "inputs-time-delete";
-      deleteButton.textContent = "🗑";
-      deleteButton.hidden = true;
-      deleteButton.dataset.inputsTimeDelete = "true";
-      deleteButton.setAttribute("aria-label", "Delete row");
-      deleteButton.title = "Delete";
-      fields.actions.appendChild(deleteButton);
-    }
-    if (!deleteButton.__inputsTimeBoundClick) {
-      deleteButton.addEventListener("click", async function () {
-        if (row.dataset.saving === "true" || row.dataset.deleting === "true") return;
-        const id = `${row.dataset.entryId || ""}`.trim();
-        if (!id) {
-          feedback("Unable to delete entry.", true);
-          return;
-        }
-        row.dataset.deleting = "true";
-        const current = inputsTimeRowFields(row);
-        if (current.save) current.save.disabled = true;
-        if (current.edit) current.edit.disabled = true;
-        if (current.remove) current.remove.disabled = true;
-        try {
-          await mutatePersistentState("delete_entry", { id });
-        } catch (error) {
-          row.dataset.deleting = "false";
-          if (current.save) current.save.disabled = true;
-          if (current.edit) current.edit.disabled = false;
-          if (current.remove) current.remove.disabled = false;
-          feedback(error.message || "Unable to delete entry.", true);
-          return;
-        }
-
-        const container = row.parentElement;
-        const deletingTemplateRow = row === refs.inputsTimeForm;
-        row.remove();
-        if (deletingTemplateRow && container) {
-          const nextTemplate = container.querySelector("form.input-row.input-row-body");
-          if (nextTemplate) {
-            refs.inputsTimeForm = nextTemplate;
-            refs.inputsTimeForm.id = "inputs-time-form";
-          }
-        }
-        if (container) {
-          syncInputsTimeRowInteractivity(
-            Array.from(container.querySelectorAll("form.input-row.input-row-body"))
-          );
-        }
-        feedback("Entry deleted.", false);
-        postHeight();
-      });
-      deleteButton.__inputsTimeBoundClick = true;
-    }
-    return deleteButton;
+    return ensureInputsRowActionButton(row, inputsTimeRowFields, {
+      existingKey: "remove",
+      className: "inputs-row-delete",
+      text: "🗑",
+      datasetKey: "inputsRowDelete",
+      ariaLabel: "Delete row",
+      title: "Delete",
+      boundFlag: "__inputsTimeBoundClick",
+      onClick: function () {
+        deleteInputsSavedRow(
+          row,
+          inputsTimeRowFields,
+          "delete_entry",
+          "Unable to delete entry.",
+          "inputsTimeForm",
+          "inputs-time-form",
+          syncInputsTimeRowInteractivity,
+          "Entry deleted."
+        );
+      },
+    });
   }
 
   function setInputsTimeEditButtonVisible(row, visible) {
@@ -1922,10 +2024,7 @@
   }
 
   function setInputsTimeRowState(row, state) {
-    if (!row) return;
-    row.dataset.rowState = state;
-    row.dataset.saved = state === "saved" ? "true" : "false";
-    row.dataset.editing = state === "editing-saved" ? "true" : "false";
+    setInputsRowState(row, state);
   }
 
   function isInputsTimeRowBlank(row) {
@@ -1938,13 +2037,7 @@
   }
 
   function hasTrailingBlankInputsTimeRow(container) {
-    if (!container) return false;
-    const rows = Array.from(container.querySelectorAll("form.input-row.input-row-body"));
-    if (!rows.length) return false;
-    const last = rows[rows.length - 1];
-    const rowState = last.dataset.rowState || (last.dataset.saved === "true" ? "saved" : "new");
-    if (rowState !== "new" || last.dataset.saving === "true") return false;
-    return isInputsTimeRowBlank(last);
+    return hasTrailingBlankInputsRow(container, isInputsTimeRowBlank);
   }
 
   function setInputsTimeRowSaved(row) {
@@ -1967,44 +2060,13 @@
   }
 
   function syncInputsTimeRowInteractivity(rows) {
-    const list = Array.isArray(rows) ? rows : [];
-    list.forEach((row) => {
-      if (!row.dataset.rowState) {
-        setInputsTimeRowState(row, row.dataset.saved === "true" ? "saved" : "new");
-      }
-    });
-    const unsavedRows = list.filter((row) => row.dataset.rowState !== "saved");
-    const editingRow = unsavedRows.find((row) => row.dataset.rowState === "editing-saved") || null;
-    const activeRow = editingRow || (unsavedRows.length ? unsavedRows[unsavedRows.length - 1] : null);
-
-    list.forEach((row) => {
-      const fields = inputsTimeRowFields(row);
-      const isSaved = row.dataset.rowState === "saved";
-      const isSaving = row.dataset.saving === "true";
-      const isActiveUnsaved = !isSaved && row === activeRow;
-      const isEditingSaved = row.dataset.rowState === "editing-saved";
-
-      if (isSaved) {
-        setInputsTimeRowSaved(row);
-        return;
-      }
-      setInputsTimeRowState(row, isEditingSaved ? "editing-saved" : "new");
-      row.dataset.editing = isActiveUnsaved && isEditingSaved ? "true" : "false";
-      row.dataset.deleting = "false";
-      setInputsTimeEditButtonVisible(row, false);
-      setInputsTimeDeleteButtonVisible(row, false);
-
-      [fields.clientProject, fields.date, fields.hours, fields.billable, fields.notes].forEach((input) => {
-        if (input) input.disabled = !isActiveUnsaved || isSaving;
-      });
-
-      if (fields.save) {
-        fields.save.hidden = false;
-        fields.save.classList.remove("is-saved");
-        fields.save.textContent = isSaving ? "Saving..." : "Save";
-        fields.save.disabled = !isActiveUnsaved || isSaving;
-      }
-    });
+    syncInputsRowInteractivity(
+      rows,
+      inputsTimeRowFields,
+      setInputsTimeRowSaved,
+      setInputsTimeEditButtonVisible,
+      setInputsTimeDeleteButtonVisible
+    );
   }
 
   function inputsTimeComboOptions() {
@@ -2227,104 +2289,46 @@
       notes: row.querySelector(".cell-notes input"),
       actions: row.querySelector(".cell-actions"),
       save: row.querySelector(".cell-actions .button"),
-      edit: row.querySelector(".cell-actions [data-inputs-time-edit]"),
-      remove: row.querySelector(".cell-actions [data-inputs-time-delete]"),
+      edit: row.querySelector(".cell-actions [data-inputs-row-edit]"),
+      remove: row.querySelector(".cell-actions [data-inputs-row-delete]"),
     };
   }
 
   function ensureInputsExpenseEditButton(row) {
-    const fields = inputsExpenseRowFields(row);
-    if (!fields.actions) return null;
-    const editButton = fields.edit || document.createElement("button");
-    if (!fields.edit) {
-      editButton.type = "button";
-      editButton.className = "inputs-time-edit";
-      editButton.textContent = "Edit";
-      editButton.hidden = true;
-      editButton.dataset.inputsTimeEdit = "true";
-      fields.actions.appendChild(editButton);
-    }
-    if (!editButton.__inputsExpenseBoundClick) {
-      editButton.addEventListener("click", function () {
-        if (row.dataset.saving === "true" || row.dataset.deleting === "true") return;
-        setInputsExpenseRowState(row, "editing-saved");
-        row.dataset.saving = "false";
-        const current = inputsExpenseRowFields(row);
-        if (current.save) {
-          current.save.hidden = false;
-          current.save.classList.remove("is-saved");
-          current.save.textContent = "Save";
-          current.save.disabled = false;
-        }
-        syncInputsExpenseRowInteractivity(
-          Array.from(row.parentElement?.querySelectorAll("form.input-row.input-row-body") || [])
-        );
-        current.amount?.focus();
-      });
-      editButton.__inputsExpenseBoundClick = true;
-    }
-    return editButton;
+    return ensureInputsRowActionButton(row, inputsExpenseRowFields, {
+      existingKey: "edit",
+      className: "inputs-row-edit",
+      text: "Edit",
+      datasetKey: "inputsRowEdit",
+      boundFlag: "__inputsExpenseBoundClick",
+      onClick: function () {
+        startInputsRowEdit(row, inputsExpenseRowFields, syncInputsExpenseRowInteractivity, "amount");
+      },
+    });
   }
 
   function ensureInputsExpenseDeleteButton(row) {
-    const fields = inputsExpenseRowFields(row);
-    if (!fields.actions) return null;
-    const deleteButton = fields.remove || document.createElement("button");
-    if (!fields.remove) {
-      deleteButton.type = "button";
-      deleteButton.className = "inputs-time-delete";
-      deleteButton.textContent = "🗑";
-      deleteButton.hidden = true;
-      deleteButton.dataset.inputsTimeDelete = "true";
-      deleteButton.setAttribute("aria-label", "Delete row");
-      deleteButton.title = "Delete";
-      fields.actions.appendChild(deleteButton);
-    }
-    if (!deleteButton.__inputsExpenseBoundClick) {
-      deleteButton.addEventListener("click", async function () {
-        if (row.dataset.saving === "true" || row.dataset.deleting === "true") return;
-        const id = `${row.dataset.entryId || ""}`.trim();
-        if (!id) {
-          feedback("Unable to delete expense.", true);
-          return;
-        }
-        row.dataset.deleting = "true";
-        const current = inputsExpenseRowFields(row);
-        if (current.save) current.save.disabled = true;
-        if (current.edit) current.edit.disabled = true;
-        if (current.remove) current.remove.disabled = true;
-        try {
-          await mutatePersistentState("delete_expense", { id });
-        } catch (error) {
-          row.dataset.deleting = "false";
-          if (current.save) current.save.disabled = true;
-          if (current.edit) current.edit.disabled = false;
-          if (current.remove) current.remove.disabled = false;
-          feedback(error.message || "Unable to delete expense.", true);
-          return;
-        }
-
-        const container = row.parentElement;
-        const deletingTemplateRow = row === refs.inputsExpenseForm;
-        row.remove();
-        if (deletingTemplateRow && container) {
-          const nextTemplate = container.querySelector("form.input-row.input-row-body");
-          if (nextTemplate) {
-            refs.inputsExpenseForm = nextTemplate;
-            refs.inputsExpenseForm.id = "inputs-expense-form";
-          }
-        }
-        if (container) {
-          syncInputsExpenseRowInteractivity(
-            Array.from(container.querySelectorAll("form.input-row.input-row-body"))
-          );
-        }
-        feedback("Expense deleted.", false);
-        postHeight();
-      });
-      deleteButton.__inputsExpenseBoundClick = true;
-    }
-    return deleteButton;
+    return ensureInputsRowActionButton(row, inputsExpenseRowFields, {
+      existingKey: "remove",
+      className: "inputs-row-delete",
+      text: "🗑",
+      datasetKey: "inputsRowDelete",
+      ariaLabel: "Delete row",
+      title: "Delete",
+      boundFlag: "__inputsExpenseBoundClick",
+      onClick: function () {
+        deleteInputsSavedRow(
+          row,
+          inputsExpenseRowFields,
+          "delete_expense",
+          "Unable to delete expense.",
+          "inputsExpenseForm",
+          "inputs-expense-form",
+          syncInputsExpenseRowInteractivity,
+          "Expense deleted."
+        );
+      },
+    });
   }
 
   function setInputsExpenseEditButtonVisible(row, visible) {
@@ -2341,10 +2345,7 @@
   }
 
   function setInputsExpenseRowState(row, state) {
-    if (!row) return;
-    row.dataset.rowState = state;
-    row.dataset.saved = state === "saved" ? "true" : "false";
-    row.dataset.editing = state === "editing-saved" ? "true" : "false";
+    setInputsRowState(row, state);
   }
 
   function isInputsExpenseRowBlank(row) {
@@ -2358,13 +2359,7 @@
   }
 
   function hasTrailingBlankInputsExpenseRow(container) {
-    if (!container) return false;
-    const rows = Array.from(container.querySelectorAll("form.input-row.input-row-body"));
-    if (!rows.length) return false;
-    const last = rows[rows.length - 1];
-    const rowState = last.dataset.rowState || (last.dataset.saved === "true" ? "saved" : "new");
-    if (rowState !== "new" || last.dataset.saving === "true") return false;
-    return isInputsExpenseRowBlank(last);
+    return hasTrailingBlankInputsRow(container, isInputsExpenseRowBlank);
   }
 
   function setInputsExpenseRowSaved(row) {
@@ -2389,46 +2384,13 @@
   }
 
   function syncInputsExpenseRowInteractivity(rows) {
-    const list = Array.isArray(rows) ? rows : [];
-    list.forEach((row) => {
-      if (!row.dataset.rowState) {
-        setInputsExpenseRowState(row, row.dataset.saved === "true" ? "saved" : "new");
-      }
-    });
-    const unsavedRows = list.filter((row) => row.dataset.rowState !== "saved");
-    const editingRow = unsavedRows.find((row) => row.dataset.rowState === "editing-saved") || null;
-    const activeRow = editingRow || (unsavedRows.length ? unsavedRows[unsavedRows.length - 1] : null);
-
-    list.forEach((row) => {
-      const fields = inputsExpenseRowFields(row);
-      const isSaved = row.dataset.rowState === "saved";
-      const isSaving = row.dataset.saving === "true";
-      const isActiveUnsaved = !isSaved && row === activeRow;
-      const isEditingSaved = row.dataset.rowState === "editing-saved";
-
-      if (isSaved) {
-        setInputsExpenseRowSaved(row);
-        return;
-      }
-      setInputsExpenseRowState(row, isEditingSaved ? "editing-saved" : "new");
-      row.dataset.editing = isActiveUnsaved && isEditingSaved ? "true" : "false";
-      row.dataset.deleting = "false";
-      setInputsExpenseEditButtonVisible(row, false);
-      setInputsExpenseDeleteButtonVisible(row, false);
-
-      [fields.clientProject, fields.date, fields.category, fields.amount, fields.billable, fields.notes].forEach(
-        (input) => {
-          if (input) input.disabled = !isActiveUnsaved || isSaving;
-        }
-      );
-
-      if (fields.save) {
-        fields.save.hidden = false;
-        fields.save.classList.remove("is-saved");
-        fields.save.textContent = isSaving ? "Saving..." : "Save";
-        fields.save.disabled = !isActiveUnsaved || isSaving;
-      }
-    });
+    syncInputsRowInteractivity(
+      rows,
+      inputsExpenseRowFields,
+      setInputsExpenseRowSaved,
+      setInputsExpenseEditButtonVisible,
+      setInputsExpenseDeleteButtonVisible
+    );
   }
 
   function inputsExpenseComboOptions() {
