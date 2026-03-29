@@ -2086,6 +2086,7 @@
     if (nextFields.hours) nextFields.hours.value = "";
     if (nextFields.notes) nextFields.notes.value = "";
     if (nextFields.date) {
+      delete nextFields.date.dataset.dpBound;
       const sourceIso =
         source.date?.dataset.dpCanonical ||
         parseInputsTimeDateValue(source.date?.value || "") ||
