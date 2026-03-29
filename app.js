@@ -2649,7 +2649,18 @@
 
   function closeInputsDesktopDatePopover() {
     if (!window.datePicker) return;
+    if (typeof window.datePicker.close === "function") {
+      window.datePicker.close();
+      return;
+    }
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+  }
+
+  function findInputsExpandableControl(target) {
+    if (!(target instanceof Element) || !refs.inputsView) return null;
+    const control = target.closest("select, input.dp-desktop-date, input[type='date']");
+    if (!control || !refs.inputsView.contains(control)) return null;
+    return control;
   }
 
   function feedback(message, isError) {
@@ -4117,14 +4128,24 @@
 
   if (refs.inputsView) {
     refs.inputsView.addEventListener(
-      "click",
+      "pointerdown",
       function (event) {
-        const target = event.target;
-        if (!(target instanceof Element)) return;
-        if (target.closest("select")) {
-          closeInputsDesktopDatePopover();
+        const control = findInputsExpandableControl(event.target);
+        if (!control) return;
+
+        const active = document.activeElement;
+        if (
+          active instanceof HTMLElement &&
+          active !== control &&
+          refs.inputsView.contains(active) &&
+          active.matches("select, input.dp-desktop-date, input[type='date']")
+        ) {
+          active.blur();
         }
-      }
+
+        closeInputsDesktopDatePopover();
+      },
+      true
     );
   }
   if (refs.navClientsMobile) {

@@ -404,5 +404,6 @@
   window.datePicker = {
     register,
     registerAll,
+    close: closePopover,
   };
 })();
