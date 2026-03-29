@@ -24,9 +24,9 @@
 [[headers]]
   for = "/index.html"
   [headers.values]
-    Cache-Control = "no-cache, no-store, must-revalidate"
+    Cache-Control = "no-store, no-cache, must-revalidate"
 
 [[headers]]
   for = "/*"
   [headers.values]
-    Cache-Control = "no-cache, must-revalidate"
+    Cache-Control = "no-store, no-cache, must-revalidate"
