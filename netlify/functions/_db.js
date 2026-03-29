@@ -490,6 +490,73 @@ async function ensureSchema(sql) {
     CREATE INDEX IF NOT EXISTS inbox_items_recipient_idx
       ON inbox_items (account_id, recipient_user_id, is_read, created_at DESC)
   `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS notification_rules (
+      account_id UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      event_type TEXT NOT NULL,
+      enabled BOOLEAN NOT NULL DEFAULT TRUE,
+      inbox_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+      email_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+      recipient_scope TEXT NOT NULL,
+      delivery_mode TEXT NOT NULL DEFAULT 'immediate',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (account_id, event_type)
+    )
+  `;
+  await sql`
+    CREATE INDEX IF NOT EXISTS notification_rules_account_idx
+      ON notification_rules (account_id, event_type)
+  `;
+  const notificationRuleSeeds = [
+    {
+      eventType: "time_entry_created",
+      enabled: true,
+      inboxEnabled: true,
+      emailEnabled: false,
+      recipientScope: "project_manager",
+      deliveryMode: "immediate",
+    },
+    {
+      eventType: "expense_entry_created",
+      enabled: true,
+      inboxEnabled: true,
+      emailEnabled: false,
+      recipientScope: "project_manager",
+      deliveryMode: "immediate",
+    },
+    {
+      eventType: "entry_approved",
+      enabled: true,
+      inboxEnabled: true,
+      emailEnabled: false,
+      recipientScope: "entry_owner",
+      deliveryMode: "immediate",
+    },
+  ];
+  for (const rule of notificationRuleSeeds) {
+    await sql`
+      INSERT INTO notification_rules (
+        account_id,
+        event_type,
+        enabled,
+        inbox_enabled,
+        email_enabled,
+        recipient_scope,
+        delivery_mode
+      )
+      VALUES (
+        ${accountUuid}::uuid,
+        ${rule.eventType},
+        ${rule.enabled},
+        ${rule.inboxEnabled},
+        ${rule.emailEnabled},
+        ${rule.recipientScope},
+        ${rule.deliveryMode}
+      )
+      ON CONFLICT (account_id, event_type) DO NOTHING
+    `;
+  }
   await sql`ALTER TABLE level_labels DROP CONSTRAINT IF EXISTS level_labels_level_check`;
 
   const labelRows = await sql`

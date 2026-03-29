@@ -2,6 +2,12 @@
 
 const crypto = require("crypto");
 
+const SUPPORTED_EVENT_TYPES = new Set([
+  "time_entry_created",
+  "expense_entry_created",
+  "entry_approved",
+]);
+
 function randomId() {
   if (typeof crypto.randomUUID === "function") {
     return crypto.randomUUID();
@@ -131,9 +137,72 @@ async function createSystemInboxItems(sql, payload = {}) {
   }
 }
 
+async function getNotificationRule(sql, { accountId, eventType }) {
+  if (!accountId || !eventType || !SUPPORTED_EVENT_TYPES.has(eventType)) return null;
+  const rows = await sql`
+    SELECT
+      event_type AS "eventType",
+      enabled,
+      inbox_enabled AS "inboxEnabled",
+      email_enabled AS "emailEnabled",
+      recipient_scope AS "recipientScope",
+      delivery_mode AS "deliveryMode"
+    FROM notification_rules
+    WHERE account_id = ${accountId}::uuid
+      AND event_type = ${eventType}
+    LIMIT 1
+  `;
+  return rows[0] || null;
+}
+
+function shouldDeliverImmediateInbox(rule) {
+  if (!rule) return false;
+  if (rule.enabled === false || rule.enabled === 0) return false;
+  if (rule.inboxEnabled === false || rule.inboxEnabled === 0) return false;
+  return String(rule.deliveryMode || "").trim().toLowerCase() === "immediate";
+}
+
+async function resolveRecipientsByScope(sql, payload = {}, rule = null) {
+  const scope = String(rule?.recipientScope || "").trim().toLowerCase();
+  const accountId = payload.accountId;
+  if (scope === "project_manager") {
+    const ids = await listManagerRecipientUserIds(sql, {
+      accountId,
+      clientId: payload.clientId || null,
+      projectId: payload.projectId || null,
+    });
+    const actorUserId = `${payload.actorUserId || ""}`.trim();
+    return ids.filter((id) => `${id || ""}`.trim() && `${id}` !== actorUserId);
+  }
+  if (scope === "entry_owner") {
+    const ownerId = `${payload.entryOwnerUserId || ""}`.trim();
+    return ownerId ? [ownerId] : [];
+  }
+  return [];
+}
+
+async function dispatchNotificationEvent(sql, payload = {}) {
+  const eventType = `${payload.type || ""}`.trim();
+  if (!SUPPORTED_EVENT_TYPES.has(eventType)) return;
+  const accountId = payload.accountId;
+  if (!accountId) return;
+
+  const rule = await getNotificationRule(sql, { accountId, eventType });
+  if (!shouldDeliverImmediateInbox(rule)) return;
+
+  const recipientUserIds = await resolveRecipientsByScope(sql, payload, rule);
+  if (!recipientUserIds.length) return;
+
+  await createSystemInboxItems(sql, {
+    ...payload,
+    recipientUserIds,
+  });
+}
+
 module.exports = {
   buildInboxMessage,
   listManagerRecipientUserIds,
   createSystemInboxItems,
+  dispatchNotificationEvent,
   normalizeNoteSnippet,
 };

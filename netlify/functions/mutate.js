@@ -35,8 +35,7 @@ const {
 const permissions = require("./permissions");
 const {
   buildInboxMessage,
-  listManagerRecipientUserIds,
-  createSystemInboxItems,
+  dispatchNotificationEvent,
 } = require("./_inbox");
 
 function hashSetupToken(token) {
@@ -1402,17 +1401,13 @@ async function createExpense(sql, payload, currentUser, accountId) {
     changedFieldsJson: diffKeys({}, afterSnapshot || {}),
   });
 
-  const managerRecipientUserIds = await listManagerRecipientUserIds(sql, {
-    accountId,
-    clientId: project?.client_id || null,
-    projectId: project?.id || null,
-  });
-  const recipients = managerRecipientUserIds.filter((userId) => userId !== currentUser?.id);
-  await createSystemInboxItems(sql, {
+  await dispatchNotificationEvent(sql, {
     accountId,
     type: "expense_entry_created",
-    recipientUserIds: recipients,
     actorUserId: currentUser?.id || null,
+    clientId: project?.client_id || null,
+    projectId: project?.id || null,
+    entryOwnerUserId: targetUser?.id || null,
     subjectType: "expense",
     subjectId: id,
     projectName: expense.projectName,
@@ -2130,17 +2125,13 @@ async function saveEntry(sql, payload, currentUser, accountId) {
   });
 
   if (!existing) {
-    const managerRecipientUserIds = await listManagerRecipientUserIds(sql, {
-      accountId,
-      clientId: project?.client_id || null,
-      projectId: project?.id || null,
-    });
-    const recipients = managerRecipientUserIds.filter((userId) => userId !== currentUser?.id);
-    await createSystemInboxItems(sql, {
+    await dispatchNotificationEvent(sql, {
       accountId,
       type: "time_entry_created",
-      recipientUserIds: recipients,
       actorUserId: currentUser?.id || null,
+      clientId: project?.client_id || null,
+      projectId: project?.id || null,
+      entryOwnerUserId: targetUser?.id || null,
       subjectType: "time",
       subjectId: normalizeText(entry.id),
       projectName: normalizeText(entry.project),
@@ -2268,11 +2259,13 @@ async function approveEntry(sql, payload, currentUser, accountId) {
     changedFieldsJson: diffKeys(beforeSnapshot || {}, afterSnapshot || {}),
   });
 
-  await createSystemInboxItems(sql, {
+  await dispatchNotificationEvent(sql, {
     accountId,
     type: "entry_approved",
-    recipientUserIds: targetUser?.id ? [targetUser.id] : [],
     actorUserId: currentUser?.id || null,
+    clientId: project?.client_id || null,
+    projectId: project?.id || null,
+    entryOwnerUserId: targetUser?.id || null,
     subjectType: "time",
     subjectId: entry.id,
     projectName: entry.project_name || "",
