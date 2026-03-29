@@ -4035,20 +4035,26 @@ body[data-theme="dark"] .entry-approved td {
 
 #inputs-view .input-row-body .cell-actions {
   justify-content: center;
-  padding: 0 8px;
+  align-items: center;
+  gap: 0;
+  min-width: 0;
+  overflow: hidden;
+  padding: 0 6px;
 }
 
 #inputs-view .input-row-body .cell-actions .button {
   width: 100%;
-  max-width: 110px;
+  max-width: 100%;
+  min-width: 0;
   height: 36px;
   min-height: 36px;
-  padding: 0 12px;
+  padding: 0 10px;
   border-radius: 6px;
   border: 1px solid #2f4f95;
   background: #3e64b8;
   color: #ffffff;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 #inputs-view .input-row-body .cell-actions .button:disabled,
@@ -4061,31 +4067,45 @@ body[data-theme="dark"] .entry-approved td {
 }
 
 #inputs-view .input-row-body.has-edit-action .cell-actions {
-  justify-content: flex-end;
-  gap: 6px;
+  justify-content: flex-start;
+  gap: 4px;
 }
 
 #inputs-view .input-row-body.has-edit-action .cell-actions .button {
   width: auto;
-  max-width: none;
-  min-width: 66px;
-  flex: 0 0 auto;
+  max-width: 62px;
+  min-width: 0;
+  height: 30px;
+  min-height: 30px;
+  padding: 0 6px;
+  font-size: 0.72rem;
+  line-height: 1;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 #inputs-view .input-row-body .cell-actions .inputs-time-edit {
-  height: 28px;
-  min-height: 28px;
-  padding: 0 8px;
+  height: 30px;
+  min-height: 30px;
+  width: 40px;
+  min-width: 40px;
+  max-width: 40px;
+  padding: 0 6px;
   border: 1px solid #cbd5e1;
   border-radius: 4px;
   background: transparent;
   color: #475569;
   font: inherit;
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   font-weight: 600;
   line-height: 1;
   cursor: pointer;
   box-sizing: border-box;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: clip;
+  flex: 0 0 auto;
 }
 
 #inputs-view .input-row-body .cell-actions .inputs-time-edit[hidden] {
