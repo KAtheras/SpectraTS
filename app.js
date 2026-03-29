@@ -357,6 +357,7 @@
     inboxList: document.getElementById("inbox-list"),
     inboxFilterAll: document.getElementById("inbox-filter-all"),
     inboxFilterUnread: document.getElementById("inbox-filter-unread"),
+    inboxMarkSelectedRead: document.getElementById("inbox-mark-selected-read"),
     inboxDeleteSelected: document.getElementById("inbox-delete-selected"),
     inboxDeleteRead: document.getElementById("inbox-delete-read"),
     expenseRows: document.getElementById("expense-rows"),
@@ -462,6 +463,27 @@
   let memberEditorReset = null;
   let memberEditorMode = "create";
   let memberEditorUserId = "";
+
+  function ensureInboxBulkReadButton() {
+    if (refs.inboxMarkSelectedRead) return;
+    const headControls =
+      refs.inboxDeleteRead?.parentElement || document.querySelector(".inbox-head-controls");
+    if (!headControls) return;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.id = "inbox-mark-selected-read";
+    button.className = "button button-ghost";
+    button.hidden = true;
+    button.textContent = "Mark selected read";
+    if (refs.inboxDeleteSelected && refs.inboxDeleteSelected.parentElement === headControls) {
+      headControls.insertBefore(button, refs.inboxDeleteSelected);
+    } else {
+      headControls.appendChild(button);
+    }
+    refs.inboxMarkSelectedRead = button;
+  }
+
+  ensureInboxBulkReadButton();
 
   function setupAddClientHeaderAction() {
     const addForm = refs.addClientForm;
@@ -4748,6 +4770,17 @@
 
   function syncInboxBulkControls() {
     const selectedCount = selectedInboxIds().length;
+    const selectedSet = new Set(selectedInboxIds());
+    const selectedUnreadCount = (state.inboxItems || []).reduce((count, item) => {
+      if (!item || item.isRead || !selectedSet.has(item.id)) return count;
+      return count + 1;
+    }, 0);
+    if (refs.inboxMarkSelectedRead) {
+      refs.inboxMarkSelectedRead.hidden = selectedCount <= 0;
+      refs.inboxMarkSelectedRead.disabled = selectedUnreadCount <= 0;
+      refs.inboxMarkSelectedRead.textContent =
+        selectedCount > 0 ? `Mark selected read (${selectedCount})` : "Mark selected read";
+    }
     if (refs.inboxDeleteSelected) {
       refs.inboxDeleteSelected.hidden = selectedCount <= 0;
       refs.inboxDeleteSelected.disabled = selectedCount <= 0;
@@ -4790,6 +4823,18 @@
       feedback("", false);
     } catch (error) {
       feedback(error.message || "Unable to delete read inbox items.", true);
+    }
+  }
+
+  async function markSelectedInboxRead() {
+    const ids = selectedInboxIds();
+    if (!ids.length) return;
+    try {
+      await mutatePersistentState("mark_inbox_items_read", { ids });
+      clearInboxSelection();
+      feedback("", false);
+    } catch (error) {
+      feedback(error.message || "Unable to mark selected inbox items as read.", true);
     }
   }
 
@@ -5113,6 +5158,11 @@
   if (refs.inboxDeleteSelected) {
     refs.inboxDeleteSelected.addEventListener("click", async function () {
       await deleteSelectedInboxItems();
+    });
+  }
+  if (refs.inboxMarkSelectedRead) {
+    refs.inboxMarkSelectedRead.addEventListener("click", async function () {
+      await markSelectedInboxRead();
     });
   }
   if (refs.inboxDeleteRead) {

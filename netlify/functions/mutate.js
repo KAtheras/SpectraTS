@@ -385,6 +385,26 @@ async function markInboxItemRead(sql, payload, currentUser, accountId) {
   return null;
 }
 
+async function markInboxItemsRead(sql, payload, currentUser, accountId) {
+  const ids = Array.isArray(payload?.ids)
+    ? Array.from(new Set(payload.ids.map((id) => normalizeText(id)).filter(Boolean)))
+    : [];
+  if (!ids.length) {
+    return errorResponse(400, "At least one inbox item id is required.");
+  }
+  for (const id of ids) {
+    await sql`
+      UPDATE inbox_items
+      SET is_read = TRUE
+      WHERE id = ${id}
+        AND account_id = ${accountId}::uuid
+        AND recipient_user_id = ${currentUser.id}
+        AND is_deleted = FALSE
+    `;
+  }
+  return null;
+}
+
 async function deleteInboxItem(sql, payload, currentUser, accountId) {
   const id = normalizeText(payload?.id);
   if (!id) {
@@ -2996,6 +3016,15 @@ exports.handler = async function handler(event) {
       }
       case "mark_inbox_item_read": {
         mutationResult = await markInboxItemRead(
+          sql,
+          request.payload || {},
+          context.currentUser,
+          accountId
+        );
+        break;
+      }
+      case "mark_inbox_items_read": {
+        mutationResult = await markInboxItemsRead(
           sql,
           request.payload || {},
           context.currentUser,
