@@ -4463,20 +4463,12 @@ body[data-theme="dark"] .entry-approved td {
 }
 
 #inputs-view .inputs-time-calendar-detail-row {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  align-items: start;
+  display: flex;
+  align-items: center;
   gap: 6px;
   color: #334155;
   font-size: 0.76rem;
   line-height: 1.3;
-}
-
-#inputs-view .inputs-time-calendar-detail-meta {
-  grid-column: 1 / -1;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
 }
 
 #inputs-view .inputs-time-calendar-detail-chip {
@@ -4490,6 +4482,19 @@ body[data-theme="dark"] .entry-approved td {
   font-size: 0.66rem;
   line-height: 1.2;
   white-space: nowrap;
+  flex: 0 0 auto;
+}
+
+#inputs-view .inputs-time-calendar-detail-chip-status-approved {
+  border-color: #b6e2c6;
+  color: #2f7a46;
+  background: #effaf2;
+}
+
+#inputs-view .inputs-time-calendar-detail-chip-status-pending {
+  border-color: #ecd89b;
+  color: #8a6a13;
+  background: #fff9e8;
 }
 
 #inputs-view .inputs-time-calendar-detail-hours {
@@ -4501,6 +4506,8 @@ body[data-theme="dark"] .entry-approved td {
 #inputs-view .inputs-time-calendar-detail-notes {
   color: #475569;
   text-align: left;
+  flex: 1 1 auto;
+  min-width: 0;
   word-break: break-word;
 }
 

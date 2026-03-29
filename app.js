@@ -1887,11 +1887,13 @@
                 const statusText = detail.status === "approved" ? "Approved" : "Pending";
                 return `<div class="inputs-time-calendar-detail-row">
                   <span class="inputs-time-calendar-detail-hours">${escapeHtml(hourText)}</span>
+                  <span class="inputs-time-calendar-detail-chip inputs-time-calendar-detail-chip-status inputs-time-calendar-detail-chip-status-${
+                    detail.status === "approved" ? "approved" : "pending"
+                  }">${escapeHtml(statusText)}</span>
+                  <span class="inputs-time-calendar-detail-chip inputs-time-calendar-detail-chip-billable">${escapeHtml(
+                    billableText
+                  )}</span>
                   <span class="inputs-time-calendar-detail-notes${noteClass}">${noteText}</span>
-                  <span class="inputs-time-calendar-detail-meta">
-                    <span class="inputs-time-calendar-detail-chip">${escapeHtml(billableText)}</span>
-                    <span class="inputs-time-calendar-detail-chip">${escapeHtml(statusText)}</span>
-                  </span>
                 </div>`;
               })
               .join("");
