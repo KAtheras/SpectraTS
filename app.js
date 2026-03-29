@@ -295,6 +295,7 @@
     navTimesheet: document.getElementById("nav-timesheet"),
     navExpenses: document.getElementById("nav-expenses"),
     navInputs: document.getElementById("nav-inputs"),
+    navEntries: document.getElementById("nav-entries"),
     navSettings: document.getElementById("nav-settings"),
     navMembers: document.getElementById("nav-members"),
     timesheetView: document.getElementById("timesheet-view"),
@@ -318,6 +319,7 @@
     navTimesheetMobile: document.getElementById("nav-timesheet-mobile"),
     navExpensesMobile: document.getElementById("nav-expenses-mobile"),
     navInputsMobile: document.getElementById("nav-inputs-mobile"),
+    navEntriesMobile: document.getElementById("nav-entries-mobile"),
     navAnalyticsMobile: document.getElementById("nav-analytics-mobile"),
     closeCatalog: document.getElementById("close-catalog"),
     clientsNavMembers: document.getElementById("clients-nav-members"),
@@ -352,6 +354,12 @@
     inputsExpenseAmount: document.getElementById("inputs-expense-amount"),
     inputsExpenseBillable: document.getElementById("inputs-expense-billable"),
     inputsExpenseNotes: document.getElementById("inputs-expense-notes"),
+    entriesView: document.getElementById("entries-view"),
+    entriesViewTitle: document.getElementById("entries-view-title"),
+    entriesSubtabTime: document.getElementById("entries-subtab-time"),
+    entriesSubtabExpenses: document.getElementById("entries-subtab-expenses"),
+    entriesPanelTime: document.getElementById("entries-panel-time"),
+    entriesPanelExpenses: document.getElementById("entries-panel-expenses"),
     expenseRows: document.getElementById("expense-rows"),
     addCategory: document.getElementById("add-category"),
     saveCategories: document.getElementById("save-categories"),
@@ -952,8 +960,9 @@
       managerProjects: [],
       projectMembers: [],
     },
-    currentView: "inputs", // "main" | "inputs" | "expenses" | "clients" | "members" | "analytics" | "settings"
+    currentView: "inputs", // "main" | "inputs" | "entries" | "expenses" | "clients" | "members" | "analytics" | "settings"
     inputSubtab: "time", // "time" | "expenses"
+    entriesSubtab: "time", // "time" | "expenses"
     expenseEditingId: null,
     auditLogs: [],
   auditFilters: {
@@ -3516,6 +3525,7 @@
       refs.appShell.classList.toggle("page-members", view === "members");
       refs.appShell.classList.toggle("page-analytics", view === "analytics");
       refs.appShell.classList.toggle("page-inputs", view === "inputs");
+      refs.appShell.classList.toggle("page-entries", view === "entries");
     }
 
     const currentLevel = normalizeLevel(state.currentUser?.level);
@@ -3598,6 +3608,11 @@
       refs.navInputs.classList.toggle("is-active", view === "inputs");
       refs.navInputs.setAttribute("aria-current", view === "inputs" ? "page" : "false");
     }
+    if (refs.navEntries) {
+      refs.navEntries.hidden = false;
+      refs.navEntries.classList.toggle("is-active", view === "entries");
+      refs.navEntries.setAttribute("aria-current", view === "entries" ? "page" : "false");
+    }
     if (refs.navTimesheetMobile) {
       refs.navTimesheetMobile.hidden = false;
       refs.navTimesheetMobile.classList.toggle("is-active", view === "main");
@@ -3607,6 +3622,11 @@
       refs.navInputsMobile.hidden = false;
       refs.navInputsMobile.classList.toggle("is-active", view === "inputs");
       refs.navInputsMobile.setAttribute("aria-current", view === "inputs" ? "page" : "false");
+    }
+    if (refs.navEntriesMobile) {
+      refs.navEntriesMobile.hidden = false;
+      refs.navEntriesMobile.classList.toggle("is-active", view === "entries");
+      refs.navEntriesMobile.setAttribute("aria-current", view === "entries" ? "page" : "false");
     }
     if (refs.navExpenses) {
       refs.navExpenses.hidden = false;
@@ -3683,6 +3703,9 @@
     if (refs.inputsView) {
       refs.inputsView.hidden = view !== "inputs";
     }
+    if (refs.entriesView) {
+      refs.entriesView.hidden = view !== "entries";
+    }
     if (refs.auditView) {
       refs.auditView.hidden = view !== "audit";
     }
@@ -3700,6 +3723,25 @@
     }
     if (refs.inputsPanelExpenses) {
       refs.inputsPanelExpenses.hidden = inputSubtab !== "expenses";
+    }
+
+    const entriesSubtab = state.entriesSubtab === "expenses" ? "expenses" : "time";
+    if (refs.entriesViewTitle) {
+      refs.entriesViewTitle.textContent = "Entries";
+    }
+    if (refs.entriesSubtabTime) {
+      refs.entriesSubtabTime.classList.toggle("is-active", entriesSubtab === "time");
+      refs.entriesSubtabTime.setAttribute("aria-selected", entriesSubtab === "time" ? "true" : "false");
+    }
+    if (refs.entriesSubtabExpenses) {
+      refs.entriesSubtabExpenses.classList.toggle("is-active", entriesSubtab === "expenses");
+      refs.entriesSubtabExpenses.setAttribute("aria-selected", entriesSubtab === "expenses" ? "true" : "false");
+    }
+    if (refs.entriesPanelTime) {
+      refs.entriesPanelTime.hidden = entriesSubtab !== "time";
+    }
+    if (refs.entriesPanelExpenses) {
+      refs.entriesPanelExpenses.hidden = entriesSubtab !== "expenses";
     }
 
     if (view === "clients") {
@@ -4065,6 +4107,11 @@
       setView("inputs");
     });
   }
+  if (refs.navEntries) {
+    refs.navEntries.addEventListener("click", function () {
+      setView("entries");
+    });
+  }
   if (refs.navTimesheetMobile) {
     refs.navTimesheetMobile.addEventListener("click", function () {
       setView("main");
@@ -4073,6 +4120,11 @@
   if (refs.navInputsMobile) {
     refs.navInputsMobile.addEventListener("click", function () {
       setView("inputs");
+    });
+  }
+  if (refs.navEntriesMobile) {
+    refs.navEntriesMobile.addEventListener("click", function () {
+      setView("entries");
     });
   }
   if (refs.navExpenses) {
@@ -4088,6 +4140,18 @@
   if (refs.inputsSwitchAction) {
     refs.inputsSwitchAction.addEventListener("click", function () {
       state.inputSubtab = state.inputSubtab === "expenses" ? "time" : "expenses";
+      render();
+    });
+  }
+  if (refs.entriesSubtabTime) {
+    refs.entriesSubtabTime.addEventListener("click", function () {
+      state.entriesSubtab = "time";
+      render();
+    });
+  }
+  if (refs.entriesSubtabExpenses) {
+    refs.entriesSubtabExpenses.addEventListener("click", function () {
+      state.entriesSubtab = "expenses";
       render();
     });
   }

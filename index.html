@@ -88,6 +88,7 @@
                 <div class="top-nav">
                   <button class="nav-pill" id="nav-settings" type="button">Settings</button>
                   <button class="nav-pill" id="nav-inputs" type="button">Inputs</button>
+                  <button class="nav-pill" id="nav-entries" type="button">Entries</button>
                   <button class="nav-pill" id="nav-timesheet" type="button">Time</button>
                   <button class="nav-pill" id="nav-expenses" type="button">Expenses</button>
                   <button class="nav-pill" id="open-analytics" type="button">Analytics</button>
@@ -124,6 +125,7 @@
       <nav class="mobile-tabbar" id="mobile-tabbar" aria-label="Primary navigation" hidden>
         <button class="nav-pill" id="nav-settings-mobile" type="button">Settings</button>
         <button class="nav-pill" id="nav-inputs-mobile" type="button">Inputs</button>
+        <button class="nav-pill" id="nav-entries-mobile" type="button">Entries</button>
         <button class="nav-pill" id="nav-timesheet-mobile" type="button">Time</button>
         <button class="nav-pill" id="nav-expenses-mobile" type="button">Expenses</button>
         <button class="nav-pill" id="nav-analytics-mobile" type="button">Analytics</button>
@@ -592,6 +594,30 @@
                 </div>
               </form>
             </div>
+          </section>
+        </div>
+      </section>
+
+      <section class="page-view entries-view" id="entries-view" hidden aria-labelledby="entries-view-title">
+        <div class="input-shell">
+          <div class="input-header">
+            <h2 id="entries-view-title">Entries</h2>
+            <div class="input-subtabs" role="tablist" aria-label="Entries tabs">
+              <button class="input-subtab is-active" id="entries-subtab-time" type="button" role="tab" aria-selected="true">
+                Time
+              </button>
+              <button class="input-subtab" id="entries-subtab-expenses" type="button" role="tab" aria-selected="false">
+                Expenses
+              </button>
+            </div>
+          </div>
+
+          <section class="input-panel entries-panel" id="entries-panel-time">
+            <p class="entries-placeholder">Time entries view coming next</p>
+          </section>
+
+          <section class="input-panel entries-panel" id="entries-panel-expenses" hidden>
+            <p class="entries-placeholder">Expense entries view coming next</p>
           </section>
         </div>
       </section>
