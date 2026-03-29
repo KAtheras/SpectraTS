@@ -945,7 +945,7 @@
       managerProjects: [],
       projectMembers: [],
     },
-    currentView: "main", // "main" | "inputs" | "expenses" | "clients" | "members" | "analytics" | "settings"
+    currentView: "inputs", // "main" | "inputs" | "expenses" | "clients" | "members" | "analytics" | "settings"
     inputSubtab: "time", // "time" | "expenses"
     expenseEditingId: null,
     auditLogs: [],
