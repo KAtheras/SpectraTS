@@ -1822,6 +1822,7 @@
       row.dataset.saving = "false";
       const current = inputsTimeRowFields(row);
       if (current.save) {
+        current.save.hidden = false;
         current.save.classList.remove("is-saved");
         current.save.textContent = "Save";
         current.save.disabled = false;
@@ -1941,9 +1942,10 @@
       if (input) input.disabled = true;
     });
     if (fields.save) {
-      fields.save.textContent = "Saved";
+      fields.save.hidden = true;
       fields.save.disabled = true;
-      fields.save.classList.add("is-saved");
+      fields.save.classList.remove("is-saved");
+      fields.save.textContent = "Save";
     }
     setInputsTimeEditButtonVisible(row, true);
     setInputsTimeDeleteButtonVisible(row, true);
@@ -1982,6 +1984,7 @@
       });
 
       if (fields.save) {
+        fields.save.hidden = false;
         fields.save.classList.remove("is-saved");
         fields.save.textContent = isSaving ? "Saving..." : "Save";
         fields.save.disabled = !isActiveUnsaved || isSaving;
@@ -2058,6 +2061,7 @@
 
     const nextFields = inputsTimeRowFields(next);
     if (nextFields.save) {
+      nextFields.save.hidden = false;
       nextFields.save.textContent = "Save";
       nextFields.save.disabled = false;
       nextFields.save.classList.remove("is-saved");
