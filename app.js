@@ -2054,6 +2054,8 @@
     next.removeAttribute("id");
     next.dataset.boundHandlers = "";
     next.dataset.lastCombo = "";
+    delete next.dataset.entryId;
+    delete next.dataset.createdAt;
     setInputsTimeRowState(next, "new");
     next.dataset.saving = "false";
     next.dataset.deleting = "false";
