@@ -3934,7 +3934,7 @@ body[data-theme="dark"] .entry-approved td {
   font-size: 0.82rem;
   letter-spacing: 0.02em;
   text-transform: none;
-  color: #334155;
+  color: #374151;
   font-weight: 620;
 }
 
@@ -3944,8 +3944,12 @@ body[data-theme="dark"] .entry-approved td {
 #inputs-view .input-row-head .cell-billable,
 #inputs-view .input-row-head .cell-notes {
   min-height: 44px;
-  background: #e7edf5 !important;
-  color: #334155 !important;
+  background: #d7dee8 !important;
+  color: #374151 !important;
+}
+
+#inputs-view .input-row-head .cell-notes {
+  border-right: none;
 }
 
 #inputs-view .input-row-head .cell-actions {
@@ -3953,6 +3957,7 @@ body[data-theme="dark"] .entry-approved td {
   background: transparent !important;
   color: transparent !important;
   border: none !important;
+  box-shadow: none;
   padding: 0;
 }
 
