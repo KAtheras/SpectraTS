@@ -360,6 +360,9 @@
     entriesSubtabExpenses: document.getElementById("entries-subtab-expenses"),
     entriesPanelTime: document.getElementById("entries-panel-time"),
     entriesPanelExpenses: document.getElementById("entries-panel-expenses"),
+    entriesTimeReviewHost: document.getElementById("entries-time-review-host"),
+    timeEntriesReviewPanel: document.getElementById("time-entries-review-panel"),
+    timesheetReviewAnchor: document.getElementById("timesheet-review-anchor"),
     expenseRows: document.getElementById("expense-rows"),
     addCategory: document.getElementById("add-category"),
     saveCategories: document.getElementById("save-categories"),
@@ -3743,6 +3746,7 @@
     if (refs.entriesPanelExpenses) {
       refs.entriesPanelExpenses.hidden = entriesSubtab !== "expenses";
     }
+    syncTimeEntriesReviewPanelPlacement();
 
     if (view === "clients") {
       renderClientEditor();
@@ -3872,6 +3876,29 @@
     renderFilterState(filteredEntries);
     renderTable(filteredEntries);
     postHeight();
+  }
+
+  function syncTimeEntriesReviewPanelPlacement() {
+    const panel = refs.timeEntriesReviewPanel;
+    const anchor = refs.timesheetReviewAnchor;
+    const entriesHost = refs.entriesTimeReviewHost;
+    const timesheetContainer = refs.timesheetView;
+    if (!panel || !anchor || !entriesHost || !timesheetContainer) return;
+
+    const entriesSubtab = state.entriesSubtab === "expenses" ? "expenses" : "time";
+    const shouldAttachToEntries = state.currentView === "entries" && entriesSubtab === "time";
+
+    if (shouldAttachToEntries) {
+      if (panel.parentElement !== entriesHost) {
+        entriesHost.appendChild(panel);
+      }
+      return;
+    }
+
+    const insertBeforeNode = anchor.nextSibling;
+    if (panel.parentElement !== timesheetContainer || panel.previousSibling !== anchor) {
+      timesheetContainer.insertBefore(panel, insertBeforeNode);
+    }
   }
 
   function removeMembersPageProfileActions() {

@@ -814,7 +814,13 @@ body[data-theme="dark"] .mobile-tabbar {
 
 .entries-view .entries-panel {
   min-height: 180px;
-  align-content: center;
+  align-content: start;
+}
+
+.entries-view #entries-panel-time {
+  padding: 0;
+  border: none;
+  background: transparent;
 }
 
 .entries-view .entries-placeholder {
@@ -822,6 +828,14 @@ body[data-theme="dark"] .mobile-tabbar {
   color: var(--muted);
   font-family: var(--font-body);
   font-size: 1rem;
+}
+
+.entries-view .entries-time-review-host {
+  display: block;
+}
+
+.entries-view .entries-time-review-host > .panel {
+  margin: 0;
 }
 
 .input-grid {
