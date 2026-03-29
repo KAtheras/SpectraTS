@@ -1403,6 +1403,7 @@ async function createExpense(sql, payload, currentUser, accountId) {
       date: normalizeText(expense.expenseDate),
       amount: normalizeAmount(expense.amount),
     }),
+    noteSnippet: normalizeText(expense.notes),
     deepLink: {
       view: "entries",
       subtab: "expenses",
@@ -2130,6 +2131,7 @@ async function saveEntry(sql, payload, currentUser, accountId) {
         date: normalizeText(entry.date),
         hours: normalizeHours(entry.hours),
       }),
+      noteSnippet: normalizeText(entry.notes),
       deepLink: {
         view: "entries",
         subtab: "time",
@@ -2260,6 +2262,7 @@ async function approveEntry(sql, payload, currentUser, accountId) {
       projectName: entry.project_name || "",
       date: normalizeDateString(entry.entry_date),
     }),
+    noteSnippet: normalizeText(entry.notes),
     deepLink: {
       view: "entries",
       subtab: "time",

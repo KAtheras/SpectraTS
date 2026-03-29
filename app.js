@@ -1127,6 +1127,7 @@
       subjectType: `${item.subjectType || item.subject_type || ""}`.trim(),
       subjectId: `${item.subjectId || item.subject_id || ""}`.trim(),
       message: `${item.message || ""}`.trim(),
+      noteSnippet: `${item.noteSnippet || item.note_snippet || ""}`.trim(),
       isRead: item.isRead === true || item.is_read === true || item.is_read === 1,
       projectNameSnapshot: `${item.projectNameSnapshot || item.project_name_snapshot || ""}`.trim(),
       deepLink,
@@ -4820,6 +4821,11 @@
             <button class="inbox-item-open" type="button" data-inbox-open="${escapeHtml(item.id)}">
               <div class="inbox-item-main">
                 <div class="inbox-item-message">${escapeHtml(item.message || "Notification")}</div>
+                ${
+                  item.noteSnippet
+                    ? `<div class="inbox-item-note">${escapeHtml(item.noteSnippet)}</div>`
+                    : ""
+                }
                 <div class="inbox-item-time">${escapeHtml(createdAt)}</div>
               </div>
               ${item.isRead ? "" : '<span class="inbox-item-dot" aria-hidden="true"></span>'}

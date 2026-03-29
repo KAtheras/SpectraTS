@@ -42,6 +42,13 @@ function buildInboxMessage(type, data = {}) {
   return `${actorName} updated ${projectLabel}.`;
 }
 
+function normalizeNoteSnippet(note, maxLength = 80) {
+  const normalized = String(note || "").replace(/\s+/g, " ").trim();
+  if (!normalized) return null;
+  if (normalized.length <= maxLength) return normalized;
+  return `${normalized.slice(0, Math.max(0, maxLength - 1)).trimEnd()}…`;
+}
+
 async function listManagerRecipientUserIds(sql, { accountId, clientId, projectId }) {
   const ids = new Set();
   if (projectId) {
@@ -86,6 +93,7 @@ async function createSystemInboxItems(sql, payload = {}) {
   const message = payload.message
     ? `${payload.message}`.trim()
     : buildInboxMessage(type, payload.messageData || {});
+  const noteSnippet = normalizeNoteSnippet(payload.noteSnippet || payload.note || "");
   const projectNameSnapshot = payload.projectName ? `${payload.projectName}`.trim() : null;
   const deepLink = payload.deepLink && typeof payload.deepLink === "object" ? payload.deepLink : null;
 
@@ -100,6 +108,7 @@ async function createSystemInboxItems(sql, payload = {}) {
         subject_type,
         subject_id,
         message,
+        note_snippet,
         is_read,
         project_name_snapshot,
         deep_link_json
@@ -113,6 +122,7 @@ async function createSystemInboxItems(sql, payload = {}) {
         ${subjectType},
         ${subjectId},
         ${message},
+        ${noteSnippet},
         FALSE,
         ${projectNameSnapshot},
         ${deepLink ? JSON.stringify(deepLink) : null}::jsonb
@@ -125,5 +135,5 @@ module.exports = {
   buildInboxMessage,
   listManagerRecipientUserIds,
   createSystemInboxItems,
+  normalizeNoteSnippet,
 };
-

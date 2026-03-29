@@ -499,6 +499,15 @@ body[data-theme="dark"] .button {
   color: var(--text);
 }
 
+.inbox-item-note {
+  font-family: var(--font-body);
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .inbox-item-time {
   font-family: var(--font-body);
   font-size: 0.82rem;

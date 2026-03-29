@@ -478,12 +478,14 @@ async function ensureSchema(sql) {
       message TEXT NOT NULL,
       is_read BOOLEAN NOT NULL DEFAULT FALSE,
       is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+      note_snippet TEXT NULL,
       project_name_snapshot TEXT NULL,
       deep_link_json JSONB NULL,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `;
   await sql`ALTER TABLE inbox_items ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN NOT NULL DEFAULT FALSE`;
+  await sql`ALTER TABLE inbox_items ADD COLUMN IF NOT EXISTS note_snippet TEXT`;
   await sql`
     CREATE INDEX IF NOT EXISTS inbox_items_recipient_idx
       ON inbox_items (account_id, recipient_user_id, is_read, created_at DESC)
@@ -1736,6 +1738,7 @@ async function listInboxItems(sql, accountId, recipientUserId) {
       subject_type AS "subjectType",
       subject_id AS "subjectId",
       message,
+      note_snippet AS "noteSnippet",
       is_read AS "isRead",
       project_name_snapshot AS "projectNameSnapshot",
       deep_link_json AS "deepLink",
