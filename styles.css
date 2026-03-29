@@ -934,7 +934,7 @@ body[data-theme="dark"] .mobile-tabbar {
 #inputs-panel-time .input-row-head > * {
   min-height: 48px;
   color: #ffffff !important;
-  background: #4a4a4a !important;
+  background: #5c5c5c !important;
   border-right: 1px solid rgba(255, 255, 255, 0.18);
 }
 
