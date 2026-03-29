@@ -1937,6 +1937,46 @@
         ${totalCells}
       </div>
     `;
+
+    const alignCalendarHoverDetail = function (cell) {
+      if (!cell) return;
+      const panel = cell.querySelector(".inputs-time-calendar-detail");
+      if (!panel) return;
+      const previousDisplay = panel.style.display;
+      const previousVisibility = panel.style.visibility;
+
+      panel.style.display = "flex";
+      panel.style.visibility = "hidden";
+
+      const viewportPadding = 8;
+      const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
+      const cellRect = cell.getBoundingClientRect();
+      const panelRect = panel.getBoundingClientRect();
+      const panelWidth = panelRect.width;
+      const centeredLeft = cellRect.left + (cellRect.width / 2) - (panelWidth / 2);
+      const centeredRight = centeredLeft + panelWidth;
+
+      cell.dataset.detailAlign = "center";
+      if (centeredRight > viewportWidth - viewportPadding) {
+        cell.dataset.detailAlign = "right";
+      } else if (centeredLeft < viewportPadding) {
+        cell.dataset.detailAlign = "left";
+      }
+
+      panel.style.display = previousDisplay;
+      panel.style.visibility = previousVisibility;
+    };
+
+    refs.inputsTimeCalendarGrid
+      .querySelectorAll(".inputs-time-calendar-cell-detail")
+      .forEach((cell) => {
+        cell.addEventListener("mouseenter", function () {
+          alignCalendarHoverDetail(cell);
+        });
+        cell.addEventListener("focusin", function () {
+          alignCalendarHoverDetail(cell);
+        });
+      });
   }
 
   function encodeInputsTimeCombo(clientName, projectName) {
