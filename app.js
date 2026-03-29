@@ -1734,12 +1734,21 @@
     const dateSet = new Set(dates.map((item) => item.iso));
     const perProject = new Map();
     const totalsByDate = Object.create(null);
+    const currentUserId = `${state.currentUser?.id || ""}`.trim();
+    const currentUserName = `${state.currentUser?.displayName || ""}`.trim();
 
     dates.forEach((item) => {
       totalsByDate[item.iso] = 0;
     });
 
     (state.entries || []).forEach((entry) => {
+      if (!entry) return;
+      const entryUserId = `${entry.userId || ""}`.trim();
+      const entryUserName = `${entry.user || ""}`.trim();
+      const isCurrentUserEntry =
+        (currentUserId && entryUserId && entryUserId === currentUserId) ||
+        (!entryUserId && currentUserName && entryUserName === currentUserName);
+      if (!isCurrentUserEntry) return;
       if (!entry || !dateSet.has(entry.date)) return;
       const hours = Number(entry.hours);
       if (!Number.isFinite(hours) || hours <= 0) return;
