@@ -1768,7 +1768,7 @@
     return {
       hasData: true,
       minEndDate: dateBounds.minDate,
-      maxEndDate: dateBounds.maxDate,
+      maxEndDate: today,
     };
   }
 
@@ -1780,7 +1780,7 @@
     return {
       hasData: true,
       minEndDate: dateBounds.minDate,
-      maxEndDate: dateBounds.maxDate,
+      maxEndDate: today,
     };
   }
 
