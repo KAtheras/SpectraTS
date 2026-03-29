@@ -3936,6 +3936,7 @@ body[data-theme="dark"] .entry-approved td {
   text-transform: none;
   color: #FFFFFF;
   font-weight: 620;
+  background: #4B5563;
 }
 
 #inputs-view .input-row-head .cell-project,
