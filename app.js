@@ -1809,87 +1809,95 @@
   function ensureInputsTimeEditButton(row) {
     const fields = inputsTimeRowFields(row);
     if (!fields.actions) return null;
-    if (fields.edit) return fields.edit;
-    const editButton = document.createElement("button");
-    editButton.type = "button";
-    editButton.className = "inputs-time-edit";
-    editButton.textContent = "Edit";
-    editButton.hidden = true;
-    editButton.dataset.inputsTimeEdit = "true";
-    editButton.addEventListener("click", function () {
-      if (row.dataset.saving === "true" || row.dataset.deleting === "true") return;
-      setInputsTimeRowState(row, "editing-saved");
-      row.dataset.saving = "false";
-      const current = inputsTimeRowFields(row);
-      if (current.save) {
-        current.save.hidden = false;
-        current.save.classList.remove("is-saved");
-        current.save.textContent = "Save";
-        current.save.disabled = false;
-      }
-      syncInputsTimeRowInteractivity(
-        Array.from(row.parentElement?.querySelectorAll("form.input-row.input-row-body") || [])
-      );
-      current.hours?.focus();
-    });
-    fields.actions.appendChild(editButton);
+    const editButton = fields.edit || document.createElement("button");
+    if (!fields.edit) {
+      editButton.type = "button";
+      editButton.className = "inputs-time-edit";
+      editButton.textContent = "Edit";
+      editButton.hidden = true;
+      editButton.dataset.inputsTimeEdit = "true";
+      fields.actions.appendChild(editButton);
+    }
+    if (editButton.dataset.boundClick !== "true") {
+      editButton.addEventListener("click", function () {
+        if (row.dataset.saving === "true" || row.dataset.deleting === "true") return;
+        setInputsTimeRowState(row, "editing-saved");
+        row.dataset.saving = "false";
+        const current = inputsTimeRowFields(row);
+        if (current.save) {
+          current.save.hidden = false;
+          current.save.classList.remove("is-saved");
+          current.save.textContent = "Save";
+          current.save.disabled = false;
+        }
+        syncInputsTimeRowInteractivity(
+          Array.from(row.parentElement?.querySelectorAll("form.input-row.input-row-body") || [])
+        );
+        current.hours?.focus();
+      });
+      editButton.dataset.boundClick = "true";
+    }
     return editButton;
   }
 
   function ensureInputsTimeDeleteButton(row) {
     const fields = inputsTimeRowFields(row);
     if (!fields.actions) return null;
-    if (fields.remove) return fields.remove;
-    const deleteButton = document.createElement("button");
-    deleteButton.type = "button";
-    deleteButton.className = "inputs-time-delete";
-    deleteButton.textContent = "🗑";
-    deleteButton.hidden = true;
-    deleteButton.dataset.inputsTimeDelete = "true";
-    deleteButton.setAttribute("aria-label", "Delete row");
-    deleteButton.title = "Delete";
-    deleteButton.addEventListener("click", async function () {
-      if (row.dataset.saving === "true" || row.dataset.deleting === "true") return;
-      const id = `${row.dataset.entryId || ""}`.trim();
-      if (!id) {
-        feedback("Unable to delete entry.", true);
-        return;
-      }
-      row.dataset.deleting = "true";
-      const current = inputsTimeRowFields(row);
-      if (current.save) current.save.disabled = true;
-      if (current.edit) current.edit.disabled = true;
-      if (current.remove) current.remove.disabled = true;
-      try {
-        await mutatePersistentState("delete_entry", { id });
-      } catch (error) {
-        row.dataset.deleting = "false";
-        if (current.save) current.save.disabled = true;
-        if (current.edit) current.edit.disabled = false;
-        if (current.remove) current.remove.disabled = false;
-        feedback(error.message || "Unable to delete entry.", true);
-        return;
-      }
-
-      const container = row.parentElement;
-      const deletingTemplateRow = row === refs.inputsTimeForm;
-      row.remove();
-      if (deletingTemplateRow && container) {
-        const nextTemplate = container.querySelector("form.input-row.input-row-body");
-        if (nextTemplate) {
-          refs.inputsTimeForm = nextTemplate;
-          refs.inputsTimeForm.id = "inputs-time-form";
+    const deleteButton = fields.remove || document.createElement("button");
+    if (!fields.remove) {
+      deleteButton.type = "button";
+      deleteButton.className = "inputs-time-delete";
+      deleteButton.textContent = "🗑";
+      deleteButton.hidden = true;
+      deleteButton.dataset.inputsTimeDelete = "true";
+      deleteButton.setAttribute("aria-label", "Delete row");
+      deleteButton.title = "Delete";
+      fields.actions.appendChild(deleteButton);
+    }
+    if (deleteButton.dataset.boundClick !== "true") {
+      deleteButton.addEventListener("click", async function () {
+        if (row.dataset.saving === "true" || row.dataset.deleting === "true") return;
+        const id = `${row.dataset.entryId || ""}`.trim();
+        if (!id) {
+          feedback("Unable to delete entry.", true);
+          return;
         }
-      }
-      if (container) {
-        syncInputsTimeRowInteractivity(
-          Array.from(container.querySelectorAll("form.input-row.input-row-body"))
-        );
-      }
-      feedback("Entry deleted.", false);
-      postHeight();
-    });
-    fields.actions.appendChild(deleteButton);
+        row.dataset.deleting = "true";
+        const current = inputsTimeRowFields(row);
+        if (current.save) current.save.disabled = true;
+        if (current.edit) current.edit.disabled = true;
+        if (current.remove) current.remove.disabled = true;
+        try {
+          await mutatePersistentState("delete_entry", { id });
+        } catch (error) {
+          row.dataset.deleting = "false";
+          if (current.save) current.save.disabled = true;
+          if (current.edit) current.edit.disabled = false;
+          if (current.remove) current.remove.disabled = false;
+          feedback(error.message || "Unable to delete entry.", true);
+          return;
+        }
+
+        const container = row.parentElement;
+        const deletingTemplateRow = row === refs.inputsTimeForm;
+        row.remove();
+        if (deletingTemplateRow && container) {
+          const nextTemplate = container.querySelector("form.input-row.input-row-body");
+          if (nextTemplate) {
+            refs.inputsTimeForm = nextTemplate;
+            refs.inputsTimeForm.id = "inputs-time-form";
+          }
+        }
+        if (container) {
+          syncInputsTimeRowInteractivity(
+            Array.from(container.querySelectorAll("form.input-row.input-row-body"))
+          );
+        }
+        feedback("Entry deleted.", false);
+        postHeight();
+      });
+      deleteButton.dataset.boundClick = "true";
+    }
     return deleteButton;
   }
 
