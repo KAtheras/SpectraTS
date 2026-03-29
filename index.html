@@ -690,6 +690,9 @@
             <button type="button" class="settings-tab" data-settings-tab-button="rates" role="tab" aria-selected="false">
               Rates
             </button>
+            <button type="button" class="settings-tab" data-settings-tab-button="messaging_rules" role="tab" aria-selected="false">
+              Messaging Rules
+            </button>
           </div>
 
           <form id="level-labels-form" class="level-labels-form" data-settings-tab="levels">
@@ -743,6 +746,25 @@
               <div class="level-rows" id="rates-rows"></div>
               <div class="level-labels-actions">
                 <button class="button" type="submit" id="save-rates">Save</button>
+              </div>
+            </div>
+          </form>
+
+          <form id="messaging-rules-form" class="level-labels-form" data-settings-tab="messaging_rules" hidden>
+            <div class="level-labels-inner">
+              <h3>Messaging Rules</h3>
+              <div class="table-wrap">
+                <table class="entries-table settings-rules-table">
+                  <thead>
+                    <tr>
+                      <th>Event</th>
+                      <th>Inbox</th>
+                      <th>Email</th>
+                      <th>Recipient</th>
+                    </tr>
+                  </thead>
+                  <tbody id="messaging-rules-rows"></tbody>
+                </table>
               </div>
             </div>
           </form>

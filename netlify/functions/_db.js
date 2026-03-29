@@ -1824,6 +1824,23 @@ async function listInboxItems(sql, accountId, recipientUserId) {
   `;
 }
 
+async function listNotificationRules(sql, accountId) {
+  if (!accountId) return [];
+  return sql`
+    SELECT
+      event_type AS "eventType",
+      enabled,
+      inbox_enabled AS "inboxEnabled",
+      email_enabled AS "emailEnabled",
+      recipient_scope AS "recipientScope",
+      delivery_mode AS "deliveryMode"
+    FROM notification_rules
+    WHERE account_id = ${accountId}::uuid
+      AND event_type IN ('time_entry_created', 'expense_entry_created', 'entry_approved')
+    ORDER BY event_type
+  `;
+}
+
 async function listManagerClientAssignments(sql, accountId) {
   return sql`
     SELECT
@@ -1995,6 +2012,7 @@ async function loadState(sql, currentUser) {
     : null;
   const accountId = normalizedUser?.accountId || (await ensureDefaultAccount(sql));
   const accountUuid = accountId ? `${accountId}` : accountId;
+  await ensureNotificationRulesForAccount(sql, accountUuid);
   const accountRow =
     accountUuid &&
     (
@@ -2361,6 +2379,7 @@ async function loadState(sql, currentUser) {
   const inboxItems = normalizedUser
     ? await listInboxItems(sql, accountUuid, normalizedUser.id)
     : [];
+  const notificationRules = await listNotificationRules(sql, accountUuid);
 
   return {
     bootstrapRequired: false,
@@ -2392,6 +2411,7 @@ async function loadState(sql, currentUser) {
     assignments,
     levelLabels,
     inboxItems,
+    notificationRules,
   };
 }
 
@@ -2521,6 +2541,7 @@ module.exports = {
   listDepartments,
   listOfficeLocations,
   listInboxItems,
+  listNotificationRules,
   listLevelLabels,
   listUsers,
   loadState,

@@ -1,6 +1,6 @@
 (function () {
   const deps = () => window.settingsAdminDeps || {};
-  const SETTINGS_TABS = ["levels", "categories", "locations", "rates", "departments", "permissions"];
+  const SETTINGS_TABS = ["levels", "categories", "locations", "rates", "messaging_rules", "departments", "permissions"];
   let activeSettingsTab = "levels";
   let tabsInitialized = false;
   let mobileSettingsMode = "list";
@@ -36,6 +36,7 @@
     if (state.permissions?.view_members_page) {
       tabs.push("rates");
     }
+    if (state.permissions?.manage_settings_access) tabs.push("messaging_rules");
     if (state.permissions?.manage_departments) tabs.push("departments");
     if (state.permissions?.manage_settings_access) tabs.push("permissions");
     return tabs;
@@ -122,7 +123,7 @@
     if (!settingsPage) return;
     const sectionPanels = Array.from(
       settingsPage.querySelectorAll(
-        '[data-settings-tab="levels"], [data-settings-tab="categories"], [data-settings-tab="locations"], [data-settings-tab="rates"], [data-settings-tab="departments"], [data-settings-tab="permissions"]'
+        '[data-settings-tab="levels"], [data-settings-tab="categories"], [data-settings-tab="locations"], [data-settings-tab="rates"], [data-settings-tab="messaging_rules"], [data-settings-tab="departments"], [data-settings-tab="permissions"]'
       )
     );
 
@@ -214,6 +215,7 @@
       categories: "Expense categories",
       locations: "Office locations",
       rates: "Member information",
+      messaging_rules: "Messaging Rules",
       departments: "Practice departments",
       permissions: "Member access levels",
     };

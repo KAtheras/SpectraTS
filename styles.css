@@ -1576,6 +1576,29 @@ input[name="cost_rate"] {
   margin-top: 4px;
 }
 
+.settings-rules-table th,
+.settings-rules-table td {
+  vertical-align: middle;
+}
+
+.rules-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.rules-toggle input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+}
+
+.rules-toggle-disabled {
+  opacity: 0.8;
+}
+
 .level-rows {
   display: grid;
   gap: 10px;

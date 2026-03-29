@@ -396,6 +396,8 @@
     levelLabelsForm: document.getElementById("level-labels-form"),
     levelRows: document.getElementById("level-rows"),
     ratesForm: document.getElementById("rates-form"),
+    messagingRulesForm: document.getElementById("messaging-rules-form"),
+    messagingRulesRows: document.getElementById("messaging-rules-rows"),
     ratesRows: document.getElementById("rates-rows"),
     addLevel: document.getElementById("add-level"),
     filterForm: document.getElementById("filter-form"),
@@ -930,6 +932,7 @@
     departmentsSnapshot: [],
     account: null,
     settingsAccess: {},
+    notificationRules: [],
     projects: [],
     clientEditor: null,
     assignments: {
@@ -1157,6 +1160,54 @@
     };
   }
 
+  const NOTIFICATION_RULE_ROWS = [
+    {
+      eventType: "time_entry_created",
+      label: "Time entered",
+      recipientText: "Project manager (closest assigned)",
+    },
+    {
+      eventType: "expense_entry_created",
+      label: "Expense entered",
+      recipientText: "Project manager (closest assigned)",
+    },
+    {
+      eventType: "entry_approved",
+      label: "Entry approved",
+      recipientText: "Entry owner",
+    },
+  ];
+
+  function notificationRuleByEventType(eventType) {
+    return (state.notificationRules || []).find((rule) => rule.eventType === eventType) || null;
+  }
+
+  function renderMessagingRules() {
+    if (!refs.messagingRulesRows) return;
+    refs.messagingRulesRows.innerHTML = NOTIFICATION_RULE_ROWS.map((row) => {
+      const rule = notificationRuleByEventType(row.eventType);
+      const inboxChecked = rule ? rule.inboxEnabled !== false : true;
+      const emailChecked = rule ? rule.emailEnabled === true : false;
+      return `
+        <tr>
+          <td>${escapeHtml(row.label)}</td>
+          <td>
+            <label class="rules-toggle">
+              <input type="checkbox" data-rule-inbox="${escapeHtml(row.eventType)}" ${inboxChecked ? "checked" : ""} />
+            </label>
+          </td>
+          <td>
+            <label class="rules-toggle rules-toggle-disabled">
+              <input type="checkbox" ${emailChecked ? "checked" : ""} disabled />
+              <span>Coming later</span>
+            </label>
+          </td>
+          <td>${escapeHtml(row.recipientText)}</td>
+        </tr>
+      `;
+    }).join("");
+  }
+
   function applyLoadedState(data) {
     const previousOfficeLocations = Array.isArray(state.officeLocations)
       ? state.officeLocations.slice()
@@ -1247,6 +1298,20 @@
       : [];
     state.account = data?.account || null;
     state.settingsAccess = data?.settingsAccess || {};
+    state.notificationRules = Array.isArray(data?.notificationRules)
+      ? data.notificationRules.map((rule) => ({
+          eventType: `${rule?.eventType || rule?.event_type || ""}`.trim(),
+          enabled: rule?.enabled === false || rule?.enabled === 0 ? false : true,
+          inboxEnabled:
+            rule?.inboxEnabled === false || rule?.inbox_enabled === false || rule?.inbox_enabled === 0
+              ? false
+              : true,
+          emailEnabled:
+            rule?.emailEnabled === true || rule?.email_enabled === true || rule?.email_enabled === 1,
+          recipientScope: `${rule?.recipientScope || rule?.recipient_scope || ""}`.trim(),
+          deliveryMode: `${rule?.deliveryMode || rule?.delivery_mode || ""}`.trim(),
+        }))
+      : [];
     state.inboxItems = Array.isArray(data?.inboxItems)
       ? data.inboxItems.map(normalizeInboxItem).filter(Boolean)
       : [];
@@ -1273,6 +1338,7 @@
     state.officeLocations = [];
     state.expenseCategories = [];
     state.account = null;
+    state.notificationRules = [];
     state.assignments = {
       managerClients: [],
       managerProjects: [],
@@ -1324,6 +1390,7 @@
         state.entries = [];
         state.catalog = normalizeCatalog(DEFAULT_CLIENT_PROJECTS, true);
         state.projects = [];
+        state.notificationRules = [];
         state.inboxItems = [];
         state.inboxFilter = "all";
         state.inboxSelectedIds = [];
@@ -4555,6 +4622,7 @@
       renderRatesRows?.();
       renderExpenseCategories();
       renderOfficeLocations();
+      renderMessagingRules();
       if (window.settingsAdmin?.renderDepartments) {
         window.settingsAdmin.renderDepartments();
       }
@@ -5186,6 +5254,24 @@
       if (!checkbox) return;
       setInboxSelected(checkbox.dataset.inboxSelect, checkbox.checked);
       syncInboxBulkControls();
+    });
+  }
+  if (refs.messagingRulesRows) {
+    refs.messagingRulesRows.addEventListener("change", async function (event) {
+      const checkbox = event.target.closest("[data-rule-inbox]");
+      if (!checkbox) return;
+      const eventType = checkbox.dataset.ruleInbox;
+      const inboxEnabled = checkbox.checked;
+      try {
+        await mutatePersistentState("update_notification_rule", {
+          eventType,
+          inboxEnabled,
+        });
+        feedback("Messaging rule updated.", false);
+      } catch (error) {
+        feedback(error.message || "Unable to update messaging rule.", true);
+        renderMessagingRules();
+      }
     });
   }
   if (refs.navAudit) {

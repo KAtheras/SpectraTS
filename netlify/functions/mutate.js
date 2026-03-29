@@ -457,6 +457,37 @@ async function deleteAllReadInboxItems(sql, _payload, currentUser, accountId) {
   return null;
 }
 
+async function updateNotificationRule(sql, payload, accountId) {
+  const eventType = normalizeText(payload?.eventType);
+  const supportedEvents = new Set([
+    "time_entry_created",
+    "expense_entry_created",
+    "entry_approved",
+  ]);
+  if (!eventType || !supportedEvents.has(eventType)) {
+    return errorResponse(400, "Unsupported notification event.");
+  }
+  const inboxEnabled =
+    payload?.inboxEnabled === true ||
+    payload?.inboxEnabled === 1 ||
+    String(payload?.inboxEnabled || "").toLowerCase() === "true";
+
+  const rows = await sql`
+    UPDATE notification_rules
+    SET
+      inbox_enabled = ${inboxEnabled},
+      enabled = CASE WHEN email_enabled THEN TRUE ELSE ${inboxEnabled} END,
+      updated_at = NOW()
+    WHERE account_id = ${accountId}::uuid
+      AND event_type = ${eventType}
+    RETURNING event_type
+  `;
+  if (!rows[0]) {
+    return errorResponse(404, "Notification rule not found.");
+  }
+  return null;
+}
+
 function diffKeys(before, after) {
   const keys = new Set([
     ...Object.keys(before || {}),
@@ -3050,6 +3081,17 @@ exports.handler = async function handler(event) {
           sql,
           request.payload || {},
           context.currentUser,
+          accountId
+        );
+        break;
+      }
+      case "update_notification_rule": {
+        if (!can("manage_settings_access")) {
+          return errorResponse(403, "Access denied.");
+        }
+        mutationResult = await updateNotificationRule(
+          sql,
+          request.payload || {},
           accountId
         );
         break;
