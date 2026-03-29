@@ -284,7 +284,6 @@
     accountName: document.getElementById("account-name"),
     navInputs: document.getElementById("nav-inputs"),
     navEntries: document.getElementById("nav-entries"),
-    navInbox: document.getElementById("nav-inbox"),
     navSettings: document.getElementById("nav-settings"),
     navMembers: document.getElementById("nav-members"),
     settingsToggle: document.getElementById("settings-toggle"),
@@ -301,8 +300,9 @@
     navClientsMobile: document.getElementById("nav-clients-mobile"),
     navInputsMobile: document.getElementById("nav-inputs-mobile"),
     navEntriesMobile: document.getElementById("nav-entries-mobile"),
-    navInboxMobile: document.getElementById("nav-inbox-mobile"),
     navAnalyticsMobile: document.getElementById("nav-analytics-mobile"),
+    inboxOpen: document.getElementById("inbox-open"),
+    inboxUnreadBadge: document.getElementById("inbox-unread-badge"),
     clientsPage: document.getElementById("clients-page"),
     usersPage: document.getElementById("members-page"),
     analyticsPage: document.getElementById("analytics-page"),
@@ -4362,12 +4362,6 @@
       refs.navEntries.classList.toggle("is-active", view === "entries");
       refs.navEntries.setAttribute("aria-current", view === "entries" ? "page" : "false");
     }
-    if (refs.navInbox) {
-      refs.navInbox.hidden = false;
-      refs.navInbox.classList.toggle("is-active", view === "inbox");
-      refs.navInbox.setAttribute("aria-current", view === "inbox" ? "page" : "false");
-      updateInboxNavLabel(refs.navInbox, "Inbox");
-    }
     if (refs.navInputsMobile) {
       refs.navInputsMobile.hidden = false;
       refs.navInputsMobile.classList.toggle("is-active", view === "inputs");
@@ -4378,12 +4372,7 @@
       refs.navEntriesMobile.classList.toggle("is-active", view === "entries");
       refs.navEntriesMobile.setAttribute("aria-current", view === "entries" ? "page" : "false");
     }
-    if (refs.navInboxMobile) {
-      refs.navInboxMobile.hidden = false;
-      refs.navInboxMobile.classList.toggle("is-active", view === "inbox");
-      refs.navInboxMobile.setAttribute("aria-current", view === "inbox" ? "page" : "false");
-      updateInboxNavLabel(refs.navInboxMobile, "Inbox");
-    }
+    syncInboxHeaderButton(view === "inbox");
     const showAudit = isAdmin(state.currentUser);
     arrangeSettingsMenu(showAudit);
     if (refs.navAudit) {
@@ -4707,10 +4696,21 @@
     return items;
   }
 
-  function updateInboxNavLabel(button, baseLabel) {
-    if (!button) return;
+  function syncInboxHeaderButton(isInboxView) {
+    if (!refs.inboxOpen) return;
+    refs.inboxOpen.classList.toggle("is-active", !!isInboxView);
+    refs.inboxOpen.setAttribute("aria-current", isInboxView ? "page" : "false");
+    refs.inboxOpen.setAttribute("aria-label", "Inbox");
     const unread = inboxUnreadCount();
-    button.textContent = unread > 0 ? `${baseLabel} (${unread})` : baseLabel;
+    if (refs.inboxUnreadBadge) {
+      if (unread > 0) {
+        refs.inboxUnreadBadge.hidden = false;
+        refs.inboxUnreadBadge.textContent = unread > 99 ? "99+" : String(unread);
+      } else {
+        refs.inboxUnreadBadge.hidden = true;
+        refs.inboxUnreadBadge.textContent = "";
+      }
+    }
   }
 
   function renderInboxList() {
@@ -4891,11 +4891,6 @@
       setView("entries");
     });
   }
-  if (refs.navInbox) {
-    refs.navInbox.addEventListener("click", function () {
-      setView("inbox");
-    });
-  }
   if (refs.navInputsMobile) {
     refs.navInputsMobile.addEventListener("click", function () {
       setView("inputs");
@@ -4906,8 +4901,8 @@
       setView("entries");
     });
   }
-  if (refs.navInboxMobile) {
-    refs.navInboxMobile.addEventListener("click", function () {
+  if (refs.inboxOpen) {
+    refs.inboxOpen.addEventListener("click", function () {
       setView("inbox");
     });
   }

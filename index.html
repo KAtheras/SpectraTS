@@ -89,7 +89,6 @@
                   <button class="nav-pill" id="nav-settings" type="button">Settings</button>
                   <button class="nav-pill" id="nav-inputs" type="button">Inputs</button>
                   <button class="nav-pill" id="nav-entries" type="button">Entries</button>
-                  <button class="nav-pill" id="nav-inbox" type="button">Inbox</button>
                   <button class="nav-pill" id="open-analytics" type="button">Analytics</button>
                   <button class="nav-pill" id="open-catalog" type="button">Clients</button>
                   <button class="nav-pill" id="nav-members" type="button">Members</button>
@@ -98,6 +97,24 @@
               </div>
           <div class="topbar-right">
             <div class="topbar-user">
+              <button class="inbox-button" id="inbox-open" type="button" aria-label="Inbox">
+                <svg class="inbox-button-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path
+                    d="M4 10.5A8 8 0 1 1 20 10.5v3.2l1.2 2.1a.9.9 0 0 1-.78 1.35H2.58a.9.9 0 0 1-.78-1.35L3 13.7v-3.2Z"
+                    stroke="currentColor"
+                    stroke-width="1.9"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                  <path
+                    d="M9.2 18.7a2.8 2.8 0 0 0 5.6 0"
+                    stroke="currentColor"
+                    stroke-width="1.9"
+                    stroke-linecap="round"
+                  />
+                </svg>
+                <span class="inbox-button-badge" id="inbox-unread-badge" hidden></span>
+              </button>
               <button class="avatar-button" id="settings-toggle" type="button" aria-label="User menu">
                 <span id="session-indicator" hidden></span>
               </button>
@@ -125,7 +142,6 @@
         <button class="nav-pill" id="nav-settings-mobile" type="button">Settings</button>
         <button class="nav-pill" id="nav-inputs-mobile" type="button">Inputs</button>
         <button class="nav-pill" id="nav-entries-mobile" type="button">Entries</button>
-        <button class="nav-pill" id="nav-inbox-mobile" type="button">Inbox</button>
         <button class="nav-pill" id="nav-analytics-mobile" type="button">Analytics</button>
         <button class="nav-pill" id="nav-clients-mobile" type="button">Clients</button>
         <button class="nav-pill" id="nav-members-mobile" type="button">Members</button>
