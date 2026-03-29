@@ -504,6 +504,55 @@ function diffKeys(before, after) {
   return changed;
 }
 
+function buildPermissionsPayload(currentUser, permissionIndex) {
+  const can = (capability, ctx = {}) =>
+    permissions.can(currentUser, capability, {
+      permissionIndex,
+      actorOfficeId: currentUser?.officeId ?? null,
+      actorUserId: currentUser?.id ?? null,
+      ...ctx,
+    });
+  const canManageSettingsAccess = can("manage_settings_access");
+  return {
+    permissions: {
+      edit_user_department: can("edit_user_department"),
+      view_settings_tab: can("view_settings_shell"),
+      view_members_page: can("view_members"),
+      view_member_rates: can("view_member_rates"),
+      edit_user_rates: can("edit_member_rates"),
+      manage_levels: can("manage_levels"),
+      manage_departments: can("manage_departments"),
+      manage_expense_categories: can("manage_expense_categories"),
+      manage_office_locations: can("manage_office_locations"),
+      manage_settings_access: canManageSettingsAccess,
+      create_user: can("create_member"),
+      edit_user_profile: can("edit_member_profile"),
+      reset_user_password: can("admin_reset_password"),
+      deactivate_user: can("deactivate_member"),
+      view_analytics: can("view_analytics"),
+      view_audit_logs: can("view_audit_logs"),
+      create_project: can("create_project"),
+      remove_project: can("archive_project"),
+      create_client: can("create_client"),
+      edit_client: can("edit_client"),
+      archive_client: can("archive_client"),
+      assign_project_members: can("assign_project_staff"),
+      assign_project_managers: can("assign_project_managers"),
+      create_entry: can("create_time_entry"),
+      approve_entry: can("approve_time"),
+      view_entries: can("view_entries"),
+      create_expense: can("create_expense"),
+      update_expense: can("edit_expense"),
+      toggle_expense_status: can("approve_expense"),
+      view_expenses: can("view_expenses"),
+      view_users: can("view_users"),
+      view_clients: can("view_clients"),
+      view_projects: can("view_projects"),
+    },
+    canManageSettingsAccess,
+  };
+}
+
 function entrySnapshot({
   date,
   userId,
@@ -3263,8 +3312,21 @@ exports.handler = async function handler(event) {
     }
 
     const state = await loadState(sql, context.currentUser);
+    const { permissions: permissionsPayload, canManageSettingsAccess } =
+      buildPermissionsPayload(state.currentUser, permissionIndex);
+    const permissionRoles = canManageSettingsAccess
+      ? await sql`
+          SELECT key, label, is_active AS "isActive"
+          FROM permission_roles
+          WHERE is_active = TRUE
+          ORDER BY id
+        `
+      : [];
     return json(200, {
       ...state,
+      permissions: permissionsPayload,
+      permissionRoles,
+      rolePermissions: canManageSettingsAccess ? permissionRows : [],
       message: mutationResult?.message || "",
     });
   } catch (error) {
