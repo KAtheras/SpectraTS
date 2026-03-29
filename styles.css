@@ -823,6 +823,12 @@ body[data-theme="dark"] .mobile-tabbar {
   background: transparent;
 }
 
+.entries-view #entries-panel-expenses {
+  padding: 0;
+  border: none;
+  background: transparent;
+}
+
 .entries-view .entries-placeholder {
   margin: 0;
   color: var(--muted);
@@ -835,6 +841,14 @@ body[data-theme="dark"] .mobile-tabbar {
 }
 
 .entries-view .entries-time-review-host > .panel {
+  margin: 0;
+}
+
+.entries-view .entries-expense-review-host {
+  display: block;
+}
+
+.entries-view .entries-expense-review-host > .panel {
   margin: 0;
 }
 

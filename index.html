@@ -410,7 +410,8 @@
               </form>
             </section>
 
-            <section class="panel panel-table">
+            <div id="expenses-review-anchor" hidden aria-hidden="true"></div>
+            <section class="panel panel-table" id="expense-entries-review-panel">
               <div class="panel-head panel-head-logged">
                 <div class="panel-head-title-row">
                   <h2>Submitted expenses</h2>
@@ -618,81 +619,7 @@
           </section>
 
           <section class="input-panel entries-panel" id="entries-panel-expenses" hidden>
-            <div class="panel-head panel-head-logged">
-              <div class="panel-head-title-row">
-                <h2>Submitted expenses</h2>
-                <div class="filter-total" id="entries-expense-filter-total">Total amount: $0.00</div>
-              </div>
-              <div class="panel-head-actions">
-                <button class="button button-ghost" type="button" id="entries-expense-clear-filters">
-                  Clear
-                </button>
-                <button class="button button-ghost" type="button" id="entries-expense-export-csv">
-                  Export CSV
-                </button>
-              </div>
-            </div>
-
-            <form id="entries-expense-filter-form" class="filters">
-              <label>
-                <span>User</span>
-                <select name="user" id="entries-expense-filter-user"></select>
-              </label>
-              <label>
-                <span>Client</span>
-                <select name="client" id="entries-expense-filter-client"></select>
-              </label>
-              <label>
-                <span>Project</span>
-                <select name="project" id="entries-expense-filter-project"></select>
-              </label>
-              <label>
-                <span>From</span>
-                <input type="text" name="from" placeholder="MM/DD/YYYY" />
-              </label>
-              <label>
-                <span>To</span>
-                <input type="text" name="to" placeholder="MM/DD/YYYY" />
-              </label>
-              <label>
-                <span>Search</span>
-                <input
-                  type="search"
-                  name="search"
-                  placeholder="Project, category, or notes"
-                />
-              </label>
-            </form>
-
-            <div id="entries-expense-active-filters" class="active-filters" hidden></div>
-            <div class="table-wrapper">
-              <table class="entries-table">
-                <thead>
-                  <tr>
-                    <th>Date</th>
-                    <th>User</th>
-                    <th>Client</th>
-                    <th>Project</th>
-                    <th>Category</th>
-                    <th>Amount</th>
-                    <th>Billable</th>
-                    <th>Notes</th>
-                    <th>Status</th>
-                    <th class="actions-cell">Actions</th>
-                  </tr>
-                </thead>
-                <tbody id="entries-expenses-body">
-                  <tr>
-                    <td colspan="10" class="empty-row">
-                      <div class="empty-state-panel">
-                        <strong>No expenses yet.</strong>
-                        <span>Add an expense to get started.</span>
-                      </div>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+            <div class="entries-expense-review-host" id="entries-expense-review-host"></div>
           </section>
         </div>
       </section>
