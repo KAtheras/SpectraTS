@@ -676,14 +676,14 @@ body[data-theme="dark"] .settings-item:hover {
   justify-content: space-between;
   gap: 8px;
   padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
-  background: #f5f6f7; /* solid, non-transparent */
+  background: var(--bg); /* global app background */
   border-top: 1px solid color-mix(in srgb, var(--muted-strong) 18%, transparent);
   box-shadow: 0 -4px 12px color-mix(in srgb, black 10%, transparent);
   z-index: 30;
 }
 
 body[data-theme="dark"] .mobile-tabbar {
-  background: #11161d; /* solid dark surface */
+  background: var(--bg);
 }
 
 .mobile-tabbar .nav-pill {
@@ -3236,11 +3236,11 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
 
 /* Expenses live hooks */
 .expense-form-card-live {
-  background: #F5F6F7;
+  background: var(--bg);
 }
 
 .panel.panel-form {
-  background: #F5F6F7;
+  background: var(--bg);
 }
 
 .expense-amount-header-live {
@@ -3596,11 +3596,11 @@ body[data-theme="dark"] .entry-approved td {
 .panel-form {
   width: 60%;
   margin-right: auto;
-  background: #F5F6F7;
+  background: var(--bg);
 }
 
 .panel.panel-expense {
-  background: #F5F6F7;
+  background: var(--bg);
 }
 
   .app-frame {
