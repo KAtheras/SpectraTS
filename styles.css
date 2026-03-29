@@ -3983,6 +3983,15 @@ body[data-theme="dark"] .entry-approved td {
   background: #ffffff;
 }
 
+#inputs-view .input-row-body[data-saved="true"] .cell-project,
+#inputs-view .input-row-body[data-saved="true"] .cell-date,
+#inputs-view .input-row-body[data-saved="true"] .cell-hours,
+#inputs-view .input-row-body[data-saved="true"] .cell-billable,
+#inputs-view .input-row-body[data-saved="true"] .cell-notes,
+#inputs-view .input-row-body[data-saved="true"] .cell-actions {
+  background: #f7f9fc;
+}
+
 #inputs-view .cell-project,
 #inputs-view .cell-date,
 #inputs-view .cell-hours,
@@ -4068,7 +4077,7 @@ body[data-theme="dark"] .entry-approved td {
 
 #inputs-view .input-row-body.has-edit-action .cell-actions {
   justify-content: center;
-  gap: 4px;
+  gap: 3px;
 }
 
 #inputs-view .input-row-body.has-edit-action .cell-actions .button {
@@ -4088,18 +4097,18 @@ body[data-theme="dark"] .entry-approved td {
 }
 
 #inputs-view .input-row-body .cell-actions .inputs-time-edit {
-  height: 28px;
-  min-height: 28px;
-  width: 44px;
-  min-width: 44px;
-  max-width: 44px;
-  padding: 0 6px;
+  height: 26px;
+  min-height: 26px;
+  width: 38px;
+  min-width: 38px;
+  max-width: 38px;
+  padding: 0 4px;
   border: 1px solid #cbd5e1;
   border-radius: 4px;
   background: transparent;
   color: #475569;
   font: inherit;
-  font-size: 0.7rem;
+  font-size: 0.66rem;
   font-weight: 600;
   line-height: 1;
   cursor: pointer;
@@ -4116,17 +4125,17 @@ body[data-theme="dark"] .entry-approved td {
 }
 
 #inputs-view .input-row-body .cell-actions .inputs-time-delete {
-  height: 28px;
-  min-height: 28px;
-  width: 24px;
-  min-width: 24px;
-  max-width: 24px;
+  height: 26px;
+  min-height: 26px;
+  width: 20px;
+  min-width: 20px;
+  max-width: 20px;
   padding: 0;
   border: 1px solid #d5dce6;
   border-radius: 4px;
   background: transparent;
   color: #8b97a8;
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   line-height: 1;
   cursor: pointer;
   box-sizing: border-box;
