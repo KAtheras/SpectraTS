@@ -4138,12 +4138,10 @@
           active instanceof HTMLElement &&
           active !== control &&
           refs.inputsView.contains(active) &&
-          active.matches("select, input.dp-desktop-date, input[type='date']")
+          active.matches("input.dp-desktop-date, input[type='date']")
         ) {
-          active.blur();
+          closeInputsDesktopDatePopover();
         }
-
-        closeInputsDesktopDatePopover();
       },
       true
     );
