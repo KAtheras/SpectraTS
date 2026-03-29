@@ -4416,6 +4416,14 @@ body[data-theme="dark"] .entry-approved td {
   white-space: nowrap;
 }
 
+#inputs-view .inputs-time-calendar-shift:disabled {
+  color: #94a3b8;
+  border-color: #dbe2ea;
+  background: #f8fafc;
+  cursor: not-allowed;
+  opacity: 0.72;
+}
+
 #inputs-view .inputs-time-calendar-range {
   text-align: center;
   color: #475569;

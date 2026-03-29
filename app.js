@@ -1710,10 +1710,88 @@
     return formatDate(date);
   }
 
+  function getInputsTimeUserDateBounds() {
+    const currentUserId = `${state.currentUser?.id || ""}`.trim();
+    const currentUserName = `${state.currentUser?.displayName || ""}`.trim();
+    let minDate = "";
+    let maxDate = "";
+
+    (state.entries || []).forEach((entry) => {
+      if (!entry || !isValidDateString(entry.date)) return;
+      const entryUserId = `${entry.userId || ""}`.trim();
+      const entryUserName = `${entry.user || ""}`.trim();
+      const isCurrentUserEntry =
+        (currentUserId && entryUserId && entryUserId === currentUserId) ||
+        (!entryUserId && currentUserName && entryUserName === currentUserName);
+      if (!isCurrentUserEntry) return;
+      if (!minDate || entry.date < minDate) minDate = entry.date;
+      if (!maxDate || entry.date > maxDate) maxDate = entry.date;
+    });
+
+    if (!minDate || !maxDate) return null;
+    return { minDate, maxDate };
+  }
+
+  function getInputsExpenseUserDateBounds() {
+    const currentUserId = `${state.currentUser?.id || ""}`.trim();
+    const currentUserName = `${state.currentUser?.displayName || ""}`.trim();
+    let minDate = "";
+    let maxDate = "";
+
+    (state.expenses || []).forEach((expense) => {
+      if (!expense) return;
+      const expenseUserId = `${expense.userId || ""}`.trim();
+      const expenseUserName = `${expense.userName || expense.user || userNameById(expense.userId) || ""}`.trim();
+      const isCurrentUserExpense =
+        (currentUserId && expenseUserId && expenseUserId === currentUserId) ||
+        (!expenseUserId && currentUserName && expenseUserName === currentUserName);
+      if (!isCurrentUserExpense) return;
+      const expenseDate = isValidDateString(expense.expenseDate)
+        ? expense.expenseDate
+        : isValidDateString(expense.date)
+        ? expense.date
+        : "";
+      if (!expenseDate) return;
+      if (!minDate || expenseDate < minDate) minDate = expenseDate;
+      if (!maxDate || expenseDate > maxDate) maxDate = expenseDate;
+    });
+
+    if (!minDate || !maxDate) return null;
+    return { minDate, maxDate };
+  }
+
+  function getInputsTimeCalendarBounds() {
+    const dateBounds = getInputsTimeUserDateBounds();
+    if (!dateBounds) {
+      return { hasData: false, minEndDate: today, maxEndDate: today };
+    }
+    return {
+      hasData: true,
+      minEndDate: dateBounds.minDate,
+      maxEndDate: dateBounds.maxDate,
+    };
+  }
+
+  function getInputsExpenseCalendarBounds() {
+    const dateBounds = getInputsExpenseUserDateBounds();
+    if (!dateBounds) {
+      return { hasData: false, minEndDate: today, maxEndDate: today };
+    }
+    return {
+      hasData: true,
+      minEndDate: dateBounds.minDate,
+      maxEndDate: dateBounds.maxDate,
+    };
+  }
+
   function getInputsTimeCalendarDates() {
-    const endDate = isValidDateString(state.inputsTimeCalendarEndDate)
+    const bounds = getInputsTimeCalendarBounds();
+    let endDate = isValidDateString(state.inputsTimeCalendarEndDate)
       ? state.inputsTimeCalendarEndDate
       : today;
+    if (endDate < bounds.minEndDate) endDate = bounds.minEndDate;
+    if (endDate > bounds.maxEndDate) endDate = bounds.maxEndDate;
+    state.inputsTimeCalendarEndDate = endDate;
     const dates = [];
     for (let offset = 6; offset >= 0; offset -= 1) {
       const iso = shiftIsoDate(endDate, -offset);
@@ -1729,9 +1807,13 @@
   }
 
   function getInputsExpenseCalendarDates() {
-    const endDate = isValidDateString(state.inputsExpenseCalendarEndDate)
+    const bounds = getInputsExpenseCalendarBounds();
+    let endDate = isValidDateString(state.inputsExpenseCalendarEndDate)
       ? state.inputsExpenseCalendarEndDate
       : today;
+    if (endDate < bounds.minEndDate) endDate = bounds.minEndDate;
+    if (endDate > bounds.maxEndDate) endDate = bounds.maxEndDate;
+    state.inputsExpenseCalendarEndDate = endDate;
     const dates = [];
     for (let offset = 6; offset >= 0; offset -= 1) {
       const iso = shiftIsoDate(endDate, -offset);
@@ -1853,6 +1935,8 @@
 
   function renderInputsTimeSummaryAndCalendarMeta() {
     const { dates, weekTotal, todayTotal, peakDay } = buildInputsTimeCalendarData();
+    const bounds = getInputsTimeCalendarBounds();
+    const currentEndDate = dates[dates.length - 1]?.iso || state.inputsTimeCalendarEndDate || today;
     if (refs.inputsTimeSummaryTotal) {
       refs.inputsTimeSummaryTotal.textContent = formatSummaryHours(weekTotal);
     }
@@ -1887,6 +1971,12 @@
         firstDate && lastDate
           ? `${formatDisplayDateShort(firstDate)} - ${formatDisplayDateShort(lastDate)}`
           : "";
+    }
+    if (refs.inputsTimeCalendarPrev) {
+      refs.inputsTimeCalendarPrev.disabled = !bounds.hasData || currentEndDate <= bounds.minEndDate;
+    }
+    if (refs.inputsTimeCalendarNext) {
+      refs.inputsTimeCalendarNext.disabled = !bounds.hasData || currentEndDate >= bounds.maxEndDate;
     }
   }
 
@@ -2120,6 +2210,8 @@
 
   function renderInputsExpenseSummaryAndCalendarMeta() {
     const { dates, weekTotal, todayTotal, peakDay } = buildInputsExpenseCalendarData();
+    const bounds = getInputsExpenseCalendarBounds();
+    const currentEndDate = dates[dates.length - 1]?.iso || state.inputsExpenseCalendarEndDate || today;
     if (refs.inputsExpenseSummaryTotal) {
       refs.inputsExpenseSummaryTotal.textContent = formatSummaryCurrency(weekTotal);
     }
@@ -2154,6 +2246,12 @@
         firstDate && lastDate
           ? `${formatDisplayDateShort(firstDate)} - ${formatDisplayDateShort(lastDate)}`
           : "";
+    }
+    if (refs.inputsExpenseCalendarPrev) {
+      refs.inputsExpenseCalendarPrev.disabled = !bounds.hasData || currentEndDate <= bounds.minEndDate;
+    }
+    if (refs.inputsExpenseCalendarNext) {
+      refs.inputsExpenseCalendarNext.disabled = !bounds.hasData || currentEndDate >= bounds.maxEndDate;
     }
   }
 
@@ -4641,6 +4739,11 @@
   }
   if (refs.inputsTimeCalendarPrev) {
     refs.inputsTimeCalendarPrev.addEventListener("click", function () {
+      const bounds = getInputsTimeCalendarBounds();
+      const currentEnd = isValidDateString(state.inputsTimeCalendarEndDate)
+        ? state.inputsTimeCalendarEndDate
+        : today;
+      if (!bounds.hasData || currentEnd <= bounds.minEndDate) return;
       state.inputsTimeCalendarEndDate = shiftIsoDate(state.inputsTimeCalendarEndDate || today, -7);
       if (state.currentView === "inputs" && state.inputSubtab === "time") {
         renderInputsTimeSummaryAndCalendarMeta();
@@ -4651,6 +4754,11 @@
   }
   if (refs.inputsTimeCalendarNext) {
     refs.inputsTimeCalendarNext.addEventListener("click", function () {
+      const bounds = getInputsTimeCalendarBounds();
+      const currentEnd = isValidDateString(state.inputsTimeCalendarEndDate)
+        ? state.inputsTimeCalendarEndDate
+        : today;
+      if (!bounds.hasData || currentEnd >= bounds.maxEndDate) return;
       state.inputsTimeCalendarEndDate = shiftIsoDate(state.inputsTimeCalendarEndDate || today, 7);
       if (state.currentView === "inputs" && state.inputSubtab === "time") {
         renderInputsTimeSummaryAndCalendarMeta();
@@ -4667,6 +4775,11 @@
   }
   if (refs.inputsExpenseCalendarPrev) {
     refs.inputsExpenseCalendarPrev.addEventListener("click", function () {
+      const bounds = getInputsExpenseCalendarBounds();
+      const currentEnd = isValidDateString(state.inputsExpenseCalendarEndDate)
+        ? state.inputsExpenseCalendarEndDate
+        : today;
+      if (!bounds.hasData || currentEnd <= bounds.minEndDate) return;
       state.inputsExpenseCalendarEndDate = shiftIsoDate(state.inputsExpenseCalendarEndDate || today, -7);
       if (state.currentView === "inputs" && state.inputSubtab === "expenses") {
         renderInputsExpenseSummaryAndCalendarMeta();
@@ -4677,6 +4790,11 @@
   }
   if (refs.inputsExpenseCalendarNext) {
     refs.inputsExpenseCalendarNext.addEventListener("click", function () {
+      const bounds = getInputsExpenseCalendarBounds();
+      const currentEnd = isValidDateString(state.inputsExpenseCalendarEndDate)
+        ? state.inputsExpenseCalendarEndDate
+        : today;
+      if (!bounds.hasData || currentEnd >= bounds.maxEndDate) return;
       state.inputsExpenseCalendarEndDate = shiftIsoDate(state.inputsExpenseCalendarEndDate || today, 7);
       if (state.currentView === "inputs" && state.inputSubtab === "expenses") {
         renderInputsExpenseSummaryAndCalendarMeta();
