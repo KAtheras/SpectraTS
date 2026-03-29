@@ -4099,9 +4099,9 @@ body[data-theme="dark"] .entry-approved td {
 #inputs-view .input-row-body .cell-actions .inputs-time-edit {
   height: 36px;
   min-height: 36px;
-  width: 56px;
-  min-width: 56px;
-  max-width: 56px;
+  width: 70px;
+  min-width: 70px;
+  max-width: 70px;
   padding: 0 8px;
   border: 1px solid #cbd5e1;
   border-radius: 4px;
