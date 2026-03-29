@@ -1908,9 +1908,21 @@
     next.removeAttribute("id");
     next.dataset.boundHandlers = "";
     next.dataset.lastCombo = "";
+    next.dataset.saved = "false";
+    next.dataset.saving = "false";
     container.appendChild(next);
 
     const nextFields = inputsTimeRowFields(next);
+    if (nextFields.save) {
+      nextFields.save.textContent = "Save";
+      nextFields.save.disabled = false;
+      nextFields.save.classList.remove("is-saved");
+    }
+    [nextFields.clientProject, nextFields.date, nextFields.hours, nextFields.billable, nextFields.notes].forEach(
+      (input) => {
+        if (input) input.disabled = false;
+      }
+    );
     if (nextFields.hours) nextFields.hours.value = "";
     if (nextFields.notes) nextFields.notes.value = "";
     if (nextFields.date) {
