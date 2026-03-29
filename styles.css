@@ -3922,11 +3922,11 @@ body[data-theme="dark"] .entry-approved td {
 
 #inputs-view #inputs-panel-time .input-row {
   grid-template-columns:
-    minmax(340px, 2.8fr)
+    minmax(340px, 2.24fr)
     minmax(84px, 0.6fr)
     minmax(72px, 0.42fr)
     minmax(83px, 0.45fr)
-    minmax(390px, 3fr)
+    minmax(390px, 3.56fr)
     minmax(110px, 0.8fr);
 }
 
