@@ -357,7 +357,6 @@
     inboxList: document.getElementById("inbox-list"),
     inboxFilterAll: document.getElementById("inbox-filter-all"),
     inboxFilterUnread: document.getElementById("inbox-filter-unread"),
-    inboxActions: document.getElementById("inbox-actions"),
     inboxDeleteSelected: document.getElementById("inbox-delete-selected"),
     inboxDeleteRead: document.getElementById("inbox-delete-read"),
     expenseRows: document.getElementById("expense-rows"),
@@ -4748,10 +4747,8 @@
 
   function syncInboxBulkControls() {
     const selectedCount = selectedInboxIds().length;
-    if (refs.inboxActions) {
-      refs.inboxActions.hidden = selectedCount <= 0;
-    }
     if (refs.inboxDeleteSelected) {
+      refs.inboxDeleteSelected.hidden = selectedCount <= 0;
       refs.inboxDeleteSelected.disabled = selectedCount <= 0;
       refs.inboxDeleteSelected.textContent =
         selectedCount > 0 ? `Delete selected (${selectedCount})` : "Delete selected";
@@ -4814,8 +4811,9 @@
         const unreadClass = item.isRead ? "" : " is-unread";
         const createdAt = formatDateTimeLocal(item.createdAt);
         const isSelected = selected.has(item.id);
+        const selectedClass = isSelected ? " is-selected" : "";
         return `
-          <div class="inbox-item${unreadClass}" data-inbox-id="${escapeHtml(item.id)}">
+          <div class="inbox-item${unreadClass}${selectedClass}" data-inbox-id="${escapeHtml(item.id)}">
             <label class="inbox-item-check">
               <input type="checkbox" data-inbox-select="${escapeHtml(item.id)}" ${isSelected ? "checked" : ""} />
             </label>

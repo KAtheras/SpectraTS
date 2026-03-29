@@ -384,22 +384,21 @@ body[data-theme="dark"] .button {
 }
 
 .inbox-head-controls {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
-  justify-content: flex-end;
-}
-
-.inbox-actions {
-  display: flex;
-  justify-content: flex-end;
+  justify-content: flex-start;
 }
 
 .inbox-delete-read,
 #inbox-delete-selected {
   min-height: 34px;
   padding: 7px 12px;
+}
+
+.inbox-delete-read {
+  margin-left: auto;
 }
 
 .inbox-filters .button {
@@ -442,6 +441,11 @@ body[data-theme="dark"] .button {
 .inbox-item.is-unread {
   background: color-mix(in srgb, var(--accent) 8%, #ffffff);
   border-color: color-mix(in srgb, var(--accent) 22%, var(--line));
+}
+
+.inbox-item.is-selected {
+  background: color-mix(in srgb, var(--accent) 12%, #ffffff);
+  border-color: color-mix(in srgb, var(--accent) 38%, var(--line));
 }
 
 .inbox-item-check {
