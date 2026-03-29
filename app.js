@@ -2607,6 +2607,11 @@
     syncInputsExpenseRowInteractivity(rows);
   }
 
+  function closeInputsDesktopDatePopover() {
+    if (!window.datePicker) return;
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+  }
+
   function feedback(message, isError) {
     refs.feedback.textContent = message || "";
     refs.feedback.dataset.error = isError ? "true" : "false";
@@ -4068,6 +4073,20 @@
     refs.openCatalog.addEventListener("click", function () {
       setView("clients");
     });
+  }
+
+  if (refs.inputsView) {
+    refs.inputsView.addEventListener(
+      "mousedown",
+      function (event) {
+        const target = event.target;
+        if (!(target instanceof Element)) return;
+        if (target.closest("select")) {
+          closeInputsDesktopDatePopover();
+        }
+      },
+      true
+    );
   }
   if (refs.navClientsMobile) {
     refs.navClientsMobile.addEventListener("click", function () {
