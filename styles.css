@@ -4039,7 +4039,7 @@ body[data-theme="dark"] .entry-approved td {
   gap: 0;
   min-width: 0;
   overflow: hidden;
-  padding: 0 6px;
+  padding: 0;
 }
 
 #inputs-view .input-row-body .cell-actions .button {
@@ -4068,46 +4068,78 @@ body[data-theme="dark"] .entry-approved td {
 
 #inputs-view .input-row-body.has-edit-action .cell-actions {
   justify-content: flex-start;
-  gap: 4px;
+  gap: 2px;
 }
 
 #inputs-view .input-row-body.has-edit-action .cell-actions .button {
-  width: auto;
-  max-width: 62px;
-  min-width: 0;
-  height: 30px;
-  min-height: 30px;
-  padding: 0 6px;
-  font-size: 0.72rem;
+  width: 40px;
+  max-width: 40px;
+  min-width: 40px;
+  height: 28px;
+  min-height: 28px;
+  padding: 0 4px;
+  font-size: 0.64rem;
   line-height: 1;
-  flex: 1 1 auto;
+  flex: 0 0 auto;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 #inputs-view .input-row-body .cell-actions .inputs-time-edit {
-  height: 30px;
-  min-height: 30px;
+  height: 28px;
+  min-height: 28px;
   width: 40px;
   min-width: 40px;
   max-width: 40px;
-  padding: 0 6px;
+  padding: 0;
   border: 1px solid #cbd5e1;
   border-radius: 4px;
   background: transparent;
   color: #475569;
   font: inherit;
-  font-size: 0.72rem;
+  font-size: 0.64rem;
   font-weight: 600;
   line-height: 1;
   cursor: pointer;
   box-sizing: border-box;
   white-space: nowrap;
   overflow: hidden;
-  text-overflow: clip;
+  text-overflow: ellipsis;
+  text-align: center;
   flex: 0 0 auto;
 }
 
 #inputs-view .input-row-body .cell-actions .inputs-time-edit[hidden] {
+  display: none;
+}
+
+#inputs-view .input-row-body .cell-actions .inputs-time-delete {
+  height: 28px;
+  min-height: 28px;
+  width: 22px;
+  min-width: 22px;
+  max-width: 22px;
+  padding: 0;
+  border: 1px solid #d5dce6;
+  border-radius: 4px;
+  background: transparent;
+  color: #8b97a8;
+  font-size: 0.78rem;
+  line-height: 1;
+  cursor: pointer;
+  box-sizing: border-box;
+  text-align: center;
+  flex: 0 0 auto;
+}
+
+#inputs-view .input-row-body .cell-actions .inputs-time-delete:hover,
+#inputs-view .input-row-body .cell-actions .inputs-time-delete:focus-visible {
+  color: #a13a3a;
+  border-color: #d8b0b0;
+  background: #fdf6f6;
+  outline: none;
+}
+
+#inputs-view .input-row-body .cell-actions .inputs-time-delete[hidden] {
   display: none;
 }
