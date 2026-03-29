@@ -4077,15 +4077,14 @@
 
   if (refs.inputsView) {
     refs.inputsView.addEventListener(
-      "mousedown",
+      "click",
       function (event) {
         const target = event.target;
         if (!(target instanceof Element)) return;
         if (target.closest("select")) {
           closeInputsDesktopDatePopover();
         }
-      },
-      true
+      }
     );
   }
   if (refs.navClientsMobile) {
