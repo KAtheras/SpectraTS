@@ -3902,7 +3902,8 @@ body[data-theme="dark"] .entry-approved td {
   background: #ffffff;
 }
 
-#inputs-view #inputs-panel-time {
+#inputs-view #inputs-panel-time,
+#inputs-view #inputs-panel-expenses {
   padding: 0;
   border: none;
   border-radius: 0;
@@ -3930,6 +3931,17 @@ body[data-theme="dark"] .entry-approved td {
     minmax(110px, 0.8fr);
 }
 
+#inputs-view #inputs-panel-expenses .input-row {
+  grid-template-columns:
+    minmax(340px, 2.24fr)
+    minmax(84px, 0.6fr)
+    minmax(124px, 0.82fr)
+    minmax(92px, 0.42fr)
+    minmax(83px, 0.45fr)
+    minmax(320px, 2.74fr)
+    minmax(110px, 0.8fr);
+}
+
 #inputs-view .input-row-head {
   font-size: 0.82rem;
   letter-spacing: 0.02em;
@@ -3939,7 +3951,7 @@ body[data-theme="dark"] .entry-approved td {
   position: relative;
 }
 
-#inputs-view .input-row-head::after {
+#inputs-view #inputs-panel-time .input-row-head::after {
   content: "";
   grid-column: 6;
   min-height: 44px;
@@ -3947,9 +3959,19 @@ body[data-theme="dark"] .entry-approved td {
   border-bottom: 1px solid #edf1f5;
 }
 
+#inputs-view #inputs-panel-expenses .input-row-head::after {
+  content: "";
+  grid-column: 7;
+  min-height: 44px;
+  background: #4B5563;
+  border-bottom: 1px solid #edf1f5;
+}
+
 #inputs-view .input-row-head .cell-project,
 #inputs-view .input-row-head .cell-date,
+#inputs-view .input-row-head .cell-category,
 #inputs-view .input-row-head .cell-hours,
+#inputs-view .input-row-head .cell-amount,
 #inputs-view .input-row-head .cell-billable,
 #inputs-view .input-row-head .cell-notes {
   min-height: 44px;
@@ -3975,7 +3997,9 @@ body[data-theme="dark"] .entry-approved td {
 
 #inputs-view .input-row-body .cell-project,
 #inputs-view .input-row-body .cell-date,
+#inputs-view .input-row-body .cell-category,
 #inputs-view .input-row-body .cell-hours,
+#inputs-view .input-row-body .cell-amount,
 #inputs-view .input-row-body .cell-billable,
 #inputs-view .input-row-body .cell-notes,
 #inputs-view .input-row-body .cell-actions {
@@ -3985,7 +4009,9 @@ body[data-theme="dark"] .entry-approved td {
 
 #inputs-view .input-row-body[data-saved="true"] .cell-project,
 #inputs-view .input-row-body[data-saved="true"] .cell-date,
+#inputs-view .input-row-body[data-saved="true"] .cell-category,
 #inputs-view .input-row-body[data-saved="true"] .cell-hours,
+#inputs-view .input-row-body[data-saved="true"] .cell-amount,
 #inputs-view .input-row-body[data-saved="true"] .cell-billable,
 #inputs-view .input-row-body[data-saved="true"] .cell-notes,
 #inputs-view .input-row-body[data-saved="true"] .cell-actions {
@@ -3994,7 +4020,9 @@ body[data-theme="dark"] .entry-approved td {
 
 #inputs-view .cell-project,
 #inputs-view .cell-date,
+#inputs-view .cell-category,
 #inputs-view .cell-hours,
+#inputs-view .cell-amount,
 #inputs-view .cell-billable,
 #inputs-view .cell-notes,
 #inputs-view .cell-actions {
@@ -4025,9 +4053,21 @@ body[data-theme="dark"] .entry-approved td {
 
 #inputs-view .input-row-body .cell-project select,
 #inputs-view .input-row-body .cell-date input,
+#inputs-view .input-row-body .cell-category select,
 #inputs-view .input-row-body .cell-hours input,
+#inputs-view .input-row-body .cell-amount input,
 #inputs-view .input-row-body .cell-notes input {
   width: 100%;
+}
+
+#inputs-view .input-row-body .cell-amount input::-webkit-outer-spin-button,
+#inputs-view .input-row-body .cell-amount input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+#inputs-view .input-row-body .cell-amount input {
+  -moz-appearance: textfield;
 }
 
 #inputs-view .input-row-body .cell-billable {

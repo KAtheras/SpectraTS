@@ -552,13 +552,45 @@
 
           <section class="input-panel" id="inputs-panel-expenses" hidden>
             <div class="input-grid">
-              <div class="input-row">
-                <div class="cell-project">Expenses grid coming next phase</div>
+              <div class="input-row input-row-head" aria-hidden="true">
+                <div class="cell-project">Client / Project</div>
                 <div class="cell-date">Date</div>
+                <div class="cell-category">Category</div>
                 <div class="cell-amount">Amount</div>
+                <div class="cell-billable">Billable</div>
                 <div class="cell-notes">Notes</div>
-                <div class="cell-actions">Actions</div>
               </div>
+
+              <form id="inputs-expense-form" class="input-row input-row-body">
+                <div class="cell-project">
+                  <select id="inputs-expense-client-project" required></select>
+                </div>
+                <div class="cell-date">
+                  <input type="date" id="inputs-expense-date" required />
+                </div>
+                <div class="cell-category">
+                  <select id="inputs-expense-category" required></select>
+                </div>
+                <div class="cell-amount">
+                  <input
+                    type="number"
+                    id="inputs-expense-amount"
+                    min="0.01"
+                    step="0.01"
+                    placeholder="0.00"
+                    required
+                  />
+                </div>
+                <div class="cell-billable">
+                  <input type="checkbox" id="inputs-expense-billable" aria-label="Billable" />
+                </div>
+                <div class="cell-notes">
+                  <input type="text" id="inputs-expense-notes" placeholder="Add notes" />
+                </div>
+                <div class="cell-actions">
+                  <button class="button button-primary" id="inputs-expense-save" type="submit">Save</button>
+                </div>
+              </form>
             </div>
           </section>
         </div>

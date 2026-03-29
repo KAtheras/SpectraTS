@@ -345,6 +345,13 @@
     inputsTimeHours: document.getElementById("inputs-time-hours"),
     inputsTimeBillable: document.getElementById("inputs-time-billable"),
     inputsTimeNotes: document.getElementById("inputs-time-notes"),
+    inputsExpenseForm: document.getElementById("inputs-expense-form"),
+    inputsExpenseClientProject: document.getElementById("inputs-expense-client-project"),
+    inputsExpenseDate: document.getElementById("inputs-expense-date"),
+    inputsExpenseCategory: document.getElementById("inputs-expense-category"),
+    inputsExpenseAmount: document.getElementById("inputs-expense-amount"),
+    inputsExpenseBillable: document.getElementById("inputs-expense-billable"),
+    inputsExpenseNotes: document.getElementById("inputs-expense-notes"),
     expenseRows: document.getElementById("expense-rows"),
     addCategory: document.getElementById("add-category"),
     saveCategories: document.getElementById("save-categories"),
@@ -2208,6 +2215,436 @@
     syncInputsTimeRowInteractivity(rows);
   }
 
+  function inputsExpenseRowFields(row) {
+    if (!row) return {};
+    return {
+      row,
+      clientProject: row.querySelector(".cell-project select"),
+      date: row.querySelector(".cell-date input"),
+      category: row.querySelector(".cell-category select"),
+      amount: row.querySelector(".cell-amount input"),
+      billable: row.querySelector(".cell-billable input[type='checkbox']"),
+      notes: row.querySelector(".cell-notes input"),
+      actions: row.querySelector(".cell-actions"),
+      save: row.querySelector(".cell-actions .button"),
+      edit: row.querySelector(".cell-actions [data-inputs-time-edit]"),
+      remove: row.querySelector(".cell-actions [data-inputs-time-delete]"),
+    };
+  }
+
+  function ensureInputsExpenseEditButton(row) {
+    const fields = inputsExpenseRowFields(row);
+    if (!fields.actions) return null;
+    const editButton = fields.edit || document.createElement("button");
+    if (!fields.edit) {
+      editButton.type = "button";
+      editButton.className = "inputs-time-edit";
+      editButton.textContent = "Edit";
+      editButton.hidden = true;
+      editButton.dataset.inputsTimeEdit = "true";
+      fields.actions.appendChild(editButton);
+    }
+    if (!editButton.__inputsExpenseBoundClick) {
+      editButton.addEventListener("click", function () {
+        if (row.dataset.saving === "true" || row.dataset.deleting === "true") return;
+        setInputsExpenseRowState(row, "editing-saved");
+        row.dataset.saving = "false";
+        const current = inputsExpenseRowFields(row);
+        if (current.save) {
+          current.save.hidden = false;
+          current.save.classList.remove("is-saved");
+          current.save.textContent = "Save";
+          current.save.disabled = false;
+        }
+        syncInputsExpenseRowInteractivity(
+          Array.from(row.parentElement?.querySelectorAll("form.input-row.input-row-body") || [])
+        );
+        current.amount?.focus();
+      });
+      editButton.__inputsExpenseBoundClick = true;
+    }
+    return editButton;
+  }
+
+  function ensureInputsExpenseDeleteButton(row) {
+    const fields = inputsExpenseRowFields(row);
+    if (!fields.actions) return null;
+    const deleteButton = fields.remove || document.createElement("button");
+    if (!fields.remove) {
+      deleteButton.type = "button";
+      deleteButton.className = "inputs-time-delete";
+      deleteButton.textContent = "🗑";
+      deleteButton.hidden = true;
+      deleteButton.dataset.inputsTimeDelete = "true";
+      deleteButton.setAttribute("aria-label", "Delete row");
+      deleteButton.title = "Delete";
+      fields.actions.appendChild(deleteButton);
+    }
+    if (!deleteButton.__inputsExpenseBoundClick) {
+      deleteButton.addEventListener("click", async function () {
+        if (row.dataset.saving === "true" || row.dataset.deleting === "true") return;
+        const id = `${row.dataset.entryId || ""}`.trim();
+        if (!id) {
+          feedback("Unable to delete expense.", true);
+          return;
+        }
+        row.dataset.deleting = "true";
+        const current = inputsExpenseRowFields(row);
+        if (current.save) current.save.disabled = true;
+        if (current.edit) current.edit.disabled = true;
+        if (current.remove) current.remove.disabled = true;
+        try {
+          await mutatePersistentState("delete_expense", { id });
+        } catch (error) {
+          row.dataset.deleting = "false";
+          if (current.save) current.save.disabled = true;
+          if (current.edit) current.edit.disabled = false;
+          if (current.remove) current.remove.disabled = false;
+          feedback(error.message || "Unable to delete expense.", true);
+          return;
+        }
+
+        const container = row.parentElement;
+        const deletingTemplateRow = row === refs.inputsExpenseForm;
+        row.remove();
+        if (deletingTemplateRow && container) {
+          const nextTemplate = container.querySelector("form.input-row.input-row-body");
+          if (nextTemplate) {
+            refs.inputsExpenseForm = nextTemplate;
+            refs.inputsExpenseForm.id = "inputs-expense-form";
+          }
+        }
+        if (container) {
+          syncInputsExpenseRowInteractivity(
+            Array.from(container.querySelectorAll("form.input-row.input-row-body"))
+          );
+        }
+        feedback("Expense deleted.", false);
+        postHeight();
+      });
+      deleteButton.__inputsExpenseBoundClick = true;
+    }
+    return deleteButton;
+  }
+
+  function setInputsExpenseEditButtonVisible(row, visible) {
+    const editButton = ensureInputsExpenseEditButton(row);
+    if (!editButton) return;
+    editButton.hidden = !visible;
+    row.classList.toggle("has-edit-action", !!visible);
+  }
+
+  function setInputsExpenseDeleteButtonVisible(row, visible) {
+    const deleteButton = ensureInputsExpenseDeleteButton(row);
+    if (!deleteButton) return;
+    deleteButton.hidden = !visible;
+  }
+
+  function setInputsExpenseRowState(row, state) {
+    if (!row) return;
+    row.dataset.rowState = state;
+    row.dataset.saved = state === "saved" ? "true" : "false";
+    row.dataset.editing = state === "editing-saved" ? "true" : "false";
+  }
+
+  function isInputsExpenseRowBlank(row) {
+    if (!row) return false;
+    const fields = inputsExpenseRowFields(row);
+    const amountRaw = `${fields.amount?.value || ""}`.trim();
+    const notesRaw = `${fields.notes?.value || ""}`.trim();
+    const categoryRaw = `${fields.category?.value || ""}`.trim();
+    const hasAmount = amountRaw !== "" && !Number.isNaN(Number(amountRaw)) && Number(amountRaw) > 0;
+    return !hasAmount && notesRaw === "" && categoryRaw === "";
+  }
+
+  function hasTrailingBlankInputsExpenseRow(container) {
+    if (!container) return false;
+    const rows = Array.from(container.querySelectorAll("form.input-row.input-row-body"));
+    if (!rows.length) return false;
+    const last = rows[rows.length - 1];
+    const rowState = last.dataset.rowState || (last.dataset.saved === "true" ? "saved" : "new");
+    if (rowState !== "new" || last.dataset.saving === "true") return false;
+    return isInputsExpenseRowBlank(last);
+  }
+
+  function setInputsExpenseRowSaved(row) {
+    if (!row) return;
+    setInputsExpenseRowState(row, "saved");
+    row.dataset.saving = "false";
+    row.dataset.deleting = "false";
+    const fields = inputsExpenseRowFields(row);
+    [fields.clientProject, fields.date, fields.category, fields.amount, fields.billable, fields.notes].forEach(
+      (input) => {
+        if (input) input.disabled = true;
+      }
+    );
+    if (fields.save) {
+      fields.save.hidden = true;
+      fields.save.disabled = true;
+      fields.save.classList.remove("is-saved");
+      fields.save.textContent = "Save";
+    }
+    setInputsExpenseEditButtonVisible(row, true);
+    setInputsExpenseDeleteButtonVisible(row, true);
+  }
+
+  function syncInputsExpenseRowInteractivity(rows) {
+    const list = Array.isArray(rows) ? rows : [];
+    list.forEach((row) => {
+      if (!row.dataset.rowState) {
+        setInputsExpenseRowState(row, row.dataset.saved === "true" ? "saved" : "new");
+      }
+    });
+    const unsavedRows = list.filter((row) => row.dataset.rowState !== "saved");
+    const editingRow = unsavedRows.find((row) => row.dataset.rowState === "editing-saved") || null;
+    const activeRow = editingRow || (unsavedRows.length ? unsavedRows[unsavedRows.length - 1] : null);
+
+    list.forEach((row) => {
+      const fields = inputsExpenseRowFields(row);
+      const isSaved = row.dataset.rowState === "saved";
+      const isSaving = row.dataset.saving === "true";
+      const isActiveUnsaved = !isSaved && row === activeRow;
+      const isEditingSaved = row.dataset.rowState === "editing-saved";
+
+      if (isSaved) {
+        setInputsExpenseRowSaved(row);
+        return;
+      }
+      setInputsExpenseRowState(row, isEditingSaved ? "editing-saved" : "new");
+      row.dataset.editing = isActiveUnsaved && isEditingSaved ? "true" : "false";
+      row.dataset.deleting = "false";
+      setInputsExpenseEditButtonVisible(row, false);
+      setInputsExpenseDeleteButtonVisible(row, false);
+
+      [fields.clientProject, fields.date, fields.category, fields.amount, fields.billable, fields.notes].forEach(
+        (input) => {
+          if (input) input.disabled = !isActiveUnsaved || isSaving;
+        }
+      );
+
+      if (fields.save) {
+        fields.save.hidden = false;
+        fields.save.classList.remove("is-saved");
+        fields.save.textContent = isSaving ? "Saving..." : "Save";
+        fields.save.disabled = !isActiveUnsaved || isSaving;
+      }
+    });
+  }
+
+  function inputsExpenseComboOptions() {
+    return assignedProjectTuplesForCurrentUser().map((item) => ({
+      label: `${item.client} / ${item.project}`,
+      value: encodeInputsTimeCombo(item.client, item.project),
+    }));
+  }
+
+  function inputsExpenseCategoryOptions() {
+    const categories = typeof activeExpenseCategories === "function" ? activeExpenseCategories() : [];
+    return categories
+      .map((item) => ({ label: item.name, value: item.name }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }
+
+  function applyInputsExpenseBillableDefaultForRow(row) {
+    const fields = inputsExpenseRowFields(row);
+    if (!fields.clientProject || !fields.billable) return;
+    const [, projectName] = decodeInputsTimeCombo(fields.clientProject.value);
+    fields.billable.checked = !isNonBillableDefault(projectName || "");
+  }
+
+  function syncInputsExpenseFormRow(row, comboOptions, categoryOptions) {
+    const fields = inputsExpenseRowFields(row);
+    if (!fields.clientProject) return;
+    const selectedCombo = fields.clientProject.value || "";
+    setSelectOptionsWithPlaceholder(
+      { escapeHtml },
+      fields.clientProject,
+      comboOptions,
+      selectedCombo,
+      "Client / Project"
+    );
+    if (!fields.clientProject.value && comboOptions.length) {
+      fields.clientProject.value = comboOptions[0].value;
+    }
+    fields.clientProject.disabled = comboOptions.length === 0;
+
+    const selectedCategory = fields.category?.value || "";
+    if (fields.category) {
+      setSelectOptionsWithPlaceholder(
+        { escapeHtml },
+        fields.category,
+        categoryOptions,
+        selectedCategory,
+        "Category"
+      );
+      fields.category.disabled = categoryOptions.length === 0;
+    }
+
+    if (fields.billable && row.dataset.lastCombo !== fields.clientProject.value) {
+      applyInputsExpenseBillableDefaultForRow(row);
+    }
+    row.dataset.lastCombo = fields.clientProject.value || "";
+
+    syncInputsTimeDateInput(fields.date);
+  }
+
+  function addInputsExpenseRowFrom(sourceRow, comboOptions, categoryOptions) {
+    const template = refs.inputsExpenseForm;
+    const container = template?.parentElement;
+    if (!template || !container) return null;
+    const source = inputsExpenseRowFields(sourceRow);
+    const next = template.cloneNode(true);
+    next.removeAttribute("id");
+    next.dataset.boundHandlers = "";
+    next.dataset.lastCombo = "";
+    delete next.dataset.entryId;
+    delete next.dataset.createdAt;
+    setInputsExpenseRowState(next, "new");
+    next.dataset.saving = "false";
+    next.dataset.deleting = "false";
+    container.appendChild(next);
+
+    const nextFields = inputsExpenseRowFields(next);
+    if (nextFields.save) {
+      nextFields.save.hidden = false;
+      nextFields.save.textContent = "Save";
+      nextFields.save.disabled = false;
+      nextFields.save.classList.remove("is-saved");
+    }
+    setInputsExpenseEditButtonVisible(next, false);
+    setInputsExpenseDeleteButtonVisible(next, false);
+    [nextFields.clientProject, nextFields.date, nextFields.category, nextFields.amount, nextFields.billable, nextFields.notes].forEach(
+      (input) => {
+        if (input) input.disabled = false;
+      }
+    );
+    if (nextFields.amount) nextFields.amount.value = "";
+    if (nextFields.notes) nextFields.notes.value = "";
+    if (nextFields.category) nextFields.category.value = "";
+    if (nextFields.date) {
+      delete nextFields.date.dataset.dpBound;
+      const sourceIso =
+        source.date?.dataset.dpCanonical ||
+        parseInputsTimeDateValue(source.date?.value || "") ||
+        clampDateToBounds(today);
+      nextFields.date.dataset.dpCanonical = sourceIso;
+      const isDesktop = window.matchMedia("(pointer: fine) and (hover: hover)").matches;
+      nextFields.date.value = isDesktop ? formatDisplayDateShort(sourceIso) : sourceIso;
+    }
+    if (nextFields.clientProject && source.clientProject) {
+      nextFields.clientProject.value = source.clientProject.value || "";
+    }
+    syncInputsExpenseFormRow(next, comboOptions, categoryOptions);
+    bindInputsExpenseFormRow(next);
+    const rows = Array.from(container.querySelectorAll("form.input-row.input-row-body"));
+    syncInputsExpenseRowInteractivity(rows);
+    nextFields.amount?.focus();
+    return next;
+  }
+
+  function bindInputsExpenseFormRow(row) {
+    if (!row || row.dataset.boundHandlers === "true") return;
+    const fields = inputsExpenseRowFields(row);
+    if (!fields.clientProject) return;
+
+    fields.clientProject.addEventListener("change", function () {
+      applyInputsExpenseBillableDefaultForRow(row);
+      row.dataset.lastCombo = fields.clientProject.value || "";
+    });
+
+    fields.date?.addEventListener("change", function () {
+      syncInputsTimeDateField(fields.date);
+    });
+
+    row.addEventListener("submit", async function (event) {
+      event.preventDefault();
+      if (row.dataset.rowState === "saved" || row.dataset.saving === "true" || row.dataset.deleting === "true") {
+        return;
+      }
+      const wasEditingSavedRow = row.dataset.rowState === "editing-saved";
+      row.dataset.saving = "true";
+      row.dataset.editing = "false";
+      syncInputsExpenseRowInteractivity(
+        Array.from(row.parentElement?.querySelectorAll("form.input-row.input-row-body") || [])
+      );
+      const current = inputsExpenseRowFields(row);
+      const existingId = `${row.dataset.entryId || ""}`.trim();
+      const existingCreatedAt = `${row.dataset.createdAt || ""}`.trim();
+      const [clientName, projectName] = decodeInputsTimeCombo(current.clientProject?.value || "");
+      const nextExpense = {
+        id: existingId || crypto.randomUUID(),
+        userId: state.currentUser?.id || "",
+        clientName: clientName || "",
+        projectName: projectName || "",
+        expenseDate: parseInputsTimeDateValue(current.date?.value || ""),
+        category: current.category?.value || "",
+        amount: Number(current.amount?.value),
+        isBillable: current.billable ? current.billable.checked : true,
+        notes: (current.notes?.value || "").trim(),
+        createdAt: existingCreatedAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        status: "pending",
+      };
+
+      const error = validateExpenseForm(nextExpense);
+      if (error) {
+        row.dataset.saving = "false";
+        setInputsExpenseRowState(row, wasEditingSavedRow ? "editing-saved" : "new");
+        syncInputsExpenseRowInteractivity(
+          Array.from(row.parentElement?.querySelectorAll("form.input-row.input-row-body") || [])
+        );
+        feedback(error, true);
+        return;
+      }
+
+      try {
+        await mutatePersistentState(wasEditingSavedRow ? "update_expense" : "create_expense", { expense: nextExpense });
+      } catch (error) {
+        row.dataset.saving = "false";
+        setInputsExpenseRowState(row, wasEditingSavedRow ? "editing-saved" : "new");
+        syncInputsExpenseRowInteractivity(
+          Array.from(row.parentElement?.querySelectorAll("form.input-row.input-row-body") || [])
+        );
+        feedback(error.message || "Unable to save expense.", true);
+        return;
+      }
+
+      feedback("Expense saved.", false);
+      row.dataset.entryId = nextExpense.id;
+      row.dataset.createdAt = nextExpense.createdAt;
+      setInputsExpenseRowSaved(row);
+      const container = row.parentElement;
+      const shouldAddNextRow = !wasEditingSavedRow && !hasTrailingBlankInputsExpenseRow(container);
+      if (shouldAddNextRow) {
+        addInputsExpenseRowFrom(row, inputsExpenseComboOptions(), inputsExpenseCategoryOptions());
+      } else if (container) {
+        syncInputsExpenseRowInteractivity(
+          Array.from(container.querySelectorAll("form.input-row.input-row-body"))
+        );
+      }
+      postHeight();
+    });
+
+    row.dataset.boundHandlers = "true";
+  }
+
+  function syncInputsExpenseRow() {
+    if (!refs.inputsExpenseForm) return;
+    const container = refs.inputsExpenseForm.parentElement;
+    if (!container) return;
+    const comboOptions = inputsExpenseComboOptions();
+    const categoryOptions = inputsExpenseCategoryOptions();
+    const rows = Array.from(container.querySelectorAll("form.input-row.input-row-body"));
+    rows.forEach((row) => {
+      if (!row.dataset.rowState) {
+        setInputsExpenseRowState(row, row.dataset.saved === "true" ? "saved" : "new");
+      }
+      syncInputsExpenseFormRow(row, comboOptions, categoryOptions);
+      bindInputsExpenseFormRow(row);
+    });
+    syncInputsExpenseRowInteractivity(rows);
+  }
+
   function feedback(message, isError) {
     refs.feedback.textContent = message || "";
     refs.feedback.dataset.error = isError ? "true" : "false";
@@ -3313,6 +3750,8 @@
     if (view === "inputs") {
       if (state.inputSubtab === "time") {
         syncInputsTimeRow();
+      } else {
+        syncInputsExpenseRow();
       }
       postHeight();
       return;
