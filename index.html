@@ -11,7 +11,7 @@
       name="description"
       content="A standalone timesheet app that can be hosted on Netlify and embedded in WordPress with an iframe."
     />
-    <link rel="stylesheet" href="./styles.css?v=7392e5a-20260329162243" />
+    <link rel="stylesheet" href="./styles.css?v=d9d6515-20260329183931" />
   </head>
   <body>
     <div class="auth-shell" id="auth-shell" hidden>
@@ -89,8 +89,6 @@
                   <button class="nav-pill" id="nav-settings" type="button">Settings</button>
                   <button class="nav-pill" id="nav-inputs" type="button">Inputs</button>
                   <button class="nav-pill" id="nav-entries" type="button">Entries</button>
-                  <button class="nav-pill" id="nav-timesheet" type="button">Time</button>
-                  <button class="nav-pill" id="nav-expenses" type="button">Expenses</button>
                   <button class="nav-pill" id="open-analytics" type="button">Analytics</button>
                   <button class="nav-pill" id="open-catalog" type="button">Clients</button>
                   <button class="nav-pill" id="nav-members" type="button">Members</button>
@@ -126,380 +124,13 @@
         <button class="nav-pill" id="nav-settings-mobile" type="button">Settings</button>
         <button class="nav-pill" id="nav-inputs-mobile" type="button">Inputs</button>
         <button class="nav-pill" id="nav-entries-mobile" type="button">Entries</button>
-        <button class="nav-pill" id="nav-timesheet-mobile" type="button">Time</button>
-        <button class="nav-pill" id="nav-expenses-mobile" type="button">Expenses</button>
         <button class="nav-pill" id="nav-analytics-mobile" type="button">Analytics</button>
         <button class="nav-pill" id="nav-clients-mobile" type="button">Clients</button>
         <button class="nav-pill" id="nav-members-mobile" type="button">Members</button>
         <button class="nav-pill" id="nav-audit-mobile" type="button">Audit</button>
       </nav>
       <div class="shell-inner">
-        <main class="app-frame">
-          <section class="panel-stack timesheet-view" id="timesheet-view">
-            <section class="panel panel-form">
-              <div class="panel-head">
-                <div>
-                  <h2 id="form-heading">Add time</h2>
-                </div>
-                <div class="panel-head-actions">
-                  <button class="button button-ghost entry-mode-button" type="button" id="entry-mode-toggle" data-mode="single">
-                    Multiple entry
-                  </button>
-                  <button class="button button-ghost" id="cancel-edit" hidden>
-                    Cancel
-                  </button>
-                </div>
-              </div>
-
-            <div id="single-entry-container">
-            <form id="entry-form" class="entry-form">
-              <label class="entry-pill" hidden>
-                <span>Team member</span>
-                <select name="user" id="entry-user" required></select>
-              </label>
-
-              <label class="entry-pill">
-                <span>Client / Project</span>
-                <select id="entry-client-project" required></select>
-              </label>
-
-              <label class="entry-pill" hidden>
-                <span>Client</span>
-                <select name="client" id="entry-client" required></select>
-              </label>
-
-              <label class="entry-pill" hidden>
-                <span>Project</span>
-                <select name="project" id="entry-project" required></select>
-              </label>
-
-              <label class="entry-pill">
-                <span>Date</span>
-                <input type="date" id="entry-date" name="date" required />
-              </label>
-
-              <div class="span-2 hours-field">
-                <div class="hours-header">
-                  <span>Hours</span>
-                  <span class="nonbillable-toggle">
-                    <input type="checkbox" name="nonBillable" id="entry-nonbillable" />
-                    <span>Non-billable</span>
-                  </span>
-                </div>
-                <div class="entry-helpers entry-helpers-hours">
-                  <input type="hidden" name="hours" required />
-                  <div class="preset-row">
-                    <div class="preset-buttons" id="hour-presets">
-                      <button class="chip-button" type="button" data-hours="0.5">0.5h</button>
-                      <button class="chip-button" type="button" data-hours="1">1h</button>
-                      <button class="chip-button" type="button" data-hours="1.5">1.5h</button>
-                      <button class="chip-button" type="button" data-hours="2">2h</button>
-                      <button class="chip-button" type="button" data-hours="2.5">2.5h</button>
-                      <button class="chip-button" type="button" data-hours="3">3h</button>
-                      <label class="other-hours">
-                        <input
-                          type="number"
-                          id="other-hours"
-                          min="0.25"
-                          max="24"
-                          step="0.25"
-                          placeholder="Other"
-                        />
-                      </label>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div class="notes-actions-row span-2">
-                <label class="notes-field">
-                  <span>Notes</span>
-                  <textarea
-                    name="notes"
-                    rows="1"
-                  ></textarea>
-                </label>
-
-                <div class="form-actions form-actions-entry">
-                  <span class="field-spacer" aria-hidden="true">Notes</span>
-                  <button class="button button-primary" type="submit" id="submit-entry">
-                    Save
-                  </button>
-                </div>
-              </div>
-            </form>
-            </div>
-
-            <div id="bulk-entry-container" class="bulk-entry-container" hidden>
-              <div class="bulk-table-wrap">
-                <table class="bulk-entry-table">
-                  <thead>
-                    <tr>
-                      <th>Date</th>
-                      <th>Client</th>
-                      <th>Project</th>
-                      <th>Hours</th>
-                      <th>Billable</th>
-                      <th>Notes</th>
-                      <th></th>
-                    </tr>
-                  </thead>
-                  <tbody id="bulk-entry-body"></tbody>
-                </table>
-              </div>
-              <div class="bulk-actions">
-                <button type="button" class="button button-ghost" id="bulk-add-row">+ Add row</button>
-                <button type="button" class="button button-primary" id="bulk-save-rows">Save</button>
-              </div>
-            </div>
-          </section>
-
-        <div id="timesheet-review-anchor" hidden aria-hidden="true"></div>
-        <section class="panel" id="time-entries-review-panel">
-          <div class="panel-head panel-head-logged">
-            <div class="panel-head-title-row">
-              <h2>Logged time</h2>
-              <div class="filter-total" id="filter-total-hours">Total hours: 0.00</div>
-            </div>
-
-            <div class="panel-head-actions">
-              <button class="button button-ghost" type="button" id="clear-filters">
-                Clear
-              </button>
-              <button class="button button-ghost" type="button" id="export-csv">
-                Export CSV
-              </button>
-            </div>
-          </div>
-
-          <form id="filter-form" class="filters">
-              <label>
-                <span>User</span>
-                <select name="user" id="filter-user"></select>
-              </label>
-              <label>
-                <span>Client</span>
-                <select name="client" id="filter-client"></select>
-              </label>
-              <label>
-                <span>Project</span>
-                <select name="project" id="filter-project"></select>
-              </label>
-              <label>
-                <span>From</span>
-                <input type="text" name="from" hidden />
-                <div class="wheel-date-picker wheel-date-picker--compact" data-filter-date="from">
-                  <select id="filter-from-month" aria-label="From month"></select>
-                  <select id="filter-from-day" aria-label="From day"></select>
-                  <select id="filter-from-year" aria-label="From year"></select>
-                </div>
-              </label>
-              <label>
-                <span>To</span>
-                <input type="text" name="to" hidden />
-                <div class="wheel-date-picker wheel-date-picker--compact" data-filter-date="to">
-                  <select id="filter-to-month" aria-label="To month"></select>
-                  <select id="filter-to-day" aria-label="To day"></select>
-                  <select id="filter-to-year" aria-label="To year"></select>
-                </div>
-              </label>
-              <label>
-                <span>Search</span>
-                <input
-                  type="search"
-                  name="search"
-                  placeholder="Project or notes"
-                />
-              </label>
-            </form>
-
-          <p id="feedback" class="feedback" aria-live="polite"></p>
-          <div id="active-filters" class="active-filters" hidden></div>
-
-          <div class="table-wrap">
-            <table class="entries-table">
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>User</th>
-                  <th>Client</th>
-                  <th>Project</th>
-                  <th>Hours</th>
-                  <th>Billable</th>
-                  <th>Notes</th>
-                  <th>Status</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody id="entries-body"></tbody>
-            </table>
-          </div>
-          </section>
-        </section>
-
-        <section class="panel-stack expenses-view" id="expenses-view" hidden>
-            <section class="panel panel-form panel-expense expense-form-card-live">
-              <div class="panel-head">
-                <div>
-                  <h2 id="expense-form-heading">Add expense</h2>
-                </div>
-                <div class="panel-head-actions">
-                  <button class="button button-ghost" id="expense-cancel-edit" hidden>
-                    Cancel
-                  </button>
-                </div>
-              </div>
-
-              <form id="expense-form" class="entry-form expense-entry-form">
-                <div class="expense-row expense-row-1">
-                  <label class="entry-pill" hidden>
-                    <span>Team member</span>
-                    <select name="user" id="expense-user" required></select>
-                  </label>
-
-                  <label class="entry-pill">
-                    <span>Client / Project</span>
-                    <select id="expense-client-project" required></select>
-                  </label>
-
-                  <label class="entry-pill" hidden>
-                    <span>Client</span>
-                    <select name="client" id="expense-client" required></select>
-                  </label>
-
-                  <label class="entry-pill" hidden>
-                    <span>Project</span>
-                    <select name="project" id="expense-project" required></select>
-                  </label>
-
-                  <label class="entry-pill">
-                    <span>Category</span>
-                    <select name="category" id="expense-category" required></select>
-                  </label>
-
-                  <label class="entry-pill">
-                    <span>Date</span>
-                    <input type="date" id="expense-date" name="date" required />
-                  </label>
-
-                  <label class="entry-pill expense-amount-group">
-                    <div class="hours-header expense-amount-header-live">
-                      <span>Amount</span>
-                    </div>
-                    <input type="number" id="expense-amount" name="amount" step="0.01" min="0" required />
-                  </label>
-
-                  <label class="entry-pill expense-billable-group">
-                    <span class="nonbillable-toggle expense-nonbillable-live">
-                      <input type="checkbox" id="expense-nonbillable" name="nonbillable">
-                      <span>Non-billable</span>
-                    </span>
-                  </label>
-                </div>
-
-                <div class="expense-row expense-row-2">
-                  <label class="entry-notes expense-notes-inline">
-                    <span>Notes</span>
-                    <textarea id="expense-notes" name="notes" rows="2" placeholder="Add a note (optional)"></textarea>
-                  </label>
-
-                  <div class="form-actions expense-actions-inline">
-                    <button class="button button-primary" id="submit-expense" type="submit">Save</button>
-                  </div>
-                </div>
-              </form>
-            </section>
-
-            <div id="expenses-review-anchor" hidden aria-hidden="true"></div>
-            <section class="panel panel-table" id="expense-entries-review-panel">
-              <div class="panel-head panel-head-logged">
-                <div class="panel-head-title-row">
-                  <h2>Submitted expenses</h2>
-                  <div class="filter-total" id="expense-filter-total">Total amount: $0.00</div>
-                </div>
-                <div class="panel-head-actions">
-                  <button class="button button-ghost" type="button" id="expense-clear-filters">
-                    Clear
-                  </button>
-                  <button class="button button-ghost" type="button" id="expense-export-csv">
-                    Export CSV
-                  </button>
-                </div>
-              </div>
-
-              <form id="expense-filter-form" class="filters">
-                <label>
-                  <span>User</span>
-                  <select name="user" id="expense-filter-user"></select>
-                </label>
-                <label>
-                  <span>Client</span>
-                  <select name="client" id="expense-filter-client"></select>
-                </label>
-                <label>
-                  <span>Project</span>
-                  <select name="project" id="expense-filter-project"></select>
-                </label>
-                <label>
-                  <span>From</span>
-                  <input type="text" name="from" hidden />
-                  <div class="wheel-date-picker wheel-date-picker--compact" data-expense-filter-date="from">
-                    <select id="expense-filter-from-month" aria-label="From month"></select>
-                    <select id="expense-filter-from-day" aria-label="From day"></select>
-                    <select id="expense-filter-from-year" aria-label="From year"></select>
-                  </div>
-                </label>
-                <label>
-                  <span>To</span>
-                  <input type="text" name="to" hidden />
-                  <div class="wheel-date-picker wheel-date-picker--compact" data-expense-filter-date="to">
-                    <select id="expense-filter-to-month" aria-label="To month"></select>
-                    <select id="expense-filter-to-day" aria-label="To day"></select>
-                    <select id="expense-filter-to-year" aria-label="To year"></select>
-                  </div>
-                </label>
-                <label>
-                  <span>Search</span>
-                  <input
-                    type="search"
-                    name="search"
-                    placeholder="Project, category, or notes"
-                  />
-                </label>
-              </form>
-
-              <div id="expense-active-filters" class="active-filters" hidden></div>
-              <div class="table-wrapper">
-                <table class="entries-table">
-                  <thead>
-                    <tr>
-                      <th>Date</th>
-                      <th>User</th>
-                      <th>Client</th>
-                      <th>Project</th>
-                      <th>Category</th>
-                      <th>Amount</th>
-                      <th>Billable</th>
-                      <th>Notes</th>
-                      <th>Status</th>
-                      <th class="actions-cell">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody id="expenses-body">
-                    <tr>
-                      <td colspan="10" class="empty-row">
-                        <div class="empty-state-panel">
-                          <strong>No expenses yet.</strong>
-                          <span>Add an expense to get started.</span>
-                        </div>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </section>
-          </section>
-        </main>
+        <main class="app-frame"></main>
       </div>
 
       <section class="page-view inputs-view" id="inputs-view" hidden aria-labelledby="inputs-view-title">
@@ -615,11 +246,176 @@
           </div>
 
           <section class="input-panel entries-panel" id="entries-panel-time">
-            <div class="entries-time-review-host" id="entries-time-review-host"></div>
+            <section class="panel" id="time-entries-review-panel">
+              <div class="panel-head panel-head-logged">
+                <div class="panel-head-title-row">
+                  <h2>Logged time</h2>
+                  <div class="filter-total" id="filter-total-hours">Total hours: 0.00</div>
+                </div>
+
+                <div class="panel-head-actions">
+                  <button class="button button-ghost" type="button" id="clear-filters">
+                    Clear
+                  </button>
+                  <button class="button button-ghost" type="button" id="export-csv">
+                    Export CSV
+                  </button>
+                </div>
+              </div>
+
+              <form id="filter-form" class="filters">
+                  <label>
+                    <span>User</span>
+                    <select name="user" id="filter-user"></select>
+                  </label>
+                  <label>
+                    <span>Client</span>
+                    <select name="client" id="filter-client"></select>
+                  </label>
+                  <label>
+                    <span>Project</span>
+                    <select name="project" id="filter-project"></select>
+                  </label>
+                  <label>
+                    <span>From</span>
+                    <input type="text" name="from" hidden />
+                    <div class="wheel-date-picker wheel-date-picker--compact" data-filter-date="from">
+                      <select id="filter-from-month" aria-label="From month"></select>
+                      <select id="filter-from-day" aria-label="From day"></select>
+                      <select id="filter-from-year" aria-label="From year"></select>
+                    </div>
+                  </label>
+                  <label>
+                    <span>To</span>
+                    <input type="text" name="to" hidden />
+                    <div class="wheel-date-picker wheel-date-picker--compact" data-filter-date="to">
+                      <select id="filter-to-month" aria-label="To month"></select>
+                      <select id="filter-to-day" aria-label="To day"></select>
+                      <select id="filter-to-year" aria-label="To year"></select>
+                    </div>
+                  </label>
+                  <label>
+                    <span>Search</span>
+                    <input
+                      type="search"
+                      name="search"
+                      placeholder="Project or notes"
+                    />
+                  </label>
+                </form>
+
+              <p id="feedback" class="feedback" aria-live="polite"></p>
+              <div id="active-filters" class="active-filters" hidden></div>
+
+              <div class="table-wrap">
+                <table class="entries-table">
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>User</th>
+                      <th>Client</th>
+                      <th>Project</th>
+                      <th>Hours</th>
+                      <th>Billable</th>
+                      <th>Notes</th>
+                      <th>Status</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody id="entries-body"></tbody>
+                </table>
+              </div>
+            </section>
           </section>
 
           <section class="input-panel entries-panel" id="entries-panel-expenses" hidden>
-            <div class="entries-expense-review-host" id="entries-expense-review-host"></div>
+            <section class="panel panel-table" id="expense-entries-review-panel">
+              <div class="panel-head panel-head-logged">
+                <div class="panel-head-title-row">
+                  <h2>Submitted expenses</h2>
+                  <div class="filter-total" id="expense-filter-total">Total amount: $0.00</div>
+                </div>
+                <div class="panel-head-actions">
+                  <button class="button button-ghost" type="button" id="expense-clear-filters">
+                    Clear
+                  </button>
+                  <button class="button button-ghost" type="button" id="expense-export-csv">
+                    Export CSV
+                  </button>
+                </div>
+              </div>
+
+              <form id="expense-filter-form" class="filters">
+                <label>
+                  <span>User</span>
+                  <select name="user" id="expense-filter-user"></select>
+                </label>
+                <label>
+                  <span>Client</span>
+                  <select name="client" id="expense-filter-client"></select>
+                </label>
+                <label>
+                  <span>Project</span>
+                  <select name="project" id="expense-filter-project"></select>
+                </label>
+                <label>
+                  <span>From</span>
+                  <input type="text" name="from" hidden />
+                  <div class="wheel-date-picker wheel-date-picker--compact" data-expense-filter-date="from">
+                    <select id="expense-filter-from-month" aria-label="From month"></select>
+                    <select id="expense-filter-from-day" aria-label="From day"></select>
+                    <select id="expense-filter-from-year" aria-label="From year"></select>
+                  </div>
+                </label>
+                <label>
+                  <span>To</span>
+                  <input type="text" name="to" hidden />
+                  <div class="wheel-date-picker wheel-date-picker--compact" data-expense-filter-date="to">
+                    <select id="expense-filter-to-month" aria-label="To month"></select>
+                    <select id="expense-filter-to-day" aria-label="To day"></select>
+                    <select id="expense-filter-to-year" aria-label="To year"></select>
+                  </div>
+                </label>
+                <label>
+                  <span>Search</span>
+                  <input
+                    type="search"
+                    name="search"
+                    placeholder="Project, category, or notes"
+                  />
+                </label>
+              </form>
+
+              <div id="expense-active-filters" class="active-filters" hidden></div>
+              <div class="table-wrapper">
+                <table class="entries-table">
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>User</th>
+                      <th>Client</th>
+                      <th>Project</th>
+                      <th>Category</th>
+                      <th>Amount</th>
+                      <th>Billable</th>
+                      <th>Notes</th>
+                      <th>Status</th>
+                      <th class="actions-cell">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="expenses-body">
+                    <tr>
+                      <td colspan="10" class="empty-row">
+                        <div class="empty-state-panel">
+                          <strong>No expenses yet.</strong>
+                          <span>Add an expense to get started.</span>
+                        </div>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
           </section>
         </div>
       </section>
@@ -939,7 +735,6 @@
     <script src="./timeEntries.js?v=1" defer></script>
     <script src="./catalogEditor.js?v=1" defer></script>
     <script src="./settingsAdmin.js?v=20260322-01" defer></script>
-    <script src="./bulkEntry.js?v=1" defer></script>
-    <script src="./app.js?v=7392e5a-20260329162243" defer></script>
+    <script src="./app.js?v=d9d6515-20260329183931" defer></script>
   </body>
 </html>

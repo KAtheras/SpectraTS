@@ -252,6 +252,10 @@
       renderHourSelection,
       setNonBillableDefault,
     } = deps();
+    if (!refs.form) {
+      state.editingId = null;
+      return;
+    }
     refs.form.reset();
     state.editingId = null;
     syncFormCatalogsUI({
@@ -266,9 +270,9 @@
     refs.otherHours.value = "";
     renderHourSelection?.({ refs, field });
     setNonBillableDefault(field(refs.form, "project")?.value || "");
-    refs.formHeading.textContent = "Add time";
-    refs.submitEntry.textContent = "Save";
-    refs.cancelEdit.hidden = true;
+    if (refs.formHeading) refs.formHeading.textContent = "Add time";
+    if (refs.submitEntry) refs.submitEntry.textContent = "Save";
+    if (refs.cancelEdit) refs.cancelEdit.hidden = true;
   }
 
   function setForm(entry) {
@@ -282,6 +286,9 @@
       setNonBillableDefault,
       QUICK_HOUR_PRESETS,
     } = deps();
+    if (!refs.form) {
+      return;
+    }
     syncFormCatalogsUI({
       user: entry.user,
       client: entry.client,
@@ -292,15 +299,17 @@
     }
     field(refs.form, "hours").value = entry.hours;
     field(refs.form, "notes").value = entry.notes;
-    refs.otherHours.value = QUICK_HOUR_PRESETS.has(String(entry.hours)) ? "" : String(entry.hours);
+    if (refs.otherHours) {
+      refs.otherHours.value = QUICK_HOUR_PRESETS.has(String(entry.hours)) ? "" : String(entry.hours);
+    }
     renderHourSelection?.({ refs, field });
     if (refs.entryNonBillable) {
       refs.entryNonBillable.checked = entry.billable === false;
     }
     state.editingId = entry.id;
-    refs.formHeading.textContent = "Edit time";
-    refs.submitEntry.textContent = "Save";
-    refs.cancelEdit.hidden = false;
+    if (refs.formHeading) refs.formHeading.textContent = "Edit time";
+    if (refs.submitEntry) refs.submitEntry.textContent = "Save";
+    if (refs.cancelEdit) refs.cancelEdit.hidden = false;
     const formCard = refs.form?.closest(".panel") || refs.form;
     formCard?.scrollIntoView({ behavior: "smooth", block: "start" });
   }

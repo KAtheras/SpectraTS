@@ -136,9 +136,6 @@
     renderHourSelection,
     defaultEntryUser,
     defaultFilterUser,
-    handleHourPresetClick,
-    handleOtherHoursInput,
-    wireEntryModeToggle,
   } = window.entryForm || {};
 
   const permissionGroupForUserWithSuper = (user) => {
@@ -160,14 +157,12 @@
     syncExpenseCatalogs: syncExpenseCatalogsImport,
     activeExpenseCategories,
     resetExpenseForm,
-    setExpenseForm,
     currentExpenses,
     renderExpenseFilterState,
     applyExpenseFiltersFromForm,
     canManageExpenseApproval,
     userNameById,
     renderExpenses,
-    expenseFromForm,
     validateExpenseForm,
   } = window.expenses || {};
   const syncExpenseCatalogs =
@@ -222,10 +217,8 @@
     canUnapproveEntry,
     showApproveButton,
     resetForm,
-    setForm,
     validateEntry,
   } = window.timeEntries || {};
-  const { bulkEntry } = window;
 
   function deps() {
     return { feedback };
@@ -287,19 +280,12 @@
     loginForm: document.getElementById("login-form"),
     bootstrapForm: document.getElementById("bootstrap-form"),
     authFeedback: document.getElementById("auth-feedback"),
-    form: document.getElementById("entry-form"),
-    formHeading: document.getElementById("form-heading"),
-    cancelEdit: document.getElementById("cancel-edit"),
     sessionIndicator: document.getElementById("session-indicator"),
     accountName: document.getElementById("account-name"),
-    navTimesheet: document.getElementById("nav-timesheet"),
-    navExpenses: document.getElementById("nav-expenses"),
     navInputs: document.getElementById("nav-inputs"),
     navEntries: document.getElementById("nav-entries"),
     navSettings: document.getElementById("nav-settings"),
     navMembers: document.getElementById("nav-members"),
-    timesheetView: document.getElementById("timesheet-view"),
-    expensesView: document.getElementById("expenses-view"),
     settingsToggle: document.getElementById("settings-toggle"),
     settingsMenu: document.getElementById("settings-menu"),
     settingsMenuHeader: document.getElementById("settings-menu-header"),
@@ -308,28 +294,13 @@
     themeToggle: document.getElementById("theme-toggle"),
     openCatalog: document.getElementById("open-catalog"),
     openAnalytics: document.getElementById("open-analytics"),
-    singleEntryContainer: document.getElementById("single-entry-container"),
-    bulkEntryContainer: document.getElementById("bulk-entry-container"),
-    bulkSaveRows: document.getElementById("bulk-save-rows"),
-    entryModeToggle: document.getElementById("entry-mode-toggle"),
     mobileTabbar: document.getElementById("mobile-tabbar"),
     navSettingsMobile: document.getElementById("nav-settings-mobile"),
     navMembersMobile: document.getElementById("nav-members-mobile"),
     navClientsMobile: document.getElementById("nav-clients-mobile"),
-    navTimesheetMobile: document.getElementById("nav-timesheet-mobile"),
-    navExpensesMobile: document.getElementById("nav-expenses-mobile"),
     navInputsMobile: document.getElementById("nav-inputs-mobile"),
     navEntriesMobile: document.getElementById("nav-entries-mobile"),
     navAnalyticsMobile: document.getElementById("nav-analytics-mobile"),
-    closeCatalog: document.getElementById("close-catalog"),
-    clientsNavMembers: document.getElementById("clients-nav-members"),
-    clientsNavMain: document.getElementById("clients-nav-main"),
-    clientsNavTheme: document.getElementById("clients-nav-theme"),
-    membersNavClients: document.getElementById("members-nav-clients"),
-    membersNavMain: document.getElementById("members-nav-main"),
-    membersNavTheme: document.getElementById("members-nav-theme"),
-    settingsLevels: document.getElementById("settings-levels"),
-    analyticsNavBack: document.getElementById("analytics-nav-back"),
     clientsPage: document.getElementById("clients-page"),
     usersPage: document.getElementById("members-page"),
     analyticsPage: document.getElementById("analytics-page"),
@@ -360,12 +331,6 @@
     entriesSubtabExpenses: document.getElementById("entries-subtab-expenses"),
     entriesPanelTime: document.getElementById("entries-panel-time"),
     entriesPanelExpenses: document.getElementById("entries-panel-expenses"),
-    entriesExpenseReviewHost: document.getElementById("entries-expense-review-host"),
-    entriesTimeReviewHost: document.getElementById("entries-time-review-host"),
-    timeEntriesReviewPanel: document.getElementById("time-entries-review-panel"),
-    timesheetReviewAnchor: document.getElementById("timesheet-review-anchor"),
-    expenseEntriesReviewPanel: document.getElementById("expense-entries-review-panel"),
-    expensesReviewAnchor: document.getElementById("expenses-review-anchor"),
     expenseRows: document.getElementById("expense-rows"),
     addCategory: document.getElementById("add-category"),
     saveCategories: document.getElementById("save-categories"),
@@ -395,17 +360,7 @@
     forcePasswordNew: document.getElementById("force-password-new"),
     forcePasswordConfirm: document.getElementById("force-password-confirm"),
     membersModal: document.getElementById("members-modal"),
-    closeUsers: document.getElementById("close-users"),
-    singleEntryContainer: document.getElementById("single-entry-container"),
-    bulkEntryContainer: document.getElementById("bulk-entry-container"),
-    entryModeSingle: document.getElementById("entry-mode-single"),
-    entryModeMultiple: document.getElementById("entry-mode-multiple"),
     closeMembers: document.getElementById("close-members"),
-    hourPresets: document.getElementById("hour-presets"),
-    otherHours: document.getElementById("other-hours"),
-    entryDate: document.getElementById("entry-date"),
-    entryClientProject: document.getElementById("entry-client-project"),
-    submitEntry: document.getElementById("submit-entry"),
     addClientForm: document.getElementById("add-client-form"),
     addProjectForm: document.getElementById("add-project-form"),
     addUserForm: document.getElementById("add-user-form"),
@@ -435,20 +390,6 @@
     membersFeedback: document.getElementById("members-feedback"),
     membersConfirm: document.getElementById("members-confirm"),
     membersCancel: document.getElementById("members-cancel"),
-    entryNonBillable: document.getElementById("entry-nonbillable"),
-    expenseForm: document.getElementById("expense-form"),
-    expenseFormHeading: document.getElementById("expense-form-heading"),
-    expenseCancelEdit: document.getElementById("expense-cancel-edit"),
-    expenseUser: document.getElementById("expense-user"),
-    expenseClientProject: document.getElementById("expense-client-project"),
-    expenseClient: document.getElementById("expense-client"),
-    expenseProject: document.getElementById("expense-project"),
-    expenseDate: document.getElementById("expense-date"),
-    expenseCategory: document.getElementById("expense-category"),
-    expenseAmount: document.getElementById("expense-amount"),
-    expenseNonBillable: document.getElementById("expense-nonbillable"),
-    expenseNotes: document.getElementById("expense-notes"),
-    submitExpense: document.getElementById("submit-expense"),
     filterFromMonth: document.getElementById("filter-from-month"),
     filterFromDay: document.getElementById("filter-from-day"),
     filterFromYear: document.getElementById("filter-from-year"),
@@ -469,7 +410,6 @@
     expenseFilterToMonth: document.getElementById("expense-filter-to-month"),
     expenseFilterToDay: document.getElementById("expense-filter-to-day"),
     expenseFilterToYear: document.getElementById("expense-filter-to-year"),
-    expenseBulkSave: document.getElementById("expense-bulk-save"),
     officeLocationsForm: document.getElementById("office-locations-form"),
     officeRows: document.getElementById("office-rows"),
     officeAddName: document.getElementById("office-add-name"),
@@ -877,25 +817,6 @@
   removeMembersAddCard();
   ensureMemberEditorModal();
 
-  if (refs.entryDate) {
-    refs.entryDate.min = minEntryDate;
-    refs.entryDate.max = today;
-    refs.entryDate.addEventListener("change", () => {
-      refs.entryDate.value = clampDateToBounds(refs.entryDate.value);
-    });
-  }
-
-  if (refs.expenseDate) {
-    refs.expenseDate.min = minEntryDate;
-    refs.expenseDate.max = today;
-    refs.expenseDate.addEventListener("change", () => {
-      refs.expenseDate.value = clampDateToBounds(refs.expenseDate.value);
-    });
-    const expenseToday = clampDateToBounds(today);
-    refs.expenseDate.value = expenseToday;
-    refs.expenseDate.defaultValue = expenseToday;
-  }
-
   initExpenseFilterDatePickers();
 
   // Enforce settings dropdown item order: Settings, Dark/Light, Change Password, Log out.
@@ -966,7 +887,7 @@
       managerProjects: [],
       projectMembers: [],
     },
-    currentView: "inputs", // "main" | "inputs" | "entries" | "expenses" | "clients" | "members" | "analytics" | "settings"
+    currentView: "inputs", // "inputs" | "entries" | "clients" | "members" | "analytics" | "settings" | "audit"
     inputSubtab: "time", // "time" | "expenses"
     entriesSubtab: "time", // "time" | "expenses"
     expenseEditingId: null,
@@ -1415,7 +1336,7 @@
   }
 
   function closeUsersModal() {
-    setView("main");
+    setView("entries");
   }
 
   function openCatalogModal() {
@@ -1423,11 +1344,7 @@
   }
 
   function closeCatalogModal() {
-    setView("main");
-  }
-
-  function openExpensesPage() {
-    setView("expenses");
+    setView("entries");
   }
 
   function openAnalyticsPage() {
@@ -1435,7 +1352,7 @@
   }
 
   function closeAnalyticsPage() {
-    setView("main");
+    setView("entries");
   }
 
   function closeSettingsMenu() {
@@ -3172,38 +3089,9 @@
     render();
   }
 
-  let entryMode = "single";
-
-  function updateEntryModeToggle(mode) {
-    if (!refs.entryModeToggle) return;
-    refs.entryModeToggle.dataset.mode = mode;
-    refs.entryModeToggle.textContent =
-      mode === "multiple" ? "Single entry" : "Multiple entry";
-  }
-
-  function toggleEntryMode(mode) {
-    const isMultiple = mode === "multiple";
-    entryMode = mode;
-    if (refs.singleEntryContainer) {
-      refs.singleEntryContainer.hidden = isMultiple;
-    }
-    if (refs.bulkEntryContainer) {
-      refs.bulkEntryContainer.hidden = !isMultiple;
-    }
-    updateEntryModeToggle(mode);
-    if (isMultiple && bulkEntry?.init) {
-      bulkEntry.init();
-    }
-  }
-
-  function resetEntryMode() {
-    toggleEntryMode("single");
-  }
-
   function clearEntryAndExpenseDrafts() {
     resetForm?.();
     resetExpenseForm?.();
-    window.bulkEntry?.resetRows?.();
   }
 
   async function handleLogout() {
@@ -3213,7 +3101,6 @@
     clearRemoteAppState();
     resetFilters();
     clearEntryAndExpenseDrafts();
-    resetEntryMode();
     setAuthFeedback("Signed out.", false);
     closeUsersModal();
     closeCatalogModal();
@@ -3604,11 +3491,6 @@
       refs.settingsMenuSettings.hidden = !showSettingsLink;
       refs.settingsMenuSettings.setAttribute("aria-current", view === "settings" ? "page" : "false");
     }
-    if (refs.navTimesheet) {
-      refs.navTimesheet.hidden = false;
-      refs.navTimesheet.classList.toggle("is-active", view === "main");
-      refs.navTimesheet.setAttribute("aria-current", view === "main" ? "page" : "false");
-    }
     if (refs.navInputs) {
       refs.navInputs.hidden = false;
       refs.navInputs.classList.toggle("is-active", view === "inputs");
@@ -3619,11 +3501,6 @@
       refs.navEntries.classList.toggle("is-active", view === "entries");
       refs.navEntries.setAttribute("aria-current", view === "entries" ? "page" : "false");
     }
-    if (refs.navTimesheetMobile) {
-      refs.navTimesheetMobile.hidden = false;
-      refs.navTimesheetMobile.classList.toggle("is-active", view === "main");
-      refs.navTimesheetMobile.setAttribute("aria-current", view === "main" ? "page" : "false");
-    }
     if (refs.navInputsMobile) {
       refs.navInputsMobile.hidden = false;
       refs.navInputsMobile.classList.toggle("is-active", view === "inputs");
@@ -3633,16 +3510,6 @@
       refs.navEntriesMobile.hidden = false;
       refs.navEntriesMobile.classList.toggle("is-active", view === "entries");
       refs.navEntriesMobile.setAttribute("aria-current", view === "entries" ? "page" : "false");
-    }
-    if (refs.navExpenses) {
-      refs.navExpenses.hidden = false;
-      refs.navExpenses.classList.toggle("is-active", view === "expenses");
-      refs.navExpenses.setAttribute("aria-current", view === "expenses" ? "page" : "false");
-    }
-    if (refs.navExpensesMobile) {
-      refs.navExpensesMobile.hidden = false;
-      refs.navExpensesMobile.classList.toggle("is-active", view === "expenses");
-      refs.navExpensesMobile.setAttribute("aria-current", view === "expenses" ? "page" : "false");
     }
     const showAudit = isAdmin(state.currentUser);
     arrangeSettingsMenu(showAudit);
@@ -3672,27 +3539,17 @@
       refs.navAnalyticsMobile.classList.toggle("is-active", view === "analytics");
       refs.navAnalyticsMobile.setAttribute("aria-current", view === "analytics" ? "page" : "false");
     }
-    if (view !== "main") {
-      closeSettingsMenu();
-    }
+    closeSettingsMenu();
     if (refs.settingsToggle) {
       refs.settingsToggle.hidden = false;
-      if (view !== "main") {
-        refs.settingsToggle.setAttribute("aria-expanded", "false");
-      }
+      refs.settingsToggle.setAttribute("aria-expanded", "false");
     }
 
     if (refs.appTopbar) {
       refs.appTopbar.style.display = "";
     }
-    if (refs.timesheetView) {
-      refs.timesheetView.hidden = view !== "main";
-    }
-    if (refs.expensesView) {
-      refs.expensesView.hidden = view !== "expenses";
-    }
     if (refs.mainFrame) {
-      refs.mainFrame.style.display = view === "main" || view === "expenses" ? "" : "none";
+      refs.mainFrame.style.display = "none";
     }
     if (refs.clientsPage) {
       refs.clientsPage.hidden = view !== "clients";
@@ -3749,8 +3606,6 @@
     if (refs.entriesPanelExpenses) {
       refs.entriesPanelExpenses.hidden = entriesSubtab !== "expenses";
     }
-    syncTimeEntriesReviewPanelPlacement();
-    syncExpenseEntriesReviewPanelPlacement();
     if (view === "entries" && entriesSubtab === "expenses") {
       syncExpenseFilterCatalogsUI(state.expenseFilters);
       const filteredExpenses = currentExpenses();
@@ -3811,12 +3666,9 @@
 
     if (view === "audit") {
       if (!isAdmin(state.currentUser)) {
-        setView("main");
+        setView("entries");
         return;
       }
-      if (refs.timesheetView) refs.timesheetView.hidden = true;
-      if (refs.expensesView) refs.expensesView.hidden = true;
-      if (refs.mainFrame) refs.mainFrame.style.display = "none";
       renderAuditTable(state.auditLogs);
       if (!state.auditLogs.length) {
         loadAuditLogs();
@@ -3835,103 +3687,23 @@
       return;
     }
 
-    if (view === "expenses") {
-      if (refs.timesheetView) refs.timesheetView.hidden = true;
-      if (refs.expensesView) refs.expensesView.hidden = false;
-      if (refs.expenseUser) refs.expenseUser.value = state.currentUser?.id || "";
-      if (refs.expenseUser) refs.expenseUser.closest("label")?.classList.add("entry-hidden-control");
-      syncExpenseFilterCatalogsUI(state.expenseFilters);
-      const filteredExpenses = currentExpenses();
-      renderExpenses(filteredExpenses);
-      renderExpenseFilterState(filteredExpenses);
-      syncExpenseCatalogs({
-        userId: refs.expenseUser?.value || state.currentUser?.id || "",
-        client: refs.expenseClient?.value || "",
-        project: refs.expenseProject?.value || "",
-      });
+    if (view === "entries") {
+      if (entriesSubtab === "expenses") {
+        syncExpenseFilterCatalogsUI(state.expenseFilters);
+        const filteredExpenses = currentExpenses();
+        renderExpenses(filteredExpenses);
+        renderExpenseFilterState(filteredExpenses);
+      } else {
+        syncFilterCatalogsUI(state.filters);
+        const filteredEntries = currentEntries();
+        renderFilterState(filteredEntries);
+        renderTable(filteredEntries);
+      }
       postHeight();
       return;
     }
 
-    // main view
-    if (refs.clientsPage) {
-      refs.clientsPage.hidden = true;
-    }
-    if (refs.usersPage) {
-      refs.usersPage.hidden = true;
-    }
-    if (refs.settingsPage) {
-      refs.settingsPage.hidden = true;
-    }
-    if (refs.membersModal) {
-      refs.membersModal.hidden = true;
-    }
-
-    if (refs.timesheetView) refs.timesheetView.hidden = false;
-    if (refs.expensesView) refs.expensesView.hidden = true;
-    const entryUserField = field(refs.form, "user");
-    if (entryUserField) entryUserField.value = state.currentUser?.displayName || "";
-    if (entryUserField) entryUserField.closest("label")?.classList.add("entry-hidden-control");
-
-    syncFormCatalogsUI({});
-    syncFilterCatalogsUI(state.filters);
-    ensureCatalogSelection();
-
-    const filteredEntries = currentEntries();
-    renderCatalogAside();
-    renderUsersList();
-    removeMembersPageProfileActions();
-    syncUserManagementControls();
-    renderLevelRows();
-    renderFilterState(filteredEntries);
-    renderTable(filteredEntries);
-    postHeight();
-  }
-
-  function syncTimeEntriesReviewPanelPlacement() {
-    const panel = refs.timeEntriesReviewPanel;
-    const anchor = refs.timesheetReviewAnchor;
-    const entriesHost = refs.entriesTimeReviewHost;
-    const timesheetContainer = refs.timesheetView;
-    if (!panel || !anchor || !entriesHost || !timesheetContainer) return;
-
-    const entriesSubtab = state.entriesSubtab === "expenses" ? "expenses" : "time";
-    const shouldAttachToEntries = state.currentView === "entries" && entriesSubtab === "time";
-
-    if (shouldAttachToEntries) {
-      if (panel.parentElement !== entriesHost) {
-        entriesHost.appendChild(panel);
-      }
-      return;
-    }
-
-    const insertBeforeNode = anchor.nextSibling;
-    if (panel.parentElement !== timesheetContainer || panel.previousSibling !== anchor) {
-      timesheetContainer.insertBefore(panel, insertBeforeNode);
-    }
-  }
-
-  function syncExpenseEntriesReviewPanelPlacement() {
-    const panel = refs.expenseEntriesReviewPanel;
-    const anchor = refs.expensesReviewAnchor;
-    const entriesHost = refs.entriesExpenseReviewHost;
-    const expensesContainer = refs.expensesView;
-    if (!panel || !anchor || !entriesHost || !expensesContainer) return;
-
-    const entriesSubtab = state.entriesSubtab === "expenses" ? "expenses" : "time";
-    const shouldAttachToEntries = state.currentView === "entries" && entriesSubtab === "expenses";
-
-    if (shouldAttachToEntries) {
-      if (panel.parentElement !== entriesHost) {
-        entriesHost.appendChild(panel);
-      }
-      return;
-    }
-
-    const insertBeforeNode = anchor.nextSibling;
-    if (panel.parentElement !== expensesContainer || panel.previousSibling !== anchor) {
-      expensesContainer.insertBefore(panel, insertBeforeNode);
-    }
+    setView("entries");
   }
 
   function removeMembersPageProfileActions() {
@@ -4091,77 +3863,9 @@
     URL.revokeObjectURL(url);
   }
 
-  refs.form.addEventListener("submit", async function (event) {
-    event.preventDefault();
-
-    const existingEntry = state.entries.find((entry) => entry.id === state.editingId);
-    const userField = field(refs.form, "user");
-    if (userField) {
-      userField.value = state.currentUser?.displayName || "";
-    }
-    const dateField = field(refs.form, "date");
-    const clientField = field(refs.form, "client");
-    const projectField = field(refs.form, "project");
-    const hoursField = field(refs.form, "hours");
-    const notesField = field(refs.form, "notes");
-    const nonBillableField = field(refs.form, "nonBillable");
-    const isBillable = nonBillableField ? !nonBillableField.checked : true;
-    const entryChanged =
-      !existingEntry ||
-      existingEntry.user !== userField.value ||
-      existingEntry.date !== dateField.value ||
-      existingEntry.client !== clientField.value ||
-      existingEntry.project !== projectField.value ||
-      existingEntry.task !== (existingEntry?.task || "") ||
-      Number(existingEntry.hours) !== Number(hoursField.value) ||
-      (existingEntry.notes || "") !== notesField.value.trim() ||
-      existingEntry.billable !== isBillable;
-    const nextEntry = {
-      id: state.editingId || crypto.randomUUID(),
-      user: userField.value,
-      date: dateField.value,
-      client: clientField.value,
-      project: projectField.value,
-      task: existingEntry?.task || "",
-      hours: Number(hoursField.value),
-      notes: notesField.value.trim(),
-      billable: isBillable,
-      createdAt: existingEntry?.createdAt || new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      status: entryChanged ? "pending" : existingEntry?.status || "pending",
-    };
-
-    const error = validateEntry(nextEntry);
-    if (error) {
-      feedback(error, true);
-      return;
-    }
-
-    try {
-      await mutatePersistentState("save_entry", { entry: nextEntry });
-    } catch (error) {
-      feedback(error.message || "Unable to save entry.", true);
-      return;
-    }
-
-    feedback(state.editingId ? "Entry updated." : "Entry saved.", false);
-    resetForm();
-    render();
-  });
-
-  refs.cancelEdit.addEventListener("click", function () {
-    resetForm();
-    feedback("", false);
-  });
-
   refs.loginForm.addEventListener("submit", submitLogin);
   refs.bootstrapForm.addEventListener("submit", submitBootstrap);
 
-  if (refs.navTimesheet) {
-    refs.navTimesheet.addEventListener("click", function () {
-      setView("main");
-    });
-  }
   if (refs.navInputs) {
     refs.navInputs.addEventListener("click", function () {
       setView("inputs");
@@ -4172,11 +3876,6 @@
       setView("entries");
     });
   }
-  if (refs.navTimesheetMobile) {
-    refs.navTimesheetMobile.addEventListener("click", function () {
-      setView("main");
-    });
-  }
   if (refs.navInputsMobile) {
     refs.navInputsMobile.addEventListener("click", function () {
       setView("inputs");
@@ -4185,16 +3884,6 @@
   if (refs.navEntriesMobile) {
     refs.navEntriesMobile.addEventListener("click", function () {
       setView("entries");
-    });
-  }
-  if (refs.navExpenses) {
-    refs.navExpenses.addEventListener("click", function () {
-      setView("expenses");
-    });
-  }
-  if (refs.navExpensesMobile) {
-    refs.navExpensesMobile.addEventListener("click", function () {
-      setView("expenses");
     });
   }
   if (refs.inputsSwitchAction) {
@@ -4318,14 +4007,6 @@
     applyTheme(event.matches ? "dark" : "light");
   });
 
-  if (refs.closeCatalog) {
-    refs.closeCatalog.addEventListener("click", function (event) {
-      event.preventDefault();
-      event.stopPropagation();
-      closeCatalogModal();
-    });
-  }
-
   if (refs.closeMembers) {
     refs.closeMembers.addEventListener("click", function (event) {
       event.preventDefault();
@@ -4357,75 +4038,6 @@
     closeCatalogModal();
   });
 
-  refs.hourPresets.addEventListener("click", function (event) {
-    handleHourPresetClick?.({ refs, field }, event);
-  });
-
-  refs.otherHours.addEventListener("input", function () {
-    handleOtherHoursInput?.({ refs, field });
-  });
-
-  async function saveBulkRows() {
-    if (!window.bulkEntry) return;
-    const userValue = state.currentUser?.displayName || "";
-    const rows = window.bulkEntry.getRows ? window.bulkEntry.getRows() : [];
-    const hasContent = (row) =>
-      (row.client && row.client.trim()) ||
-      (row.project && row.project.trim()) ||
-      (row.notes && row.notes.trim()) ||
-      (row.hours !== undefined &&
-        row.hours !== null &&
-        String(row.hours).trim() !== "");
-    const rowsToSave = rows.filter(hasContent);
-    const errors = [];
-    const entries = [];
-    rowsToSave.forEach(function (row, index) {
-      const nextEntry = {
-        id: crypto.randomUUID(),
-        user: userValue,
-        date: row.date || "",
-        client: row.client || "",
-        project: row.project || "",
-        task: "",
-        hours: Number(row.hours),
-        notes: (row.notes || "").trim(),
-        billable: row.billable !== false,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        status: "pending",
-      };
-      const error = validateEntry(nextEntry);
-      if (error) {
-        errors.push(`Row ${index + 1}: ${error}`);
-      } else {
-        entries.push(nextEntry);
-      }
-    });
-
-    if (!entries.length && !errors.length) {
-      feedback("No rows to save.", true);
-      return;
-    }
-
-    if (errors.length) {
-      feedback(errors.join(" "), true);
-      return;
-    }
-
-    for (const entry of entries) {
-      try {
-        await mutatePersistentState("save_entry", { entry });
-      } catch (error) {
-        feedback(error.message || "Unable to save bulk rows.", true);
-        return;
-      }
-    }
-
-    feedback(`Saved ${entries.length} entr${entries.length === 1 ? "y" : "ies"}.`, false);
-    window.bulkEntry.resetRows?.();
-    render();
-  }
-
   ["from", "to"].forEach(function (name) {
     const refsForKind = filterDateRefs(refs, name);
     if (!refsForKind.month || !refsForKind.day || !refsForKind.year) {
@@ -4451,16 +4063,6 @@
       });
     });
   });
-
-  if (wireEntryModeToggle && refs.entryModeToggle) {
-    wireEntryModeToggle({ refs, toggleEntryMode });
-  } else {
-    toggleEntryMode("single");
-  }
-
-  if (window.bulkEntry && refs.bulkSaveRows) {
-    refs.bulkSaveRows.addEventListener("click", saveBulkRows);
-  }
 
   // Mobile: replace wheel filter date selects with native date inputs for easier picking.
   const isTouch = window.matchMedia("(pointer: coarse)").matches;
@@ -4504,24 +4106,6 @@
     ["from", "to"].forEach(initMobileFilterDate);
     ["from", "to"].forEach(initMobileExpenseFilterDate);
   }
-
-  field(refs.form, "client").addEventListener("change", function () {
-    const clientField = field(refs.form, "client");
-    const projectField = field(refs.form, "project");
-    state.selectedCatalogClient = clientField.value || state.selectedCatalogClient;
-    syncFormCatalogsUI({
-      user: state.currentUser?.displayName || "",
-      client: clientField.value,
-      project: projectField?.value || "",
-    });
-    renderCatalogAside();
-    setNonBillableDefault("");
-  });
-
-  field(refs.form, "project").addEventListener("change", function () {
-    const projectField = field(refs.form, "project");
-    setNonBillableDefault(projectField.value || "");
-  });
 
   field(refs.filterForm, "client").addEventListener("change", function () {
     const userField = field(refs.filterForm, "user");
@@ -4624,138 +4208,6 @@
   refs.auditFilterActor?.addEventListener("change", applyAuditFiltersFromForm);
   refs.auditFilterDate?.addEventListener("change", applyAuditFiltersFromForm);
 
-  if (refs.expenseForm) {
-    refs.expenseForm.addEventListener("submit", async function (event) {
-      event.preventDefault();
-      if (refs.expenseUser) {
-        refs.expenseUser.value = state.currentUser?.id || "";
-      }
-      const expense = expenseFromForm();
-      const error = validateExpenseForm(expense);
-      if (error) {
-        feedback(error, true);
-        return;
-      }
-      const action = state.expenseEditingId ? "update_expense" : "create_expense";
-      try {
-        await mutatePersistentState(action, { expense });
-        feedback(state.expenseEditingId ? "Expense updated." : "Expense saved.", false);
-        resetExpenseForm();
-      } catch (err) {
-        feedback(err.message || "Unable to save expense.", true);
-      }
-    });
-  }
-
-  if (refs.expenseCancelEdit) {
-    refs.expenseCancelEdit.addEventListener("click", function () {
-      resetExpenseForm();
-      feedback("", false);
-    });
-  }
-
-  async function saveExpense(expense) {
-    const error = validateExpenseForm(expense);
-    if (error) throw new Error(error);
-    await mutatePersistentState("create_expense", { expense });
-  }
-
-  async function saveBulkExpenses() {
-    if (!window.bulkExpenses) return;
-    const userId = state.currentUser?.id || "";
-    const rows = window.bulkExpenses.getRows ? window.bulkExpenses.getRows() : [];
-
-    const hasContent = (row) =>
-      (row.client && row.client.trim()) ||
-      (row.project && row.project.trim()) ||
-      (row.category && row.category.trim()) ||
-      (row.notes && row.notes.trim()) ||
-      (row.amount !== undefined &&
-        row.amount !== null &&
-        String(row.amount).trim() !== "");
-
-    const rowsToSave = rows.filter(hasContent);
-    const errors = [];
-    const expensesToSave = [];
-
-    rowsToSave.forEach(function (row, index) {
-      const expenseDate = row.date || refs.expenseDate?.value || "";
-      const expense = {
-        id: crypto.randomUUID(),
-        userId,
-        clientName: row.client || "",
-        projectName: row.project || "",
-        expenseDate,
-        category: row.category || "",
-        amount: Number(row.amount),
-        isBillable: row.billable !== false,
-        notes: (row.notes || "").trim(),
-        status: "pending",
-      };
-      const error = validateExpenseForm(expense);
-      if (error) {
-        errors.push(`Row ${index + 1}: ${error}`);
-      } else {
-        expensesToSave.push(expense);
-      }
-    });
-
-    if (!expensesToSave.length && !errors.length) {
-      feedback("No expenses to save.", true);
-      return;
-    }
-
-    if (errors.length) {
-      feedback(errors.join(" "), true);
-      return;
-    }
-
-    for (const expense of expensesToSave) {
-      try {
-        await mutatePersistentState("create_expense", { expense });
-      } catch (error) {
-        feedback(error.message || "Unable to save expenses.", true);
-        return;
-      }
-    }
-
-    feedback(`Saved ${expensesToSave.length} expense${expensesToSave.length === 1 ? "" : "s"}.`, false);
-    window.bulkExpenses.resetRows?.();
-    render();
-  }
-
-  // Expose for late binding in expense bulk container.
-  window.saveBulkExpenses = saveBulkExpenses;
-  document.addEventListener("click", function (e) {
-    const btn = e.target.closest("#expense-bulk-save");
-    if (!btn) return;
-    if (typeof window.saveBulkExpenses === "function") {
-      window.saveBulkExpenses();
-    }
-  });
-
-  if (refs.expenseClient) {
-    refs.expenseClient.addEventListener("change", function () {
-      syncExpenseCatalogs({
-        userId: refs.expenseUser?.value || "",
-        client: refs.expenseClient.value,
-        project: "",
-      });
-      setExpenseNonBillableDefault("");
-    });
-  }
-
-  if (refs.expenseProject) {
-    refs.expenseProject.addEventListener("change", function () {
-      setExpenseNonBillableDefault(refs.expenseProject.value || "");
-    });
-  }
-
-  if (refs.expenseUser) {
-    refs.expenseUser.value = state.currentUser?.id || "";
-    refs.expenseUser.closest("label")?.classList.add("entry-hidden-control");
-  }
-
   async function handleExpenseTableAction(actionEl) {
     if (!actionEl) return;
     const action = actionEl.dataset.action;
@@ -4764,16 +4216,9 @@
     if (!expense) return;
 
     if (action === "expense-edit") {
-      const expForm = refs.expenseForm;
-      const expBulk = document.getElementById("expense-bulk-container");
-      const expToggle = document.getElementById("expense-mode-toggle");
-      if (expForm) expForm.hidden = false;
-      if (expBulk) expBulk.hidden = true;
-      if (expToggle) {
-        expToggle.dataset.mode = "single";
-        expToggle.textContent = "Multiple entry";
-      }
-      setExpenseForm(expense);
+      state.inputSubtab = "expenses";
+      setView("inputs");
+      feedback("Edit this expense from Inputs > Expenses.", false);
       return;
     }
 
@@ -4854,9 +4299,6 @@
   }
   if (refs.navAnalyticsMobile) {
     refs.navAnalyticsMobile.addEventListener("click", openAnalyticsPage);
-  }
-  if (refs.analyticsNavBack) {
-    refs.analyticsNavBack.addEventListener("click", closeAnalyticsPage);
   }
   if (refs.settingsToggle) {
     refs.settingsToggle.addEventListener("click", function (event) {
@@ -5479,7 +4921,6 @@
         addressPostal: values.addressPostal,
       };
 
-      const formUserField = field(refs.form, "user");
       const filterUserField = field(refs.filterForm, "user");
 
       try {
@@ -5489,11 +4930,6 @@
         refs.addClientForm?.reset();
         feedback(action === "add_client" ? "Client added." : "Client updated.", false);
         closeClientEditor();
-        syncFormCatalogsUI({
-          user: formUserField?.value,
-          client: state.selectedCatalogClient,
-          project: "",
-        });
         syncFilterCatalogsUI({
           user: filterUserField?.value,
           client: state.filters.client,
@@ -5514,7 +4950,6 @@
       return;
     }
     const projectNameField = field(refs.addProjectForm, "project_name");
-    const formUserField = field(refs.form, "user");
     const filterUserField = field(refs.filterForm, "user");
     const filterClientField = field(refs.filterForm, "client");
     const filterProjectField = field(refs.filterForm, "project");
@@ -5530,11 +4965,6 @@
 
     const newestProject = projectNameField.value.trim();
     refs.addProjectForm.reset();
-    syncFormCatalogsUI({
-      user: formUserField.value,
-      client: state.selectedCatalogClient,
-      project: newestProject,
-    });
     syncFilterCatalogsUI({
       user: filterUserField.value,
       client: filterClientField.value,
@@ -5644,7 +5074,8 @@
       state.filters.client = state.selectedCatalogClient;
       state.filters.project = projectName;
       syncFilterCatalogsUI(state.filters);
-      setView("main");
+      state.entriesSubtab = "time";
+      setView("entries");
       render();
       return;
     }
@@ -5655,7 +5086,8 @@
       state.expenseFilters.client = state.selectedCatalogClient;
       state.expenseFilters.project = projectName;
       syncExpenseFilterCatalogsUI(state.expenseFilters);
-      setView("expenses");
+      state.entriesSubtab = "expenses";
+      setView("entries");
       render();
       return;
     }
@@ -6006,14 +5438,8 @@
       return;
     }
 
-    syncFormCatalogsUI({
-      user: field(refs.form, "user").value,
-      client: state.selectedCatalogClient,
-      project: button.dataset.project,
-    });
     closeCatalogModal();
-    refs.hourPresets.querySelector("[data-hours]")?.focus();
-    feedback("Project selected in the form.", false);
+    feedback("Project selected.", false);
     postHeight();
   });
 
@@ -6042,8 +5468,9 @@
     }
 
     if (action === "edit") {
-      toggleEntryMode("single");
-      setForm(entry);
+      state.inputSubtab = "time";
+      setView("inputs");
+      feedback("Edit this entry from Inputs > Time.", false);
       return;
     }
 
@@ -6540,7 +5967,6 @@
     await loadPersistentState();
     resetFilters();
     clearEntryAndExpenseDrafts();
-    resetEntryMode();
 
     if (!state.currentUser) {
       if (loadSessionToken() && !state.bootstrapRequired) {
