@@ -4285,43 +4285,53 @@ body[data-theme="dark"] .entry-approved td {
 }
 
 #inputs-view .inputs-time-summary {
-  display: grid;
-  grid-template-columns: max-content max-content max-content 1fr;
+  display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 7px 10px;
+  gap: 10px;
+  padding: 6px 10px;
   border: 1px solid #d7dde6;
   background: #f8fafc;
 }
 
 #inputs-view .inputs-time-summary-metric {
-  display: inline-grid;
-  gap: 3px;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  white-space: nowrap;
 }
 
 #inputs-view .inputs-time-summary-label {
   color: #94a3b8;
-  font-size: 0.72rem;
+  font-size: 0.73rem;
   line-height: 1;
   font-weight: 500;
 }
 
 #inputs-view .inputs-time-summary-value {
   color: #1f2937;
-  font-size: 1.04rem;
-  font-weight: 700;
+  font-size: 0.94rem;
+  font-weight: 600;
   line-height: 1;
 }
 
 #inputs-view .inputs-time-summary-signal {
+  display: inline-flex;
+  align-items: baseline;
   color: #64748b;
-  font-size: 0.76rem;
+  font-size: 0.75rem;
   line-height: 1;
   white-space: nowrap;
 }
 
+#inputs-view .inputs-time-summary-metric + .inputs-time-summary-metric::before,
+#inputs-view .inputs-time-summary-signal::before {
+  content: "|";
+  color: #cbd5e1;
+  margin-right: 10px;
+}
+
 #inputs-view .inputs-time-summary-toggle {
-  justify-self: end;
+  margin-left: auto;
   height: 28px;
   min-height: 28px;
   padding: 0 9px;
