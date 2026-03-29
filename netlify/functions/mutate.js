@@ -7,6 +7,7 @@ const {
   createPasswordSetupToken,
   deactivateUser,
   ensureSchema,
+  ensureNotificationRulesForAccount,
   errorResponse,
   findClient,
   findProject,
@@ -2524,6 +2525,7 @@ exports.handler = async function handler(event) {
       return authError;
     }
     const accountId = context.currentUser?.accountId;
+    await ensureNotificationRulesForAccount(sql, accountId);
     const permissionRows = await permissions.loadPermissionsFromDb(sql);
     const permissionIndex = permissions.buildIndex({ permissions: permissionRows });
     const can = (capabilityKey, ctx = {}) =>

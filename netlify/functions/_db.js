@@ -508,55 +508,7 @@ async function ensureSchema(sql) {
     CREATE INDEX IF NOT EXISTS notification_rules_account_idx
       ON notification_rules (account_id, event_type)
   `;
-  const notificationRuleSeeds = [
-    {
-      eventType: "time_entry_created",
-      enabled: true,
-      inboxEnabled: true,
-      emailEnabled: false,
-      recipientScope: "project_manager",
-      deliveryMode: "immediate",
-    },
-    {
-      eventType: "expense_entry_created",
-      enabled: true,
-      inboxEnabled: true,
-      emailEnabled: false,
-      recipientScope: "project_manager",
-      deliveryMode: "immediate",
-    },
-    {
-      eventType: "entry_approved",
-      enabled: true,
-      inboxEnabled: true,
-      emailEnabled: false,
-      recipientScope: "entry_owner",
-      deliveryMode: "immediate",
-    },
-  ];
-  for (const rule of notificationRuleSeeds) {
-    await sql`
-      INSERT INTO notification_rules (
-        account_id,
-        event_type,
-        enabled,
-        inbox_enabled,
-        email_enabled,
-        recipient_scope,
-        delivery_mode
-      )
-      VALUES (
-        ${accountUuid}::uuid,
-        ${rule.eventType},
-        ${rule.enabled},
-        ${rule.inboxEnabled},
-        ${rule.emailEnabled},
-        ${rule.recipientScope},
-        ${rule.deliveryMode}
-      )
-      ON CONFLICT (account_id, event_type) DO NOTHING
-    `;
-  }
+  await ensureNotificationRulesForAccount(sql, accountUuid);
   await sql`ALTER TABLE level_labels DROP CONSTRAINT IF EXISTS level_labels_level_check`;
 
   const labelRows = await sql`
@@ -619,6 +571,59 @@ async function ensureSchema(sql) {
   await seedDefaultCatalog(sql, accountUuid);
   await seedDefaultExpenseCategories(sql, accountUuid);
   await sql`DELETE FROM sessions WHERE expires_at <= NOW()`;
+}
+
+async function ensureNotificationRulesForAccount(sql, accountUuid) {
+  if (!accountUuid) return;
+  const notificationRuleSeeds = [
+    {
+      eventType: "time_entry_created",
+      enabled: true,
+      inboxEnabled: true,
+      emailEnabled: false,
+      recipientScope: "project_manager",
+      deliveryMode: "immediate",
+    },
+    {
+      eventType: "expense_entry_created",
+      enabled: true,
+      inboxEnabled: true,
+      emailEnabled: false,
+      recipientScope: "project_manager",
+      deliveryMode: "immediate",
+    },
+    {
+      eventType: "entry_approved",
+      enabled: true,
+      inboxEnabled: true,
+      emailEnabled: false,
+      recipientScope: "entry_owner",
+      deliveryMode: "immediate",
+    },
+  ];
+  for (const rule of notificationRuleSeeds) {
+    await sql`
+      INSERT INTO notification_rules (
+        account_id,
+        event_type,
+        enabled,
+        inbox_enabled,
+        email_enabled,
+        recipient_scope,
+        delivery_mode
+      )
+      VALUES (
+        ${accountUuid}::uuid,
+        ${rule.eventType},
+        ${rule.enabled},
+        ${rule.inboxEnabled},
+        ${rule.emailEnabled},
+        ${rule.recipientScope},
+        ${rule.deliveryMode}
+      )
+      ON CONFLICT (account_id, event_type) DO NOTHING
+    `;
+  }
 }
 
 async function seedDefaultCatalog(sql, accountId) {
@@ -2493,6 +2498,7 @@ module.exports = {
   deactivateUser,
   ensureDefaultAccount,
   ensureSchema,
+  ensureNotificationRulesForAccount,
   errorResponse,
   findClient,
   findProject,
