@@ -2663,6 +2663,10 @@
     return control;
   }
 
+  function isInputsDateControl(control) {
+    return control instanceof HTMLElement && control.matches("input.dp-desktop-date, input[type='date']");
+  }
+
   function feedback(message, isError) {
     refs.feedback.textContent = message || "";
     refs.feedback.dataset.error = isError ? "true" : "false";
@@ -4135,12 +4139,34 @@
 
         const active = document.activeElement;
         if (
-          active instanceof HTMLElement &&
-          active !== control &&
-          refs.inputsView.contains(active) &&
-          active.matches("input.dp-desktop-date, input[type='date']")
+          !(active instanceof HTMLElement) ||
+          active === control ||
+          !refs.inputsView.contains(active)
         ) {
+          return;
+        }
+
+        if (isInputsDateControl(active)) {
           closeInputsDesktopDatePopover();
+        }
+
+        if (active instanceof HTMLSelectElement) {
+          active.blur();
+
+          if (control instanceof HTMLSelectElement) {
+            if (typeof control.showPicker === "function") {
+              try {
+                control.showPicker();
+                event.preventDefault();
+                return;
+              } catch (error) {
+                // Fall through to click-based open.
+              }
+            }
+            control.focus();
+            control.click();
+            event.preventDefault();
+          }
         }
       },
       true
