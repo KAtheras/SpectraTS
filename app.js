@@ -360,6 +360,15 @@
     entriesSubtabExpenses: document.getElementById("entries-subtab-expenses"),
     entriesPanelTime: document.getElementById("entries-panel-time"),
     entriesPanelExpenses: document.getElementById("entries-panel-expenses"),
+    entriesExpensesBody: document.getElementById("entries-expenses-body"),
+    entriesExpenseFilterForm: document.getElementById("entries-expense-filter-form"),
+    entriesExpenseClearFilters: document.getElementById("entries-expense-clear-filters"),
+    entriesExpenseExportCsv: document.getElementById("entries-expense-export-csv"),
+    entriesExpenseFilterTotal: document.getElementById("entries-expense-filter-total"),
+    entriesExpenseActiveFilters: document.getElementById("entries-expense-active-filters"),
+    entriesExpenseFilterUser: document.getElementById("entries-expense-filter-user"),
+    entriesExpenseFilterClient: document.getElementById("entries-expense-filter-client"),
+    entriesExpenseFilterProject: document.getElementById("entries-expense-filter-project"),
     entriesTimeReviewHost: document.getElementById("entries-time-review-host"),
     timeEntriesReviewPanel: document.getElementById("time-entries-review-panel"),
     timesheetReviewAnchor: document.getElementById("timesheet-review-anchor"),
@@ -3747,6 +3756,9 @@
       refs.entriesPanelExpenses.hidden = entriesSubtab !== "expenses";
     }
     syncTimeEntriesReviewPanelPlacement();
+    if (view === "entries" && entriesSubtab === "expenses") {
+      syncEntriesExpenseReviewSurface();
+    }
 
     if (view === "clients") {
       renderClientEditor();
@@ -3899,6 +3911,56 @@
     if (panel.parentElement !== timesheetContainer || panel.previousSibling !== anchor) {
       timesheetContainer.insertBefore(panel, insertBeforeNode);
     }
+  }
+
+  function entriesExpenseReviewSurfaceRefs() {
+    return {
+      expenseFilterForm: refs.entriesExpenseFilterForm,
+      expenseFilterTotal: refs.entriesExpenseFilterTotal,
+      expenseActiveFilters: refs.entriesExpenseActiveFilters,
+      expenseFilterUser: refs.entriesExpenseFilterUser,
+      expenseFilterClient: refs.entriesExpenseFilterClient,
+      expenseFilterProject: refs.entriesExpenseFilterProject,
+      expensesBody: refs.entriesExpensesBody,
+    };
+  }
+
+  function withExpenseReviewSurface(surfaceRefs, callback) {
+    if (!surfaceRefs || typeof callback !== "function") return null;
+    const keys = [
+      "expenseFilterForm",
+      "expenseFilterTotal",
+      "expenseActiveFilters",
+      "expenseFilterUser",
+      "expenseFilterClient",
+      "expenseFilterProject",
+      "expensesBody",
+    ];
+    const previous = {};
+    keys.forEach((key) => {
+      previous[key] = refs[key];
+      if (surfaceRefs[key]) {
+        refs[key] = surfaceRefs[key];
+      }
+    });
+    try {
+      return callback();
+    } finally {
+      keys.forEach((key) => {
+        refs[key] = previous[key];
+      });
+    }
+  }
+
+  function syncEntriesExpenseReviewSurface() {
+    const surface = entriesExpenseReviewSurfaceRefs();
+    if (!surface.expenseFilterForm || !surface.expensesBody) return;
+    withExpenseReviewSurface(surface, function () {
+      syncExpenseFilterCatalogsUI(state.expenseFilters);
+      const filteredExpenses = currentExpenses();
+      renderExpenses(filteredExpenses);
+      renderExpenseFilterState(filteredExpenses);
+    });
   }
 
   function removeMembersPageProfileActions() {
@@ -4536,6 +4598,51 @@
     applyExpenseFiltersFromForm();
   });
 
+  function applyEntriesExpenseFiltersFromForm(options) {
+    return withExpenseReviewSurface(entriesExpenseReviewSurfaceRefs(), function () {
+      return applyExpenseFiltersFromForm(options);
+    });
+  }
+
+  field(refs.entriesExpenseFilterForm, "client")?.addEventListener("change", function () {
+    withExpenseReviewSurface(entriesExpenseReviewSurfaceRefs(), function () {
+      const userField = field(refs.expenseFilterForm, "user");
+      const clientField = field(refs.expenseFilterForm, "client");
+      syncExpenseFilterCatalogsUI({
+        user: userField?.value || "",
+        client: clientField?.value || "",
+        project: "",
+      });
+      applyExpenseFiltersFromForm();
+    });
+  });
+
+  field(refs.entriesExpenseFilterForm, "project")?.addEventListener("change", function () {
+    applyEntriesExpenseFiltersFromForm();
+  });
+
+  field(refs.entriesExpenseFilterForm, "user")?.addEventListener("change", function () {
+    withExpenseReviewSurface(entriesExpenseReviewSurfaceRefs(), function () {
+      const userField = field(refs.expenseFilterForm, "user");
+      const clientField = field(refs.expenseFilterForm, "client");
+      syncExpenseFilterCatalogsUI({
+        user: userField?.value || "",
+        client: clientField?.value || "",
+        project: field(refs.expenseFilterForm, "project")?.value || "",
+      });
+      applyExpenseFiltersFromForm();
+    });
+  });
+
+  field(refs.entriesExpenseFilterForm, "search")?.addEventListener("input", function () {
+    applyEntriesExpenseFiltersFromForm({ showErrors: false });
+  });
+
+  refs.entriesExpenseFilterForm?.addEventListener("submit", function (event) {
+    event.preventDefault();
+    applyEntriesExpenseFiltersFromForm();
+  });
+
   ["user", "project"].forEach(function (name) {
     field(refs.filterForm, name).addEventListener("change", function () {
       applyFiltersFromForm();
@@ -4585,6 +4692,28 @@
   });
 
   refs.expenseExportCsv?.addEventListener("click", exportExpensesCsv);
+
+  refs.entriesExpenseClearFilters?.addEventListener("click", function () {
+    refs.entriesExpenseFilterForm?.reset();
+    withExpenseReviewSurface(entriesExpenseReviewSurfaceRefs(), function () {
+      syncExpenseFilterCatalogsUI({
+        user: "",
+        client: "",
+        project: "",
+      });
+    });
+    state.expenseFilters = {
+      user: "",
+      client: "",
+      project: "",
+      from: "",
+      to: "",
+      search: "",
+    };
+    applyEntriesExpenseFiltersFromForm({ showErrors: false });
+  });
+
+  refs.entriesExpenseExportCsv?.addEventListener("click", exportExpensesCsv);
 
   refs.auditFilterEntity?.addEventListener("change", applyAuditFiltersFromForm);
   refs.auditFilterAction?.addEventListener("change", applyAuditFiltersFromForm);
@@ -4723,73 +4852,77 @@
     refs.expenseUser.closest("label")?.classList.add("entry-hidden-control");
   }
 
-  if (refs.expensesBody) {
-    refs.expensesBody.addEventListener("click", async function (event) {
+  async function handleExpenseTableAction(actionEl) {
+    if (!actionEl) return;
+    const action = actionEl.dataset.action;
+    const id = actionEl.dataset.id;
+    const expense = (state.expenses || []).find((item) => item.id === id);
+    if (!expense) return;
+
+    if (action === "expense-edit") {
+      const expForm = refs.expenseForm;
+      const expBulk = document.getElementById("expense-bulk-container");
+      const expToggle = document.getElementById("expense-mode-toggle");
+      if (expForm) expForm.hidden = false;
+      if (expBulk) expBulk.hidden = true;
+      if (expToggle) {
+        expToggle.dataset.mode = "single";
+        expToggle.textContent = "Multiple entry";
+      }
+      setExpenseForm(expense);
+      return;
+    }
+
+    if (action === "expense-delete") {
+      const confirmed = window.confirm("Delete this expense?");
+      if (!confirmed) return;
+      try {
+        await mutatePersistentState("delete_expense", { id });
+        feedback("Expense deleted.", false);
+      } catch (err) {
+        feedback(err.message || "Unable to delete expense.", true);
+      }
+      return;
+    }
+
+    if (action === "expense-toggle-status") {
+      try {
+        await mutatePersistentState("toggle_expense_status", { id });
+      } catch (err) {
+        feedback(err.message || "Unable to update status.", true);
+      }
+      return;
+    }
+
+    if (action === "expense-note") {
+      const saved = await showExpenseNoteModal(expense);
+      if (saved) {
+        feedback("Note saved.", false);
+      }
+      return;
+    }
+
+    if (action === "expense-toggle-billable") {
+      const nextExpense = {
+        ...expense,
+        isBillable: expense.isBillable === false ? true : false,
+      };
+      try {
+        await mutatePersistentState("update_expense", { expense: nextExpense });
+      } catch (err) {
+        feedback(err.message || "Unable to update billable status.", true);
+      }
+    }
+  }
+
+  function bindExpenseReviewTableActions(tableBody) {
+    if (!tableBody) return;
+    tableBody.addEventListener("click", async function (event) {
       const actionEl = event.target.closest("[data-action]");
       if (!actionEl) return;
-      const action = actionEl.dataset.action;
-      const id = actionEl.dataset.id;
-      const expense = (state.expenses || []).find((item) => item.id === id);
-      if (!expense) return;
-
-      if (action === "expense-edit") {
-        const expForm = refs.expenseForm;
-        const expBulk = document.getElementById("expense-bulk-container");
-        const expToggle = document.getElementById("expense-mode-toggle");
-        if (expForm) expForm.hidden = false;
-        if (expBulk) expBulk.hidden = true;
-        if (expToggle) {
-          expToggle.dataset.mode = "single";
-          expToggle.textContent = "Multiple entry";
-        }
-        setExpenseForm(expense);
-        return;
-      }
-
-      if (action === "expense-delete") {
-        const confirmed = window.confirm("Delete this expense?");
-        if (!confirmed) return;
-        try {
-          await mutatePersistentState("delete_expense", { id });
-          feedback("Expense deleted.", false);
-        } catch (err) {
-          feedback(err.message || "Unable to delete expense.", true);
-        }
-        return;
-      }
-
-      if (action === "expense-toggle-status") {
-        try {
-          await mutatePersistentState("toggle_expense_status", { id });
-        } catch (err) {
-          feedback(err.message || "Unable to update status.", true);
-        }
-        return;
-      }
-
-      if (action === "expense-note") {
-        const saved = await showExpenseNoteModal(expense);
-        if (saved) {
-          feedback("Note saved.", false);
-        }
-        return;
-      }
-
-      if (action === "expense-toggle-billable") {
-        const nextExpense = {
-          ...expense,
-          isBillable: expense.isBillable === false ? true : false,
-        };
-        try {
-          await mutatePersistentState("update_expense", { expense: nextExpense });
-        } catch (err) {
-          feedback(err.message || "Unable to update billable status.", true);
-        }
-        return;
-      }
+      await handleExpenseTableAction(actionEl);
     });
-
-    refs.expensesBody.addEventListener("keydown", async function (event) {
+    tableBody.addEventListener("keydown", function (event) {
       const actionEl = event.target.closest("[data-action]");
       if (!actionEl) return;
       if (event.key !== "Enter" && event.key !== " ") return;
@@ -4797,6 +4930,9 @@
       actionEl.click();
     });
   }
+
+  bindExpenseReviewTableActions(refs.expensesBody);
+  bindExpenseReviewTableActions(refs.entriesExpensesBody);
 
   if (refs.entriesBody) {
     refs.entriesBody.addEventListener("keydown", async function (event) {
