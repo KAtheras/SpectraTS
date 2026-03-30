@@ -4901,7 +4901,6 @@
     if (view === "members") {
       syncAddUserOfficeOptions();
       renderUsersList();
-      removeMembersPageProfileActions();
       syncUserManagementControls();
       postHeight();
       return;
@@ -4986,13 +4985,6 @@
     }
 
     setView("entries");
-  }
-
-  function removeMembersPageProfileActions() {
-    if (!refs.usersPage) return;
-    refs.usersPage
-      .querySelectorAll("[data-user-password], [data-user-deactivate]")
-      .forEach((node) => node.remove());
   }
 
   function applyFiltersFromForm(options) {
