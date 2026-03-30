@@ -2975,14 +2975,6 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   -moz-appearance: textfield;
 }
 
-.user-detail-actions {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  display: flex;
-  gap: 8px;
-}
-
 .detail-divider {
   grid-column: 1 / -1;
   height: 1px;
@@ -2995,14 +2987,6 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   height: 1px;
   background: var(--line);
   margin: 10px 0 10px;
-}
-
-.user-detail-actions {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  display: flex;
-  gap: 8px;
 }
 
 .user-detail-secondary {

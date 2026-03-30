@@ -216,93 +216,33 @@
     const assignments = assignmentSummary(selectedUser);
     const editing = detailEditMode && detailEditUserId === selectedUser.id;
     const canManageUsers = isAdmin(state.currentUser);
-    const canChangeRole = isGlobalAdmin(state.currentUser);
     const canResetPassword = canManageUsers;
     const canDeactivate = canManageUsers && state.currentUser?.id !== selectedUser.id;
     const disabledReason = "Admin only.";
-    const changeLevelReason = "Level 6 only.";
-    const levelChoices =
-      Array.isArray(levels) && levels.length
-        ? Array.from(new Set(levels)).sort((a, b) => a - b)
-        : [];
-    const selectedValue = editing ? detailDraft.level ?? selectedUser.level : selectedUser.level;
-    const levelOptions = levelChoices
-      .map((level) => `<option value="${level}"${selectedValue === level ? " selected" : ""}>${escapeHtml(levelLabel(level))}</option>`)
-      .join("");
-    const draftUsername = editing
-      ? detailDraft.username ?? selectedUser.username
-      : selectedUser.username;
-    const draftDisplayName = editing
-      ? detailDraft.displayName ?? selectedUser.displayName
-      : selectedUser.displayName;
-    const draftOfficeId = editing
-      ? detailDraft.officeId ?? selectedUser.officeId ?? ""
-      : selectedUser.officeId ?? "";
     const departmentName = departmentNameFor(selectedUser.departmentId);
-    const officeOptions = [
-      '<option value="">No office</option>',
-      ...(state.officeLocations || []).map(function (loc) {
-        const id = loc.id != null ? String(loc.id) : "";
-        return `<option value="${escapeHtml(id)}"${id === String(draftOfficeId || "") ? " selected" : ""}>${escapeHtml(loc.name)}</option>`;
-      }),
-    ].join("");
     const officeName = officeNameFor(selectedUser.officeId);
     const detailHtml = `
       <div class="user-detail-card ${editing ? "is-editing" : ""}">
-        <h4>
-          ${
-            editing
-              ? `<input type="text" data-user-field="displayName" value="${escapeHtml(draftDisplayName || "")}" />`
-              : escapeHtml(selectedUser.displayName)
-          }
-        </h4>
+        <h4>${escapeHtml(selectedUser.displayName)}</h4>
         <div class="detail-top-divider"></div>
         <dl>
-          <div>
-            <dt>Username</dt>
-            <dd>
-              ${
-                editing
-                  ? `<input type="text" data-user-field="username" value="${escapeHtml(draftUsername || "")}" />`
-                  : escapeHtml(selectedUser.username)
-              }
-            </dd>
-          </div>
-          <div>
-            <dt>Level</dt>
-            <dd>
-              ${
-                editing
-                  ? `<select data-user-field="level" ${disabledButtonAttrs(canChangeRole, changeLevelReason)}>${levelOptions}</select>`
-                  : escapeHtml(levelLabel(selectedUser.level))
-              }
-            </dd>
-          </div>
-          <div>
-            <dt>Office</dt>
-            <dd>
-              ${
-                editing
-                  ? `<select data-user-field="officeId">${officeOptions}</select>`
-                  : officeName || "—"
-              }
-            </dd>
-          </div>
-          <div>
-            <dt>Department</dt>
-            <dd>${departmentName || "—"}</dd>
+          <div class="member-top-row">
+            <div class="member-top-item">
+              <dt>Level</dt>
+              <dd>${escapeHtml(levelLabel(selectedUser.level))}</dd>
+            </div>
+            <div class="member-top-item">
+              <dt>Department</dt>
+              <dd>${departmentName || "—"}</dd>
+            </div>
+            <div class="member-top-item">
+              <dt>Office</dt>
+              <dd>${officeName || "—"}</dd>
+            </div>
           </div>
           <div class="detail-divider"></div>
           <div><dt>Clients/Projects</dt><dd>${assignments.projects.length ? assignments.projects.map((p) => `${escapeHtml(p.client)} / ${escapeHtml(p.project)}`).join("<br>") : "None assigned"}</dd></div>
         </dl>
-        <div class="user-detail-actions">
-          ${
-            editing
-              ? `<button type="button" class="button" data-user-panel-save="${escapeHtml(selectedUser.id)}">Save</button>
-                 <button type="button" class="button button-ghost" data-user-panel-cancel>Cancel</button>`
-              : `<button type="button" class="button" data-user-panel-edit="${escapeHtml(selectedUser.id)}">Edit</button>`
-          }
-        </div>
         <div class="user-detail-secondary">
           <button
             type="button"
