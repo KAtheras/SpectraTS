@@ -249,6 +249,18 @@ body.modal-open {
   max-width: 100%;
 }
 
+.auth-logo-dark {
+  display: none;
+}
+
+body[data-theme="dark"] .auth-logo-light {
+  display: none;
+}
+
+body[data-theme="dark"] .auth-logo-dark {
+  display: block;
+}
+
 .auth-form {
   display: grid;
   gap: 14px;
