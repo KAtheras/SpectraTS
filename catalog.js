@@ -181,15 +181,6 @@
                   <span class="catalog-item-copy">
                     <span class="catalog-item-title">
                       ${escapeHtml(project)}
-                      <button
-                        type="button"
-                        class="catalog-edit catalog-edit-inline"
-                        aria-label="Edit ${escapeHtml(project)}"
-                        data-edit-project-name="${escapeHtml(project)}"
-                        ${disabledButtonAttrs(canEditProject, "Admin only.")}
-                      >
-                        ✎
-                      </button>
                     </span>
                     <small>${projectHours(selectedClient, project).toFixed(2)}h logged</small>
                     ${projectOffice ? `<small>Office: ${escapeHtml(projectOffice)}</small>` : ""}
@@ -219,19 +210,19 @@
                     <button
                       type="button"
                       class="catalog-edit"
-                      aria-label="View expenses for ${escapeHtml(project)}"
-                      data-view-expenses-project="${escapeHtml(project)}"
+                      aria-label="Edit ${escapeHtml(project)}"
+                      data-edit-project="${escapeHtml(project)}"
+                      ${disabledButtonAttrs(canEditProject, "Admin only.")}
                     >
-                      View Expenses
+                      Edit
                     </button>
                     <button
                       type="button"
                       class="catalog-edit"
-                      aria-label="Edit budget for ${escapeHtml(project)}"
-                      data-edit-project-budget="${escapeHtml(project)}"
-                      ${disabledButtonAttrs(canEditProject, "Admin only.")}
+                      aria-label="View expenses for ${escapeHtml(project)}"
+                      data-view-expenses-project="${escapeHtml(project)}"
                     >
-                      Budget
+                      View Expenses
                     </button>
                     <button
                       type="button"

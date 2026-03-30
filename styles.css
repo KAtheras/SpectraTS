@@ -2686,7 +2686,7 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   order: 20;
 }
 
-.catalog-item-actions > [data-edit-project-budget] {
+.catalog-item-actions > [data-edit-project] {
   order: 30;
 }
 
