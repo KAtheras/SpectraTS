@@ -402,6 +402,8 @@
     entriesViewTitle: document.getElementById("entries-view-title"),
     entriesSubtabTime: document.getElementById("entries-subtab-time"),
     entriesSubtabExpenses: document.getElementById("entries-subtab-expenses"),
+    entriesSwitchExpenses: document.getElementById("entries-switch-expenses"),
+    entriesSwitchTime: document.getElementById("entries-switch-time"),
     entriesPanelTime: document.getElementById("entries-panel-time"),
     entriesPanelExpenses: document.getElementById("entries-panel-expenses"),
     inboxView: document.getElementById("inbox-page"),
@@ -5250,14 +5252,14 @@
       }
     });
   }
-  if (refs.entriesSubtabTime) {
-    refs.entriesSubtabTime.addEventListener("click", function () {
+  if (refs.entriesSwitchTime) {
+    refs.entriesSwitchTime.addEventListener("click", function () {
       state.entriesSubtab = "time";
       render();
     });
   }
-  if (refs.entriesSubtabExpenses) {
-    refs.entriesSubtabExpenses.addEventListener("click", function () {
+  if (refs.entriesSwitchExpenses) {
+    refs.entriesSwitchExpenses.addEventListener("click", function () {
       state.entriesSubtab = "expenses";
       render();
     });

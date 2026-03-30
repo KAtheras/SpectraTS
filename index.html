@@ -312,23 +312,18 @@
 
       <section class="page-view entries-view" id="entries-view" hidden aria-labelledby="entries-view-title">
         <div class="input-shell">
-          <div class="input-header">
-            <h2 id="entries-view-title">Entries</h2>
-            <div class="input-subtabs" role="tablist" aria-label="Entries tabs">
-              <button class="input-subtab is-active" id="entries-subtab-time" type="button" role="tab" aria-selected="true">
-                Time
-              </button>
-              <button class="input-subtab" id="entries-subtab-expenses" type="button" role="tab" aria-selected="false">
-                Expenses
-              </button>
-            </div>
-          </div>
+          <h2 id="entries-view-title" class="sr-only">Entries</h2>
 
           <section class="input-panel entries-panel" id="entries-panel-time">
             <section class="panel" id="time-entries-review-panel">
               <div class="panel-head panel-head-logged">
                 <div class="panel-head-title-row">
-                  <h2>Logged time</h2>
+                  <h2>
+                    Logged time
+                    <button class="button button-ghost entries-inline-switch" id="entries-switch-expenses" type="button">
+                      Expenses
+                    </button>
+                  </h2>
                   <div class="filter-total" id="filter-total-hours">Total hours: 0.00</div>
                 </div>
 
@@ -411,7 +406,12 @@
             <section class="panel panel-table" id="expense-entries-review-panel">
               <div class="panel-head panel-head-logged">
                 <div class="panel-head-title-row">
-                  <h2>Submitted expenses</h2>
+                  <h2>
+                    Submitted expenses
+                    <button class="button button-ghost entries-inline-switch" id="entries-switch-time" type="button">
+                      Time
+                    </button>
+                  </h2>
                   <div class="filter-total" id="expense-filter-total">Total amount: $0.00</div>
                 </div>
                 <div class="panel-head-actions">

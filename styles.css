@@ -1313,6 +1313,21 @@ body[data-theme="dark"] .mobile-tabbar {
   flex-wrap: wrap;
 }
 
+.panel-head-title-row h2 {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.entries-inline-switch {
+  padding: 6px 12px;
+  border-radius: 10px;
+  font-size: 0.82rem;
+  line-height: 1;
+}
+
 .panel-head-actions {
   display: flex;
   align-items: center;
