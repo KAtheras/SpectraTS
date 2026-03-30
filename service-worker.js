@@ -1,4 +1,4 @@
-const CACHE_NAME = "trakmetric-shell-v1";
+const CACHE_NAME = "trakmetric-shell-v2";
 const SHELL_PATHS = ["/", "/index.html", "/styles.css", "/app.js"];
 const SHELL_SET = new Set(SHELL_PATHS);
 
@@ -25,5 +25,15 @@ self.addEventListener("fetch", (event) => {
   if (url.origin !== self.location.origin) return;
   if (!SHELL_SET.has(url.pathname)) return;
 
-  event.respondWith(caches.match(url.pathname).then((cached) => cached || fetch(request)));
+  event.respondWith(
+    fetch(request)
+      .then((response) => {
+        if (response && response.ok) {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(url.pathname, clone));
+        }
+        return response;
+      })
+      .catch(() => caches.match(url.pathname))
+  );
 });
