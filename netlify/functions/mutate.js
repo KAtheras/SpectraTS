@@ -54,41 +54,56 @@ async function completePasswordSetup(sql, payload) {
   }
 
   const tokenHash = hashSetupToken(token);
-  const rows = await sql`
-    SELECT id, user_id, account_id, expires_at, used_at
-    FROM password_setup_tokens
+  const nowIso = new Date().toISOString();
+  const claimedRows = await sql`
+    UPDATE password_setup_tokens
+    SET used_at = ${nowIso}
     WHERE token_hash = ${tokenHash}
-    LIMIT 1
+      AND used_at IS NULL
+      AND expires_at > NOW()
+    RETURNING id, user_id, account_id
   `;
-  const record = rows[0];
-  if (!record) {
+  const claimed = claimedRows[0];
+  if (!claimed) {
+    const rows = await sql`
+      SELECT expires_at, used_at
+      FROM password_setup_tokens
+      WHERE token_hash = ${tokenHash}
+      LIMIT 1
+    `;
+    const record = rows[0];
+    if (!record) {
+      return errorResponse(400, "Invalid setup token.");
+    }
+    if (record.used_at) {
+      return errorResponse(400, "This setup link has already been used.");
+    }
+    if (new Date(record.expires_at).getTime() <= Date.now()) {
+      return errorResponse(400, "This setup link has expired.");
+    }
     return errorResponse(400, "Invalid setup token.");
   }
-  if (record.used_at) {
-    return errorResponse(400, "This setup link has already been used.");
-  }
-  if (new Date(record.expires_at).getTime() <= Date.now()) {
-    return errorResponse(400, "This setup link has expired.");
-  }
 
-  const nowIso = new Date().toISOString();
-  await sql`
+  const updatedUsers = await sql`
     UPDATE users
     SET
       password_hash = ${hashPassword(password)},
       must_change_password = FALSE,
       updated_at = ${nowIso}
-    WHERE id = ${record.user_id}
-      AND account_id = ${record.account_id}::uuid
+    WHERE id = ${claimed.user_id}
+      AND account_id = ${claimed.account_id}::uuid
+    RETURNING id
   `;
-  await sql`
-    UPDATE password_setup_tokens
-    SET used_at = ${nowIso}
-    WHERE id = ${record.id}
-      AND used_at IS NULL
-  `;
+  if (!updatedUsers[0]) {
+    await sql`
+      UPDATE password_setup_tokens
+      SET used_at = NULL
+      WHERE id = ${claimed.id}
+    `;
+    return errorResponse(400, "Invalid setup token.");
+  }
 
-  const session = await createSession(sql, record.user_id);
+  const session = await createSession(sql, claimed.user_id);
   return { ok: true, sessionToken: session?.token || null };
 }
 

@@ -30,9 +30,6 @@
     const settings = options || {};
     const sessionToken = settings.sessionToken || loadSessionToken();
     const targetUrl = new URL(url, window.location.origin);
-    if (sessionToken) {
-      targetUrl.searchParams.set("sessionToken", sessionToken);
-    }
 
     const response = await fetch(targetUrl.toString(), {
       method: settings.method || "GET",
@@ -66,7 +63,6 @@
       body: JSON.stringify({
         action,
         payload,
-        ...(sessionToken ? { sessionToken } : {}),
       }),
       sessionToken,
     });

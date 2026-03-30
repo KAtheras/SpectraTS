@@ -847,31 +847,9 @@ function getCustomSessionToken(event) {
   );
 }
 
-function getQuerySessionToken(event) {
-  return (
-    event.queryStringParameters?.sessionToken ||
-    event.multiValueQueryStringParameters?.sessionToken?.[0] ||
-    ""
-  );
-}
-
-function getRequestSessionToken(request) {
-  if (!request || typeof request !== "object") {
-    return "";
-  }
-
-  return String(
-    request.sessionToken ||
-      request.payload?.sessionToken ||
-      ""
-  ).trim();
-}
-
 function getSessionToken(event, request) {
   return String(
-    getRequestSessionToken(request) ||
-      getQuerySessionToken(event) ||
-      getCustomSessionToken(event) ||
+    getCustomSessionToken(event) ||
       getBearerToken(event) ||
       ""
   ).trim();

@@ -1427,13 +1427,11 @@
 
   async function mutatePersistentState(action, payload, options = {}) {
     const { skipHydrate, refreshState } = options;
-    const sessionToken = loadSessionToken();
     const result = await requestJson(MUTATE_API_PATH, {
       method: "POST",
       body: JSON.stringify({
         action,
         payload,
-        ...(sessionToken ? { sessionToken } : {}),
       }),
     });
     const canHydrateFromResult = !skipHydrate && result && result.currentUser;
@@ -3857,7 +3855,6 @@
         body: JSON.stringify({
           action: "list_audit_logs",
           payload: {
-            sessionToken,
             filters: {
               entityType: state.auditFilters.entity || undefined,
               action: state.auditFilters.action || undefined,
@@ -4072,8 +4069,8 @@
         method: "POST",
         body: JSON.stringify({
           action: "logout",
-          ...(sessionToken ? { sessionToken } : {}),
         }),
+        sessionToken,
       });
     } catch (error) {
       console.error("Logout request failed:", error);
