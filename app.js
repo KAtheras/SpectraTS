@@ -6686,27 +6686,9 @@
   });
 
   refs.projectList.addEventListener("click", async function (event) {
-    const projectCard = event.target.closest("[data-project]");
-    const resolveProjectName = function (button, keys) {
-      if (button) {
-        for (const key of keys) {
-          const value = button.dataset?.[key];
-          if (typeof value === "string" && value.trim()) {
-            return value.trim();
-          }
-        }
-      }
-      const fallback = projectCard?.dataset?.project;
-      return typeof fallback === "string" ? fallback.trim() : "";
-    };
-
-    const viewTimeButton = event.target.closest("[data-view-time-project], [data-view-time]");
+    const viewTimeButton = event.target.closest("[data-view-time-project]");
     if (viewTimeButton) {
-      const projectName = resolveProjectName(viewTimeButton, ["viewTimeProject", "viewTime"]);
-      if (!projectName) {
-        feedback("Unable to determine the selected project.", true);
-        return;
-      }
+      const projectName = viewTimeButton.dataset.viewTimeProject;
       state.filters.client = state.selectedCatalogClient;
       state.filters.project = projectName;
       syncSharedEntriesFiltersFromTime();
@@ -6716,18 +6698,9 @@
       return;
     }
 
-    const viewExpensesButton = event.target.closest(
-      "[data-view-expenses-project], [data-view-expenses]"
-    );
+    const viewExpensesButton = event.target.closest("[data-view-expenses-project]");
     if (viewExpensesButton) {
-      const projectName = resolveProjectName(viewExpensesButton, [
-        "viewExpensesProject",
-        "viewExpenses",
-      ]);
-      if (!projectName) {
-        feedback("Unable to determine the selected project.", true);
-        return;
-      }
+      const projectName = viewExpensesButton.dataset.viewExpensesProject;
       state.expenseFilters.client = state.selectedCatalogClient;
       state.expenseFilters.project = projectName;
       syncSharedEntriesFiltersFromExpense();
