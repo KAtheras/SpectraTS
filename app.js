@@ -7553,6 +7553,18 @@
 
   window.addEventListener("resize", postHeight);
   window.addEventListener("load", postHeight);
+  function registerServiceWorker() {
+    if (!("serviceWorker" in navigator)) {
+      return;
+    }
+    window.addEventListener("load", function () {
+      navigator.serviceWorker.register("/service-worker.js").catch(function (error) {
+        console.warn("Service worker registration failed.", error);
+      });
+    });
+  }
+
+  registerServiceWorker();
   window.addEventListener("keydown", function (event) {
     if (event.key !== "Escape") {
       return;
