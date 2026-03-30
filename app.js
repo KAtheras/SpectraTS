@@ -519,6 +519,7 @@
   };
 
   let addClientHeaderButton = null;
+  let addProjectHeaderButton = null;
   let memberEditorModal = null;
   let memberEditorForm = null;
   let memberEditorTitle = null;
@@ -578,6 +579,98 @@
     }
     if (addForm.isConnected) {
       addForm.remove();
+    }
+  }
+
+  async function openAddProjectDialog() {
+    const canCreateProject = isAdmin(state.currentUser) || isExecutive(state.currentUser);
+    if (!canCreateProject) {
+      feedback("Only Executives or Admins can create projects.", true);
+      return;
+    }
+
+    const dialogResult = await appDialog({
+      title: "Add project",
+      input: true,
+      defaultValue: "",
+      confirmText: "Add",
+    });
+    if (!dialogResult.confirmed) {
+      return;
+    }
+
+    const projectName = (dialogResult.value || "").trim();
+    if (!projectName) {
+      feedback("Project name cannot be empty.", true);
+      return;
+    }
+
+    const budgetInput = window.prompt(
+      "Project budget (optional - leave blank for no budget). Enter a number.",
+      ""
+    );
+    if (budgetInput === null) {
+      return;
+    }
+    const trimmedBudget = budgetInput.trim();
+    let budgetAmount = null;
+    if (trimmedBudget) {
+      const parsed = Number(trimmedBudget);
+      if (Number.isNaN(parsed) || parsed < 0) {
+        feedback("Budget must be a non-negative number.", true);
+        return;
+      }
+      budgetAmount = parsed;
+    }
+
+    const filterUserField = field(refs.filterForm, "user");
+    const filterClientField = field(refs.filterForm, "client");
+    const filterProjectField = field(refs.filterForm, "project");
+    try {
+      await mutatePersistentState("add_project", {
+        clientName: state.selectedCatalogClient,
+        projectName,
+        budgetAmount,
+      });
+    } catch (error) {
+      feedback(error.message || "Unable to add project.", true);
+      return;
+    }
+
+    syncFilterCatalogsUI({
+      user: filterUserField?.value || "",
+      client: filterClientField?.value || "",
+      project: filterProjectField?.value || "",
+    });
+    feedback("Project added.", false);
+    render();
+  }
+
+  function setupAddProjectHeaderAction() {
+    const projectsColumn =
+      refs.projectColumnLabel?.closest(".catalog-column") || refs.projectList?.closest(".catalog-column");
+    const header = projectsColumn?.querySelector(".catalog-column-head");
+    if (!header) return;
+    header.style.display = "flex";
+    header.style.alignItems = "center";
+    header.style.gap = "10px";
+
+    if (!addProjectHeaderButton) {
+      addProjectHeaderButton = document.createElement("button");
+      addProjectHeaderButton.type = "button";
+      addProjectHeaderButton.className = "button button-ghost";
+      addProjectHeaderButton.textContent = "Add Project";
+      addProjectHeaderButton.style.marginLeft = "auto";
+      addProjectHeaderButton.addEventListener("click", function () {
+        openAddProjectDialog();
+      });
+    }
+
+    if (!addProjectHeaderButton.isConnected) {
+      header.appendChild(addProjectHeaderButton);
+    }
+    if (refs.addProjectForm && refs.addProjectForm.isConnected) {
+      refs.addProjectForm.remove();
     }
   }
 
@@ -927,6 +1020,7 @@
 
   ensureDepartmentSettingsUI();
   setupAddClientHeaderAction();
+  setupAddProjectHeaderAction();
   removeMembersAddCard();
   ensureMemberEditorModal();
 
@@ -6496,38 +6590,6 @@
       render();
     });
   }
-
-  refs.addProjectForm.addEventListener("submit", async function (event) {
-    event.preventDefault();
-    const canCreateProject = isAdmin(state.currentUser) || isExecutive(state.currentUser);
-    if (!canCreateProject) {
-      feedback("Only Executives or Admins can create projects.", true);
-      return;
-    }
-    const projectNameField = field(refs.addProjectForm, "project_name");
-    const filterUserField = field(refs.filterForm, "user");
-    const filterClientField = field(refs.filterForm, "client");
-    const filterProjectField = field(refs.filterForm, "project");
-    try {
-      await mutatePersistentState("add_project", {
-        clientName: state.selectedCatalogClient,
-        projectName: projectNameField.value,
-      });
-    } catch (error) {
-      feedback(error.message || "Unable to add project.", true);
-      return;
-    }
-
-    const newestProject = projectNameField.value.trim();
-    refs.addProjectForm.reset();
-    syncFilterCatalogsUI({
-      user: filterUserField.value,
-      client: filterClientField.value,
-      project: filterProjectField.value,
-    });
-    feedback("Project added.", false);
-    render();
-  });
 
   refs.clientList.addEventListener("click", async function (event) {
     const editButton = event.target.closest("[data-edit-client]");
