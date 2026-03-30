@@ -124,7 +124,13 @@
   }
 
   function syncFilterDatePicker(deps, kind, value) {
-    const { isValidDateString, refs } = deps;
+    const refs = deps?.refs || deps;
+    const isValidDateString =
+      typeof deps?.isValidDateString === "function"
+        ? deps.isValidDateString
+        : function (input) {
+            return /^\\d{4}-\\d{2}-\\d{2}$/.test(String(input || ""));
+          };
     const refsForKind = filterDateRefs(refs, kind);
     if (!refsForKind.month || !refsForKind.day || !refsForKind.year) {
       return;
