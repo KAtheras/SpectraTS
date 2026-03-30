@@ -2678,6 +2678,31 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   align-content: start;
 }
 
+.catalog-item-actions > [data-view-time-project] {
+  order: 10;
+}
+
+.catalog-item-actions > [data-view-expenses-project] {
+  order: 20;
+}
+
+.catalog-item-actions > [data-edit-project-budget] {
+  order: 30;
+}
+
+.catalog-item-actions > [data-edit-managers] {
+  order: 40;
+}
+
+.catalog-item-actions > [data-edit-members] {
+  order: 50;
+}
+
+.catalog-item-actions > [data-delete-project] {
+  order: 60;
+  margin-top: 8px;
+}
+
 .catalog-item-title {
   font-family: var(--font-head);
   font-size: 0.98rem;
