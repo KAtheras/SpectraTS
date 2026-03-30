@@ -43,6 +43,31 @@ function hashSetupToken(token) {
   return crypto.createHash("sha256").update(token).digest("hex");
 }
 
+async function validateSetupToken(sql, payload) {
+  const token = normalizeText(payload?.token);
+  if (!token) {
+    return { valid: false };
+  }
+  const tokenHash = hashSetupToken(token);
+  const rows = await sql`
+    SELECT expires_at, used_at
+    FROM password_setup_tokens
+    WHERE token_hash = ${tokenHash}
+    LIMIT 1
+  `;
+  const record = rows[0];
+  if (!record) {
+    return { valid: false };
+  }
+  if (record.used_at) {
+    return { valid: false };
+  }
+  if (new Date(record.expires_at).getTime() <= Date.now()) {
+    return { valid: false };
+  }
+  return { valid: true };
+}
+
 async function completePasswordSetup(sql, payload) {
   const token = normalizeText(payload?.token);
   const password = String(payload?.password || "");
@@ -2604,6 +2629,10 @@ exports.handler = async function handler(event) {
   try {
     const sql = await getSql();
     await ensureSchema(sql);
+    if (request.action === "validate_setup_token") {
+      const result = await validateSetupToken(sql, request.payload || {});
+      return json(200, result);
+    }
     if (request.action === "complete_password_setup") {
       const setupResult = await completePasswordSetup(sql, request.payload || {});
       if (setupResult?.statusCode) {

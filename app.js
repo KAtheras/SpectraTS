@@ -3,12 +3,14 @@
   const body = document.body;
   const normalizedPath = window.location.pathname.replace(/\/+$/, "") || "/";
   if (normalizedPath === "/set-password") {
+    const INVALID_SETUP_LINK_MESSAGE =
+      "This setup link is no longer valid. It may have already been used. Please request a new one.";
     const token = new URLSearchParams(window.location.search).get("token") || "";
     body.innerHTML = `
       <main style="min-height:100vh;display:grid;place-items:center;padding:24px;">
         <section style="width:min(460px,100%);background:#fff;border:1px solid #ddd;border-radius:16px;padding:24px;">
           <h1 style="margin:0 0 16px 0;font-size:1.5rem;">Set your password</h1>
-          <form id="set-password-form" style="display:grid;gap:12px;">
+          <form id="set-password-form" style="display:grid;gap:12px;" hidden>
             <input type="password" id="set-password-new" placeholder="Password" required autocomplete="new-password" />
             <input type="password" id="set-password-confirm" placeholder="Confirm password" required autocomplete="new-password" />
             <button type="submit" style="padding:10px 14px;border-radius:10px;border:1px solid #2f5f90;background:#2f5f90;color:#fff;font-weight:700;">Set password</button>
@@ -19,65 +21,114 @@
     `;
     const form = document.getElementById("set-password-form");
     const feedback = document.getElementById("set-password-feedback");
-    form?.addEventListener("submit", async function (event) {
-      event.preventDefault();
-      const password = document.getElementById("set-password-new")?.value || "";
-      const confirm = document.getElementById("set-password-confirm")?.value || "";
-      const submitBtn = form.querySelector('button[type="submit"]');
+    const hideSetupForm = function () {
+      if (form) {
+        form.hidden = true;
+        Array.from(form.elements || []).forEach((el) => {
+          el.disabled = true;
+        });
+      }
+      feedback.textContent = INVALID_SETUP_LINK_MESSAGE;
+      feedback.style.color = "#b2362e";
+    };
+
+    const showSetupForm = function () {
+      if (form) {
+        form.hidden = false;
+        Array.from(form.elements || []).forEach((el) => {
+          el.disabled = false;
+        });
+      }
+      feedback.textContent = "";
+      feedback.style.color = "#6d6258";
+    };
+
+    const validateSetupToken = async function () {
       if (!token) {
-        feedback.textContent = "Missing setup token.";
-        feedback.style.color = "#b2362e";
-        return;
-      }
-      if (!password || password.length < 8) {
-        feedback.textContent = "Password must be at least 8 characters.";
-        feedback.style.color = "#b2362e";
-        return;
-      }
-      if (password !== confirm) {
-        feedback.textContent = "Passwords do not match.";
-        feedback.style.color = "#b2362e";
-        return;
+        hideSetupForm();
+        return false;
       }
       try {
-        submitBtn.disabled = true;
-        submitBtn.textContent = "Setting...";
         const response = await fetch("/.netlify/functions/mutate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            action: "complete_password_setup",
-            payload: {
-              token,
-              password,
-            },
+            action: "validate_setup_token",
+            payload: { token },
           }),
         });
         const payload = await response.json().catch(() => ({}));
-        if (!response.ok) {
-          throw new Error(payload?.error || "Unable to set password.");
+        if (!response.ok || !payload?.valid) {
+          hideSetupForm();
+          return false;
         }
-        const sessionToken = String(payload?.sessionToken || "");
-        if (sessionToken) {
-          if (window.api?.saveSessionToken) {
-            window.api.saveSessionToken(sessionToken);
-          } else {
-            window.localStorage.setItem("timesheet-studio.session-token.v1", sessionToken);
-          }
-        }
-        feedback.textContent = "Password set successfully. Redirecting...";
-        feedback.style.color = "#2b6b3a";
-        form.reset();
-        window.setTimeout(function () {
-          window.location.assign("/");
-        }, 250);
+        showSetupForm();
+        return true;
       } catch (error) {
-        feedback.textContent = error.message || "Unable to set password.";
-        feedback.style.color = "#b2362e";
-      } finally {
-        submitBtn.disabled = false;
-        submitBtn.textContent = "Set password";
+        hideSetupForm();
+        return false;
       }
+    };
+
+    validateSetupToken().then(function (valid) {
+      if (!valid) {
+        return;
+      }
+      form?.addEventListener("submit", async function (event) {
+        event.preventDefault();
+        const password = document.getElementById("set-password-new")?.value || "";
+        const confirm = document.getElementById("set-password-confirm")?.value || "";
+        const submitBtn = form.querySelector('button[type="submit"]');
+        if (!password || password.length < 8) {
+          feedback.textContent = "Password must be at least 8 characters.";
+          feedback.style.color = "#b2362e";
+          return;
+        }
+        if (password !== confirm) {
+          feedback.textContent = "Passwords do not match.";
+          feedback.style.color = "#b2362e";
+          return;
+        }
+        try {
+          submitBtn.disabled = true;
+          submitBtn.textContent = "Setting...";
+          const response = await fetch("/.netlify/functions/mutate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "complete_password_setup",
+              payload: {
+                token,
+                password,
+              },
+            }),
+          });
+          const payload = await response.json().catch(() => ({}));
+          if (!response.ok) {
+            throw new Error(payload?.error || "Unable to set password.");
+          }
+          const sessionToken = String(payload?.sessionToken || "");
+          if (sessionToken) {
+            if (window.api?.saveSessionToken) {
+              window.api.saveSessionToken(sessionToken);
+            } else {
+              window.localStorage.setItem("timesheet-studio.session-token.v1", sessionToken);
+            }
+          }
+          feedback.textContent = "Password set successfully. Redirecting...";
+          feedback.style.color = "#2b6b3a";
+          form.reset();
+          window.setTimeout(function () {
+            window.location.assign("/");
+          }, 250);
+        } catch (error) {
+          feedback.textContent = error.message || "Unable to set password.";
+          feedback.style.color = "#b2362e";
+        } finally {
+          submitBtn.disabled = false;
+          submitBtn.textContent = "Set password";
+        }
+      });
     });
     return;
   }
