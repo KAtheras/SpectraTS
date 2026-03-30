@@ -7587,35 +7587,18 @@
 
   window.addEventListener("resize", postHeight);
   window.addEventListener("load", postHeight);
-  function disableServiceWorkerCaching() {
-    if (!("serviceWorker" in navigator)) return;
-    navigator.serviceWorker
-      .getRegistrations()
-      .then(function (registrations) {
-        return Promise.all(registrations.map(function (registration) {
-          return registration.unregister();
-        }));
-      })
-      .catch(function () {});
-    if ("caches" in window) {
-      caches
-        .keys()
-        .then(function (keys) {
-          return Promise.all(
-            keys
-              .filter(function (key) {
-                return key.startsWith("trakmetric-shell-");
-              })
-              .map(function (key) {
-                return caches.delete(key);
-              })
-          );
-        })
-        .catch(function () {});
+  function registerServiceWorker() {
+    if (!("serviceWorker" in navigator)) {
+      return;
     }
+    window.addEventListener("load", function () {
+      navigator.serviceWorker.register("/service-worker.js").catch(function (error) {
+        console.warn("Service worker registration failed.", error);
+      });
+    });
   }
 
-  disableServiceWorkerCaching();
+  registerServiceWorker();
   window.addEventListener("keydown", function (event) {
     if (event.key !== "Escape") {
       return;
