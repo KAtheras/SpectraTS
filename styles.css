@@ -233,14 +233,32 @@ body.modal-open {
 
 .auth-panel-copy {
   display: grid;
-  gap: 10px;
+  gap: 14px;
 }
 
-.auth-title {
-  margin: 0;
-  font-family: var(--font-head);
-  font-size: clamp(2rem, 5vw, 3.1rem);
-  line-height: 0.95;
+.auth-branding {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.auth-logo {
+  display: block;
+  width: clamp(220px, 62%, 360px);
+  height: auto;
+  max-width: 100%;
+}
+
+.auth-logo-dark {
+  display: none;
+}
+
+body[data-theme="dark"] .auth-logo-light {
+  display: none;
+}
+
+body[data-theme="dark"] .auth-logo-dark {
+  display: block;
 }
 
 .auth-form {
