@@ -5980,7 +5980,27 @@
     });
   }
   if (refs.addLevel) {
-    refs.addLevel.addEventListener("click", handleAddLevel);
+    refs.addLevel.addEventListener("click", async function () {
+      handleAddLevel();
+      if (!state.permissions?.manage_levels) {
+        return;
+      }
+      const levels = getLevelDefinitions()
+        .map((item) => ({
+          level: Number(item.level),
+          label: String(item.label || "").trim(),
+          permissionGroup: String(item.permissionGroup || "staff").trim(),
+        }))
+        .sort((a, b) => a.level - b.level);
+      try {
+        await mutatePersistentState("update_level_labels", { levels });
+        await refreshSettingsTab("levels");
+        feedback("Level added.", false);
+      } catch (error) {
+        await refreshSettingsTab("levels");
+        feedback(error.message || "Unable to add level.", true);
+      }
+    });
   }
 
   async function refreshSettingsTab(tabKey) {
@@ -6353,13 +6373,10 @@
       const row = deleteBtn.closest(".level-row");
       if (!row) return;
       const levelToRemove = Number(row.dataset.level);
-      const membersWithRole = (state.users || []).filter(function (user) {
-        return user?.isActive !== false && normalizeLevel(user?.level) === levelToRemove;
-      }).length;
       const confirmDelete = await appDialog({
-        title: "Remove role?",
-        message: `Are you sure you would like to remove this role? There are currently ${membersWithRole} member${membersWithRole === 1 ? "" : "s"} with this role.`,
-        confirmText: "Remove",
+        title: "Delete this level?",
+        message: "This level will be deleted immediately.",
+        confirmText: "Delete",
         cancelText: "Cancel",
       });
       if (!confirmDelete.confirmed) {
@@ -6404,12 +6421,14 @@
         return;
       }
 
-      state.levelLabels = levels.reduce((acc, item) => {
-        acc[item.level] = { label: item.label, permissionGroup: item.permissionGroup };
-        return acc;
-      }, {});
-      renderLevelRows();
-      feedback("Level removed. Click Save Levels to persist.", false);
+      try {
+        await mutatePersistentState("update_level_labels", { levels });
+        await refreshSettingsTab("levels");
+        feedback("Level deleted.", false);
+      } catch (error) {
+        await refreshSettingsTab("levels");
+        feedback(error.message || "Unable to delete level.", true);
+      }
     });
   }
 
