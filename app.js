@@ -1426,7 +1426,7 @@
   }
 
   async function mutatePersistentState(action, payload, options = {}) {
-    const { skipHydrate } = options;
+    const { skipHydrate, refreshState } = options;
     const sessionToken = loadSessionToken();
     const result = await requestJson(MUTATE_API_PATH, {
       method: "POST",
@@ -1436,8 +1436,13 @@
         ...(sessionToken ? { sessionToken } : {}),
       }),
     });
-    if (!skipHydrate && result && result.currentUser) {
+    const canHydrateFromResult = !skipHydrate && result && result.currentUser;
+    if (canHydrateFromResult) {
       applyLoadedState(result);
+      render();
+    }
+    if (refreshState || (!skipHydrate && !canHydrateFromResult)) {
+      await loadPersistentState();
       render();
     }
     return result;
@@ -4864,7 +4869,7 @@
     const id = `${itemId || ""}`.trim();
     if (!id) return;
     try {
-      await mutatePersistentState("delete_inbox_item", { id });
+      await mutatePersistentState("delete_inbox_item", { id }, { refreshState: true });
       setInboxSelected(id, false);
       feedback("", false);
     } catch (error) {
@@ -4876,7 +4881,7 @@
     const ids = selectedInboxIds();
     if (!ids.length) return;
     try {
-      await mutatePersistentState("delete_inbox_items", { ids });
+      await mutatePersistentState("delete_inbox_items", { ids }, { refreshState: true });
       clearInboxSelection();
       feedback("", false);
     } catch (error) {
@@ -4886,7 +4891,7 @@
 
   async function deleteAllReadInboxItems() {
     try {
-      await mutatePersistentState("delete_all_read_inbox_items", {});
+      await mutatePersistentState("delete_all_read_inbox_items", {}, { refreshState: true });
       clearInboxSelection();
       feedback("", false);
     } catch (error) {
@@ -4898,7 +4903,7 @@
     const ids = selectedInboxIds();
     if (!ids.length) return;
     try {
-      await mutatePersistentState("mark_inbox_items_read", { ids });
+      await mutatePersistentState("mark_inbox_items_read", { ids }, { refreshState: true });
       clearInboxSelection();
       feedback("", false);
     } catch (error) {
@@ -5006,7 +5011,7 @@
 
     if (!item.isRead) {
       try {
-        await mutatePersistentState("mark_inbox_item_read", { id });
+        await mutatePersistentState("mark_inbox_item_read", { id }, { refreshState: true });
       } catch (error) {
         feedback(error.message || "Unable to mark inbox item as read.", true);
       }
@@ -5266,7 +5271,7 @@
         await mutatePersistentState("update_notification_rule", {
           eventType,
           inboxEnabled,
-        });
+        }, { refreshState: true });
         feedback("Messaging rule updated.", false);
       } catch (error) {
         feedback(error.message || "Unable to update messaging rule.", true);
