@@ -6858,24 +6858,6 @@
       return;
     }
 
-    const button = event.target.closest("[data-project]");
-    if (!button || !state.selectedCatalogClient) {
-      return;
-    }
-
-    closeCatalogModal();
-    feedback("Project selected.", false);
-    postHeight();
-  });
-
-  refs.projectList.addEventListener("keydown", function (event) {
-    const row = event.target.closest("[data-project]");
-    if (!row || (event.key !== "Enter" && event.key !== " ")) {
-      return;
-    }
-
-    event.preventDefault();
-    row.click();
   });
 
   refs.entriesBody.addEventListener("click", async function (event) {
