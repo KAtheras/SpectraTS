@@ -5757,15 +5757,26 @@
     ["from", "to"].forEach(initMobileExpenseFilterDate);
   }
 
-  field(refs.filterForm, "client").addEventListener("change", function () {
-    const userField = field(refs.filterForm, "user");
-    const clientField = field(refs.filterForm, "client");
-    syncFilterCatalogsUI({
-      user: userField.value,
-      client: clientField.value,
-      project: "",
-    });
-    applyFiltersFromForm();
+  refs.filterForm?.addEventListener("change", function (event) {
+    const target = event.target;
+    const fieldName = target?.name || "";
+    if (!fieldName) return;
+
+    if (fieldName === "client") {
+      const userField = field(refs.filterForm, "user");
+      const clientField = field(refs.filterForm, "client");
+      syncFilterCatalogsUI({
+        user: userField?.value || "",
+        client: clientField?.value || "",
+        project: "",
+      });
+      applyFiltersFromForm();
+      return;
+    }
+
+    if (["user", "project", "from", "to"].includes(fieldName)) {
+      applyFiltersFromForm();
+    }
   });
 
   field(refs.expenseFilterForm, "client")?.addEventListener("change", function () {
@@ -5803,22 +5814,18 @@
     applyExpenseFiltersFromForm();
   });
 
-  ["user", "project"].forEach(function (name) {
-    field(refs.filterForm, name).addEventListener("change", function () {
-      applyFiltersFromForm();
-    });
+  refs.filterForm?.addEventListener("input", function (event) {
+    if (event.target?.name === "search") {
+      applyFiltersFromForm({ showErrors: false });
+    }
   });
 
-  field(refs.filterForm, "search").addEventListener("input", function () {
-    applyFiltersFromForm({ showErrors: false });
-  });
-
-  refs.filterForm.addEventListener("submit", function (event) {
+  refs.filterForm?.addEventListener("submit", function (event) {
     event.preventDefault();
     applyFiltersFromForm();
   });
 
-  refs.clearFilters.addEventListener("click", function () {
+  refs.clearFilters?.addEventListener("click", function () {
     refs.filterForm.reset();
     resetFilters();
     syncFilterCatalogsUI(state.filters);
