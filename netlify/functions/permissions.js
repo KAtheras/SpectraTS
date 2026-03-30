@@ -225,7 +225,7 @@ function subjectRuleSatisfied(subjectRoleMax, allowSelf, ctx) {
 }
 
 function can(user, capabilityKey, ctx, permissionIndex) {
-  if (user && user.role === "superuser") return true;
+  if (roleKeyFromUser(user) === "superuser") return true;
   const baseCtx = ctx || {};
   const normalizedCtx = {
     actorOfficeId: baseCtx.actorOfficeId ?? user?.office_id ?? user?.officeId,

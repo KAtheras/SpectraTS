@@ -194,6 +194,15 @@ test("roleKeyFromUser normalizes global_admin to superuser", () => {
   assert.strictEqual(perms.roleKeyFromUser(user), "superuser");
 });
 
+test("can() grants global_admin same superuser access for member deactivation", () => {
+  const allowed = perms.can(
+    { id: "ga", role: "global_admin", office_id: "A" },
+    "deactivate_member",
+    ctx({ resourceOfficeId: "B", actorOfficeId: "A", targetUserId: "target-1" })
+  );
+  assert.strictEqual(allowed, true);
+});
+
 test("roleKeyFromUser uses explicit role, not permission_group or level", () => {
   const userWithGroup = { role: "staff", permission_group: "admin", level: 6 };
   assert.strictEqual(perms.roleKeyFromUser(userWithGroup), "staff");
