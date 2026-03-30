@@ -4,6 +4,7 @@
   function currentEntries() {
     const { state } = deps();
     const search = state.filters.search.trim().toLowerCase();
+    const selectedUserRaw = String(state.filters.user || "").trim();
 
     const {
       getUserByDisplayName,
@@ -33,8 +34,18 @@
         if (!canView) {
           return false;
         }
-        if (state.filters.user && entry.user !== state.filters.user) {
-          return false;
+        if (selectedUserRaw) {
+          const selectedById = getUserById?.(selectedUserRaw) || null;
+          const selectedByName = getUserByDisplayName?.(selectedUserRaw) || null;
+          const selectedDisplayName =
+            selectedById?.displayName || selectedByName?.displayName || selectedUserRaw;
+          const selectedUserId = selectedById?.id || selectedByName?.id || "";
+          const matchesUser =
+            entry.user === selectedDisplayName ||
+            (selectedUserId && entry.userId === selectedUserId);
+          if (!matchesUser) {
+            return false;
+          }
         }
         if (state.filters.client && entry.client !== state.filters.client) {
           return false;
@@ -73,11 +84,14 @@
   }
 
   function renderFilterState(filteredEntries) {
-    const { state, formatDisplayDate, refs, escapeHtml } = deps();
+    const { state, formatDisplayDate, refs, escapeHtml, getUserById, getUserByDisplayName } = deps();
     const chips = [];
     const totalHours = filteredEntries.reduce((sum, entry) => sum + entry.hours, 0);
     if (state.filters.user) {
-      chips.push(`User: ${state.filters.user}`);
+      const userRaw = String(state.filters.user || "").trim();
+      const byId = getUserById?.(userRaw);
+      const byName = getUserByDisplayName?.(userRaw);
+      chips.push(`User: ${byId?.displayName || byName?.displayName || userRaw}`);
     }
     if (state.filters.client) {
       chips.push(`Client: ${state.filters.client}`);
