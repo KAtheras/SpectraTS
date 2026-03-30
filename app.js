@@ -6196,28 +6196,33 @@
     });
   }
 
-  if (refs.addDepartment) {
-    refs.addDepartment.addEventListener("click", function () {
-      if (!state.permissions?.manage_departments) {
-        feedback("Access denied.", true);
+  if (refs.settingsPage) {
+    refs.settingsPage.addEventListener("click", async function (event) {
+      const addDepartmentBtn = event.target.closest("#add-department");
+      if (addDepartmentBtn) {
+        if (!state.permissions?.manage_departments) {
+          feedback("Access denied.", true);
+          return;
+        }
+        state.departments = [
+          ...state.departments,
+          {
+            id: `temp-dept-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+            name: "",
+            isActive: true,
+          },
+        ];
+        window.settingsAdmin?.renderDepartments();
         return;
       }
-      state.departments = [
-        ...state.departments,
-        {
-          id: `temp-dept-${Date.now()}-${Math.random().toString(16).slice(2)}`,
-          name: "",
-          isActive: true,
-        },
-      ];
-      window.settingsAdmin?.renderDepartments();
-    });
-  }
 
-  if (refs.departmentRows) {
-    refs.departmentRows.addEventListener("click", async function (event) {
+      const departmentRows = refs.settingsPage.querySelector("#department-rows");
+      if (!departmentRows) {
+        return;
+      }
+
       const deleteBtn = event.target.closest("[data-department-delete]");
-      if (deleteBtn) {
+      if (deleteBtn && departmentRows.contains(deleteBtn)) {
         if (!state.permissions?.manage_departments) {
           feedback("Access denied.", true);
           return;
@@ -6241,8 +6246,9 @@
         window.settingsAdmin?.renderDepartments();
         return;
       }
+
       const toggleBtn = event.target.closest("[data-department-active]");
-      if (!toggleBtn) return;
+      if (!toggleBtn || !departmentRows.contains(toggleBtn)) return;
       const next = toggleBtn.dataset.active !== "true";
       toggleBtn.dataset.active = next ? "true" : "false";
       toggleBtn.classList.toggle("is-active", next);
@@ -6250,21 +6256,26 @@
       toggleBtn.textContent = next ? "Active" : "Inactive";
       toggleBtn.setAttribute("aria-pressed", next ? "true" : "false");
     });
-  }
 
-  if (refs.departmentsForm) {
-    refs.departmentsForm.addEventListener("submit", async function (event) {
+    refs.settingsPage.addEventListener("submit", async function (event) {
+      const departmentsForm = event.target.closest("#departments-form");
+      if (!departmentsForm) {
+        return;
+      }
       event.preventDefault();
       if (!state.permissions?.manage_departments) {
         feedback("Access denied.", true);
         return;
       }
-      const rows = Array.from(refs.departmentRows?.querySelectorAll(".department-row") || []);
+
+      const rows = Array.from(departmentsForm.querySelectorAll(".department-row"));
       if (!rows.length) {
         feedback("Add at least one department.", true);
         return;
       }
-      const existingMap = new Map((state.departmentsSnapshot || []).map((d) => [d.id, d]));
+      const existingMap = new Map(
+        (state.departmentsSnapshot || []).map((d) => [String(d.id || ""), d])
+      );
       const seen = new Set();
       const createOps = [];
       const renameOps = [];
@@ -6272,7 +6283,7 @@
       const remainingIds = new Set();
 
       for (const row of rows) {
-        const id = (row.dataset.departmentId || "").trim();
+        const id = String((row.dataset.departmentId || "").trim());
         const nameInput = row.querySelector("[data-department-name]");
         const activeBtn = row.querySelector("[data-department-active]");
         const name = (nameInput?.value || "").trim();
