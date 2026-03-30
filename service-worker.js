@@ -1,4 +1,4 @@
-const CACHE_NAME = "trakmetric-shell-v1";
+const CACHE_NAME = "trakmetric-shell-v2";
 const SHELL_PATHS = ["/", "/index.html", "/styles.css", "/app.js"];
 const SHELL_SET = new Set(SHELL_PATHS);
 
