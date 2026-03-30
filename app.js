@@ -520,6 +520,7 @@
 
   let addClientHeaderButton = null;
   let addProjectHeaderButton = null;
+  let membersTabRefineObserver = null;
   let memberEditorModal = null;
   let memberEditorForm = null;
   let memberEditorTitle = null;
@@ -4982,6 +4983,7 @@
       syncAddUserOfficeOptions();
       renderUsersList();
       removeMembersPageProfileActions();
+      refineMembersTabMemberCard();
       syncUserManagementControls();
       postHeight();
       return;
@@ -5073,6 +5075,63 @@
     refs.usersPage
       .querySelectorAll("[data-user-password], [data-user-deactivate]")
       .forEach((node) => node.remove());
+  }
+
+  function refineMembersTabMemberCard() {
+    if (!refs.usersPage || refs.usersPage.hidden) return;
+    const detailCard = refs.usersPage.querySelector(".user-detail-card");
+    if (!detailCard) return;
+
+    const detailsList = detailCard.querySelector("dl");
+    if (!detailsList) return;
+
+    const usernameBlock = Array.from(detailsList.querySelectorAll("div")).find((block) => {
+      const dt = block.querySelector("dt");
+      return (dt?.textContent || "").trim().toLowerCase() === "username";
+    });
+    const actions = detailCard.querySelector(".user-detail-actions");
+    const existingTopRow = detailsList.querySelector(".member-top-row");
+    if (!actions && !usernameBlock && existingTopRow && existingTopRow.children.length === 3) {
+      return;
+    }
+
+    if (actions) {
+      actions.remove();
+    }
+    if (usernameBlock) {
+      usernameBlock.remove();
+    }
+
+    const blocks = Array.from(detailsList.children).filter((node) => node.tagName === "DIV");
+    const blockByLabel = (label) =>
+      blocks.find((block) => {
+        const dt = block.querySelector("dt");
+        return (dt?.textContent || "").trim().toLowerCase() === label;
+      }) || null;
+
+    const levelBlock = blockByLabel("level");
+    const departmentBlock = blockByLabel("department");
+    const officeBlock = blockByLabel("office");
+    if (!levelBlock || !departmentBlock || !officeBlock) return;
+
+    const topRow = existingTopRow || document.createElement("div");
+    topRow.className = "member-top-row";
+    topRow.innerHTML = "";
+    [levelBlock, departmentBlock, officeBlock].forEach((block) => {
+      block.classList.add("member-top-item");
+      topRow.appendChild(block);
+    });
+    if (!existingTopRow) {
+      detailsList.insertBefore(topRow, detailsList.firstChild);
+    }
+  }
+
+  function ensureMembersTabMemberCardRefinement() {
+    if (!refs.userList || membersTabRefineObserver) return;
+    membersTabRefineObserver = new MutationObserver(function () {
+      refineMembersTabMemberCard();
+    });
+    membersTabRefineObserver.observe(refs.userList, { childList: true, subtree: true });
   }
 
   function applyFiltersFromForm(options) {
@@ -7539,6 +7598,7 @@
   }
 
   registerServiceWorker();
+  ensureMembersTabMemberCardRefinement();
   window.addEventListener("keydown", function (event) {
     if (event.key !== "Escape") {
       return;

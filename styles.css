@@ -2946,6 +2946,17 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   gap: 8px 14px;
 }
 
+.member-top-row {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px 14px;
+}
+
+.member-top-item {
+  min-width: 0;
+}
+
 .user-detail-card dt {
   font-weight: 700;
   color: var(--muted);
@@ -2983,7 +2994,7 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   grid-column: 1 / -1;
   height: 1px;
   background: var(--line);
-  margin: 20px 0 10px;
+  margin: 10px 0 10px;
 }
 
 .user-detail-actions {
