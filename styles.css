@@ -3187,7 +3187,7 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   border: 0;
 }
 
-.catalog-edit {
+.catalog-edit:not(.catalog-edit-inline) {
   appearance: none;
   border: 0;
   background: transparent;
@@ -3204,6 +3204,33 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
 .catalog-edit:hover,
 .catalog-delete:hover {
   text-decoration: underline;
+}
+
+.catalog-edit-inline {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: 8px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  text-decoration: none;
+}
+
+.catalog-edit-inline:hover,
+.catalog-edit-inline:focus-visible {
+  background: var(--surface-hover);
+  border-color: var(--accent);
+  text-decoration: none;
+}
+
+.catalog-edit-inline:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .table-wrap {
