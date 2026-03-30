@@ -1,8 +1,5 @@
 (function () {
   let selectedUserId = null;
-  let detailEditUserId = null;
-  let detailEditMode = false;
-  let detailDraft = {};
   let memberSearchTerm = "";
   let memberLevelFilter = "";
 
@@ -35,12 +32,6 @@
     postHeight();
   }
 
-  function setDetailEditState(userId, editing, draft) {
-    detailEditUserId = editing ? userId : null;
-    detailEditMode = Boolean(editing);
-    detailDraft = draft || {};
-  }
-
   function renderUsersList(deps) {
     const {
       refs,
@@ -68,17 +59,9 @@
 
     if (!selectedUserId || !state.users.some((u) => u.id === selectedUserId)) {
       selectedUserId = state.users[0].id;
-      detailEditMode = false;
-      detailEditUserId = null;
-      detailDraft = {};
     }
 
     const selectedUser = state.users.find((u) => u.id === selectedUserId) || state.users[0];
-    if (detailEditUserId && detailEditUserId !== selectedUser.id) {
-      detailEditMode = false;
-      detailEditUserId = null;
-      detailDraft = {};
-    }
 
     const previousScroll =
       refs.userList.querySelector(".member-card-list")?.scrollTop ??
@@ -214,7 +197,6 @@
     }
 
     const assignments = assignmentSummary(selectedUser);
-    const editing = detailEditMode && detailEditUserId === selectedUser.id;
     const canManageUsers = isAdmin(state.currentUser);
     const canResetPassword = canManageUsers;
     const canDeactivate = canManageUsers && state.currentUser?.id !== selectedUser.id;
@@ -222,7 +204,7 @@
     const departmentName = departmentNameFor(selectedUser.departmentId);
     const officeName = officeNameFor(selectedUser.officeId);
     const detailHtml = `
-      <div class="user-detail-card ${editing ? "is-editing" : ""}">
+      <div class="user-detail-card">
         <h4>${escapeHtml(selectedUser.displayName)}</h4>
         <div class="detail-top-divider"></div>
         <dl>
@@ -402,6 +384,5 @@
     setUserFeedback,
     renderUsersList,
     syncUserManagementControls,
-    setDetailEditState,
   };
 })();

@@ -172,7 +172,6 @@
     setUserFeedback: usersSetUserFeedback,
     renderUsersList: usersRenderUsersList,
     syncUserManagementControls: usersSyncUserManagementControls,
-    setDetailEditState: usersSetDetailEditState,
   } = window.usersModal || {};
   const {
     daysInMonth,
@@ -4506,85 +4505,6 @@
   }
 
   async function handleUserListAction(event) {
-    const panelEdit = event.target.closest("[data-user-panel-edit]");
-    const panelCancel = event.target.closest("[data-user-panel-cancel]");
-    const panelSave = event.target.closest("[data-user-panel-save]");
-    if (panelEdit || panelCancel || panelSave) {
-      if (!isAdmin(state.currentUser)) {
-        const message = "Only Admins can edit team members.";
-        setUserFeedback(message, true);
-        window.alert(message);
-        return;
-      }
-      if (panelCancel) {
-        usersSetDetailEditState?.(null, false, {});
-        render();
-        return;
-      }
-      if (panelEdit) {
-        const user = state.users.find((u) => u.id === panelEdit.dataset.userPanelEdit);
-        if (!user) {
-          return;
-        }
-        usersSetDetailEditState?.(user.id, true, {
-          displayName: user.displayName,
-          username: user.username,
-          level: user.level,
-          officeId: user.officeId ?? "",
-        });
-        render();
-        return;
-      }
-      if (panelSave) {
-        const userId = panelSave.dataset.userPanelSave;
-        const user = state.users.find((u) => u.id === userId);
-        if (!user) {
-          return;
-        }
-        const detailCard =
-          panelSave.closest(".user-detail-card") || refs.userList.querySelector(".user-detail-card");
-        if (!detailCard) {
-          return;
-        }
-        const displayNameInput = detailCard.querySelector('[data-user-field="displayName"]');
-        const usernameInput = detailCard.querySelector('[data-user-field="username"]');
-        const levelSelect = detailCard.querySelector('[data-user-field="level"]');
-        const officeSelect = detailCard.querySelector('[data-user-field="officeId"]');
-        const nextDisplayName = displayNameInput?.value.trim() || "";
-        const nextUsername = usernameInput?.value.trim() || "";
-        const nextLevel = Number(levelSelect?.value || user.level);
-        const nextOfficeIdRaw = officeSelect?.value || "";
-        const nextOfficeId = nextOfficeIdRaw ? nextOfficeIdRaw : null;
-        if (!nextDisplayName) {
-          setUserFeedback("Name is required.", true);
-          return;
-        }
-        if (!nextUsername) {
-          setUserFeedback("Username is required.", true);
-          return;
-        }
-        if (!Number.isInteger(nextLevel) || !state.levelLabels?.[nextLevel]) {
-          setUserFeedback("Invalid level.", true);
-          return;
-        }
-        try {
-          await mutatePersistentState("update_user", {
-            userId: user.id,
-            displayName: nextDisplayName,
-            username: nextUsername,
-            level: nextLevel,
-            officeId: nextOfficeId,
-          });
-          usersSetDetailEditState?.(null, false, {});
-          setUserFeedback("Team member updated.", false);
-        } catch (error) {
-          setUserFeedback(error.message || "Unable to update team member.", true);
-          return;
-        }
-        render();
-        return;
-      }
-    }
     const button = event.target.closest(
       "[data-user-edit], [data-user-role], [data-user-password], [data-user-deactivate]"
     );
