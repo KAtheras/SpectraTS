@@ -2735,12 +2735,30 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
 }
 
 .catalog-edit-inline {
-  min-height: 28px;
-  padding: 4px 8px;
+  appearance: none;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  min-height: 30px;
+  padding: 0 10px;
   border-radius: 8px;
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   font-weight: 700;
   letter-spacing: 0.04em;
+  line-height: 1;
+  text-decoration: none;
+}
+
+.catalog-edit-inline:hover,
+.catalog-edit-inline:focus-visible {
+  background: var(--surface-hover);
+  border-color: var(--accent);
+  text-decoration: none;
+}
+
+.catalog-edit-inline:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .catalog-item-copy small {
