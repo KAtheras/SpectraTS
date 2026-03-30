@@ -658,6 +658,7 @@
     if (!addProjectHeaderButton) {
       addProjectHeaderButton = document.createElement("button");
       addProjectHeaderButton.type = "button";
+      addProjectHeaderButton.id = "add-project-header-button";
       addProjectHeaderButton.className = "button button-ghost";
       addProjectHeaderButton.textContent = "Add Project";
       addProjectHeaderButton.style.marginLeft = "auto";

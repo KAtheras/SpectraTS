@@ -118,7 +118,7 @@
       : "Projects";
     const canAddClient = isAdmin(state.currentUser) || isExecutive(state.currentUser);
     const clientNameField = field(refs.addClientForm, "client_name");
-    const addClientButton = refs.addClientForm.querySelector("button");
+    const addClientButton = refs.addClientForm?.querySelector("button");
     if (clientNameField && addClientButton) {
       clientNameField.disabled = !canAddClient;
       addClientButton.disabled = !canAddClient;
@@ -126,26 +126,21 @@
       clientNameField.title = canAddClient ? "" : reason;
       addClientButton.title = canAddClient ? "" : reason;
     }
-    const projectNameField = field(refs.addProjectForm, "project_name");
     const canCreateProject =
       Boolean(selectedClient) &&
       (isAdmin(state.currentUser) ||
         isExecutive(state.currentUser) ||
         (isManager(state.currentUser) &&
           canManagerAccessClient(state.currentUser, selectedClient)));
-    const projectButton = refs.addProjectForm.querySelector("button");
-    projectButton.disabled = !canCreateProject;
-    projectButton.title = canCreateProject
-      ? ""
-      : selectedClient
-        ? "Manager must be assigned to this client."
-        : "Choose client first.";
-    projectNameField.disabled = !canCreateProject;
-    projectNameField.placeholder = selectedClient
-      ? canCreateProject
-        ? "Add project"
-        : "Not assigned to this client"
-      : "Choose client first";
+    const projectButton = document.getElementById("add-project-header-button");
+    if (projectButton) {
+      projectButton.disabled = !canCreateProject;
+      projectButton.title = canCreateProject
+        ? ""
+        : selectedClient
+          ? "Manager must be assigned to this client."
+          : "Choose client first.";
+    }
 
     refs.projectList.innerHTML = projects.length
       ? projects
