@@ -1589,8 +1589,8 @@
       if (fromField) fromField.value = formatDisplayDate(timeFilters.from);
       if (toField) toField.value = formatDisplayDate(timeFilters.to);
       if (searchField) searchField.value = timeFilters.search;
-      syncFilterDatePicker(refs, "from", timeFilters.from);
-      syncFilterDatePicker(refs, "to", timeFilters.to);
+      syncFilterDatePicker({ refs, isValidDateString, escapeHtml }, "from", timeFilters.from);
+      syncFilterDatePicker({ refs, isValidDateString, escapeHtml }, "to", timeFilters.to);
     }
     if (refs.expenseFilterForm) {
       const userField = field(refs.expenseFilterForm, "user");
