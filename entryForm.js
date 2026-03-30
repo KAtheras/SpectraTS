@@ -125,6 +125,19 @@
 
   function syncFilterDatePicker(deps, kind, value) {
     const refs = deps?.refs || deps;
+    const helperDeps = {
+      escapeHtml:
+        typeof deps?.escapeHtml === "function"
+          ? deps.escapeHtml
+          : function (input) {
+              return String(input ?? "")
+                .replaceAll("&", "&amp;")
+                .replaceAll("<", "&lt;")
+                .replaceAll(">", "&gt;")
+                .replaceAll('"', "&quot;")
+                .replaceAll("'", "&#39;");
+            },
+    };
     const isValidDateString =
       typeof deps?.isValidDateString === "function"
         ? deps.isValidDateString
@@ -143,7 +156,7 @@
     const maxDay = monthText && yearText ? daysInMonth(year, monthIndex) : 31;
 
     setSelectOptionsWithPlaceholder(
-      deps,
+      helperDeps,
       refsForKind.month,
       Array.from({ length: 12 }, function (_, index) {
         const value = String(index + 1).padStart(2, "0");
@@ -154,7 +167,7 @@
     );
     const yearConfig = yearOptions(yearText || new Date().getFullYear(), 2);
     setSelectOptionsWithPlaceholder(
-      deps,
+      helperDeps,
       refsForKind.year,
       yearConfig.options.map(function (option) {
         return { value: option, label: option.slice(-2) };
@@ -163,7 +176,7 @@
       "YY"
     );
     setSelectOptionsWithPlaceholder(
-      deps,
+      helperDeps,
       refsForKind.day,
       Array.from({ length: maxDay }, function (_, index) {
         return String(index + 1).padStart(2, "0");
