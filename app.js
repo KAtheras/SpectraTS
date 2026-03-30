@@ -596,48 +596,108 @@
   }
 
   async function openProjectDialog(options) {
-    const mode = options?.mode === "edit" ? "edit" : "add";
-    const currentName = String(options?.projectName || "");
-    const currentBudget = Number.isFinite(options?.budgetAmount) ? Number(options.budgetAmount) : null;
-    const title = mode === "edit" ? "Edit project" : "Add project";
-    const finalConfirmText = mode === "edit" ? "Save" : "Add";
+    return new Promise((resolve) => {
+      const mode = options?.mode === "edit" ? "edit" : "add";
+      const currentName = String(options?.projectName || "");
+      const currentBudget = Number.isFinite(options?.budgetAmount) ? Number(options.budgetAmount) : null;
+      const title = mode === "edit" ? "Edit project" : "Add project";
+      const finalConfirmText = mode === "edit" ? "Save" : "Add";
 
-    const nameDialog = await appDialog({
-      title,
-      message: "Project name",
-      input: true,
-      defaultValue: currentName,
-      confirmText: "Next",
+      const form = document.createElement("form");
+      form.className = "project-dialog-form";
+      form.innerHTML = `
+        <label class="project-dialog-field">
+          <span>Project name</span>
+          <input type="text" name="project_name" required />
+        </label>
+        <label class="project-dialog-field">
+          <span>Budget (optional)</span>
+          <input type="text" name="budget_amount" inputmode="decimal" placeholder="15000 or $15,000" />
+        </label>
+        <p class="project-dialog-error" data-project-dialog-error hidden></p>
+      `;
+
+      const nameInput = form.querySelector('input[name="project_name"]');
+      const budgetInput = form.querySelector('input[name="budget_amount"]');
+      const errorNode = form.querySelector("[data-project-dialog-error]");
+      if (nameInput) {
+        nameInput.value = currentName;
+      }
+      if (budgetInput) {
+        budgetInput.value = currentBudget !== null ? String(currentBudget) : "";
+      }
+
+      refs.dialogTitle.textContent = title;
+      refs.dialogMessage.textContent = "";
+      refs.dialogMessage.hidden = true;
+      refs.dialogInputRow.hidden = false;
+      refs.dialogInput.hidden = true;
+      if (refs.dialogTextarea) {
+        refs.dialogTextarea.hidden = true;
+      }
+      refs.dialogInputRow.appendChild(form);
+      refs.dialogConfirm.textContent = finalConfirmText;
+      refs.dialogCancel.textContent = "Cancel";
+      refs.dialog.hidden = false;
+      refs.dialogConfirm.hidden = false;
+      refs.dialogCancel.disabled = false;
+
+      const setError = (message) => {
+        if (!errorNode) return;
+        errorNode.textContent = message || "";
+        errorNode.hidden = !message;
+      };
+
+      const cleanup = () => {
+        refs.dialog.hidden = true;
+        refs.dialogConfirm.removeEventListener("click", onConfirm);
+        refs.dialogCancel.removeEventListener("click", onCancel);
+        form.removeEventListener("submit", onSubmit);
+        form.remove();
+        refs.dialogMessage.hidden = false;
+        refs.dialogInputRow.hidden = true;
+        refs.dialogInput.hidden = false;
+        refs.dialogMessage.textContent = "";
+      };
+
+      const finalize = () => {
+        const nextName = String(nameInput?.value || "").trim();
+        if (!nextName) {
+          setError("Project name cannot be empty.");
+          nameInput?.focus();
+          return;
+        }
+        const parsedBudget = parseProjectBudgetAmount(budgetInput?.value || "");
+        if (!parsedBudget.ok) {
+          setError("Budget must be a non-negative number.");
+          budgetInput?.focus();
+          return;
+        }
+        cleanup();
+        resolve({
+          projectName: nextName,
+          budgetAmount: parsedBudget.value,
+        });
+      };
+
+      const onConfirm = () => {
+        finalize();
+      };
+      const onSubmit = (event) => {
+        event.preventDefault();
+        finalize();
+      };
+      const onCancel = () => {
+        cleanup();
+        resolve(null);
+      };
+
+      refs.dialogConfirm.addEventListener("click", onConfirm);
+      refs.dialogCancel.addEventListener("click", onCancel);
+      form.addEventListener("submit", onSubmit);
+      nameInput?.focus();
+      nameInput?.select();
     });
-    if (!nameDialog.confirmed) {
-      return null;
-    }
-    const projectName = String(nameDialog.value || "").trim();
-    if (!projectName) {
-      feedback("Project name cannot be empty.", true);
-      return null;
-    }
-
-    const budgetDialog = await appDialog({
-      title,
-      message: "Budget (optional). Enter a number or currency (for example: 15000 or $15,000).",
-      input: true,
-      defaultValue: currentBudget !== null ? String(currentBudget) : "",
-      confirmText: finalConfirmText,
-    });
-    if (!budgetDialog.confirmed) {
-      return null;
-    }
-    const parsedBudget = parseProjectBudgetAmount(budgetDialog.value);
-    if (!parsedBudget.ok) {
-      feedback("Budget must be a non-negative number.", true);
-      return null;
-    }
-
-    return {
-      projectName,
-      budgetAmount: parsedBudget.value,
-    };
   }
 
   async function openAddProjectDialog() {
@@ -6771,8 +6831,8 @@
 
     const editButton = event.target.closest("[data-edit-project]");
     if (editButton) {
-      if (!isAdmin(state.currentUser)) {
-        feedback("Only Admins can edit projects.", true);
+      if (!isAdmin(state.currentUser) && !isExecutive(state.currentUser)) {
+        feedback("Only Executives or Admins can edit projects.", true);
         return;
       }
       const projectName = editButton.dataset.editProject;

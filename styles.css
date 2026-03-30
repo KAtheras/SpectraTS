@@ -183,6 +183,30 @@ body.modal-open {
   font-family: inherit;
 }
 
+.project-dialog-form {
+  display: grid;
+  gap: 10px;
+}
+
+.project-dialog-field {
+  display: grid;
+  gap: 4px;
+}
+
+.project-dialog-field > span {
+  color: var(--muted);
+  font-family: var(--font-head);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.project-dialog-error {
+  color: var(--danger);
+  font-size: 0.86rem;
+}
+
 .dialog-actions {
   display: flex;
   justify-content: flex-end;
@@ -2686,10 +2710,6 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   order: 20;
 }
 
-.catalog-item-actions > [data-edit-project] {
-  order: 30;
-}
-
 .catalog-item-actions > [data-edit-managers] {
   order: 40;
 }
@@ -2712,6 +2732,15 @@ body[data-theme="dark"] .modal-backdrop.as-page .panel-modal {
   align-items: center;
   gap: 6px;
   min-width: 0;
+}
+
+.catalog-edit-inline {
+  min-height: 28px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
 }
 
 .catalog-item-copy small {
