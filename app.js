@@ -1197,7 +1197,6 @@
     pendingInputsTimeEditId: "",
     pendingInputsExpenseEditId: "",
     entriesSubtab: "time", // "time" | "expenses"
-    expenseEditingId: null,
     inboxItems: [],
     inboxFilter: "all",
     inboxSelectedIds: [],
@@ -1774,24 +1773,6 @@
     }
   }
 
-  function hydrateAuthenticatedState(payload) {
-    if (!payload?.currentUser) {
-      throw new Error("Authenticated state is missing the current user.");
-    }
-
-    applyLoadedState(payload);
-    resetFilters();
-    resetAuditFilters();
-    resetForm();
-    resetExpenseForm();
-    setAuthFeedback("", false);
-    feedback("", false);
-    closeUsersModal();
-    closeCatalogModal();
-    showAppShell();
-    render();
-  }
-
   async function mutatePersistentState(action, payload, options = {}) {
     const { skipHydrate, refreshState } = options;
     const result = await requestJson(MUTATE_API_PATH, {
@@ -1876,10 +1857,6 @@
 
   function openAnalyticsPage() {
     setView("analytics");
-  }
-
-  function closeAnalyticsPage() {
-    setView("entries");
   }
 
   function closeSettingsMenu() {
@@ -4519,11 +4496,7 @@
       button.dataset.userEdit ||
       button.dataset.userRole ||
       button.dataset.userPassword ||
-      button.dataset.userDeactivate ||
-      button.dataset.userAssignClient ||
-      button.dataset.userUnassignClient ||
-      button.dataset.userAssignProject ||
-      button.dataset.userUnassignProject;
+      button.dataset.userDeactivate;
     const user = state.users.find(function (candidate) {
       return candidate.id === userId;
     });
@@ -4862,12 +4835,6 @@
     }
     if (refs.entriesPanelExpenses) {
       refs.entriesPanelExpenses.hidden = entriesSubtab !== "expenses";
-    }
-    if (view === "entries" && entriesSubtab === "expenses") {
-      syncExpenseFilterCatalogsUI(state.expenseFilters);
-      const filteredExpenses = currentExpenses();
-      renderExpenses(filteredExpenses);
-      renderExpenseFilterState(filteredExpenses);
     }
 
     if (view === "clients") {
@@ -6699,7 +6666,6 @@
       syncSharedEntriesFiltersFromTime();
       state.entriesSubtab = "time";
       setView("entries");
-      render();
       return;
     }
 
@@ -6711,7 +6677,6 @@
       syncSharedEntriesFiltersFromExpense();
       state.entriesSubtab = "expenses";
       setView("entries");
-      render();
       return;
     }
 
