@@ -210,7 +210,7 @@
     resetExpenseForm,
     currentExpenses,
     renderExpenseFilterState,
-    applyExpenseFiltersFromForm,
+    applyExpenseFiltersFromForm: applyExpenseFiltersFromFormBase,
     canManageExpenseApproval,
     userNameById,
     renderExpenses,
@@ -220,6 +220,14 @@
     syncExpenseCatalogsImport ||
     (window.expenses && window.expenses.syncExpenseCatalogs) ||
     function () {};
+
+  function applyExpenseFiltersFromForm(options) {
+    const applied = applyExpenseFiltersFromFormBase ? applyExpenseFiltersFromFormBase(options) : false;
+    if (applied) {
+      syncSharedEntriesFiltersFromExpense();
+    }
+    return applied;
+  }
   const {
     emptyClientDetails,
     buildClientEditorValues,
@@ -1405,7 +1413,7 @@
   }
 
   function resetFilters() {
-    state.filters = {
+    const nextFilters = {
       user: defaultFilterUser(state, isStaff),
       client: "",
       project: "",
@@ -1413,6 +1421,125 @@
       to: "",
       search: "",
     };
+    state.filters = nextFilters;
+    state.expenseFilters = {
+      ...nextFilters,
+      user: resolveExpenseFilterUser(nextFilters.user),
+    };
+  }
+
+  function cloneEntriesFilterState(source) {
+    const next = source || {};
+    return {
+      user: String(next.user || ""),
+      client: String(next.client || ""),
+      project: String(next.project || ""),
+      from: String(next.from || ""),
+      to: String(next.to || ""),
+      search: String(next.search || ""),
+    };
+  }
+
+  function resolveTimeFilterUser(value) {
+    const raw = String(value || "").trim();
+    if (!raw) return "";
+    const byId = getUserById?.(raw);
+    if (byId?.displayName) return byId.displayName;
+    const byName = getUserByDisplayName?.(raw);
+    if (byName?.displayName) return byName.displayName;
+    return raw;
+  }
+
+  function resolveExpenseFilterUser(value) {
+    const raw = String(value || "").trim();
+    if (!raw) return "";
+    const byId = getUserById?.(raw);
+    if (byId?.id) return byId.id;
+    const byName = getUserByDisplayName?.(raw);
+    if (byName?.id) return byName.id;
+    return "";
+  }
+
+  function setExpenseFilterPickerValue(kind, isoDate) {
+    const refsForKind = expenseFilterDateRefs(kind);
+    if (!refsForKind.month || !refsForKind.day || !refsForKind.year) {
+      return;
+    }
+    if (isValidDateString(isoDate)) {
+      const [year, month, day] = String(isoDate).split("-");
+      refsForKind.month.value = month;
+      refsForKind.day.value = day;
+      refsForKind.year.value = year;
+      return;
+    }
+    refsForKind.month.value = "";
+    refsForKind.day.value = "";
+    refsForKind.year.value = "";
+  }
+
+  function syncSharedEntriesFilterForms() {
+    const timeFilters = cloneEntriesFilterState(state.filters);
+    const expenseFilters = cloneEntriesFilterState(state.expenseFilters);
+    if (refs.filterForm) {
+      const userField = field(refs.filterForm, "user");
+      const clientField = field(refs.filterForm, "client");
+      const projectField = field(refs.filterForm, "project");
+      const fromField = field(refs.filterForm, "from");
+      const toField = field(refs.filterForm, "to");
+      const searchField = field(refs.filterForm, "search");
+      syncFilterCatalogsUI(timeFilters);
+      if (userField) userField.value = timeFilters.user;
+      if (clientField) clientField.value = timeFilters.client;
+      if (projectField) projectField.value = timeFilters.project;
+      if (fromField) fromField.value = formatDisplayDate(timeFilters.from);
+      if (toField) toField.value = formatDisplayDate(timeFilters.to);
+      if (searchField) searchField.value = timeFilters.search;
+      syncFilterDatePicker(refs, "from", timeFilters.from);
+      syncFilterDatePicker(refs, "to", timeFilters.to);
+    }
+    if (refs.expenseFilterForm) {
+      const userField = field(refs.expenseFilterForm, "user");
+      const clientField = field(refs.expenseFilterForm, "client");
+      const projectField = field(refs.expenseFilterForm, "project");
+      const fromField = field(refs.expenseFilterForm, "from");
+      const toField = field(refs.expenseFilterForm, "to");
+      const searchField = field(refs.expenseFilterForm, "search");
+      syncExpenseFilterCatalogsUI(expenseFilters);
+      if (userField) userField.value = expenseFilters.user;
+      if (clientField) clientField.value = expenseFilters.client;
+      if (projectField) projectField.value = expenseFilters.project;
+      if (fromField) fromField.value = formatDisplayDate(expenseFilters.from);
+      if (toField) toField.value = formatDisplayDate(expenseFilters.to);
+      if (searchField) searchField.value = expenseFilters.search;
+      setExpenseFilterPickerValue("from", expenseFilters.from);
+      setExpenseFilterPickerValue("to", expenseFilters.to);
+    }
+  }
+
+  function syncSharedEntriesFiltersFromTime() {
+    const base = cloneEntriesFilterState(state.filters);
+    state.filters = {
+      ...base,
+      user: resolveTimeFilterUser(base.user),
+    };
+    state.expenseFilters = {
+      ...base,
+      user: resolveExpenseFilterUser(base.user),
+    };
+    syncSharedEntriesFilterForms();
+  }
+
+  function syncSharedEntriesFiltersFromExpense() {
+    const base = cloneEntriesFilterState(state.expenseFilters);
+    state.expenseFilters = {
+      ...base,
+      user: resolveExpenseFilterUser(base.user),
+    };
+    state.filters = {
+      ...base,
+      user: resolveTimeFilterUser(base.user),
+    };
+    syncSharedEntriesFilterForms();
   }
 
   function resetAuditFilters() {
@@ -4794,6 +4921,7 @@
       to: parsedTo || "",
       search: searchField.value,
     };
+    syncSharedEntriesFiltersFromTime();
 
     fromField.value = formatDisplayDate(state.filters.from);
     toField.value = formatDisplayDate(state.filters.to);
@@ -5254,12 +5382,14 @@
   }
   if (refs.entriesSwitchTime) {
     refs.entriesSwitchTime.addEventListener("click", function () {
+      syncSharedEntriesFiltersFromExpense();
       state.entriesSubtab = "time";
       render();
     });
   }
   if (refs.entriesSwitchExpenses) {
     refs.entriesSwitchExpenses.addEventListener("click", function () {
+      syncSharedEntriesFiltersFromTime();
       state.entriesSubtab = "expenses";
       render();
     });
@@ -6498,7 +6628,7 @@
       const projectName = viewTimeButton.dataset.viewTimeProject;
       state.filters.client = state.selectedCatalogClient;
       state.filters.project = projectName;
-      syncFilterCatalogsUI(state.filters);
+      syncSharedEntriesFiltersFromTime();
       state.entriesSubtab = "time";
       setView("entries");
       render();
@@ -6510,7 +6640,7 @@
       const projectName = viewExpensesButton.dataset.viewExpensesProject;
       state.expenseFilters.client = state.selectedCatalogClient;
       state.expenseFilters.project = projectName;
-      syncExpenseFilterCatalogsUI(state.expenseFilters);
+      syncSharedEntriesFiltersFromExpense();
       state.entriesSubtab = "expenses";
       setView("entries");
       render();
