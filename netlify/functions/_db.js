@@ -2275,6 +2275,7 @@ async function loadState(sql, currentUser) {
       actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
     })
   );
+  const allUsers = normalizedUser ? await listUsers(sql, accountUuid) : [];
 
   let entries = [];
   if (isAdminFlag) {
@@ -2356,29 +2357,129 @@ async function loadState(sql, currentUser) {
   }
 
   if (delegatorUserIds.length) {
-    const delegatedEntries = await sql`
-      SELECT
-        entries.id,
-        entries.user_name AS "user",
-        u.id AS "userId",
-        TO_CHAR(entries.entry_date, 'YYYY-MM-DD') AS date,
-        entries.client_name AS client,
-        entries.project_name AS project,
-        entries.task,
-        entries.hours::FLOAT8 AS hours,
-        entries.notes,
-        entries.billable,
-        entries.status,
-        entries.created_at AS "createdAt",
-        entries.updated_at AS "updatedAt"
-      FROM entries
-      JOIN users u
-        ON LOWER(u.display_name) = LOWER(entries.user_name)
-       AND u.account_id = ${accountUuid}::uuid
-      WHERE entries.account_id = ${accountUuid}::uuid
-        AND u.id = ANY(${delegatorUserIds})
-      ORDER BY entries.entry_date DESC, entries.created_at DESC
-    `;
+    const delegatorRowsById = new Map(
+      allUsers.map((item) => [`${item?.id || ""}`.trim(), item])
+    );
+    const timeDelegatorRows = delegators.filter((item) => {
+      const caps = Array.isArray(item?.capabilities) ? item.capabilities : [];
+      return (
+        caps.includes("view_time_on_behalf") ||
+        caps.includes("enter_time_on_behalf")
+      );
+    });
+    const delegatorSelfOnlyIds = [];
+    const delegatorManagerLikeIds = [];
+    let includeAllDelegatorEntries = false;
+    for (const delegator of timeDelegatorRows) {
+      const delegatorId = `${delegator?.id || ""}`.trim();
+      if (!delegatorId) continue;
+      const delegatorUser = delegatorRowsById.get(delegatorId);
+      const group = permissionGroupForUser(delegatorUser, levelLabels);
+      if (group === "superuser" || group === "admin") {
+        includeAllDelegatorEntries = true;
+        continue;
+      }
+      if (group === "manager" || group === "executive") {
+        delegatorManagerLikeIds.push(delegatorId);
+      } else {
+        delegatorSelfOnlyIds.push(delegatorId);
+      }
+    }
+
+    const delegatedEntryRows = [];
+    if (includeAllDelegatorEntries) {
+      const rows = await sql`
+        SELECT
+          entries.id,
+          entries.user_name AS "user",
+          u.id AS "userId",
+          TO_CHAR(entries.entry_date, 'YYYY-MM-DD') AS date,
+          entries.client_name AS client,
+          entries.project_name AS project,
+          entries.task,
+          entries.hours::FLOAT8 AS hours,
+          entries.notes,
+          entries.billable,
+          entries.status,
+          entries.created_at AS "createdAt",
+          entries.updated_at AS "updatedAt"
+        FROM entries
+        LEFT JOIN users u
+          ON LOWER(u.display_name) = LOWER(entries.user_name)
+         AND u.account_id = ${accountUuid}::uuid
+        WHERE entries.account_id = ${accountUuid}::uuid
+      `;
+      delegatedEntryRows.push(...rows);
+    } else {
+      if (delegatorSelfOnlyIds.length) {
+        const rows = await sql`
+          SELECT
+            entries.id,
+            entries.user_name AS "user",
+            u.id AS "userId",
+            TO_CHAR(entries.entry_date, 'YYYY-MM-DD') AS date,
+            entries.client_name AS client,
+            entries.project_name AS project,
+            entries.task,
+            entries.hours::FLOAT8 AS hours,
+            entries.notes,
+            entries.billable,
+            entries.status,
+            entries.created_at AS "createdAt",
+            entries.updated_at AS "updatedAt"
+          FROM entries
+          JOIN users u
+            ON LOWER(u.display_name) = LOWER(entries.user_name)
+           AND u.account_id = ${accountUuid}::uuid
+          WHERE entries.account_id = ${accountUuid}::uuid
+            AND u.id = ANY(${delegatorSelfOnlyIds})
+        `;
+        delegatedEntryRows.push(...rows);
+      }
+      if (delegatorManagerLikeIds.length) {
+        const projectIdSet = new Set();
+        for (const managerId of delegatorManagerLikeIds) {
+          const scope = await getManagerScope(sql, managerId, accountUuid);
+          (scope.projectIds || []).forEach((id) => {
+            if (id) projectIdSet.add(id);
+          });
+        }
+        const scopeProjectIds = Array.from(projectIdSet);
+        if (scopeProjectIds.length) {
+          const rows = await sql`
+            SELECT DISTINCT ON (entries.id)
+              entries.id,
+              entries.user_name AS "user",
+              users.id AS "userId",
+              TO_CHAR(entries.entry_date, 'YYYY-MM-DD') AS date,
+              entries.client_name AS client,
+              entries.project_name AS project,
+              entries.task,
+              entries.hours::FLOAT8 AS hours,
+              entries.notes,
+              entries.billable,
+              entries.status,
+              entries.created_at AS "createdAt",
+              entries.updated_at AS "updatedAt"
+            FROM entries
+            JOIN clients ON LOWER(clients.name) = LOWER(entries.client_name)
+            JOIN projects ON projects.client_id = clients.id
+              AND LOWER(projects.name) = LOWER(entries.project_name)
+            JOIN users ON LOWER(users.display_name) = LOWER(entries.user_name)
+            WHERE entries.account_id = ${accountUuid}::uuid
+              AND projects.id = ANY(${scopeProjectIds})
+              AND (
+                users.level <= 2
+                OR users.id = ANY(${delegatorManagerLikeIds})
+              )
+            ORDER BY entries.id, entries.entry_date DESC, entries.created_at DESC
+          `;
+          delegatedEntryRows.push(...rows);
+        }
+      }
+    }
+
+    const delegatedEntries = delegatedEntryRows;
     const entryById = new Map();
     [...entries, ...delegatedEntries].forEach((item) => {
       if (!item?.id) return;
@@ -2466,26 +2567,117 @@ async function loadState(sql, currentUser) {
   }
 
   if (delegatorUserIds.length) {
-    const delegatedExpenses = await sql`
-      SELECT
-        id,
-        user_id AS "userId",
-        client_name AS "clientName",
-        project_name AS "projectName",
-        expense_date AS "expenseDate",
-        category,
-        amount::FLOAT8 AS amount,
-        is_billable AS "isBillable",
-        COALESCE(notes, '') AS notes,
-        status,
-        approved_at AS "approvedAt",
-        created_at AS "createdAt",
-        updated_at AS "updatedAt"
-      FROM expenses
-      WHERE account_id = ${accountUuid}::uuid
-        AND user_id = ANY(${delegatorUserIds})
-      ORDER BY expense_date DESC, created_at DESC NULLS LAST
-    `;
+    const delegatorRowsById = new Map(
+      allUsers.map((item) => [`${item?.id || ""}`.trim(), item])
+    );
+    const expenseDelegatorRows = delegators.filter((item) => {
+      const caps = Array.isArray(item?.capabilities) ? item.capabilities : [];
+      return (
+        caps.includes("view_expenses_on_behalf") ||
+        caps.includes("enter_expenses_on_behalf")
+      );
+    });
+    const delegatorSelfOnlyIds = [];
+    const delegatorManagerLikeIds = [];
+    let includeAllDelegatorExpenses = false;
+    for (const delegator of expenseDelegatorRows) {
+      const delegatorId = `${delegator?.id || ""}`.trim();
+      if (!delegatorId) continue;
+      const delegatorUser = delegatorRowsById.get(delegatorId);
+      const group = permissionGroupForUser(delegatorUser, levelLabels);
+      if (group === "superuser" || group === "admin" || group === "executive") {
+        includeAllDelegatorExpenses = true;
+        continue;
+      }
+      if (group === "manager") {
+        delegatorManagerLikeIds.push(delegatorId);
+      } else {
+        delegatorSelfOnlyIds.push(delegatorId);
+      }
+    }
+
+    const delegatedExpenseRows = [];
+    if (includeAllDelegatorExpenses) {
+      const rows = await sql`
+        SELECT
+          id,
+          user_id AS "userId",
+          client_name AS "clientName",
+          project_name AS "projectName",
+          expense_date AS "expenseDate",
+          category,
+          amount::FLOAT8 AS amount,
+          is_billable AS "isBillable",
+          COALESCE(notes, '') AS notes,
+          status,
+          approved_at AS "approvedAt",
+          created_at AS "createdAt",
+          updated_at AS "updatedAt"
+        FROM expenses
+        WHERE account_id = ${accountUuid}::uuid
+      `;
+      delegatedExpenseRows.push(...rows);
+    } else {
+      if (delegatorSelfOnlyIds.length) {
+        const rows = await sql`
+          SELECT
+            id,
+            user_id AS "userId",
+            client_name AS "clientName",
+            project_name AS "projectName",
+            expense_date AS "expenseDate",
+            category,
+            amount::FLOAT8 AS amount,
+            is_billable AS "isBillable",
+            COALESCE(notes, '') AS notes,
+            status,
+            approved_at AS "approvedAt",
+            created_at AS "createdAt",
+            updated_at AS "updatedAt"
+          FROM expenses
+          WHERE account_id = ${accountUuid}::uuid
+            AND user_id = ANY(${delegatorSelfOnlyIds})
+        `;
+        delegatedExpenseRows.push(...rows);
+      }
+      if (delegatorManagerLikeIds.length) {
+        const projectIdSet = new Set();
+        for (const managerId of delegatorManagerLikeIds) {
+          const scope = await getManagerScope(sql, managerId, accountUuid);
+          (scope.projectIds || []).forEach((id) => {
+            if (id) projectIdSet.add(id);
+          });
+        }
+        const scopeProjectIds = Array.from(projectIdSet);
+        if (scopeProjectIds.length) {
+          const rows = await sql`
+            SELECT
+              expenses.id,
+              expenses.user_id AS "userId",
+              expenses.client_name AS "clientName",
+              expenses.project_name AS "projectName",
+              expenses.expense_date AS "expenseDate",
+              expenses.category,
+              expenses.amount::FLOAT8 AS amount,
+              expenses.is_billable AS "isBillable",
+              COALESCE(expenses.notes, '') AS notes,
+              expenses.status,
+              expenses.approved_at AS "approvedAt",
+              expenses.created_at AS "createdAt",
+              expenses.updated_at AS "updatedAt"
+            FROM expenses
+            JOIN clients ON LOWER(clients.name) = LOWER(expenses.client_name)
+            JOIN projects ON projects.client_id = clients.id
+              AND LOWER(projects.name) = LOWER(expenses.project_name)
+            WHERE expenses.account_id = ${accountUuid}::uuid
+              AND projects.id = ANY(${scopeProjectIds})
+          `;
+          delegatedExpenseRows.push(...rows);
+        }
+      }
+    }
+
+    const delegatedExpenses = delegatedExpenseRows;
     const expenseById = new Map();
     [...expenses, ...delegatedExpenses].forEach((item) => {
       if (!item?.id) return;
@@ -2503,7 +2695,6 @@ async function loadState(sql, currentUser) {
 
   let users = [];
   if (normalizedUser) {
-    const allUsers = await listUsers(sql, accountUuid);
     const viewable = allUsers.filter((user) =>
       canCap("view_members", {
         resourceOfficeId: user.officeId ?? user.office_id ?? null,
