@@ -7589,6 +7589,8 @@
     expenseClientOptions: visibleExpenseClientOptions,
     defaultFilterUser,
     effectiveScopeUser,
+    currentEntries,
+    currentExpenses,
     allowedClientsForUser,
     clientNames,
     allowedProjectsForClient,

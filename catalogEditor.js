@@ -521,6 +521,7 @@
       isAdmin,
       effectiveScopeUser,
       isValidDateString,
+      currentEntries,
       syncFilterCatalogs,
     } = deps();
     syncFilterCatalogs?.(
@@ -544,6 +545,7 @@
         isAdmin,
         effectiveScopeUser,
         isValidDateString,
+        currentEntries,
       },
       selection
     );
@@ -552,24 +554,33 @@
   function syncExpenseFilterCatalogsUI(selection) {
     const {
       refs,
-      visibleCatalogClientNames,
       setSelectOptionsWithPlaceholder,
-      visibleCatalogProjectNames,
       getUserById,
       escapeHtml,
-      entryUserOptions,
-      getUserByDisplayName,
-      expenseClientOptions,
+      currentExpenses,
+      uniqueValues,
     } = deps();
-    const selectedUserId = selection?.user || "";
     const selectedClient = selection?.client || "";
     const selectedProject = selection?.project || "";
 
+    const expenseRows =
+      typeof currentExpenses === "function"
+        ? currentExpenses({
+            user: "",
+            client: "",
+            project: "",
+            from: selection?.from || "",
+            to: selection?.to || "",
+            search: selection?.search || "",
+          })
+        : [];
     if (refs.expenseFilterUser) {
-      const users = entryUserOptions().map((name) => {
-        const user = getUserByDisplayName(name);
-        return { label: name, value: user?.id || name };
-      });
+      const users = uniqueValues(
+        expenseRows.map((row) => row.userId).filter(Boolean)
+      ).map((id) => ({
+        label: getUserById?.(id)?.displayName || id,
+        value: id,
+      }));
       setSelectOptionsWithPlaceholder(
         { escapeHtml },
         refs.expenseFilterUser,
@@ -580,7 +591,7 @@
     }
 
     if (refs.expenseFilterClient) {
-      const clients = expenseClientOptions ? expenseClientOptions() : visibleCatalogClientNames();
+      const clients = uniqueValues(expenseRows.map((row) => row.clientName).filter(Boolean));
       setSelectOptionsWithPlaceholder(
         { escapeHtml },
         refs.expenseFilterClient,
@@ -591,9 +602,12 @@
     }
 
     if (refs.expenseFilterProject) {
-      const projects = selectedClient
-        ? visibleCatalogProjectNames(selectedClient, getUserById?.(selectedUserId))
-        : [];
+      const projects = uniqueValues(
+        expenseRows
+          .filter((row) => !selectedClient || row.clientName === selectedClient)
+          .map((row) => row.projectName)
+          .filter(Boolean)
+      );
       const placeholder = selectedClient ? "All projects" : "Choose client first";
       setSelectOptionsWithPlaceholder(
         { escapeHtml },

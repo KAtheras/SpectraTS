@@ -385,6 +385,7 @@
       populateSelect,
       formatDisplayDate,
       syncFilterDatePicker,
+      currentEntries,
     } = deps;
     const userField = field(refs.filterForm, "user");
     const clientField = field(refs.filterForm, "client");
@@ -392,9 +393,18 @@
     const fromField = field(refs.filterForm, "from");
     const toField = field(refs.filterForm, "to");
     const searchField = field(refs.filterForm, "search");
-    const entryUsers = uniqueValues(
-      (state.entries || []).map((entry) => entry.user).filter(Boolean)
-    );
+    const scopeRows =
+      typeof currentEntries === "function"
+        ? currentEntries({
+            user: "",
+            client: "",
+            project: "",
+            from: selection?.from ?? state.filters.from ?? "",
+            to: selection?.to ?? state.filters.to ?? "",
+            search: selection?.search ?? state.filters.search ?? "",
+          })
+        : (state.entries || []);
+    const entryUsers = uniqueValues(scopeRows.map((entry) => entry.user).filter(Boolean));
     const userOptions = entryUsers;
     const defaultUser = defaultFilterUser(state, isStaff);
     const requestedUser = selection?.user ?? userField?.value ?? defaultUser;
@@ -406,7 +416,7 @@
           : userOptions[0] || "";
     const requestedClient = selection?.client ?? clientField?.value ?? "";
     const entryClients = uniqueValues(
-      (state.entries || []).map((entry) => entry.client).filter(Boolean)
+      scopeRows.map((entry) => entry.client).filter(Boolean)
     );
     const scopeUser =
       typeof deps.effectiveScopeUser === "function"
@@ -429,7 +439,7 @@
     const nextClient = allowedClients.includes(requestedClient) ? requestedClient : "";
     const requestedProject = selection?.project ?? projectField?.value ?? "";
     const entryProjects = uniqueValues(
-      (state.entries || [])
+      scopeRows
         .filter((entry) => !nextClient || entry.client === nextClient)
         .map((entry) => entry.project)
         .filter(Boolean)

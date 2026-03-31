@@ -197,11 +197,15 @@
     setExpenseNonBillableDefault(refs.expenseProject?.value || "");
   }
 
-  function currentExpenses() {
+  function currentExpenses(filterOverrides) {
     const { state, effectiveScopeUser } = deps();
     const scopeUser =
       typeof effectiveScopeUser === "function" ? effectiveScopeUser() : state.currentUser;
-    const search = state.expenseFilters.search.trim().toLowerCase();
+    const filters = {
+      ...(state.expenseFilters || {}),
+      ...(filterOverrides || {}),
+    };
+    const search = String(filters.search || "").trim().toLowerCase();
 
     const { getUserById, canViewUserByRole, assignedProjectTuplesForCurrentUser, isAdmin, isExecutive } = deps();
     const allowedTupleKeys = new Set(
@@ -230,19 +234,19 @@
         ) {
           return false;
         }
-        if (state.expenseFilters.user && expense.userId !== state.expenseFilters.user) {
+        if (filters.user && expense.userId !== filters.user) {
           return false;
         }
-        if (state.expenseFilters.client && expense.clientName !== state.expenseFilters.client) {
+        if (filters.client && expense.clientName !== filters.client) {
           return false;
         }
-        if (state.expenseFilters.project && expense.projectName !== state.expenseFilters.project) {
+        if (filters.project && expense.projectName !== filters.project) {
           return false;
         }
-        if (state.expenseFilters.from && expense.expenseDate < state.expenseFilters.from) {
+        if (filters.from && expense.expenseDate < filters.from) {
           return false;
         }
-        if (state.expenseFilters.to && expense.expenseDate > state.expenseFilters.to) {
+        if (filters.to && expense.expenseDate > filters.to) {
           return false;
         }
         if (!search) {

@@ -1,11 +1,15 @@
 (function () {
   const deps = () => window.timeEntriesDeps || {};
 
-  function currentEntries() {
+  function currentEntries(filterOverrides) {
     const { state, effectiveScopeUser } = deps();
     const scopeUser =
       typeof effectiveScopeUser === "function" ? effectiveScopeUser() : state.currentUser;
-    const search = state.filters.search.trim().toLowerCase();
+    const filters = {
+      ...(state.filters || {}),
+      ...(filterOverrides || {}),
+    };
+    const search = String(filters.search || "").trim().toLowerCase();
 
     const {
       getUserByDisplayName,
@@ -54,19 +58,19 @@
         ) {
           return false;
         }
-        if (state.filters.user && entry.user !== state.filters.user) {
+        if (filters.user && entry.user !== filters.user) {
           return false;
         }
-        if (state.filters.client && entry.client !== state.filters.client) {
+        if (filters.client && entry.client !== filters.client) {
           return false;
         }
-        if (state.filters.project && entry.project !== state.filters.project) {
+        if (filters.project && entry.project !== filters.project) {
           return false;
         }
-        if (state.filters.from && entry.date < state.filters.from) {
+        if (filters.from && entry.date < filters.from) {
           return false;
         }
-        if (state.filters.to && entry.date > state.filters.to) {
+        if (filters.to && entry.date > filters.to) {
           return false;
         }
         if (!search) {
