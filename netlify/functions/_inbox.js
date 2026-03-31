@@ -62,6 +62,14 @@ function buildInboxMessage(type, data = {}) {
     return `${actorName} updated your delegation access.`;
   }
   if (type === "project_assignment_updated") {
+    const change = `${data.assignmentChange || ""}`.trim().toLowerCase();
+    const targetProject = projectName || projectLabel;
+    if (change === "removed") {
+      return `${actorName} removed you from project ${targetProject}.`;
+    }
+    if (change === "added") {
+      return `${actorName} added you to project ${targetProject}.`;
+    }
     return `${actorName} updated your project assignment for ${projectLabel}.`;
   }
   if (type === "entry_billing_status_updated") {
@@ -269,11 +277,14 @@ function buildNotificationEmailContent(eventType, payload = {}) {
   const actorName = `${payload.actorName || "Someone"}`.trim() || "Someone";
   const projectName = `${payload.projectName || ""}`.trim();
   if (eventType === "project_assignment_updated") {
+    const change = `${payload.assignmentChange || ""}`.trim().toLowerCase();
+    const changeLabel = change === "removed" ? "Removed from project" : "Added to project";
     return {
       subject: "Project assignment updated",
       html: `
         <p>Your project assignment was updated.</p>
         ${projectName ? `<p><strong>Project:</strong> ${escapeHtml(projectName)}</p>` : ""}
+        <p><strong>Change:</strong> ${escapeHtml(changeLabel)}</p>
         <p><strong>Updated by:</strong> ${escapeHtml(actorName)}</p>
       `,
     };

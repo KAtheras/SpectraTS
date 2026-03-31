@@ -1596,6 +1596,7 @@ async function addProjectMember(sql, payload, currentUser, accountId) {
       type: "project_assignment_updated",
       actorUserId: currentUser?.id || null,
       actorName: currentUser?.displayName || "",
+      assignmentChange: "added",
       assignedUserId: userId,
       subjectType: "project_member",
       subjectId: `${project.id}:${userId}`,
@@ -1606,6 +1607,7 @@ async function addProjectMember(sql, payload, currentUser, accountId) {
         actorName: currentUser?.displayName || "",
         clientName,
         projectName,
+        assignmentChange: "added",
       }),
     });
   }
@@ -1650,6 +1652,7 @@ async function removeProjectMember(sql, payload, currentUser, accountId) {
       type: "project_assignment_updated",
       actorUserId: currentUser?.id || null,
       actorName: currentUser?.displayName || "",
+      assignmentChange: "removed",
       assignedUserId: userId,
       subjectType: "project_member",
       subjectId: `${project.id}:${userId}`,
@@ -1660,6 +1663,7 @@ async function removeProjectMember(sql, payload, currentUser, accountId) {
         actorName: currentUser?.displayName || "",
         clientName,
         projectName,
+        assignmentChange: "removed",
       }),
     });
   }
