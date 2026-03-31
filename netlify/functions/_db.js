@@ -656,6 +656,14 @@ async function ensureNotificationRulesForAccount(sql, accountUuid) {
       recipientScope: "entry_owner",
       deliveryMode: "immediate",
     },
+    {
+      eventType: "delegation_updated",
+      enabled: true,
+      inboxEnabled: true,
+      emailEnabled: false,
+      recipientScope: "delegated_member",
+      deliveryMode: "immediate",
+    },
   ];
   for (const rule of notificationRuleSeeds) {
     await sql`
@@ -1858,7 +1866,7 @@ async function listNotificationRules(sql, accountId) {
       delivery_mode AS "deliveryMode"
     FROM notification_rules
     WHERE account_id = ${accountId}::uuid
-      AND event_type IN ('time_entry_created', 'expense_entry_created', 'entry_approved')
+      AND event_type IN ('time_entry_created', 'expense_entry_created', 'entry_approved', 'delegation_updated')
     ORDER BY event_type
   `;
 }

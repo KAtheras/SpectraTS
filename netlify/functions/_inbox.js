@@ -6,6 +6,7 @@ const SUPPORTED_EVENT_TYPES = new Set([
   "time_entry_created",
   "expense_entry_created",
   "entry_approved",
+  "delegation_updated",
 ]);
 
 function randomId() {
@@ -44,6 +45,9 @@ function buildInboxMessage(type, data = {}) {
   if (type === "entry_approved") {
     const datePart = dateLabel ? ` on ${dateLabel}` : "";
     return `${actorName} approved your time entry for ${projectLabel}${datePart}.`;
+  }
+  if (type === "delegation_updated") {
+    return `${actorName} updated your delegation access.`;
   }
   return `${actorName} updated ${projectLabel}.`;
 }
@@ -177,6 +181,10 @@ async function resolveRecipientsByScope(sql, payload = {}, rule = null) {
   if (scope === "entry_owner") {
     const ownerId = `${payload.entryOwnerUserId || ""}`.trim();
     return ownerId ? [ownerId] : [];
+  }
+  if (scope === "delegated_member") {
+    const delegateId = `${payload.delegateUserId || ""}`.trim();
+    return delegateId ? [delegateId] : [];
   }
   return [];
 }

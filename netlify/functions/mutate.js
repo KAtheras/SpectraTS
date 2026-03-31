@@ -529,6 +529,20 @@ async function saveDelegateCapabilities(sql, payload, accountId) {
     `;
   }
 
+  if (capabilitiesToCreate.length || capabilitiesToDelete.length) {
+    await dispatchNotificationEvent(sql, {
+      accountId,
+      type: "delegation_updated",
+      actorUserId: delegatorUser.id,
+      delegateUserId: delegateUser.id,
+      subjectType: "delegation",
+      subjectId: delegateUser.id,
+      message: buildInboxMessage("delegation_updated", {
+        actorName: delegatorUser.display_name || delegatorUser.displayName || "Someone",
+      }),
+    });
+  }
+
   return {
     delegateUserId: delegateUser.id,
     capabilities: selectedCapabilities,
@@ -743,6 +757,7 @@ async function updateNotificationRule(sql, payload, accountId) {
     "time_entry_created",
     "expense_entry_created",
     "entry_approved",
+    "delegation_updated",
   ]);
   if (!eventType || !supportedEvents.has(eventType)) {
     return errorResponse(400, "Unsupported notification event.");

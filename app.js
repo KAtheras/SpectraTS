@@ -1432,6 +1432,11 @@
       label: "Entry approved",
       recipientText: "Entry owner",
     },
+    {
+      eventType: "delegation_updated",
+      label: "Delegation updated",
+      recipientText: "Delegated member",
+    },
   ];
 
   function notificationRuleByEventType(eventType) {
@@ -1448,8 +1453,9 @@
         <tr>
           <td>${escapeHtml(row.label)}</td>
           <td>
-            <label class="rules-toggle">
+            <label class="perm-switch">
               <input type="checkbox" data-rule-inbox="${escapeHtml(row.eventType)}" ${inboxChecked ? "checked" : ""} />
+              <span class="perm-switch-track" aria-hidden="true"></span>
             </label>
           </td>
           <td>
