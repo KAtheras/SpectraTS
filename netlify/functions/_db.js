@@ -100,6 +100,24 @@ async function ensureSchema(sql) {
   `;
 
   await sql`
+    INSERT INTO permission_capabilities (key, label, category, is_active)
+    VALUES ('can_delegate', 'Can delegate access', 'settings', TRUE)
+    ON CONFLICT (key) DO UPDATE SET
+      label = EXCLUDED.label,
+      category = EXCLUDED.category,
+      is_active = EXCLUDED.is_active
+  `;
+  await sql`
+    INSERT INTO role_permissions (role_id, capability_id, scope_id, allowed)
+    SELECT pr.id, pc.id, ps.id, TRUE
+    FROM permission_roles pr
+    JOIN permission_capabilities pc ON pc.key = 'can_delegate'
+    JOIN permission_scopes ps ON ps.key = 'own_office'
+    WHERE pr.key IN ('manager', 'executive', 'admin', 'superuser')
+    ON CONFLICT (role_id, capability_id, scope_id) DO NOTHING
+  `;
+
+  await sql`
     CREATE TABLE IF NOT EXISTS departments (
       id TEXT PRIMARY KEY,
       account_id UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,

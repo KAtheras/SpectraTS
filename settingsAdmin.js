@@ -706,6 +706,7 @@
       "manage_levels",
       "manage_expense_categories",
       "manage_office_locations",
+      "can_delegate",
       "manage_settings_access",
     ];
     const capLabels = {
@@ -718,6 +719,7 @@
       manage_levels: "Manage member levels",
       manage_expense_categories: "Manage expense categories",
       manage_office_locations: "Manage office locations",
+      can_delegate: "Can delegate access",
       manage_settings_access: "Manage access settings",
     };
 
