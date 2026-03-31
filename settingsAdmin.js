@@ -744,11 +744,13 @@
     const delegates = Array.isArray(state.delegationCandidates) ? state.delegationCandidates : [];
     const myDelegations = Array.isArray(state.myDelegations) ? state.myDelegations : [];
     const grouped = new Map();
+    const capabilitiesByDelegateId = new Map();
     myDelegations.forEach((item) => {
-      const key = item.delegateUserId;
+      const key = `${item.delegateUserId || ""}`.trim();
+      if (!key) return;
       if (!grouped.has(key)) {
         grouped.set(key, {
-          delegateUserId: item.delegateUserId,
+          delegateUserId: key,
           delegateName: item.delegateName,
           capabilities: [],
         });
@@ -757,6 +759,10 @@
       if (!row.capabilities.includes(item.capability)) {
         row.capabilities.push(item.capability);
       }
+      if (!capabilitiesByDelegateId.has(key)) {
+        capabilitiesByDelegateId.set(key, new Set());
+      }
+      capabilitiesByDelegateId.get(key).add(item.capability);
     });
     const groupedRows = Array.from(grouped.values()).sort((a, b) =>
       (a.delegateName || "").localeCompare(b.delegateName || "", undefined, { sensitivity: "base" })
@@ -851,7 +857,19 @@
     const searchInput = panel.querySelector("#delegations-delegate-search");
     const selectedDelegateIdInput = panel.querySelector("#delegations-delegate-id");
     const delegateResults = panel.querySelector("#delegations-delegate-results");
-    const selectedDelegateNameById = new Map(delegates.map((item) => [item.id, item.name]));
+    const selectedDelegateNameById = new Map(
+      delegates.map((item) => [`${item.id || ""}`.trim(), item.name])
+    );
+    const setCapabilitySelectionForDelegate = function (delegateUserId) {
+      const selectedCapabilities = capabilitiesByDelegateId.get(delegateUserId) || new Set();
+      const capabilityInputs = Array.from(
+        panel.querySelectorAll('input[data-delegation-capability]')
+      );
+      capabilityInputs.forEach((input) => {
+        const cap = `${input.value || ""}`.trim();
+        input.checked = selectedCapabilities.has(cap);
+      });
+    };
     const renderDelegateResults = function (queryValue) {
       if (!delegateResults) return;
       const query = `${queryValue || ""}`.trim().toLowerCase();
@@ -862,12 +880,13 @@
       const rows = filtered
         .slice(0, 150)
         .map((item) => {
-          const isSelected = item.id === selectedId;
+          const itemId = `${item.id || ""}`.trim();
+          const isSelected = itemId === selectedId;
           return `
             <button
               type="button"
               class="delegations-picker-option${isSelected ? " is-selected" : ""}"
-              data-delegate-option-id="${escapeHtml(item.id)}"
+              data-delegate-option-id="${escapeHtml(itemId)}"
             >${escapeHtml(item.name)}</button>
           `;
         })
@@ -878,7 +897,18 @@
     if (searchInput && selectedDelegateIdInput && delegateResults) {
       renderDelegateResults("");
       searchInput.oninput = function () {
-        selectedDelegateIdInput.value = "";
+        const query = `${searchInput.value || ""}`.trim().toLowerCase();
+        const exactMatches = delegates.filter(
+          (item) => `${item.name || ""}`.trim().toLowerCase() === query
+        );
+        if (exactMatches.length === 1) {
+          const matchId = `${exactMatches[0].id || ""}`.trim();
+          selectedDelegateIdInput.value = matchId;
+          setCapabilitySelectionForDelegate(matchId);
+        } else {
+          selectedDelegateIdInput.value = "";
+          setCapabilitySelectionForDelegate("");
+        }
         renderDelegateResults(searchInput.value);
       };
       delegateResults.onclick = function (event) {
@@ -888,6 +918,7 @@
         if (!id) return;
         selectedDelegateIdInput.value = id;
         searchInput.value = selectedDelegateNameById.get(id) || "";
+        setCapabilitySelectionForDelegate(id);
         renderDelegateResults(searchInput.value);
       };
     }
@@ -903,7 +934,7 @@
             (item) => `${item.name || ""}`.trim().toLowerCase() === typed
           );
           if (exactMatches.length === 1) {
-            delegateUserId = exactMatches[0].id;
+            delegateUserId = `${exactMatches[0].id || ""}`.trim();
           }
         }
         const selectedCaps = Array.from(
@@ -917,8 +948,10 @@
           deps().feedback("Select at least one capability.", true);
           return;
         }
+        const existingCaps = capabilitiesByDelegateId.get(delegateUserId) || new Set();
+        const capabilitiesToCreate = selectedCaps.filter((capability) => !existingCaps.has(capability));
         try {
-          for (const capability of selectedCaps) {
+          for (const capability of capabilitiesToCreate) {
             await deps().mutatePersistentState(
               "create_delegation",
               { delegateUserId, capability },
