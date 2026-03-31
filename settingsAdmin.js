@@ -919,18 +919,18 @@
             delegateUserId = `${exactMatches[0].id || ""}`.trim();
           }
         }
-        const selectedCaps = Array.from(
-          panel.querySelectorAll('input[data-delegation-capability]:checked')
-        ).map((input) => `${input.value || ""}`.trim());
         if (!delegateUserId) {
           deps().feedback("Delegate is required.", true);
           return;
         }
-        if (!selectedCaps.length) {
+        const existingCaps = capabilitiesByDelegateId.get(delegateUserId) || new Set();
+        const selectedCaps = Array.from(
+          panel.querySelectorAll('input[data-delegation-capability]:checked')
+        ).map((input) => `${input.value || ""}`.trim());
+        if (!selectedCaps.length && !existingCaps.size) {
           deps().feedback("Select at least one capability.", true);
           return;
         }
-        const existingCaps = capabilitiesByDelegateId.get(delegateUserId) || new Set();
         const capabilitiesToCreate = selectedCaps.filter((capability) => !existingCaps.has(capability));
         const capabilitiesToDelete = Array.from(existingCaps).filter(
           (capability) => !selectedCaps.includes(capability)
@@ -957,7 +957,7 @@
           await deps().loadPersistentState();
           renderSettingsTabs();
           setActiveSettingsTab("delegations");
-          deps().feedback("Delegation saved.", false);
+          deps().feedback(selectedCaps.length ? "Delegation saved." : "Delegation removed.", false);
         } catch (error) {
           deps().feedback(error.message || "Unable to save delegation.", true);
         }
