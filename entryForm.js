@@ -404,7 +404,16 @@
             search: selection?.search ?? state.filters.search ?? "",
           })
         : (state.entries || []);
-    const entryUsers = uniqueValues(scopeRows.map((entry) => entry.user).filter(Boolean));
+    const scopeUser =
+      typeof deps.effectiveScopeUser === "function"
+        ? deps.effectiveScopeUser()
+        : state.currentUser;
+    const entryUsers = uniqueValues(
+      [
+        ...scopeRows.map((entry) => entry.user).filter(Boolean),
+        scopeUser?.displayName || "",
+      ]
+    );
     const userOptions = entryUsers;
     const defaultUser = defaultFilterUser(state, isStaff);
     const requestedUser = selection?.user ?? userField?.value ?? defaultUser;
@@ -418,10 +427,6 @@
     const entryClients = uniqueValues(
       scopeRows.map((entry) => entry.client).filter(Boolean)
     );
-    const scopeUser =
-      typeof deps.effectiveScopeUser === "function"
-        ? deps.effectiveScopeUser()
-        : state.currentUser;
     const targetUser =
       nextUser && state.users.length
         ? state.users.find((u) => u.displayName === nextUser) || scopeUser

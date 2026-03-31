@@ -559,9 +559,13 @@
       escapeHtml,
       currentExpenses,
       uniqueValues,
+      effectiveScopeUser,
     } = deps();
+    const selectedUserId = selection?.user || "";
     const selectedClient = selection?.client || "";
     const selectedProject = selection?.project || "";
+    const scopeUser =
+      typeof effectiveScopeUser === "function" ? effectiveScopeUser() : null;
 
     const expenseRows =
       typeof currentExpenses === "function"
@@ -576,7 +580,10 @@
         : [];
     if (refs.expenseFilterUser) {
       const users = uniqueValues(
-        expenseRows.map((row) => row.userId).filter(Boolean)
+        [
+          ...expenseRows.map((row) => row.userId).filter(Boolean),
+          scopeUser?.id || "",
+        ]
       ).map((id) => ({
         label: getUserById?.(id)?.displayName || id,
         value: id,
