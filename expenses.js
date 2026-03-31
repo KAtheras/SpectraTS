@@ -203,7 +203,13 @@
       typeof effectiveScopeUser === "function" ? effectiveScopeUser() : state.currentUser;
     const search = state.expenseFilters.search.trim().toLowerCase();
 
-    const { getUserById, canViewUserByRole, canUserAccessProject, isAdmin, isExecutive } = deps();
+    const { getUserById, canViewUserByRole, assignedProjectTuplesForCurrentUser, isAdmin, isExecutive } = deps();
+    const allowedTupleKeys = new Set(
+      (typeof assignedProjectTuplesForCurrentUser === "function"
+        ? assignedProjectTuplesForCurrentUser()
+        : []
+      ).map((item) => `${item?.client || ""}::${item?.project || ""}`)
+    );
 
     return [...state.expenses]
       .filter((expense) => {
@@ -214,14 +220,14 @@
         if (!canView) {
           return false;
         }
-        const hasProjectAccess =
-          typeof canUserAccessProject === "function" && scopeUser
-            ? canUserAccessProject(scopeUser, expense.clientName, expense.projectName)
-            : true;
         const canBypassProjectScope =
           (typeof isAdmin === "function" && isAdmin(scopeUser)) ||
           (typeof isExecutive === "function" && isExecutive(scopeUser));
-        if (!canBypassProjectScope && !hasProjectAccess) {
+        if (
+          !canBypassProjectScope &&
+          allowedTupleKeys.size &&
+          !allowedTupleKeys.has(`${expense.clientName || ""}::${expense.projectName || ""}`)
+        ) {
           return false;
         }
         if (state.expenseFilters.user && expense.userId !== state.expenseFilters.user) {

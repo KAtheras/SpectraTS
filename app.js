@@ -7593,7 +7593,7 @@
     permissionGroupForUser: permissionGroupForUserWithSuper,
     canViewUserByRole,
     getUserByDisplayName,
-    canUserAccessProject,
+    assignedProjectTuplesForCurrentUser,
     isAdmin,
     isExecutive,
     effectiveScopeUser,
@@ -7628,11 +7628,10 @@
     formatDisplayDate,
     formatDisplayDateShort,
     permissionGroupForUser: permissionGroupForUserWithSuper,
-    canUserAccessProject,
+    assignedProjectTuplesForCurrentUser,
     isAdmin,
     isExecutive,
     field,
-    assignedProjectTuplesForCurrentUser,
   };
 
   window.addEventListener("resize", postHeight);

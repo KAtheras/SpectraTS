@@ -10,11 +10,17 @@
     const {
       getUserByDisplayName,
       canViewUserByRole,
-      canUserAccessProject,
+      assignedProjectTuplesForCurrentUser,
       isAdmin,
       isExecutive,
       getUserById: injectedGetUserById,
     } = deps();
+    const allowedTupleKeys = new Set(
+      (typeof assignedProjectTuplesForCurrentUser === "function"
+        ? assignedProjectTuplesForCurrentUser()
+        : []
+      ).map((item) => `${item?.client || ""}::${item?.project || ""}`)
+    );
 
     const getUserById =
       typeof injectedGetUserById === "function"
@@ -38,14 +44,14 @@
         if (!canView) {
           return false;
         }
-        const hasProjectAccess =
-          typeof canUserAccessProject === "function" && scopeUser
-            ? canUserAccessProject(scopeUser, entry.client, entry.project)
-            : true;
         const canBypassProjectScope =
           (typeof isAdmin === "function" && isAdmin(scopeUser)) ||
           (typeof isExecutive === "function" && isExecutive(scopeUser));
-        if (!canBypassProjectScope && !hasProjectAccess) {
+        if (
+          !canBypassProjectScope &&
+          allowedTupleKeys.size &&
+          !allowedTupleKeys.has(`${entry.client || ""}::${entry.project || ""}`)
+        ) {
           return false;
         }
         if (state.filters.user && entry.user !== state.filters.user) {
