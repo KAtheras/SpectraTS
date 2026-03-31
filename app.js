@@ -6130,6 +6130,22 @@
         return;
       }
       state.actingAsUserId = nextId;
+      const scopeUser = effectiveScopeUser();
+      const nextTimeFilterUser = scopeUser && isStaff(scopeUser)
+        ? `${scopeUser.displayName || ""}`.trim()
+        : "";
+      state.filters = {
+        ...state.filters,
+        user: nextTimeFilterUser,
+        client: "",
+        project: "",
+      };
+      state.expenseFilters = {
+        ...state.expenseFilters,
+        user: resolveExpenseFilterUser(nextTimeFilterUser),
+        client: "",
+        project: "",
+      };
       closeActingAsMenu();
       render();
     });
