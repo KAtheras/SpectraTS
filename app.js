@@ -1208,6 +1208,7 @@
     inboxItems: [],
     inboxFilter: "all",
     inboxSelectedIds: [],
+    inboxVisitReadIds: [],
     auditLogs: [],
   auditFilters: {
     entity: "",
@@ -1602,6 +1603,7 @@
       ? data.inboxItems.map(normalizeInboxItem).filter(Boolean)
       : [];
     state.inboxSelectedIds = [];
+    state.inboxVisitReadIds = [];
     state.permissions = data?.permissions || {};
     state.delegators = Array.isArray(data?.delegators)
       ? data.delegators
@@ -1668,6 +1670,7 @@
     state.inboxItems = [];
     state.inboxFilter = "all";
     state.inboxSelectedIds = [];
+    state.inboxVisitReadIds = [];
     state.delegators = [];
     state.myDelegations = [];
     state.delegationCandidates = [];
@@ -1837,6 +1840,7 @@
         state.inboxItems = [];
         state.inboxFilter = "all";
         state.inboxSelectedIds = [];
+        state.inboxVisitReadIds = [];
         state.delegators = [];
         state.myDelegations = [];
         state.delegationCandidates = [];
@@ -1915,11 +1919,18 @@
     refs.appShell.style.display = "none";
   }
 
-  function markInboxVisitedAsRead() {
-    const unreadIds = (state.inboxItems || [])
+  function beginInboxVisit() {
+    state.inboxVisitReadIds = (state.inboxItems || [])
       .filter((item) => item && !item.isRead)
       .map((item) => `${item.id || ""}`.trim())
       .filter(Boolean);
+  }
+
+  function commitInboxVisitRead() {
+    const unreadIds = Array.from(
+      new Set((state.inboxVisitReadIds || []).map((id) => `${id || ""}`.trim()).filter(Boolean))
+    );
+    state.inboxVisitReadIds = [];
     if (!unreadIds.length) return;
 
     const unreadSet = new Set(unreadIds);
@@ -1933,10 +1944,13 @@
 
   function setView(view) {
     const previousView = state.currentView;
-    state.currentView = view;
     if (view === "inbox" && previousView !== "inbox") {
-      markInboxVisitedAsRead();
+      beginInboxVisit();
     }
+    if (previousView === "inbox" && view !== "inbox") {
+      commitInboxVisitRead();
+    }
+    state.currentView = view;
     render();
   }
 
@@ -5303,7 +5317,7 @@
     refs.inboxOpen.classList.toggle("is-active", !!isInboxView);
     refs.inboxOpen.setAttribute("aria-current", isInboxView ? "page" : "false");
     refs.inboxOpen.setAttribute("aria-label", "Inbox");
-    const unread = inboxUnreadCount();
+    const unread = isInboxView ? 0 : inboxUnreadCount();
     if (refs.inboxUnreadBadge) {
       if (unread > 0) {
         refs.inboxUnreadBadge.hidden = false;
