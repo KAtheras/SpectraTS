@@ -5457,7 +5457,7 @@
             </label>
             <button class="inbox-item-open" type="button" data-inbox-open="${escapeHtml(item.id)}">
               <div class="inbox-item-main">
-                <div class="inbox-item-message"><span class="message-priority-icon" aria-hidden="true"></span>${escapeHtml(item.message || "Notification")}</div>
+                <div class="inbox-item-message"><span class="message-priority-icon" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none"><path d="M4 2.2v11.6M4 3h6.2l-1.4 2.4L10.2 8H4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>${escapeHtml(item.message || "Notification")}</div>
                 ${
                   item.noteSnippet
                     ? `<div class="inbox-item-note">${escapeHtml(item.noteSnippet)}</div>`
