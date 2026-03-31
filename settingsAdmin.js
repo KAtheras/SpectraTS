@@ -727,14 +727,20 @@
     if (!panel || !state.permissions?.can_delegate) return;
 
     const capabilityOptions = [
-      "enter_time_on_behalf",
-      "enter_expenses_on_behalf",
-      "view_time_on_behalf",
-      "view_expenses_on_behalf",
-      "view_reports_on_behalf",
-      "create_reports_on_behalf",
-      "print_reports_on_behalf",
+      { key: "enter_time_on_behalf", label: "Enter time on my behalf" },
+      { key: "enter_expenses_on_behalf", label: "Enter expenses on my behalf" },
+      { key: "view_time_on_behalf", label: "View time in my scope" },
+      { key: "view_expenses_on_behalf", label: "View expenses in my scope" },
+      { key: "view_reports_on_behalf", label: "View reports in my scope" },
+      { key: "create_reports_on_behalf", label: "Create reports in my scope" },
+      { key: "print_reports_on_behalf", label: "Print reports in my scope" },
     ];
+    const capabilityLabelByKey = Object.fromEntries(
+      capabilityOptions.map((item) => [item.key, item.label])
+    );
+    const capabilityIndexByKey = Object.fromEntries(
+      capabilityOptions.map((item, index) => [item.key, index])
+    );
     const delegates = Array.isArray(state.delegationCandidates) ? state.delegationCandidates : [];
     const myDelegations = Array.isArray(state.myDelegations) ? state.myDelegations : [];
     const grouped = new Map();
@@ -756,21 +762,12 @@
       (a.delegateName || "").localeCompare(b.delegateName || "", undefined, { sensitivity: "base" })
     );
 
-    const delegateOptionsHtml = delegates.length
-      ? delegates
-          .map(
-            (item) =>
-              `<option value="${escapeHtml(item.id)}">${escapeHtml(item.name)}</option>`
-          )
-          .join("")
-      : `<option value="">No eligible members</option>`;
-
     const createCapsHtml = capabilityOptions
       .map(
         (cap) => `
-          <label class="rules-toggle">
-            <input type="checkbox" data-delegation-capability value="${escapeHtml(cap)}" />
-            <span>${escapeHtml(cap)}</span>
+          <label class="delegations-cap-row">
+            <input type="checkbox" data-delegation-capability value="${escapeHtml(cap.key)}" />
+            <span>${escapeHtml(cap.label)}</span>
           </label>
         `
       )
@@ -779,12 +776,17 @@
     const listHtml = groupedRows.length
       ? groupedRows
           .map((row) => {
-            const capsHtml = row.capabilities
+            const capsHtml = row.capabilities.slice()
+              .sort((a, b) => {
+                const left = capabilityIndexByKey[a] ?? Number.MAX_SAFE_INTEGER;
+                const right = capabilityIndexByKey[b] ?? Number.MAX_SAFE_INTEGER;
+                return left - right;
+              })
               .map(
                 (cap) => `
-                  <div class="settings-structured-row settings-structured-row-no-label">
-                    <div class="settings-row-main">${escapeHtml(cap)}</div>
-                    <div class="settings-row-actions">
+                  <div class="delegations-list-row">
+                    <div class="delegations-list-capability">${escapeHtml(capabilityLabelByKey[cap] || cap)}</div>
+                    <div class="delegations-list-actions">
                       <button
                         type="button"
                         class="expense-delete"
@@ -798,14 +800,14 @@
               )
               .join("");
             return `
-              <section class="member-info-card">
+              <section class="member-info-card delegations-current-card">
                 <div class="member-info-name">${escapeHtml(row.delegateName)}</div>
-                <div class="settings-section-content">${capsHtml}</div>
+                <div class="delegations-current-caps">${capsHtml}</div>
               </section>
             `;
           })
           .join("")
-      : `<div class="settings-row-main">No delegations created yet.</div>`;
+      : `<div class="delegations-empty">No delegations created yet.</div>`;
 
     panel.innerHTML = `
       <div class="settings-section-header">
@@ -813,38 +815,95 @@
           <h3>Delegations</h3>
         </div>
       </div>
-      <div class="settings-section-content">
-        <form id="delegations-form" class="level-labels-form">
-          <div class="settings-structured-row">
-            <span class="settings-row-label">Delegate</span>
-            <div class="settings-row-main">
-              <select id="delegations-delegate" ${delegates.length ? "" : "disabled"}>
-                <option value="">Select member</option>
-                ${delegateOptionsHtml}
-              </select>
+      <div class="delegations-shell">
+        <form id="delegations-form" class="delegations-form">
+          <div class="delegations-field">
+            <label class="settings-row-label" for="delegations-delegate-search">Delegate</label>
+            <div class="delegations-picker">
+              <input
+                id="delegations-delegate-search"
+                type="search"
+                placeholder="${delegates.length ? "Search member" : "No eligible members"}"
+                ${delegates.length ? "" : "disabled"}
+                autocomplete="off"
+              />
+              <input id="delegations-delegate-id" type="hidden" value="" />
+              <div id="delegations-delegate-results" class="delegations-picker-results" role="listbox"></div>
             </div>
-            <div class="settings-row-actions"></div>
           </div>
-          <div class="settings-structured-row settings-structured-row-no-label">
-            <div class="settings-row-main">
-              <div class="settings-section-content">${createCapsHtml}</div>
-            </div>
-            <div class="settings-row-actions">
-              <button type="submit" class="button" ${delegates.length ? "" : "disabled"}>Add delegation</button>
-            </div>
+          <div class="delegations-field">
+            <div class="settings-row-label">Capabilities</div>
+            <div class="delegations-capabilities">${createCapsHtml}</div>
+          </div>
+          <div class="delegations-actions">
+            <button type="submit" class="button" ${delegates.length ? "" : "disabled"}>Add delegation</button>
           </div>
         </form>
-        <div class="settings-section-content">
+        <section class="delegations-current">
+          <h4>Current delegations</h4>
           ${listHtml}
-        </div>
+        </section>
       </div>
     `;
+
+    const searchInput = panel.querySelector("#delegations-delegate-search");
+    const selectedDelegateIdInput = panel.querySelector("#delegations-delegate-id");
+    const delegateResults = panel.querySelector("#delegations-delegate-results");
+    const selectedDelegateNameById = new Map(delegates.map((item) => [item.id, item.name]));
+    const renderDelegateResults = function (queryValue) {
+      if (!delegateResults) return;
+      const query = `${queryValue || ""}`.trim().toLowerCase();
+      const selectedId = `${selectedDelegateIdInput?.value || ""}`.trim();
+      const filtered = delegates.filter((item) =>
+        !query || `${item.name || ""}`.toLowerCase().includes(query)
+      );
+      const rows = filtered
+        .slice(0, 150)
+        .map((item) => {
+          const isSelected = item.id === selectedId;
+          return `
+            <button
+              type="button"
+              class="delegations-picker-option${isSelected ? " is-selected" : ""}"
+              data-delegate-option-id="${escapeHtml(item.id)}"
+            >${escapeHtml(item.name)}</button>
+          `;
+        })
+        .join("");
+      delegateResults.innerHTML =
+        rows || `<div class="delegations-picker-empty">No members found.</div>`;
+    };
+    if (searchInput && selectedDelegateIdInput && delegateResults) {
+      renderDelegateResults("");
+      searchInput.oninput = function () {
+        selectedDelegateIdInput.value = "";
+        renderDelegateResults(searchInput.value);
+      };
+      delegateResults.onclick = function (event) {
+        const option = event.target.closest("[data-delegate-option-id]");
+        if (!option) return;
+        const id = `${option.dataset.delegateOptionId || ""}`.trim();
+        if (!id) return;
+        selectedDelegateIdInput.value = id;
+        searchInput.value = selectedDelegateNameById.get(id) || "";
+        renderDelegateResults(searchInput.value);
+      };
+    }
 
     const form = panel.querySelector("#delegations-form");
     if (form) {
       form.onsubmit = async function (event) {
         event.preventDefault();
-        const delegateUserId = `${panel.querySelector("#delegations-delegate")?.value || ""}`.trim();
+        let delegateUserId = `${selectedDelegateIdInput?.value || ""}`.trim();
+        if (!delegateUserId && searchInput) {
+          const typed = `${searchInput.value || ""}`.trim().toLowerCase();
+          const exactMatches = delegates.filter(
+            (item) => `${item.name || ""}`.trim().toLowerCase() === typed
+          );
+          if (exactMatches.length === 1) {
+            delegateUserId = exactMatches[0].id;
+          }
+        }
         const selectedCaps = Array.from(
           panel.querySelectorAll('input[data-delegation-capability]:checked')
         ).map((input) => `${input.value || ""}`.trim());
