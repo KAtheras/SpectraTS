@@ -1915,8 +1915,28 @@
     refs.appShell.style.display = "none";
   }
 
+  function markInboxVisitedAsRead() {
+    const unreadIds = (state.inboxItems || [])
+      .filter((item) => item && !item.isRead)
+      .map((item) => `${item.id || ""}`.trim())
+      .filter(Boolean);
+    if (!unreadIds.length) return;
+
+    const unreadSet = new Set(unreadIds);
+    state.inboxItems = (state.inboxItems || []).map((item) => {
+      if (!item || !unreadSet.has(`${item.id || ""}`.trim())) return item;
+      return { ...item, isRead: true };
+    });
+
+    mutatePersistentState("mark_inbox_items_read", { ids: unreadIds }, { skipHydrate: true }).catch(() => {});
+  }
+
   function setView(view) {
+    const previousView = state.currentView;
     state.currentView = view;
+    if (view === "inbox" && previousView !== "inbox") {
+      markInboxVisitedAsRead();
+    }
     render();
   }
 
