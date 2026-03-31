@@ -347,6 +347,10 @@
     settingsToggle: document.getElementById("settings-toggle"),
     settingsMenu: document.getElementById("settings-menu"),
     settingsMenuHeader: document.getElementById("settings-menu-header"),
+    actingAsToggle: document.getElementById("acting-as-toggle"),
+    actingAsMenu: document.getElementById("acting-as-menu"),
+    actingAsInitials: document.getElementById("acting-as-initials"),
+    actingAsName: document.getElementById("acting-as-name"),
     changePasswordOpen: document.getElementById("change-password-open"),
     logoutButton: document.getElementById("logout-button"),
     themeToggle: document.getElementById("theme-toggle"),
@@ -1197,6 +1201,12 @@
     pendingInputsTimeEditId: "",
     pendingInputsExpenseEditId: "",
     entriesSubtab: "time", // "time" | "expenses"
+    delegators: [
+      { id: "me", name: "Kaprel (Me)" },
+      { id: "u1", name: "John Smith" },
+      { id: "u2", name: "Sarah Lee" },
+    ],
+    actingAsUserId: "me",
     inboxItems: [],
     inboxFilter: "all",
     inboxSelectedIds: [],
@@ -1850,6 +1860,86 @@
 
   function openAnalyticsPage() {
     setView("analytics");
+  }
+
+  function getActingAsUsers() {
+    return Array.isArray(state.delegators) ? state.delegators.filter(Boolean) : [];
+  }
+
+  function getActingAsSelection() {
+    const delegators = getActingAsUsers();
+    if (!delegators.length) return null;
+    return (
+      delegators.find(function (item) {
+        return item.id === state.actingAsUserId;
+      }) || delegators[0]
+    );
+  }
+
+  function actingAsDisplayName(selection) {
+    const current = selection || getActingAsSelection();
+    if (!current) return "";
+    return current.id === "me" ? "Kaprel" : String(current.name || "").trim();
+  }
+
+  function actingAsInitials(selection) {
+    const label = actingAsDisplayName(selection);
+    if (!label) return "??";
+    const parts = label.split(/\s+/).filter(Boolean);
+    const first = parts[0]?.[0] || "";
+    const second = parts[1]?.[0] || parts[0]?.[1] || "";
+    return `${first}${second}`.toUpperCase();
+  }
+
+  function closeActingAsMenu() {
+    if (refs.actingAsMenu) {
+      refs.actingAsMenu.hidden = true;
+    }
+    if (refs.actingAsToggle) {
+      refs.actingAsToggle.setAttribute("aria-expanded", "false");
+    }
+  }
+
+  function toggleActingAsMenu() {
+    if (!refs.actingAsMenu || !refs.actingAsToggle || refs.actingAsToggle.hidden) {
+      return;
+    }
+    const willOpen = refs.actingAsMenu.hidden;
+    refs.actingAsMenu.hidden = !willOpen;
+    refs.actingAsToggle.setAttribute("aria-expanded", willOpen ? "true" : "false");
+    if (willOpen) {
+      closeSettingsMenu();
+    }
+  }
+
+  function renderActingAsDropdown() {
+    if (!refs.actingAsToggle || !refs.actingAsMenu) return;
+    const delegators = getActingAsUsers();
+    const selection = getActingAsSelection();
+    const show = delegators.length > 0 && !!selection;
+    refs.actingAsToggle.hidden = !show;
+    if (!show) {
+      closeActingAsMenu();
+      refs.actingAsMenu.innerHTML = "";
+      return;
+    }
+
+    state.actingAsUserId = selection.id;
+    if (refs.actingAsInitials) {
+      refs.actingAsInitials.textContent = actingAsInitials(selection);
+    }
+    if (refs.actingAsName) {
+      refs.actingAsName.textContent = actingAsDisplayName(selection);
+    }
+
+    const rows = delegators
+      .map(function (item) {
+        const id = escapeHtml(String(item.id || ""));
+        const selectedAttr = item.id === state.actingAsUserId ? ' aria-current="true"' : "";
+        return `<button class="acting-as-item" type="button" data-acting-as-id="${id}" role="menuitem"${selectedAttr}>${escapeHtml(String(item.name || ""))}</button>`;
+      })
+      .join("");
+    refs.actingAsMenu.innerHTML = rows;
   }
 
   function closeSettingsMenu() {
@@ -4644,6 +4734,7 @@
       refs.sessionIndicator.hidden = false;
       refs.sessionIndicator.textContent = userInitials(state.currentUser);
     }
+    renderActingAsDropdown();
     if (refs.settingsMenuHeader) {
       const fullName = state.currentUser?.displayName || state.currentUser?.username || "";
       if (fullName) {
@@ -5918,7 +6009,28 @@
   if (refs.settingsToggle) {
     refs.settingsToggle.addEventListener("click", function (event) {
       event.stopPropagation();
+      closeActingAsMenu();
       toggleSettingsMenu();
+    });
+  }
+  if (refs.actingAsToggle) {
+    refs.actingAsToggle.addEventListener("click", function (event) {
+      event.stopPropagation();
+      toggleActingAsMenu();
+    });
+  }
+  if (refs.actingAsMenu) {
+    refs.actingAsMenu.addEventListener("click", function (event) {
+      const option = event.target.closest("[data-acting-as-id]");
+      if (!option) return;
+      const nextId = String(option.dataset.actingAsId || "");
+      if (!nextId || nextId === state.actingAsUserId) {
+        closeActingAsMenu();
+        return;
+      }
+      state.actingAsUserId = nextId;
+      closeActingAsMenu();
+      render();
     });
   }
   document.addEventListener("click", function (event) {
@@ -5931,6 +6043,15 @@
       !refs.settingsToggle.contains(target)
     ) {
       closeSettingsMenu();
+    }
+    if (
+      refs.actingAsMenu &&
+      refs.actingAsToggle &&
+      !refs.actingAsMenu.hidden &&
+      !refs.actingAsMenu.contains(target) &&
+      !refs.actingAsToggle.contains(target)
+    ) {
+      closeActingAsMenu();
     }
   });
   if (refs.changePasswordOpen) {

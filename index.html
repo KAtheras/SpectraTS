@@ -118,6 +118,21 @@
                 </svg>
                 <span class="inbox-button-badge" id="inbox-unread-badge" hidden></span>
               </button>
+              <div class="topbar-user-dropdown">
+                <button
+                  class="acting-as-toggle"
+                  id="acting-as-toggle"
+                  type="button"
+                  aria-haspopup="menu"
+                  aria-expanded="false"
+                  hidden
+                >
+                  <span class="acting-as-initials" id="acting-as-initials"></span>
+                  <span class="acting-as-name" id="acting-as-name"></span>
+                  <span class="acting-as-caret" aria-hidden="true">▼</span>
+                </button>
+                <div class="acting-as-menu" id="acting-as-menu" role="menu" hidden></div>
+              </div>
               <button class="avatar-button" id="settings-toggle" type="button" aria-label="User menu">
                 <span id="session-indicator" hidden></span>
               </button>

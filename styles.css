@@ -701,6 +701,91 @@ body[data-theme="dark"] .app-topbar {
   gap: 10px;
 }
 
+.topbar-user-dropdown {
+  position: relative;
+}
+
+.acting-as-toggle {
+  border: 1px solid var(--line);
+  background: var(--surface-subtle);
+  min-height: 38px;
+  border-radius: 999px;
+  padding: 0 12px 0 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-head);
+  color: var(--text-strong);
+  cursor: pointer;
+  transition: background 0.18s ease, border-color 0.18s ease;
+}
+
+.acting-as-toggle:hover,
+.acting-as-toggle:focus-visible {
+  background: rgba(0, 0, 0, 0.06);
+  border-color: rgba(0, 0, 0, 0.08);
+  outline: none;
+}
+
+.acting-as-initials {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.acting-as-name {
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.acting-as-caret {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.acting-as-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 200px;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  border-radius: 12px;
+  padding: 6px;
+  display: grid;
+  gap: 4px;
+  z-index: 10;
+}
+
+.acting-as-item {
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-family: var(--font-head);
+  font-size: 0.92rem;
+  color: var(--text-strong);
+  cursor: pointer;
+}
+
+.acting-as-item:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.acting-as-item[aria-current="true"] {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: color-mix(in srgb, var(--accent) 72%, var(--text-strong) 28%);
+}
+
 .inbox-button {
   position: relative;
   border: 1px solid var(--line);
@@ -895,6 +980,11 @@ body[data-theme="dark"] .settings-menu {
   border-color: rgba(255, 255, 255, 0.08);
 }
 
+body[data-theme="dark"] .acting-as-menu {
+  background: #1f2027;
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
 body[data-theme="dark"] label span,
 body[data-theme="dark"] .client-editor-row-label {
   color: color-mix(in srgb, var(--ink) 75%, transparent);
@@ -905,6 +995,10 @@ body[data-theme="dark"] .settings-item {
 }
 
 body[data-theme="dark"] .settings-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+body[data-theme="dark"] .acting-as-item:hover {
   background: rgba(255, 255, 255, 0.08);
 }
 
