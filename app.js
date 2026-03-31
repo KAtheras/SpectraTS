@@ -1429,8 +1429,13 @@
     },
     {
       eventType: "entry_approved",
-      label: "Entry approved",
+      label: "Time approved",
       recipientText: "Entry owner",
+    },
+    {
+      eventType: "expense_approved",
+      label: "Expense approved",
+      recipientText: "Expense owner",
     },
     {
       eventType: "delegation_updated",
@@ -1444,8 +1449,13 @@
     },
     {
       eventType: "entry_billing_status_updated",
-      label: "Entry billing status updated",
+      label: "Time billing status updated",
       recipientText: "Entry owner",
+    },
+    {
+      eventType: "expense_billing_status_updated",
+      label: "Expense billing status updated",
+      recipientText: "Expense owner",
     },
   ];
 

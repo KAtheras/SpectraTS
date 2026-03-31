@@ -657,6 +657,14 @@ async function ensureNotificationRulesForAccount(sql, accountUuid) {
       deliveryMode: "immediate",
     },
     {
+      eventType: "expense_approved",
+      enabled: true,
+      inboxEnabled: true,
+      emailEnabled: false,
+      recipientScope: "expense_owner",
+      deliveryMode: "immediate",
+    },
+    {
       eventType: "delegation_updated",
       enabled: true,
       inboxEnabled: true,
@@ -678,6 +686,14 @@ async function ensureNotificationRulesForAccount(sql, accountUuid) {
       inboxEnabled: true,
       emailEnabled: false,
       recipientScope: "entry_owner",
+      deliveryMode: "immediate",
+    },
+    {
+      eventType: "expense_billing_status_updated",
+      enabled: true,
+      inboxEnabled: true,
+      emailEnabled: false,
+      recipientScope: "expense_owner",
       deliveryMode: "immediate",
     },
   ];
@@ -1886,9 +1902,11 @@ async function listNotificationRules(sql, accountId) {
         'time_entry_created',
         'expense_entry_created',
         'entry_approved',
+        'expense_approved',
         'delegation_updated',
         'project_assignment_updated',
-        'entry_billing_status_updated'
+        'entry_billing_status_updated',
+        'expense_billing_status_updated'
       )
     ORDER BY event_type
   `;

@@ -757,9 +757,11 @@ async function updateNotificationRule(sql, payload, accountId) {
     "time_entry_created",
     "expense_entry_created",
     "entry_approved",
+    "expense_approved",
     "delegation_updated",
     "project_assignment_updated",
     "entry_billing_status_updated",
+    "expense_billing_status_updated",
   ]);
   if (!eventType || !supportedEvents.has(eventType)) {
     return errorResponse(400, "Unsupported notification event.");
@@ -2025,6 +2027,27 @@ async function updateExpense(sql, payload, currentUser, accountId) {
     changedFieldsJson: diffKeys(beforeSnapshot || {}, afterSnapshot || {}),
   });
 
+  const previousBillable = existing.is_billable === 0 ? false : true;
+  const nextBillable = isBillable === 0 ? false : true;
+  if (previousBillable !== nextBillable) {
+    await dispatchNotificationEvent(sql, {
+      accountId,
+      type: "expense_billing_status_updated",
+      actorUserId: currentUser?.id || null,
+      expenseOwnerUserId: targetUser?.id || null,
+      clientId: project?.client_id || null,
+      projectId: project?.id || null,
+      subjectType: "expense",
+      subjectId: id,
+      projectName: safeExpense.projectName,
+      message: buildInboxMessage("expense_billing_status_updated", {
+        actorName: currentUser?.displayName || "",
+        clientName: safeExpense.clientName,
+        projectName: safeExpense.projectName,
+      }),
+    });
+  }
+
   return null;
 }
 
@@ -2210,6 +2233,32 @@ async function toggleExpenseStatus(sql, payload, currentUser, accountId) {
     afterJson: afterSnapshot,
     changedFieldsJson: diffKeys(beforeSnapshot || {}, afterSnapshot || {}),
   });
+
+  if (nextStatus === "approved") {
+    await dispatchNotificationEvent(sql, {
+      accountId,
+      type: "expense_approved",
+      actorUserId: currentUser?.id || null,
+      expenseOwnerUserId: targetUser?.id || null,
+      clientId: project?.client_id || null,
+      projectId: project?.id || null,
+      subjectType: "expense",
+      subjectId: expense.id,
+      projectName: expense.project_name || "",
+      message: buildInboxMessage("expense_approved", {
+        actorName: currentUser?.displayName || "",
+        clientName: expense.client_name || "",
+        projectName: expense.project_name || "",
+        date: normalizeDateString(expense.expense_date),
+      }),
+      noteSnippet: normalizeText(expense.notes),
+      deepLink: {
+        view: "entries",
+        subtab: "expenses",
+        subjectId: expense.id,
+      },
+    });
+  }
 
   return null;
 }
