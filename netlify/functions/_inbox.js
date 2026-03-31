@@ -81,30 +81,43 @@ function normalizeNoteSnippet(note, maxLength = 80) {
 }
 
 async function listManagerRecipientUserIds(sql, { accountId, clientId, projectId }) {
-  const ids = new Set();
   if (projectId) {
     const projectRows = await sql`
-      SELECT manager_id AS "managerId"
-      FROM manager_projects
-      WHERE account_id = ${accountId}::uuid
-        AND project_id = ${projectId}
+      SELECT mp.manager_id AS "managerId"
+      FROM manager_projects mp
+      JOIN users u
+        ON u.id = mp.manager_id
+       AND u.account_id = mp.account_id
+       AND u.is_active = TRUE
+      WHERE mp.account_id = ${accountId}::uuid
+        AND mp.project_id = ${projectId}
+      ORDER BY mp.created_at ASC, mp.id ASC
+      LIMIT 1
     `;
-    projectRows.forEach((row) => {
-      if (row?.managerId) ids.add(row.managerId);
-    });
+    const nearestProjectManagerId = `${projectRows[0]?.managerId || ""}`.trim();
+    if (nearestProjectManagerId) {
+      return [nearestProjectManagerId];
+    }
   }
   if (clientId) {
     const clientRows = await sql`
-      SELECT manager_id AS "managerId"
-      FROM manager_clients
-      WHERE account_id = ${accountId}::uuid
-        AND client_id = ${clientId}
+      SELECT mc.manager_id AS "managerId"
+      FROM manager_clients mc
+      JOIN users u
+        ON u.id = mc.manager_id
+       AND u.account_id = mc.account_id
+       AND u.is_active = TRUE
+      WHERE mc.account_id = ${accountId}::uuid
+        AND mc.client_id = ${clientId}
+      ORDER BY mc.created_at ASC, mc.id ASC
+      LIMIT 1
     `;
-    clientRows.forEach((row) => {
-      if (row?.managerId) ids.add(row.managerId);
-    });
+    const nearestClientManagerId = `${clientRows[0]?.managerId || ""}`.trim();
+    if (nearestClientManagerId) {
+      return [nearestClientManagerId];
+    }
   }
-  return Array.from(ids);
+  return [];
 }
 
 async function createSystemInboxItems(sql, payload = {}) {
