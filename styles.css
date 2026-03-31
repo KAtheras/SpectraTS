@@ -477,6 +477,10 @@ body[data-theme="dark"] .button {
   padding: 10px 12px;
 }
 
+.inbox-item.is-email-highlight {
+  box-shadow: inset 3px 0 0 color-mix(in srgb, #cf4c4c 48%, #ffffff);
+}
+
 .inbox-item.is-unread {
   background: color-mix(in srgb, var(--accent) 8%, #ffffff);
   border-color: color-mix(in srgb, var(--accent) 22%, var(--line));

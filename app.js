@@ -5391,6 +5391,12 @@
     if (!refs.inboxList) return;
     const items = visibleInboxItems();
     const selected = new Set(selectedInboxIds());
+    const emailHighlightedEventTypes = new Set(
+      (state.notificationRules || [])
+        .filter((rule) => rule?.emailEnabled === true && rule?.eventType)
+        .map((rule) => `${rule.eventType}`.trim())
+        .filter(Boolean)
+    );
     syncInboxBulkControls();
     if (!items.length) {
       refs.inboxList.innerHTML = `
@@ -5407,8 +5413,11 @@
         const createdAt = formatDateTimeLocal(item.createdAt);
         const isSelected = selected.has(item.id);
         const selectedClass = isSelected ? " is-selected" : "";
+        const emailHighlightClass = emailHighlightedEventTypes.has(`${item.type || ""}`.trim())
+          ? " is-email-highlight"
+          : "";
         return `
-          <div class="inbox-item${unreadClass}${selectedClass}" data-inbox-id="${escapeHtml(item.id)}">
+          <div class="inbox-item${unreadClass}${selectedClass}${emailHighlightClass}" data-inbox-id="${escapeHtml(item.id)}">
             <label class="inbox-item-check">
               <input type="checkbox" data-inbox-select="${escapeHtml(item.id)}" ${isSelected ? "checked" : ""} />
             </label>
