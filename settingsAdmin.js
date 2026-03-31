@@ -817,23 +817,25 @@
       </div>
       <div class="delegations-shell">
         <form id="delegations-form" class="delegations-form">
-          <div class="delegations-field">
-            <label class="settings-row-label" for="delegations-delegate-search">Delegate</label>
-            <div class="delegations-picker">
-              <input
-                id="delegations-delegate-search"
-                type="search"
-                placeholder="${delegates.length ? "Search member" : "No eligible members"}"
-                ${delegates.length ? "" : "disabled"}
-                autocomplete="off"
-              />
-              <input id="delegations-delegate-id" type="hidden" value="" />
-              <div id="delegations-delegate-results" class="delegations-picker-results" role="listbox"></div>
+          <div class="delegations-form-grid">
+            <div class="delegations-field">
+              <label class="settings-row-label" for="delegations-delegate-search">Delegate</label>
+              <div class="delegations-picker">
+                <input
+                  id="delegations-delegate-search"
+                  type="search"
+                  placeholder="${delegates.length ? "Search member" : "No eligible members"}"
+                  ${delegates.length ? "" : "disabled"}
+                  autocomplete="off"
+                />
+                <input id="delegations-delegate-id" type="hidden" value="" />
+                <div id="delegations-delegate-results" class="delegations-picker-results" role="listbox"></div>
+              </div>
             </div>
-          </div>
-          <div class="delegations-field">
-            <div class="settings-row-label">Capabilities</div>
-            <div class="delegations-capabilities">${createCapsHtml}</div>
+            <div class="delegations-field">
+              <div class="settings-row-label">Capabilities</div>
+              <div class="delegations-capabilities">${createCapsHtml}</div>
+            </div>
           </div>
           <div class="delegations-actions">
             <button type="submit" class="button" ${delegates.length ? "" : "disabled"}>Add delegation</button>
