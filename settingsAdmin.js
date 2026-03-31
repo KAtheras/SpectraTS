@@ -905,7 +905,6 @@
     const roles = Array.isArray(state.permissionRoles) ? state.permissionRoles : [];
     const rolePerms = Array.isArray(state.rolePermissions) ? state.rolePermissions : [];
     const caps = [
-      "view_settings_shell",
       "view_members",
       "view_member_rates",
       "edit_member_rates",
@@ -918,7 +917,6 @@
       "manage_settings_access",
     ];
     const capLabels = {
-      view_settings_shell: "Settings access",
       view_members: "View member information",
       view_member_rates: "View member rates",
       edit_member_rates: "Edit member rates",

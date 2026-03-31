@@ -2149,10 +2149,6 @@ async function loadState(sql, currentUser) {
       actorUserId: normalizedUser?.id ?? null,
       ...ctx,
     });
-  const settingsShell = canCap("view_settings_shell", {
-    resourceOfficeId: normalizedUser?.officeId ?? null,
-    actorOfficeId: normalizedUser?.officeId ?? null,
-  });
   const manageCategories = canCap("manage_expense_categories", {
     resourceOfficeId: normalizedUser?.officeId ?? null,
     actorOfficeId: normalizedUser?.officeId ?? null,
@@ -2173,6 +2169,27 @@ async function loadState(sql, currentUser) {
     resourceOfficeId: normalizedUser?.officeId ?? null,
     actorOfficeId: normalizedUser?.officeId ?? null,
   });
+  const settingsShell = Boolean(
+    canCap("view_members", {
+      resourceOfficeId: normalizedUser?.officeId ?? null,
+      actorOfficeId: normalizedUser?.officeId ?? null,
+    }) ||
+    canCap("manage_levels", {
+      resourceOfficeId: normalizedUser?.officeId ?? null,
+      actorOfficeId: normalizedUser?.officeId ?? null,
+    }) ||
+    canCap("manage_departments", {
+      resourceOfficeId: normalizedUser?.officeId ?? null,
+      actorOfficeId: normalizedUser?.officeId ?? null,
+    }) ||
+    manageCategories ||
+    manageLocations ||
+    editPermissionMatrix ||
+    canCap("can_delegate", {
+      resourceOfficeId: normalizedUser?.officeId ?? null,
+      actorOfficeId: normalizedUser?.officeId ?? null,
+    })
+  );
 
   const catalogRows = await sql`
     SELECT

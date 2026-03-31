@@ -33,7 +33,7 @@ exports.handler = async function handler(event) {
     const permissions = {
       // existing keys
       edit_user_department: can(currentUser, "edit_user_department", {}, permissionIndex),
-      view_settings_tab: can(currentUser, "view_settings_shell", {}, permissionIndex),
+      view_settings_tab: false,
       view_members_page: can(currentUser, "view_members", {}, permissionIndex),
       view_member_rates: can(currentUser, "view_member_rates", {}, permissionIndex),
       edit_user_rates: can(currentUser, "edit_member_rates", {}, permissionIndex),
@@ -85,6 +85,15 @@ exports.handler = async function handler(event) {
       view_clients: can(currentUser, "view_clients", {}, permissionIndex),
       view_projects: can(currentUser, "view_projects", {}, permissionIndex),
     };
+    permissions.view_settings_tab = Boolean(
+      permissions.view_members_page ||
+      permissions.manage_levels ||
+      permissions.manage_departments ||
+      permissions.manage_expense_categories ||
+      permissions.manage_office_locations ||
+      permissions.manage_settings_access ||
+      permissions.can_delegate
+    );
 
     const permissionRoles = canManageSettingsAccess
       ? await sql`
