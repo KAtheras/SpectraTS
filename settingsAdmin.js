@@ -5,6 +5,7 @@
   let tabsInitialized = false;
   let mobileSettingsMode = "list";
   let delegationsSelectedDelegateId = "";
+  const delegationsDraftCapabilitiesByDelegateId = new Map();
 
   function isMobileSettingsLayout() {
     return typeof window !== "undefined" && window.matchMedia("(max-width: 980px)").matches;
@@ -827,8 +828,23 @@
     const capabilityInputs = Array.from(
       panel.querySelectorAll('input[data-delegation-capability]')
     );
+    const selectedCapabilitiesFromInputs = function () {
+      return new Set(
+        capabilityInputs
+          .filter((input) => input.checked)
+          .map((input) => `${input.value || ""}`.trim())
+          .filter(Boolean)
+      );
+    };
+    const persistDraftForSelectedDelegate = function () {
+      const delegateUserId = `${selectedDelegateIdInput?.value || ""}`.trim();
+      if (!delegateUserId) return;
+      delegationsDraftCapabilitiesByDelegateId.set(delegateUserId, selectedCapabilitiesFromInputs());
+    };
     const setCapabilitySelectionForDelegate = function (delegateUserId) {
-      const selectedCapabilities = capabilitiesByDelegateId.get(delegateUserId) || new Set();
+      const selectedCapabilities = delegationsDraftCapabilitiesByDelegateId.has(delegateUserId)
+        ? delegationsDraftCapabilitiesByDelegateId.get(delegateUserId)
+        : capabilitiesByDelegateId.get(delegateUserId) || new Set();
       capabilityInputs.forEach((input) => {
         const cap = `${input.value || ""}`.trim();
         input.checked = selectedCapabilities.has(cap);
@@ -921,6 +937,11 @@
         renderDelegateResults(searchInput?.value || "");
       };
     }
+    capabilityInputs.forEach((input) => {
+      input.onchange = function () {
+        persistDraftForSelectedDelegate();
+      };
+    });
 
     if (delegationsSelectedDelegateId) {
       const selected = delegates.find(
@@ -972,6 +993,7 @@
               }))
               .filter((item) => item.delegateUserId && item.delegateName && item.capability);
           }
+          delegationsDraftCapabilitiesByDelegateId.delete(delegateUserId);
           renderDelegationsTab();
           setActiveSettingsTab("delegations");
           deps().feedback(selectedCaps.length ? "Delegation saved." : "Delegation removed.", false);
