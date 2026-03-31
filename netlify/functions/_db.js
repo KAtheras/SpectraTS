@@ -1976,6 +1976,63 @@ async function listProjectMembersForProjects(sql, projectIds, accountId) {
   `;
 }
 
+async function listProjectMembersForUsers(sql, userIds, accountId) {
+  if (!userIds || !userIds.length) {
+    return [];
+  }
+  return sql`
+    SELECT
+      project_members.project_id AS "projectId",
+      project_members.user_id AS "userId",
+      project_members.charge_rate_override AS "chargeRateOverride",
+      users.display_name AS "userName",
+      projects.name AS project,
+      clients.name AS client
+    FROM project_members
+    JOIN projects ON projects.id = project_members.project_id
+    JOIN clients ON clients.id = projects.client_id
+    JOIN users ON users.id = project_members.user_id
+    WHERE project_members.user_id = ANY(${userIds})
+      AND users.is_active = TRUE
+      AND project_members.account_id = ${accountId}::uuid
+  `;
+}
+
+async function listManagerClientAssignmentsForManagers(sql, managerIds, accountId) {
+  if (!managerIds || !managerIds.length) {
+    return [];
+  }
+  return sql`
+    SELECT
+      manager_clients.manager_id AS "managerId",
+      clients.id AS "clientId",
+      clients.name AS client
+    FROM manager_clients
+    JOIN clients ON clients.id = manager_clients.client_id
+    WHERE manager_clients.manager_id = ANY(${managerIds})
+      AND manager_clients.account_id = ${accountId}::uuid
+  `;
+}
+
+async function listManagerProjectAssignmentsForManagers(sql, managerIds, accountId) {
+  if (!managerIds || !managerIds.length) {
+    return [];
+  }
+  return sql`
+    SELECT
+      manager_projects.manager_id AS "managerId",
+      projects.id AS "projectId",
+      projects.name AS project,
+      clients.name AS client,
+      manager_projects.charge_rate_override AS "chargeRateOverride"
+    FROM manager_projects
+    JOIN projects ON projects.id = manager_projects.project_id
+    JOIN clients ON clients.id = projects.client_id
+    WHERE manager_projects.manager_id = ANY(${managerIds})
+      AND manager_projects.account_id = ${accountId}::uuid
+  `;
+}
+
 async function getManagerScope(sql, managerId, accountId) {
   const clientRows = await sql`
     SELECT client_id
@@ -2190,6 +2247,16 @@ async function loadState(sql, currentUser) {
       actorOfficeId: normalizedUser?.officeId ?? null,
     })
   );
+  const delegators = normalizedUser
+    ? await listDelegatorsForDelegate(sql, normalizedUser.id, accountUuid)
+    : [];
+  const delegatorUserIds = Array.from(
+    new Set(
+      delegators
+        .map((item) => `${item?.id || ""}`.trim())
+        .filter(Boolean)
+    )
+  );
 
   const catalogRows = await sql`
     SELECT
@@ -2288,6 +2355,45 @@ async function loadState(sql, currentUser) {
     `;
   }
 
+  if (delegatorUserIds.length) {
+    const delegatedEntries = await sql`
+      SELECT
+        entries.id,
+        entries.user_name AS "user",
+        u.id AS "userId",
+        TO_CHAR(entries.entry_date, 'YYYY-MM-DD') AS date,
+        entries.client_name AS client,
+        entries.project_name AS project,
+        entries.task,
+        entries.hours::FLOAT8 AS hours,
+        entries.notes,
+        entries.billable,
+        entries.status,
+        entries.created_at AS "createdAt",
+        entries.updated_at AS "updatedAt"
+      FROM entries
+      JOIN users u
+        ON LOWER(u.display_name) = LOWER(entries.user_name)
+       AND u.account_id = ${accountUuid}::uuid
+      WHERE entries.account_id = ${accountUuid}::uuid
+        AND u.id = ANY(${delegatorUserIds})
+      ORDER BY entries.entry_date DESC, entries.created_at DESC
+    `;
+    const entryById = new Map();
+    [...entries, ...delegatedEntries].forEach((item) => {
+      if (!item?.id) return;
+      entryById.set(item.id, item);
+    });
+    entries = Array.from(entryById.values()).sort((a, b) => {
+      const leftDate = `${a?.date || ""}`;
+      const rightDate = `${b?.date || ""}`;
+      if (leftDate === rightDate) {
+        return `${b?.createdAt || ""}`.localeCompare(`${a?.createdAt || ""}`);
+      }
+      return rightDate.localeCompare(leftDate);
+    });
+  }
+
   let expenses = [];
   if (isAdminFlag || isExecFlag) {
     expenses = await sql`
@@ -2359,6 +2465,42 @@ async function loadState(sql, currentUser) {
     `;
   }
 
+  if (delegatorUserIds.length) {
+    const delegatedExpenses = await sql`
+      SELECT
+        id,
+        user_id AS "userId",
+        client_name AS "clientName",
+        project_name AS "projectName",
+        expense_date AS "expenseDate",
+        category,
+        amount::FLOAT8 AS amount,
+        is_billable AS "isBillable",
+        COALESCE(notes, '') AS notes,
+        status,
+        approved_at AS "approvedAt",
+        created_at AS "createdAt",
+        updated_at AS "updatedAt"
+      FROM expenses
+      WHERE account_id = ${accountUuid}::uuid
+        AND user_id = ANY(${delegatorUserIds})
+      ORDER BY expense_date DESC, created_at DESC NULLS LAST
+    `;
+    const expenseById = new Map();
+    [...expenses, ...delegatedExpenses].forEach((item) => {
+      if (!item?.id) return;
+      expenseById.set(item.id, item);
+    });
+    expenses = Array.from(expenseById.values()).sort((a, b) => {
+      const leftDate = `${a?.expenseDate || ""}`;
+      const rightDate = `${b?.expenseDate || ""}`;
+      if (leftDate === rightDate) {
+        return `${b?.createdAt || ""}`.localeCompare(`${a?.createdAt || ""}`);
+      }
+      return rightDate.localeCompare(leftDate);
+    });
+  }
+
   let users = [];
   if (normalizedUser) {
     const allUsers = await listUsers(sql, accountUuid);
@@ -2396,6 +2538,19 @@ async function loadState(sql, currentUser) {
           },
         ];
       }
+    }
+    if (delegatorUserIds.length) {
+      const existing = new Set(users.map((item) => `${item?.id || ""}`.trim()).filter(Boolean));
+      allUsers.forEach((user) => {
+        const id = `${user?.id || ""}`.trim();
+        if (!id || !delegatorUserIds.includes(id) || existing.has(id)) return;
+        users.push({
+          ...user,
+          baseRate: null,
+          costRate: null,
+        });
+        existing.add(id);
+      });
     }
   }
 
@@ -2487,6 +2642,47 @@ async function loadState(sql, currentUser) {
     );
   }
 
+  if (delegatorUserIds.length) {
+    const [delegatorMembers, delegatorManagerClients, delegatorManagerProjects] = await Promise.all([
+      listProjectMembersForUsers(sql, delegatorUserIds, accountUuid),
+      listManagerClientAssignmentsForManagers(sql, delegatorUserIds, accountUuid),
+      listManagerProjectAssignmentsForManagers(sql, delegatorUserIds, accountUuid),
+    ]);
+    const memberKeys = new Set(
+      assignments.projectMembers.map(
+        (item) => `${item?.projectId || ""}:${item?.userId || ""}`
+      )
+    );
+    delegatorMembers.forEach((item) => {
+      const key = `${item?.projectId || ""}:${item?.userId || ""}`;
+      if (!key || memberKeys.has(key)) return;
+      memberKeys.add(key);
+      assignments.projectMembers.push(item);
+    });
+    const managerClientKeys = new Set(
+      assignments.managerClients.map(
+        (item) => `${item?.managerId || ""}:${item?.clientId || ""}`
+      )
+    );
+    delegatorManagerClients.forEach((item) => {
+      const key = `${item?.managerId || ""}:${item?.clientId || ""}`;
+      if (!key || managerClientKeys.has(key)) return;
+      managerClientKeys.add(key);
+      assignments.managerClients.push(item);
+    });
+    const managerProjectKeys = new Set(
+      assignments.managerProjects.map(
+        (item) => `${item?.managerId || ""}:${item?.projectId || ""}`
+      )
+    );
+    delegatorManagerProjects.forEach((item) => {
+      const key = `${item?.managerId || ""}:${item?.projectId || ""}`;
+      if (!key || managerProjectKeys.has(key)) return;
+      managerProjectKeys.add(key);
+      assignments.managerProjects.push(item);
+    });
+  }
+
   const catalog = {};
   for (const row of catalogRows) {
     if (!catalog[row.client]) {
@@ -2501,9 +2697,6 @@ async function loadState(sql, currentUser) {
     ? await listInboxItems(sql, accountUuid, normalizedUser.id)
     : [];
   const notificationRules = await listNotificationRules(sql, accountUuid);
-  const delegators = normalizedUser
-    ? await listDelegatorsForDelegate(sql, normalizedUser.id, accountUuid)
-    : [];
   const myDelegations = normalizedUser
     ? await listMyDelegations(sql, normalizedUser.id, accountUuid)
     : [];
