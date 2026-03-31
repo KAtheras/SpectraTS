@@ -1594,11 +1594,12 @@
           }))
           .filter((item) => item.id && item.name)
       : [];
+    const normalizeId = (value) => `${value || ""}`.trim().toLowerCase();
     const currentUserId = `${state.currentUser?.id || ""}`.trim();
     const canKeepSelection =
       previousActingAsUserId &&
-      (previousActingAsUserId === currentUserId ||
-        state.delegators.some((item) => item.id === previousActingAsUserId));
+      (normalizeId(previousActingAsUserId) === normalizeId(currentUserId) ||
+        state.delegators.some((item) => normalizeId(item.id) === normalizeId(previousActingAsUserId)));
     state.actingAsUserId = canKeepSelection ? previousActingAsUserId : currentUserId;
     const normalizedProjects = normalizeProjects(data?.projects);
     state.projects = normalizedProjects.length
@@ -1904,26 +1905,33 @@
   }
 
   function resolveActingAsUserId() {
-    const currentUserId = `${state.currentUser?.id || ""}`.trim();
-    const selectedUserId = `${state.actingAsUserId || ""}`.trim();
+    const normalizeId = (value) => `${value || ""}`.trim().toLowerCase();
+    const currentUserIdRaw = `${state.currentUser?.id || ""}`.trim();
+    const currentUserId = normalizeId(currentUserIdRaw);
+    const selectedUserId = normalizeId(state.actingAsUserId);
     if (!currentUserId) return "";
-    if (!selectedUserId || selectedUserId === currentUserId) return currentUserId;
+    if (!selectedUserId || selectedUserId === currentUserId) return currentUserIdRaw;
     const isDelegator = Array.isArray(state.delegators)
-      ? state.delegators.some((item) => `${item?.id || ""}`.trim() === selectedUserId)
+      ? state.delegators.some((item) => normalizeId(item?.id) === selectedUserId)
       : false;
-    return isDelegator ? selectedUserId : currentUserId;
+    if (!isDelegator) return currentUserIdRaw;
+    const selected = (state.delegators || []).find(
+      (item) => normalizeId(item?.id) === selectedUserId
+    );
+    return `${selected?.id || ""}`.trim() || currentUserIdRaw;
   }
 
   function effectiveScopeUser() {
+    const normalizeId = (value) => `${value || ""}`.trim().toLowerCase();
     const scopeUserId = resolveActingAsUserId();
     if (!scopeUserId) return state.currentUser || null;
-    if (`${state.currentUser?.id || ""}`.trim() === scopeUserId) return state.currentUser;
+    if (normalizeId(state.currentUser?.id) === normalizeId(scopeUserId)) return state.currentUser;
     const byId = (state.users || []).find(function (user) {
-      return user && `${user.id || ""}`.trim() === scopeUserId;
+      return user && normalizeId(user.id) === normalizeId(scopeUserId);
     });
     if (byId) return byId;
     const selectedDelegator = (state.delegators || []).find(
-      (item) => `${item?.id || ""}`.trim() === scopeUserId
+      (item) => normalizeId(item?.id) === normalizeId(scopeUserId)
     );
     if (selectedDelegator?.name) {
       const byName = (state.users || []).find(function (user) {
@@ -1950,12 +1958,13 @@
   }
 
   function getActingAsSelection() {
+    const normalizeId = (value) => `${value || ""}`.trim().toLowerCase();
     const users = getActingAsUsers();
     if (!users.length) return null;
     const selectedId = resolveActingAsUserId();
     return (
       users.find(function (item) {
-        return item.id === selectedId;
+        return normalizeId(item.id) === normalizeId(selectedId);
       }) || users[0]
     );
   }
@@ -2022,10 +2031,11 @@
       refs.actingAsName.textContent = actingAsDisplayName(selection);
     }
 
+    const normalizeId = (value) => `${value || ""}`.trim().toLowerCase();
     const rows = options
       .map(function (item) {
         const id = escapeHtml(String(item.id || ""));
-        const selectedAttr = item.id === state.actingAsUserId ? ' aria-current="true"' : "";
+        const selectedAttr = normalizeId(item.id) === normalizeId(state.actingAsUserId) ? ' aria-current="true"' : "";
         return `<button class="acting-as-item" type="button" data-acting-as-id="${id}" role="menuitem"${selectedAttr}>${escapeHtml(String(item.name || ""))}</button>`;
       })
       .join("");
@@ -6122,10 +6132,19 @@
   }
   if (refs.actingAsMenu) {
     refs.actingAsMenu.addEventListener("click", function (event) {
+      const normalizeId = (value) => `${value || ""}`.trim().toLowerCase();
       const option = event.target.closest("[data-acting-as-id]");
       if (!option) return;
-      const nextId = String(option.dataset.actingAsId || "");
-      if (!nextId || nextId === state.actingAsUserId) {
+      const rawNextId = String(option.dataset.actingAsId || "");
+      if (!rawNextId) {
+        closeActingAsMenu();
+        return;
+      }
+      const canonical = getActingAsUsers().find(
+        (item) => normalizeId(item?.id) === normalizeId(rawNextId)
+      );
+      const nextId = `${canonical?.id || rawNextId}`.trim();
+      if (!nextId || normalizeId(nextId) === normalizeId(state.actingAsUserId)) {
         closeActingAsMenu();
         return;
       }
