@@ -60,6 +60,12 @@
         const friendlyAction = humanizeAction(row.action);
         const actor =
           row.changed_by_name_snapshot || userNameById(row.changed_by_user_id) || row.changed_by_user_id || "Unknown";
+        const delegatedAction = Boolean(
+          row?.after_json?.delegated_action || row?.before_json?.delegated_action
+        );
+        const ownerName = userNameById(row.target_user_id) || row.target_user_id || "";
+        const actorDisplay =
+          delegatedAction && ownerName ? `${actor} (delegate for ${ownerName})` : actor;
         const projectName = projectNameById(row.context_project_id) || "";
         const clientName = clientNameById(row.context_client_id, projectName ? row.context_project_id : null) || "";
         const beforeLines = formatAuditKV(row.before_json, row.entity_type, row.action, "before", {
@@ -71,7 +77,7 @@
           projectName,
         });
 
-        const summary = `${escapeHtml(actor)} ${friendlyAction.toLowerCase()} a ${friendlyEntity}`;
+        const summary = `${escapeHtml(actorDisplay)} ${friendlyAction.toLowerCase()} a ${friendlyEntity}`;
         const changedFields =
           Array.isArray(row.changed_fields_json) && row.changed_fields_json.length
             ? row.changed_fields_json.map(humanizeField).join(", ")
@@ -80,7 +86,7 @@
         return `
           <tr>
             <td>${escapeHtml(formatDateTimeLocal(row.changed_at))}</td>
-            <td>${escapeHtml(actor)}</td>
+            <td>${escapeHtml(actorDisplay)}</td>
             <td>${escapeHtml(friendlyEntity)}</td>
             <td>${escapeHtml(friendlyAction)}</td>
             <td>${escapeHtml(changedFields)}</td>
@@ -130,6 +136,8 @@
   const FIELD_LABELS = {
     nonbillable: "Billable Status",
     user_id: "Team Member",
+    delegated_action: "Delegated Action",
+    delegated_by_user_id: "Delegate",
     client_id: "Client",
     project_id: "Project",
     category_id: "Category",
@@ -170,6 +178,8 @@
     const { escapeHtml, userNameById, projectNameById, clientNameById, formatDisplayDate } = deps();
     if (value === null || value === undefined || value === "") return "—";
     if (key === "nonbillable") return value ? "Non-billable" : "Billable";
+    if (key === "delegated_action") return value ? "Yes" : "No";
+    if (key === "delegated_by_user_id") return escapeHtml(userNameById(value) || String(value));
     if (key === "date") return formatDisplayDate(String(value));
     if (key === "hours") return Number(value).toFixed(2);
     if (key === "amount") return `$${Number(value).toFixed(2)}`;

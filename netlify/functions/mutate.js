@@ -731,6 +731,8 @@ function entrySnapshot({
   notes,
   nonbillable,
   status,
+  delegatedAction,
+  delegatedByUserId,
 }) {
   return {
     date,
@@ -741,6 +743,8 @@ function entrySnapshot({
     notes: notes || "",
     nonbillable: Boolean(nonbillable),
     status: status || "pending",
+    ...(delegatedAction ? { delegated_action: true } : {}),
+    ...(delegatedByUserId ? { delegated_by_user_id: delegatedByUserId } : {}),
   };
 }
 
@@ -754,6 +758,8 @@ function expenseSnapshot({
   nonbillable,
   status,
   category,
+  delegatedAction,
+  delegatedByUserId,
 }) {
   return {
     date,
@@ -765,6 +771,8 @@ function expenseSnapshot({
     nonbillable: Boolean(nonbillable),
     status: status || "pending",
     category: category || "",
+    ...(delegatedAction ? { delegated_action: true } : {}),
+    ...(delegatedByUserId ? { delegated_by_user_id: delegatedByUserId } : {}),
   };
 }
 
@@ -1645,6 +1653,8 @@ async function createExpense(sql, payload, currentUser, accountId) {
     nonbillable: isBillable ? false : true,
     status: "pending",
     category: expense.category,
+    delegatedAction: canActOnBehalf,
+    delegatedByUserId: canActOnBehalf ? currentUser?.id || null : null,
   });
 
   await logAudit(sql, {
@@ -2385,6 +2395,8 @@ async function saveEntry(sql, payload, currentUser, accountId) {
     notes: normalizeText(entry.notes),
     nonbillable: entry.billable === false,
     status,
+    delegatedAction: canActOnBehalf,
+    delegatedByUserId: canActOnBehalf ? currentUser?.id || null : null,
   });
 
   await logAudit(sql, {
