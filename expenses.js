@@ -3,7 +3,7 @@
 
   function activeExpenseCategories() {
     const { state } = deps();
-    return (state.expenseCategories || []).filter((c) => c.isActive);
+    return (state.expenseCategories || []).filter((c) => c?.isActive !== false);
   }
 
   function syncExpenseCatalogs({ userId, client, project }) {
