@@ -17,6 +17,16 @@ const DELEGATION_CAPABILITIES = new Set([
   "enter_expenses_on_behalf",
   "view_time_on_behalf",
   "view_expenses_on_behalf",
+  "view_reports_on_behalf",
+  "create_reports_on_behalf",
+  "print_reports_on_behalf",
+]);
+
+const ACTING_AS_CAPABILITIES = new Set([
+  "enter_time_on_behalf",
+  "enter_expenses_on_behalf",
+  "view_time_on_behalf",
+  "view_expenses_on_behalf",
 ]);
 
 async function getSql() {
@@ -2026,7 +2036,7 @@ async function listDelegatorsForDelegate(sql, delegateUserId, accountId) {
   for (const row of rows) {
     const delegatorId = `${row.delegatorUserId || ""}`.trim();
     const capability = `${row.capability || ""}`.trim();
-    if (!delegatorId || !DELEGATION_CAPABILITIES.has(capability)) continue;
+    if (!delegatorId || !ACTING_AS_CAPABILITIES.has(capability)) continue;
     if (!byDelegator.has(delegatorId)) {
       byDelegator.set(delegatorId, {
         id: delegatorId,
@@ -2043,6 +2053,49 @@ async function listDelegatorsForDelegate(sql, delegateUserId, accountId) {
   return Array.from(byDelegator.values()).sort((a, b) =>
     a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
   );
+}
+
+async function listMyDelegations(sql, delegatorUserId, accountId) {
+  const rows = await sql`
+    SELECT
+      d.delegate_user_id AS "delegateUserId",
+      u.display_name AS "delegateName",
+      d.capability
+    FROM delegations d
+    JOIN users u
+      ON u.id = d.delegate_user_id
+     AND u.account_id = d.account_id
+    WHERE d.account_id = ${accountId}::uuid
+      AND d.delegator_user_id = ${delegatorUserId}
+    ORDER BY LOWER(u.display_name), d.capability
+  `;
+  return rows
+    .map((row) => ({
+      delegateUserId: `${row.delegateUserId || ""}`.trim(),
+      delegateName: `${row.delegateName || ""}`.trim(),
+      capability: `${row.capability || ""}`.trim(),
+    }))
+    .filter(
+      (row) =>
+        row.delegateUserId &&
+        row.delegateName &&
+        DELEGATION_CAPABILITIES.has(row.capability)
+    );
+}
+
+async function listDelegationCandidates(sql, currentUserId, accountId) {
+  const rows = await sql`
+    SELECT id, display_name AS "displayName"
+    FROM users
+    WHERE account_id = ${accountId}::uuid
+      AND is_active = TRUE
+      AND id <> ${currentUserId}
+    ORDER BY LOWER(display_name)
+  `;
+  return rows.map((row) => ({
+    id: `${row.id || ""}`.trim(),
+    name: `${row.displayName || ""}`.trim(),
+  }));
 }
 
 async function loadState(sql, currentUser) {
@@ -2434,6 +2487,12 @@ async function loadState(sql, currentUser) {
   const delegators = normalizedUser
     ? await listDelegatorsForDelegate(sql, normalizedUser.id, accountUuid)
     : [];
+  const myDelegations = normalizedUser
+    ? await listMyDelegations(sql, normalizedUser.id, accountUuid)
+    : [];
+  const delegationCandidates = normalizedUser
+    ? await listDelegationCandidates(sql, normalizedUser.id, accountUuid)
+    : [];
 
   return {
     bootstrapRequired: false,
@@ -2467,6 +2526,8 @@ async function loadState(sql, currentUser) {
     inboxItems,
     notificationRules,
     delegators,
+    myDelegations,
+    delegationCandidates,
   };
 }
 

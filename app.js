@@ -1202,6 +1202,8 @@
     pendingInputsExpenseEditId: "",
     entriesSubtab: "time", // "time" | "expenses"
     delegators: [],
+    myDelegations: [],
+    delegationCandidates: [],
     actingAsUserId: "",
     inboxItems: [],
     inboxFilter: "all",
@@ -1574,6 +1576,23 @@
           })
           .filter(Boolean)
       : [];
+    state.myDelegations = Array.isArray(data?.myDelegations)
+      ? data.myDelegations
+          .map((item) => ({
+            delegateUserId: `${item?.delegateUserId || item?.delegate_user_id || ""}`.trim(),
+            delegateName: `${item?.delegateName || item?.delegate_name || ""}`.trim(),
+            capability: `${item?.capability || ""}`.trim(),
+          }))
+          .filter((item) => item.delegateUserId && item.delegateName && item.capability)
+      : [];
+    state.delegationCandidates = Array.isArray(data?.delegationCandidates)
+      ? data.delegationCandidates
+          .map((item) => ({
+            id: `${item?.id || ""}`.trim(),
+            name: `${item?.name || item?.displayName || ""}`.trim(),
+          }))
+          .filter((item) => item.id && item.name)
+      : [];
     const currentUserId = `${state.currentUser?.id || ""}`.trim();
     const canKeepSelection =
       previousActingAsUserId &&
@@ -1612,6 +1631,8 @@
     state.inboxFilter = "all";
     state.inboxSelectedIds = [];
     state.delegators = [];
+    state.myDelegations = [];
+    state.delegationCandidates = [];
     state.actingAsUserId = "";
     resetAuditFilters();
   }
@@ -1779,6 +1800,8 @@
         state.inboxFilter = "all";
         state.inboxSelectedIds = [];
         state.delegators = [];
+        state.myDelegations = [];
+        state.delegationCandidates = [];
         state.actingAsUserId = "";
         state.clientEditor = null;
         state.assignments = {

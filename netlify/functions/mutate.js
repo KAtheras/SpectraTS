@@ -48,6 +48,9 @@ const DELEGATION_CAPABILITIES = new Set([
   "enter_expenses_on_behalf",
   "view_time_on_behalf",
   "view_expenses_on_behalf",
+  "view_reports_on_behalf",
+  "create_reports_on_behalf",
+  "print_reports_on_behalf",
 ]);
 
 function normalizeDelegationCapability(value) {
@@ -3033,17 +3036,25 @@ exports.handler = async function handler(event) {
         break;
       }
       case "create_delegation": {
-        if (!isAdmin(context.currentUser)) {
-          return errorResponse(403, "Admin access required.");
+        if (!can("can_delegate")) {
+          return errorResponse(403, "Access denied.");
         }
-        mutationResult = await createDelegation(sql, request.payload || {}, accountId);
+        mutationResult = await createDelegation(
+          sql,
+          { ...(request.payload || {}), delegatorUserId: context.currentUser?.id || "" },
+          accountId
+        );
         break;
       }
       case "delete_delegation": {
-        if (!isAdmin(context.currentUser)) {
-          return errorResponse(403, "Admin access required.");
+        if (!can("can_delegate")) {
+          return errorResponse(403, "Access denied.");
         }
-        mutationResult = await deleteDelegation(sql, request.payload || {}, accountId);
+        mutationResult = await deleteDelegation(
+          sql,
+          { ...(request.payload || {}), delegatorUserId: context.currentUser?.id || "" },
+          accountId
+        );
         break;
       }
       case "remove_client": {

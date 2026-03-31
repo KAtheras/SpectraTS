@@ -1,6 +1,6 @@
 (function () {
   const deps = () => window.settingsAdminDeps || {};
-  const SETTINGS_TABS = ["levels", "categories", "locations", "rates", "messaging_rules", "departments", "permissions"];
+  const SETTINGS_TABS = ["levels", "categories", "locations", "rates", "messaging_rules", "departments", "delegations", "permissions"];
   let activeSettingsTab = "levels";
   let tabsInitialized = false;
   let mobileSettingsMode = "list";
@@ -38,6 +38,7 @@
     }
     if (state.permissions?.manage_settings_access) tabs.push("messaging_rules");
     if (state.permissions?.manage_departments) tabs.push("departments");
+    if (state.permissions?.can_delegate) tabs.push("delegations");
     if (state.permissions?.manage_settings_access) tabs.push("permissions");
     return tabs;
   }
@@ -123,7 +124,7 @@
     if (!settingsPage) return;
     const sectionPanels = Array.from(
       settingsPage.querySelectorAll(
-        '[data-settings-tab="levels"], [data-settings-tab="categories"], [data-settings-tab="locations"], [data-settings-tab="rates"], [data-settings-tab="messaging_rules"], [data-settings-tab="departments"], [data-settings-tab="permissions"]'
+        '[data-settings-tab="levels"], [data-settings-tab="categories"], [data-settings-tab="locations"], [data-settings-tab="rates"], [data-settings-tab="messaging_rules"], [data-settings-tab="departments"], [data-settings-tab="delegations"], [data-settings-tab="permissions"]'
       )
     );
 
@@ -217,6 +218,7 @@
       rates: "Member information",
       messaging_rules: "Messaging Rules",
       departments: "Practice departments",
+      delegations: "Delegations",
       permissions: "Member access levels",
     };
     const { tabButtons } = settingsTabElements();
@@ -653,6 +655,34 @@
       }
     }
 
+    const canDelegate = state.permissions?.can_delegate;
+    if (canDelegate) {
+      const tabsContainer = document.querySelector("#settings-page .settings-tabs");
+      const panelsContainer = document.querySelector("#settings-page .settings-panels") || settingsPage;
+      if (tabsContainer && panelsContainer) {
+        let delegationsBtn = tabsContainer.querySelector('[data-settings-tab-button="delegations"]');
+        if (!delegationsBtn) {
+          delegationsBtn = document.createElement("button");
+          delegationsBtn.className = "settings-tab catalog-item";
+          delegationsBtn.type = "button";
+          delegationsBtn.dataset.settingsTabButton = "delegations";
+          delegationsBtn.textContent = "Delegations";
+          tabsContainer.appendChild(delegationsBtn);
+          delegationsBtn.addEventListener("click", function (event) {
+            event.preventDefault();
+            setActiveSettingsTab("delegations", { fromUser: true });
+          });
+        }
+        let delegationsPanel = panelsContainer.querySelector('[data-settings-tab="delegations"]');
+        if (!delegationsPanel) {
+          delegationsPanel = document.createElement("div");
+          delegationsPanel.dataset.settingsTab = "delegations";
+          delegationsPanel.className = "settings-panel";
+          panelsContainer.appendChild(delegationsPanel);
+        }
+      }
+    }
+
     // Ensure permissions tab exists for superusers
     const canManageSettingsAccess = state.permissions?.manage_settings_access;
     if (canManageSettingsAccess) {
@@ -687,7 +717,185 @@
     }
     applyMobileSettingsLayout();
     initSettingsTabs();
+    renderDelegationsTab();
     renderPermissionsMatrix();
+  }
+
+  function renderDelegationsTab() {
+    const { state, escapeHtml } = deps();
+    const panel = document.querySelector('[data-settings-tab="delegations"]');
+    if (!panel || !state.permissions?.can_delegate) return;
+
+    const capabilityOptions = [
+      "enter_time_on_behalf",
+      "enter_expenses_on_behalf",
+      "view_time_on_behalf",
+      "view_expenses_on_behalf",
+      "view_reports_on_behalf",
+      "create_reports_on_behalf",
+      "print_reports_on_behalf",
+    ];
+    const delegates = Array.isArray(state.delegationCandidates) ? state.delegationCandidates : [];
+    const myDelegations = Array.isArray(state.myDelegations) ? state.myDelegations : [];
+    const grouped = new Map();
+    myDelegations.forEach((item) => {
+      const key = item.delegateUserId;
+      if (!grouped.has(key)) {
+        grouped.set(key, {
+          delegateUserId: item.delegateUserId,
+          delegateName: item.delegateName,
+          capabilities: [],
+        });
+      }
+      const row = grouped.get(key);
+      if (!row.capabilities.includes(item.capability)) {
+        row.capabilities.push(item.capability);
+      }
+    });
+    const groupedRows = Array.from(grouped.values()).sort((a, b) =>
+      (a.delegateName || "").localeCompare(b.delegateName || "", undefined, { sensitivity: "base" })
+    );
+
+    const delegateOptionsHtml = delegates.length
+      ? delegates
+          .map(
+            (item) =>
+              `<option value="${escapeHtml(item.id)}">${escapeHtml(item.name)}</option>`
+          )
+          .join("")
+      : `<option value="">No eligible members</option>`;
+
+    const createCapsHtml = capabilityOptions
+      .map(
+        (cap) => `
+          <label class="rules-toggle">
+            <input type="checkbox" data-delegation-capability value="${escapeHtml(cap)}" />
+            <span>${escapeHtml(cap)}</span>
+          </label>
+        `
+      )
+      .join("");
+
+    const listHtml = groupedRows.length
+      ? groupedRows
+          .map((row) => {
+            const capsHtml = row.capabilities
+              .map(
+                (cap) => `
+                  <div class="settings-structured-row settings-structured-row-no-label">
+                    <div class="settings-row-main">${escapeHtml(cap)}</div>
+                    <div class="settings-row-actions">
+                      <button
+                        type="button"
+                        class="expense-delete"
+                        data-delete-delegation
+                        data-delegate-user-id="${escapeHtml(row.delegateUserId)}"
+                        data-capability="${escapeHtml(cap)}"
+                      >Delete</button>
+                    </div>
+                  </div>
+                `
+              )
+              .join("");
+            return `
+              <section class="member-info-card">
+                <div class="member-info-name">${escapeHtml(row.delegateName)}</div>
+                <div class="settings-section-content">${capsHtml}</div>
+              </section>
+            `;
+          })
+          .join("")
+      : `<div class="settings-row-main">No delegations created yet.</div>`;
+
+    panel.innerHTML = `
+      <div class="settings-section-header">
+        <div class="settings-section-left">
+          <h3>Delegations</h3>
+        </div>
+      </div>
+      <div class="settings-section-content">
+        <form id="delegations-form" class="level-labels-form">
+          <div class="settings-structured-row">
+            <span class="settings-row-label">Delegate</span>
+            <div class="settings-row-main">
+              <select id="delegations-delegate" ${delegates.length ? "" : "disabled"}>
+                <option value="">Select member</option>
+                ${delegateOptionsHtml}
+              </select>
+            </div>
+            <div class="settings-row-actions"></div>
+          </div>
+          <div class="settings-structured-row settings-structured-row-no-label">
+            <div class="settings-row-main">
+              <div class="settings-section-content">${createCapsHtml}</div>
+            </div>
+            <div class="settings-row-actions">
+              <button type="submit" class="button" ${delegates.length ? "" : "disabled"}>Add delegation</button>
+            </div>
+          </div>
+        </form>
+        <div class="settings-section-content">
+          ${listHtml}
+        </div>
+      </div>
+    `;
+
+    const form = panel.querySelector("#delegations-form");
+    if (form) {
+      form.onsubmit = async function (event) {
+        event.preventDefault();
+        const delegateUserId = `${panel.querySelector("#delegations-delegate")?.value || ""}`.trim();
+        const selectedCaps = Array.from(
+          panel.querySelectorAll('input[data-delegation-capability]:checked')
+        ).map((input) => `${input.value || ""}`.trim());
+        if (!delegateUserId) {
+          deps().feedback("Delegate is required.", true);
+          return;
+        }
+        if (!selectedCaps.length) {
+          deps().feedback("Select at least one capability.", true);
+          return;
+        }
+        try {
+          for (const capability of selectedCaps) {
+            await deps().mutatePersistentState(
+              "create_delegation",
+              { delegateUserId, capability },
+              { skipHydrate: true }
+            );
+          }
+          await deps().loadPersistentState();
+          renderSettingsTabs();
+          setActiveSettingsTab("delegations");
+          deps().feedback("Delegation saved.", false);
+        } catch (error) {
+          deps().feedback(error.message || "Unable to save delegation.", true);
+        }
+      };
+    }
+
+    panel.onclick = async function (event) {
+      const button = event.target.closest("[data-delete-delegation]");
+      if (!button) return;
+      const delegateUserId = `${button.dataset.delegateUserId || ""}`.trim();
+      const capability = `${button.dataset.capability || ""}`.trim();
+      if (!delegateUserId || !capability) return;
+      try {
+        await deps().mutatePersistentState(
+          "delete_delegation",
+          { delegateUserId, capability },
+          { skipHydrate: true }
+        );
+        await deps().loadPersistentState();
+        renderSettingsTabs();
+        setActiveSettingsTab("delegations");
+        deps().feedback("Delegation removed.", false);
+      } catch (error) {
+        deps().feedback(error.message || "Unable to remove delegation.", true);
+      }
+    };
+
+    arrangeSettingsSectionHeaders();
   }
 
   function renderPermissionsMatrix() {
