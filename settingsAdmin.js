@@ -735,85 +735,53 @@
       { key: "create_reports_on_behalf", label: "Create reports in my scope" },
       { key: "print_reports_on_behalf", label: "Print reports in my scope" },
     ];
-    const capabilityLabelByKey = Object.fromEntries(
-      capabilityOptions.map((item) => [item.key, item.label])
-    );
-    const capabilityIndexByKey = Object.fromEntries(
-      capabilityOptions.map((item, index) => [item.key, index])
-    );
     const delegates = Array.isArray(state.delegationCandidates) ? state.delegationCandidates : [];
     const myDelegations = Array.isArray(state.myDelegations) ? state.myDelegations : [];
-    const grouped = new Map();
     const capabilitiesByDelegateId = new Map();
+    const delegateNameById = new Map(
+      delegates.map((item) => [`${item.id || ""}`.trim(), `${item.name || ""}`.trim()])
+    );
     myDelegations.forEach((item) => {
       const key = `${item.delegateUserId || ""}`.trim();
       if (!key) return;
-      if (!grouped.has(key)) {
-        grouped.set(key, {
-          delegateUserId: key,
-          delegateName: item.delegateName,
-          capabilities: [],
-        });
-      }
-      const row = grouped.get(key);
-      if (!row.capabilities.includes(item.capability)) {
-        row.capabilities.push(item.capability);
+      if (!delegateNameById.get(key) && item.delegateName) {
+        delegateNameById.set(key, `${item.delegateName}`.trim());
       }
       if (!capabilitiesByDelegateId.has(key)) {
         capabilitiesByDelegateId.set(key, new Set());
       }
       capabilitiesByDelegateId.get(key).add(item.capability);
     });
-    const groupedRows = Array.from(grouped.values()).sort((a, b) =>
-      (a.delegateName || "").localeCompare(b.delegateName || "", undefined, { sensitivity: "base" })
-    );
+    const delegatedMembers = Array.from(capabilitiesByDelegateId.keys())
+      .map((id) => ({ id, name: delegateNameById.get(id) || id }))
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
 
     const createCapsHtml = capabilityOptions
       .map(
         (cap) => `
-          <label class="delegations-cap-row">
-            <input type="checkbox" data-delegation-capability value="${escapeHtml(cap.key)}" />
-            <span>${escapeHtml(cap.label)}</span>
-          </label>
+          <div class="delegations-cap-toggle-row">
+            <span class="delegations-cap-label">${escapeHtml(cap.label)}</span>
+            <label class="perm-switch">
+              <input type="checkbox" data-delegation-capability value="${escapeHtml(cap.key)}">
+              <span class="perm-switch-track" aria-hidden="true"></span>
+            </label>
+          </div>
         `
       )
       .join("");
-
-    const listHtml = groupedRows.length
-      ? groupedRows
-          .map((row) => {
-            const capsHtml = row.capabilities.slice()
-              .sort((a, b) => {
-                const left = capabilityIndexByKey[a] ?? Number.MAX_SAFE_INTEGER;
-                const right = capabilityIndexByKey[b] ?? Number.MAX_SAFE_INTEGER;
-                return left - right;
-              })
-              .map(
-                (cap) => `
-                  <div class="delegations-list-row">
-                    <div class="delegations-list-capability">${escapeHtml(capabilityLabelByKey[cap] || cap)}</div>
-                    <div class="delegations-list-actions">
-                      <button
-                        type="button"
-                        class="expense-delete"
-                        data-delete-delegation
-                        data-delegate-user-id="${escapeHtml(row.delegateUserId)}"
-                        data-capability="${escapeHtml(cap)}"
-                      >Delete</button>
-                    </div>
-                  </div>
-                `
-              )
-              .join("");
-            return `
-              <section class="member-info-card delegations-current-card">
-                <div class="member-info-name">${escapeHtml(row.delegateName)}</div>
-                <div class="delegations-current-caps">${capsHtml}</div>
-              </section>
-            `;
-          })
+    const pillsHtml = delegatedMembers.length
+      ? delegatedMembers
+          .map(
+            (item) => `
+              <button
+                type="button"
+                class="delegations-member-pill"
+                data-delegations-pill-id="${escapeHtml(item.id)}"
+              >${escapeHtml(item.name)}</button>
+            `
+          )
           .join("")
-      : `<div class="delegations-empty">No delegations created yet.</div>`;
+      : `<div class="delegations-empty">No delegates yet.</div>`;
 
     panel.innerHTML = `
       <div class="settings-section-header">
@@ -823,43 +791,35 @@
       </div>
       <div class="delegations-shell">
         <form id="delegations-form" class="delegations-form">
-          <div class="delegations-form-grid">
-            <div class="delegations-field">
+          <div class="delegations-columns">
+            <section class="delegations-col delegations-col-search">
               <label class="settings-row-label" for="delegations-delegate-search">Delegate</label>
               <div class="delegations-picker">
-                <input
-                  id="delegations-delegate-search"
-                  type="search"
-                  placeholder="${delegates.length ? "Search member" : "No eligible members"}"
-                  ${delegates.length ? "" : "disabled"}
-                  autocomplete="off"
-                />
+                <input id="delegations-delegate-search" type="search" placeholder="${delegates.length ? "Search member" : "No eligible members"}" ${delegates.length ? "" : "disabled"} autocomplete="off" />
                 <input id="delegations-delegate-id" type="hidden" value="" />
                 <div id="delegations-delegate-results" class="delegations-picker-results" role="listbox"></div>
               </div>
-            </div>
-            <div class="delegations-field">
+            </section>
+            <section class="delegations-col delegations-col-capabilities">
               <div class="settings-row-label">Capabilities</div>
               <div class="delegations-capabilities">${createCapsHtml}</div>
-            </div>
-          </div>
-          <div class="delegations-actions">
-            <button type="submit" class="button" ${delegates.length ? "" : "disabled"}>Add delegation</button>
+              <div class="delegations-actions">
+                <button type="submit" class="button" ${delegates.length ? "" : "disabled"}>Add delegation</button>
+              </div>
+            </section>
+            <section class="delegations-col delegations-col-members">
+              <div class="settings-row-label">Delegated members</div>
+              <div class="delegations-member-pills">${pillsHtml}</div>
+            </section>
           </div>
         </form>
-        <section class="delegations-current">
-          <h4>Current delegations</h4>
-          ${listHtml}
-        </section>
       </div>
     `;
 
     const searchInput = panel.querySelector("#delegations-delegate-search");
     const selectedDelegateIdInput = panel.querySelector("#delegations-delegate-id");
     const delegateResults = panel.querySelector("#delegations-delegate-results");
-    const selectedDelegateNameById = new Map(
-      delegates.map((item) => [`${item.id || ""}`.trim(), item.name])
-    );
+    const memberPills = panel.querySelector(".delegations-member-pills");
     const setCapabilitySelectionForDelegate = function (delegateUserId) {
       const selectedCapabilities = capabilitiesByDelegateId.get(delegateUserId) || new Set();
       const capabilityInputs = Array.from(
@@ -869,6 +829,22 @@
         const cap = `${input.value || ""}`.trim();
         input.checked = selectedCapabilities.has(cap);
       });
+    };
+    const syncPillSelection = function (delegateUserId) {
+      if (!memberPills) return;
+      memberPills.querySelectorAll("[data-delegations-pill-id]").forEach((pill) => {
+        pill.classList.toggle("is-active", `${pill.dataset.delegationsPillId || ""}`.trim() === delegateUserId);
+      });
+    };
+    const applyDelegateSelection = function (delegateUserId, options = {}) {
+      const normalizedId = `${delegateUserId || ""}`.trim();
+      if (!selectedDelegateIdInput) return;
+      selectedDelegateIdInput.value = normalizedId;
+      if (searchInput && options.keepSearchText !== true) {
+        searchInput.value = normalizedId ? delegateNameById.get(normalizedId) || "" : "";
+      }
+      setCapabilitySelectionForDelegate(normalizedId);
+      syncPillSelection(normalizedId);
     };
     const renderDelegateResults = function (queryValue) {
       if (!delegateResults) return;
@@ -903,11 +879,9 @@
         );
         if (exactMatches.length === 1) {
           const matchId = `${exactMatches[0].id || ""}`.trim();
-          selectedDelegateIdInput.value = matchId;
-          setCapabilitySelectionForDelegate(matchId);
+          applyDelegateSelection(matchId, { keepSearchText: true });
         } else {
-          selectedDelegateIdInput.value = "";
-          setCapabilitySelectionForDelegate("");
+          applyDelegateSelection("", { keepSearchText: true });
         }
         renderDelegateResults(searchInput.value);
       };
@@ -916,10 +890,18 @@
         if (!option) return;
         const id = `${option.dataset.delegateOptionId || ""}`.trim();
         if (!id) return;
-        selectedDelegateIdInput.value = id;
-        searchInput.value = selectedDelegateNameById.get(id) || "";
-        setCapabilitySelectionForDelegate(id);
+        applyDelegateSelection(id);
         renderDelegateResults(searchInput.value);
+      };
+    }
+    if (memberPills) {
+      memberPills.onclick = function (event) {
+        const pill = event.target.closest("[data-delegations-pill-id]");
+        if (!pill) return;
+        const id = `${pill.dataset.delegationsPillId || ""}`.trim();
+        if (!id) return;
+        applyDelegateSelection(id);
+        renderDelegateResults(searchInput?.value || "");
       };
     }
 
@@ -950,10 +932,24 @@
         }
         const existingCaps = capabilitiesByDelegateId.get(delegateUserId) || new Set();
         const capabilitiesToCreate = selectedCaps.filter((capability) => !existingCaps.has(capability));
+        const capabilitiesToDelete = Array.from(existingCaps).filter(
+          (capability) => !selectedCaps.includes(capability)
+        );
+        if (!capabilitiesToCreate.length && !capabilitiesToDelete.length) {
+          deps().feedback("No changes to save.", false);
+          return;
+        }
         try {
           for (const capability of capabilitiesToCreate) {
             await deps().mutatePersistentState(
               "create_delegation",
+              { delegateUserId, capability },
+              { skipHydrate: true }
+            );
+          }
+          for (const capability of capabilitiesToDelete) {
+            await deps().mutatePersistentState(
+              "delete_delegation",
               { delegateUserId, capability },
               { skipHydrate: true }
             );
@@ -967,27 +963,6 @@
         }
       };
     }
-
-    panel.onclick = async function (event) {
-      const button = event.target.closest("[data-delete-delegation]");
-      if (!button) return;
-      const delegateUserId = `${button.dataset.delegateUserId || ""}`.trim();
-      const capability = `${button.dataset.capability || ""}`.trim();
-      if (!delegateUserId || !capability) return;
-      try {
-        await deps().mutatePersistentState(
-          "delete_delegation",
-          { delegateUserId, capability },
-          { skipHydrate: true }
-        );
-        await deps().loadPersistentState();
-        renderSettingsTabs();
-        setActiveSettingsTab("delegations");
-        deps().feedback("Delegation removed.", false);
-      } catch (error) {
-        deps().feedback(error.message || "Unable to remove delegation.", true);
-      }
-    };
 
     arrangeSettingsSectionHeaders();
   }

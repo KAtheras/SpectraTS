@@ -4877,20 +4877,20 @@ body[data-theme="dark"] .entry-approved td {
   background: color-mix(in srgb, var(--panel) 92%, var(--surface-soft));
 }
 
-#settings-page [data-settings-tab="delegations"] .delegations-form-grid {
+#settings-page [data-settings-tab="delegations"] .delegations-picker {
   display: grid;
+  gap: 8px;
+}
+
+#settings-page [data-settings-tab="delegations"] .delegations-columns {
+  display: grid;
+  grid-template-columns: minmax(240px, 0.9fr) minmax(320px, 1.4fr) minmax(200px, 0.8fr);
   gap: 18px;
-  grid-template-columns: minmax(240px, 1fr) minmax(260px, 1fr);
   align-items: start;
 }
 
-#settings-page [data-settings-tab="delegations"] .delegations-field {
-  display: grid;
-  gap: 8px;
+#settings-page [data-settings-tab="delegations"] .delegations-col {
   min-width: 0;
-}
-
-#settings-page [data-settings-tab="delegations"] .delegations-picker {
   display: grid;
   gap: 8px;
 }
@@ -4898,7 +4898,7 @@ body[data-theme="dark"] .entry-approved td {
 #settings-page [data-settings-tab="delegations"] .delegations-picker-results {
   display: grid;
   gap: 6px;
-  max-height: 220px;
+  max-height: 260px;
   overflow: auto;
   padding: 8px;
   border: 1px solid var(--group-border);
@@ -4939,23 +4939,21 @@ body[data-theme="dark"] .entry-approved td {
 #settings-page [data-settings-tab="delegations"] .delegations-capabilities {
   display: grid;
   gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--group-border);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--panel) 88%, var(--surface) 12%);
 }
 
-#settings-page [data-settings-tab="delegations"] .delegations-cap-row {
+#settings-page [data-settings-tab="delegations"] .delegations-cap-toggle-row {
   display: grid;
-  grid-template-columns: 18px minmax(0, 1fr);
-  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
   align-items: center;
-  margin: 0;
+  min-height: 34px;
 }
 
-#settings-page [data-settings-tab="delegations"] .delegations-cap-row input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
-  margin: 0;
-}
-
-#settings-page [data-settings-tab="delegations"] .delegations-cap-row span {
+#settings-page [data-settings-tab="delegations"] .delegations-cap-label {
   color: var(--ink);
   line-height: 1.35;
 }
@@ -4963,51 +4961,15 @@ body[data-theme="dark"] .entry-approved td {
 #settings-page [data-settings-tab="delegations"] .delegations-actions {
   display: flex;
   justify-content: flex-start;
-  padding-top: 2px;
+  padding-top: 4px;
 }
 
-#settings-page [data-settings-tab="delegations"] .delegations-current {
-  display: grid;
-  gap: 10px;
-}
-
-#settings-page [data-settings-tab="delegations"] .delegations-current h4 {
-  margin: 0;
-  font-family: var(--font-head);
-  font-size: 0.98rem;
-}
-
-#settings-page [data-settings-tab="delegations"] .delegations-current-card {
-  display: grid;
-  gap: 10px;
-}
-
-#settings-page [data-settings-tab="delegations"] .delegations-current-caps {
-  display: grid;
-  gap: 8px;
-}
-
-#settings-page [data-settings-tab="delegations"] .delegations-list-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 10px;
-  border-top: 1px solid var(--group-border);
-  padding-top: 8px;
-}
-
-#settings-page [data-settings-tab="delegations"] .delegations-list-row:first-child {
-  border-top: 0;
-  padding-top: 0;
-}
-
-#settings-page [data-settings-tab="delegations"] .delegations-list-capability {
-  line-height: 1.35;
-}
-
-#settings-page [data-settings-tab="delegations"] .delegations-list-actions {
+#settings-page [data-settings-tab="delegations"] .delegations-member-pills {
   display: flex;
-  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-content: flex-start;
+  min-height: 42px;
 }
 
 #settings-page [data-settings-tab="delegations"] .delegations-empty {
@@ -5015,8 +4977,31 @@ body[data-theme="dark"] .entry-approved td {
   font-size: 0.92rem;
 }
 
-@media (max-width: 980px) {
-  #settings-page [data-settings-tab="delegations"] .delegations-form-grid {
+#settings-page [data-settings-tab="delegations"] .delegations-member-pill {
+  border: 1px solid var(--group-border);
+  background: var(--surface);
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 6px 10px;
+  font: inherit;
+  line-height: 1;
+  cursor: pointer;
+}
+
+#settings-page [data-settings-tab="delegations"] .delegations-member-pill:hover,
+#settings-page [data-settings-tab="delegations"] .delegations-member-pill:focus-visible {
+  border-color: var(--control-hover);
+  background: var(--surface-hover);
+  outline: none;
+}
+
+#settings-page [data-settings-tab="delegations"] .delegations-member-pill.is-active {
+  border-color: color-mix(in srgb, var(--accent) 58%, var(--group-border));
+  background: color-mix(in srgb, var(--accent-soft) 40%, var(--panel));
+}
+
+@media (max-width: 1120px) {
+  #settings-page [data-settings-tab="delegations"] .delegations-columns {
     grid-template-columns: 1fr;
     gap: 14px;
   }
