@@ -4,6 +4,7 @@
   let activeSettingsTab = "levels";
   let tabsInitialized = false;
   let mobileSettingsMode = "list";
+  let delegationsSelectedDelegateId = "";
 
   function isMobileSettingsLayout() {
     return typeof window !== "undefined" && window.matchMedia("(max-width: 980px)").matches;
@@ -803,8 +804,9 @@
             <section class="delegations-col delegations-col-capabilities">
               <div class="settings-row-label">Capabilities</div>
               <div class="delegations-capabilities">${createCapsHtml}</div>
+              <div id="delegations-selection-hint" class="delegations-hint">Select a member to configure delegations.</div>
               <div class="delegations-actions">
-                <button type="submit" class="button" ${delegates.length ? "" : "disabled"}>Add delegation</button>
+                <button id="delegations-save" type="submit" class="button" ${delegates.length ? "" : "disabled"}>Add delegation</button>
               </div>
             </section>
             <section class="delegations-col delegations-col-members">
@@ -820,15 +822,28 @@
     const selectedDelegateIdInput = panel.querySelector("#delegations-delegate-id");
     const delegateResults = panel.querySelector("#delegations-delegate-results");
     const memberPills = panel.querySelector(".delegations-member-pills");
+    const selectionHint = panel.querySelector("#delegations-selection-hint");
+    const saveButton = panel.querySelector("#delegations-save");
+    const capabilityInputs = Array.from(
+      panel.querySelectorAll('input[data-delegation-capability]')
+    );
     const setCapabilitySelectionForDelegate = function (delegateUserId) {
       const selectedCapabilities = capabilitiesByDelegateId.get(delegateUserId) || new Set();
-      const capabilityInputs = Array.from(
-        panel.querySelectorAll('input[data-delegation-capability]')
-      );
       capabilityInputs.forEach((input) => {
         const cap = `${input.value || ""}`.trim();
         input.checked = selectedCapabilities.has(cap);
       });
+    };
+    const setDelegationControlsEnabled = function (enabled) {
+      capabilityInputs.forEach((input) => {
+        input.disabled = !enabled;
+      });
+      if (saveButton) {
+        saveButton.disabled = !enabled;
+      }
+      if (selectionHint) {
+        selectionHint.hidden = enabled;
+      }
     };
     const syncPillSelection = function (delegateUserId) {
       if (!memberPills) return;
@@ -845,6 +860,8 @@
       }
       setCapabilitySelectionForDelegate(normalizedId);
       syncPillSelection(normalizedId);
+      setDelegationControlsEnabled(Boolean(normalizedId));
+      delegationsSelectedDelegateId = normalizedId;
     };
     const renderDelegateResults = function (queryValue) {
       if (!delegateResults) return;
@@ -905,6 +922,20 @@
       };
     }
 
+    if (delegationsSelectedDelegateId) {
+      const selected = delegates.find(
+        (item) => `${item.id || ""}`.trim() === delegationsSelectedDelegateId
+      );
+      if (selected) {
+        applyDelegateSelection(delegationsSelectedDelegateId);
+      } else {
+        applyDelegateSelection("");
+      }
+    } else {
+      applyDelegateSelection("");
+    }
+    renderDelegateResults(searchInput?.value || "");
+
     const form = panel.querySelector("#delegations-form");
     if (form) {
       form.onsubmit = async function (event) {
@@ -923,39 +954,25 @@
           deps().feedback("Delegate is required.", true);
           return;
         }
-        const existingCaps = capabilitiesByDelegateId.get(delegateUserId) || new Set();
         const selectedCaps = Array.from(
           panel.querySelectorAll('input[data-delegation-capability]:checked')
         ).map((input) => `${input.value || ""}`.trim());
-        if (!selectedCaps.length && !existingCaps.size) {
-          deps().feedback("Select at least one capability.", true);
-          return;
-        }
-        const capabilitiesToCreate = selectedCaps.filter((capability) => !existingCaps.has(capability));
-        const capabilitiesToDelete = Array.from(existingCaps).filter(
-          (capability) => !selectedCaps.includes(capability)
-        );
-        if (!capabilitiesToCreate.length && !capabilitiesToDelete.length) {
-          deps().feedback("No changes to save.", false);
-          return;
-        }
         try {
-          for (const capability of capabilitiesToCreate) {
-            await deps().mutatePersistentState(
-              "create_delegation",
-              { delegateUserId, capability },
-              { skipHydrate: true }
-            );
+          const result = await deps().mutatePersistentState(
+            "save_delegate_capabilities",
+            { delegateUserId, capabilities: selectedCaps },
+            { skipHydrate: true }
+          );
+          if (Array.isArray(result?.myDelegations)) {
+            state.myDelegations = result.myDelegations
+              .map((item) => ({
+                delegateUserId: `${item?.delegateUserId || item?.delegate_user_id || ""}`.trim(),
+                delegateName: `${item?.delegateName || item?.delegate_name || ""}`.trim(),
+                capability: `${item?.capability || ""}`.trim(),
+              }))
+              .filter((item) => item.delegateUserId && item.delegateName && item.capability);
           }
-          for (const capability of capabilitiesToDelete) {
-            await deps().mutatePersistentState(
-              "delete_delegation",
-              { delegateUserId, capability },
-              { skipHydrate: true }
-            );
-          }
-          await deps().loadPersistentState();
-          renderSettingsTabs();
+          renderDelegationsTab();
           setActiveSettingsTab("delegations");
           deps().feedback(selectedCaps.length ? "Delegation saved." : "Delegation removed.", false);
         } catch (error) {

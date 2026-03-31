@@ -414,6 +414,128 @@ async function deleteDelegation(sql, payload, accountId) {
   return null;
 }
 
+function normalizeDelegationCapabilityList(values) {
+  if (!Array.isArray(values)) return [];
+  const seen = new Set();
+  const caps = [];
+  values.forEach((value) => {
+    const capability = normalizeDelegationCapability(value);
+    if (!capability || seen.has(capability)) return;
+    seen.add(capability);
+    caps.push(capability);
+  });
+  return caps;
+}
+
+async function listMyDelegations(sql, delegatorUserId, accountId) {
+  const rows = await sql`
+    SELECT
+      d.delegate_user_id AS "delegateUserId",
+      u.display_name AS "delegateName",
+      d.capability
+    FROM delegations d
+    JOIN users u
+      ON u.id = d.delegate_user_id
+     AND u.account_id = d.account_id
+    WHERE d.account_id = ${accountId}::uuid
+      AND d.delegator_user_id = ${delegatorUserId}
+    ORDER BY LOWER(u.display_name), d.capability
+  `;
+  return rows
+    .map((row) => ({
+      delegateUserId: `${row.delegateUserId || ""}`.trim(),
+      delegateName: `${row.delegateName || ""}`.trim(),
+      capability: `${row.capability || ""}`.trim(),
+    }))
+    .filter(
+      (row) =>
+        row.delegateUserId &&
+        row.delegateName &&
+        DELEGATION_CAPABILITIES.has(row.capability)
+    );
+}
+
+async function saveDelegateCapabilities(sql, payload, accountId) {
+  const delegatorUserId = normalizeText(payload?.delegatorUserId);
+  const delegateUserId = normalizeText(payload?.delegateUserId);
+  const selectedCapabilities = normalizeDelegationCapabilityList(payload?.capabilities);
+  if (!delegatorUserId || !delegateUserId) {
+    return errorResponse(400, "Delegator and delegate are required.");
+  }
+  if (delegatorUserId === delegateUserId) {
+    return errorResponse(400, "Delegator and delegate must be different users.");
+  }
+
+  const [delegatorUser, delegateUser] = await Promise.all([
+    findUserById(sql, delegatorUserId, accountId),
+    findUserById(sql, delegateUserId, accountId),
+  ]);
+  if (!delegatorUser || !delegateUser) {
+    return errorResponse(404, "User not found.");
+  }
+
+  const existingRows = await sql`
+    SELECT capability
+    FROM delegations
+    WHERE account_id = ${accountId}::uuid
+      AND delegator_user_id = ${delegatorUser.id}
+      AND delegate_user_id = ${delegateUser.id}
+  `;
+  const existingSet = new Set(
+    existingRows
+      .map((row) => normalizeDelegationCapability(row.capability))
+      .filter(Boolean)
+  );
+  const selectedSet = new Set(selectedCapabilities);
+
+  const capabilitiesToCreate = selectedCapabilities.filter((capability) => !existingSet.has(capability));
+  const capabilitiesToDelete = Array.from(existingSet).filter(
+    (capability) => !selectedSet.has(capability)
+  );
+
+  const now = new Date().toISOString();
+  for (const capability of capabilitiesToCreate) {
+    await sql`
+      INSERT INTO delegations (
+        id,
+        account_id,
+        delegator_user_id,
+        delegate_user_id,
+        capability,
+        created_at,
+        updated_at
+      )
+      VALUES (
+        ${randomId()},
+        ${accountId}::uuid,
+        ${delegatorUser.id},
+        ${delegateUser.id},
+        ${capability},
+        ${now},
+        ${now}
+      )
+      ON CONFLICT (account_id, delegator_user_id, delegate_user_id, capability)
+      DO UPDATE SET
+        updated_at = EXCLUDED.updated_at
+    `;
+  }
+  if (capabilitiesToDelete.length) {
+    await sql`
+      DELETE FROM delegations
+      WHERE account_id = ${accountId}::uuid
+        AND delegator_user_id = ${delegatorUser.id}
+        AND delegate_user_id = ${delegateUser.id}
+        AND capability = ANY(${capabilitiesToDelete})
+    `;
+  }
+
+  return {
+    delegateUserId: delegateUser.id,
+    capabilities: selectedCapabilities,
+    myDelegations: await listMyDelegations(sql, delegatorUser.id, accountId),
+  };
+}
+
 function normalizeDateString(value) {
   if (!value) return "";
   // Already a YYYY-MM-DD string
@@ -3073,6 +3195,17 @@ exports.handler = async function handler(event) {
           return errorResponse(403, "Access denied.");
         }
         mutationResult = await deleteDelegation(
+          sql,
+          { ...(request.payload || {}), delegatorUserId: context.currentUser?.id || "" },
+          accountId
+        );
+        break;
+      }
+      case "save_delegate_capabilities": {
+        if (!can("can_delegate")) {
+          return errorResponse(403, "Access denied.");
+        }
+        mutationResult = await saveDelegateCapabilities(
           sql,
           { ...(request.payload || {}), delegatorUserId: context.currentUser?.id || "" },
           accountId

@@ -4964,6 +4964,11 @@ body[data-theme="dark"] .entry-approved td {
   padding-top: 4px;
 }
 
+#settings-page [data-settings-tab="delegations"] .delegations-hint {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
 #settings-page [data-settings-tab="delegations"] .delegations-member-pills {
   display: flex;
   flex-wrap: wrap;
