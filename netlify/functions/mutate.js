@@ -2630,11 +2630,16 @@ async function saveEntry(sql, payload, currentUser, accountId) {
     const previousBillable = existing.billable === false ? false : true;
     const nextBillable = entry.billable === false ? false : true;
     if (previousBillable !== nextBillable) {
+      const persistedOwnerUser = await findUserByDisplayName(
+        sql,
+        existing.user_name,
+        accountId
+      );
       await dispatchNotificationEvent(sql, {
         accountId,
         type: "entry_billing_status_updated",
         actorUserId: currentUser?.id || null,
-        entryOwnerUserId: targetUser?.id || null,
+        entryOwnerUserId: persistedOwnerUser?.id || targetUser?.id || null,
         clientId: project?.client_id || null,
         projectId: project?.id || null,
         subjectType: "time",
