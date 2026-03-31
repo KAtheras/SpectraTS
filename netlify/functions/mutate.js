@@ -758,6 +758,8 @@ async function updateNotificationRule(sql, payload, accountId) {
     "expense_entry_created",
     "entry_approved",
     "delegation_updated",
+    "project_assignment_updated",
+    "entry_billing_status_updated",
   ]);
   if (!eventType || !supportedEvents.has(eventType)) {
     return errorResponse(400, "Unsupported notification event.");
@@ -1534,6 +1536,16 @@ async function addProjectMember(sql, payload, currentUser, accountId) {
     }
   }
 
+  const existingMemberRows = await sql`
+    SELECT id
+    FROM project_members
+    WHERE project_id = ${project.id}
+      AND user_id = ${userId}
+      AND (account_id = ${accountId}::uuid OR account_id IS NULL)
+    LIMIT 1
+  `;
+  const wasAlreadyAssigned = Boolean(existingMemberRows[0]);
+
   await sql`
     INSERT INTO project_members (project_id, user_id, account_id, assigned_by, charge_rate_override)
     VALUES (${project.id}, ${userId}, ${accountId}::uuid, ${currentUser.id}, ${override})
@@ -1548,6 +1560,24 @@ async function addProjectMember(sql, payload, currentUser, accountId) {
         AND user_id = ${userId}
         AND account_id = ${accountId}::uuid
     `;
+  }
+  if (!wasAlreadyAssigned) {
+    await dispatchNotificationEvent(sql, {
+      accountId,
+      type: "project_assignment_updated",
+      actorUserId: currentUser?.id || null,
+      assignedUserId: userId,
+      subjectType: "project_member",
+      subjectId: `${project.id}:${userId}`,
+      clientId: project.client_id || null,
+      projectId: project.id,
+      projectName: projectName,
+      message: buildInboxMessage("project_assignment_updated", {
+        actorName: currentUser?.displayName || "",
+        clientName,
+        projectName,
+      }),
+    });
   }
   return null;
 }
@@ -1577,12 +1607,31 @@ async function removeProjectMember(sql, payload, currentUser, accountId) {
     }
   }
 
-  await sql`
+  const deletedRows = await sql`
     DELETE FROM project_members
     WHERE project_id = ${project.id}
       AND user_id = ${userId}
       AND (account_id = ${accountId}::uuid OR account_id IS NULL)
+    RETURNING user_id
   `;
+  if (deletedRows[0]) {
+    await dispatchNotificationEvent(sql, {
+      accountId,
+      type: "project_assignment_updated",
+      actorUserId: currentUser?.id || null,
+      assignedUserId: userId,
+      subjectType: "project_member",
+      subjectId: `${project.id}:${userId}`,
+      clientId: project.client_id || null,
+      projectId: project.id,
+      projectName: projectName,
+      message: buildInboxMessage("project_assignment_updated", {
+        actorName: currentUser?.displayName || "",
+        clientName,
+        projectName,
+      }),
+    });
+  }
   return null;
 }
 
@@ -2576,6 +2625,28 @@ async function saveEntry(sql, payload, currentUser, accountId) {
         subjectId: normalizeText(entry.id),
       },
     });
+  }
+  if (existing) {
+    const previousBillable = existing.billable === false ? false : true;
+    const nextBillable = entry.billable === false ? false : true;
+    if (previousBillable !== nextBillable) {
+      await dispatchNotificationEvent(sql, {
+        accountId,
+        type: "entry_billing_status_updated",
+        actorUserId: currentUser?.id || null,
+        entryOwnerUserId: targetUser?.id || null,
+        clientId: project?.client_id || null,
+        projectId: project?.id || null,
+        subjectType: "time",
+        subjectId: normalizeText(entry.id),
+        projectName: normalizeText(entry.project),
+        message: buildInboxMessage("entry_billing_status_updated", {
+          actorName: currentUser?.displayName || "",
+          clientName: normalizeText(entry.client),
+          projectName: normalizeText(entry.project),
+        }),
+      });
+    }
   }
 
   return null;

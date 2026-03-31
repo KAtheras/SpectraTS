@@ -1437,6 +1437,16 @@
       label: "Delegation updated",
       recipientText: "Delegated member",
     },
+    {
+      eventType: "project_assignment_updated",
+      label: "Project assignment updated",
+      recipientText: "Assigned member",
+    },
+    {
+      eventType: "entry_billing_status_updated",
+      label: "Entry billing status updated",
+      recipientText: "Entry owner",
+    },
   ];
 
   function notificationRuleByEventType(eventType) {

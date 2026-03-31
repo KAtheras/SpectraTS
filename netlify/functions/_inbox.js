@@ -7,6 +7,8 @@ const SUPPORTED_EVENT_TYPES = new Set([
   "expense_entry_created",
   "entry_approved",
   "delegation_updated",
+  "project_assignment_updated",
+  "entry_billing_status_updated",
 ]);
 
 function randomId() {
@@ -48,6 +50,12 @@ function buildInboxMessage(type, data = {}) {
   }
   if (type === "delegation_updated") {
     return `${actorName} updated your delegation access.`;
+  }
+  if (type === "project_assignment_updated") {
+    return `${actorName} updated your project assignment for ${projectLabel}.`;
+  }
+  if (type === "entry_billing_status_updated") {
+    return `${actorName} updated billing status for your entry in ${projectLabel}.`;
   }
   return `${actorName} updated ${projectLabel}.`;
 }
@@ -185,6 +193,10 @@ async function resolveRecipientsByScope(sql, payload = {}, rule = null) {
   if (scope === "delegated_member") {
     const delegateId = `${payload.delegateUserId || ""}`.trim();
     return delegateId ? [delegateId] : [];
+  }
+  if (scope === "assigned_member") {
+    const assignedUserId = `${payload.assignedUserId || ""}`.trim();
+    return assignedUserId ? [assignedUserId] : [];
   }
   return [];
 }
