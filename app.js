@@ -1909,7 +1909,7 @@
     if (!currentUserId) return "";
     if (!selectedUserId || selectedUserId === currentUserId) return currentUserId;
     const isDelegator = Array.isArray(state.delegators)
-      ? state.delegators.some((item) => item && item.id === selectedUserId)
+      ? state.delegators.some((item) => `${item?.id || ""}`.trim() === selectedUserId)
       : false;
     return isDelegator ? selectedUserId : currentUserId;
   }
@@ -1917,12 +1917,21 @@
   function effectiveScopeUser() {
     const scopeUserId = resolveActingAsUserId();
     if (!scopeUserId) return state.currentUser || null;
-    if (state.currentUser?.id === scopeUserId) return state.currentUser;
-    return (
-      (state.users || []).find(function (user) {
-        return user && user.id === scopeUserId;
-      }) || state.currentUser || null
+    if (`${state.currentUser?.id || ""}`.trim() === scopeUserId) return state.currentUser;
+    const byId = (state.users || []).find(function (user) {
+      return user && `${user.id || ""}`.trim() === scopeUserId;
+    });
+    if (byId) return byId;
+    const selectedDelegator = (state.delegators || []).find(
+      (item) => `${item?.id || ""}`.trim() === scopeUserId
     );
+    if (selectedDelegator?.name) {
+      const byName = (state.users || []).find(function (user) {
+        return `${user?.displayName || ""}`.trim() === selectedDelegator.name;
+      });
+      if (byName) return byName;
+    }
+    return state.currentUser || null;
   }
 
   function actingAsMyselfOption() {

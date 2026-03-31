@@ -7,7 +7,16 @@
   }
 
   function syncExpenseCatalogs({ userId, client, project }) {
-    const { setSelectOptionsWithPlaceholder, escapeHtml, refs, entryUserOptions, getUserByDisplayName, state, assignedProjectTuplesForCurrentUser } = deps();
+    const {
+      setSelectOptionsWithPlaceholder,
+      escapeHtml,
+      refs,
+      entryUserOptions,
+      getUserByDisplayName,
+      state,
+      assignedProjectTuplesForCurrentUser,
+      effectiveScopeUser,
+    } = deps();
     const comboField = refs.expenseClientProject || document.getElementById("expense-client-project");
     const comboKey = "::";
     const encodeCombo = (clientName, projectName) =>
@@ -21,7 +30,9 @@
         decodeURIComponent(text.slice(splitAt + comboKey.length) || ""),
       ];
     };
-    const effectiveUserId = state.currentUser?.id || userId || "";
+    const scopeUser =
+      typeof effectiveScopeUser === "function" ? effectiveScopeUser() : state.currentUser;
+    const effectiveUserId = `${userId || scopeUser?.id || state.currentUser?.id || ""}`.trim();
     let requestedClient = client;
     let requestedProject = project;
     if ((requestedClient === undefined || requestedProject === undefined) && comboField?.value) {
@@ -130,11 +141,13 @@
   }
 
   function resetExpenseForm() {
-    const { refs, state, clampDateToBounds, today, setExpenseNonBillableDefault } = deps();
+    const { refs, state, clampDateToBounds, today, setExpenseNonBillableDefault, effectiveScopeUser } = deps();
     if (!refs.expenseForm) return;
     refs.expenseForm.reset();
     state.expenseEditingId = null;
-    const defaultUserId = state.currentUser?.id || "";
+    const scopeUser =
+      typeof effectiveScopeUser === "function" ? effectiveScopeUser() : state.currentUser;
+    const defaultUserId = `${scopeUser?.id || state.currentUser?.id || ""}`.trim();
     if (refs.expenseUser) {
       refs.expenseUser.value = defaultUserId;
     }
