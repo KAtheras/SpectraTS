@@ -5317,7 +5317,7 @@
     refs.inboxOpen.classList.toggle("is-active", !!isInboxView);
     refs.inboxOpen.setAttribute("aria-current", isInboxView ? "page" : "false");
     refs.inboxOpen.setAttribute("aria-label", "Inbox");
-    const unread = isInboxView ? 0 : inboxUnreadCount();
+    const unread = inboxUnreadCount();
     if (refs.inboxUnreadBadge) {
       if (unread > 0) {
         refs.inboxUnreadBadge.hidden = false;
