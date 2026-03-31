@@ -63,9 +63,14 @@
         const delegatedAction = Boolean(
           row?.after_json?.delegated_action || row?.before_json?.delegated_action
         );
+        const actorId = `${row.changed_by_user_id || ""}`.trim();
+        const targetId = `${row.target_user_id || ""}`.trim();
+        const actedForOtherUser = Boolean(targetId) && actorId !== targetId;
         const ownerName = userNameById(row.target_user_id) || row.target_user_id || "";
         const actorDisplay =
-          delegatedAction && ownerName ? `${actor} (delegate for ${ownerName})` : actor;
+          (delegatedAction || actedForOtherUser) && ownerName
+            ? `${actor} (for ${ownerName})`
+            : actor;
         const projectName = projectNameById(row.context_project_id) || "";
         const clientName = clientNameById(row.context_client_id, projectName ? row.context_project_id : null) || "";
         const beforeLines = formatAuditKV(row.before_json, row.entity_type, row.action, "before", {
