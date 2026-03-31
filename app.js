@@ -1441,11 +1441,13 @@
       eventType: "delegation_updated",
       label: "Delegation updated",
       recipientText: "Delegated member",
+      emailSupported: true,
     },
     {
       eventType: "project_assignment_updated",
       label: "Project assignment updated",
       recipientText: "Assigned member",
+      emailSupported: true,
     },
     {
       eventType: "entry_billing_status_updated",
@@ -1469,6 +1471,19 @@
       const rule = notificationRuleByEventType(row.eventType);
       const inboxChecked = rule ? rule.inboxEnabled !== false : true;
       const emailChecked = rule ? rule.emailEnabled === true : false;
+      const emailCell = row.emailSupported
+        ? `
+            <label class="perm-switch">
+              <input type="checkbox" data-rule-email="${escapeHtml(row.eventType)}" ${emailChecked ? "checked" : ""} />
+              <span class="perm-switch-track" aria-hidden="true"></span>
+            </label>
+          `
+        : `
+            <label class="rules-toggle rules-toggle-disabled">
+              <input type="checkbox" ${emailChecked ? "checked" : ""} disabled />
+              <span>Coming later</span>
+            </label>
+          `;
       return `
         <tr>
           <td>${escapeHtml(row.label)}</td>
@@ -1478,12 +1493,7 @@
               <span class="perm-switch-track" aria-hidden="true"></span>
             </label>
           </td>
-          <td>
-            <label class="rules-toggle rules-toggle-disabled">
-              <input type="checkbox" ${emailChecked ? "checked" : ""} disabled />
-              <span>Coming later</span>
-            </label>
-          </td>
+          <td>${emailCell}</td>
           <td>${escapeHtml(row.recipientText)}</td>
         </tr>
       `;
@@ -5731,14 +5741,18 @@
   }
   if (refs.messagingRulesRows) {
     refs.messagingRulesRows.addEventListener("change", async function (event) {
-      const checkbox = event.target.closest("[data-rule-inbox]");
-      if (!checkbox) return;
-      const eventType = checkbox.dataset.ruleInbox;
-      const inboxEnabled = checkbox.checked;
+      const inboxToggle = event.target.closest("[data-rule-inbox]");
+      const emailToggle = event.target.closest("[data-rule-email]");
+      const toggle = inboxToggle || emailToggle;
+      if (!toggle) return;
+      const eventType = toggle.dataset.ruleInbox || toggle.dataset.ruleEmail;
+      const inboxEnabled = inboxToggle ? inboxToggle.checked : undefined;
+      const emailEnabled = emailToggle ? emailToggle.checked : undefined;
       try {
         await mutatePersistentState("update_notification_rule", {
           eventType,
           inboxEnabled,
+          emailEnabled,
         }, { refreshState: true });
         feedback("Messaging rule updated.", false);
       } catch (error) {

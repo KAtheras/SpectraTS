@@ -534,6 +534,7 @@ async function saveDelegateCapabilities(sql, payload, accountId) {
       accountId,
       type: "delegation_updated",
       actorUserId: delegatorUser.id,
+      actorName: delegatorUser.display_name || delegatorUser.displayName || "Someone",
       delegateUserId: delegateUser.id,
       subjectType: "delegation",
       subjectId: delegateUser.id,
@@ -766,16 +767,42 @@ async function updateNotificationRule(sql, payload, accountId) {
   if (!eventType || !supportedEvents.has(eventType)) {
     return errorResponse(400, "Unsupported notification event.");
   }
-  const inboxEnabled =
-    payload?.inboxEnabled === true ||
-    payload?.inboxEnabled === 1 ||
-    String(payload?.inboxEnabled || "").toLowerCase() === "true";
+  const emailCapableEvents = new Set([
+    "project_assignment_updated",
+    "delegation_updated",
+  ]);
+  const hasInboxUpdate = payload?.inboxEnabled !== undefined;
+  const hasEmailUpdate = payload?.emailEnabled !== undefined;
+  if (!hasInboxUpdate && !hasEmailUpdate) {
+    return errorResponse(400, "At least one notification channel must be provided.");
+  }
+  if (hasEmailUpdate && !emailCapableEvents.has(eventType)) {
+    return errorResponse(400, "Email is not available for this notification event.");
+  }
+  const parseBoolean = (value) =>
+    value === true || value === 1 || String(value || "").toLowerCase() === "true";
+
+  const existingRows = await sql`
+    SELECT inbox_enabled AS "inboxEnabled", email_enabled AS "emailEnabled"
+    FROM notification_rules
+    WHERE account_id = ${accountId}::uuid
+      AND event_type = ${eventType}
+    LIMIT 1
+  `;
+  const existing = existingRows[0];
+  if (!existing) {
+    return errorResponse(404, "Notification rule not found.");
+  }
+
+  const inboxEnabled = hasInboxUpdate ? parseBoolean(payload?.inboxEnabled) : Boolean(existing.inboxEnabled);
+  const emailEnabled = hasEmailUpdate ? parseBoolean(payload?.emailEnabled) : Boolean(existing.emailEnabled);
 
   const rows = await sql`
     UPDATE notification_rules
     SET
       inbox_enabled = ${inboxEnabled},
-      enabled = CASE WHEN email_enabled THEN TRUE ELSE ${inboxEnabled} END,
+      email_enabled = ${emailEnabled},
+      enabled = ${inboxEnabled || emailEnabled},
       updated_at = NOW()
     WHERE account_id = ${accountId}::uuid
       AND event_type = ${eventType}
@@ -1568,6 +1595,7 @@ async function addProjectMember(sql, payload, currentUser, accountId) {
       accountId,
       type: "project_assignment_updated",
       actorUserId: currentUser?.id || null,
+      actorName: currentUser?.displayName || "",
       assignedUserId: userId,
       subjectType: "project_member",
       subjectId: `${project.id}:${userId}`,
@@ -1621,6 +1649,7 @@ async function removeProjectMember(sql, payload, currentUser, accountId) {
       accountId,
       type: "project_assignment_updated",
       actorUserId: currentUser?.id || null,
+      actorName: currentUser?.displayName || "",
       assignedUserId: userId,
       subjectType: "project_member",
       subjectId: `${project.id}:${userId}`,

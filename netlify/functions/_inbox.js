@@ -12,6 +12,10 @@ const SUPPORTED_EVENT_TYPES = new Set([
   "entry_billing_status_updated",
   "expense_billing_status_updated",
 ]);
+const EMAIL_ENABLED_EVENT_TYPES = new Set([
+  "project_assignment_updated",
+  "delegation_updated",
+]);
 
 function randomId() {
   if (typeof crypto.randomUUID === "function") {
@@ -183,6 +187,14 @@ function shouldDeliverImmediateInbox(rule) {
   return String(rule.deliveryMode || "").trim().toLowerCase() === "immediate";
 }
 
+function shouldDeliverImmediateEmail(rule, eventType) {
+  if (!rule) return false;
+  if (!EMAIL_ENABLED_EVENT_TYPES.has(eventType)) return false;
+  if (rule.enabled === false || rule.enabled === 0) return false;
+  if (rule.emailEnabled === false || rule.emailEnabled === 0) return false;
+  return String(rule.deliveryMode || "").trim().toLowerCase() === "immediate";
+}
+
 async function resolveRecipientsByScope(sql, payload = {}, rule = null) {
   const scope = String(rule?.recipientScope || "").trim().toLowerCase();
   const accountId = payload.accountId;
@@ -214,6 +226,103 @@ async function resolveRecipientsByScope(sql, payload = {}, rule = null) {
   return [];
 }
 
+async function listRecipientsForDelivery(sql, { accountId, recipientUserIds }) {
+  const ids = Array.isArray(recipientUserIds)
+    ? Array.from(new Set(recipientUserIds.map((id) => `${id || ""}`.trim()).filter(Boolean)))
+    : [];
+  if (!ids.length) return [];
+  return sql`
+    SELECT
+      id,
+      display_name AS "displayName",
+      email
+    FROM users
+    WHERE account_id = ${accountId}::uuid
+      AND id = ANY(${ids})
+      AND is_active = TRUE
+  `;
+}
+
+function escapeHtml(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function buildNotificationEmailContent(eventType, payload = {}) {
+  const actorName = `${payload.actorName || "Someone"}`.trim() || "Someone";
+  const projectName = `${payload.projectName || ""}`.trim();
+  if (eventType === "project_assignment_updated") {
+    return {
+      subject: "Project assignment updated",
+      html: `
+        <p>Your project assignment was updated.</p>
+        ${projectName ? `<p><strong>Project:</strong> ${escapeHtml(projectName)}</p>` : ""}
+        <p><strong>Updated by:</strong> ${escapeHtml(actorName)}</p>
+      `,
+    };
+  }
+  if (eventType === "delegation_updated") {
+    return {
+      subject: "Delegation updated",
+      html: `
+        <p>Your delegation access was updated.</p>
+        <p><strong>Updated by:</strong> ${escapeHtml(actorName)}</p>
+      `,
+    };
+  }
+  return null;
+}
+
+async function sendNotificationEmail({ to, subject, html }) {
+  const { handler: sendEmailHandler } = require("./send-email");
+  if (typeof sendEmailHandler !== "function") {
+    throw new Error("send-email handler is unavailable");
+  }
+  const result = await sendEmailHandler({
+    httpMethod: "POST",
+    body: JSON.stringify({ to, subject, html }),
+  });
+  if (!result || Number(result.statusCode) >= 400) {
+    let message = "Unable to send notification email.";
+    try {
+      const parsed = JSON.parse(result?.body || "{}");
+      if (parsed?.error) message = parsed.error;
+    } catch (_err) {
+      // Ignore parse errors.
+    }
+    throw new Error(message);
+  }
+}
+
+async function deliverNotificationEmails(sql, payload = {}, recipientUserIds = []) {
+  const eventType = `${payload.type || ""}`.trim();
+  const accountId = payload.accountId;
+  const content = buildNotificationEmailContent(eventType, payload);
+  if (!content || !accountId) return;
+  const recipients = await listRecipientsForDelivery(sql, { accountId, recipientUserIds });
+  for (const recipient of recipients) {
+    const email = `${recipient?.email || ""}`.trim();
+    if (!email || !email.includes("@")) continue;
+    try {
+      await sendNotificationEmail({
+        to: email,
+        subject: content.subject,
+        html: content.html,
+      });
+    } catch (error) {
+      console.error("[notifications] email delivery failed", {
+        eventType,
+        recipientUserId: recipient?.id || null,
+        message: error?.message || String(error),
+      });
+    }
+  }
+}
+
 async function dispatchNotificationEvent(sql, payload = {}) {
   const eventType = `${payload.type || ""}`.trim();
   if (!SUPPORTED_EVENT_TYPES.has(eventType)) return;
@@ -221,15 +330,22 @@ async function dispatchNotificationEvent(sql, payload = {}) {
   if (!accountId) return;
 
   const rule = await getNotificationRule(sql, { accountId, eventType });
-  if (!shouldDeliverImmediateInbox(rule)) return;
+  const deliverInbox = shouldDeliverImmediateInbox(rule);
+  const deliverEmail = shouldDeliverImmediateEmail(rule, eventType);
+  if (!deliverInbox && !deliverEmail) return;
 
   const recipientUserIds = await resolveRecipientsByScope(sql, payload, rule);
   if (!recipientUserIds.length) return;
 
-  await createSystemInboxItems(sql, {
-    ...payload,
-    recipientUserIds,
-  });
+  if (deliverInbox) {
+    await createSystemInboxItems(sql, {
+      ...payload,
+      recipientUserIds,
+    });
+  }
+  if (deliverEmail) {
+    await deliverNotificationEmails(sql, payload, recipientUserIds);
+  }
 }
 
 module.exports = {
