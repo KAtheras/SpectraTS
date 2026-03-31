@@ -791,7 +791,7 @@
           <h3>Delegations</h3>
         </div>
         <div class="settings-section-right">
-          <button id="delegations-save" type="submit" form="delegations-form" class="button button-ghost" ${delegates.length ? "" : "disabled"}>Add delegation</button>
+          <button id="delegations-save" type="submit" form="delegations-form" class="button" ${delegates.length ? "" : "disabled"}>Add delegation</button>
         </div>
       </div>
       <div class="delegations-shell">
@@ -1368,7 +1368,7 @@
       if (!addBtn) {
         addBtn = document.createElement("button");
         addBtn.type = "button";
-        addBtn.className = "button button-ghost";
+        addBtn.className = "button";
         addBtn.dataset.memberAdd = "true";
         addBtn.textContent = "Add member";
         sectionRight.insertBefore(addBtn, sectionRight.firstChild);
