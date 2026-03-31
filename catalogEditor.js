@@ -519,6 +519,7 @@
       formatDisplayDate,
       syncFilterDatePicker,
       isAdmin,
+      effectiveScopeUser,
       isValidDateString,
       syncFilterCatalogs,
     } = deps();
@@ -541,6 +542,7 @@
         formatDisplayDate,
         syncFilterDatePicker,
         isAdmin,
+        effectiveScopeUser,
         isValidDateString,
       },
       selection
