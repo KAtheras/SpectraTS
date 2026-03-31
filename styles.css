@@ -477,10 +477,6 @@ body[data-theme="dark"] .button {
   padding: 10px 12px;
 }
 
-.inbox-item.is-email-highlight {
-  box-shadow: inset 3px 0 0 color-mix(in srgb, #cf4c4c 48%, #ffffff);
-}
-
 .inbox-item.is-unread {
   background: color-mix(in srgb, var(--accent) 8%, #ffffff);
   border-color: color-mix(in srgb, var(--accent) 22%, var(--line));
@@ -540,6 +536,24 @@ body[data-theme="dark"] .button {
   font-family: var(--font-body);
   font-size: 0.98rem;
   color: var(--text);
+  display: flex;
+  align-items: center;
+}
+
+.message-priority-icon {
+  display: none;
+  width: 8px;
+  height: 8px;
+  margin-right: 10px;
+  border-radius: 50%;
+  background-color: #d64545;
+  vertical-align: middle;
+  opacity: 0.85;
+  flex: 0 0 auto;
+}
+
+.message-priority .message-priority-icon {
+  display: inline-block;
 }
 
 .inbox-item-note {

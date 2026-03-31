@@ -5413,17 +5413,17 @@
         const createdAt = formatDateTimeLocal(item.createdAt);
         const isSelected = selected.has(item.id);
         const selectedClass = isSelected ? " is-selected" : "";
-        const emailHighlightClass = emailHighlightedEventTypes.has(`${item.type || ""}`.trim())
-          ? " is-email-highlight"
+        const priorityClass = emailHighlightedEventTypes.has(`${item.type || ""}`.trim())
+          ? " message-priority"
           : "";
         return `
-          <div class="inbox-item${unreadClass}${selectedClass}${emailHighlightClass}" data-inbox-id="${escapeHtml(item.id)}">
+          <div class="inbox-item${unreadClass}${selectedClass}${priorityClass}" data-inbox-id="${escapeHtml(item.id)}">
             <label class="inbox-item-check">
               <input type="checkbox" data-inbox-select="${escapeHtml(item.id)}" ${isSelected ? "checked" : ""} />
             </label>
             <button class="inbox-item-open" type="button" data-inbox-open="${escapeHtml(item.id)}">
               <div class="inbox-item-main">
-                <div class="inbox-item-message">${escapeHtml(item.message || "Notification")}</div>
+                <div class="inbox-item-message"><span class="message-priority-icon" aria-hidden="true"></span>${escapeHtml(item.message || "Notification")}</div>
                 ${
                   item.noteSnippet
                     ? `<div class="inbox-item-note">${escapeHtml(item.noteSnippet)}</div>`
