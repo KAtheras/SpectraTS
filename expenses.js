@@ -185,7 +185,9 @@
   }
 
   function currentExpenses() {
-    const { state } = deps();
+    const { state, effectiveScopeUser } = deps();
+    const scopeUser =
+      typeof effectiveScopeUser === "function" ? effectiveScopeUser() : state.currentUser;
     const search = state.expenseFilters.search.trim().toLowerCase();
 
     const { getUserById, canViewUserByRole } = deps();
@@ -194,7 +196,7 @@
       .filter((expense) => {
         const targetUser = getUserById(expense.userId);
         const canView = typeof canViewUserByRole === "function"
-          ? canViewUserByRole(state.currentUser, targetUser)
+          ? canViewUserByRole(scopeUser, targetUser)
           : true;
         if (!canView) {
           return false;
@@ -316,8 +318,16 @@
   }
 
   function canManageExpenseApproval(expense) {
-    const { state, permissionGroupForUser, getUserById, canUserAccessProject, isAdmin } = deps();
-    const current = state.currentUser;
+    const {
+      state,
+      permissionGroupForUser,
+      getUserById,
+      canUserAccessProject,
+      isAdmin,
+      effectiveScopeUser,
+    } = deps();
+    const current =
+      typeof effectiveScopeUser === "function" ? effectiveScopeUser() : state.currentUser;
     if (!current || !expense) return false;
     const currentGroup = permissionGroupForUser(current);
     const targetUser = getUserById?.(expense.userId);

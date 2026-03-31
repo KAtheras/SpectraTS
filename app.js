@@ -1365,14 +1365,15 @@
   }
 
   function entryUserOptions() {
-    if (!state.currentUser) {
+    const scopeUser = effectiveScopeUser();
+    if (!scopeUser) {
       return availableUsers();
     }
-    if (isAdmin(state.currentUser)) {
+    if (isAdmin(scopeUser)) {
       return availableUsers();
     }
     const allowedKeys = new Set(
-      allowedProjectTuples(state.currentUser).map((item) => projectKey(item.client, item.project))
+      allowedProjectTuples(scopeUser).map((item) => projectKey(item.client, item.project))
     );
     if (!allowedKeys.size) {
       return [];
@@ -1382,13 +1383,13 @@
         .filter((item) => allowedKeys.has(projectKey(item.client, item.project)))
         .map((item) => item.userId)
     );
-    allowedUserIds.add(state.currentUser.id);
+    allowedUserIds.add(scopeUser.id);
 
     return state.users
       .filter(
         (user) =>
           allowedUserIds.has(user.id) &&
-          (isStaff(user) || user.id === state.currentUser.id)
+          (isStaff(user) || user.id === scopeUser.id)
       )
       .map((user) => user.displayName)
       .filter(Boolean);
@@ -1911,6 +1912,17 @@
       ? state.delegators.some((item) => item && item.id === selectedUserId)
       : false;
     return isDelegator ? selectedUserId : currentUserId;
+  }
+
+  function effectiveScopeUser() {
+    const scopeUserId = resolveActingAsUserId();
+    if (!scopeUserId) return state.currentUser || null;
+    if (state.currentUser?.id === scopeUserId) return state.currentUser;
+    return (
+      (state.users || []).find(function (user) {
+        return user && user.id === scopeUserId;
+      }) || state.currentUser || null
+    );
   }
 
   function actingAsMyselfOption() {
@@ -4208,7 +4220,7 @@
   }
 
   function visibleCatalogClientNames(targetUser) {
-    const user = targetUser || state.currentUser;
+    const user = targetUser || effectiveScopeUser();
     if (!user) {
       return catalogClientNames();
     }
@@ -4235,7 +4247,7 @@
   }
 
   function visibleCatalogProjectNames(client, targetUser) {
-    const user = targetUser || state.currentUser;
+    const user = targetUser || effectiveScopeUser();
     if (!user) {
       return catalogProjectNames(client);
     }
@@ -4261,7 +4273,8 @@
   }
 
   function assignedProjectTuplesForCurrentUser() {
-    const userId = state.currentUser?.id || "";
+    const scopeUser = effectiveScopeUser();
+    const userId = scopeUser?.id || "";
     if (!userId) {
       return [];
     }
@@ -7531,6 +7544,7 @@
     availableUsers,
     expenseClientOptions: visibleExpenseClientOptions,
     defaultFilterUser,
+    effectiveScopeUser,
     allowedClientsForUser,
     clientNames,
     allowedProjectsForClient,
@@ -7556,6 +7570,7 @@
     getUserByDisplayName,
     canUserAccessProject,
     isAdmin,
+    effectiveScopeUser,
     syncFormCatalogsUI,
     defaultEntryUser,
     clampDateToBounds,
@@ -7578,6 +7593,7 @@
     entryUserOptions: visibleExpenseUserOptions,
     getUserByDisplayName,
     canViewUserByRole,
+    effectiveScopeUser,
     clampDateToBounds,
     today,
     setExpenseNonBillableDefault,

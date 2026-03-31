@@ -270,8 +270,12 @@
     const userField = field(refs.form, "user");
     const clientField = field(refs.form, "client");
     const projectField = field(refs.form, "project");
+    const scopeUser =
+      typeof deps.effectiveScopeUser === "function"
+        ? deps.effectiveScopeUser()
+        : state.currentUser;
     const authUsers = entryUserOptions();
-    const defaultUser = defaultEntryUser(state);
+    const defaultUser = scopeUser?.displayName || defaultEntryUser(state);
     const userOptions = Array.from(new Set([defaultUser, ...authUsers].filter(Boolean)));
     const nextUser = defaultUser || authUsers[0] || "";
     let requestedClient = selection?.client;
@@ -348,7 +352,7 @@
         comboField.addEventListener("change", function () {
           const [comboClient, comboProject] = decodeCombo(comboField.value);
           syncFormCatalogs(deps, {
-            user: state.currentUser?.displayName || "",
+            user: scopeUser?.displayName || "",
             client: comboClient || "",
             project: comboProject || "",
           });
@@ -404,10 +408,14 @@
     const entryClients = uniqueValues(
       (state.entries || []).map((entry) => entry.client).filter(Boolean)
     );
+    const scopeUser =
+      typeof deps.effectiveScopeUser === "function"
+        ? deps.effectiveScopeUser()
+        : state.currentUser;
     const targetUser =
       nextUser && state.users.length
-        ? state.users.find((u) => u.displayName === nextUser) || state.currentUser
-        : state.currentUser;
+        ? state.users.find((u) => u.displayName === nextUser) || scopeUser
+        : scopeUser;
 
     const allowedClientsRaw = targetUser
       ? isAdmin(targetUser)
@@ -449,8 +457,8 @@
       nextProject
     );
 
-    if (state.currentUser && isStaff(state.currentUser)) {
-      userField.value = state.currentUser?.displayName || "";
+    if (scopeUser && isStaff(scopeUser)) {
+      userField.value = scopeUser?.displayName || "";
       userField.disabled = true;
     } else {
       userField.disabled = false;

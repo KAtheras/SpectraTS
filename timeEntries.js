@@ -2,7 +2,9 @@
   const deps = () => window.timeEntriesDeps || {};
 
   function currentEntries() {
-    const { state } = deps();
+    const { state, effectiveScopeUser } = deps();
+    const scopeUser =
+      typeof effectiveScopeUser === "function" ? effectiveScopeUser() : state.currentUser;
     const search = state.filters.search.trim().toLowerCase();
 
     const {
@@ -21,13 +23,13 @@
         const targetUser =
           (entry.userId ? getUserById?.(entry.userId) : null) ||
           getUserByDisplayName(entry.user) ||
-          (state.currentUser && entry.user === state.currentUser.displayName
-            ? state.currentUser
+          (scopeUser && entry.user === scopeUser.displayName
+            ? scopeUser
             : null);
 
         const canView =
           typeof canViewUserByRole === "function"
-            ? canViewUserByRole(state.currentUser, targetUser)
+            ? canViewUserByRole(scopeUser, targetUser)
             : true;
 
         if (!canView) {
@@ -104,8 +106,16 @@
   }
 
   function canManageApproval(entry) {
-    const { state, permissionGroupForUser, getUserByDisplayName, canUserAccessProject, isAdmin } = deps();
-    const current = state.currentUser;
+    const {
+      state,
+      permissionGroupForUser,
+      getUserByDisplayName,
+      canUserAccessProject,
+      isAdmin,
+      effectiveScopeUser,
+    } = deps();
+    const current =
+      typeof effectiveScopeUser === "function" ? effectiveScopeUser() : state.currentUser;
     if (!current) {
       return false;
     }
