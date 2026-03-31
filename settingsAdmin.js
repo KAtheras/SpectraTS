@@ -839,16 +839,6 @@
               <input type="text" value="${escapeHtml(item.name || "")}" data-department-name placeholder="Department name" ${editable ? "" : "disabled"} />
             </div>
             <div class="settings-row-actions expense-actions">
-              <button
-                type="button"
-                class="expense-toggle ${item.isActive === false ? "is-inactive" : "is-active"}"
-                data-department-active
-                data-active="${item.isActive === false ? "false" : "true"}"
-                aria-pressed="${item.isActive === false ? "false" : "true"}"
-                ${editable ? "" : "disabled"}
-              >
-                ${item.isActive === false ? "Inactive" : "Active"}
-              </button>
               ${editable ? `<button type="button" class="expense-delete" data-department-delete>Delete</button>` : ""}
             </div>
           </div>
@@ -946,7 +936,7 @@
     const canEditProfile = Boolean(state.permissions?.edit_user_profile);
     const canEditAny = canEditRates || canEditProfile;
     const users = (state.users || []).filter((u) => u.isActive !== false);
-    const departments = (state.departments || []).filter((d) => d.isActive !== false);
+    const departments = state.departments || [];
     const titleOptions = Object.entries(state.levelLabels || {})
       .map(([level, value]) => ({
         level: Number(level),
@@ -1085,15 +1075,6 @@
               <input type="text" value="${escapeHtml(item.name || "")}" data-expense-name placeholder="Category name" />
             </div>
             <div class="settings-row-actions expense-actions">
-              <button
-                type="button"
-                class="expense-toggle ${item.isActive === false ? "is-inactive" : "is-active"}"
-                data-expense-active
-                data-active="${item.isActive === false ? "false" : "true"}"
-                aria-pressed="${item.isActive === false ? "false" : "true"}"
-              >
-                ${item.isActive === false ? "Inactive" : "Active"}
-              </button>
               <button type="button" class="expense-delete" data-expense-delete>Delete</button>
             </div>
           </div>

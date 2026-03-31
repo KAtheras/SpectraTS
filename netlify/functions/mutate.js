@@ -183,11 +183,11 @@ async function createDepartment(sql, payload, accountId) {
   const id = normalizeText(payload.id) || randomId();
   const now = new Date().toISOString();
   await sql`
-    INSERT INTO departments (id, account_id, name, is_active, created_at, updated_at)
-    VALUES (${id}, ${accountId}::uuid, ${name}, TRUE, ${now}, ${now})
+    INSERT INTO departments (id, account_id, name, created_at, updated_at)
+    VALUES (${id}, ${accountId}::uuid, ${name}, ${now}, ${now})
     ON CONFLICT (id) DO NOTHING
   `;
-  return { id, name, isActive: true };
+  return { id, name };
 }
 
 async function renameDepartment(sql, payload, accountId) {
@@ -202,7 +202,7 @@ async function renameDepartment(sql, payload, accountId) {
     SET name = ${name}, updated_at = ${now}
     WHERE id = ${id}
       AND account_id = ${accountId}::uuid
-    RETURNING id, name, is_active AS "isActive"
+    RETURNING id, name
   `;
   if (!result[0]) {
     return errorResponse(404, "Department not found.");
@@ -210,24 +210,21 @@ async function renameDepartment(sql, payload, accountId) {
   return result[0];
 }
 
-async function setDepartmentActive(sql, payload, accountId) {
+async function deleteDepartment(sql, payload, accountId) {
   const id = normalizeText(payload.id);
-  const isActive = payload.isActive === false ? false : true;
   if (!id) {
     return errorResponse(400, "Department id is required.");
   }
-  const now = new Date().toISOString();
   const result = await sql`
-    UPDATE departments
-    SET is_active = ${isActive}, updated_at = ${now}
+    DELETE FROM departments
     WHERE id = ${id}
       AND account_id = ${accountId}::uuid
-    RETURNING id, name, is_active AS "isActive"
+    RETURNING id
   `;
   if (!result[0]) {
     return errorResponse(404, "Department not found.");
   }
-  return result[0];
+  return null;
 }
 
 async function setUserDepartment(sql, payload, accountId) {
@@ -242,11 +239,10 @@ async function setUserDepartment(sql, payload, accountId) {
       FROM departments
       WHERE id = ${departmentId}
         AND account_id = ${accountId}::uuid
-        AND is_active = TRUE
       LIMIT 1
     `;
     if (!dept[0]) {
-      return errorResponse(404, "Department not found or inactive.");
+      return errorResponse(404, "Department not found.");
     }
   }
   const result = await sql`
@@ -777,7 +773,6 @@ async function updateExpenseCategories(sql, payload, accountId) {
   for (const item of categories) {
     const id = normalizeText(item.id);
     const name = normalizeText(item.name);
-    const isActive = item.isActive === false || item.isActive === 0 ? false : true;
     if (!name) {
       return errorResponse(400, "Category name cannot be blank.");
     }
@@ -786,7 +781,7 @@ async function updateExpenseCategories(sql, payload, accountId) {
       return errorResponse(400, "Category names must be unique.");
     }
     seen.add(key);
-    cleaned.push({ id, name, isActive });
+    cleaned.push({ id, name });
   }
 
   const existing = await sql`
@@ -823,7 +818,6 @@ async function updateExpenseCategories(sql, payload, accountId) {
       const result = await sql`
         UPDATE expense_categories
         SET name = ${item.name},
-            is_active = ${item.isActive ? 1 : 0},
             created_at = COALESCE(created_at, ${now})
         WHERE id = ${item.id}
           AND account_uuid = ${accountId}::uuid
@@ -831,14 +825,14 @@ async function updateExpenseCategories(sql, payload, accountId) {
       `;
       if (!result[0]) {
         await sql`
-          INSERT INTO expense_categories (id, account_uuid, name, is_active, created_at)
-          VALUES (${item.id}, ${accountId}::uuid, ${item.name}, ${item.isActive ? 1 : 0}, ${now})
+          INSERT INTO expense_categories (id, account_uuid, name, created_at)
+          VALUES (${item.id}, ${accountId}::uuid, ${item.name}, ${now})
         `;
       }
     } else {
       await sql`
-        INSERT INTO expense_categories (id, account_uuid, name, is_active, created_at)
-        VALUES (${randomId()}, ${accountId}::uuid, ${item.name}, ${item.isActive ? 1 : 0}, ${now})
+        INSERT INTO expense_categories (id, account_uuid, name, created_at)
+        VALUES (${randomId()}, ${accountId}::uuid, ${item.name}, ${now})
       `;
     }
   }
@@ -2757,11 +2751,11 @@ exports.handler = async function handler(event) {
         mutationResult = await renameDepartment(sql, request.payload || {}, accountId);
         break;
       }
-      case "set_department_active": {
+      case "delete_department": {
         if (!can("manage_departments")) {
           return errorResponse(403, "Access denied.");
         }
-        mutationResult = await setDepartmentActive(sql, request.payload || {}, accountId);
+        mutationResult = await deleteDepartment(sql, request.payload || {}, accountId);
         break;
       }
       case "set_user_department": {

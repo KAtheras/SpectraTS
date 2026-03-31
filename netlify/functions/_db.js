@@ -97,7 +97,6 @@ async function ensureSchema(sql) {
       id TEXT PRIMARY KEY,
       account_id UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
       name TEXT NOT NULL,
-      is_active BOOLEAN NOT NULL DEFAULT TRUE,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
@@ -403,10 +402,11 @@ async function ensureSchema(sql) {
       id TEXT PRIMARY KEY,
       account_uuid UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
       name TEXT NOT NULL,
-      is_active INT NOT NULL DEFAULT 1,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `;
+  await sql`ALTER TABLE departments DROP COLUMN IF EXISTS is_active`;
+  await sql`ALTER TABLE expense_categories DROP COLUMN IF EXISTS is_active`;
 
   await sql`
     CREATE TABLE IF NOT EXISTS office_locations (
@@ -665,8 +665,8 @@ async function seedDefaultExpenseCategories(sql, accountId) {
   const defaults = ["Travel", "Meals", "Lodging", "Supplies", "Mileage", "Other"];
   for (const name of defaults) {
     await sql`
-      INSERT INTO expense_categories (id, account_uuid, name, is_active, created_at)
-      VALUES (${randomId()}, ${accountId}::uuid, ${name}, 1, NOW())
+      INSERT INTO expense_categories (id, account_uuid, name, created_at)
+      VALUES (${randomId()}, ${accountId}::uuid, ${name}, NOW())
       ON CONFLICT DO NOTHING
     `;
   }
@@ -1728,37 +1728,25 @@ async function listProjects(sql, accountId) {
 }
 
 async function listExpenseCategories(sql, accountId) {
-  const rows = await sql`
+  return sql`
     SELECT
       id,
-      name,
-      is_active AS "isActive"
+      name
     FROM expense_categories
     WHERE account_uuid = ${accountId}::uuid
     ORDER BY created_at, LOWER(name)
   `;
-  return rows.map((row) => ({
-    id: row.id,
-    name: row.name,
-    isActive: row.isActive === 0 ? false : true,
-  }));
 }
 
 async function listDepartments(sql, accountId) {
-  const rows = await sql`
+  return sql`
     SELECT
       id,
-      name,
-      is_active AS "isActive"
+      name
     FROM departments
     WHERE account_id = ${accountId}::uuid
     ORDER BY LOWER(name)
   `;
-  return rows.map((row) => ({
-    id: row.id,
-    name: row.name,
-    isActive: row.isActive === false || row.isActive === 0 ? false : true,
-  }));
 }
 
 async function listOfficeLocations(sql, accountId) {

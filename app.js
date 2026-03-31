@@ -945,7 +945,7 @@
       .map(([lvl, info]) => `<option value="${escapeHtml(String(lvl))}">${escapeHtml(info?.label || `Level ${lvl}`)}</option>`)
       .join("");
     deptField.innerHTML = ['<option value="">No department</option>']
-      .concat((state.departments || []).filter((d) => d.isActive !== false).map((d) => `<option value="${escapeHtml(d.id)}">${escapeHtml(d.name)}</option>`))
+      .concat((state.departments || []).map((d) => `<option value="${escapeHtml(d.id)}">${escapeHtml(d.name)}</option>`))
       .join("");
     officeField.innerHTML = ['<option value="">Select office</option>']
       .concat((state.officeLocations || []).map((o) => `<option value="${escapeHtml(o.id)}">${escapeHtml(o.name)}</option>`))
@@ -1531,17 +1531,10 @@
         ? cachedOffices
         : previousOfficeLocations;
     state.expenseCategories = Array.isArray(data?.expenseCategories)
-      ? data.expenseCategories.map((item) => {
-          const activeRaw =
-            item.isActive !== undefined ? item.isActive : item.is_active;
-          const isActive =
-            activeRaw === 0 || activeRaw === false ? false : true;
-          return {
-            id: item.id,
-            name: item.name,
-            isActive,
-          };
-        })
+      ? data.expenseCategories.map((item) => ({
+          id: item.id,
+          name: item.name,
+        }))
       : [];
     state.account = data?.account || null;
     state.settingsAccess = data?.settingsAccess || {};
@@ -6034,9 +6027,7 @@
       for (const row of rows) {
         const id = (row.dataset.expenseId || "").trim();
         const nameInput = row.querySelector("[data-expense-name]");
-        const activeInput = row.querySelector("[data-expense-active]");
         const name = (nameInput?.value || "").trim();
-        const isActive = activeInput ? activeInput.dataset.active !== "false" : true;
         if (!name) {
           feedback("Category name cannot be blank.", true);
           return;
@@ -6047,7 +6038,7 @@
           return;
         }
         seen.add(key);
-        categories.push({ id: id || null, name, isActive });
+        categories.push({ id: id || null, name });
       }
       try {
         await mutatePersistentState("update_expense_categories", { categories });
@@ -6160,16 +6151,6 @@
   if (refs.expenseRows) {
     refs.expenseRows.addEventListener("click", async function (event) {
       const deleteBtn = event.target.closest("[data-expense-delete]");
-      const toggleBtn = event.target.closest("[data-expense-active]");
-      if (toggleBtn) {
-        const next = toggleBtn.dataset.active !== "true";
-        toggleBtn.dataset.active = next ? "true" : "false";
-        toggleBtn.classList.toggle("is-active", next);
-        toggleBtn.classList.toggle("is-inactive", !next);
-        toggleBtn.textContent = next ? "Active" : "Inactive";
-        toggleBtn.setAttribute("aria-pressed", next ? "true" : "false");
-        return;
-      }
       if (!deleteBtn) return;
       if (!state.permissions?.manage_expense_categories) {
         feedback("Access denied.", true);
@@ -6185,9 +6166,7 @@
       for (const r of rows) {
         const id = (r.dataset.expenseId || "").trim();
         const nameInput = r.querySelector("[data-expense-name]");
-        const activeInput = r.querySelector("[data-expense-active]");
         const name = (nameInput?.value || "").trim();
-        const isActive = activeInput ? activeInput.dataset.active !== "false" : true;
         if (!name) {
           feedback("Category name cannot be blank.", true);
           return;
@@ -6198,7 +6177,7 @@
           return;
         }
         seen.add(key);
-        categories.push({ id: id || null, name, isActive });
+        categories.push({ id: id || null, name });
       }
 
       const previous = [...state.expenseCategories];
@@ -6229,7 +6208,6 @@
           {
             id: `temp-dept-${Date.now()}-${Math.random().toString(16).slice(2)}`,
             name: "",
-            isActive: true,
           },
         ];
         window.settingsAdmin?.renderDepartments();
@@ -6267,14 +6245,6 @@
         return;
       }
 
-      const toggleBtn = event.target.closest("[data-department-active]");
-      if (!toggleBtn || !departmentRows.contains(toggleBtn)) return;
-      const next = toggleBtn.dataset.active !== "true";
-      toggleBtn.dataset.active = next ? "true" : "false";
-      toggleBtn.classList.toggle("is-active", next);
-      toggleBtn.classList.toggle("is-inactive", !next);
-      toggleBtn.textContent = next ? "Active" : "Inactive";
-      toggleBtn.setAttribute("aria-pressed", next ? "true" : "false");
     });
 
     refs.settingsPage.addEventListener("submit", async function (event) {
@@ -6299,15 +6269,13 @@
       const seen = new Set();
       const createOps = [];
       const renameOps = [];
-      const activeOps = [];
+      const deleteOps = [];
       const remainingIds = new Set();
 
       for (const row of rows) {
         const id = String((row.dataset.departmentId || "").trim());
         const nameInput = row.querySelector("[data-department-name]");
-        const activeBtn = row.querySelector("[data-department-active]");
         const name = (nameInput?.value || "").trim();
-        const isActive = activeBtn ? activeBtn.dataset.active !== "false" : true;
 
         if (!name) {
           feedback("Department name is required.", true);
@@ -6321,7 +6289,7 @@
         seen.add(key);
 
         if (!id || id.startsWith("temp-dept-")) {
-          createOps.push({ name, isActive });
+          createOps.push({ name });
           continue;
         }
         remainingIds.add(id);
@@ -6329,30 +6297,23 @@
         if (prev.name !== name) {
           renameOps.push({ id, name });
         }
-        const prevActive = prev.isActive === false ? false : true;
-        if (prevActive !== isActive) {
-          activeOps.push({ id, isActive });
-        }
       }
 
-      for (const [id, prev] of existingMap.entries()) {
+      for (const [id] of existingMap.entries()) {
         if (!id || !remainingIds.has(id)) {
-          const prevActive = prev?.isActive === false ? false : true;
-          if (prevActive) {
-            activeOps.push({ id, isActive: false });
-          }
+          deleteOps.push({ id });
         }
       }
 
       try {
         for (const op of createOps) {
-          await mutatePersistentState("create_department", { name: op.name, isActive: op.isActive });
+          await mutatePersistentState("create_department", { name: op.name });
         }
         for (const op of renameOps) {
           await mutatePersistentState("rename_department", { id: op.id, name: op.name });
         }
-        for (const op of activeOps) {
-          await mutatePersistentState("set_department_active", { id: op.id, isActive: op.isActive });
+        for (const op of deleteOps) {
+          await mutatePersistentState("delete_department", { id: op.id });
         }
         await refreshSettingsTab("departments");
         feedback("Departments updated.", false);
@@ -6443,7 +6404,6 @@
         {
           id: `temp-${Date.now()}-${Math.random().toString(16).slice(2)}`,
           name: "",
-          isActive: true,
         },
       ];
       renderExpenseCategories();
