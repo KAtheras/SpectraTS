@@ -1201,12 +1201,8 @@
     pendingInputsTimeEditId: "",
     pendingInputsExpenseEditId: "",
     entriesSubtab: "time", // "time" | "expenses"
-    delegators: [
-      { id: "me", name: "Kaprel (Me)" },
-      { id: "u1", name: "John Smith" },
-      { id: "u2", name: "Sarah Lee" },
-    ],
-    actingAsUserId: "me",
+    delegators: [],
+    actingAsUserId: "",
     inboxItems: [],
     inboxFilter: "all",
     inboxSelectedIds: [],
@@ -1466,6 +1462,7 @@
   }
 
   function applyLoadedState(data) {
+    const previousActingAsUserId = `${state.actingAsUserId || ""}`.trim();
     const previousOfficeLocations = Array.isArray(state.officeLocations)
       ? state.officeLocations.slice()
       : [];
@@ -1567,6 +1564,22 @@
       : [];
     state.inboxSelectedIds = [];
     state.permissions = data?.permissions || {};
+    state.delegators = Array.isArray(data?.delegators)
+      ? data.delegators
+          .map((item) => {
+            const id = `${item?.id || item?.delegatorUserId || ""}`.trim();
+            const name = `${item?.name || item?.delegatorName || ""}`.trim();
+            if (!id || !name) return null;
+            return { id, name };
+          })
+          .filter(Boolean)
+      : [];
+    const currentUserId = `${state.currentUser?.id || ""}`.trim();
+    const canKeepSelection =
+      previousActingAsUserId &&
+      (previousActingAsUserId === currentUserId ||
+        state.delegators.some((item) => item.id === previousActingAsUserId));
+    state.actingAsUserId = canKeepSelection ? previousActingAsUserId : currentUserId;
     const normalizedProjects = normalizeProjects(data?.projects);
     state.projects = normalizedProjects.length
       ? normalizedProjects
@@ -1598,6 +1611,8 @@
     state.inboxItems = [];
     state.inboxFilter = "all";
     state.inboxSelectedIds = [];
+    state.delegators = [];
+    state.actingAsUserId = "";
     resetAuditFilters();
   }
 
@@ -1763,6 +1778,8 @@
         state.inboxItems = [];
         state.inboxFilter = "all";
         state.inboxSelectedIds = [];
+        state.delegators = [];
+        state.actingAsUserId = "";
         state.clientEditor = null;
         state.assignments = {
           managerClients: [],
@@ -1862,28 +1879,55 @@
     setView("analytics");
   }
 
+  function resolveActingAsUserId() {
+    const currentUserId = `${state.currentUser?.id || ""}`.trim();
+    const selectedUserId = `${state.actingAsUserId || ""}`.trim();
+    if (!currentUserId) return "";
+    if (!selectedUserId || selectedUserId === currentUserId) return currentUserId;
+    const isDelegator = Array.isArray(state.delegators)
+      ? state.delegators.some((item) => item && item.id === selectedUserId)
+      : false;
+    return isDelegator ? selectedUserId : currentUserId;
+  }
+
+  function actingAsMyselfOption() {
+    return {
+      id: `${state.currentUser?.id || ""}`.trim(),
+      name: "Myself",
+      isSelf: true,
+    };
+  }
+
   function getActingAsUsers() {
-    return Array.isArray(state.delegators) ? state.delegators.filter(Boolean) : [];
+    const selfOption = actingAsMyselfOption();
+    const delegators = Array.isArray(state.delegators) ? state.delegators.filter(Boolean) : [];
+    if (!selfOption.id) return delegators;
+    return [selfOption, ...delegators.map((item) => ({ ...item, isSelf: false }))];
   }
 
   function getActingAsSelection() {
-    const delegators = getActingAsUsers();
-    if (!delegators.length) return null;
+    const users = getActingAsUsers();
+    if (!users.length) return null;
+    const selectedId = resolveActingAsUserId();
     return (
-      delegators.find(function (item) {
-        return item.id === state.actingAsUserId;
-      }) || delegators[0]
+      users.find(function (item) {
+        return item.id === selectedId;
+      }) || users[0]
     );
   }
 
   function actingAsDisplayName(selection) {
     const current = selection || getActingAsSelection();
     if (!current) return "";
-    return current.id === "me" ? "Kaprel" : String(current.name || "").trim();
+    if (current.isSelf) return "Myself";
+    return String(current.name || "").trim();
   }
 
   function actingAsInitials(selection) {
-    const label = actingAsDisplayName(selection);
+    const current = selection || getActingAsSelection();
+    const label = current?.isSelf
+      ? `${state.currentUser?.displayName || state.currentUser?.username || ""}`.trim()
+      : actingAsDisplayName(current);
     if (!label) return "??";
     const parts = label.split(/\s+/).filter(Boolean);
     const first = parts[0]?.[0] || "";
@@ -1914,17 +1958,19 @@
 
   function renderActingAsDropdown() {
     if (!refs.actingAsToggle || !refs.actingAsMenu) return;
-    const delegators = getActingAsUsers();
+    const delegators = Array.isArray(state.delegators) ? state.delegators.filter(Boolean) : [];
+    const options = getActingAsUsers();
     const selection = getActingAsSelection();
     const show = delegators.length > 0 && !!selection;
     refs.actingAsToggle.hidden = !show;
     if (!show) {
+      state.actingAsUserId = `${state.currentUser?.id || ""}`.trim();
       closeActingAsMenu();
       refs.actingAsMenu.innerHTML = "";
       return;
     }
 
-    state.actingAsUserId = selection.id;
+    state.actingAsUserId = resolveActingAsUserId();
     if (refs.actingAsInitials) {
       refs.actingAsInitials.textContent = actingAsInitials(selection);
     }
@@ -1932,7 +1978,7 @@
       refs.actingAsName.textContent = actingAsDisplayName(selection);
     }
 
-    const rows = delegators
+    const rows = options
       .map(function (item) {
         const id = escapeHtml(String(item.id || ""));
         const selectedAttr = item.id === state.actingAsUserId ? ' aria-current="true"' : "";
@@ -3398,6 +3444,7 @@
       const existingId = `${row.dataset.entryId || ""}`.trim();
       const existingCreatedAt = `${row.dataset.createdAt || ""}`.trim();
       const [clientName, projectName] = decodeInputsTimeCombo(current.clientProject?.value || "");
+      const actingAsUserId = resolveActingAsUserId();
       const nextEntry = {
         id: existingId || crypto.randomUUID(),
         user: state.currentUser?.displayName || "",
@@ -3425,7 +3472,10 @@
       }
 
       try {
-        await mutatePersistentState("save_entry", { entry: nextEntry });
+        await mutatePersistentState(
+          "save_entry",
+          wasEditingSavedRow ? { entry: nextEntry } : { entry: nextEntry, actingAsUserId }
+        );
       } catch (error) {
         row.dataset.saving = "false";
         setInputsTimeRowState(row, wasEditingSavedRow ? "editing-saved" : "new");
@@ -3813,6 +3863,7 @@
       const existingId = `${row.dataset.entryId || ""}`.trim();
       const existingCreatedAt = `${row.dataset.createdAt || ""}`.trim();
       const [clientName, projectName] = decodeInputsTimeCombo(current.clientProject?.value || "");
+      const actingAsUserId = resolveActingAsUserId();
       const nextExpense = {
         id: existingId || crypto.randomUUID(),
         userId: state.currentUser?.id || "",
@@ -3840,7 +3891,12 @@
       }
 
       try {
-        await mutatePersistentState(wasEditingSavedRow ? "update_expense" : "create_expense", { expense: nextExpense });
+        await mutatePersistentState(
+          wasEditingSavedRow ? "update_expense" : "create_expense",
+          wasEditingSavedRow
+            ? { expense: nextExpense }
+            : { expense: nextExpense, actingAsUserId }
+        );
       } catch (error) {
         row.dataset.saving = "false";
         setInputsExpenseRowState(row, wasEditingSavedRow ? "editing-saved" : "new");

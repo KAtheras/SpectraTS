@@ -12,6 +12,13 @@ const JSON_HEADERS = {
   "Content-Type": "application/json; charset=utf-8",
 };
 
+const DELEGATION_CAPABILITIES = new Set([
+  "enter_time_on_behalf",
+  "enter_expenses_on_behalf",
+  "view_time_on_behalf",
+  "view_expenses_on_behalf",
+]);
+
 async function getSql() {
   return neon();
 }
@@ -183,6 +190,27 @@ async function ensureSchema(sql) {
       expires_at TIMESTAMPTZ NOT NULL,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS delegations (
+      id TEXT PRIMARY KEY,
+      account_id UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      delegator_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      delegate_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      capability TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (account_id, delegator_user_id, delegate_user_id, capability)
+    )
+  `;
+  await sql`
+    CREATE INDEX IF NOT EXISTS delegations_delegate_idx
+      ON delegations (account_id, delegate_user_id, delegator_user_id)
+  `;
+  await sql`
+    CREATE INDEX IF NOT EXISTS delegations_delegator_idx
+      ON delegations (account_id, delegator_user_id, delegate_user_id)
   `;
 
   await sql`
@@ -1960,6 +1988,45 @@ async function getManagerScope(sql, managerId, accountId) {
   ];
   return { clientIds, projectIds };
 }
+
+async function listDelegatorsForDelegate(sql, delegateUserId, accountId) {
+  const rows = await sql`
+    SELECT
+      d.delegator_user_id AS "delegatorUserId",
+      u.display_name AS "delegatorName",
+      d.capability
+    FROM delegations d
+    JOIN users u
+      ON u.id = d.delegator_user_id
+     AND u.account_id = d.account_id
+     AND u.is_active = TRUE
+    WHERE d.account_id = ${accountId}::uuid
+      AND d.delegate_user_id = ${delegateUserId}
+  `;
+
+  const byDelegator = new Map();
+  for (const row of rows) {
+    const delegatorId = `${row.delegatorUserId || ""}`.trim();
+    const capability = `${row.capability || ""}`.trim();
+    if (!delegatorId || !DELEGATION_CAPABILITIES.has(capability)) continue;
+    if (!byDelegator.has(delegatorId)) {
+      byDelegator.set(delegatorId, {
+        id: delegatorId,
+        name: `${row.delegatorName || ""}`.trim(),
+        capabilities: [],
+      });
+    }
+    const current = byDelegator.get(delegatorId);
+    if (!current.capabilities.includes(capability)) {
+      current.capabilities.push(capability);
+    }
+  }
+
+  return Array.from(byDelegator.values()).sort((a, b) =>
+    a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
+  );
+}
+
 async function loadState(sql, currentUser) {
   const normalizedUser = currentUser
     ? {
@@ -2346,6 +2413,9 @@ async function loadState(sql, currentUser) {
     ? await listInboxItems(sql, accountUuid, normalizedUser.id)
     : [];
   const notificationRules = await listNotificationRules(sql, accountUuid);
+  const delegators = normalizedUser
+    ? await listDelegatorsForDelegate(sql, normalizedUser.id, accountUuid)
+    : [];
 
   return {
     bootstrapRequired: false,
@@ -2378,6 +2448,7 @@ async function loadState(sql, currentUser) {
     levelLabels,
     inboxItems,
     notificationRules,
+    delegators,
   };
 }
 

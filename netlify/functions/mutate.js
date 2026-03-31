@@ -43,6 +43,61 @@ function hashSetupToken(token) {
   return crypto.createHash("sha256").update(token).digest("hex");
 }
 
+const DELEGATION_CAPABILITIES = new Set([
+  "enter_time_on_behalf",
+  "enter_expenses_on_behalf",
+  "view_time_on_behalf",
+  "view_expenses_on_behalf",
+]);
+
+function normalizeDelegationCapability(value) {
+  const capability = normalizeText(value);
+  return DELEGATION_CAPABILITIES.has(capability) ? capability : "";
+}
+
+async function hasDelegationCapability(
+  sql,
+  { accountId, delegatorUserId, delegateUserId, capability }
+) {
+  const rows = await sql`
+    SELECT id
+    FROM delegations
+    WHERE account_id = ${accountId}::uuid
+      AND delegator_user_id = ${delegatorUserId}
+      AND delegate_user_id = ${delegateUserId}
+      AND capability = ${capability}
+    LIMIT 1
+  `;
+  return Boolean(rows[0]);
+}
+
+async function resolveActingAsOwner(
+  sql,
+  { payload, currentUser, accountId, requiredCapability }
+) {
+  const actingAsUserId = normalizeText(payload?.actingAsUserId) || currentUser.id;
+  if (actingAsUserId === currentUser.id) {
+    return { ownerUser: currentUser, isDelegated: false };
+  }
+
+  const ownerUser = await findUserById(sql, actingAsUserId, accountId);
+  if (!ownerUser) {
+    return { error: errorResponse(404, "Delegator not found.") };
+  }
+
+  const hasCapability = await hasDelegationCapability(sql, {
+    accountId,
+    delegatorUserId: ownerUser.id,
+    delegateUserId: currentUser.id,
+    capability: requiredCapability,
+  });
+  if (!hasCapability) {
+    return { error: errorResponse(403, "Access denied.") };
+  }
+
+  return { ownerUser, isDelegated: true };
+}
+
 async function validateSetupToken(sql, payload) {
   const token = normalizeText(payload?.token);
   if (!token) {
@@ -290,6 +345,70 @@ async function setUserLevel(sql, payload, accountId) {
     return errorResponse(404, "User not found.");
   }
   return result[0];
+}
+
+async function createDelegation(sql, payload, accountId) {
+  const delegatorUserId = normalizeText(payload?.delegatorUserId);
+  const delegateUserId = normalizeText(payload?.delegateUserId);
+  const capability = normalizeDelegationCapability(payload?.capability);
+  if (!delegatorUserId || !delegateUserId || !capability) {
+    return errorResponse(400, "Delegator, delegate, and capability are required.");
+  }
+  if (delegatorUserId === delegateUserId) {
+    return errorResponse(400, "Delegator and delegate must be different users.");
+  }
+
+  const [delegatorUser, delegateUser] = await Promise.all([
+    findUserById(sql, delegatorUserId, accountId),
+    findUserById(sql, delegateUserId, accountId),
+  ]);
+  if (!delegatorUser || !delegateUser) {
+    return errorResponse(404, "User not found.");
+  }
+
+  const now = new Date().toISOString();
+  await sql`
+    INSERT INTO delegations (
+      id,
+      account_id,
+      delegator_user_id,
+      delegate_user_id,
+      capability,
+      created_at,
+      updated_at
+    )
+    VALUES (
+      ${randomId()},
+      ${accountId}::uuid,
+      ${delegatorUser.id},
+      ${delegateUser.id},
+      ${capability},
+      ${now},
+      ${now}
+    )
+    ON CONFLICT (account_id, delegator_user_id, delegate_user_id, capability)
+    DO UPDATE SET
+      updated_at = EXCLUDED.updated_at
+  `;
+  return null;
+}
+
+async function deleteDelegation(sql, payload, accountId) {
+  const delegatorUserId = normalizeText(payload?.delegatorUserId);
+  const delegateUserId = normalizeText(payload?.delegateUserId);
+  const capability = normalizeDelegationCapability(payload?.capability);
+  if (!delegatorUserId || !delegateUserId || !capability) {
+    return errorResponse(400, "Delegator, delegate, and capability are required.");
+  }
+
+  await sql`
+    DELETE FROM delegations
+    WHERE account_id = ${accountId}::uuid
+      AND delegator_user_id = ${delegatorUserId}
+      AND delegate_user_id = ${delegateUserId}
+      AND capability = ${capability}
+  `;
+  return null;
 }
 
 function normalizeDateString(value) {
@@ -1406,7 +1525,20 @@ async function renameClient(sql, payload, accountId) {
 }
 
 async function createExpense(sql, payload, currentUser, accountId) {
-  const expense = payload.expense || {};
+  const actingContext = await resolveActingAsOwner(sql, {
+    payload,
+    currentUser,
+    accountId,
+    requiredCapability: "enter_expenses_on_behalf",
+  });
+  if (actingContext.error) {
+    return actingContext.error;
+  }
+  const canActOnBehalf = actingContext.isDelegated;
+  const expense = {
+    ...(payload.expense || {}),
+    userId: actingContext.ownerUser?.id || currentUser.id,
+  };
   const validationError = validateExpense(expense);
   if (validationError) {
     return errorResponse(400, validationError);
@@ -1430,11 +1562,11 @@ async function createExpense(sql, payload, currentUser, accountId) {
     if (!hasAccess) {
       return errorResponse(403, "You are not assigned to this project.");
     }
-    if (targetUser.id !== currentUser.id && targetGroup !== "staff") {
+    if (!canActOnBehalf && targetUser.id !== currentUser.id && targetGroup !== "staff") {
       return errorResponse(403, "Managers can only edit staff expenses.");
     }
   } else if (isStaff(currentUser)) {
-    if (targetUser.id !== currentUser.id) {
+    if (!canActOnBehalf && targetUser.id !== currentUser.id) {
       return errorResponse(403, "You can only save expenses for your own account.");
     }
     const memberRows = await sql`
@@ -2027,7 +2159,24 @@ async function removeProject(sql, payload, accountId) {
 }
 
 async function saveEntry(sql, payload, currentUser, accountId) {
-  const entry = payload.entry;
+  const actingContext = await resolveActingAsOwner(sql, {
+    payload,
+    currentUser,
+    accountId,
+    requiredCapability: "enter_time_on_behalf",
+  });
+  if (actingContext.error) {
+    return actingContext.error;
+  }
+  const canActOnBehalf = actingContext.isDelegated;
+  const entry = {
+    ...(payload.entry || {}),
+    user:
+      normalizeText(actingContext.ownerUser?.display_name) ||
+      normalizeText(actingContext.ownerUser?.displayName) ||
+      normalizeText(payload?.entry?.user) ||
+      normalizeText(currentUser?.displayName),
+  };
   const validationError = validateEntry(entry, currentUser);
   if (validationError) {
     return errorResponse(400, validationError);
@@ -2056,11 +2205,11 @@ async function saveEntry(sql, payload, currentUser, accountId) {
     if (!hasAccess) {
       return errorResponse(403, "You are not assigned to this project.");
     }
-    if (targetUser.id !== currentUser.id && targetGroup !== "staff") {
+    if (!canActOnBehalf && targetUser.id !== currentUser.id && targetGroup !== "staff") {
       return errorResponse(403, "Managers can only edit staff time.");
     }
   } else if (isStaff(currentUser)) {
-    if (targetUser.id !== currentUser.id) {
+    if (!canActOnBehalf && targetUser.id !== currentUser.id) {
       return errorResponse(403, "You can only save entries for your own account.");
     }
     const memberRows = await sql`
@@ -2097,7 +2246,7 @@ async function saveEntry(sql, payload, currentUser, accountId) {
         AND account_id = ${accountId}::uuid
       LIMIT 1
     `;
-    if (rows[0] && rows[0].user_name !== entry.user && isStaff(currentUser)) {
+    if (rows[0] && rows[0].user_name !== entry.user && isStaff(currentUser) && !canActOnBehalf) {
       return errorResponse(403, "You can only update your own entries.");
     }
   }
@@ -2880,6 +3029,20 @@ exports.handler = async function handler(event) {
         }
 
         mutationResult = await loadState(sql, context.currentUser);
+        break;
+      }
+      case "create_delegation": {
+        if (!isAdmin(context.currentUser)) {
+          return errorResponse(403, "Admin access required.");
+        }
+        mutationResult = await createDelegation(sql, request.payload || {}, accountId);
+        break;
+      }
+      case "delete_delegation": {
+        if (!isAdmin(context.currentUser)) {
+          return errorResponse(403, "Admin access required.");
+        }
+        mutationResult = await deleteDelegation(sql, request.payload || {}, accountId);
         break;
       }
       case "remove_client": {
