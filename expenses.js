@@ -203,7 +203,7 @@
       typeof effectiveScopeUser === "function" ? effectiveScopeUser() : state.currentUser;
     const search = state.expenseFilters.search.trim().toLowerCase();
 
-    const { getUserById, canViewUserByRole } = deps();
+    const { getUserById, canViewUserByRole, canUserAccessProject, isAdmin, isExecutive } = deps();
 
     return [...state.expenses]
       .filter((expense) => {
@@ -212,6 +212,16 @@
           ? canViewUserByRole(scopeUser, targetUser)
           : true;
         if (!canView) {
+          return false;
+        }
+        const hasProjectAccess =
+          typeof canUserAccessProject === "function" && scopeUser
+            ? canUserAccessProject(scopeUser, expense.clientName, expense.projectName)
+            : true;
+        const canBypassProjectScope =
+          (typeof isAdmin === "function" && isAdmin(scopeUser)) ||
+          (typeof isExecutive === "function" && isExecutive(scopeUser));
+        if (!canBypassProjectScope && !hasProjectAccess) {
           return false;
         }
         if (state.expenseFilters.user && expense.userId !== state.expenseFilters.user) {

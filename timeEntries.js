@@ -10,6 +10,9 @@
     const {
       getUserByDisplayName,
       canViewUserByRole,
+      canUserAccessProject,
+      isAdmin,
+      isExecutive,
       getUserById: injectedGetUserById,
     } = deps();
 
@@ -33,6 +36,16 @@
             : true;
 
         if (!canView) {
+          return false;
+        }
+        const hasProjectAccess =
+          typeof canUserAccessProject === "function" && scopeUser
+            ? canUserAccessProject(scopeUser, entry.client, entry.project)
+            : true;
+        const canBypassProjectScope =
+          (typeof isAdmin === "function" && isAdmin(scopeUser)) ||
+          (typeof isExecutive === "function" && isExecutive(scopeUser));
+        if (!canBypassProjectScope && !hasProjectAccess) {
           return false;
         }
         if (state.filters.user && entry.user !== state.filters.user) {

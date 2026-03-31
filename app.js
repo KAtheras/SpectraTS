@@ -7595,6 +7595,7 @@
     getUserByDisplayName,
     canUserAccessProject,
     isAdmin,
+    isExecutive,
     effectiveScopeUser,
     syncFormCatalogsUI,
     defaultEntryUser,
@@ -7629,6 +7630,7 @@
     permissionGroupForUser: permissionGroupForUserWithSuper,
     canUserAccessProject,
     isAdmin,
+    isExecutive,
     field,
     assignedProjectTuplesForCurrentUser,
   };
