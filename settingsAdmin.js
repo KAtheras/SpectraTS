@@ -790,6 +790,9 @@
         <div class="settings-section-left">
           <h3>Delegations</h3>
         </div>
+        <div class="settings-section-right">
+          <button id="delegations-save" type="submit" form="delegations-form" class="button button-ghost" ${delegates.length ? "" : "disabled"}>Add delegation</button>
+        </div>
       </div>
       <div class="delegations-shell">
         <form id="delegations-form" class="delegations-form">
@@ -806,9 +809,6 @@
               <div class="settings-row-label">Capabilities</div>
               <div class="delegations-capabilities">${createCapsHtml}</div>
               <div id="delegations-selection-hint" class="delegations-hint">Select a member to configure delegations.</div>
-              <div class="delegations-actions">
-                <button id="delegations-save" type="submit" class="button" ${delegates.length ? "" : "disabled"}>Add delegation</button>
-              </div>
             </section>
             <section class="delegations-col delegations-col-members">
               <div class="settings-row-label">Delegated members</div>
