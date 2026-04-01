@@ -4501,6 +4501,53 @@
     };
   }
 
+  function auditDateBounds() {
+    const dates = (state.auditLogs || [])
+      .map((row) => normalizeAuditDateValue(row?.changed_at || row?.changedAt || ""))
+      .filter(Boolean)
+      .sort();
+    if (!dates.length) {
+      return { min: "", max: "" };
+    }
+    return {
+      min: dates[0] || "",
+      max: dates[dates.length - 1] || "",
+    };
+  }
+
+  function applyAuditDownloadDateBounds(beginDate, endDate) {
+    const bounds = auditDateBounds();
+    const begin = refs.auditDownloadBeginDate;
+    const end = refs.auditDownloadEndDate;
+    if (!begin || !end) return bounds;
+
+    if (bounds.min) {
+      begin.min = bounds.min;
+      end.min = bounds.min;
+    } else {
+      begin.removeAttribute("min");
+      end.removeAttribute("min");
+    }
+
+    if (bounds.max) {
+      begin.max = bounds.max;
+      end.max = bounds.max;
+    } else {
+      begin.removeAttribute("max");
+      end.removeAttribute("max");
+    }
+
+    const normalizedBegin = normalizeAuditDateValue(beginDate || "");
+    const normalizedEnd = normalizeAuditDateValue(endDate || "");
+    if (normalizedBegin) {
+      end.min = normalizedBegin;
+    }
+    if (normalizedEnd) {
+      begin.max = normalizedEnd;
+    }
+    return bounds;
+  }
+
   function syncAuditDownloadActorOptions() {
     if (!refs.auditDownloadActor) return;
     const selected = refs.auditDownloadActor.value || "";
@@ -4549,6 +4596,7 @@
     const existingDate = normalizeAuditDateValue(state.auditFilters?.date || "");
     syncAuditDownloadDateInput(refs.auditDownloadBeginDate, existingDate);
     syncAuditDownloadDateInput(refs.auditDownloadEndDate, existingDate);
+    applyAuditDownloadDateBounds(existingDate, existingDate);
     if (refs.auditDownloadActor) {
       refs.auditDownloadActor.value = state.auditFilters?.actor || "";
     }
@@ -6359,8 +6407,17 @@
     const endDate = normalizeAuditDateValue(
       refs.auditDownloadEndDate?.dataset?.dpCanonical || refs.auditDownloadEndDate?.value || ""
     );
+    const bounds = applyAuditDownloadDateBounds(beginDate, endDate);
     if (beginDate && endDate && beginDate > endDate) {
       feedback("Begin date cannot be after End date.", true);
+      return;
+    }
+    if (bounds.min && beginDate && beginDate < bounds.min) {
+      feedback(`Begin date cannot be before ${formatDisplayDate(bounds.min)}.`, true);
+      return;
+    }
+    if (bounds.max && endDate && endDate > bounds.max) {
+      feedback(`End date cannot be after ${formatDisplayDate(bounds.max)}.`, true);
       return;
     }
     refs.auditDownloadSubmit.disabled = true;
@@ -6379,6 +6436,24 @@
       refs.auditDownloadSubmit.disabled = false;
       refs.auditDownloadSubmit.textContent = "Download CSV";
     }
+  });
+  refs.auditDownloadBeginDate?.addEventListener("change", function () {
+    const beginDate = normalizeAuditDateValue(
+      refs.auditDownloadBeginDate?.dataset?.dpCanonical || refs.auditDownloadBeginDate?.value || ""
+    );
+    const endDate = normalizeAuditDateValue(
+      refs.auditDownloadEndDate?.dataset?.dpCanonical || refs.auditDownloadEndDate?.value || ""
+    );
+    applyAuditDownloadDateBounds(beginDate, endDate);
+  });
+  refs.auditDownloadEndDate?.addEventListener("change", function () {
+    const beginDate = normalizeAuditDateValue(
+      refs.auditDownloadBeginDate?.dataset?.dpCanonical || refs.auditDownloadBeginDate?.value || ""
+    );
+    const endDate = normalizeAuditDateValue(
+      refs.auditDownloadEndDate?.dataset?.dpCanonical || refs.auditDownloadEndDate?.value || ""
+    );
+    applyAuditDownloadDateBounds(beginDate, endDate);
   });
   refs.auditLoadMore?.addEventListener("click", function () {
     loadAuditLogs({ append: true });
