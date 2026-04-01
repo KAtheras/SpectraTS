@@ -657,6 +657,9 @@
               </select>
             </label>
           </form>
+          <button class="button button-ghost" id="audit-download-open" type="button">
+            Download audit log
+          </button>
         </header>
         <div class="table-wrap audit-table-wrap">
           <table class="entries-table audit-table">
@@ -688,6 +691,47 @@
           </button>
         </div>
       </section>
+
+      <div class="dialog-overlay" id="audit-download-dialog" hidden>
+        <div class="dialog-card" role="dialog" aria-modal="true" aria-labelledby="audit-download-title">
+          <h3 id="audit-download-title">Download audit log</h3>
+          <form id="audit-download-form" class="project-dialog-form">
+            <label class="project-dialog-field">
+              <span>Date</span>
+              <input id="audit-download-date" name="date" type="date" />
+            </label>
+            <label class="project-dialog-field">
+              <span>Actor</span>
+              <select id="audit-download-actor" name="actor">
+                <option value="">All</option>
+              </select>
+            </label>
+            <label class="project-dialog-field">
+              <span>Entity</span>
+              <select id="audit-download-entity" name="entity">
+                <option value="">All</option>
+                <option value="time_entry">Time entry</option>
+                <option value="expense">Expense</option>
+              </select>
+            </label>
+            <label class="project-dialog-field">
+              <span>Action</span>
+              <select id="audit-download-action" name="action">
+                <option value="">All</option>
+                <option value="create">Create</option>
+                <option value="update">Update</option>
+                <option value="delete">Delete</option>
+                <option value="approve">Approve</option>
+                <option value="unapprove">Unapprove</option>
+              </select>
+            </label>
+            <div class="dialog-actions">
+              <button class="button button-ghost" type="button" id="audit-download-cancel">Cancel</button>
+              <button class="button" type="submit" id="audit-download-submit">Download CSV</button>
+            </div>
+          </form>
+        </div>
+      </div>
 
       <section class="page-view level-page" id="settings-page" hidden>
         <div class="users-page-body">

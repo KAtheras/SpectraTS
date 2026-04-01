@@ -514,10 +514,20 @@
     navAuditMobile: document.getElementById("nav-audit-mobile"),
     auditView: document.getElementById("audit-page"),
     auditFilterForm: document.getElementById("audit-filter-form"),
+    auditFilterDate: document.getElementById("audit-filter-date"),
     auditFilterEntity: document.getElementById("audit-filter-entity"),
     auditFilterAction: document.getElementById("audit-filter-action"),
     auditFilterActor: document.getElementById("audit-filter-actor"),
     auditLoadMore: document.getElementById("audit-load-more"),
+    auditDownloadOpen: document.getElementById("audit-download-open"),
+    auditDownloadDialog: document.getElementById("audit-download-dialog"),
+    auditDownloadForm: document.getElementById("audit-download-form"),
+    auditDownloadDate: document.getElementById("audit-download-date"),
+    auditDownloadActor: document.getElementById("audit-download-actor"),
+    auditDownloadEntity: document.getElementById("audit-download-entity"),
+    auditDownloadAction: document.getElementById("audit-download-action"),
+    auditDownloadCancel: document.getElementById("audit-download-cancel"),
+    auditDownloadSubmit: document.getElementById("audit-download-submit"),
     auditTableBody: document.getElementById("audit-table-body"),
     appTopbar: document.querySelector(".app-topbar"),
   };
@@ -4466,6 +4476,163 @@
     refs.auditLoadMore.textContent = state.auditLoadingMore ? "Loading..." : "Load next 100";
   }
 
+  function normalizeAuditDateValue(rawDate) {
+    const value = `${rawDate || ""}`.trim();
+    if (!value) return "";
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      return value;
+    }
+    return parseDisplayDate(value) || "";
+  }
+
+  function buildAuditServerFilters(inputFilters) {
+    const source = inputFilters || {};
+    const dateIso = normalizeAuditDateValue(source.date);
+    const fromDate = dateIso ? `${dateIso}T00:00:00.000Z` : undefined;
+    const toDate = dateIso ? `${dateIso}T23:59:59.999Z` : undefined;
+    return {
+      entityType: source.entity || undefined,
+      action: source.action || undefined,
+      actorId: source.actor || undefined,
+      fromDate,
+      toDate,
+    };
+  }
+
+  function syncAuditDownloadActorOptions() {
+    if (!refs.auditDownloadActor) return;
+    const selected = refs.auditDownloadActor.value || "";
+    const users = (state.users || [])
+      .map((user) => ({
+        id: `${user?.id || ""}`.trim(),
+        name: `${user?.displayName || user?.display_name || user?.username || ""}`.trim(),
+      }))
+      .filter((item) => item.id && item.name)
+      .sort((a, b) => a.name.localeCompare(b.name));
+    refs.auditDownloadActor.innerHTML = [
+      `<option value="">All</option>`,
+      ...users.map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.name)}</option>`),
+    ].join("");
+    refs.auditDownloadActor.value = users.some((item) => item.id === selected) ? selected : "";
+  }
+
+  function closeAuditDownloadDialog() {
+    if (!refs.auditDownloadDialog) return;
+    refs.auditDownloadDialog.hidden = true;
+    if (refs.auditDownloadSubmit) {
+      refs.auditDownloadSubmit.disabled = false;
+      refs.auditDownloadSubmit.textContent = "Download CSV";
+    }
+  }
+
+  function openAuditDownloadDialog() {
+    if (!isAdmin(state.currentUser) || !refs.auditDownloadDialog) return;
+    syncAuditDownloadActorOptions();
+    if (refs.auditDownloadDate) {
+      refs.auditDownloadDate.value = normalizeAuditDateValue(state.auditFilters?.date || "");
+    }
+    if (refs.auditDownloadActor) {
+      refs.auditDownloadActor.value = state.auditFilters?.actor || "";
+    }
+    if (refs.auditDownloadEntity) {
+      refs.auditDownloadEntity.value = state.auditFilters?.entity || "";
+    }
+    if (refs.auditDownloadAction) {
+      refs.auditDownloadAction.value = state.auditFilters?.action || "";
+    }
+    refs.auditDownloadDialog.hidden = false;
+  }
+
+  async function fetchAllAuditLogs(filters) {
+    const sessionToken = loadSessionToken();
+    const all = [];
+    let offset = 0;
+    const limit = 500;
+    let hasMore = true;
+    while (hasMore) {
+      const payload = await requestJson(MUTATE_API_PATH, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sessionToken || ""}`,
+        },
+        body: JSON.stringify({
+          action: "list_audit_logs",
+          payload: {
+            filters: {
+              ...filters,
+              offset,
+              limit,
+            },
+          },
+        }),
+      });
+      const rows = Array.isArray(payload?.auditLogs) ? payload.auditLogs : [];
+      all.push(...rows);
+      hasMore = Boolean(payload?.hasMore);
+      if (!hasMore || !rows.length) {
+        break;
+      }
+      const nextOffset = Number(payload?.nextOffset);
+      offset = Number.isFinite(nextOffset) ? nextOffset : offset + rows.length;
+      if (all.length > 50000) {
+        break;
+      }
+    }
+    return all;
+  }
+
+  async function downloadAuditLogsCsv(filters) {
+    const logs = await fetchAllAuditLogs(buildAuditServerFilters(filters));
+    if (!logs.length) {
+      feedback("No audit logs match those filters.", true);
+      return;
+    }
+    const rows = [
+      [
+        "Changed at",
+        "Actor",
+        "Target user",
+        "Entity",
+        "Action",
+        "Changed fields",
+        "Client",
+        "Project",
+        "Before",
+        "After",
+      ],
+      ...logs.map((row) => {
+        const changedFields = Array.isArray(row?.changed_fields_json)
+          ? row.changed_fields_json.join(", ")
+          : "";
+        return [
+          row.changed_at || "",
+          row.changed_by_name_snapshot || userNameById(row.changed_by_user_id) || row.changed_by_user_id || "",
+          userNameById(row.target_user_id) || row.target_user_id || "",
+          humanizeEntity(row.entity_type),
+          humanizeAction(row.action),
+          changedFields,
+          clientNameById(row.context_client_id, row.context_project_id),
+          projectNameById(row.context_project_id),
+          JSON.stringify(row.before_json || {}),
+          JSON.stringify(row.after_json || {}),
+        ];
+      }),
+    ];
+    const csv = rows
+      .map((row) => row.map((cell) => `"${String(cell ?? "").replaceAll('"', '""')}"`).join(","))
+      .join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const dateStamp = normalizeAuditDateValue(filters?.date || "") || today;
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `audit-log-${dateStamp}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    feedback(`Downloaded ${logs.length} audit log rows.`, false);
+  }
+
   async function loadAuditLogs(options = {}) {
     if (!isAdmin(state.currentUser)) return;
     const settings = options || {};
@@ -5048,6 +5215,9 @@
       refs.navAuditMobile.hidden = true;
       refs.navAuditMobile.classList.toggle("is-active", false);
       refs.navAuditMobile.setAttribute("aria-current", "false");
+    }
+    if (refs.auditDownloadOpen) {
+      refs.auditDownloadOpen.hidden = !showAudit;
     }
     if (refs.changePasswordOpen) {
       refs.changePasswordOpen.hidden = !state.currentUser || state.currentUser.mustChangePassword;
@@ -6148,6 +6318,36 @@
   refs.auditFilterAction?.addEventListener("change", applyAuditFiltersFromForm);
   refs.auditFilterActor?.addEventListener("change", applyAuditFiltersFromForm);
   refs.auditFilterDate?.addEventListener("change", applyAuditFiltersFromForm);
+  refs.auditDownloadOpen?.addEventListener("click", function () {
+    openAuditDownloadDialog();
+  });
+  refs.auditDownloadCancel?.addEventListener("click", function () {
+    closeAuditDownloadDialog();
+  });
+  refs.auditDownloadDialog?.addEventListener("click", function (event) {
+    if (event.target === refs.auditDownloadDialog) {
+      closeAuditDownloadDialog();
+    }
+  });
+  refs.auditDownloadForm?.addEventListener("submit", async function (event) {
+    event.preventDefault();
+    if (!refs.auditDownloadSubmit) return;
+    refs.auditDownloadSubmit.disabled = true;
+    refs.auditDownloadSubmit.textContent = "Preparing...";
+    try {
+      await downloadAuditLogsCsv({
+        date: refs.auditDownloadDate?.value || "",
+        actor: refs.auditDownloadActor?.value || "",
+        entity: refs.auditDownloadEntity?.value || "",
+        action: refs.auditDownloadAction?.value || "",
+      });
+      closeAuditDownloadDialog();
+    } catch (error) {
+      feedback(error.message || "Unable to download audit logs.", true);
+      refs.auditDownloadSubmit.disabled = false;
+      refs.auditDownloadSubmit.textContent = "Download CSV";
+    }
+  });
   refs.auditLoadMore?.addEventListener("click", function () {
     loadAuditLogs({ append: true });
   });
