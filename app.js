@@ -524,12 +524,6 @@
     auditDownloadForm: document.getElementById("audit-download-form"),
     auditDownloadBeginDate: document.getElementById("audit-download-begin-date"),
     auditDownloadEndDate: document.getElementById("audit-download-end-date"),
-    auditDownloadBeginMonth: document.getElementById("audit-download-begin-month"),
-    auditDownloadBeginDay: document.getElementById("audit-download-begin-day"),
-    auditDownloadBeginYear: document.getElementById("audit-download-begin-year"),
-    auditDownloadEndMonth: document.getElementById("audit-download-end-month"),
-    auditDownloadEndDay: document.getElementById("audit-download-end-day"),
-    auditDownloadEndYear: document.getElementById("audit-download-end-year"),
     auditDownloadActor: document.getElementById("audit-download-actor"),
     auditDownloadEntity: document.getElementById("audit-download-entity"),
     auditDownloadAction: document.getElementById("audit-download-action"),
@@ -4533,65 +4527,28 @@
     }
   }
 
-  function auditDownloadDateRefs(kind) {
-    if (kind === "begin") {
-      return {
-        month: refs.auditDownloadBeginMonth,
-        day: refs.auditDownloadBeginDay,
-        year: refs.auditDownloadBeginYear,
-        input: refs.auditDownloadBeginDate,
-      };
-    }
-    return {
-      month: refs.auditDownloadEndMonth,
-      day: refs.auditDownloadEndDay,
-      year: refs.auditDownloadEndYear,
-      input: refs.auditDownloadEndDate,
-    };
-  }
-
-  function syncAuditDownloadDatePicker(kind, value) {
-    const refsForKind = auditDownloadDateRefs(kind);
+  function syncAuditDownloadDateInput(input, value) {
+    if (!input) return;
     const iso = normalizeAuditDateValue(value);
-    if (refsForKind.input) {
-      refsForKind.input.value = iso;
+    input.dataset.dpCanonical = iso;
+    input.value = iso;
+    if (window.datePicker && typeof window.datePicker.register === "function" && input.dataset.dpBound !== "true") {
+      input.type = "date";
+      window.datePicker.register(input);
     }
-    if (!refsForKind.month || !refsForKind.day || !refsForKind.year) {
-      return;
+    if (input.classList.contains("dp-desktop-date")) {
+      input.value = iso ? formatDisplayDate(iso) : "";
+    } else {
+      input.value = iso;
     }
-    const pickerRefs = {
-      filterFromMonth: refsForKind.month,
-      filterFromDay: refsForKind.day,
-      filterFromYear: refsForKind.year,
-      filterToMonth: null,
-      filterToDay: null,
-      filterToYear: null,
-    };
-    syncFilterDatePicker({ refs: pickerRefs, isValidDateString, escapeHtml }, "from", iso);
-  }
-
-  function updateAuditDownloadDateFromPicker(kind) {
-    const refsForKind = auditDownloadDateRefs(kind);
-    if (!refsForKind.month || !refsForKind.day || !refsForKind.year || !refsForKind.input) {
-      return;
-    }
-    const month = refsForKind.month.value;
-    const day = refsForKind.day.value;
-    const year = refsForKind.year.value;
-    if (!month || !day || !year) {
-      refsForKind.input.value = "";
-      return;
-    }
-    const iso = `${year}-${month}-${day}`;
-    refsForKind.input.value = isValidDateString(iso) ? iso : "";
   }
 
   function openAuditDownloadDialog() {
     if (!isAdmin(state.currentUser) || !refs.auditDownloadDialog) return;
     syncAuditDownloadActorOptions();
     const existingDate = normalizeAuditDateValue(state.auditFilters?.date || "");
-    syncAuditDownloadDatePicker("begin", existingDate);
-    syncAuditDownloadDatePicker("end", existingDate);
+    syncAuditDownloadDateInput(refs.auditDownloadBeginDate, existingDate);
+    syncAuditDownloadDateInput(refs.auditDownloadEndDate, existingDate);
     if (refs.auditDownloadActor) {
       refs.auditDownloadActor.value = state.auditFilters?.actor || "";
     }
@@ -6239,19 +6196,6 @@
     });
   });
 
-  ["begin", "end"].forEach(function (name) {
-    const refsForKind = auditDownloadDateRefs(name);
-    if (!refsForKind.month || !refsForKind.day || !refsForKind.year) {
-      return;
-    }
-
-    [refsForKind.month, refsForKind.day, refsForKind.year].forEach(function (select) {
-      select.addEventListener("change", function () {
-        updateAuditDownloadDateFromPicker(name);
-      });
-    });
-  });
-
   // Mobile: replace wheel filter date selects with native date inputs for easier picking.
   const isTouch = window.matchMedia("(pointer: coarse)").matches;
   if (isTouch) {
@@ -6409,8 +6353,12 @@
   refs.auditDownloadForm?.addEventListener("submit", async function (event) {
     event.preventDefault();
     if (!refs.auditDownloadSubmit) return;
-    const beginDate = normalizeAuditDateValue(refs.auditDownloadBeginDate?.value || "");
-    const endDate = normalizeAuditDateValue(refs.auditDownloadEndDate?.value || "");
+    const beginDate = normalizeAuditDateValue(
+      refs.auditDownloadBeginDate?.dataset?.dpCanonical || refs.auditDownloadBeginDate?.value || ""
+    );
+    const endDate = normalizeAuditDateValue(
+      refs.auditDownloadEndDate?.dataset?.dpCanonical || refs.auditDownloadEndDate?.value || ""
+    );
     if (beginDate && endDate && beginDate > endDate) {
       feedback("Begin date cannot be after End date.", true);
       return;
