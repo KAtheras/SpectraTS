@@ -3841,8 +3841,12 @@ exports.handler = async function handler(event) {
       case "list_audit_logs": {
         const adminError = requireAdmin(context);
         if (adminError) return adminError;
-        const logs = await listAuditLogs(sql, accountId, request.payload?.filters || {});
-        return json(200, { auditLogs: logs });
+        const result = await listAuditLogs(sql, accountId, request.payload?.filters || {});
+        return json(200, {
+          auditLogs: Array.isArray(result?.rows) ? result.rows : [],
+          hasMore: Boolean(result?.hasMore),
+          nextOffset: Number(result?.nextOffset || 0),
+        });
       }
       default:
         return errorResponse(400, "Unknown mutation action.");

@@ -517,6 +517,7 @@
     auditFilterEntity: document.getElementById("audit-filter-entity"),
     auditFilterAction: document.getElementById("audit-filter-action"),
     auditFilterActor: document.getElementById("audit-filter-actor"),
+    auditLoadMore: document.getElementById("audit-load-more"),
     auditTableBody: document.getElementById("audit-table-body"),
     appTopbar: document.querySelector(".app-topbar"),
   };
@@ -1210,13 +1211,16 @@
     inboxSelectedIds: [],
     inboxVisitReadIds: [],
     auditLogs: [],
-  auditFilters: {
-    entity: "",
-    action: "",
-    actor: "",
-    date: "",
-  },
-};
+    auditFilters: {
+      entity: "",
+      action: "",
+      actor: "",
+      date: "",
+    },
+    auditOffset: 0,
+    auditHasMore: false,
+    auditLoadingMore: false,
+  };
 
   // Expose audit dependencies for auditLog.js (no behavior change).
   window.auditLogDeps = {
@@ -1667,6 +1671,9 @@
       projectMembers: [],
     };
     state.auditLogs = [];
+    state.auditOffset = 0;
+    state.auditHasMore = false;
+    state.auditLoadingMore = false;
     state.inboxItems = [];
     state.inboxFilter = "all";
     state.inboxSelectedIds = [];
@@ -1813,6 +1820,7 @@
       entity: "",
       action: "",
       actor: "",
+      date: "",
     };
   }
 
@@ -4450,8 +4458,25 @@
       .reduce((sum, entry) => sum + entry.hours, 0);
   }
 
-  async function loadAuditLogs() {
+  function syncAuditLoadMoreButton() {
+    if (!refs.auditLoadMore) return;
+    const shouldShow = isAdmin(state.currentUser) && state.currentView === "audit" && state.auditHasMore;
+    refs.auditLoadMore.hidden = !shouldShow;
+    refs.auditLoadMore.disabled = !!state.auditLoadingMore;
+    refs.auditLoadMore.textContent = state.auditLoadingMore ? "Loading..." : "Load next 100";
+  }
+
+  async function loadAuditLogs(options = {}) {
     if (!isAdmin(state.currentUser)) return;
+    const settings = options || {};
+    const append = settings.append === true;
+    if (append && state.auditLoadingMore) {
+      return;
+    }
+    if (append) {
+      state.auditLoadingMore = true;
+      syncAuditLoadMoreButton();
+    }
     try {
       const sessionToken = loadSessionToken();
       const payload = await requestJson(MUTATE_API_PATH, {
@@ -4467,14 +4492,29 @@
               entityType: state.auditFilters.entity || undefined,
               action: state.auditFilters.action || undefined,
               actorId: state.auditFilters.actor || undefined,
+              offset: append ? state.auditOffset : 0,
+              limit: 100,
             },
           },
         }),
       });
-      state.auditLogs = Array.isArray(payload?.auditLogs) ? payload.auditLogs : [];
+      const nextRows = Array.isArray(payload?.auditLogs) ? payload.auditLogs : [];
+      state.auditLogs = append
+        ? [...state.auditLogs, ...nextRows.filter((row) => !state.auditLogs.some((item) => item.id === row.id))]
+        : nextRows;
+      state.auditOffset = Number.isFinite(Number(payload?.nextOffset))
+        ? Number(payload.nextOffset)
+        : state.auditLogs.length;
+      state.auditHasMore = Boolean(payload?.hasMore);
       renderAuditTable(filterAuditLogs(state.auditLogs));
+      syncAuditLoadMoreButton();
     } catch (error) {
       feedback("Unable to load audit logs.", true);
+    } finally {
+      if (append) {
+        state.auditLoadingMore = false;
+      }
+      syncAuditLoadMoreButton();
     }
   }
 
@@ -5159,6 +5199,7 @@
         return;
       }
       renderAuditTable(state.auditLogs);
+      syncAuditLoadMoreButton();
       if (!state.auditLogs.length) {
         loadAuditLogs();
       }
@@ -6107,6 +6148,9 @@
   refs.auditFilterAction?.addEventListener("change", applyAuditFiltersFromForm);
   refs.auditFilterActor?.addEventListener("change", applyAuditFiltersFromForm);
   refs.auditFilterDate?.addEventListener("change", applyAuditFiltersFromForm);
+  refs.auditLoadMore?.addEventListener("click", function () {
+    loadAuditLogs({ append: true });
+  });
 
   async function handleExpenseTableAction(actionEl) {
     if (!actionEl) return;

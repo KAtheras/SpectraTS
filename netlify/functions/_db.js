@@ -2999,6 +2999,11 @@ async function listAuditLogs(sql, accountId, filters = {}) {
     clauses.push(sql`changed_at <= ${filters.toDate}`);
   }
 
+  const offset = Number.isFinite(Number(filters.offset)) ? Math.max(0, Number(filters.offset)) : 0;
+  const limit = Number.isFinite(Number(filters.limit))
+    ? Math.max(1, Math.min(500, Number(filters.limit)))
+    : 100;
+
   const where =
     clauses.length > 1
       ? clauses.reduce((acc, clause, idx) => (idx === 0 ? clause : sql`${acc} AND ${clause}`))
@@ -3022,9 +3027,16 @@ async function listAuditLogs(sql, accountId, filters = {}) {
     FROM audit_log
     WHERE ${where}
     ORDER BY changed_at DESC
-    LIMIT 100
+    LIMIT ${limit + 1}
+    OFFSET ${offset}
   `;
-  return rows;
+  const hasMore = rows.length > limit;
+  const pageRows = hasMore ? rows.slice(0, limit) : rows;
+  return {
+    rows: pageRows,
+    hasMore,
+    nextOffset: offset + pageRows.length,
+  };
 }
 
 async function logAudit(
