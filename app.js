@@ -522,7 +522,8 @@
     auditDownloadOpen: document.getElementById("audit-download-open"),
     auditDownloadDialog: document.getElementById("audit-download-dialog"),
     auditDownloadForm: document.getElementById("audit-download-form"),
-    auditDownloadDate: document.getElementById("audit-download-date"),
+    auditDownloadBeginDate: document.getElementById("audit-download-begin-date"),
+    auditDownloadEndDate: document.getElementById("audit-download-end-date"),
     auditDownloadActor: document.getElementById("audit-download-actor"),
     auditDownloadEntity: document.getElementById("audit-download-entity"),
     auditDownloadAction: document.getElementById("audit-download-action"),
@@ -4487,9 +4488,10 @@
 
   function buildAuditServerFilters(inputFilters) {
     const source = inputFilters || {};
-    const dateIso = normalizeAuditDateValue(source.date);
-    const fromDate = dateIso ? `${dateIso}T00:00:00.000Z` : undefined;
-    const toDate = dateIso ? `${dateIso}T23:59:59.999Z` : undefined;
+    const beginIso = normalizeAuditDateValue(source.beginDate || source.date);
+    const endIso = normalizeAuditDateValue(source.endDate || source.date);
+    const fromDate = beginIso ? `${beginIso}T00:00:00.000Z` : undefined;
+    const toDate = endIso ? `${endIso}T23:59:59.999Z` : undefined;
     return {
       entityType: source.entity || undefined,
       action: source.action || undefined,
@@ -4528,8 +4530,12 @@
   function openAuditDownloadDialog() {
     if (!isAdmin(state.currentUser) || !refs.auditDownloadDialog) return;
     syncAuditDownloadActorOptions();
-    if (refs.auditDownloadDate) {
-      refs.auditDownloadDate.value = normalizeAuditDateValue(state.auditFilters?.date || "");
+    const existingDate = normalizeAuditDateValue(state.auditFilters?.date || "");
+    if (refs.auditDownloadBeginDate) {
+      refs.auditDownloadBeginDate.value = existingDate;
+    }
+    if (refs.auditDownloadEndDate) {
+      refs.auditDownloadEndDate.value = existingDate;
     }
     if (refs.auditDownloadActor) {
       refs.auditDownloadActor.value = state.auditFilters?.actor || "";
@@ -4624,7 +4630,10 @@
       .join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
-    const dateStamp = normalizeAuditDateValue(filters?.date || "") || today;
+    const dateStamp =
+      normalizeAuditDateValue(filters?.beginDate || "") ||
+      normalizeAuditDateValue(filters?.endDate || "") ||
+      today;
     const link = document.createElement("a");
     link.href = url;
     link.download = `audit-log-${dateStamp}.csv`;
@@ -6332,11 +6341,18 @@
   refs.auditDownloadForm?.addEventListener("submit", async function (event) {
     event.preventDefault();
     if (!refs.auditDownloadSubmit) return;
+    const beginDate = normalizeAuditDateValue(refs.auditDownloadBeginDate?.value || "");
+    const endDate = normalizeAuditDateValue(refs.auditDownloadEndDate?.value || "");
+    if (beginDate && endDate && beginDate > endDate) {
+      feedback("Begin date cannot be after End date.", true);
+      return;
+    }
     refs.auditDownloadSubmit.disabled = true;
     refs.auditDownloadSubmit.textContent = "Preparing...";
     try {
       await downloadAuditLogsCsv({
-        date: refs.auditDownloadDate?.value || "",
+        beginDate,
+        endDate,
         actor: refs.auditDownloadActor?.value || "",
         entity: refs.auditDownloadEntity?.value || "",
         action: refs.auditDownloadAction?.value || "",
