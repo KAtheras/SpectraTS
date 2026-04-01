@@ -3374,7 +3374,7 @@ body[data-theme="dark"] .audit-detail-col {
 @media (pointer: fine) and (hover: hover) {
   .dp-popover {
     position: absolute;
-    z-index: 120;
+    z-index: 260;
     display: none;
     background: var(--panel);
     border: 1px solid color-mix(in srgb, var(--panel-border) 75%, var(--line) 25%);
