@@ -524,6 +524,12 @@
     auditDownloadForm: document.getElementById("audit-download-form"),
     auditDownloadBeginDate: document.getElementById("audit-download-begin-date"),
     auditDownloadEndDate: document.getElementById("audit-download-end-date"),
+    auditDownloadBeginMonth: document.getElementById("audit-download-begin-month"),
+    auditDownloadBeginDay: document.getElementById("audit-download-begin-day"),
+    auditDownloadBeginYear: document.getElementById("audit-download-begin-year"),
+    auditDownloadEndMonth: document.getElementById("audit-download-end-month"),
+    auditDownloadEndDay: document.getElementById("audit-download-end-day"),
+    auditDownloadEndYear: document.getElementById("audit-download-end-year"),
     auditDownloadActor: document.getElementById("audit-download-actor"),
     auditDownloadEntity: document.getElementById("audit-download-entity"),
     auditDownloadAction: document.getElementById("audit-download-action"),
@@ -4527,16 +4533,65 @@
     }
   }
 
+  function auditDownloadDateRefs(kind) {
+    if (kind === "begin") {
+      return {
+        month: refs.auditDownloadBeginMonth,
+        day: refs.auditDownloadBeginDay,
+        year: refs.auditDownloadBeginYear,
+        input: refs.auditDownloadBeginDate,
+      };
+    }
+    return {
+      month: refs.auditDownloadEndMonth,
+      day: refs.auditDownloadEndDay,
+      year: refs.auditDownloadEndYear,
+      input: refs.auditDownloadEndDate,
+    };
+  }
+
+  function syncAuditDownloadDatePicker(kind, value) {
+    const refsForKind = auditDownloadDateRefs(kind);
+    const iso = normalizeAuditDateValue(value);
+    if (refsForKind.input) {
+      refsForKind.input.value = iso;
+    }
+    if (!refsForKind.month || !refsForKind.day || !refsForKind.year) {
+      return;
+    }
+    const pickerRefs = {
+      filterFromMonth: refsForKind.month,
+      filterFromDay: refsForKind.day,
+      filterFromYear: refsForKind.year,
+      filterToMonth: null,
+      filterToDay: null,
+      filterToYear: null,
+    };
+    syncFilterDatePicker({ refs: pickerRefs, isValidDateString, escapeHtml }, "from", iso);
+  }
+
+  function updateAuditDownloadDateFromPicker(kind) {
+    const refsForKind = auditDownloadDateRefs(kind);
+    if (!refsForKind.month || !refsForKind.day || !refsForKind.year || !refsForKind.input) {
+      return;
+    }
+    const month = refsForKind.month.value;
+    const day = refsForKind.day.value;
+    const year = refsForKind.year.value;
+    if (!month || !day || !year) {
+      refsForKind.input.value = "";
+      return;
+    }
+    const iso = `${year}-${month}-${day}`;
+    refsForKind.input.value = isValidDateString(iso) ? iso : "";
+  }
+
   function openAuditDownloadDialog() {
     if (!isAdmin(state.currentUser) || !refs.auditDownloadDialog) return;
     syncAuditDownloadActorOptions();
     const existingDate = normalizeAuditDateValue(state.auditFilters?.date || "");
-    if (refs.auditDownloadBeginDate) {
-      refs.auditDownloadBeginDate.value = existingDate;
-    }
-    if (refs.auditDownloadEndDate) {
-      refs.auditDownloadEndDate.value = existingDate;
-    }
+    syncAuditDownloadDatePicker("begin", existingDate);
+    syncAuditDownloadDatePicker("end", existingDate);
     if (refs.auditDownloadActor) {
       refs.auditDownloadActor.value = state.auditFilters?.actor || "";
     }
@@ -6180,6 +6235,19 @@
     [refsForKind.month, refsForKind.day, refsForKind.year].forEach(function (select) {
       select.addEventListener("change", function () {
         updateExpenseFilterDateFromPicker(name);
+      });
+    });
+  });
+
+  ["begin", "end"].forEach(function (name) {
+    const refsForKind = auditDownloadDateRefs(name);
+    if (!refsForKind.month || !refsForKind.day || !refsForKind.year) {
+      return;
+    }
+
+    [refsForKind.month, refsForKind.day, refsForKind.year].forEach(function (select) {
+      select.addEventListener("change", function () {
+        updateAuditDownloadDateFromPicker(name);
       });
     });
   });

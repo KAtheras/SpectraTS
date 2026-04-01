@@ -13,7 +13,7 @@
     />
     <meta name="theme-color" content="#1f3b63" />
     <link rel="manifest" href="/manifest.json" />
-    <link rel="stylesheet" href="./styles.css?v=d9d6515-20260329183931" />
+    <link rel="stylesheet" href="./styles.css?v=8ff6dd0-20260401033429" />
   </head>
   <body>
     <div class="auth-shell" id="auth-shell" hidden>
@@ -698,11 +698,21 @@
           <form id="audit-download-form" class="project-dialog-form">
             <label class="project-dialog-field">
               <span>Begin date</span>
-              <input id="audit-download-begin-date" name="beginDate" type="date" />
+              <input id="audit-download-begin-date" name="beginDate" type="text" hidden />
+              <div class="wheel-date-picker wheel-date-picker--compact" data-audit-download-date="begin">
+                <select id="audit-download-begin-month" aria-label="Begin month"></select>
+                <select id="audit-download-begin-day" aria-label="Begin day"></select>
+                <select id="audit-download-begin-year" aria-label="Begin year"></select>
+              </div>
             </label>
             <label class="project-dialog-field">
               <span>End date</span>
-              <input id="audit-download-end-date" name="endDate" type="date" />
+              <input id="audit-download-end-date" name="endDate" type="text" hidden />
+              <div class="wheel-date-picker wheel-date-picker--compact" data-audit-download-date="end">
+                <select id="audit-download-end-month" aria-label="End month"></select>
+                <select id="audit-download-end-day" aria-label="End day"></select>
+                <select id="audit-download-end-year" aria-label="End year"></select>
+              </div>
             </label>
             <label class="project-dialog-field">
               <span>Actor</span>
@@ -920,6 +930,6 @@
     <script src="./timeEntries.js?v=1" defer></script>
     <script src="./catalogEditor.js?v=1" defer></script>
     <script src="./settingsAdmin.js?v=20260322-01" defer></script>
-    <script src="./app.js?v=20260330142500" defer></script>
+    <script src="./app.js?v=8ff6dd0-20260401033429" defer></script>
   </body>
 </html>

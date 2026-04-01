@@ -2249,6 +2249,10 @@ textarea {
   margin-left: auto;
 }
 
+#audit-page #audit-download-open {
+  align-self: flex-end;
+}
+
 .audit-filters label {
   display: flex;
   flex-direction: column;
