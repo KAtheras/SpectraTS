@@ -1248,6 +1248,7 @@
             {
               entry: {
                 id: (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`),
+                userId: row._resolvedUserId || "",
                 user: row._resolvedUserName || `${row.member || ""}`.trim(),
                 date: row.date || "",
                 client: row._resolvedClientName || `${row.client || ""}`.trim(),

@@ -2462,13 +2462,17 @@ async function saveEntry(sql, payload, currentUser, accountId) {
     return actingContext.error;
   }
   const canActOnBehalf = actingContext.isDelegated;
+  const payloadEntry = payload.entry || {};
+  const requestedUserId = normalizeText(payloadEntry.userId);
+  const requestedUserName = normalizeText(payloadEntry.user);
+  const actingOwnerName =
+    normalizeText(actingContext.ownerUser?.display_name) ||
+    normalizeText(actingContext.ownerUser?.displayName);
   const entry = {
-    ...(payload.entry || {}),
-    user:
-      normalizeText(actingContext.ownerUser?.display_name) ||
-      normalizeText(actingContext.ownerUser?.displayName) ||
-      normalizeText(payload?.entry?.user) ||
-      normalizeText(currentUser?.displayName),
+    ...payloadEntry,
+    user: canActOnBehalf
+      ? actingOwnerName || normalizeText(currentUser?.displayName)
+      : requestedUserName || actingOwnerName || normalizeText(currentUser?.displayName),
   };
   const validationError = validateEntry(entry, currentUser);
   if (validationError) {
@@ -2480,10 +2484,18 @@ async function saveEntry(sql, payload, currentUser, accountId) {
     return errorResponse(404, "Project not found.");
   }
 
-  const targetUser = await findUserByDisplayName(sql, entry.user, accountId);
+  const targetUser = canActOnBehalf
+    ? actingContext.ownerUser
+    : requestedUserId
+      ? await findUserById(sql, requestedUserId, accountId)
+      : await findUserByDisplayName(sql, entry.user, accountId);
   if (!targetUser) {
     return errorResponse(404, "Team member not found.");
   }
+  entry.user =
+    normalizeText(targetUser.display_name) ||
+    normalizeText(targetUser.displayName) ||
+    normalizeText(entry.user);
   const targetGroup = permissionGroupForUser(targetUser.level);
 
   if (isAdmin(currentUser)) {
