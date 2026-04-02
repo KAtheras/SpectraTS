@@ -819,6 +819,7 @@
     let previewKind = "";
     let latestPreviewPayload = null;
     let latestRejectedRows = [];
+    let latestRejectedKind = "";
     let latestImportSummary = null;
 
     const formatRowCount = function (count, singular, plural) {
@@ -865,6 +866,19 @@
           openExpensesBtn.disabled = false;
           openExpensesBtn.dataset.mode = "upload-another-time";
           openExpensesBtn.hidden = false;
+        } else if (previewKind === "expenses") {
+          const rows = Array.isArray(latestPreviewPayload?.objects) ? latestPreviewPayload.objects : [];
+          const validCount = rows.filter((row) => row.status === "Valid").length;
+          openExpensesBtn.textContent = "Import Valid Expense Rows";
+          openExpensesBtn.classList.remove("button-ghost");
+          openExpensesBtn.disabled = validCount === 0;
+          openExpensesBtn.dataset.mode = "import-expenses";
+          openExpensesBtn.hidden = false;
+          openTimeBtn.textContent = "Upload Another Expense File";
+          openTimeBtn.classList.add("button-ghost");
+          openTimeBtn.disabled = false;
+          openTimeBtn.dataset.mode = "upload-another-expenses";
+          openTimeBtn.hidden = false;
         } else {
           openExpensesBtn.textContent = "Upload Expenses";
           openExpensesBtn.classList.remove("button-ghost");
@@ -1027,7 +1041,7 @@
           if (header === "billable") {
             const normalizedBillable = normalizeBillableValue(raw);
             const rawText = `${raw ?? ""}`.trim();
-            const isInvalidBillable = kind === "time" && rawText !== "" && normalizedBillable === "";
+            const isInvalidBillable = (kind === "time" || kind === "expenses") && rawText !== "" && normalizedBillable === "";
             if (isInvalidBillable) {
               rowStatus = "Invalid";
               rowErrors.push(`Invalid billable value: ${rawText}`);
@@ -1042,9 +1056,14 @@
             item[header] = Number.isFinite(amount) ? amount : "";
             return;
           }
+          if (header === "amount") {
+            const amount = Number(raw);
+            item[header] = Number.isFinite(amount) ? amount : "";
+            return;
+          }
           item[header] = `${raw ?? ""}`.trim();
         });
-        if (kind === "time") {
+        if (kind === "time" || kind === "expenses") {
           const memberName = `${item.member || ""}`.trim().toLowerCase();
           const clientName = `${item.client || ""}`.trim().toLowerCase();
           const projectName = `${item.project || ""}`.trim().toLowerCase();
@@ -1118,7 +1137,8 @@
     const renderPreviewTable = function (headers, objects, kind) {
       if (!preview || !selectedFileLabel || !previewTableWrap) return;
       const rows = (Array.isArray(objects) ? objects : []).slice(0, 25);
-      const previewHeaders = kind === "time" ? [...headers, "status", "error"] : headers;
+      const previewHeaders =
+        kind === "time" || kind === "expenses" ? [...headers, "status", "error"] : headers;
       if (!previewHeaders.length) {
         previewTableWrap.innerHTML = `<div class="empty-state-panel">Preview coming next</div>`;
         return;
@@ -1141,6 +1161,10 @@
           return "";
         }
         if (header === "hours") {
+          if (typeof value === "number" && Number.isFinite(value)) return `${value}`;
+          return "";
+        }
+        if (header === "amount") {
           if (typeof value === "number" && Number.isFinite(value)) return `${value}`;
           return "";
         }
@@ -1223,38 +1247,55 @@
       return text;
     };
 
-    const downloadTimeRejectsCsv = function (rows) {
+    const downloadRejectsCsv = function (rows, kind) {
       const rejectRows = Array.isArray(rows) ? rows : [];
       if (!rejectRows.length) return;
-      const columns = ["member", "client", "project", "date", "hours", "billable", "notes", "error"];
+      const columns =
+        kind === "expenses"
+          ? ["member", "client", "project", "category", "date", "amount", "billable", "notes", "error"]
+          : ["member", "client", "project", "date", "hours", "billable", "notes", "error"];
       const lines = [columns.join(",")];
       rejectRows.forEach((row) => {
         const raw = row?._raw || {};
-        const values = [
-          raw.member ?? row.member ?? "",
-          raw.client ?? row.client ?? "",
-          raw.project ?? row.project ?? "",
-          raw.date ?? row.date ?? "",
-          raw.hours ?? row.hours ?? "",
-          raw.billable ?? row.billable ?? "",
-          raw.notes ?? row.notes ?? "",
-          row.error ?? "",
-        ];
+        const values =
+          kind === "expenses"
+            ? [
+                raw.member ?? row.member ?? "",
+                raw.client ?? row.client ?? "",
+                raw.project ?? row.project ?? "",
+                raw.category ?? row.category ?? "",
+                raw.date ?? row.date ?? "",
+                raw.amount ?? row.amount ?? "",
+                raw.billable ?? row.billable ?? "",
+                raw.notes ?? row.notes ?? "",
+                row.error ?? "",
+              ]
+            : [
+                raw.member ?? row.member ?? "",
+                raw.client ?? row.client ?? "",
+                raw.project ?? row.project ?? "",
+                raw.date ?? row.date ?? "",
+                raw.hours ?? row.hours ?? "",
+                raw.billable ?? row.billable ?? "",
+                raw.notes ?? row.notes ?? "",
+                row.error ?? "",
+              ];
         lines.push(values.map(toCsvCell).join(","));
       });
       const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement("a");
       anchor.href = url;
-      anchor.download = "time-upload-rejects.csv";
+      anchor.download = kind === "expenses" ? "expense-upload-rejects.csv" : "time-upload-rejects.csv";
       document.body.appendChild(anchor);
       anchor.click();
       document.body.removeChild(anchor);
       URL.revokeObjectURL(url);
     };
 
-    const setRejectedRows = function (rows) {
+    const setRejectedRows = function (rows, kind = "") {
       latestRejectedRows = Array.isArray(rows) ? rows : [];
+      latestRejectedKind = kind || latestRejectedKind || "";
       updateBulkUploadUiState();
     };
 
@@ -1314,9 +1355,9 @@
         timeInput.value = "";
       }
       if (invalidCount > 0) {
-        setRejectedRows(rejectedRows);
+        setRejectedRows(rejectedRows, "time");
       } else {
-        setRejectedRows([]);
+        setRejectedRows([], "time");
       }
       latestImportSummary = {
         successCount: importedCount,
@@ -1336,13 +1377,87 @@
       updateBulkUploadUiState();
     };
 
+    const importValidExpenseRows = async function () {
+      const objects = Array.isArray(latestPreviewPayload?.objects) ? latestPreviewPayload.objects : [];
+      const validRows = objects.filter((row) => row.status === "Valid");
+      if (!validRows.length) return;
+      const rejectedRows = objects.filter((row) => row.status !== "Valid");
+      let importedCount = 0;
+      let failedCount = 0;
+      if (openExpensesBtn) openExpensesBtn.disabled = true;
+
+      for (const row of validRows) {
+        try {
+          await deps().mutatePersistentState(
+            "create_expense",
+            {
+              source: "bulk_upload",
+              expense: {
+                id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
+                userId: row._resolvedUserId || "",
+                clientName: row._resolvedClientName || `${row.client || ""}`.trim(),
+                projectName: row._resolvedProjectName || `${row.project || ""}`.trim(),
+                expenseDate: row.date || "",
+                category: `${row.category || ""}`.trim(),
+                amount: Number.isFinite(Number(row.amount)) ? Number(row.amount) : 0,
+                isBillable: row.billable === false ? false : true,
+                notes: `${row.notes || ""}`.trim(),
+              },
+            },
+            { skipHydrate: true }
+          );
+          importedCount += 1;
+        } catch (error) {
+          failedCount += 1;
+          row.status = "Invalid";
+          row.error = error?.message || "Unable to import row.";
+          rejectedRows.push(row);
+        }
+      }
+
+      const invalidCount = rejectedRows.length;
+      if (preview) {
+        preview.hidden = true;
+      }
+      if (previewTableWrap) {
+        previewTableWrap.innerHTML = `<div class="empty-state-panel">Preview coming next</div>`;
+      }
+      if (selectedFileLabel) {
+        selectedFileLabel.textContent = "";
+      }
+      if (expensesInput) {
+        expensesInput.value = "";
+      }
+      if (invalidCount > 0) {
+        setRejectedRows(rejectedRows, "expenses");
+      } else {
+        setRejectedRows([], "expenses");
+      }
+      latestImportSummary = {
+        successCount: importedCount,
+        rejectedCount: invalidCount,
+      };
+      latestPreviewPayload = null;
+      previewKind = "";
+      const baseMessage = `Imported ${importedCount} valid rows. ${invalidCount} invalid rows were not imported.`;
+      deps().feedback(
+        failedCount > 0 ? `${baseMessage} ${failedCount} row(s) failed during import.` : baseMessage,
+        failedCount > 0
+      );
+      if (typeof deps().loadPersistentState === "function") {
+        await deps().loadPersistentState();
+      }
+      if (openExpensesBtn) openExpensesBtn.disabled = false;
+      updateBulkUploadUiState();
+    };
+
     const handleFileSelect = async function (file, kind) {
       if (!file || !preview || !selectedFileLabel) return;
       showError("");
       previewKind = kind;
       latestPreviewPayload = null;
       latestImportSummary = null;
-      setRejectedRows([]);
+      setRejectedRows([], kind);
       selectedFileLabel.textContent = `Selected file: ${file.name || ""}`;
       preview.hidden = false;
       updateBulkUploadUiState();
@@ -1350,7 +1465,9 @@
         const parsed = await parseFile(file, kind);
         latestPreviewPayload = parsed;
         if (kind === "time") {
-          setRejectedRows(parsed.objects.filter((row) => row.status !== "Valid"));
+          setRejectedRows(parsed.objects.filter((row) => row.status !== "Valid"), "time");
+        } else if (kind === "expenses") {
+          setRejectedRows(parsed.objects.filter((row) => row.status !== "Valid"), "expenses");
         } else {
           setRejectedRows([]);
         }
@@ -1363,7 +1480,7 @@
         preview.hidden = true;
         previewKind = "";
         latestPreviewPayload = null;
-        setRejectedRows([]);
+        setRejectedRows([], kind);
         updateBulkUploadUiState();
         showError(
           error?.message === "INVALID_TEMPLATE"
@@ -1383,12 +1500,24 @@
         });
         return;
       }
+      if (mode === "upload-another-expenses") {
+        expensesInput?.click();
+        return;
+      }
       timeInput?.click();
     });
     openExpensesBtn?.addEventListener("click", function () {
       const mode = openExpensesBtn.dataset.mode || "upload-expenses";
       if (mode === "upload-another-time") {
         timeInput?.click();
+        return;
+      }
+      if (mode === "import-expenses") {
+        importValidExpenseRows().catch((error) => {
+          deps().feedback(error?.message || "Unable to import expense rows.", true);
+          if (openExpensesBtn) openExpensesBtn.disabled = false;
+          updateBulkUploadUiState();
+        });
         return;
       }
       expensesInput?.click();
@@ -1407,7 +1536,7 @@
     });
     downloadRejectsBtn?.addEventListener("click", function () {
       if (!latestRejectedRows.length) return;
-      downloadTimeRejectsCsv(latestRejectedRows);
+      downloadRejectsCsv(latestRejectedRows, latestRejectedKind || previewKind || "time");
     });
     updateBulkUploadUiState();
   }

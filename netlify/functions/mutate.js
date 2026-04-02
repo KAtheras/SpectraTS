@@ -1779,9 +1779,13 @@ async function createExpense(sql, payload, currentUser, accountId) {
     return actingContext.error;
   }
   const canActOnBehalf = actingContext.isDelegated;
+  const payloadExpense = payload.expense || {};
+  const requestedUserId = normalizeText(payloadExpense.userId || payloadExpense.user_id);
   const expense = {
-    ...(payload.expense || {}),
-    userId: actingContext.ownerUser?.id || currentUser.id,
+    ...payloadExpense,
+    userId: canActOnBehalf
+      ? actingContext.ownerUser?.id || currentUser.id
+      : requestedUserId || actingContext.ownerUser?.id || currentUser.id,
   };
   const validationError = validateExpense(expense);
   if (validationError) {
