@@ -3772,6 +3772,7 @@ body[data-theme="dark"] .entry-approved td {
   .catalog-grid {
     grid-template-columns: 1fr;
   }
+}
 
 .panel-head-actions {
   align-items: stretch;

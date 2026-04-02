@@ -2083,6 +2083,10 @@
       projectMembersForUser,
       escapeHtml,
       disabledButtonAttrs,
+      isMobileDrilldown,
+      mobileMembersView,
+      onMobileMemberSelected,
+      onMobileMembersBack,
     } = deps();
     usersRenderUsersList?.({
       refs,
@@ -2097,6 +2101,10 @@
       projectMembersForUser,
       escapeHtml,
       disabledButtonAttrs,
+      isMobileDrilldown,
+      mobileView: mobileMembersView,
+      onUserSelected: onMobileMemberSelected,
+      onBackToList: onMobileMembersBack,
     });
   }
 

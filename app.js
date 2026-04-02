@@ -1212,6 +1212,8 @@
       projectMembers: [],
     },
     currentView: "inputs", // "inputs" | "entries" | "inbox" | "clients" | "members" | "analytics" | "settings" | "audit"
+    mobileClientsView: "list", // "list" | "detail"
+    mobileMembersView: "list", // "list" | "detail"
     inputSubtab: "time", // "time" | "expenses"
     inputsTimeCalendarExpanded: false,
     inputsTimeCalendarEndDate: today,
@@ -2121,12 +2123,80 @@
     if (previousView === "inbox" && view !== "inbox") {
       commitInboxVisitRead();
     }
+    if (previousView !== "clients" && view === "clients") {
+      state.mobileClientsView = "list";
+    }
+    if (previousView !== "members" && view === "members") {
+      state.mobileMembersView = "list";
+    }
     state.currentView = view;
     persistCurrentView(view);
     if (view === "settings" && previousView !== "settings") {
       loadSettingsMetadata();
     }
     render();
+  }
+
+  function isMobileDrilldownViewport() {
+    return window.innerWidth <= 768;
+  }
+
+  function syncClientsMobileDrilldownState() {
+    if (!refs.clientsPage) return;
+    const enabled = isMobileDrilldownViewport();
+    if (!enabled) {
+      refs.clientsPage.removeAttribute("data-mobile-drilldown");
+      refs.clientsPage.removeAttribute("data-mobile-view");
+      const staleBack = refs.clientsPage.querySelector("[data-action='clients-mobile-back']");
+      staleBack?.closest(".mobile-drilldown-back-wrap")?.remove();
+      return;
+    }
+
+    const nextView = state.mobileClientsView === "detail" ? "detail" : "list";
+    refs.clientsPage.dataset.mobileDrilldown = "true";
+    refs.clientsPage.dataset.mobileView = nextView;
+
+    const projectsColumn = refs.projectList?.closest(".catalog-column");
+    if (!projectsColumn) return;
+    const existingWrap = projectsColumn.querySelector(".mobile-drilldown-back-wrap");
+    if (nextView === "detail") {
+      if (!existingWrap) {
+        const wrap = document.createElement("div");
+        wrap.className = "mobile-drilldown-back-wrap";
+        wrap.innerHTML = `<button type="button" class="button button-ghost mobile-drilldown-back" data-action="clients-mobile-back">Back</button>`;
+        projectsColumn.insertBefore(wrap, projectsColumn.firstChild);
+      }
+    } else {
+      existingWrap?.remove();
+    }
+  }
+
+  function syncMembersMobileDrilldownState() {
+    if (!refs.usersPage) return;
+    const enabled = isMobileDrilldownViewport();
+    if (!enabled) {
+      refs.usersPage.removeAttribute("data-mobile-drilldown");
+      refs.usersPage.removeAttribute("data-mobile-view");
+      return;
+    }
+    refs.usersPage.dataset.mobileDrilldown = "true";
+    refs.usersPage.dataset.mobileView = state.mobileMembersView === "detail" ? "detail" : "list";
+    if (window.settingsAdminDeps) {
+      window.settingsAdminDeps.mobileMembersView = state.mobileMembersView;
+    }
+  }
+
+  function onMobileMemberSelected() {
+    if (!isMobileDrilldownViewport()) return;
+    state.mobileMembersView = "detail";
+    syncMembersMobileDrilldownState();
+  }
+
+  function onMobileMembersBack() {
+    state.mobileMembersView = "list";
+    syncMembersMobileDrilldownState();
+    renderUsersList();
+    postHeight();
   }
 
   function openUsersModal() {
@@ -5638,6 +5708,7 @@
         field,
         ensureCatalogSelection,
       });
+      syncClientsMobileDrilldownState();
       postHeight();
       return;
     }
@@ -5646,6 +5717,7 @@
       syncAddUserOfficeOptions();
       renderUsersList();
       syncUserManagementControls();
+      syncMembersMobileDrilldownState();
       postHeight();
       return;
     }
@@ -7653,8 +7725,22 @@
 
     state.selectedCatalogClient = button.dataset.client;
     renderCatalogAside();
+    if (isMobileDrilldownViewport()) {
+      state.mobileClientsView = "detail";
+      syncClientsMobileDrilldownState();
+    }
     postHeight();
   });
+
+  if (refs.clientsPage) {
+    refs.clientsPage.addEventListener("click", function (event) {
+      const backButton = event.target.closest("[data-action='clients-mobile-back']");
+      if (!backButton) return;
+      state.mobileClientsView = "list";
+      syncClientsMobileDrilldownState();
+      postHeight();
+    });
+  }
 
   refs.clientList.addEventListener("keydown", function (event) {
     const row = event.target.closest("[data-client]");
@@ -8340,6 +8426,10 @@
     permissionGroupForUser,
     DEFAULT_LEVEL_DEFS,
     usersSyncUserManagementControls,
+    isMobileDrilldown: isMobileDrilldownViewport,
+    mobileMembersView: state.mobileMembersView,
+    onMobileMemberSelected,
+    onMobileMembersBack,
     field,
     membersRenderMembersModal,
     memberModalState,

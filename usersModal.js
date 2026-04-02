@@ -46,6 +46,10 @@
       projectMembersForUser,
       escapeHtml,
       disabledButtonAttrs,
+      isMobileDrilldown,
+      mobileView,
+      onUserSelected,
+      onBackToList,
     } = deps;
 
     if (!refs.userList) {
@@ -199,7 +203,10 @@
     const assignments = assignmentSummary(selectedUser);
     const departmentName = departmentNameFor(selectedUser.departmentId);
     const officeName = officeNameFor(selectedUser.officeId);
+    const mobileDrilldownEnabled = typeof isMobileDrilldown === "function" ? isMobileDrilldown() : false;
+    const mobileDetailView = mobileDrilldownEnabled && mobileView === "detail";
     const detailHtml = `
+      ${mobileDetailView ? `<div class="mobile-drilldown-back-wrap"><button type="button" class="button button-ghost mobile-drilldown-back" data-action="members-mobile-back">Back</button></div>` : ""}
       <div class="user-detail-card">
         <h4>${escapeHtml(selectedUser.displayName)}</h4>
         <div class="detail-top-divider"></div>
@@ -294,10 +301,21 @@
       item.addEventListener("click", function (event) {
         const id = item.dataset.userId;
         if (!id) return;
+        if (typeof onUserSelected === "function") {
+          onUserSelected(id);
+        }
         selectedUserId = id;
         renderUsersList(deps);
       });
     });
+
+    refs.userList
+      .querySelector("[data-action='members-mobile-back']")
+      ?.addEventListener("click", function () {
+        if (typeof onBackToList === "function") {
+          onBackToList();
+        }
+      });
   }
 
   function syncUserManagementControls(deps) {
