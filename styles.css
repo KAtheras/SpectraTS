@@ -4328,8 +4328,63 @@ body[data-theme="dark"] .entry-approved td {
     gap: 14px;
   }
 
+  #settings-page .settings-rates-cards .member-info-card.member-info-card--enhanced .member-info-identity {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-areas:
+      "name name"
+      "user employee";
+    gap: 8px 12px;
+  }
+
+  #settings-page .settings-rates-cards .member-info-card.member-info-card--enhanced .member-info-name {
+    grid-area: name;
+  }
+
+  #settings-page .settings-rates-cards .member-info-card.member-info-card--enhanced .member-info-identity .member-info-item-inline:nth-of-type(1) {
+    grid-area: user;
+  }
+
+  #settings-page .settings-rates-cards .member-info-card.member-info-card--enhanced .member-info-identity .member-info-item-inline:nth-of-type(2) {
+    grid-area: employee;
+  }
+
   #settings-page .settings-rates-cards .member-info-card.member-info-card--enhanced .member-info-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-areas:
+      "department office"
+      "base cost"
+      "email email";
+    gap: 10px 12px;
+  }
+
+  #settings-page .settings-rates-cards .member-info-card.member-info-card--enhanced .member-info-grid .member-info-item:nth-child(1) {
+    display: none;
+  }
+
+  #settings-page .settings-rates-cards .member-info-card.member-info-card--enhanced .member-info-grid .member-info-item:nth-child(2) {
+    grid-area: department;
+  }
+
+  #settings-page .settings-rates-cards .member-info-card.member-info-card--enhanced .member-info-grid .member-info-item:nth-child(3) {
+    grid-area: office;
+  }
+
+  #settings-page .settings-rates-cards .member-info-card.member-info-card--enhanced .member-info-grid .member-info-item:nth-child(4) {
+    grid-area: email;
+  }
+
+  #settings-page .settings-rates-cards .member-info-card.member-info-card--enhanced .member-info-grid .member-info-item:nth-child(5) {
+    grid-area: base;
+  }
+
+  #settings-page .settings-rates-cards .member-info-card.member-info-card--enhanced .member-info-grid .member-info-item:nth-child(6) {
+    grid-area: cost;
+  }
+
+  #settings-page .settings-rates-cards .member-info-card.member-info-card--enhanced .member-info-grid .member-info-item:nth-child(4) .member-info-field-value {
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 
   #settings-page .settings-rates-cards .member-info-card.member-info-card--enhanced .member-info-action.member-info-action-enhanced {
