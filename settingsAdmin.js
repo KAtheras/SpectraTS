@@ -354,9 +354,12 @@
           #settings-page [data-settings-tab="bulk_upload"] .settings-section-left h3,
           #settings-page [data-settings-tab="delegations"] .settings-section-left h3,
           #settings-page [data-settings-tab="permissions"] .settings-section-left h3{
+            margin:0;
             text-transform:uppercase;
-            letter-spacing:.06em;
+            letter-spacing:.04em;
             font-family:var(--font-head);
+            font-size:.9rem;
+            color:var(--muted);
           }
           #settings-page .settings-section-right{
             display:flex;

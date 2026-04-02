@@ -1507,7 +1507,7 @@ input[name="cost_rate"] {
 
 .level-labels-form {
   margin-top: 18px;
-  border-top: 1px solid var(--group-border);
+  border-top: none;
 }
 
 .settings-tabs {
