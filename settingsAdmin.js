@@ -777,12 +777,43 @@
       <div class="settings-section-content">
         <p>Upload time or expense data using a template.</p>
         <div class="panel-head-actions">
-          <button type="button" class="button" disabled>Upload Time</button>
-          <button type="button" class="button" disabled>Upload Expenses</button>
+          <button type="button" class="button" id="bulk-upload-time-open">Upload Time</button>
+          <button type="button" class="button" id="bulk-upload-expenses-open">Upload Expenses</button>
+        </div>
+        <input type="file" id="bulk-upload-time-file" accept=".csv,.xlsx" hidden />
+        <input type="file" id="bulk-upload-expenses-file" accept=".csv,.xlsx" hidden />
+        <div id="bulk-upload-preview" hidden>
+          <p id="bulk-upload-selected-file"></p>
+          <div class="empty-state-panel">Preview coming next</div>
         </div>
         <p class="feedback">Templates and import tools coming next.</p>
       </div>
     `;
+
+    const openTimeBtn = panel.querySelector("#bulk-upload-time-open");
+    const openExpensesBtn = panel.querySelector("#bulk-upload-expenses-open");
+    const timeInput = panel.querySelector("#bulk-upload-time-file");
+    const expensesInput = panel.querySelector("#bulk-upload-expenses-file");
+    const preview = panel.querySelector("#bulk-upload-preview");
+    const selectedFileLabel = panel.querySelector("#bulk-upload-selected-file");
+    const showSelectedFile = function (file) {
+      if (!file || !preview || !selectedFileLabel) return;
+      selectedFileLabel.textContent = `Selected file: ${file.name || ""}`;
+      preview.hidden = false;
+    };
+
+    openTimeBtn?.addEventListener("click", function () {
+      timeInput?.click();
+    });
+    openExpensesBtn?.addEventListener("click", function () {
+      expensesInput?.click();
+    });
+    timeInput?.addEventListener("change", function () {
+      showSelectedFile(timeInput.files?.[0]);
+    });
+    expensesInput?.addEventListener("change", function () {
+      showSelectedFile(expensesInput.files?.[0]);
+    });
   }
 
   function renderDelegationsTab() {
