@@ -3779,6 +3779,24 @@ body[data-theme="dark"] .entry-approved td {
 }
 
 @media (max-width: 768px) {
+  .page-view.clients-page,
+  .page-view.members-page {
+    padding-left: 6px;
+    padding-right: 6px;
+  }
+
+  #clients-page .catalog-grid,
+  #members-page .user-pane {
+    gap: 10px;
+  }
+
+  #clients-page .catalog-column .catalog-list,
+  #members-page #user-list,
+  #members-page .member-card-list {
+    padding-left: 6px;
+    padding-right: 6px;
+  }
+
   #clients-page[data-mobile-drilldown="true"][data-mobile-view="list"] .catalog-grid > .catalog-column:nth-child(2) {
     display: none;
   }
