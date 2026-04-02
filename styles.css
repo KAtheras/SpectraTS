@@ -4525,8 +4525,8 @@ input[type="checkbox"] {
   -webkit-appearance: none;
   position: relative;
   border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--accent) 42%, var(--line));
-  background: color-mix(in srgb, var(--surface-soft) 86%, var(--panel));
+  border: 1px solid color-mix(in srgb, var(--accent) 38%, var(--line));
+  background: color-mix(in srgb, var(--surface-strong) 85%, var(--panel));
   transition:
     background-color 160ms ease,
     border-color 160ms ease,
@@ -4544,15 +4544,15 @@ input[type="checkbox"]::after {
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--muted) 75%, var(--panel));
+  background: color-mix(in srgb, #ffffff 92%, var(--panel));
   transition:
     transform 160ms ease,
     background-color 160ms ease;
 }
 
 input[type="checkbox"]:checked {
-  background: color-mix(in srgb, var(--accent) 82%, var(--panel));
-  border-color: color-mix(in srgb, var(--accent) 90%, var(--line));
+  background: color-mix(in srgb, var(--accent) 24%, var(--surface-strong));
+  border-color: color-mix(in srgb, var(--accent) 68%, var(--line));
 }
 
 input[type="checkbox"]:checked::after {
