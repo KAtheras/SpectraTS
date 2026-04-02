@@ -1040,6 +1040,7 @@
       return;
     }
 
+    let saveSucceeded = false;
     try {
       if (memberEditorMode === "create") {
         if (!canCreate) {
@@ -1082,11 +1083,15 @@
           );
         }
       }
-      closeMemberEditorModal();
+      saveSucceeded = true;
       await refreshSettingsTab("rates");
       feedback(memberEditorMode === "create" ? "Member added." : "Member updated.", false);
     } catch (error) {
       feedback(error.message || "Unable to save member.", true);
+    } finally {
+      if (saveSucceeded) {
+        closeMemberEditorModal();
+      }
     }
   }
 
