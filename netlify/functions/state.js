@@ -33,7 +33,12 @@ exports.handler = async function handler(event) {
       const settingsMeta = await loadSettingsMetadata(sql, context.currentUser);
       return json(200, settingsMeta);
     }
-    const state = await loadState(sql, context.currentUser);
+    const expenseFrom = `${event.queryStringParameters?.expense_from || ""}`.trim();
+    const expenseTo = `${event.queryStringParameters?.expense_to || ""}`.trim();
+    const state = await loadState(sql, context.currentUser, {
+      expenseFrom,
+      expenseTo,
+    });
     const currentUser = state.currentUser;
     const canManageSettingsAccess = can(currentUser, "manage_settings_access", {}, permissionIndex);
     const permissions = {

@@ -303,8 +303,8 @@
       .join("");
   }
 
-  function applyExpenseFiltersFromForm(options) {
-    const { field, refs, parseDisplayDate, feedback, state } = deps();
+  async function applyExpenseFiltersFromForm(options) {
+    const { field, refs, parseDisplayDate, feedback, state, ensureExpenseWindowLoaded, today } = deps();
     const settings = options || {};
     const showErrors = settings.showErrors !== false;
     const userField = field(refs.expenseFilterForm, "user");
@@ -333,6 +333,29 @@
         feedback("From date cannot be after To date.", true);
       }
       return false;
+    }
+
+    if (parsedFrom && typeof ensureExpenseWindowLoaded === "function") {
+      const minLoadedDate = (state.expenses || []).reduce((minDate, expense) => {
+        const value = `${expense?.expenseDate || expense?.date || ""}`.trim();
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return minDate;
+        if (!minDate || value < minDate) return value;
+        return minDate;
+      }, "");
+      if (!minLoadedDate || parsedFrom < minLoadedDate) {
+        const requestTo = minLoadedDate ? minLoadedDate : today;
+        try {
+          await ensureExpenseWindowLoaded({
+            from: parsedFrom,
+            to: requestTo,
+          });
+        } catch (error) {
+          if (showErrors) {
+            feedback(error.message || "Unable to load older expenses.", true);
+          }
+          return false;
+        }
+      }
     }
 
     state.expenseFilters = {
