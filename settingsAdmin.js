@@ -840,13 +840,13 @@
     };
 
     const EXPECTED_HEADERS = {
-      time: ["employee", "date", "client", "project", "hours", "billable", "notes"],
+      time: ["member", "client", "project", "date", "hours", "billable", "notes"],
       expenses: ["employee", "date", "client", "project", "category", "amount", "billable", "notes"],
     };
 
     const normalizeHeader = function (value) {
       const key = `${value ?? ""}`.trim().toLowerCase();
-      if (key === "user") return "employee";
+      if (key === "user" || key === "employee") return "member";
       return key;
     };
 
