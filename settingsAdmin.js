@@ -1032,7 +1032,7 @@
             matchedClient &&
             projects.find(
               (project) =>
-                `${project.clientId || ""}`.trim() === `${matchedClient.id || ""}`.trim() &&
+                `${project.client || ""}`.trim().toLowerCase() === `${matchedClient.name || ""}`.trim().toLowerCase() &&
                 `${project.name || ""}`.trim().toLowerCase() === projectName
             );
           if (!matchedUser) {
