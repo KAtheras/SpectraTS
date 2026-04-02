@@ -918,6 +918,8 @@
         .filter((row) => Array.isArray(row) && row.some((cell) => `${cell ?? ""}`.trim() !== ""));
       const objects = dataRows.map((row) => {
         const item = {};
+        let rowStatus = "Valid";
+        let rowError = "";
         headers.forEach((header, index) => {
           const raw = row[index] ?? "";
           if (header === "date") {
@@ -925,7 +927,16 @@
             return;
           }
           if (header === "billable") {
-            item[header] = normalizeBillableValue(raw);
+            const normalizedBillable = normalizeBillableValue(raw);
+            const rawText = `${raw ?? ""}`.trim();
+            const isInvalidBillable = kind === "time" && rawText !== "" && normalizedBillable === "";
+            if (isInvalidBillable) {
+              rowStatus = "Invalid";
+              rowError = "Invalid billable value";
+              item[header] = rawText;
+              return;
+            }
+            item[header] = normalizedBillable;
             return;
           }
           if (header === "hours") {
@@ -935,19 +946,24 @@
           }
           item[header] = `${raw ?? ""}`.trim();
         });
+        if (kind === "time") {
+          item.status = rowStatus;
+          item.error = rowError;
+        }
         return item;
       });
       return { headers, objects };
     };
 
-    const renderPreviewTable = function (headers, objects) {
+    const renderPreviewTable = function (headers, objects, kind) {
       if (!preview || !selectedFileLabel || !previewTableWrap) return;
       const rows = (Array.isArray(objects) ? objects : []).slice(0, 25);
-      if (!headers.length) {
+      const previewHeaders = kind === "time" ? [...headers, "status", "error"] : headers;
+      if (!previewHeaders.length) {
         previewTableWrap.innerHTML = `<div class="empty-state-panel">Preview coming next</div>`;
         return;
       }
-      const headHtml = headers
+      const headHtml = previewHeaders
         .map(
           (header) =>
             `<th style="padding:8px 10px;border:1px solid var(--group-border);text-align:left;white-space:nowrap;">${escapeHtml(
@@ -968,13 +984,19 @@
           if (typeof value === "number" && Number.isFinite(value)) return `${value}`;
           return "";
         }
+        if (header === "status") {
+          return value === "Invalid" ? "Invalid" : "Valid";
+        }
+        if (header === "error") {
+          return `${value || ""}`;
+        }
         return `${value ?? ""}`;
       };
       const bodyHtml = rows.length
         ? rows
             .map(
               (row) =>
-                `<tr>${headers
+                `<tr>${previewHeaders
                   .map(
                     (header) =>
                       `<td style="padding:8px 10px;border:1px solid var(--group-border);vertical-align:top;">${escapeHtml(
@@ -984,7 +1006,7 @@
                   .join("")}</tr>`
             )
             .join("")
-        : `<tr><td colspan="${headers.length}" style="padding:8px 10px;border:1px solid var(--group-border);">No data rows found.</td></tr>`;
+        : `<tr><td colspan="${previewHeaders.length}" style="padding:8px 10px;border:1px solid var(--group-border);">No data rows found.</td></tr>`;
       previewTableWrap.innerHTML = `
         <div class="table-wrapper">
           <table class="table" style="width:100%;border-collapse:collapse;table-layout:auto;">
@@ -1040,7 +1062,7 @@
       preview.hidden = false;
       try {
         const parsed = await parseFile(file, kind);
-        renderPreviewTable(parsed.headers, parsed.objects);
+        renderPreviewTable(parsed.headers, parsed.objects, kind);
       } catch (error) {
         if (previewTableWrap) {
           previewTableWrap.innerHTML = `<div class="empty-state-panel">Preview coming next</div>`;
