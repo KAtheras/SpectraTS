@@ -1382,7 +1382,7 @@
         failedCount > 0 ? `${baseMessage} ${failedCount} row(s) failed during import.` : baseMessage,
         failedCount > 0
       );
-      if (typeof deps().loadPersistentState === "function") {
+      if (invalidCount <= 0 && typeof deps().loadPersistentState === "function") {
         await deps().loadPersistentState();
       }
       if (openTimeBtn) openTimeBtn.disabled = false;
@@ -1458,7 +1458,7 @@
         failedCount > 0 ? `${baseMessage} ${failedCount} row(s) failed during import.` : baseMessage,
         failedCount > 0
       );
-      if (typeof deps().loadPersistentState === "function") {
+      if (invalidCount <= 0 && typeof deps().loadPersistentState === "function") {
         await deps().loadPersistentState();
       }
       if (openExpensesBtn) openExpensesBtn.disabled = false;
