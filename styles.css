@@ -4939,6 +4939,16 @@ body[data-theme="dark"] #inputs-view .input-row-body .cell-actions .button.is-sa
   color: var(--muted);
 }
 
+#bulk-upload-header-actions .button:disabled {
+  opacity: 0.52;
+  cursor: not-allowed;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--line) 20%, var(--panel));
+  border-color: color-mix(in srgb, var(--line) 45%, var(--panel-border));
+  color: color-mix(in srgb, var(--muted) 80%, var(--ink));
+  box-shadow: none;
+}
+
 #settings-page [data-settings-tab="delegations"] .delegations-shell {
   display: grid;
   gap: 18px;
