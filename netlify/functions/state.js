@@ -92,6 +92,7 @@ exports.handler = async function handler(event) {
       permissions.manage_departments ||
       permissions.manage_expense_categories ||
       permissions.manage_office_locations ||
+      permissions.can_upload_data ||
       permissions.manage_settings_access ||
       permissions.can_delegate
     );

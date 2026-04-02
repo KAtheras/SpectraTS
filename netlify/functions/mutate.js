@@ -882,6 +882,7 @@ function buildPermissionsPayload(currentUser, permissionIndex) {
     permissionsPayload.manage_departments ||
     permissionsPayload.manage_expense_categories ||
     permissionsPayload.manage_office_locations ||
+    permissionsPayload.can_upload_data ||
     permissionsPayload.manage_settings_access ||
     permissionsPayload.can_delegate
   );
