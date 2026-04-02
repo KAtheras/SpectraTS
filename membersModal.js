@@ -211,7 +211,22 @@
     const grouped = new Map();
 
     usersToRender.forEach(function (user) {
-      const currentLevel = normalizeLevel(user.level);
+      const roleValue = String(roleKey(user) || "").toLowerCase();
+      const inferredLevel =
+        roleValue === "staff"
+          ? 1
+          : roleValue === "manager"
+            ? 3
+            : roleValue === "executive"
+              ? 4
+              : roleValue === "admin" || roleValue === "superuser"
+                ? 6
+                : user.level;
+      const currentLevel = normalizeLevel(inferredLevel);
+      const currentLevelLabel =
+        user.level !== undefined && user.level !== null
+          ? levelLabel(user.level)
+          : levelLabel(currentLevel);
       const isManagerEligible = isManager(user);
       const isAssignedToProject = project
         ? isUserAssignedToProject(user.id, client, project)
@@ -230,9 +245,8 @@
       let checkboxTitle = "";
       let show = true;
       let checkboxChecked = false;
-      if (searchTerm && !String(user.displayName || "").toLowerCase().includes(searchTerm)) {
-        show = false;
-      }
+      const matchesSearch =
+        !searchTerm || String(user.displayName || "").toLowerCase().includes(searchTerm);
 
       if (mode === "project-add") {
         if (isAssignedToProject) {
@@ -249,6 +263,7 @@
         show = !assignedSet.has(user.id);
       } else if (mode === "project-remove-member") {
         show = assignedSet.has(user.id);
+        checkboxChecked = show;
       } else if (mode === "project-members-edit") {
         show = isStaff(user);
         checkboxChecked = assignedSet.has(user.id);
@@ -289,6 +304,9 @@
       }
 
       if (!show) {
+        return;
+      }
+      if (!matchesSearch) {
         return;
       }
 
@@ -363,7 +381,7 @@
         ? `level:${String(currentLevel)}`
         : officeId || "__no_office";
       const officeLabel = groupByLevel
-        ? levelLabel(currentLevel)
+        ? currentLevelLabel
         : officeId
           ? officeNameById.get(officeId) || officeId
           : "No Office";
@@ -376,7 +394,7 @@
         "project-unassign-manager",
       ]).has(mode);
       const secondaryLabel = showRoleSecondary
-        ? levelLabel(currentLevel)
+        ? currentLevelLabel
         : user.username;
 
       const rowHtml = `
@@ -444,8 +462,15 @@
     refs.membersList.oninput = function (event) {
       const searchInput = event.target.closest("input[data-member-search]");
       if (searchInput) {
+        const caret = searchInput.selectionStart ?? searchInput.value.length;
         memberModalState.searchTerm = searchInput.value || "";
         renderMembersModal(deps);
+        const nextSearchInput = refs.membersList.querySelector("input[data-member-search]");
+        if (nextSearchInput) {
+          nextSearchInput.focus();
+          const nextCaret = Math.min(caret, nextSearchInput.value.length);
+          nextSearchInput.setSelectionRange(nextCaret, nextCaret);
+        }
         return;
       }
       const input = event.target.closest("input[data-override-input]");
