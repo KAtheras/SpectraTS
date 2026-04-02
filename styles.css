@@ -2398,14 +2398,11 @@ body[data-theme="dark"] .audit-detail-col {
 }
 
 @media (min-width: 769px) {
-  .page-view.clients-page .catalog-grid {
-    height: calc(100vh - 320px);
-    max-height: calc(100vh - 320px);
-  }
-
+  .page-view.clients-page .catalog-grid,
   .page-view.members-page .user-pane {
-    height: calc(100vh - 220px);
-    min-height: 500px;
+    height: calc(100vh - 150px);
+    min-height: calc(100vh - 150px);
+    max-height: calc(100vh - 150px);
   }
 }
 
