@@ -777,6 +777,10 @@
       <div class="settings-section-content">
         <p>Upload time or expense data using a template.</p>
         <div class="panel-head-actions">
+          <button type="button" class="button button-ghost" id="bulk-download-time-template">Download Time Template</button>
+          <button type="button" class="button button-ghost" id="bulk-download-expenses-template">Download Expense Template</button>
+        </div>
+        <div class="panel-head-actions">
           <button type="button" class="button" id="bulk-upload-time-open">Upload Time</button>
           <button type="button" class="button" id="bulk-upload-expenses-open">Upload Expenses</button>
         </div>
@@ -793,6 +797,8 @@
 
     const openTimeBtn = panel.querySelector("#bulk-upload-time-open");
     const openExpensesBtn = panel.querySelector("#bulk-upload-expenses-open");
+    const downloadTimeTemplateBtn = panel.querySelector("#bulk-download-time-template");
+    const downloadExpensesTemplateBtn = panel.querySelector("#bulk-download-expenses-template");
     const timeInput = panel.querySelector("#bulk-upload-time-file");
     const expensesInput = panel.querySelector("#bulk-upload-expenses-file");
     const preview = panel.querySelector("#bulk-upload-preview");
@@ -939,6 +945,12 @@
     });
     openExpensesBtn?.addEventListener("click", function () {
       expensesInput?.click();
+    });
+    downloadTimeTemplateBtn?.addEventListener("click", function () {
+      window.location.assign("/templates/time-upload.xlsx");
+    });
+    downloadExpensesTemplateBtn?.addEventListener("click", function () {
+      window.location.assign("/templates/expense-upload.xlsx");
     });
     timeInput?.addEventListener("change", function () {
       handleFileSelect(timeInput.files?.[0]);
