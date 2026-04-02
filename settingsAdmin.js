@@ -779,7 +779,7 @@
     const { state, escapeHtml } = deps();
     if (!panel || !state.permissions?.can_upload_data) return;
     panel.innerHTML = `
-      <div class="settings-section-header" style="border-top:1px solid var(--group-border);border-bottom:1px solid var(--group-border);padding-top:10px;padding-bottom:10px;">
+      <div class="settings-section-header" style="border-bottom:1px solid var(--group-border);padding-top:10px;padding-bottom:10px;">
         <div class="settings-section-left">
           <h3>Bulk Upload</h3>
         </div>
