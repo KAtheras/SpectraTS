@@ -864,9 +864,6 @@
             <div class="member-editor-row">
               <label><span>Member name</span><input type="text" name="display_name" required /></label>
               <label><span>User ID</span><input type="text" name="username" required /></label>
-              <label><span>Email</span><input type="email" name="email" required /></label>
-            </div>
-            <div class="member-editor-row">
               <label><span>Employee ID</span><input type="text" name="employee_id" /></label>
             </div>
             <div class="member-editor-row">
@@ -877,7 +874,7 @@
             <div class="member-editor-row">
               <label><span>Base rate</span><input type="number" step="0.01" min="0" name="base_rate" /></label>
               <label><span>Cost rate</span><input type="number" step="0.01" min="0" name="cost_rate" /></label>
-              <label data-member-editor-password-row><span></span><input type="password" name="password" autocomplete="new-password" aria-label="Temporary password" placeholder="Temporary password" /></label>
+              <label><span>Email</span><input type="email" name="email" required /></label>
             </div>
             <div class="member-editor-footer">
               <button class="button button-ghost" type="button" data-member-editor-cancel>Cancel</button>
