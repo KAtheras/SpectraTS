@@ -3782,6 +3782,17 @@ body[data-theme="dark"] .entry-approved td {
 }
 
 @media (max-width: 768px) {
+  :root {
+    --shell-pad: 4px;
+  }
+
+  .shell-inner,
+  .app-frame,
+  .topbar-inner {
+    padding-left: var(--shell-pad);
+    padding-right: var(--shell-pad);
+  }
+
   .page-view {
     padding-left: 0;
     padding-right: 0;
@@ -3983,7 +3994,7 @@ body[data-theme="dark"] .entry-approved td {
 
 @media (max-width: 640px) {
   :root {
-    --shell-pad: 12px;
+    --shell-pad: 4px;
   }
 
   .page-shell {
@@ -4042,7 +4053,6 @@ body[data-theme="dark"] .entry-approved td {
     width: 100%;
     max-width: 100%;
     padding: 16px;
-    width: calc(100vw - (var(--shell-pad) + var(--shell-pad)));
     margin: 0 auto;
   }
 
