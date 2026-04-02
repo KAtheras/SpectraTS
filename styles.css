@@ -4254,6 +4254,8 @@ body[data-theme="dark"] .entry-approved td {
   gap: 0;
   background: var(--panel);
   border: 1px solid var(--panel-border);
+  border-radius: 10px 10px 0 0;
+  overflow: hidden;
 }
 
 #inputs-view .input-row {
@@ -4758,7 +4760,7 @@ body[data-theme="dark"] #inputs-view .input-row-head .cell-notes {
   display: grid;
   grid-template-columns: minmax(0, 0.5fr) minmax(0, 0.75fr) minmax(0, 1fr);
   gap: 12px;
-  padding: 10px;
+  padding: 10px 0 0;
 }
 
 #inputs-view .inputs-drilldown-col {
