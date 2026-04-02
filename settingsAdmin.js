@@ -1596,8 +1596,12 @@
           Number.isFinite(latestImportSummary.successCount) &&
           Number.isFinite(latestImportSummary.rejectedCount)
       );
+      const hasOnlyRejectedPreview =
+        !hasPostImportState &&
+        (previewKind === "time" || previewKind === "expenses") &&
+        previewValidRowCount() <= 0;
       downloadRejectsCsv(latestRejectedRows, latestRejectedKind || previewKind || "time");
-      if (hasPostImportState) {
+      if (hasPostImportState || hasOnlyRejectedPreview) {
         resetBulkUploadState();
       }
     });
