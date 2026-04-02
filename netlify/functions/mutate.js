@@ -191,7 +191,7 @@ async function completePasswordSetup(sql, payload) {
 }
 
 async function sendSetupEmail({ to, username, token }) {
-  const { handler: sendEmailHandler } = require("./send-email");
+  const { sendEmail } = require("./send-email");
   const setupLink = `https://trakmetric.com/set-password?token=${encodeURIComponent(token)}`;
   const subject = "Set up your Trakmetric password";
   const html = `
@@ -204,17 +204,14 @@ async function sendSetupEmail({ to, username, token }) {
   console.log("[add_user] setup email send triggered", {
     to,
     username,
-    endpoint: "/.netlify/functions/send-email",
+    endpoint: "internal sendEmail()",
   });
-  if (typeof sendEmailHandler !== "function") {
-    throw new Error("send-email handler is unavailable");
+  if (typeof sendEmail !== "function") {
+    throw new Error("sendEmail helper is unavailable");
   }
   let result;
   try {
-    result = await sendEmailHandler({
-      httpMethod: "POST",
-      body: JSON.stringify({ to, subject, html }),
-    });
+    result = await sendEmail({ to, subject, html });
   } catch (error) {
     console.error("[add_user] send-email invocation failed", {
       to,
@@ -224,12 +221,11 @@ async function sendSetupEmail({ to, username, token }) {
     throw error;
   }
   console.log("[add_user] send-email result", {
-    statusCode: result?.statusCode,
-    body: result?.body || null,
+    id: result?.id || null,
+    data: result || null,
   });
-  if (!result || Number(result.statusCode) >= 400) {
-    const parsed = JSON.parse(result?.body || "{}");
-    throw new Error(parsed.error || "Unable to send setup email.");
+  if (!result || !result.id) {
+    throw new Error("Unable to send setup email.");
   }
 }
 
@@ -3772,11 +3768,17 @@ exports.handler = async function handler(event) {
           email: targetEmail,
           expiresAt: setup.expiresAt,
         });
-        await sendSetupEmail({
-          to: targetEmail,
-          username: createdUser.username,
-          token: setup.token,
-        });
+        try {
+          await sendSetupEmail({
+            to: targetEmail,
+            username: createdUser.username,
+            token: setup.token,
+          });
+        } catch (error) {
+          mutationResult = {
+            message: `Member added, but setup email failed: ${error?.message || "Unknown error."}`,
+          };
+        }
         break;
       }
       case "update_user": {
