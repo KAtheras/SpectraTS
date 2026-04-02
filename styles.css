@@ -491,13 +491,13 @@ body[data-theme="dark"] .button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: auto;
+  height: auto;
 }
 
 .inbox-item-check input[type="checkbox"] {
-  width: 15px;
-  height: 15px;
+  width: 44px;
+  height: 24px;
   margin: 0;
   cursor: pointer;
 }
@@ -1270,8 +1270,8 @@ body[data-theme="dark"] .mobile-tabbar {
 }
 
 .input-row-body .cell-billable input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
+  width: 44px;
+  height: 24px;
 }
 
 .input-row-body .cell-actions {
@@ -1369,8 +1369,8 @@ body[data-theme="dark"] .mobile-tabbar {
 }
 
 #inputs-panel-time .input-row-body .cell-billable input[type="checkbox"] {
-  width: 20px;
-  height: 20px;
+  width: 44px;
+  height: 24px;
   margin: 0;
 }
 
@@ -1730,8 +1730,8 @@ input[name="cost_rate"] {
 }
 
 .rules-toggle input[type="checkbox"] {
-  width: 16px;
-  height: 16px;
+  width: 44px;
+  height: 24px;
   margin: 0;
 }
 
@@ -3044,8 +3044,8 @@ body[data-theme="dark"] .audit-detail-col {
 }
 
 .member-select input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
+  width: 44px;
+  height: 24px;
 }
 
 #members-modal[data-mode="user-role"] .member-select {
@@ -4515,9 +4515,59 @@ body[data-theme="dark"] #inputs-view .input-row-head .cell-notes {
 }
 
 #inputs-view .input-row-body .cell-billable input[type="checkbox"] {
+  width: 44px;
+  height: 24px;
+  margin: 0;
+}
+
+input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--accent) 42%, var(--line));
+  background: color-mix(in srgb, var(--surface-soft) 86%, var(--panel));
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+  cursor: pointer;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+input[type="checkbox"]::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
   width: 18px;
   height: 18px;
-  margin: 0;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--muted) 75%, var(--panel));
+  transition:
+    transform 160ms ease,
+    background-color 160ms ease;
+}
+
+input[type="checkbox"]:checked {
+  background: color-mix(in srgb, var(--accent) 82%, var(--panel));
+  border-color: color-mix(in srgb, var(--accent) 90%, var(--line));
+}
+
+input[type="checkbox"]:checked::after {
+  transform: translateX(20px);
+  background: #ffffff;
+}
+
+input[type="checkbox"]:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 65%, transparent);
+  outline-offset: 2px;
+}
+
+input[type="checkbox"]:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 #inputs-view .input-row-body .cell-actions {
