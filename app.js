@@ -1054,6 +1054,7 @@
     }
 
     try {
+      let departmentSyncError = null;
       if (memberEditorMode === "create") {
         if (!canCreate) {
           feedback("Access denied.", true);
@@ -1066,12 +1067,17 @@
         );
         const created = (result?.users || []).find((u) => String(u.username || "").toLowerCase() === String(username).toLowerCase());
         if (created && departmentId && canEditProfile) {
-          await mutatePersistentState(
-            "set_user_department",
-            { userId: created.id, departmentId },
-            { skipHydrate: true, returnState: false }
-          );
+          try {
+            await mutatePersistentState(
+              "set_user_department",
+              { userId: created.id, departmentId },
+              { skipHydrate: true, returnState: false }
+            );
+          } catch (error) {
+            departmentSyncError = error;
+          }
         }
+        closeMemberEditorModal();
       } else {
         const userId = memberEditorUserId;
         const currentUser = (state.users || []).find((u) => u.id === userId);
@@ -1085,11 +1091,6 @@
             { userId, displayName, username, email, employeeId, level, officeId },
             { skipHydrate: true, returnState: false }
           );
-          await mutatePersistentState(
-            "set_user_department",
-            { userId, departmentId },
-            { skipHydrate: true, returnState: false }
-          );
         }
         if (canEditRates) {
           await mutatePersistentState(
@@ -1098,9 +1099,27 @@
             { skipHydrate: true, returnState: false }
           );
         }
+        if (canEditProfile) {
+          try {
+            await mutatePersistentState(
+              "set_user_department",
+              { userId, departmentId },
+              { skipHydrate: true, returnState: false }
+            );
+          } catch (error) {
+            departmentSyncError = error;
+          }
+        }
+        closeMemberEditorModal();
       }
-      closeMemberEditorModal();
       await refreshSettingsTab("rates");
+      if (departmentSyncError) {
+        feedback(
+          `${memberEditorMode === "create" ? "Member added." : "Member updated."} Department update failed: ${departmentSyncError.message || "Unknown error."}`,
+          true
+        );
+        return;
+      }
       feedback(memberEditorMode === "create" ? "Member added." : "Member updated.", false);
     } catch (error) {
       feedback(error.message || "Unable to save member.", true);
