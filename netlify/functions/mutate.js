@@ -3115,6 +3115,7 @@ exports.handler = async function handler(event) {
   if (!request || !normalizeText(request.action)) {
     return errorResponse(400, "Invalid mutation payload.");
   }
+  const returnState = request?.returnState !== false;
 
   try {
     const sql = await getSql();
@@ -3880,6 +3881,9 @@ exports.handler = async function handler(event) {
 
     if (mutationResult && mutationResult.statusCode) {
       return mutationResult;
+    }
+    if (!returnState) {
+      return json(200, { ok: true });
     }
 
     const state = await loadState(sql, context.currentUser);
