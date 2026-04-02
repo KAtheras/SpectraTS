@@ -60,6 +60,9 @@
         const friendlyAction = humanizeAction(row.action);
         const actor =
           row.changed_by_name_snapshot || userNameById(row.changed_by_user_id) || row.changed_by_user_id || "Unknown";
+        const isBulkUploadAction = Boolean(
+          row?.after_json?.bulkUpload || row?.before_json?.bulkUpload
+        );
         const delegatedAction = Boolean(
           row?.after_json?.delegated_action || row?.before_json?.delegated_action
         );
@@ -67,8 +70,9 @@
         const targetId = `${row.target_user_id || ""}`.trim();
         const actedForOtherUser = Boolean(targetId) && actorId !== targetId;
         const ownerName = userNameById(row.target_user_id) || row.target_user_id || "";
-        const actorDisplay =
-          (delegatedAction || actedForOtherUser) && ownerName
+        const actorDisplay = isBulkUploadAction
+          ? `Bulk upload by ${actor}`
+          : (delegatedAction || actedForOtherUser) && ownerName
             ? `${actor} (for ${ownerName})`
             : actor;
         const projectName = projectNameById(row.context_project_id) || "";

@@ -819,16 +819,26 @@
     let previewKind = "";
     let latestPreviewPayload = null;
     let latestRejectedRows = [];
+    let latestImportSummary = null;
+
+    const formatRowCount = function (count, singular, plural) {
+      const qty = Number(count) || 0;
+      return `${qty} ${qty === 1 ? singular : plural}`;
+    };
 
     const updateBulkUploadUiState = function () {
       const hasPreview = !preview?.hidden;
       const rejectedCount = Array.isArray(latestRejectedRows) ? latestRejectedRows.length : 0;
+      const hasImportSummary =
+        latestImportSummary &&
+        Number.isFinite(latestImportSummary.successCount) &&
+        Number.isFinite(latestImportSummary.rejectedCount);
       const hasRejects = rejectedCount > 0;
       if (descriptionEl) {
-        descriptionEl.hidden = hasPreview || hasRejects;
+        descriptionEl.hidden = hasPreview || hasRejects || hasImportSummary;
       }
       if (templateActions) {
-        templateActions.hidden = hasPreview || hasRejects;
+        templateActions.hidden = hasPreview || hasRejects || hasImportSummary;
       }
       if (openTimeBtn && openExpensesBtn) {
         if (!hasPreview) {
@@ -865,12 +875,27 @@
         }
       }
       if (rejectsWrap) {
-        const showRejects = rejectedCount > 0;
+        const showRejects = rejectedCount > 0 || hasImportSummary;
         rejectsWrap.hidden = !showRejects;
         if (rejectsText) {
-          rejectsText.textContent = showRejects
-            ? `${rejectedCount} row${rejectedCount === 1 ? "" : "s"} were rejected.`
-            : "";
+          if (!showRejects) {
+            rejectsText.textContent = "";
+          } else if (hasImportSummary) {
+            rejectsText.textContent = `${formatRowCount(
+              latestImportSummary.successCount,
+              "row uploaded successfully",
+              "rows uploaded successfully"
+            )} / ${formatRowCount(
+              latestImportSummary.rejectedCount,
+              "row was rejected",
+              "rows were rejected"
+            )}`;
+          } else {
+            rejectsText.textContent = `${rejectedCount} row${rejectedCount === 1 ? "" : "s"} were rejected.`;
+          }
+        }
+        if (downloadRejectsBtn) {
+          downloadRejectsBtn.hidden = rejectedCount <= 0;
         }
       }
     };
@@ -1247,6 +1272,7 @@
           await deps().mutatePersistentState(
             "save_entry",
             {
+              source: "bulk_upload",
               entry: {
                 id: (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`),
                 userId: row._resolvedUserId || "",
@@ -1292,6 +1318,10 @@
       } else {
         setRejectedRows([]);
       }
+      latestImportSummary = {
+        successCount: importedCount,
+        rejectedCount: invalidCount,
+      };
       latestPreviewPayload = null;
       previewKind = "";
       const baseMessage = `Imported ${importedCount} valid rows. ${invalidCount} invalid rows were not imported.`;
@@ -1311,6 +1341,7 @@
       showError("");
       previewKind = kind;
       latestPreviewPayload = null;
+      latestImportSummary = null;
       setRejectedRows([]);
       selectedFileLabel.textContent = `Selected file: ${file.name || ""}`;
       preview.hidden = false;
