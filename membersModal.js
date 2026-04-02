@@ -33,6 +33,8 @@
       "project-managers-edit",
       "project-add",
       "project-remove",
+      "project-add-member",
+      "project-remove-member",
       "project-assign-manager",
       "project-unassign-manager",
     ]);
@@ -110,6 +112,7 @@
     memberModalState.initialOverrides = {};
     memberModalState.initialAssigned = [];
     memberModalState.initialOverrides = {};
+    memberModalState.searchTerm = "";
 
     const usersHidden = !refs.usersModal || refs.usersModal.hidden;
     const catalogHidden = !refs.catalogModal || refs.catalogModal.hidden;
@@ -150,6 +153,9 @@
     const userId = memberModalState.userId;
     const assignedSet = new Set(memberModalState.assigned || []);
     const overrideMap = memberModalState.overrides || {};
+    const searchTerm = String(memberModalState.searchTerm || "")
+      .trim()
+      .toLowerCase();
 
     let title = "Manage Members";
     let subtext = "";
@@ -159,6 +165,12 @@
     } else if (mode === "project-remove") {
       title = `Remove Members from ${project}`;
       subtext = "Select staff to remove from this project.";
+    } else if (mode === "project-add-member") {
+      title = `Add Member to ${project}`;
+      subtext = "Select an unassigned member.";
+    } else if (mode === "project-remove-member") {
+      title = `Remove Member from ${project}`;
+      subtext = "Select assigned members to remove.";
     } else if (mode === "project-members-edit") {
       title = `Manage Members for ${project}`;
       subtext = "Edit assigned members by checking or unchecking their boxes.";
@@ -218,8 +230,11 @@
       let checkboxTitle = "";
       let show = true;
       let checkboxChecked = false;
+      if (searchTerm && !String(user.displayName || "").toLowerCase().includes(searchTerm)) {
+        show = false;
+      }
 
-    if (mode === "project-add") {
+      if (mode === "project-add") {
         if (isAssignedToProject) {
           checkboxDisabled = true;
           checkboxTitle = "Already assigned.";
@@ -230,6 +245,10 @@
       } else if (mode === "project-remove") {
         show = isAssignedToProject && isStaff(user);
         checkboxChecked = show;
+      } else if (mode === "project-add-member") {
+        show = !assignedSet.has(user.id);
+      } else if (mode === "project-remove-member") {
+        show = assignedSet.has(user.id);
       } else if (mode === "project-members-edit") {
         show = isStaff(user);
         checkboxChecked = assignedSet.has(user.id);
@@ -339,12 +358,19 @@
           : "";
 
       const officeId = user.officeId || "";
-      const groupKey = officeId || "__no_office";
-      const officeLabel = officeId
-        ? officeNameById.get(officeId) || officeId
-        : "No Office";
+      const groupByLevel = mode === "project-add-member";
+      const groupKey = groupByLevel
+        ? `level:${String(currentLevel)}`
+        : officeId || "__no_office";
+      const officeLabel = groupByLevel
+        ? levelLabel(currentLevel)
+        : officeId
+          ? officeNameById.get(officeId) || officeId
+          : "No Office";
       const showRoleSecondary = new Set([
         "project-add",
+        "project-add-member",
+        "project-remove-member",
         "project-remove",
         "project-assign-manager",
         "project-unassign-manager",
@@ -373,16 +399,34 @@
         </article>
       `;
       if (!grouped.has(groupKey)) {
-        grouped.set(groupKey, { label: officeLabel, rows: [] });
+        grouped.set(groupKey, { label: officeLabel, rows: [], level: currentLevel });
       }
       grouped.get(groupKey).rows.push(rowHtml);
     });
 
     const sortedGroups = Array.from(grouped.values()).sort((a, b) => {
+      if (mode === "project-add-member") {
+        return normalizeLevel(a.level) - normalizeLevel(b.level);
+      }
       if (a.label === "No Office") return 1;
       if (b.label === "No Office") return -1;
       return a.label.localeCompare(b.label);
     });
+
+    const showSearch = new Set(["project-add-member", "project-remove-member"]).has(mode);
+    const searchHtml = showSearch
+      ? `
+        <div class="member-search-wrap">
+          <input
+            type="search"
+            class="app-input"
+            data-member-search
+            placeholder="Search members"
+            value="${escapeHtml(memberModalState.searchTerm || "")}"
+          />
+        </div>
+      `
+      : "";
 
     const html = sortedGroups
       .map(
@@ -394,9 +438,16 @@
         `
       )
       .join("");
-    refs.membersList.innerHTML = html || '<p class="empty-state">No matching members.</p>';
+    refs.membersList.innerHTML =
+      searchHtml + (html || '<p class="empty-state">No matching members.</p>');
 
     refs.membersList.oninput = function (event) {
+      const searchInput = event.target.closest("input[data-member-search]");
+      if (searchInput) {
+        memberModalState.searchTerm = searchInput.value || "";
+        renderMembersModal(deps);
+        return;
+      }
       const input = event.target.closest("input[data-override-input]");
       if (input) {
         const userId = input.dataset.overrideInput;

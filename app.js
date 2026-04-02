@@ -832,18 +832,6 @@
           text-transform:uppercase;
           color:var(--muted);
         }
-        #member-editor-modal .member-editor-required{
-          color:var(--danger);
-          margin-left:4px;
-          font-weight:800;
-        }
-        #member-editor-modal .member-editor-required-note{
-          margin:0;
-          color:var(--danger);
-          font-family:var(--font-head);
-          font-size:.78rem;
-          font-weight:700;
-        }
         #member-editor-modal [data-member-editor-password-row] span{
           display:none;
         }
@@ -876,21 +864,20 @@
           </div>
           <form class="member-editor-form" data-member-editor-form>
             <div class="member-editor-row">
-              <label><span>Member name<span class="member-editor-required">*</span></span><input type="text" name="display_name" required /></label>
-              <label><span>User ID<span class="member-editor-required">*</span></span><input type="text" name="username" required /></label>
+              <label><span>Member name</span><input type="text" name="display_name" required /></label>
+              <label><span>User ID</span><input type="text" name="username" required /></label>
               <label><span>Employee ID</span><input type="text" name="employee_id" /></label>
             </div>
             <div class="member-editor-row">
-              <label><span>Title<span class="member-editor-required">*</span></span><select name="level" required></select></label>
+              <label><span>Title</span><select name="level"></select></label>
               <label><span>Department</span><select name="department_id"><option value="">No department</option></select></label>
-              <label><span>Office<span class="member-editor-required">*</span></span><select name="office_id" required><option value="">Select office</option></select></label>
+              <label><span>Office</span><select name="office_id" required><option value="">Select office</option></select></label>
             </div>
             <div class="member-editor-row">
               <label><span>Base rate</span><input type="number" step="0.01" min="0" name="base_rate" /></label>
               <label><span>Cost rate</span><input type="number" step="0.01" min="0" name="cost_rate" /></label>
-              <label><span>Email<span class="member-editor-required">*</span></span><input type="email" name="email" required /></label>
+              <label><span>Email</span><input type="email" name="email" required /></label>
             </div>
-            <p class="member-editor-required-note">* Required fields</p>
             <div class="member-editor-footer">
               <button class="button button-ghost" type="button" data-member-editor-cancel>Cancel</button>
               <button class="button button-ghost" type="button" data-member-editor-reset hidden>Reset password</button>
@@ -939,25 +926,14 @@
     }
   }
 
-  function closeMemberEditorModal(options = {}) {
-    const { dispose = false } = options;
+  function closeMemberEditorModal() {
     if (!memberEditorModal) return;
     memberEditorModal.hidden = true;
     memberEditorModal.setAttribute("aria-hidden", "true");
     body.classList.remove("modal-open");
-    if (dispose) {
-      memberEditorModal.remove();
-      memberEditorModal = null;
-      memberEditorForm = null;
-      memberEditorTitle = null;
-      memberEditorSubmit = null;
-      memberEditorReset = null;
-      memberEditorMode = "create";
-      memberEditorUserId = "";
-    }
   }
 
-  async function openMemberEditorModal(mode, userId) {
+  function openMemberEditorModal(mode, userId) {
     ensureMemberEditorModal();
     const canCreate = Boolean(state.permissions?.create_user);
     const canEditProfile = Boolean(state.permissions?.edit_user_profile);
@@ -977,27 +953,6 @@
     if (mode === "edit" && !user) {
       feedback("Team member not found.", true);
       return;
-    }
-
-    const needsSettingsMeta =
-      !Array.isArray(state.officeLocations) ||
-      state.officeLocations.length === 0 ||
-      !Array.isArray(state.departments);
-    if (state.currentUser && (needsSettingsMeta || state.settingsMetadataLoading)) {
-      if (state.settingsMetadataLoading) {
-        let guard = 0;
-        while (state.settingsMetadataLoading && guard < 40) {
-          await new Promise((resolve) => setTimeout(resolve, 50));
-          guard += 1;
-        }
-      }
-      if (
-        !Array.isArray(state.officeLocations) ||
-        state.officeLocations.length === 0 ||
-        !Array.isArray(state.departments)
-      ) {
-        await loadSettingsMetadata(true);
-      }
     }
 
     const levelField = field(memberEditorForm, "level");
@@ -1085,16 +1040,6 @@
       return;
     }
 
-    const submitButton = memberEditorSubmit;
-    const originalSubmitLabel = submitButton?.textContent || "Save";
-    let coreSaved = false;
-    let successMessage = memberEditorMode === "create" ? "Member added." : "Member updated.";
-    const postSaveTasks = [];
-
-    if (submitButton) {
-      submitButton.disabled = true;
-    }
-
     try {
       if (memberEditorMode === "create") {
         if (!canCreate) {
@@ -1106,19 +1051,9 @@
           { displayName, username, email, employeeId, level, officeId, baseRate, costRate },
           { skipHydrate: true }
         );
-        coreSaved = true;
-        const created = (result?.users || []).find(
-          (u) => String(u.username || "").toLowerCase() === String(username).toLowerCase()
-        );
-        const createdUserId = created?.id || "";
-        if (createdUserId && departmentId && canEditProfile) {
-          postSaveTasks.push(
-            mutatePersistentState(
-              "set_user_department",
-              { userId: createdUserId, departmentId },
-              { skipHydrate: true, returnState: false }
-            )
-          );
+        const created = (result?.users || []).find((u) => String(u.username || "").toLowerCase() === String(username).toLowerCase());
+        if (created && departmentId && canEditProfile) {
+          await mutatePersistentState("set_user_department", { userId: created.id, departmentId }, { skipHydrate: true });
         }
       } else {
         const userId = memberEditorUserId;
@@ -1131,47 +1066,27 @@
           await mutatePersistentState(
             "update_user",
             { userId, displayName, username, email, employeeId, level, officeId },
-            { skipHydrate: true, returnState: false }
+            { skipHydrate: true }
+          );
+          await mutatePersistentState(
+            "set_user_department",
+            { userId, departmentId },
+            { skipHydrate: true }
           );
         }
         if (canEditRates) {
           await mutatePersistentState(
             "update_user_rates",
             { userId, baseRate, costRate },
-            { skipHydrate: true, returnState: false }
-          );
-        }
-        coreSaved = true;
-        if (canEditProfile) {
-          postSaveTasks.push(
-            mutatePersistentState(
-              "set_user_department",
-              { userId, departmentId },
-              { skipHydrate: true, returnState: false }
-            )
+            { skipHydrate: true }
           );
         }
       }
-
-      closeMemberEditorModal({ dispose: true });
-      feedback(successMessage, false);
-      postSaveTasks.push(refreshSettingsTab("rates"));
-      Promise.allSettled(postSaveTasks).then((results) => {
-        const failed = results.find((item) => item.status === "rejected");
-        if (!failed) return;
-        const error = failed.reason;
-        feedback(`Saved, but some follow-up updates failed: ${error?.message || "Unknown error."}`, true);
-      });
+      closeMemberEditorModal();
+      await refreshSettingsTab("rates");
+      feedback(memberEditorMode === "create" ? "Member added." : "Member updated.", false);
     } catch (error) {
       feedback(error.message || "Unable to save member.", true);
-    } finally {
-      if (submitButton) {
-        submitButton.disabled = false;
-        submitButton.textContent = originalSubmitLabel;
-      }
-      if (coreSaved && memberEditorModal && memberEditorModal.hidden !== true) {
-        closeMemberEditorModal({ dispose: true });
-      }
     }
   }
 
@@ -1297,8 +1212,6 @@
       projectMembers: [],
     },
     currentView: "inputs", // "inputs" | "entries" | "inbox" | "clients" | "members" | "analytics" | "settings" | "audit"
-    mobileClientsView: "list", // "list" | "detail" (mobile-only)
-    mobileMembersView: "list", // "list" | "detail" (mobile-only)
     inputSubtab: "time", // "time" | "expenses"
     inputsTimeCalendarExpanded: false,
     inputsTimeCalendarEndDate: today,
@@ -1473,10 +1386,6 @@
     } catch (error) {
       return;
     }
-  }
-
-  function isMobileDrilldownViewport() {
-    return window.matchMedia("(max-width: 768px)").matches;
   }
 
   function isViewAllowed(view) {
@@ -2213,12 +2122,6 @@
       commitInboxVisitRead();
     }
     state.currentView = view;
-    if (view === "clients" && previousView !== "clients") {
-      state.mobileClientsView = "list";
-    }
-    if (view === "members" && previousView !== "members") {
-      state.mobileMembersView = "list";
-    }
     persistCurrentView(view);
     if (view === "settings" && previousView !== "settings") {
       loadSettingsMetadata();
@@ -3423,18 +3326,7 @@
     const stored = readLastInputsClientProjectCombo();
     if (!stored) return "";
     const list = Array.isArray(options) ? options : [];
-    const hasStored = list.some((item) => `${item?.value || ""}`.trim() === stored);
-    if (hasStored) return stored;
-    // Backward compatibility for older storage format: client:::project
-    if (stored.includes(":::")) {
-      const parts = stored.split(":::");
-      const migrated = encodeInputsTimeCombo(parts[0] || "", parts[1] || "");
-      if (list.some((item) => `${item?.value || ""}`.trim() === migrated)) {
-        writeLastInputsClientProjectCombo(migrated);
-        return migrated;
-      }
-    }
-    return "";
+    return list.some((item) => `${item?.value || ""}`.trim() === stored) ? stored : "";
   }
 
   function parseInputsTimeDateValue(value) {
@@ -3812,8 +3704,7 @@
   function isInputsTimeRowReadyToSave(row) {
     const fields = inputsTimeRowFields(row);
     const hours = Number(fields.hours?.value);
-    const normalizedDate =
-      fields.date?.dataset.dpCanonical || parseInputsTimeDateValue(fields.date?.value || "");
+    const normalizedDate = parseInputsTimeDateValue(fields.date?.value || "");
     return Boolean(fields.clientProject?.value) && Boolean(normalizedDate) && Number.isFinite(hours) && hours > 0;
   }
 
@@ -3911,7 +3802,7 @@
       const nextEntry = {
         id: existingId || crypto.randomUUID(),
         user: state.currentUser?.displayName || "",
-        date: current.date?.dataset.dpCanonical || parseInputsTimeDateValue(current.date?.value || ""),
+        date: parseInputsTimeDateValue(current.date?.value || ""),
         client: clientName || "",
         project: projectName || "",
         task: "",
@@ -3950,7 +3841,6 @@
       }
 
       feedback("Entry saved.", false);
-      writeLastInputsClientProjectCombo(current.clientProject?.value || "");
       row.dataset.entryId = nextEntry.id;
       row.dataset.createdAt = nextEntry.createdAt;
       setInputsTimeRowSaved(row);
@@ -4201,10 +4091,7 @@
   function syncInputsExpenseFormRow(row, comboOptions, categoryOptions) {
     const fields = inputsExpenseRowFields(row);
     if (!fields.clientProject) return;
-    const selectedCombo = resolveInputsComboDefault(fields.clientProject.value || "", comboOptions);
-    if (!fields.clientProject.value && selectedCombo) {
-      fields.clientProject.value = selectedCombo;
-    }
+    const selectedCombo = fields.clientProject.value || "";
     setSelectOptionsWithPlaceholder(
       { escapeHtml },
       fields.clientProject,
@@ -4237,8 +4124,7 @@
   function isInputsExpenseRowReadyToSave(row) {
     const fields = inputsExpenseRowFields(row);
     const amount = Number(fields.amount?.value);
-    const normalizedDate =
-      fields.date?.dataset.dpCanonical || parseInputsTimeDateValue(fields.date?.value || "");
+    const normalizedDate = parseInputsTimeDateValue(fields.date?.value || "");
     return (
       Boolean(fields.clientProject?.value) &&
       Boolean(normalizedDate) &&
@@ -4345,8 +4231,7 @@
         userId: state.currentUser?.id || "",
         clientName: clientName || "",
         projectName: projectName || "",
-        expenseDate:
-          current.date?.dataset.dpCanonical || parseInputsTimeDateValue(current.date?.value || ""),
+        expenseDate: parseInputsTimeDateValue(current.date?.value || ""),
         category: current.category?.value || "",
         amount: Number(current.amount?.value),
         isBillable: current.billable ? current.billable.checked : true,
@@ -4385,7 +4270,6 @@
       }
 
       feedback("Expense saved.", false);
-      writeLastInputsClientProjectCombo(current.clientProject?.value || "");
       row.dataset.entryId = nextExpense.id;
       row.dataset.createdAt = nextExpense.createdAt;
       setInputsExpenseRowSaved(row);
@@ -5664,15 +5548,9 @@
     }
     if (refs.clientsPage) {
       refs.clientsPage.hidden = view !== "clients";
-      const mobile = isMobileDrilldownViewport();
-      refs.clientsPage.dataset.mobileDrilldown = mobile ? "true" : "false";
-      refs.clientsPage.dataset.mobileView = mobile ? (state.mobileClientsView || "list") : "";
     }
     if (refs.usersPage) {
       refs.usersPage.hidden = view !== "members";
-      const mobile = isMobileDrilldownViewport();
-      refs.usersPage.dataset.mobileDrilldown = mobile ? "true" : "false";
-      refs.usersPage.dataset.mobileView = mobile ? (state.mobileMembersView || "list") : "";
     }
     if (refs.analyticsPage) {
       refs.analyticsPage.hidden = view !== "analytics";
@@ -5760,18 +5638,6 @@
         field,
         ensureCatalogSelection,
       });
-      const mobile = isMobileDrilldownViewport();
-      if (refs.projectList) {
-        refs.projectList.querySelectorAll("[data-mobile-clients-back-wrap]").forEach((node) => node.remove());
-        if (mobile && (state.mobileClientsView || "list") === "detail") {
-          refs.projectList.insertAdjacentHTML(
-            "afterbegin",
-            `<div class="mobile-drilldown-back-wrap" data-mobile-clients-back-wrap>
-              <button type="button" class="button button-ghost mobile-drilldown-back" data-mobile-clients-back>Back</button>
-            </div>`
-          );
-        }
-      }
       postHeight();
       return;
     }
@@ -5779,21 +5645,6 @@
     if (view === "members") {
       syncAddUserOfficeOptions();
       renderUsersList();
-      const mobile = isMobileDrilldownViewport();
-      if (refs.userList) {
-        refs.userList.querySelectorAll("[data-mobile-members-back-wrap]").forEach((node) => node.remove());
-        if (mobile && (state.mobileMembersView || "list") === "detail") {
-          const detailColumn = refs.userList.querySelector(".user-detail-column");
-          if (detailColumn) {
-            detailColumn.insertAdjacentHTML(
-              "afterbegin",
-              `<div class="mobile-drilldown-back-wrap" data-mobile-members-back-wrap>
-                <button type="button" class="button button-ghost mobile-drilldown-back" data-mobile-members-back>Back</button>
-              </div>`
-            );
-          }
-        }
-      }
       syncUserManagementControls();
       postHeight();
       return;
@@ -7125,19 +6976,19 @@
   refs.userList.addEventListener("click", handleUserListAction);
   if (refs.ratesRows) {
     refs.ratesRows.addEventListener("click", handleUserListAction);
-    refs.ratesRows.addEventListener("click", async function (event) {
+    refs.ratesRows.addEventListener("click", function (event) {
       const editBtn = event.target.closest("[data-member-edit]");
       if (!editBtn) return;
       event.preventDefault();
-      await openMemberEditorModal("edit", editBtn.dataset.memberEdit);
+      openMemberEditorModal("edit", editBtn.dataset.memberEdit);
     });
   }
   if (refs.settingsPage) {
-    refs.settingsPage.addEventListener("click", async function (event) {
+    refs.settingsPage.addEventListener("click", function (event) {
       const addBtn = event.target.closest("[data-member-add]");
       if (!addBtn) return;
       event.preventDefault();
-      await openMemberEditorModal("create");
+      openMemberEditorModal("create");
     });
   }
   if (refs.addLevel) {
@@ -7801,11 +7652,6 @@
     }
 
     state.selectedCatalogClient = button.dataset.client;
-    if (isMobileDrilldownViewport() && state.currentView === "clients") {
-      state.mobileClientsView = "detail";
-      render();
-      return;
-    }
     renderCatalogAside();
     postHeight();
   });
@@ -7820,31 +7666,7 @@
     row.click();
   });
 
-  if (refs.userList) {
-    refs.userList.addEventListener("click", function (event) {
-      if (!isMobileDrilldownViewport() || state.currentView !== "members") {
-        return;
-      }
-      if (event.target.closest("[data-mobile-members-back]")) {
-        state.mobileMembersView = "list";
-        render();
-        return;
-      }
-      if (event.target.closest(".user-item")) {
-        state.mobileMembersView = "detail";
-        render();
-      }
-    });
-  }
-
   refs.projectList.addEventListener("click", async function (event) {
-    const mobileBackButton = event.target.closest("[data-mobile-clients-back]");
-    if (mobileBackButton) {
-      state.mobileClientsView = "list";
-      render();
-      return;
-    }
-
     const viewTimeButton = event.target.closest("[data-view-time-project]");
     if (viewTimeButton) {
       const projectName = viewTimeButton.dataset.viewTimeProject;
@@ -8025,35 +7847,8 @@
       return;
     }
 
-    const editManagersButton = event.target.closest("[data-edit-managers]");
-    if (editManagersButton) {
-      if (!isAdmin(state.currentUser) && !isManager(state.currentUser)) {
-        feedback("Manager access required.", true);
-        return;
-      }
-      memberModalState.mode = "project-managers-edit";
-      memberModalState.client = state.selectedCatalogClient;
-      memberModalState.project = editManagersButton.dataset.editManagers;
-      memberModalState.assigned = managerIdsForProject(
-        state.selectedCatalogClient,
-        editManagersButton.dataset.editManagers
-      );
-      memberModalState.overrides = {};
-      state.assignments.managerProjects
-        .filter(
-          (item) =>
-            item.client === state.selectedCatalogClient &&
-            item.project === editManagersButton.dataset.editManagers
-        )
-        .forEach((item) => {
-          memberModalState.overrides[item.managerId] = item.chargeRateOverride ?? null;
-        });
-      openMembersModal();
-      return;
-    }
-
-    const editMembersButton = event.target.closest("[data-edit-members]");
-    if (editMembersButton) {
+    const addMemberButton = event.target.closest("[data-add-member]");
+    if (addMemberButton) {
       if (
         !isAdmin(state.currentUser) &&
         !(
@@ -8061,30 +7856,61 @@
           canManagerAccessProject(
             state.currentUser,
             state.selectedCatalogClient,
-            editMembersButton.dataset.editMembers
+            addMemberButton.dataset.addMember
           )
         )
       ) {
         feedback("Manager access required.", true);
         return;
       }
-      memberModalState.mode = "project-members-edit";
+      memberModalState.mode = "project-add-member";
       memberModalState.client = state.selectedCatalogClient;
-      memberModalState.project = editMembersButton.dataset.editMembers;
-      memberModalState.assigned = staffIdsForProject(
+      memberModalState.project = addMemberButton.dataset.addMember;
+      const assignedStaff = staffIdsForProject(
         state.selectedCatalogClient,
-        editMembersButton.dataset.editMembers
+        addMemberButton.dataset.addMember
       );
+      const assignedManagers = directManagerIdsForProject(
+        state.selectedCatalogClient,
+        addMemberButton.dataset.addMember
+      );
+      memberModalState.assigned = [...new Set([...(assignedStaff || []), ...(assignedManagers || [])])];
       memberModalState.overrides = {};
-      state.assignments.projectMembers
-        .filter(
-          (item) =>
-            item.client === state.selectedCatalogClient &&
-            item.project === editMembersButton.dataset.editMembers
+      memberModalState.searchTerm = "";
+      openMembersModal();
+      return;
+    }
+
+    const removeMemberButton = event.target.closest("[data-remove-member]");
+    if (removeMemberButton) {
+      if (
+        !isAdmin(state.currentUser) &&
+        !(
+          isManager(state.currentUser) &&
+          canManagerAccessProject(
+            state.currentUser,
+            state.selectedCatalogClient,
+            removeMemberButton.dataset.removeMember
+          )
         )
-        .forEach((item) => {
-          memberModalState.overrides[item.userId] = item.chargeRateOverride ?? null;
-        });
+      ) {
+        feedback("Manager access required.", true);
+        return;
+      }
+      memberModalState.mode = "project-remove-member";
+      memberModalState.client = state.selectedCatalogClient;
+      memberModalState.project = removeMemberButton.dataset.removeMember;
+      const assignedStaff = staffIdsForProject(
+        state.selectedCatalogClient,
+        removeMemberButton.dataset.removeMember
+      );
+      const assignedManagers = directManagerIdsForProject(
+        state.selectedCatalogClient,
+        removeMemberButton.dataset.removeMember
+      );
+      memberModalState.assigned = [...new Set([...(assignedStaff || []), ...(assignedManagers || [])])];
+      memberModalState.overrides = {};
+      memberModalState.searchTerm = "";
       openMembersModal();
       return;
     }
@@ -8203,7 +8029,12 @@
         return acc;
       }, {});
 
-      if (!selected.length && !roleOnlyMode && mode !== "project-managers-edit" && mode !== "project-members-edit") {
+      if (
+        !selected.length &&
+        !roleOnlyMode &&
+        mode !== "project-managers-edit" &&
+        mode !== "project-members-edit"
+      ) {
         setMembersFeedback("Select at least one member.", true);
         return;
       }
@@ -8311,6 +8142,38 @@
               clientName: client,
               projectName: project,
             });
+          } else if (mode === "project-add-member") {
+            if (isStaff(effectiveUser)) {
+              await mutatePersistentState("add_project_member", {
+                userId: user.id,
+                clientName: client,
+                projectName: project,
+              });
+            } else if (isManager(effectiveUser)) {
+              await mutatePersistentState("assign_manager_project", {
+                managerId: user.id,
+                clientName: client,
+                projectName: project,
+              });
+            } else {
+              continue;
+            }
+          } else if (mode === "project-remove-member") {
+            if (isStaff(effectiveUser)) {
+              await mutatePersistentState("remove_project_member", {
+                userId: user.id,
+                clientName: client,
+                projectName: project,
+              });
+            } else if (isManager(effectiveUser)) {
+              await mutatePersistentState("unassign_manager_project", {
+                managerId: user.id,
+                clientName: client,
+                projectName: project,
+              });
+            } else {
+              continue;
+            }
           } else if (mode === "project-assign-manager") {
             if (!isManager(effectiveUser)) {
               continue;

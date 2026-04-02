@@ -239,20 +239,20 @@
                     <button
                       type="button"
                       class="catalog-edit"
-                      aria-label="Edit managers for ${escapeHtml(project)}"
-                      data-edit-managers="${escapeHtml(project)}"
-                      ${disabledButtonAttrs(canEditProject, "Admin only.")}
+                      aria-label="Add member to ${escapeHtml(project)}"
+                      data-add-member="${escapeHtml(project)}"
+                      ${disabledButtonAttrs(canManageMembers, "Manager access required.")}
                     >
-                      Assign/Unassign managers
+                      Add Member
                     </button>
                     <button
                       type="button"
                       class="catalog-edit"
-                      aria-label="Edit members for ${escapeHtml(project)}"
-                      data-edit-members="${escapeHtml(project)}"
+                      aria-label="Remove member from ${escapeHtml(project)}"
+                      data-remove-member="${escapeHtml(project)}"
                       ${disabledButtonAttrs(canManageMembers, "Manager access required.")}
                     >
-                      Add/Remove members
+                      Remove Member
                     </button>
                   </span>
               </div>
