@@ -3201,8 +3201,11 @@ body[data-theme="dark"] .audit-detail-col {
   cursor: not-allowed;
 }
 
-.table-wrap {
+.table-wrap,
+.table-wrapper {
   overflow-x: auto;
+  width: 100%;
+  max-width: 100%;
 }
 
 .entries-table {
@@ -3779,11 +3782,7 @@ body[data-theme="dark"] .entry-approved td {
 }
 
 @media (max-width: 768px) {
-  .page-view.clients-page,
-  .page-view.members-page,
-  .page-view.inputs-view,
-  .page-view.entries-view,
-  .page-view.level-page {
+  .page-view {
     padding-left: 0;
     padding-right: 0;
   }
