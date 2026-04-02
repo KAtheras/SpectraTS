@@ -3001,9 +3001,10 @@
       .map((item) => {
         const total = Number(totalsByDate[item.iso] || 0);
         const isActive = item.iso === selectedDay;
-        return `<button type="button" class="inputs-drilldown-item${isActive ? " is-active" : ""}" data-action="inputs-time-day" data-day="${escapeHtml(item.iso)}">
+        const isZero = !Number.isFinite(total) || total <= 0;
+        return `<button type="button" class="inputs-drilldown-item${isActive ? " is-active" : ""}${isZero ? " is-zero" : ""}" data-action="inputs-time-day" data-day="${escapeHtml(item.iso)}">
           <span class="inputs-drilldown-item-label">${escapeHtml(item.dayLabel)} ${escapeHtml(item.dateLabel)}</span>
-          <span class="inputs-drilldown-item-value">${escapeHtml(formatSummaryHours(total))}</span>
+          <span class="inputs-drilldown-item-value">${escapeHtml(isZero ? "—" : formatSummaryHours(total))}</span>
         </button>`;
       })
       .join("");
@@ -3291,9 +3292,10 @@
       .map((item) => {
         const total = Number(totalsByDate[item.iso] || 0);
         const isActive = item.iso === selectedDay;
-        return `<button type="button" class="inputs-drilldown-item${isActive ? " is-active" : ""}" data-action="inputs-expense-day" data-day="${escapeHtml(item.iso)}">
+        const isZero = !Number.isFinite(total) || total <= 0;
+        return `<button type="button" class="inputs-drilldown-item${isActive ? " is-active" : ""}${isZero ? " is-zero" : ""}" data-action="inputs-expense-day" data-day="${escapeHtml(item.iso)}">
           <span class="inputs-drilldown-item-label">${escapeHtml(item.dayLabel)} ${escapeHtml(item.dateLabel)}</span>
-          <span class="inputs-drilldown-item-value">${escapeHtml(formatSummaryCurrency(total))}</span>
+          <span class="inputs-drilldown-item-value">${escapeHtml(isZero ? "—" : formatSummaryCurrency(total))}</span>
         </button>`;
       })
       .join("");

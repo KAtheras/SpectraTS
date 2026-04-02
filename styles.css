@@ -4991,10 +4991,28 @@ body[data-theme="dark"] #inputs-view .inputs-drilldown-col-head {
   background: color-mix(in srgb, var(--accent-soft) 25%, var(--surface-strong));
 }
 
+#inputs-view .inputs-drilldown-item.is-zero:not(.is-active) {
+  opacity: 0.68;
+}
+
+#inputs-view .inputs-drilldown-item.is-zero:not(.is-active) .inputs-drilldown-item-label,
+#inputs-view .inputs-drilldown-item.is-zero:not(.is-active) .inputs-drilldown-item-value {
+  color: color-mix(in srgb, var(--muted) 78%, transparent);
+}
+
 body[data-theme="dark"] #inputs-view .inputs-drilldown-item.is-active {
   border-color: color-mix(in srgb, var(--accent) 72%, var(--line));
   background: color-mix(in srgb, var(--accent) 24%, var(--surface-strong));
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+body[data-theme="dark"] #inputs-view .inputs-drilldown-item.is-zero:not(.is-active) {
+  opacity: 0.62;
+}
+
+body[data-theme="dark"] #inputs-view .inputs-drilldown-item.is-zero:not(.is-active) .inputs-drilldown-item-label,
+body[data-theme="dark"] #inputs-view .inputs-drilldown-item.is-zero:not(.is-active) .inputs-drilldown-item-value {
+  color: color-mix(in srgb, var(--muted) 82%, #d5deed 18%);
 }
 
 body[data-theme="dark"] #inputs-view .inputs-drilldown-item.is-active .inputs-drilldown-item-label {
