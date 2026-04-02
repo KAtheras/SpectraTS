@@ -223,9 +223,10 @@
               : roleValue === "admin" || roleValue === "superuser"
                 ? 6
                 : user.level;
-      const currentLevel = normalizeLevel(inferredLevel);
+      const hasExplicitLevel = user.level !== undefined && user.level !== null && String(user.level).trim() !== "";
+      const currentLevel = normalizeLevel(hasExplicitLevel ? user.level : inferredLevel);
       const currentLevelLabel =
-        user.level !== undefined && user.level !== null
+        hasExplicitLevel
           ? levelLabel(user.level)
           : levelLabel(currentLevel);
       const isManagerEligible = isManager(user);
