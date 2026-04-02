@@ -771,6 +771,10 @@
             }
           }
           @media (max-width: 720px){
+            #settings-page .level-labels-inner{
+              padding-left:8px;
+              padding-right:8px;
+            }
             #settings-page .settings-section-content{
               gap:10px;
             }
@@ -823,6 +827,9 @@
             }
             #settings-page [data-settings-tab="levels"] .settings-structured-row .settings-row-actions{
               grid-column:2;
+            }
+            #settings-page [data-settings-tab="levels"] .settings-row-main-split{
+              grid-template-columns:minmax(0,1fr) minmax(98px,132px);
             }
             #settings-page [data-settings-tab="locations"] .settings-structured-row-no-label{
               grid-template-columns:minmax(0,1fr) 28px;
