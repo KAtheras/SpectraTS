@@ -612,6 +612,31 @@
           #settings-page .settings-row-actions .expense-toggle{
             min-width:0;
           }
+          #settings-page .settings-row-delete-icon{
+            width:30px;
+            min-width:30px;
+            height:30px;
+            padding:0;
+            border:1px solid color-mix(in srgb, var(--danger) 45%, var(--group-border));
+            border-radius:8px;
+            background:color-mix(in srgb, var(--panel) 92%, var(--danger) 8%);
+            color:var(--danger);
+            display:inline-flex;
+            align-items:center;
+            justify-content:center;
+            cursor:pointer;
+          }
+          #settings-page .settings-row-delete-icon svg{
+            width:14px;
+            height:14px;
+            stroke:currentColor;
+          }
+          #settings-page .settings-row-delete-icon:hover,
+          #settings-page .settings-row-delete-icon:focus-visible{
+            background:color-mix(in srgb, var(--panel) 88%, var(--danger) 12%);
+            border-color:color-mix(in srgb, var(--danger) 62%, var(--group-border));
+            outline:none;
+          }
           #settings-page .settings-section-content .table-wrapper{
             margin:0;
           }
@@ -768,6 +793,24 @@
               height:32px;
               padding:0 9px;
               font-size:.8rem;
+            }
+            #settings-page [data-settings-tab="levels"] .settings-structured-row{
+              grid-template-columns:minmax(70px,.48fr) minmax(0,1fr) 36px;
+              gap:6px;
+              padding-left:2px;
+              padding-right:2px;
+            }
+            #settings-page [data-settings-tab="levels"] .settings-row-main-split{
+              grid-template-columns:minmax(0,1fr) minmax(86px,118px);
+              gap:5px;
+            }
+            #settings-page [data-settings-tab="levels"] .settings-row-actions{
+              justify-content:center;
+            }
+            #settings-page [data-settings-tab="levels"] .settings-row-delete-icon{
+              width:28px;
+              min-width:28px;
+              height:28px;
             }
           }
         `;
@@ -2208,7 +2251,11 @@
               </select>
             </div>
             <div class="settings-row-actions">
-              <button type="button" class="level-delete" data-level-delete aria-label="Delete level">Delete</button>
+              <button type="button" class="level-delete settings-row-delete-icon" data-level-delete aria-label="Delete level">
+                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M4 7h16M9 7V5h6v2M8 7l1 12h6l1-12" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </button>
             </div>
           </div>
         `
