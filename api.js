@@ -7,19 +7,36 @@
   const MUTATE_API_PATH = isLocalHost ? "/api/mutate" : "/.netlify/functions/mutate";
 
   function loadSessionToken() {
+    const key = "timesheet-studio.session-token.v1";
     try {
-      return window.localStorage.getItem("timesheet-studio.session-token.v1") || "";
+      const localValue = window.localStorage.getItem(key) || "";
+      if (localValue) return localValue;
+    } catch (error) {
+      // Ignore storage read failures and fall back.
+    }
+    try {
+      return window.sessionStorage.getItem(key) || "";
     } catch (error) {
       return "";
     }
   }
 
   function saveSessionToken(token) {
+    const key = "timesheet-studio.session-token.v1";
     try {
       if (token) {
-        window.localStorage.setItem("timesheet-studio.session-token.v1", token);
+        window.localStorage.setItem(key, token);
       } else {
-        window.localStorage.removeItem("timesheet-studio.session-token.v1");
+        window.localStorage.removeItem(key);
+      }
+    } catch (error) {
+      // Ignore localStorage write failures and continue.
+    }
+    try {
+      if (token) {
+        window.sessionStorage.setItem(key, token);
+      } else {
+        window.sessionStorage.removeItem(key);
       }
     } catch (error) {
       return;

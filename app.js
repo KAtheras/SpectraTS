@@ -1913,7 +1913,40 @@
       const payload = await requestJson(`${STATE_API_PATH}?settings_meta=1`, {
         method: "GET",
       });
-      applyLoadedState(payload);
+      const mergedPayload = {
+        ...payload,
+        currentUser: payload?.currentUser ?? state.currentUser,
+        users: Array.isArray(payload?.users) ? payload.users : state.users,
+        bootstrapRequired:
+          typeof payload?.bootstrapRequired === "boolean"
+            ? payload.bootstrapRequired
+            : state.bootstrapRequired,
+        catalog: payload?.catalog ?? state.catalog,
+        clients: Array.isArray(payload?.clients) ? payload.clients : state.clients,
+        entries: Array.isArray(payload?.entries) ? payload.entries : state.entries,
+        expenses: Array.isArray(payload?.expenses) ? payload.expenses : state.expenses,
+        assignments: payload?.assignments ?? state.assignments,
+        levelLabels: payload?.levelLabels ?? state.levelLabels,
+        permissionRoles: Array.isArray(payload?.permissionRoles)
+          ? payload.permissionRoles
+          : state.permissionRoles,
+        rolePermissions: Array.isArray(payload?.rolePermissions)
+          ? payload.rolePermissions
+          : state.rolePermissions,
+        expenseCategories: Array.isArray(payload?.expenseCategories)
+          ? payload.expenseCategories
+          : state.expenseCategories,
+        account: payload?.account ?? state.account,
+        settingsAccess: payload?.settingsAccess ?? state.settingsAccess,
+        notificationRules: Array.isArray(payload?.notificationRules)
+          ? payload.notificationRules
+          : state.notificationRules,
+        inboxItems: Array.isArray(payload?.inboxItems) ? payload.inboxItems : state.inboxItems,
+        permissions: payload?.permissions ?? state.permissions,
+        delegators: Array.isArray(payload?.delegators) ? payload.delegators : state.delegators,
+        projects: Array.isArray(payload?.projects) ? payload.projects : state.projects,
+      };
+      applyLoadedState(mergedPayload);
       window.state = state;
     } catch (error) {
       feedback(error.message || "Unable to load settings data.", true);
