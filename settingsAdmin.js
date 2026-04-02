@@ -382,7 +382,12 @@
             height:clamp(520px, calc(100vh - 150px), 84vh);
             overflow:auto;
           }
-          #settings-page .settings-tabs{display:grid;gap:0}
+          #settings-page .settings-tabs{
+            display:grid;
+            gap:0;
+            padding-bottom:0;
+            border-bottom:none;
+          }
           #settings-page .settings-tab-group{display:grid;gap:10px}
           #settings-page .settings-tab-group + .settings-tab-group{margin-top:12px}
           #settings-page .settings-tab-group-label{
