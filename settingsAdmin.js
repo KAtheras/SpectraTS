@@ -837,6 +837,14 @@
       return `${qty} ${qty === 1 ? singular : plural}`;
     };
 
+    const previewValidRowCount = function () {
+      const rows = Array.isArray(latestPreviewPayload?.objects) ? latestPreviewPayload.objects : [];
+      return rows.reduce((count, row) => {
+        const status = `${row?.status || ""}`.trim().toLowerCase();
+        return count + (status === "valid" ? 1 : 0);
+      }, 0);
+    };
+
     const updateBulkUploadUiState = function () {
       const hasPreview = !preview?.hidden;
       const rejectedCount = Array.isArray(latestRejectedRows) ? latestRejectedRows.length : 0;
@@ -864,8 +872,7 @@
           openExpensesBtn.dataset.mode = "upload-expenses";
           openExpensesBtn.hidden = false;
         } else if (previewKind === "time") {
-          const rows = Array.isArray(latestPreviewPayload?.objects) ? latestPreviewPayload.objects : [];
-          const validCount = rows.filter((row) => row.status === "Valid").length;
+          const validCount = previewValidRowCount();
           openTimeBtn.textContent = "Import Valid Time Rows";
           openTimeBtn.classList.remove("button-ghost");
           openTimeBtn.disabled = validCount === 0;
@@ -877,8 +884,7 @@
           openExpensesBtn.dataset.mode = "upload-another-time";
           openExpensesBtn.hidden = false;
         } else if (previewKind === "expenses") {
-          const rows = Array.isArray(latestPreviewPayload?.objects) ? latestPreviewPayload.objects : [];
-          const validCount = rows.filter((row) => row.status === "Valid").length;
+          const validCount = previewValidRowCount();
           openTimeBtn.textContent = "Import Valid Expense Rows";
           openTimeBtn.classList.remove("button-ghost");
           openTimeBtn.disabled = validCount === 0;
