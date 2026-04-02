@@ -2605,7 +2605,7 @@ async function saveEntry(sql, payload, currentUser, accountId) {
   const hasNonBillableContentChanges = existing
     ? !(
         existing.user_name === entry.user &&
-        String(existing.entry_date) === entry.date &&
+        normalizeDateString(existing.entry_date) === normalizeDateString(entry.date) &&
         existing.client_name === entry.client &&
         existing.project_name === entry.project &&
         (existing.task || "") === (entry.task || "") &&
