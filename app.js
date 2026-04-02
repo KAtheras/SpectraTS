@@ -1214,8 +1214,12 @@
     inputSubtab: "time", // "time" | "expenses"
     inputsTimeCalendarExpanded: false,
     inputsTimeCalendarEndDate: today,
+    inputsTimeSelectedDate: today,
+    inputsTimeSelectedClientProject: "",
     inputsExpenseCalendarExpanded: false,
     inputsExpenseCalendarEndDate: today,
+    inputsExpenseSelectedDate: today,
+    inputsExpenseSelectedClientProject: "",
     pendingInputsTimeEditId: "",
     pendingInputsExpenseEditId: "",
     entriesSubtab: "time", // "time" | "expenses"
@@ -2797,6 +2801,7 @@
         row.byDateEntries[entry.date] = [];
       }
       row.byDateEntries[entry.date].push({
+        id: `${entry.id || ""}`.trim(),
         hours,
         notes: typeof entry.notes === "string" ? entry.notes.trim() : "",
         billable: entry.billable !== false,
@@ -2891,93 +2896,101 @@
       }
       return;
     }
+    const daySet = new Set(dates.map((item) => item.iso));
+    if (!daySet.has(state.inputsTimeSelectedDate)) {
+      state.inputsTimeSelectedDate = daySet.has(today) ? today : dates[dates.length - 1].iso;
+    }
+    const selectedDay = state.inputsTimeSelectedDate;
 
-    const headerCells = dates
-      .map(
-        (item) =>
-          `<div class="inputs-time-calendar-cell inputs-time-calendar-head-cell">
-            <span class="inputs-time-calendar-day">${escapeHtml(item.dayLabel)}</span>
-            <span class="inputs-time-calendar-date">${escapeHtml(item.dateLabel)}</span>
-          </div>`
-      )
-      .join("");
-
-    const bodyRows = projectRows
+    const projectOptions = projectRows
       .map((row) => {
-        const label = `${row.client} / ${row.project}`;
-        const values = dates
-          .map((item) => {
-            const total = Number(row.byDate[item.iso] || 0);
-            const text = formatCalendarHours(total);
-            if (!text) {
-              return `<div class="inputs-time-calendar-cell">&nbsp;</div>`;
-            }
-            const entries = Array.isArray(row.byDateEntries?.[item.iso]) ? row.byDateEntries[item.iso] : [];
-            const detailRows = entries
-              .map((detail) => {
-                const hourText = formatSummaryHours(detail.hours);
-                const noteText = detail.notes ? escapeHtml(detail.notes) : "No note";
-                const noteClass = detail.notes ? "" : " is-empty";
-                const billableText = detail.billable ? "Billable" : "Non-billable";
-                const statusText = detail.status === "approved" ? "Approved" : "Pending";
-                return `<div class="inputs-time-calendar-detail-row">
-                  <span class="inputs-time-calendar-detail-hours">${escapeHtml(hourText)}</span>
-                  <span class="inputs-time-calendar-detail-chip inputs-time-calendar-detail-chip-status inputs-time-calendar-detail-chip-status-${
-                    detail.status === "approved" ? "approved" : "pending"
-                  }">${escapeHtml(statusText)}</span>
-                  <span class="inputs-time-calendar-detail-chip inputs-time-calendar-detail-chip-billable">${escapeHtml(
-                    billableText
-                  )}</span>
-                  <span class="inputs-time-calendar-detail-notes${noteClass}">${noteText}</span>
-                </div>`;
-              })
-              .join("");
-            return `<div class="inputs-time-calendar-cell inputs-time-calendar-cell-detail" tabindex="0">
-              ${escapeHtml(text)}
-              <div class="inputs-time-calendar-detail" role="tooltip">
-                ${detailRows}
-              </div>
-            </div>`;
-          })
-          .join("");
-        return `<div class="inputs-time-calendar-row">
-          <div class="inputs-time-calendar-cell inputs-time-calendar-project">${escapeHtml(label)}</div>
-          ${values}
-        </div>`;
+        const total = Number(row.byDate[selectedDay] || 0);
+        if (!Number.isFinite(total) || total <= 0) return null;
+        return {
+          key: encodeInputsTimeCombo(row.client, row.project),
+          label: `${row.client} / ${row.project}`,
+          total,
+          entries: Array.isArray(row.byDateEntries?.[selectedDay]) ? row.byDateEntries[selectedDay] : [],
+        };
       })
-      .join("");
+      .filter(Boolean);
 
-    const totalCells = dates
+    const projectOptionKeys = new Set(projectOptions.map((item) => item.key));
+    if (!projectOptionKeys.has(state.inputsTimeSelectedClientProject)) {
+      state.inputsTimeSelectedClientProject = projectOptions[0]?.key || "";
+    }
+    const selectedProject = projectOptions.find(
+      (item) => item.key === state.inputsTimeSelectedClientProject
+    ) || null;
+    const selectedEntries = selectedProject ? selectedProject.entries : [];
+
+    const dayRowsHtml = dates
       .map((item) => {
         const total = Number(totalsByDate[item.iso] || 0);
-        const text = formatCalendarHours(total);
-        return `<div class="inputs-time-calendar-cell">${text ? escapeHtml(text) : "&nbsp;"}</div>`;
+        const isActive = item.iso === selectedDay;
+        return `<button type="button" class="inputs-drilldown-item${isActive ? " is-active" : ""}" data-action="inputs-time-day" data-day="${escapeHtml(item.iso)}">
+          <span class="inputs-drilldown-item-label">${escapeHtml(item.dayLabel)} ${escapeHtml(item.dateLabel)}</span>
+          <span class="inputs-drilldown-item-value">${escapeHtml(formatSummaryHours(total))}</span>
+        </button>`;
       })
       .join("");
 
+    const projectRowsHtml =
+      projectOptions
+        .map((item) => {
+          const isActive = item.key === state.inputsTimeSelectedClientProject;
+          return `<button type="button" class="inputs-drilldown-item${isActive ? " is-active" : ""}" data-action="inputs-time-project" data-project="${escapeHtml(item.key)}">
+            <span class="inputs-drilldown-item-label">${escapeHtml(item.label)}</span>
+            <span class="inputs-drilldown-item-value">${escapeHtml(formatSummaryHours(item.total))}</span>
+          </button>`;
+        })
+        .join("") || `<div class="inputs-drilldown-empty">No client/project entries for this day.</div>`;
+
+    const detailRowsHtml =
+      selectedEntries
+        .map((detail) => {
+          const noteText = detail.notes ? escapeHtml(detail.notes) : "No note";
+          const statusText = detail.status === "approved" ? "Approved" : "Pending";
+          const billableText = detail.billable ? "Billable" : "Non-billable";
+          return `<div class="inputs-drilldown-detail-row">
+            <div class="inputs-drilldown-detail-main">
+              <span class="inputs-drilldown-detail-value">${escapeHtml(formatSummaryHours(detail.hours))}</span>
+              <span class="inputs-time-calendar-detail-chip inputs-time-calendar-detail-chip-status inputs-time-calendar-detail-chip-status-${
+                detail.status === "approved" ? "approved" : "pending"
+              }">${escapeHtml(statusText)}</span>
+              <span class="inputs-time-calendar-detail-chip inputs-time-calendar-detail-chip-billable">${escapeHtml(
+                billableText
+              )}</span>
+            </div>
+            <div class="inputs-drilldown-detail-notes">${noteText}</div>
+            <div class="inputs-drilldown-detail-actions">
+              <button type="button" class="button button-ghost" data-action="inputs-time-detail-edit" data-id="${escapeHtml(
+                detail.id
+              )}">Edit</button>
+              <button type="button" class="button button-ghost button-danger" data-action="inputs-time-detail-delete" data-id="${escapeHtml(
+                detail.id
+              )}">Delete</button>
+            </div>
+          </div>`;
+        })
+        .join("") || `<div class="inputs-drilldown-empty">Select a client/project to view details.</div>`;
+
     refs.inputsTimeCalendarGrid.innerHTML = `
-      <div class="inputs-time-calendar-row inputs-time-calendar-head-row">
-        <div class="inputs-time-calendar-cell inputs-time-calendar-project">Client / Project</div>
-        ${headerCells}
-      </div>
-      ${
-        bodyRows ||
-        `<div class="inputs-time-calendar-row inputs-time-calendar-empty-row">
-          <div class="inputs-time-calendar-cell inputs-time-calendar-project">No entries</div>
-          ${dates.map(() => `<div class="inputs-time-calendar-cell">&nbsp;</div>`).join("")}
-        </div>`
-      }
-      <div class="inputs-time-calendar-row inputs-time-calendar-total-row">
-        <div class="inputs-time-calendar-cell inputs-time-calendar-project">Total</div>
-        ${totalCells}
+      <div class="inputs-drilldown-layout">
+        <section class="inputs-drilldown-col">
+          <header class="inputs-drilldown-col-head">Days</header>
+          <div class="inputs-drilldown-col-body">${dayRowsHtml}</div>
+        </section>
+        <section class="inputs-drilldown-col">
+          <header class="inputs-drilldown-col-head">Client / Project</header>
+          <div class="inputs-drilldown-col-body">${projectRowsHtml}</div>
+        </section>
+        <section class="inputs-drilldown-col">
+          <header class="inputs-drilldown-col-head">Details</header>
+          <div class="inputs-drilldown-col-body">${detailRowsHtml}</div>
+        </section>
       </div>
     `;
-
-    bindInputsCalendarHoverAlignment(
-      refs.inputsTimeCalendarGrid,
-      ".inputs-time-calendar-cell-detail",
-      ".inputs-time-calendar-detail"
-    );
   }
 
   function bindInputsCalendarHoverAlignment(grid, cellSelector, panelSelector) {
@@ -3071,6 +3084,7 @@
         row.byDateEntries[expenseDate] = [];
       }
       row.byDateEntries[expenseDate].push({
+        id: `${expense.id || ""}`.trim(),
         amount,
         notes: typeof expense.notes === "string" ? expense.notes.trim() : "",
         billable: expense.isBillable !== false,
@@ -3166,96 +3180,103 @@
       }
       return;
     }
+    const daySet = new Set(dates.map((item) => item.iso));
+    if (!daySet.has(state.inputsExpenseSelectedDate)) {
+      state.inputsExpenseSelectedDate = daySet.has(today) ? today : dates[dates.length - 1].iso;
+    }
+    const selectedDay = state.inputsExpenseSelectedDate;
 
-    const headerCells = dates
-      .map(
-        (item) =>
-          `<div class="inputs-time-calendar-cell inputs-time-calendar-head-cell">
-            <span class="inputs-time-calendar-day">${escapeHtml(item.dayLabel)}</span>
-            <span class="inputs-time-calendar-date">${escapeHtml(item.dateLabel)}</span>
-          </div>`
-      )
-      .join("");
-
-    const bodyRows = projectRows
+    const projectOptions = projectRows
       .map((row) => {
-        const label = `${row.client} / ${row.project}`;
-        const values = dates
-          .map((item) => {
-            const total = Number(row.byDate[item.iso] || 0);
-            const text = formatCalendarCurrency(total);
-            if (!text) {
-              return `<div class="inputs-time-calendar-cell">&nbsp;</div>`;
-            }
-            const entries = Array.isArray(row.byDateEntries?.[item.iso]) ? row.byDateEntries[item.iso] : [];
-            const detailRows = entries
-              .map((detail) => {
-                const amountText = formatSummaryCurrency(detail.amount);
-                const noteText = detail.notes ? escapeHtml(detail.notes) : "No note";
-                const noteClass = detail.notes ? "" : " is-empty";
-                const billableText = detail.billable ? "Billable" : "Non-billable";
-                const statusText = detail.status === "approved" ? "Approved" : "Pending";
-                const categoryText = detail.category ? escapeHtml(detail.category) : "Uncategorized";
-                const categoryClass = detail.category ? "" : " is-empty";
-                return `<div class="inputs-time-calendar-detail-row inputs-expense-calendar-detail-row">
-                  <span class="inputs-time-calendar-detail-hours">${escapeHtml(amountText)}</span>
-                  <span class="inputs-time-calendar-detail-chip inputs-time-calendar-detail-chip-status inputs-time-calendar-detail-chip-status-${
-                    detail.status === "approved" ? "approved" : "pending"
-                  }">${escapeHtml(statusText)}</span>
-                  <span class="inputs-time-calendar-detail-chip inputs-time-calendar-detail-chip-billable">${escapeHtml(
-                    billableText
-                  )}</span>
-                  <span class="inputs-time-calendar-detail-category${categoryClass}">${categoryText}</span>
-                  <span class="inputs-time-calendar-detail-notes${noteClass}">${noteText}</span>
-                </div>`;
-              })
-              .join("");
-            return `<div class="inputs-time-calendar-cell inputs-time-calendar-cell-detail" tabindex="0">
-              ${escapeHtml(text)}
-              <div class="inputs-time-calendar-detail" role="tooltip">
-                ${detailRows}
-              </div>
-            </div>`;
-          })
-          .join("");
-        return `<div class="inputs-time-calendar-row">
-          <div class="inputs-time-calendar-cell inputs-time-calendar-project">${escapeHtml(label)}</div>
-          ${values}
-        </div>`;
+        const total = Number(row.byDate[selectedDay] || 0);
+        if (!Number.isFinite(total) || total <= 0) return null;
+        return {
+          key: encodeInputsTimeCombo(row.client, row.project),
+          label: `${row.client} / ${row.project}`,
+          total,
+          entries: Array.isArray(row.byDateEntries?.[selectedDay]) ? row.byDateEntries[selectedDay] : [],
+        };
       })
-      .join("");
+      .filter(Boolean);
 
-    const totalCells = dates
+    const projectOptionKeys = new Set(projectOptions.map((item) => item.key));
+    if (!projectOptionKeys.has(state.inputsExpenseSelectedClientProject)) {
+      state.inputsExpenseSelectedClientProject = projectOptions[0]?.key || "";
+    }
+    const selectedProject = projectOptions.find(
+      (item) => item.key === state.inputsExpenseSelectedClientProject
+    ) || null;
+    const selectedEntries = selectedProject ? selectedProject.entries : [];
+
+    const dayRowsHtml = dates
       .map((item) => {
         const total = Number(totalsByDate[item.iso] || 0);
-        const text = formatCalendarCurrency(total);
-        return `<div class="inputs-time-calendar-cell">${text ? escapeHtml(text) : "&nbsp;"}</div>`;
+        const isActive = item.iso === selectedDay;
+        return `<button type="button" class="inputs-drilldown-item${isActive ? " is-active" : ""}" data-action="inputs-expense-day" data-day="${escapeHtml(item.iso)}">
+          <span class="inputs-drilldown-item-label">${escapeHtml(item.dayLabel)} ${escapeHtml(item.dateLabel)}</span>
+          <span class="inputs-drilldown-item-value">${escapeHtml(formatSummaryCurrency(total))}</span>
+        </button>`;
       })
       .join("");
 
+    const projectRowsHtml =
+      projectOptions
+        .map((item) => {
+          const isActive = item.key === state.inputsExpenseSelectedClientProject;
+          return `<button type="button" class="inputs-drilldown-item${isActive ? " is-active" : ""}" data-action="inputs-expense-project" data-project="${escapeHtml(item.key)}">
+            <span class="inputs-drilldown-item-label">${escapeHtml(item.label)}</span>
+            <span class="inputs-drilldown-item-value">${escapeHtml(formatSummaryCurrency(item.total))}</span>
+          </button>`;
+        })
+        .join("") || `<div class="inputs-drilldown-empty">No client/project expenses for this day.</div>`;
+
+    const detailRowsHtml =
+      selectedEntries
+        .map((detail) => {
+          const noteText = detail.notes ? escapeHtml(detail.notes) : "No note";
+          const statusText = detail.status === "approved" ? "Approved" : "Pending";
+          const billableText = detail.billable ? "Billable" : "Non-billable";
+          const categoryText = detail.category ? escapeHtml(detail.category) : "Uncategorized";
+          return `<div class="inputs-drilldown-detail-row">
+            <div class="inputs-drilldown-detail-main">
+              <span class="inputs-drilldown-detail-value">${escapeHtml(formatSummaryCurrency(detail.amount))}</span>
+              <span class="inputs-time-calendar-detail-chip inputs-time-calendar-detail-chip-status inputs-time-calendar-detail-chip-status-${
+                detail.status === "approved" ? "approved" : "pending"
+              }">${escapeHtml(statusText)}</span>
+              <span class="inputs-time-calendar-detail-chip inputs-time-calendar-detail-chip-billable">${escapeHtml(
+                billableText
+              )}</span>
+              <span class="inputs-time-calendar-detail-category">${categoryText}</span>
+            </div>
+            <div class="inputs-drilldown-detail-notes">${noteText}</div>
+            <div class="inputs-drilldown-detail-actions">
+              <button type="button" class="button button-ghost" data-action="inputs-expense-detail-edit" data-id="${escapeHtml(
+                detail.id
+              )}">Edit</button>
+              <button type="button" class="button button-ghost button-danger" data-action="inputs-expense-detail-delete" data-id="${escapeHtml(
+                detail.id
+              )}">Delete</button>
+            </div>
+          </div>`;
+        })
+        .join("") || `<div class="inputs-drilldown-empty">Select a client/project to view details.</div>`;
+
     refs.inputsExpenseCalendarGrid.innerHTML = `
-      <div class="inputs-time-calendar-row inputs-time-calendar-head-row">
-        <div class="inputs-time-calendar-cell inputs-time-calendar-project">Client / Project</div>
-        ${headerCells}
-      </div>
-      ${
-        bodyRows ||
-        `<div class="inputs-time-calendar-row inputs-time-calendar-empty-row">
-          <div class="inputs-time-calendar-cell inputs-time-calendar-project">No expenses</div>
-          ${dates.map(() => `<div class="inputs-time-calendar-cell">&nbsp;</div>`).join("")}
-        </div>`
-      }
-      <div class="inputs-time-calendar-row inputs-time-calendar-total-row">
-        <div class="inputs-time-calendar-cell inputs-time-calendar-project">Total</div>
-        ${totalCells}
+      <div class="inputs-drilldown-layout">
+        <section class="inputs-drilldown-col">
+          <header class="inputs-drilldown-col-head">Days</header>
+          <div class="inputs-drilldown-col-body">${dayRowsHtml}</div>
+        </section>
+        <section class="inputs-drilldown-col">
+          <header class="inputs-drilldown-col-head">Client / Project</header>
+          <div class="inputs-drilldown-col-body">${projectRowsHtml}</div>
+        </section>
+        <section class="inputs-drilldown-col">
+          <header class="inputs-drilldown-col-head">Details</header>
+          <div class="inputs-drilldown-col-body">${detailRowsHtml}</div>
+        </section>
       </div>
     `;
-
-    bindInputsCalendarHoverAlignment(
-      refs.inputsExpenseCalendarGrid,
-      ".inputs-time-calendar-cell-detail",
-      ".inputs-time-calendar-detail"
-    );
   }
 
   function encodeInputsTimeCombo(clientName, projectName) {
@@ -6118,6 +6139,54 @@
       }
     });
   }
+  if (refs.inputsTimeCalendarGrid) {
+    refs.inputsTimeCalendarGrid.addEventListener("click", async function (event) {
+      const actionEl = event.target.closest("[data-action]");
+      if (!actionEl) return;
+      const action = `${actionEl.dataset.action || ""}`.trim();
+      if (action === "inputs-time-day") {
+        const day = `${actionEl.dataset.day || ""}`.trim();
+        if (isValidDateString(day)) {
+          state.inputsTimeSelectedDate = day;
+          state.inputsTimeSelectedClientProject = "";
+          renderInputsTimeCalendar();
+          postHeight();
+        }
+        return;
+      }
+      if (action === "inputs-time-project") {
+        state.inputsTimeSelectedClientProject = `${actionEl.dataset.project || ""}`.trim();
+        renderInputsTimeCalendar();
+        postHeight();
+        return;
+      }
+      if (action === "inputs-time-detail-edit") {
+        const id = `${actionEl.dataset.id || ""}`.trim();
+        if (!id) return;
+        state.pendingInputsTimeEditId = id;
+        state.inputSubtab = "time";
+        setView("inputs");
+        return;
+      }
+      if (action === "inputs-time-detail-delete") {
+        const id = `${actionEl.dataset.id || ""}`.trim();
+        if (!id) return;
+        const confirmDelete = await appDialog({
+          title: "Delete entry",
+          message: "Are you sure you want to delete this entry?",
+          confirmText: "Delete",
+          cancelText: "Cancel",
+        });
+        if (!confirmDelete?.confirmed) return;
+        try {
+          await mutatePersistentState("delete_entry", { id });
+          feedback("Entry deleted.", false);
+        } catch (error) {
+          feedback(error.message || "Unable to delete entry.", true);
+        }
+      }
+    });
+  }
   if (refs.inputsExpenseSummaryToggle) {
     refs.inputsExpenseSummaryToggle.addEventListener("click", function () {
       state.inputsExpenseCalendarExpanded = !state.inputsExpenseCalendarExpanded;
@@ -6151,6 +6220,54 @@
         renderInputsExpenseSummaryAndCalendarMeta();
         renderInputsExpenseCalendar();
         postHeight();
+      }
+    });
+  }
+  if (refs.inputsExpenseCalendarGrid) {
+    refs.inputsExpenseCalendarGrid.addEventListener("click", async function (event) {
+      const actionEl = event.target.closest("[data-action]");
+      if (!actionEl) return;
+      const action = `${actionEl.dataset.action || ""}`.trim();
+      if (action === "inputs-expense-day") {
+        const day = `${actionEl.dataset.day || ""}`.trim();
+        if (isValidDateString(day)) {
+          state.inputsExpenseSelectedDate = day;
+          state.inputsExpenseSelectedClientProject = "";
+          renderInputsExpenseCalendar();
+          postHeight();
+        }
+        return;
+      }
+      if (action === "inputs-expense-project") {
+        state.inputsExpenseSelectedClientProject = `${actionEl.dataset.project || ""}`.trim();
+        renderInputsExpenseCalendar();
+        postHeight();
+        return;
+      }
+      if (action === "inputs-expense-detail-edit") {
+        const id = `${actionEl.dataset.id || ""}`.trim();
+        if (!id) return;
+        state.pendingInputsExpenseEditId = id;
+        state.inputSubtab = "expenses";
+        setView("inputs");
+        return;
+      }
+      if (action === "inputs-expense-detail-delete") {
+        const id = `${actionEl.dataset.id || ""}`.trim();
+        if (!id) return;
+        const confirmDelete = await appDialog({
+          title: "Delete expense",
+          message: "Are you sure you want to delete this expense?",
+          confirmText: "Delete",
+          cancelText: "Cancel",
+        });
+        if (!confirmDelete?.confirmed) return;
+        try {
+          await mutatePersistentState("delete_expense", { id });
+          feedback("Expense deleted.", false);
+        } catch (error) {
+          feedback(error.message || "Unable to delete expense.", true);
+        }
       }
     });
   }
