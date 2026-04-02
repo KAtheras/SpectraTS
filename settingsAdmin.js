@@ -136,12 +136,15 @@
     });
     applyMobileSettingsLayout();
     const mobileMemberAdd = document.querySelector("#settings-page .member-info-mobile-add");
+    const mobileMemberTopActions = document.querySelector("#settings-page .member-info-mobile-top-actions");
+    const showMemberTopActions = isMobileSettingsLayout() && nextTab === "rates" && mobileSettingsMode === "detail" && memberInfoMobileMode !== "detail";
+    if (mobileMemberTopActions) {
+      mobileMemberTopActions.hidden = !showMemberTopActions;
+    }
     if (mobileMemberAdd) {
       const addAllowed = mobileMemberAdd.dataset.memberAddAllowed === "true";
       mobileMemberAdd.hidden = !(
-        isMobileSettingsLayout() &&
-        nextTab === "rates" &&
-        mobileSettingsMode === "detail" &&
+        showMemberTopActions &&
         addAllowed
       );
     }
@@ -2651,10 +2654,10 @@
           topActions.appendChild(mobileAddBtn);
         }
         mobileAddBtn.dataset.memberAddAllowed = canCreateMember ? "true" : "false";
+        const showMemberTopActions = isMobileSettingsLayout() && activeSettingsTab === "rates" && mobileSettingsMode === "detail" && memberInfoMobileMode !== "detail";
+        topActions.hidden = !showMemberTopActions;
         mobileAddBtn.hidden = !(
-          isMobileSettingsLayout() &&
-          activeSettingsTab === "rates" &&
-          mobileSettingsMode === "detail" &&
+          showMemberTopActions &&
           canCreateMember
         );
       }
