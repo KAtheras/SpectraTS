@@ -1042,12 +1042,16 @@
             rowErrors.push("Member not found.");
           } else {
             item._resolvedUserId = matchedUser.id;
+            item._resolvedUserName =
+              `${matchedUser.displayName || matchedUser.name || matchedUser.username || ""}`.trim();
           }
           if (!matchedProject) {
             rowStatus = "Invalid";
             rowErrors.push("Client/project not found.");
           } else {
             item._resolvedProjectId = matchedProject.id;
+            item._resolvedClientName = `${matchedClient?.name || item.client || ""}`.trim();
+            item._resolvedProjectName = `${matchedProject?.name || item.project || ""}`.trim();
           }
           if (matchedUser && matchedProject) {
             const role = typeof deps().roleKey === "function" ? deps().roleKey(matchedUser) : "";
@@ -1243,12 +1247,17 @@
             "save_entry",
             {
               entry: {
-                userId: row._resolvedUserId,
-                projectId: row._resolvedProjectId,
+                id: (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`),
+                user: row._resolvedUserName || `${row.member || ""}`.trim(),
                 date: row.date || "",
+                client: row._resolvedClientName || `${row.client || ""}`.trim(),
+                project: row._resolvedProjectName || `${row.project || ""}`.trim(),
+                task: "",
                 hours: Number.isFinite(Number(row.hours)) ? Number(row.hours) : 0,
-                billable: row.billable === true,
+                billable: row.billable === false ? false : true,
                 notes: `${row.notes || ""}`.trim(),
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
                 status: "pending",
               },
             },
