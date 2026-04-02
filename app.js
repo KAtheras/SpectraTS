@@ -6085,7 +6085,7 @@
           eventType,
           inboxEnabled,
           emailEnabled,
-        }, { refreshState: true });
+        }, { refreshState: true, returnState: false });
         feedback("Messaging rule updated.", false);
       } catch (error) {
         feedback(error.message || "Unable to update messaging rule.", true);
