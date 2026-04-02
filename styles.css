@@ -1535,7 +1535,7 @@ input[name="cost_rate"] {
 }
 
 .level-labels-form {
-  margin-top: 18px;
+  margin-top: 0;
   border-top: none;
 }
 
@@ -3782,6 +3782,16 @@ body[data-theme="dark"] .entry-approved td {
 }
 
 @media (max-width: 768px) {
+  .page-shell.page-inputs .app-topbar,
+  .page-shell.page-entries .app-topbar {
+    margin-bottom: 6px;
+  }
+
+  .page-shell.page-inputs .page-view.inputs-view,
+  .page-shell.page-entries .page-view.entries-view {
+    gap: 10px;
+  }
+
   :root {
     --shell-pad: 8px;
   }
