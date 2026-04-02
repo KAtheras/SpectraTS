@@ -71,7 +71,7 @@
     if (state.permissions?.manage_departments) tabs.push("departments");
     if (state.permissions?.can_delegate) tabs.push("delegations");
     if (state.permissions?.can_upload_data && !isMobileLayout) tabs.push("bulk_upload");
-    if (state.permissions?.manage_settings_access) tabs.push("permissions");
+    if (state.permissions?.manage_settings_access && !isMobileLayout) tabs.push("permissions");
     return tabs;
   }
 
@@ -669,6 +669,14 @@
             white-space:normal;
             line-height:1.35;
             text-align:right;
+          }
+          #settings-page [data-settings-tab="permissions"] .perms-matrix thead th:first-child{
+            text-align:left;
+            padding-left:14px;
+          }
+          #settings-page [data-settings-tab="permissions"] .perms-matrix th[scope="row"]{
+            text-align:left;
+            padding-left:14px;
           }
           #settings-page .perm-switch{
             position:relative;
