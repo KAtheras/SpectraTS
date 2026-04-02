@@ -649,7 +649,7 @@ body[data-theme="dark"] .button {
 
 .app-topbar {
   width: 100%;
-  margin: 0 0 14px;
+  margin: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -3782,11 +3782,6 @@ body[data-theme="dark"] .entry-approved td {
 }
 
 @media (max-width: 768px) {
-  .page-shell.page-inputs .app-topbar,
-  .page-shell.page-entries .app-topbar {
-    margin-bottom: 6px;
-  }
-
   .page-shell.page-inputs .page-view.inputs-view,
   .page-shell.page-entries .page-view.entries-view {
     gap: 10px;
