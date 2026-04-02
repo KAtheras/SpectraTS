@@ -825,22 +825,22 @@
               grid-column:2;
             }
             #settings-page [data-settings-tab="locations"] .settings-structured-row-no-label{
-              grid-template-columns:minmax(0,1fr) 36px;
-              gap:6px;
-              padding-left:2px;
-              padding-right:2px;
+              grid-template-columns:minmax(0,1fr) 28px;
+              gap:4px;
+              padding-left:0;
+              padding-right:0;
             }
             #settings-page [data-settings-tab="locations"] .settings-row-main-split{
               grid-template-columns:minmax(0,1fr) minmax(94px,126px);
-              gap:5px;
+              gap:4px;
             }
             #settings-page [data-settings-tab="locations"] .settings-row-actions{
-              justify-content:center;
+              justify-content:flex-start;
             }
             #settings-page [data-settings-tab="locations"] .settings-row-delete-icon{
-              width:28px;
-              min-width:28px;
-              height:28px;
+              width:26px;
+              min-width:26px;
+              height:26px;
             }
           }
         `;
