@@ -1,6 +1,7 @@
 (function () {
   const THEME_STORAGE_KEY = "timesheet-studio.theme.v1";
   const VIEW_STORAGE_KEY = "timesheet-studio.view.v1";
+  const LAST_INPUTS_COMBO_STORAGE_KEY = "timesheet-studio.inputs.last-client-project.v1";
   const body = document.body;
   const normalizedPath = window.location.pathname.replace(/\/+$/, "") || "/";
   if (normalizedPath === "/set-password") {
@@ -3303,6 +3304,31 @@
     ];
   }
 
+  function readLastInputsClientProjectCombo() {
+    try {
+      return `${window.localStorage.getItem(LAST_INPUTS_COMBO_STORAGE_KEY) || ""}`.trim();
+    } catch (_) {
+      return "";
+    }
+  }
+
+  function writeLastInputsClientProjectCombo(value) {
+    const nextValue = `${value || ""}`.trim();
+    if (!nextValue) return;
+    try {
+      window.localStorage.setItem(LAST_INPUTS_COMBO_STORAGE_KEY, nextValue);
+    } catch (_) {}
+  }
+
+  function resolveInputsComboDefault(selectedValue, options) {
+    const selected = `${selectedValue || ""}`.trim();
+    if (selected) return selected;
+    const stored = readLastInputsClientProjectCombo();
+    if (!stored) return "";
+    const list = Array.isArray(options) ? options : [];
+    return list.some((item) => `${item?.value || ""}`.trim() === stored) ? stored : "";
+  }
+
   function parseInputsTimeDateValue(value) {
     const raw = String(value || "").trim();
     if (!raw) {
@@ -3654,7 +3680,10 @@
   function syncInputsTimeFormRow(row, options) {
     const fields = inputsTimeRowFields(row);
     if (!fields.clientProject) return;
-    const selected = fields.clientProject.value || "";
+    const selected = resolveInputsComboDefault(fields.clientProject.value || "", options);
+    if (!fields.clientProject.value && selected) {
+      fields.clientProject.value = selected;
+    }
     setSelectOptionsWithPlaceholder(
       { escapeHtml },
       fields.clientProject,
@@ -3812,6 +3841,7 @@
       }
 
       feedback("Entry saved.", false);
+      writeLastInputsClientProjectCombo(current.clientProject?.value || "");
       row.dataset.entryId = nextEntry.id;
       row.dataset.createdAt = nextEntry.createdAt;
       setInputsTimeRowSaved(row);
@@ -4062,7 +4092,10 @@
   function syncInputsExpenseFormRow(row, comboOptions, categoryOptions) {
     const fields = inputsExpenseRowFields(row);
     if (!fields.clientProject) return;
-    const selectedCombo = fields.clientProject.value || "";
+    const selectedCombo = resolveInputsComboDefault(fields.clientProject.value || "", comboOptions);
+    if (!fields.clientProject.value && selectedCombo) {
+      fields.clientProject.value = selectedCombo;
+    }
     setSelectOptionsWithPlaceholder(
       { escapeHtml },
       fields.clientProject,
@@ -4241,6 +4274,7 @@
       }
 
       feedback("Expense saved.", false);
+      writeLastInputsClientProjectCombo(current.clientProject?.value || "");
       row.dataset.entryId = nextExpense.id;
       row.dataset.createdAt = nextExpense.createdAt;
       setInputsExpenseRowSaved(row);
