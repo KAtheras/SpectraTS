@@ -795,17 +795,17 @@
               font-size:.8rem;
             }
             #settings-page [data-settings-tab="levels"] .settings-structured-row{
-              grid-template-columns:minmax(70px,.48fr) minmax(0,1fr) 36px;
-              gap:6px;
-              padding-left:2px;
-              padding-right:2px;
+              grid-template-columns:64px minmax(0,1fr) 30px;
+              gap:4px;
+              padding-left:0;
+              padding-right:0;
             }
             #settings-page [data-settings-tab="levels"] .settings-row-main-split{
-              grid-template-columns:minmax(0,1fr) minmax(86px,118px);
-              gap:5px;
+              grid-template-columns:minmax(0,1fr) minmax(82px,112px);
+              gap:4px;
             }
             #settings-page [data-settings-tab="levels"] .settings-row-actions{
-              justify-content:center;
+              justify-content:flex-end;
             }
             #settings-page [data-settings-tab="levels"] .settings-row-delete-icon{
               width:28px;
