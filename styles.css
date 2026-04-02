@@ -313,7 +313,7 @@ body.modal-open {
 
 .page-shell.page-clients,
 .page-shell.page-members {
-  padding: 0;
+  padding: 0 var(--shell-pad);
   min-height: 100vh;
   height: 100vh;
 }
