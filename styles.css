@@ -4697,7 +4697,7 @@ body[data-theme="dark"] .entry-approved td {
   border-bottom: 1px solid var(--line);
 }
 
-#inputs-view .inputs-time-calendar-view.inputs-drilldown-mode .inputs-time-calendar-controls {
+#inputs-view .inputs-time-calendar-controls {
   display: none;
 }
 
