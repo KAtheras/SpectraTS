@@ -2366,7 +2366,14 @@
     const officeName = (id, fallbackName) =>
       id ? officeNameById.get(String(id)) || fallbackName || "No office" : fallbackName || "No office";
 
-    const rowsHtml = users
+    const normalizedSearchTerm = `${memberInfoSearchTerm || ""}`.trim().toLowerCase();
+    const filteredUsers = users.filter((user) => {
+      if (!normalizedSearchTerm) return true;
+      const haystack = `${user.displayName || ""} ${user.email || ""}`.toLowerCase();
+      return haystack.includes(normalizedSearchTerm);
+    });
+
+    const rowsHtml = filteredUsers
       .map(
         (user) => {
           const valueOrDash = (value) => {
@@ -2448,31 +2455,17 @@
       <div class="settings-rates-cards">
         ${rowsHtml}
       </div>
-      <div class="member-info-empty" data-member-info-empty hidden>No members found</div>
+      <div class="member-info-empty" data-member-info-empty${filteredUsers.length ? " hidden" : ""}>No members found</div>
     `;
 
     const searchInput = refs.ratesRows.querySelector("[data-member-info-search-input]");
-    const cards = Array.from(refs.ratesRows.querySelectorAll(".member-info-card"));
-    const emptyNode = refs.ratesRows.querySelector("[data-member-info-empty]");
-    const applySearchFilter = (rawTerm) => {
-      const term = `${rawTerm || ""}`.trim().toLowerCase();
-      let visibleCount = 0;
-      cards.forEach((card) => {
-        const haystack = `${card.dataset.memberInfoSearch || ""}`;
-        const isVisible = !term || haystack.includes(term);
-        card.hidden = !isVisible;
-        if (isVisible) visibleCount += 1;
-      });
-      if (emptyNode) {
-        emptyNode.hidden = visibleCount > 0;
-      }
-    };
     if (searchInput) {
       searchInput.addEventListener("input", function () {
-        memberInfoSearchTerm = searchInput.value || "";
-        applySearchFilter(memberInfoSearchTerm);
+        const nextTerm = searchInput.value || "";
+        if (nextTerm === memberInfoSearchTerm) return;
+        memberInfoSearchTerm = nextTerm;
+        renderRatesRows();
       });
-      applySearchFilter(memberInfoSearchTerm);
     }
 
     if (!refs.ratesForm?.querySelector(".settings-section-right")) {
