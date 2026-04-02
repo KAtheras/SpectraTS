@@ -1530,6 +1530,12 @@
     openTimeBtn?.addEventListener("click", function () {
       const mode = openTimeBtn.dataset.mode || "upload-time";
       if (mode === "import-time") {
+        const rows = Array.isArray(latestPreviewPayload?.objects) ? latestPreviewPayload.objects : [];
+        const validCount = rows.filter((row) => row.status === "Valid").length;
+        if (validCount <= 0) {
+          updateBulkUploadUiState();
+          return;
+        }
         importValidTimeRows().catch((error) => {
           deps().feedback(error?.message || "Unable to import time rows.", true);
           if (openTimeBtn) openTimeBtn.disabled = false;
@@ -1538,6 +1544,12 @@
         return;
       }
       if (mode === "import-expenses") {
+        const rows = Array.isArray(latestPreviewPayload?.objects) ? latestPreviewPayload.objects : [];
+        const validCount = rows.filter((row) => row.status === "Valid").length;
+        if (validCount <= 0) {
+          updateBulkUploadUiState();
+          return;
+        }
         importValidExpenseRows().catch((error) => {
           deps().feedback(error?.message || "Unable to import expense rows.", true);
           if (openTimeBtn) openTimeBtn.disabled = false;
