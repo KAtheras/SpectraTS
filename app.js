@@ -1891,6 +1891,16 @@
     return { minDate, maxDate };
   }
 
+  function syncExpenseBodyDateRangeFromState() {
+    if (!refs.expensesBody) return;
+    const dates = (state.expenses || [])
+      .map((expense) => normalizeExpenseDate(expense?.expenseDate || expense?.date || ""))
+      .filter(Boolean)
+      .sort();
+    refs.expensesBody.dataset.rangeMin = "";
+    refs.expensesBody.dataset.rangeMax = dates[dates.length - 1] || "";
+  }
+
   let expenseWindowRequestPromise = null;
   let expenseWindowRequestKey = "";
 
@@ -1951,6 +1961,7 @@
         : [];
       const merged = mergeExpensesById(incomingExpenses);
       if (merged) {
+        syncExpenseBodyDateRangeFromState();
         window.state = state;
       }
       return merged;
@@ -8282,6 +8293,7 @@
     field,
     ensureExpenseWindowLoaded,
     ensureExpenseHistoryCoversDate,
+    syncExpenseBodyDateRangeFromState,
   };
 
   window.addEventListener("resize", postHeight);
