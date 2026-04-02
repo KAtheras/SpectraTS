@@ -4283,9 +4283,10 @@ body[data-theme="dark"] .entry-approved td {
 }
 
 #inputs-view .input-row-head {
+  font-family: var(--font-head);
   font-size: 0.82rem;
   letter-spacing: 0.02em;
-  text-transform: none;
+  text-transform: uppercase;
   color: #2d3748;
   font-weight: 620;
   position: relative;
