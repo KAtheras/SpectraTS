@@ -1221,6 +1221,8 @@
     delegators: [],
     myDelegations: [],
     delegationCandidates: [],
+    settingsMetadataLoaded: false,
+    settingsMetadataLoading: false,
     actingAsUserId: "",
     inboxItems: [],
     inboxFilter: "all",
@@ -1553,8 +1555,11 @@
           })
           .filter(Boolean)
       : [];
-    state.departments = Array.isArray(data?.departments) ? data.departments.slice() : [];
-    state.departmentsSnapshot = Array.isArray(data?.departments) ? data.departments.slice() : [];
+    const hasDepartments = Array.isArray(data?.departments);
+    if (hasDepartments) {
+      state.departments = data.departments.slice();
+      state.departmentsSnapshot = data.departments.slice();
+    }
     state.bootstrapRequired = Boolean(data?.bootstrapRequired);
     state.catalog = normalizeCatalog(data?.catalog || {}, false);
     state.clients = Array.isArray(data?.clients)
@@ -1570,7 +1575,8 @@
       : {};
     state.permissionRoles = Array.isArray(data?.permissionRoles) ? data.permissionRoles.slice() : [];
     state.rolePermissions = Array.isArray(data?.rolePermissions) ? data.rolePermissions.slice() : [];
-    const remoteOffices = Array.isArray(data?.officeLocations)
+    const hasOfficeLocations = Array.isArray(data?.officeLocations);
+    const remoteOffices = hasOfficeLocations
       ? data.officeLocations
           .map(function (item) {
             const id = item.id || item.locationId || null;
@@ -1592,11 +1598,13 @@
       }
     })();
 
-    state.officeLocations = remoteOffices !== null
-      ? remoteOffices
-      : cachedOffices !== null
-        ? cachedOffices
-        : previousOfficeLocations;
+    if (hasOfficeLocations) {
+      state.officeLocations = remoteOffices !== null
+        ? remoteOffices
+        : cachedOffices !== null
+          ? cachedOffices
+          : previousOfficeLocations;
+    }
     state.expenseCategories = Array.isArray(data?.expenseCategories)
       ? data.expenseCategories.map((item) => ({
           id: item.id,
@@ -1605,20 +1613,20 @@
       : [];
     state.account = data?.account || null;
     state.settingsAccess = data?.settingsAccess || {};
-    state.notificationRules = Array.isArray(data?.notificationRules)
-      ? data.notificationRules.map((rule) => ({
-          eventType: `${rule?.eventType || rule?.event_type || ""}`.trim(),
-          enabled: rule?.enabled === false || rule?.enabled === 0 ? false : true,
-          inboxEnabled:
-            rule?.inboxEnabled === false || rule?.inbox_enabled === false || rule?.inbox_enabled === 0
-              ? false
-              : true,
-          emailEnabled:
-            rule?.emailEnabled === true || rule?.email_enabled === true || rule?.email_enabled === 1,
-          recipientScope: `${rule?.recipientScope || rule?.recipient_scope || ""}`.trim(),
-          deliveryMode: `${rule?.deliveryMode || rule?.delivery_mode || ""}`.trim(),
-        }))
-      : [];
+    if (Array.isArray(data?.notificationRules)) {
+      state.notificationRules = data.notificationRules.map((rule) => ({
+        eventType: `${rule?.eventType || rule?.event_type || ""}`.trim(),
+        enabled: rule?.enabled === false || rule?.enabled === 0 ? false : true,
+        inboxEnabled:
+          rule?.inboxEnabled === false || rule?.inbox_enabled === false || rule?.inbox_enabled === 0
+            ? false
+            : true,
+        emailEnabled:
+          rule?.emailEnabled === true || rule?.email_enabled === true || rule?.email_enabled === 1,
+        recipientScope: `${rule?.recipientScope || rule?.recipient_scope || ""}`.trim(),
+        deliveryMode: `${rule?.deliveryMode || rule?.delivery_mode || ""}`.trim(),
+      }));
+    }
     state.inboxItems = Array.isArray(data?.inboxItems)
       ? data.inboxItems.map(normalizeInboxItem).filter(Boolean)
       : [];
@@ -1635,23 +1643,33 @@
           })
           .filter(Boolean)
       : [];
-    state.myDelegations = Array.isArray(data?.myDelegations)
-      ? data.myDelegations
-          .map((item) => ({
-            delegateUserId: `${item?.delegateUserId || item?.delegate_user_id || ""}`.trim(),
-            delegateName: `${item?.delegateName || item?.delegate_name || ""}`.trim(),
-            capability: `${item?.capability || ""}`.trim(),
-          }))
-          .filter((item) => item.delegateUserId && item.delegateName && item.capability)
-      : [];
-    state.delegationCandidates = Array.isArray(data?.delegationCandidates)
-      ? data.delegationCandidates
-          .map((item) => ({
-            id: `${item?.id || ""}`.trim(),
-            name: `${item?.name || item?.displayName || ""}`.trim(),
-          }))
-          .filter((item) => item.id && item.name)
-      : [];
+    if (Array.isArray(data?.myDelegations)) {
+      state.myDelegations = data.myDelegations
+        .map((item) => ({
+          delegateUserId: `${item?.delegateUserId || item?.delegate_user_id || ""}`.trim(),
+          delegateName: `${item?.delegateName || item?.delegate_name || ""}`.trim(),
+          capability: `${item?.capability || ""}`.trim(),
+        }))
+        .filter((item) => item.delegateUserId && item.delegateName && item.capability);
+    }
+    if (Array.isArray(data?.delegationCandidates)) {
+      state.delegationCandidates = data.delegationCandidates
+        .map((item) => ({
+          id: `${item?.id || ""}`.trim(),
+          name: `${item?.name || item?.displayName || ""}`.trim(),
+        }))
+        .filter((item) => item.id && item.name);
+    }
+    if (
+      hasDepartments ||
+      hasOfficeLocations ||
+      Array.isArray(data?.notificationRules) ||
+      Array.isArray(data?.myDelegations) ||
+      Array.isArray(data?.delegationCandidates)
+    ) {
+      state.settingsMetadataLoaded = true;
+      state.settingsMetadataLoading = false;
+    }
     const normalizeId = (value) => `${value || ""}`.trim().toLowerCase();
     const currentUserId = `${state.currentUser?.id || ""}`.trim();
     const canKeepSelection =
@@ -1697,6 +1715,8 @@
     state.delegators = [];
     state.myDelegations = [];
     state.delegationCandidates = [];
+    state.settingsMetadataLoaded = false;
+    state.settingsMetadataLoading = false;
     state.actingAsUserId = "";
     resetAuditFilters();
   }
@@ -1868,6 +1888,8 @@
         state.delegators = [];
         state.myDelegations = [];
         state.delegationCandidates = [];
+        state.settingsMetadataLoaded = false;
+        state.settingsMetadataLoading = false;
         state.actingAsUserId = "";
         state.clientEditor = null;
         state.assignments = {
@@ -1880,6 +1902,28 @@
 
       throw error;
     }
+  }
+
+  async function loadSettingsMetadata(force = false) {
+    if (!state.currentUser) return;
+    if (state.settingsMetadataLoading) return;
+    if (!force && state.settingsMetadataLoaded) return;
+    state.settingsMetadataLoading = true;
+    render();
+    try {
+      const payload = await requestJson(`${STATE_API_PATH}?settings_meta=1`, {
+        method: "GET",
+      });
+      applyLoadedState(payload);
+      window.state = state;
+    } catch (error) {
+      feedback(error.message || "Unable to load settings data.", true);
+      state.settingsMetadataLoading = false;
+      render();
+      return;
+    }
+    state.settingsMetadataLoading = false;
+    render();
   }
 
   async function mutatePersistentState(action, payload, options = {}) {
@@ -1903,6 +1947,9 @@
     if (refreshState || (!skipHydrate && !canHydrateFromResult)) {
       await loadPersistentState();
       render();
+    }
+    if (state.currentView === "settings" && state.currentUser) {
+      await loadSettingsMetadata(true);
     }
     return result;
   }
@@ -1979,6 +2026,9 @@
       commitInboxVisitRead();
     }
     state.currentView = view;
+    if (view === "settings" && previousView !== "settings") {
+      loadSettingsMetadata();
+    }
     render();
   }
 

@@ -7,6 +7,7 @@ const {
   getSql,
   json,
   loadState,
+  loadSettingsMetadata,
   requireAuth,
 } = require("./_db");
 const { can, buildIndex, loadPermissionsFromDb } = require("./permissions");
@@ -27,6 +28,11 @@ exports.handler = async function handler(event) {
 
     const permissionRows = await loadPermissionsFromDb(sql);
     const permissionIndex = buildIndex({ permissions: permissionRows });
+    const settingsMetaOnly = String(event.queryStringParameters?.settings_meta || "").trim() === "1";
+    if (settingsMetaOnly) {
+      const settingsMeta = await loadSettingsMetadata(sql, context.currentUser);
+      return json(200, settingsMeta);
+    }
     const state = await loadState(sql, context.currentUser);
     const currentUser = state.currentUser;
     const canManageSettingsAccess = can(currentUser, "manage_settings_access", {}, permissionIndex);

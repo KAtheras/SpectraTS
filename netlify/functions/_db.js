@@ -2238,6 +2238,81 @@ async function listDelegationCandidates(sql, currentUserId, accountId) {
   }));
 }
 
+async function loadSettingsMetadata(sql, currentUser) {
+  const normalizedUser = currentUser
+    ? {
+        ...currentUser,
+        permissionGroup:
+          currentUser.permissionGroup || currentUser.permission_group || currentUser.permissiongroup,
+        level: normalizeLevel(currentUser.level),
+        officeId: currentUser.officeId ?? null,
+      }
+    : null;
+  const accountId = normalizedUser?.accountId || (await ensureDefaultAccount(sql));
+  const accountUuid = accountId ? `${accountId}` : accountId;
+  await ensureNotificationRulesForAccount(sql, accountUuid);
+
+  const permissionRows = await permissions.loadPermissionsFromDb(sql);
+  const permissionIndex = permissions.buildIndex({ permissions: permissionRows });
+  const canCap = (capability, ctx = {}) =>
+    permissions.can(normalizedUser, capability, {
+      permissionIndex,
+      actorOfficeId: normalizedUser?.officeId ?? null,
+      actorUserId: normalizedUser?.id ?? null,
+      ...ctx,
+    });
+
+  const canUseDepartmentsForMembers =
+    canCap("manage_departments", {
+      resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+      actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+    }) ||
+    canCap("edit_member_profile", {
+      resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+      actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+    }) ||
+    canCap("view_members", {
+      resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+      actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+    });
+  const departments = canUseDepartmentsForMembers
+    ? await listDepartments(sql, accountUuid)
+    : [];
+
+  const canUseOfficeLocationsForMembers =
+    canCap("manage_office_locations", {
+      resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+      actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+    }) ||
+    canCap("edit_member_profile", {
+      resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+      actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+    }) ||
+    canCap("create_member", {
+      resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+      actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+    });
+  const officeLocations = canUseOfficeLocationsForMembers
+    ? await listOfficeLocations(sql, accountUuid)
+    : [];
+
+  const notificationRules = await listNotificationRules(sql, accountUuid);
+  const myDelegations = normalizedUser
+    ? await listMyDelegations(sql, normalizedUser.id, accountUuid)
+    : [];
+  const delegationCandidates = normalizedUser
+    ? await listDelegationCandidates(sql, normalizedUser.id, accountUuid)
+    : [];
+
+  return {
+    departments,
+    officeLocations,
+    notificationRules,
+    myDelegations,
+    delegationCandidates,
+  };
+}
+
 async function loadState(sql, currentUser) {
   const normalizedUser = currentUser
     ? {
@@ -2852,38 +2927,6 @@ async function loadState(sql, currentUser) {
   // manage categories in Settings. Always return active categories; the
   // Settings UI is still gated by settingsAccess.manageCategories.
   const expenseCategories = await listExpenseCategories(sql, accountUuid);
-  const canUseDepartmentsForMembers =
-    canCap("manage_departments", {
-      resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
-      actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
-    }) ||
-    canCap("edit_member_profile", {
-      resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
-      actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
-    }) ||
-    canCap("view_members", {
-      resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
-      actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
-    });
-  const departments = canUseDepartmentsForMembers
-    ? await listDepartments(sql, accountUuid)
-    : [];
-  const canUseOfficeLocationsForMembers =
-    canCap("manage_office_locations", {
-      resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
-      actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
-    }) ||
-    canCap("edit_member_profile", {
-      resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
-      actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
-    }) ||
-    canCap("create_member", {
-      resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
-      actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
-    });
-  const officeLocations = canUseOfficeLocationsForMembers
-    ? await listOfficeLocations(sql, accountUuid)
-    : [];
   const assignments = {
     managerClients: [],
     managerProjects: [],
@@ -2970,14 +3013,6 @@ async function loadState(sql, currentUser) {
   const inboxItems = normalizedUser
     ? await listInboxItems(sql, accountUuid, normalizedUser.id)
     : [];
-  const notificationRules = await listNotificationRules(sql, accountUuid);
-  const myDelegations = normalizedUser
-    ? await listMyDelegations(sql, normalizedUser.id, accountUuid)
-    : [];
-  const delegationCandidates = normalizedUser
-    ? await listDelegationCandidates(sql, normalizedUser.id, accountUuid)
-    : [];
-
   return {
     bootstrapRequired: false,
     currentUser: normalizedUser
@@ -3003,15 +3038,10 @@ async function loadState(sql, currentUser) {
     expenses,
     projects,
     expenseCategories,
-    departments,
-    officeLocations,
     assignments,
     levelLabels,
     inboxItems,
-    notificationRules,
     delegators,
-    myDelegations,
-    delegationCandidates,
   };
 }
 
@@ -3157,6 +3187,7 @@ module.exports = {
   listLevelLabels,
   listUsers,
   loadState,
+  loadSettingsMetadata,
   listAuditLogs,
   logAudit,
   normalizeLevel,
