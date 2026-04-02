@@ -791,6 +791,12 @@
           <p id="bulk-upload-selected-file"></p>
           <div id="bulk-upload-preview-table-wrap">Preview coming next</div>
         </div>
+        <div id="bulk-upload-rejects" class="panel-head-actions" hidden>
+          <p id="bulk-upload-rejects-text" class="feedback" style="margin:0;"></p>
+          <button type="button" class="button button-ghost" id="bulk-upload-download-rejects">
+            Download Rejected Entries
+          </button>
+        </div>
       </div>
     `;
 
@@ -806,9 +812,13 @@
     const selectedFileLabel = panel.querySelector("#bulk-upload-selected-file");
     const errorEl = panel.querySelector("#bulk-upload-error");
     const previewTableWrap = panel.querySelector("#bulk-upload-preview-table-wrap");
+    const rejectsWrap = panel.querySelector("#bulk-upload-rejects");
+    const rejectsText = panel.querySelector("#bulk-upload-rejects-text");
+    const downloadRejectsBtn = panel.querySelector("#bulk-upload-download-rejects");
     let xlsxLoader = null;
     let previewKind = "";
     let latestPreviewPayload = null;
+    let latestRejectedRows = [];
 
     const updateBulkUploadUiState = function () {
       const hasPreview = !preview?.hidden;
@@ -850,6 +860,16 @@
           openExpensesBtn.dataset.mode = "upload-expenses";
           openTimeBtn.hidden = previewKind !== "time";
           openExpensesBtn.hidden = previewKind !== "expenses";
+        }
+      }
+      if (rejectsWrap) {
+        const rejectedCount = Array.isArray(latestRejectedRows) ? latestRejectedRows.length : 0;
+        const showRejects = hasPreview && previewKind === "time" && rejectedCount > 0;
+        rejectsWrap.hidden = !showRejects;
+        if (rejectsText) {
+          rejectsText.textContent = showRejects
+            ? `${rejectedCount} row${rejectedCount === 1 ? "" : "s"} were rejected.`
+            : "";
         }
       }
     };
@@ -950,6 +970,9 @@
     };
 
     const normalizeRows = function (rows2d, kind) {
+      const users = Array.isArray(state.users) ? state.users : [];
+      const clients = Array.isArray(state.clients) ? state.clients : [];
+      const projects = Array.isArray(state.projects) ? state.projects : [];
       const rows = Array.isArray(rows2d) ? rows2d : [];
       const headerRow = Array.isArray(rows[0]) ? rows[0] : [];
       const headers = headerRow.map(normalizeHeader).filter(Boolean);
@@ -966,7 +989,7 @@
       const objects = dataRows.map((row) => {
         const item = {};
         let rowStatus = "Valid";
-        let rowError = "";
+        const rowErrors = [];
         headers.forEach((header, index) => {
           const raw = row[index] ?? "";
           item._raw = item._raw || {};
@@ -981,7 +1004,7 @@
             const isInvalidBillable = kind === "time" && rawText !== "" && normalizedBillable === "";
             if (isInvalidBillable) {
               rowStatus = "Invalid";
-              rowError = `Invalid billable value: ${rawText}`;
+              rowErrors.push(`Invalid billable value: ${rawText}`);
               item[header] = rawText;
               return;
             }
@@ -996,8 +1019,36 @@
           item[header] = `${raw ?? ""}`.trim();
         });
         if (kind === "time") {
+          const memberName = `${item.member || ""}`.trim().toLowerCase();
+          const clientName = `${item.client || ""}`.trim().toLowerCase();
+          const projectName = `${item.project || ""}`.trim().toLowerCase();
+          const matchedUser =
+            users.find((user) => `${user.name || user.displayName || ""}`.trim().toLowerCase() === memberName) ||
+            users.find((user) => `${user.username || ""}`.trim().toLowerCase() === memberName) ||
+            null;
+          const matchedClient =
+            clients.find((client) => `${client.name || ""}`.trim().toLowerCase() === clientName) || null;
+          const matchedProject =
+            matchedClient &&
+            projects.find(
+              (project) =>
+                `${project.clientId || ""}`.trim() === `${matchedClient.id || ""}`.trim() &&
+                `${project.name || ""}`.trim().toLowerCase() === projectName
+            );
+          if (!matchedUser) {
+            rowStatus = "Invalid";
+            rowErrors.push("Member not found.");
+          } else {
+            item._resolvedUserId = matchedUser.id;
+          }
+          if (!matchedProject) {
+            rowStatus = "Invalid";
+            rowErrors.push("Client/project not found.");
+          } else {
+            item._resolvedProjectId = matchedProject.id;
+          }
           item.status = rowStatus;
-          item.error = rowError;
+          item.error = rowErrors.join(" ");
         }
         return item;
       });
@@ -1142,32 +1193,9 @@
       URL.revokeObjectURL(url);
     };
 
-    const findMemberByName = function (name) {
-      const target = `${name || ""}`.trim().toLowerCase();
-      if (!target) return null;
-      const users = Array.isArray(state.users) ? state.users : [];
-      return (
-        users.find((user) => `${user.name || user.displayName || ""}`.trim().toLowerCase() === target) ||
-        users.find((user) => `${user.username || ""}`.trim().toLowerCase() === target) ||
-        null
-      );
-    };
-
-    const findProjectByNames = function (clientName, projectName) {
-      const clientTarget = `${clientName || ""}`.trim().toLowerCase();
-      const projectTarget = `${projectName || ""}`.trim().toLowerCase();
-      if (!clientTarget || !projectTarget) return null;
-      const clients = Array.isArray(state.clients) ? state.clients : [];
-      const projects = Array.isArray(state.projects) ? state.projects : [];
-      const client = clients.find((item) => `${item.name || ""}`.trim().toLowerCase() === clientTarget);
-      if (!client) return null;
-      return (
-        projects.find(
-          (item) =>
-            `${item.clientId || ""}`.trim() === `${client.id || ""}`.trim() &&
-            `${item.name || ""}`.trim().toLowerCase() === projectTarget
-        ) || null
-      );
+    const setRejectedRows = function (rows) {
+      latestRejectedRows = Array.isArray(rows) ? rows : [];
+      updateBulkUploadUiState();
     };
 
     const importValidTimeRows = async function () {
@@ -1176,26 +1204,17 @@
       if (!validRows.length) return;
       const rejectedRows = objects.filter((row) => row.status !== "Valid");
       let importedCount = 0;
+      let failedCount = 0;
       if (openTimeBtn) openTimeBtn.disabled = true;
 
       for (const row of validRows) {
-        const member = findMemberByName(row.member);
-        const project = findProjectByNames(row.client, row.project);
-        if (!member || !project) {
-          rejectedRows.push({
-            ...row,
-            status: "Invalid",
-            error: !member ? "Member not found." : "Client/project not found.",
-          });
-          continue;
-        }
         try {
           await deps().mutatePersistentState(
             "save_entry",
             {
               entry: {
-                userId: member.id,
-                projectId: project.id,
+                userId: row._resolvedUserId,
+                projectId: row._resolvedProjectId,
                 date: row.date || "",
                 hours: Number.isFinite(Number(row.hours)) ? Number(row.hours) : 0,
                 billable: row.billable === true,
@@ -1207,19 +1226,17 @@
           );
           importedCount += 1;
         } catch (error) {
-          rejectedRows.push({
-            ...row,
-            status: "Invalid",
-            error: error?.message || "Unable to import row.",
-          });
+          failedCount += 1;
         }
       }
 
       const invalidCount = rejectedRows.length;
-      if (invalidCount > 0) {
-        downloadTimeRejectsCsv(rejectedRows);
-      }
-      deps().feedback(`Imported ${importedCount} valid rows. ${invalidCount} invalid rows were not imported.`);
+      setRejectedRows(rejectedRows);
+      const baseMessage = `Imported ${importedCount} valid rows. ${invalidCount} invalid rows were not imported.`;
+      deps().feedback(
+        failedCount > 0 ? `${baseMessage} ${failedCount} row(s) failed during import.` : baseMessage,
+        failedCount > 0
+      );
       if (typeof deps().loadPersistentState === "function") {
         await deps().loadPersistentState();
       }
@@ -1232,12 +1249,18 @@
       showError("");
       previewKind = kind;
       latestPreviewPayload = null;
+      setRejectedRows([]);
       selectedFileLabel.textContent = `Selected file: ${file.name || ""}`;
       preview.hidden = false;
       updateBulkUploadUiState();
       try {
         const parsed = await parseFile(file, kind);
         latestPreviewPayload = parsed;
+        if (kind === "time") {
+          setRejectedRows(parsed.objects.filter((row) => row.status !== "Valid"));
+        } else {
+          setRejectedRows([]);
+        }
         renderPreviewTable(parsed.headers, parsed.objects, kind);
         updateBulkUploadUiState();
       } catch (error) {
@@ -1247,6 +1270,7 @@
         preview.hidden = true;
         previewKind = "";
         latestPreviewPayload = null;
+        setRejectedRows([]);
         updateBulkUploadUiState();
         showError(
           error?.message === "INVALID_TEMPLATE"
@@ -1287,6 +1311,10 @@
     });
     expensesInput?.addEventListener("change", function () {
       handleFileSelect(expensesInput.files?.[0], "expenses");
+    });
+    downloadRejectsBtn?.addEventListener("click", function () {
+      if (!latestRejectedRows.length) return;
+      downloadTimeRejectsCsv(latestRejectedRows);
     });
     updateBulkUploadUiState();
   }
