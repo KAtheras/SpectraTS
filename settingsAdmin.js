@@ -812,6 +812,24 @@
               min-width:28px;
               height:28px;
             }
+            #settings-page [data-settings-tab="locations"] .settings-structured-row-no-label{
+              grid-template-columns:minmax(0,1fr) 36px;
+              gap:6px;
+              padding-left:2px;
+              padding-right:2px;
+            }
+            #settings-page [data-settings-tab="locations"] .settings-row-main-split{
+              grid-template-columns:minmax(0,1fr) minmax(94px,126px);
+              gap:5px;
+            }
+            #settings-page [data-settings-tab="locations"] .settings-row-actions{
+              justify-content:center;
+            }
+            #settings-page [data-settings-tab="locations"] .settings-row-delete-icon{
+              width:28px;
+              min-width:28px;
+              height:28px;
+            }
           }
         `;
         document.head.appendChild(style);
@@ -2476,7 +2494,11 @@
               <select data-office-lead>${leadOptions}</select>
             </div>
             <div class="settings-row-actions office-actions">
-              <button type="button" class="expense-delete" data-office-delete>Delete</button>
+              <button type="button" class="expense-delete settings-row-delete-icon" data-office-delete aria-label="Delete location">
+                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M4 7h16M9 7V5h6v2M8 7l1 12h6l1-12" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </button>
             </div>
           </div>
         `;
