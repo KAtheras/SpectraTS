@@ -850,26 +850,47 @@
       return key;
     };
 
+    const excelSerialToIsoDate = function (serial) {
+      const num = Number(serial);
+      if (!Number.isFinite(num) || num <= 0 || num >= 100000) return "";
+      const excelEpochUtc = Date.UTC(1899, 11, 30);
+      const millis = excelEpochUtc + Math.round(num * 86400000);
+      const date = new Date(millis);
+      if (Number.isNaN(date.getTime())) return "";
+      return date.toISOString().slice(0, 10);
+    };
+
     const normalizeDateValue = function (value) {
       if (value == null || `${value}`.trim() === "") return "";
-      if (typeof value === "number" && Number.isFinite(value)) {
-        const millis = Math.round((value - 25569) * 86400 * 1000);
-        return new Date(millis).toISOString().slice(0, 10);
+      if (typeof value === "number") {
+        const iso = excelSerialToIsoDate(value);
+        return iso || "";
       }
       const text = `${value}`.trim();
       if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
-      const digits = text.replace(/\D/g, "");
-      if (digits.length === 8) {
-        if (text.includes("-")) return text;
-        const maybeMonth = Number(digits.slice(0, 2));
-        if (maybeMonth >= 1 && maybeMonth <= 12) {
-          return `${digits.slice(4)}-${digits.slice(0, 2)}-${digits.slice(2, 4)}`;
-        }
-        return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6, 8)}`;
+      if (/^\d+(\.\d+)?$/.test(text)) {
+        const iso = excelSerialToIsoDate(Number(text));
+        if (iso) return iso;
       }
-      const parsed = new Date(text);
-      if (!Number.isNaN(parsed.getTime())) {
-        return parsed.toISOString().slice(0, 10);
+      const mdY = text.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+      if (mdY) {
+        const mm = mdY[1].padStart(2, "0");
+        const dd = mdY[2].padStart(2, "0");
+        return `${mdY[3]}-${mm}-${dd}`;
+      }
+      const ymd = text.match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})$/);
+      if (ymd) {
+        const mm = ymd[2].padStart(2, "0");
+        const dd = ymd[3].padStart(2, "0");
+        return `${ymd[1]}-${mm}-${dd}`;
+      }
+      const parsedMillis = Date.parse(text);
+      if (Number.isFinite(parsedMillis)) {
+        const parsed = new Date(parsedMillis);
+        const year = parsed.getUTCFullYear();
+        if (year >= 1900 && year <= 2100) {
+          return parsed.toISOString().slice(0, 10);
+        }
       }
       return text;
     };
@@ -926,7 +947,14 @@
         previewTableWrap.innerHTML = `<div class="empty-state-panel">Preview coming next</div>`;
         return;
       }
-      const headHtml = headers.map((header) => `<th>${escapeHtml(header)}</th>`).join("");
+      const headHtml = headers
+        .map(
+          (header) =>
+            `<th style="padding:8px 10px;border:1px solid var(--group-border);text-align:left;white-space:nowrap;">${escapeHtml(
+              header
+            )}</th>`
+        )
+        .join("");
       const formatPreviewValue = function (header, value) {
         if (header === "date") {
           return `${value || ""}`;
@@ -947,14 +975,19 @@
             .map(
               (row) =>
                 `<tr>${headers
-                  .map((header) => `<td>${escapeHtml(formatPreviewValue(header, row[header]))}</td>`)
+                  .map(
+                    (header) =>
+                      `<td style="padding:8px 10px;border:1px solid var(--group-border);vertical-align:top;">${escapeHtml(
+                        formatPreviewValue(header, row[header])
+                      )}</td>`
+                  )
                   .join("")}</tr>`
             )
             .join("")
-        : `<tr><td colspan="${headers.length}">No data rows found.</td></tr>`;
+        : `<tr><td colspan="${headers.length}" style="padding:8px 10px;border:1px solid var(--group-border);">No data rows found.</td></tr>`;
       previewTableWrap.innerHTML = `
         <div class="table-wrapper">
-          <table class="table">
+          <table class="table" style="width:100%;border-collapse:collapse;table-layout:auto;">
             <thead><tr>${headHtml}</tr></thead>
             <tbody>${bodyHtml}</tbody>
           </table>
