@@ -254,6 +254,12 @@
       bulk_upload: "Bulk Upload",
       permissions: "Member access levels",
     };
+    const settingsTabGroups = [
+      { key: "people", label: "PEOPLE", tabs: ["rates", "levels", "permissions", "delegations"] },
+      { key: "organization", label: "ORGANIZATION", tabs: ["departments", "locations"] },
+      { key: "configuration", label: "CONFIGURATION", tabs: ["categories", "messaging_rules"] },
+      { key: "tools", label: "TOOLS", tabs: ["bulk_upload"] },
+    ];
     const { tabButtons } = settingsTabElements();
     tabButtons.forEach(function (btn) {
       const key = btn.dataset.settingsTabButton;
@@ -305,6 +311,31 @@
         if (tabsContainer.parentElement !== navShell) {
           navShell.appendChild(tabsContainer);
         }
+        settingsTabGroups.forEach((group) => {
+          let section = tabsContainer.querySelector(`[data-settings-group="${group.key}"]`);
+          if (!section) {
+            section = document.createElement("div");
+            section.className = "settings-tab-group";
+            section.dataset.settingsGroup = group.key;
+            const label = document.createElement("div");
+            label.className = "settings-tab-group-label";
+            label.textContent = group.label;
+            section.appendChild(label);
+            tabsContainer.appendChild(section);
+          }
+
+          let hasVisibleButton = false;
+          group.tabs.forEach((tabKey) => {
+            const btn = tabsContainer.querySelector(`[data-settings-tab-button="${tabKey}"]`);
+            if (!btn) return;
+            section.appendChild(btn);
+            if (!btn.hidden) {
+              hasVisibleButton = true;
+            }
+          });
+
+          section.hidden = !hasVisibleButton;
+        });
         if (panelsContainer.parentElement !== contentShell) {
           contentShell.appendChild(panelsContainer);
         }
@@ -337,7 +368,19 @@
             height:clamp(500px, calc(100vh - 170px), 80vh);
             overflow:auto;
           }
-          #settings-page .settings-tabs{display:flex;flex-direction:column;gap:12px}
+          #settings-page .settings-tabs{display:grid;gap:0}
+          #settings-page .settings-tab-group{display:grid;gap:10px}
+          #settings-page .settings-tab-group + .settings-tab-group{margin-top:12px}
+          #settings-page .settings-tab-group-label{
+            font-family:var(--font-head);
+            font-size:.68rem;
+            line-height:1;
+            font-weight:700;
+            letter-spacing:.08em;
+            text-transform:uppercase;
+            color:var(--muted);
+            padding:0 2px;
+          }
           #settings-page .settings-tab{
             width:100%;
             outline:none;
@@ -662,6 +705,7 @@
               display:inline-flex;
               margin:0 0 10px;
             }
+            #settings-page .settings-tab-group + .settings-tab-group{margin-top:10px}
             #settings-page .settings-section-content .settings-structured-row{
               grid-template-columns:minmax(120px,.9fr) minmax(0,1fr) minmax(84px,max-content);
             }
