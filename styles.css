@@ -4682,10 +4682,9 @@ body[data-theme="dark"] .entry-approved td {
 }
 
 #inputs-view .inputs-time-calendar-view {
-  border: 1px solid var(--line);
-  border-top: none;
-  border-radius: 0 0 6px 6px;
-  background: var(--panel);
+  border: none;
+  border-radius: 0;
+  background: transparent;
 }
 
 #inputs-view .inputs-time-calendar-controls {
@@ -4745,9 +4744,9 @@ body[data-theme="dark"] .entry-approved td {
 }
 
 #inputs-view .inputs-drilldown-col {
-  border: none;
+  border: 1px solid var(--line);
   border-radius: 10px;
-  background: transparent;
+  background: var(--panel);
   min-height: 340px;
   max-height: 460px;
   display: flex;
