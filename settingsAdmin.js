@@ -934,7 +934,7 @@
 
     const EXPECTED_HEADERS = {
       time: ["member", "client", "project", "date", "hours", "billable", "notes"],
-      expenses: ["employee", "date", "client", "project", "category", "amount", "billable", "notes"],
+      expenses: ["member", "client", "project", "category", "date", "amount", "billable", "notes"],
     };
 
     const normalizeHeader = function (value) {
