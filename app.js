@@ -3160,7 +3160,7 @@
           : "";
     }
     if (refs.inputsExpenseCalendarPrev) {
-      refs.inputsExpenseCalendarPrev.disabled = !bounds.hasData || currentEndDate <= bounds.minEndDate;
+      refs.inputsExpenseCalendarPrev.disabled = !bounds.hasData;
     }
     if (refs.inputsExpenseCalendarNext) {
       refs.inputsExpenseCalendarNext.disabled = !bounds.hasData || currentEndDate >= bounds.maxEndDate;
@@ -6135,17 +6135,18 @@
   }
   if (refs.inputsExpenseCalendarPrev) {
     refs.inputsExpenseCalendarPrev.addEventListener("click", async function () {
-      let bounds = getInputsExpenseCalendarBounds();
       const currentEnd = isValidDateString(state.inputsExpenseCalendarEndDate)
         ? state.inputsExpenseCalendarEndDate
         : today;
-      if (!bounds.hasData || currentEnd <= bounds.minEndDate) {
-        const fallbackEnd = bounds.hasData ? shiftIsoDate(bounds.minEndDate, -1) : currentEnd;
-        const expandedFrom = shiftIsoDate(bounds.hasData ? bounds.minEndDate : currentEnd, -90);
+      const targetEnd = shiftIsoDate(currentEnd, -7);
+      let bounds = getInputsExpenseCalendarBounds();
+      if (bounds.hasData && targetEnd < bounds.minEndDate) {
+        const requestTo = shiftIsoDate(bounds.minEndDate, -1);
+        const requestFrom = shiftIsoDate(targetEnd, -90);
         try {
           const merged = await ensureExpenseWindowLoaded({
-            from: expandedFrom,
-            to: fallbackEnd,
+            from: requestFrom,
+            to: requestTo,
           });
           if (merged) {
             bounds = getInputsExpenseCalendarBounds();
@@ -6155,8 +6156,8 @@
           return;
         }
       }
-      if (!bounds.hasData || currentEnd <= bounds.minEndDate) return;
-      state.inputsExpenseCalendarEndDate = shiftIsoDate(state.inputsExpenseCalendarEndDate || today, -7);
+      if (!bounds.hasData) return;
+      state.inputsExpenseCalendarEndDate = targetEnd;
       if (state.currentView === "inputs" && state.inputSubtab === "expenses") {
         renderInputsExpenseSummaryAndCalendarMeta();
         renderInputsExpenseCalendar();
