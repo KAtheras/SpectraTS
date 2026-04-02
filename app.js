@@ -1212,6 +1212,8 @@
       projectMembers: [],
     },
     currentView: "inputs", // "inputs" | "entries" | "inbox" | "clients" | "members" | "analytics" | "settings" | "audit"
+    mobileClientsView: "list", // "list" | "detail" (mobile-only)
+    mobileMembersView: "list", // "list" | "detail" (mobile-only)
     inputSubtab: "time", // "time" | "expenses"
     inputsTimeCalendarExpanded: false,
     inputsTimeCalendarEndDate: today,
@@ -1386,6 +1388,10 @@
     } catch (error) {
       return;
     }
+  }
+
+  function isMobileDrilldownViewport() {
+    return window.matchMedia("(max-width: 768px)").matches;
   }
 
   function isViewAllowed(view) {
@@ -2122,6 +2128,12 @@
       commitInboxVisitRead();
     }
     state.currentView = view;
+    if (view === "clients" && previousView !== "clients") {
+      state.mobileClientsView = "list";
+    }
+    if (view === "members" && previousView !== "members") {
+      state.mobileMembersView = "list";
+    }
     persistCurrentView(view);
     if (view === "settings" && previousView !== "settings") {
       loadSettingsMetadata();
@@ -5564,9 +5576,15 @@
     }
     if (refs.clientsPage) {
       refs.clientsPage.hidden = view !== "clients";
+      const mobile = isMobileDrilldownViewport();
+      refs.clientsPage.dataset.mobileDrilldown = mobile ? "true" : "false";
+      refs.clientsPage.dataset.mobileView = mobile ? (state.mobileClientsView || "list") : "";
     }
     if (refs.usersPage) {
       refs.usersPage.hidden = view !== "members";
+      const mobile = isMobileDrilldownViewport();
+      refs.usersPage.dataset.mobileDrilldown = mobile ? "true" : "false";
+      refs.usersPage.dataset.mobileView = mobile ? (state.mobileMembersView || "list") : "";
     }
     if (refs.analyticsPage) {
       refs.analyticsPage.hidden = view !== "analytics";
@@ -5654,6 +5672,18 @@
         field,
         ensureCatalogSelection,
       });
+      const mobile = isMobileDrilldownViewport();
+      if (refs.projectList) {
+        refs.projectList.querySelectorAll("[data-mobile-clients-back-wrap]").forEach((node) => node.remove());
+        if (mobile && (state.mobileClientsView || "list") === "detail") {
+          refs.projectList.insertAdjacentHTML(
+            "afterbegin",
+            `<div class="mobile-drilldown-back-wrap" data-mobile-clients-back-wrap>
+              <button type="button" class="button button-ghost mobile-drilldown-back" data-mobile-clients-back>Back</button>
+            </div>`
+          );
+        }
+      }
       postHeight();
       return;
     }
@@ -5661,6 +5691,21 @@
     if (view === "members") {
       syncAddUserOfficeOptions();
       renderUsersList();
+      const mobile = isMobileDrilldownViewport();
+      if (refs.userList) {
+        refs.userList.querySelectorAll("[data-mobile-members-back-wrap]").forEach((node) => node.remove());
+        if (mobile && (state.mobileMembersView || "list") === "detail") {
+          const detailColumn = refs.userList.querySelector(".user-detail-column");
+          if (detailColumn) {
+            detailColumn.insertAdjacentHTML(
+              "afterbegin",
+              `<div class="mobile-drilldown-back-wrap" data-mobile-members-back-wrap>
+                <button type="button" class="button button-ghost mobile-drilldown-back" data-mobile-members-back>Back</button>
+              </div>`
+            );
+          }
+        }
+      }
       syncUserManagementControls();
       postHeight();
       return;
@@ -7668,6 +7713,11 @@
     }
 
     state.selectedCatalogClient = button.dataset.client;
+    if (isMobileDrilldownViewport() && state.currentView === "clients") {
+      state.mobileClientsView = "detail";
+      render();
+      return;
+    }
     renderCatalogAside();
     postHeight();
   });
@@ -7682,7 +7732,31 @@
     row.click();
   });
 
+  if (refs.userList) {
+    refs.userList.addEventListener("click", function (event) {
+      if (!isMobileDrilldownViewport() || state.currentView !== "members") {
+        return;
+      }
+      if (event.target.closest("[data-mobile-members-back]")) {
+        state.mobileMembersView = "list";
+        render();
+        return;
+      }
+      if (event.target.closest(".user-item")) {
+        state.mobileMembersView = "detail";
+        render();
+      }
+    });
+  }
+
   refs.projectList.addEventListener("click", async function (event) {
+    const mobileBackButton = event.target.closest("[data-mobile-clients-back]");
+    if (mobileBackButton) {
+      state.mobileClientsView = "list";
+      render();
+      return;
+    }
+
     const viewTimeButton = event.target.closest("[data-view-time-project]");
     if (viewTimeButton) {
       const projectName = viewTimeButton.dataset.viewTimeProject;
