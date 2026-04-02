@@ -4802,6 +4802,20 @@ body[data-theme="dark"] .entry-approved td {
   background: color-mix(in srgb, var(--accent-soft) 25%, var(--surface-strong));
 }
 
+body[data-theme="dark"] #inputs-view .inputs-drilldown-item.is-active {
+  border-color: color-mix(in srgb, var(--accent) 72%, var(--line));
+  background: color-mix(in srgb, var(--accent) 24%, var(--surface-strong));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+body[data-theme="dark"] #inputs-view .inputs-drilldown-item.is-active .inputs-drilldown-item-label {
+  color: #f3f8ff;
+}
+
+body[data-theme="dark"] #inputs-view .inputs-drilldown-item.is-active .inputs-drilldown-item-value {
+  color: #d0dff5;
+}
+
 #inputs-view .inputs-drilldown-item-label {
   font-size: 0.83rem;
   font-weight: 600;
