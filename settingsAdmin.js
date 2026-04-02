@@ -1353,9 +1353,11 @@
 
       const invalidCount = rejectedRows.length;
       if (preview) {
-        preview.hidden = true;
+        preview.hidden = invalidCount <= 0;
       }
-      if (previewTableWrap) {
+      if (invalidCount > 0 && latestPreviewPayload?.headers && previewTableWrap) {
+        renderPreviewTable(latestPreviewPayload.headers, rejectedRows, "time");
+      } else if (previewTableWrap) {
         previewTableWrap.innerHTML = `<div class="empty-state-panel">Preview coming next</div>`;
       }
       if (selectedFileLabel) {
@@ -1427,9 +1429,11 @@
 
       const invalidCount = rejectedRows.length;
       if (preview) {
-        preview.hidden = true;
+        preview.hidden = invalidCount <= 0;
       }
-      if (previewTableWrap) {
+      if (invalidCount > 0 && latestPreviewPayload?.headers && previewTableWrap) {
+        renderPreviewTable(latestPreviewPayload.headers, rejectedRows, "expenses");
+      } else if (previewTableWrap) {
         previewTableWrap.innerHTML = `<div class="empty-state-panel">Preview coming next</div>`;
       }
       if (selectedFileLabel) {
