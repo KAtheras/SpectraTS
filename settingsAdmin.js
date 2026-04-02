@@ -1340,7 +1340,7 @@
                 status: "pending",
               },
             },
-            { skipHydrate: true }
+            { skipHydrate: true, skipSettingsMetadataReload: true }
           );
           importedCount += 1;
         } catch (error) {
@@ -1416,7 +1416,7 @@
                 notes: `${row.notes || ""}`.trim(),
               },
             },
-            { skipHydrate: true }
+            { skipHydrate: true, skipSettingsMetadataReload: true }
           );
           importedCount += 1;
         } catch (error) {

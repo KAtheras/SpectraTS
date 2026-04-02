@@ -1959,7 +1959,7 @@
   }
 
   async function mutatePersistentState(action, payload, options = {}) {
-    const { skipHydrate, refreshState, returnState } = options;
+    const { skipHydrate, refreshState, returnState, skipSettingsMetadataReload } = options;
     const requestPayload = {
       action,
       payload,
@@ -1980,7 +1980,7 @@
       await loadPersistentState();
       render();
     }
-    if (state.currentView === "settings" && state.currentUser) {
+    if (!skipSettingsMetadataReload && state.currentView === "settings" && state.currentUser) {
       await loadSettingsMetadata(true);
     }
     return result;
