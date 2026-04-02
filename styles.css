@@ -649,7 +649,7 @@ body[data-theme="dark"] .button {
 
 .app-topbar {
   width: 100%;
-  margin: 0;
+  margin: 0 0 var(--shell-pad);
   display: flex;
   align-items: center;
   justify-content: space-between;
