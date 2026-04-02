@@ -1022,6 +1022,8 @@
           const memberName = `${item.member || ""}`.trim().toLowerCase();
           const clientName = `${item.client || ""}`.trim().toLowerCase();
           const projectName = `${item.project || ""}`.trim().toLowerCase();
+          const clientLabel = `${item.client || ""}`.trim();
+          const projectLabel = `${item.project || ""}`.trim();
           const matchedUser =
             users.find((user) => `${user.name || user.displayName || ""}`.trim().toLowerCase() === memberName) ||
             users.find((user) => `${user.username || ""}`.trim().toLowerCase() === memberName) ||
@@ -1046,6 +1048,34 @@
             rowErrors.push("Client/project not found.");
           } else {
             item._resolvedProjectId = matchedProject.id;
+          }
+          if (matchedUser && matchedProject) {
+            const role = typeof deps().roleKey === "function" ? deps().roleKey(matchedUser) : "";
+            const managerClientAccess =
+              typeof deps().managerClientAssignments === "function" &&
+              deps()
+                .managerClientAssignments(matchedUser.id)
+                .some((item) => `${item.client || ""}`.trim().toLowerCase() === clientName);
+            const managerProjectAccess =
+              typeof deps().managerProjectAssignments === "function" &&
+              deps()
+                .managerProjectAssignments(matchedUser.id)
+                .some(
+                  (item) =>
+                    `${item.client || ""}`.trim().toLowerCase() === clientName &&
+                    `${item.project || ""}`.trim().toLowerCase() === projectName
+                );
+            const isAssigned =
+              (typeof deps().isAdmin === "function" && deps().isAdmin(matchedUser)) ||
+              role === "executive" ||
+              managerClientAccess ||
+              managerProjectAccess ||
+              (typeof deps().isUserAssignedToProject === "function" &&
+                deps().isUserAssignedToProject(matchedUser.id, clientLabel, projectLabel));
+            if (!isAssigned) {
+              rowStatus = "Invalid";
+              rowErrors.push("Member not assigned to client/project.");
+            }
           }
           item.status = rowStatus;
           item.error = rowErrors.join(" ");
@@ -1227,10 +1257,16 @@
           importedCount += 1;
         } catch (error) {
           failedCount += 1;
+          row.status = "Invalid";
+          row.error = error?.message || "Unable to import row.";
+          rejectedRows.push(row);
         }
       }
 
       const invalidCount = rejectedRows.length;
+      if (latestPreviewPayload?.headers && latestPreviewPayload?.objects) {
+        renderPreviewTable(latestPreviewPayload.headers, latestPreviewPayload.objects, "time");
+      }
       setRejectedRows(rejectedRows);
       const baseMessage = `Imported ${importedCount} valid rows. ${invalidCount} invalid rows were not imported.`;
       deps().feedback(
