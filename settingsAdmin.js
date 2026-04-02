@@ -771,7 +771,7 @@
     panel.innerHTML = `
       <div class="settings-section-header" style="border-top:1px solid var(--group-border);border-bottom:1px solid var(--group-border);padding-top:10px;padding-bottom:10px;">
         <div class="settings-section-left">
-          <h3 style="text-transform:uppercase;letter-spacing:.06em;">Bulk Upload</h3>
+          <h3>Bulk Upload</h3>
         </div>
         <div class="settings-section-right" id="bulk-upload-header-actions">
           <button type="button" class="button" id="bulk-upload-time-open">Upload Time</button>
@@ -808,6 +808,7 @@
     const previewTableWrap = panel.querySelector("#bulk-upload-preview-table-wrap");
     let xlsxLoader = null;
     let previewKind = "";
+    let latestPreviewPayload = null;
 
     const updateBulkUploadUiState = function () {
       const hasPreview = !preview?.hidden;
@@ -819,9 +820,34 @@
       }
       if (openTimeBtn && openExpensesBtn) {
         if (!hasPreview) {
+          openTimeBtn.textContent = "Upload Time";
+          openTimeBtn.classList.remove("button-ghost");
+          openTimeBtn.disabled = false;
+          openTimeBtn.dataset.mode = "upload-time";
           openTimeBtn.hidden = false;
+          openExpensesBtn.textContent = "Upload Expenses";
+          openExpensesBtn.classList.remove("button-ghost");
+          openExpensesBtn.disabled = false;
+          openExpensesBtn.dataset.mode = "upload-expenses";
+          openExpensesBtn.hidden = false;
+        } else if (previewKind === "time") {
+          const rows = Array.isArray(latestPreviewPayload?.objects) ? latestPreviewPayload.objects : [];
+          const validCount = rows.filter((row) => row.status === "Valid").length;
+          openTimeBtn.textContent = "Import Valid Time Rows";
+          openTimeBtn.classList.remove("button-ghost");
+          openTimeBtn.disabled = validCount === 0;
+          openTimeBtn.dataset.mode = "import-time";
+          openTimeBtn.hidden = false;
+          openExpensesBtn.textContent = "Upload Another Time File";
+          openExpensesBtn.classList.add("button-ghost");
+          openExpensesBtn.disabled = false;
+          openExpensesBtn.dataset.mode = "upload-another-time";
           openExpensesBtn.hidden = false;
         } else {
+          openExpensesBtn.textContent = "Upload Expenses";
+          openExpensesBtn.classList.remove("button-ghost");
+          openExpensesBtn.disabled = false;
+          openExpensesBtn.dataset.mode = "upload-expenses";
           openTimeBtn.hidden = previewKind !== "time";
           openExpensesBtn.hidden = previewKind !== "expenses";
         }
@@ -943,6 +969,8 @@
         let rowError = "";
         headers.forEach((header, index) => {
           const raw = row[index] ?? "";
+          item._raw = item._raw || {};
+          item._raw[header] = `${raw ?? ""}`.trim();
           if (header === "date") {
             item[header] = normalizeDateValue(raw);
             return;
@@ -1076,22 +1104,149 @@
       throw new Error("Unsupported file type");
     };
 
+    const toCsvCell = function (value) {
+      const text = `${value ?? ""}`;
+      if (/[",\n\r]/.test(text)) {
+        return `"${text.replace(/"/g, '""')}"`;
+      }
+      return text;
+    };
+
+    const downloadTimeRejectsCsv = function (rows) {
+      const rejectRows = Array.isArray(rows) ? rows : [];
+      if (!rejectRows.length) return;
+      const columns = ["member", "client", "project", "date", "hours", "billable", "notes", "error"];
+      const lines = [columns.join(",")];
+      rejectRows.forEach((row) => {
+        const raw = row?._raw || {};
+        const values = [
+          raw.member ?? row.member ?? "",
+          raw.client ?? row.client ?? "",
+          raw.project ?? row.project ?? "",
+          raw.date ?? row.date ?? "",
+          raw.hours ?? row.hours ?? "",
+          raw.billable ?? row.billable ?? "",
+          raw.notes ?? row.notes ?? "",
+          row.error ?? "",
+        ];
+        lines.push(values.map(toCsvCell).join(","));
+      });
+      const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = "time-upload-rejects.csv";
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      URL.revokeObjectURL(url);
+    };
+
+    const findMemberByName = function (name) {
+      const target = `${name || ""}`.trim().toLowerCase();
+      if (!target) return null;
+      const users = Array.isArray(state.users) ? state.users : [];
+      return (
+        users.find((user) => `${user.name || user.displayName || ""}`.trim().toLowerCase() === target) ||
+        users.find((user) => `${user.username || ""}`.trim().toLowerCase() === target) ||
+        null
+      );
+    };
+
+    const findProjectByNames = function (clientName, projectName) {
+      const clientTarget = `${clientName || ""}`.trim().toLowerCase();
+      const projectTarget = `${projectName || ""}`.trim().toLowerCase();
+      if (!clientTarget || !projectTarget) return null;
+      const clients = Array.isArray(state.clients) ? state.clients : [];
+      const projects = Array.isArray(state.projects) ? state.projects : [];
+      const client = clients.find((item) => `${item.name || ""}`.trim().toLowerCase() === clientTarget);
+      if (!client) return null;
+      return (
+        projects.find(
+          (item) =>
+            `${item.clientId || ""}`.trim() === `${client.id || ""}`.trim() &&
+            `${item.name || ""}`.trim().toLowerCase() === projectTarget
+        ) || null
+      );
+    };
+
+    const importValidTimeRows = async function () {
+      const objects = Array.isArray(latestPreviewPayload?.objects) ? latestPreviewPayload.objects : [];
+      const validRows = objects.filter((row) => row.status === "Valid");
+      if (!validRows.length) return;
+      const rejectedRows = objects.filter((row) => row.status !== "Valid");
+      let importedCount = 0;
+      if (openTimeBtn) openTimeBtn.disabled = true;
+
+      for (const row of validRows) {
+        const member = findMemberByName(row.member);
+        const project = findProjectByNames(row.client, row.project);
+        if (!member || !project) {
+          rejectedRows.push({
+            ...row,
+            status: "Invalid",
+            error: !member ? "Member not found." : "Client/project not found.",
+          });
+          continue;
+        }
+        try {
+          await deps().mutatePersistentState(
+            "save_entry",
+            {
+              entry: {
+                userId: member.id,
+                projectId: project.id,
+                date: row.date || "",
+                hours: Number.isFinite(Number(row.hours)) ? Number(row.hours) : 0,
+                billable: row.billable === true,
+                notes: `${row.notes || ""}`.trim(),
+                status: "pending",
+              },
+            },
+            { skipHydrate: true }
+          );
+          importedCount += 1;
+        } catch (error) {
+          rejectedRows.push({
+            ...row,
+            status: "Invalid",
+            error: error?.message || "Unable to import row.",
+          });
+        }
+      }
+
+      const invalidCount = rejectedRows.length;
+      if (invalidCount > 0) {
+        downloadTimeRejectsCsv(rejectedRows);
+      }
+      deps().feedback(`Imported ${importedCount} valid rows. ${invalidCount} invalid rows were not imported.`);
+      if (typeof deps().loadPersistentState === "function") {
+        await deps().loadPersistentState();
+      }
+      if (openTimeBtn) openTimeBtn.disabled = false;
+      updateBulkUploadUiState();
+    };
+
     const handleFileSelect = async function (file, kind) {
       if (!file || !preview || !selectedFileLabel) return;
       showError("");
       previewKind = kind;
+      latestPreviewPayload = null;
       selectedFileLabel.textContent = `Selected file: ${file.name || ""}`;
       preview.hidden = false;
       updateBulkUploadUiState();
       try {
         const parsed = await parseFile(file, kind);
+        latestPreviewPayload = parsed;
         renderPreviewTable(parsed.headers, parsed.objects, kind);
+        updateBulkUploadUiState();
       } catch (error) {
         if (previewTableWrap) {
           previewTableWrap.innerHTML = `<div class="empty-state-panel">Preview coming next</div>`;
         }
         preview.hidden = true;
         previewKind = "";
+        latestPreviewPayload = null;
         updateBulkUploadUiState();
         showError(
           error?.message === "INVALID_TEMPLATE"
@@ -1102,9 +1257,23 @@
     };
 
     openTimeBtn?.addEventListener("click", function () {
+      const mode = openTimeBtn.dataset.mode || "upload-time";
+      if (mode === "import-time") {
+        importValidTimeRows().catch((error) => {
+          deps().feedback(error?.message || "Unable to import time rows.", true);
+          if (openTimeBtn) openTimeBtn.disabled = false;
+          updateBulkUploadUiState();
+        });
+        return;
+      }
       timeInput?.click();
     });
     openExpensesBtn?.addEventListener("click", function () {
+      const mode = openExpensesBtn.dataset.mode || "upload-expenses";
+      if (mode === "upload-another-time") {
+        timeInput?.click();
+        return;
+      }
       expensesInput?.click();
     });
     downloadTimeTemplateBtn?.addEventListener("click", function () {
