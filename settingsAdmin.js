@@ -839,19 +839,80 @@
       return result;
     };
 
-    const normalizeRows = function (rows2d) {
+    const EXPECTED_HEADERS = {
+      time: ["employee", "date", "client", "project", "hours", "billable", "notes"],
+      expenses: ["employee", "date", "client", "project", "category", "amount", "billable", "notes"],
+    };
+
+    const normalizeHeader = function (value) {
+      const key = `${value ?? ""}`.trim().toLowerCase();
+      if (key === "user") return "employee";
+      return key;
+    };
+
+    const normalizeDateValue = function (value) {
+      if (value == null || `${value}`.trim() === "") return "";
+      if (typeof value === "number" && Number.isFinite(value)) {
+        const millis = Math.round((value - 25569) * 86400 * 1000);
+        return new Date(millis).toISOString().slice(0, 10);
+      }
+      const text = `${value}`.trim();
+      if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
+      const digits = text.replace(/\D/g, "");
+      if (digits.length === 8) {
+        if (text.includes("-")) return text;
+        const maybeMonth = Number(digits.slice(0, 2));
+        if (maybeMonth >= 1 && maybeMonth <= 12) {
+          return `${digits.slice(4)}-${digits.slice(0, 2)}-${digits.slice(2, 4)}`;
+        }
+        return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6, 8)}`;
+      }
+      const parsed = new Date(text);
+      if (!Number.isNaN(parsed.getTime())) {
+        return parsed.toISOString().slice(0, 10);
+      }
+      return text;
+    };
+
+    const normalizeBillableValue = function (value) {
+      const text = `${value ?? ""}`.trim().toLowerCase();
+      if (["yes", "true", "1"].includes(text)) return true;
+      if (["no", "false", "0"].includes(text)) return false;
+      return "";
+    };
+
+    const normalizeRows = function (rows2d, kind) {
       const rows = Array.isArray(rows2d) ? rows2d : [];
       const headerRow = Array.isArray(rows[0]) ? rows[0] : [];
-      const headers = headerRow
-        .map((h, index) => `${h == null ? "" : h}`.trim() || `Column ${index + 1}`)
-        .filter(Boolean);
+      const headers = headerRow.map(normalizeHeader).filter(Boolean);
+      const expectedHeaders = EXPECTED_HEADERS[kind] || EXPECTED_HEADERS.time;
+      const isExactHeaderMatch =
+        headers.length === expectedHeaders.length &&
+        headers.every((header, index) => header === expectedHeaders[index]);
+      if (!isExactHeaderMatch) {
+        throw new Error("INVALID_TEMPLATE");
+      }
       const dataRows = rows
         .slice(1)
         .filter((row) => Array.isArray(row) && row.some((cell) => `${cell ?? ""}`.trim() !== ""));
       const objects = dataRows.map((row) => {
         const item = {};
         headers.forEach((header, index) => {
-          item[header] = row[index] ?? "";
+          const raw = row[index] ?? "";
+          if (header === "date") {
+            item[header] = normalizeDateValue(raw);
+            return;
+          }
+          if (header === "billable") {
+            item[header] = normalizeBillableValue(raw);
+            return;
+          }
+          if (header === "hours") {
+            const amount = Number(raw);
+            item[header] = Number.isFinite(amount) ? amount : "";
+            return;
+          }
+          item[header] = `${raw ?? ""}`.trim();
         });
         return item;
       });
@@ -866,12 +927,27 @@
         return;
       }
       const headHtml = headers.map((header) => `<th>${escapeHtml(header)}</th>`).join("");
+      const formatPreviewValue = function (header, value) {
+        if (header === "date") {
+          return `${value || ""}`;
+        }
+        if (header === "billable") {
+          if (value === true) return "Yes";
+          if (value === false) return "No";
+          return "";
+        }
+        if (header === "hours") {
+          if (typeof value === "number" && Number.isFinite(value)) return `${value}`;
+          return "";
+        }
+        return `${value ?? ""}`;
+      };
       const bodyHtml = rows.length
         ? rows
             .map(
               (row) =>
                 `<tr>${headers
-                  .map((header) => `<td>${escapeHtml(`${row[header] ?? ""}`)}</td>`)
+                  .map((header) => `<td>${escapeHtml(formatPreviewValue(header, row[header]))}</td>`)
                   .join("")}</tr>`
             )
             .join("")
@@ -904,12 +980,12 @@
       return xlsxLoader;
     };
 
-    const parseFile = async function (file) {
+    const parseFile = async function (file, kind) {
       const name = `${file?.name || ""}`.trim().toLowerCase();
       if (name.endsWith(".csv")) {
         const text = await file.text();
         const lines = text.replace(/^\uFEFF/, "").split(/\r?\n/).filter((line) => line.length > 0);
-        return normalizeRows(lines.map(parseCsvLine));
+        return normalizeRows(lines.map(parseCsvLine), kind);
       }
       if (name.endsWith(".xlsx")) {
         const XLSX = await ensureXlsx();
@@ -919,24 +995,28 @@
         const firstSheetName = workbook.SheetNames?.[0];
         const sheet = firstSheetName ? workbook.Sheets[firstSheetName] : null;
         const rows2d = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
-        return normalizeRows(rows2d);
+        return normalizeRows(rows2d, kind);
       }
       throw new Error("Unsupported file type");
     };
 
-    const handleFileSelect = async function (file) {
+    const handleFileSelect = async function (file, kind) {
       if (!file || !preview || !selectedFileLabel) return;
       showError("");
       selectedFileLabel.textContent = `Selected file: ${file.name || ""}`;
       preview.hidden = false;
       try {
-        const parsed = await parseFile(file);
+        const parsed = await parseFile(file, kind);
         renderPreviewTable(parsed.headers, parsed.objects);
       } catch (error) {
         if (previewTableWrap) {
           previewTableWrap.innerHTML = `<div class="empty-state-panel">Preview coming next</div>`;
         }
-        showError("Unable to read file. Please use template.");
+        showError(
+          error?.message === "INVALID_TEMPLATE"
+            ? "Invalid template. Please use the provided template."
+            : "Unable to read file. Please use template."
+        );
       }
     };
 
@@ -953,10 +1033,10 @@
       window.location.assign("/templates/expense-upload.xlsx");
     });
     timeInput?.addEventListener("change", function () {
-      handleFileSelect(timeInput.files?.[0]);
+      handleFileSelect(timeInput.files?.[0], "time");
     });
     expensesInput?.addEventListener("change", function () {
-      handleFileSelect(expensesInput.files?.[0]);
+      handleFileSelect(expensesInput.files?.[0], "expenses");
     });
   }
 
