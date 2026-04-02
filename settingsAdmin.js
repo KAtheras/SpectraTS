@@ -33,6 +33,8 @@
   let tabsInitialized = false;
   let mobileSettingsMode = "list";
   let memberInfoSearchTerm = "";
+  let memberInfoMobileMode = "list";
+  let memberInfoMobileSelectedUserId = "";
   let delegationsSelectedDelegateId = "";
   const delegationsDraftCapabilitiesByDelegateId = new Map();
 
@@ -495,6 +497,36 @@
           }
           #settings-page .member-info-search-row input{
             width:100%;
+          }
+          #settings-page .member-info-mobile-back{
+            margin:0 0 10px;
+          }
+          #settings-page .member-info-mobile-list{
+            display:grid;
+            gap:10px;
+          }
+          #settings-page .member-info-mobile-item{
+            width:100%;
+            text-align:left;
+            border:1px solid var(--group-border);
+            border-radius:14px;
+            background:color-mix(in srgb, var(--panel) 92%, var(--input-bg));
+            color:var(--ink);
+            padding:12px 14px;
+            display:grid;
+            gap:4px;
+            cursor:pointer;
+          }
+          #settings-page .member-info-mobile-item-name{
+            font-family:var(--font-head);
+            font-size:1rem;
+            font-weight:700;
+            line-height:1.2;
+          }
+          #settings-page .member-info-mobile-item-sub{
+            color:var(--muted);
+            font-size:.86rem;
+            font-weight:600;
           }
           #settings-page .member-info-empty{
             font-family:var(--font-head);
@@ -2344,6 +2376,10 @@
   function renderRatesRows() {
     const { refs, state, escapeHtml } = deps();
     if (!refs.ratesRows) return;
+    const isMobileMemberInfo = isMobileSettingsLayout();
+    if (!isMobileMemberInfo) {
+      memberInfoMobileMode = "list";
+    }
 
     const canEditRates = Boolean(state.permissions?.edit_user_rates);
     const canEditProfile = Boolean(state.permissions?.edit_user_profile);
@@ -2366,18 +2402,16 @@
     const officeName = (id, fallbackName) =>
       id ? officeNameById.get(String(id)) || fallbackName || "No office" : fallbackName || "No office";
 
-    const rowsHtml = users
-      .map(
-        (user) => {
-          const valueOrDash = (value) => {
-            const raw = value == null ? "" : String(value).trim();
-            return raw ? escapeHtml(raw) : "—";
-          };
-          const searchIndex = `${user.displayName || ""} ${user.username || ""}`.toLowerCase();
-          return `
+    const valueOrDash = (value) => {
+      const raw = value == null ? "" : String(value).trim();
+      return raw ? escapeHtml(raw) : "—";
+    };
+    const buildMemberCard = (user) => `
           <article class="member-info-card member-info-card--enhanced" data-user-id="${escapeHtml(
             user.id
-          )}" data-member-info-search="${escapeHtml(searchIndex)}">
+          )}" data-member-info-search-item data-member-info-search="${escapeHtml(
+      `${user.displayName || ""} ${user.username || ""}`.toLowerCase()
+    )}">
             <div class="member-info-layout">
               <div class="member-info-identity">
                 <div class="member-info-name">${escapeHtml(user.displayName)}</div>
@@ -2431,36 +2465,85 @@
             </div>
           </article>
         `;
-        }
-      )
-      .join("");
-    refs.ratesRows.innerHTML = `
-      <div class="member-info-search-row">
-        <input
-          type="search"
-          data-member-info-search-input
-          placeholder="Search members..."
-          value="${escapeHtml(memberInfoSearchTerm)}"
-          autocomplete="off"
-          spellcheck="false"
-        />
-      </div>
-      <div class="settings-rates-cards">
-        ${rowsHtml}
-      </div>
-      <div class="member-info-empty" data-member-info-empty hidden>No members found</div>
-    `;
+
+    const selectedUser = users.find((u) => u.id === memberInfoMobileSelectedUserId) || null;
+    if (isMobileMemberInfo && memberInfoMobileMode === "detail" && !selectedUser) {
+      memberInfoMobileMode = "list";
+    }
+
+    if (isMobileMemberInfo && memberInfoMobileMode === "detail" && selectedUser) {
+      refs.ratesRows.innerHTML = `
+        <button type="button" class="button button-ghost member-info-mobile-back" data-member-info-mobile-back>
+          Back
+        </button>
+        <div class="settings-rates-cards">
+          ${buildMemberCard(selectedUser)}
+        </div>
+      `;
+    } else if (isMobileMemberInfo) {
+      const rowsHtml = users
+        .map((user) => {
+          const searchIndex = `${user.displayName || ""} ${user.username || ""}`.toLowerCase();
+          return `
+            <button
+              type="button"
+              class="member-info-mobile-item"
+              data-member-info-select="${escapeHtml(user.id)}"
+              data-member-info-search-item
+              data-member-info-search="${escapeHtml(searchIndex)}"
+            >
+              <span class="member-info-mobile-item-name">${escapeHtml(user.displayName)}</span>
+              <span class="member-info-mobile-item-sub">${valueOrDash(user.username)}</span>
+            </button>
+          `;
+        })
+        .join("");
+      refs.ratesRows.innerHTML = `
+        <div class="member-info-search-row">
+          <input
+            type="search"
+            data-member-info-search-input
+            placeholder="Search members..."
+            value="${escapeHtml(memberInfoSearchTerm)}"
+            autocomplete="off"
+            spellcheck="false"
+          />
+        </div>
+        <div class="member-info-mobile-list">
+          ${rowsHtml}
+        </div>
+        <div class="member-info-empty" data-member-info-empty hidden>No members found</div>
+      `;
+    } else {
+      const rowsHtml = users.map((user) => buildMemberCard(user)).join("");
+      refs.ratesRows.innerHTML = `
+        <div class="member-info-search-row">
+          <input
+            type="search"
+            data-member-info-search-input
+            placeholder="Search members..."
+            value="${escapeHtml(memberInfoSearchTerm)}"
+            autocomplete="off"
+            spellcheck="false"
+          />
+        </div>
+        <div class="settings-rates-cards">
+          ${rowsHtml}
+        </div>
+        <div class="member-info-empty" data-member-info-empty hidden>No members found</div>
+      `;
+    }
 
     const searchInput = refs.ratesRows.querySelector("[data-member-info-search-input]");
-    const cards = Array.from(refs.ratesRows.querySelectorAll(".member-info-card"));
+    const rows = Array.from(refs.ratesRows.querySelectorAll("[data-member-info-search-item]"));
     const emptyNode = refs.ratesRows.querySelector("[data-member-info-empty]");
     const applySearchFilter = (rawTerm) => {
       const term = `${rawTerm || ""}`.trim().toLowerCase();
       let visibleCount = 0;
-      cards.forEach((card) => {
-        const haystack = `${card.dataset.memberInfoSearch || ""}`;
+      rows.forEach((row) => {
+        const haystack = `${row.dataset.memberInfoSearch || ""}`;
         const isVisible = !term || haystack.includes(term);
-        card.hidden = !isVisible;
+        row.hidden = !isVisible;
         if (isVisible) visibleCount += 1;
       });
       if (emptyNode) {
@@ -2473,6 +2556,20 @@
         applySearchFilter(memberInfoSearchTerm);
       });
       applySearchFilter(memberInfoSearchTerm);
+    }
+    refs.ratesRows.querySelectorAll("[data-member-info-select]").forEach((btn) => {
+      btn.addEventListener("click", function () {
+        memberInfoMobileSelectedUserId = btn.dataset.memberInfoSelect || "";
+        memberInfoMobileMode = "detail";
+        renderRatesRows();
+      });
+    });
+    const mobileBackBtn = refs.ratesRows.querySelector("[data-member-info-mobile-back]");
+    if (mobileBackBtn) {
+      mobileBackBtn.addEventListener("click", function () {
+        memberInfoMobileMode = "list";
+        renderRatesRows();
+      });
     }
 
     if (!refs.ratesForm?.querySelector(".settings-section-right")) {
