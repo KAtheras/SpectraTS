@@ -2313,7 +2313,7 @@ async function loadSettingsMetadata(sql, currentUser) {
   };
 }
 
-async function loadState(sql, currentUser, options = {}) {
+async function loadState(sql, currentUser) {
   const normalizedUser = currentUser
     ? {
         ...currentUser,
@@ -2653,18 +2653,6 @@ async function loadState(sql, currentUser, options = {}) {
     });
   }
 
-  const toIsoDateString = (value) => {
-    const raw = `${value || ""}`.trim();
-    return /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : "";
-  };
-  const todayDate = new Date();
-  const defaultExpenseTo = todayDate.toISOString().slice(0, 10);
-  const expenseWindowTo = toIsoDateString(options.expenseTo) || defaultExpenseTo;
-  const ninetyDaysAgoDate = new Date(todayDate);
-  ninetyDaysAgoDate.setDate(ninetyDaysAgoDate.getDate() - 90);
-  const defaultExpenseFrom = ninetyDaysAgoDate.toISOString().slice(0, 10);
-  const expenseWindowFrom = toIsoDateString(options.expenseFrom) || defaultExpenseFrom;
-
   let expenses = [];
   if (isAdminFlag || isExecFlag) {
     expenses = await sql`
@@ -2684,8 +2672,6 @@ async function loadState(sql, currentUser, options = {}) {
         updated_at AS "updatedAt"
       FROM expenses
       WHERE account_id = ${accountUuid}::uuid
-        AND expense_date >= ${expenseWindowFrom}
-        AND expense_date <= ${expenseWindowTo}
       ORDER BY expense_date DESC, created_at DESC NULLS LAST
     `;
   } else if (isManagerFlag) {
@@ -2712,8 +2698,6 @@ async function loadState(sql, currentUser, options = {}) {
           AND LOWER(projects.name) = LOWER(expenses.project_name)
         WHERE expenses.account_id = ${accountUuid}::uuid
           AND projects.id = ANY(${scope.projectIds})
-          AND expenses.expense_date >= ${expenseWindowFrom}
-          AND expenses.expense_date <= ${expenseWindowTo}
         ORDER BY expenses.expense_date DESC, expenses.created_at DESC NULLS LAST
       `;
     }
@@ -2736,8 +2720,6 @@ async function loadState(sql, currentUser, options = {}) {
       FROM expenses
       WHERE account_id = ${accountUuid}::uuid
         AND user_id = ${normalizedUser.id}
-        AND expense_date >= ${expenseWindowFrom}
-        AND expense_date <= ${expenseWindowTo}
       ORDER BY expense_date DESC, created_at DESC NULLS LAST
     `;
   }
@@ -2791,8 +2773,6 @@ async function loadState(sql, currentUser, options = {}) {
           updated_at AS "updatedAt"
         FROM expenses
         WHERE account_id = ${accountUuid}::uuid
-          AND expense_date >= ${expenseWindowFrom}
-          AND expense_date <= ${expenseWindowTo}
       `;
       delegatedExpenseRows.push(...rows);
     } else {
@@ -2815,8 +2795,6 @@ async function loadState(sql, currentUser, options = {}) {
           FROM expenses
           WHERE account_id = ${accountUuid}::uuid
             AND user_id = ANY(${delegatorSelfOnlyIds})
-            AND expense_date >= ${expenseWindowFrom}
-            AND expense_date <= ${expenseWindowTo}
         `;
         delegatedExpenseRows.push(...rows);
       }
@@ -2851,8 +2829,6 @@ async function loadState(sql, currentUser, options = {}) {
               AND LOWER(projects.name) = LOWER(expenses.project_name)
             WHERE expenses.account_id = ${accountUuid}::uuid
               AND projects.id = ANY(${scopeProjectIds})
-              AND expenses.expense_date >= ${expenseWindowFrom}
-              AND expenses.expense_date <= ${expenseWindowTo}
           `;
           delegatedExpenseRows.push(...rows);
         }

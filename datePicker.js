@@ -318,12 +318,7 @@
       const bodyEl = document.querySelector(input.dataset.dpBody);
       const sourceMin = bodyEl?.dataset?.rangeMin;
       const sourceMax = bodyEl?.dataset?.rangeMax;
-      const isExpenseFilterBody = input.dataset.dpBody === '#expenses-body';
-      const range = sourceMin && sourceMax
-        ? { min: sourceMin, max: sourceMax }
-        : isExpenseFilterBody
-          ? { min: sourceMin || '', max: sourceMax || '' }
-          : visibleRange(input.dataset.dpBody);
+      const range = sourceMin && sourceMax ? { min: sourceMin, max: sourceMax } : visibleRange(input.dataset.dpBody);
       let minVal = range?.min || '';
       let maxVal = range?.max || '';
       if (input.dataset.dpFilter === 'true') {
@@ -354,29 +349,12 @@
     popover.classList.remove('is-open');
   }
 
-  popover.addEventListener('click', async (event) => {
+  popover.addEventListener('click', (event) => {
     const dirBtn = event.target.closest('[data-dir]');
     if (dirBtn && openInput) {
       const dir = Number(dirBtn.dataset.dir);
-      const nextViewDate = new Date(viewDate.getFullYear(), viewDate.getMonth() + dir, 1);
-      const isExpenseFilterInput =
-        openInput?.dataset?.dpFilter === 'true' &&
-        openInput?.dataset?.dpBody === '#expenses-body';
-      if (dir < 0 && isExpenseFilterInput) {
-        const ensureHistory = window.expensesDeps?.ensureExpenseHistoryCoversDate;
-        if (typeof ensureHistory === 'function') {
-          try {
-            await ensureHistory(formatDate(nextViewDate));
-            if (typeof window.expensesDeps?.syncExpenseBodyDateRangeFromState === 'function') {
-              window.expensesDeps.syncExpenseBodyDateRangeFromState();
-            }
-            openFor(openInput);
-          } catch (error) {
-            // Keep picker usable even if expansion fails.
-          }
-        }
-      }
-      viewDate = clampToBounds(nextViewDate, openInput);
+      viewDate = new Date(viewDate.getFullYear(), viewDate.getMonth() + dir, 1);
+      viewDate = clampToBounds(viewDate, openInput);
       render();
     }
   });

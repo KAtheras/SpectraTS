@@ -222,16 +222,6 @@
 
   function applyExpenseFiltersFromForm(options) {
     const applied = applyExpenseFiltersFromFormBase ? applyExpenseFiltersFromFormBase(options) : false;
-    if (applied && typeof applied.then === "function") {
-      applied
-        .then((resolved) => {
-          if (resolved) {
-            syncSharedEntriesFiltersFromExpense();
-          }
-        })
-        .catch(() => {});
-      return applied;
-    }
     if (applied) {
       syncSharedEntriesFiltersFromExpense();
     }
@@ -1868,130 +1858,6 @@
       actor: "",
       date: "",
     };
-  }
-
-  function normalizeExpenseDate(value) {
-    if (isValidDateString(value)) {
-      return value;
-    }
-    return "";
-  }
-
-  function getLoadedExpenseDateBounds() {
-    let minDate = "";
-    let maxDate = "";
-    (state.expenses || []).forEach((expense) => {
-      if (!expense) return;
-      const expenseDate = normalizeExpenseDate(expense.expenseDate || expense.date || "");
-      if (!expenseDate) return;
-      if (!minDate || expenseDate < minDate) minDate = expenseDate;
-      if (!maxDate || expenseDate > maxDate) maxDate = expenseDate;
-    });
-    if (!minDate || !maxDate) return null;
-    return { minDate, maxDate };
-  }
-
-  function syncExpenseBodyDateRangeFromState() {
-    if (!refs.expensesBody) return;
-    const dates = (state.expenses || [])
-      .map((expense) => normalizeExpenseDate(expense?.expenseDate || expense?.date || ""))
-      .filter(Boolean)
-      .sort();
-    refs.expensesBody.dataset.rangeMin = "";
-    refs.expensesBody.dataset.rangeMax = dates[dates.length - 1] || "";
-  }
-
-  let expenseWindowRequestPromise = null;
-  let expenseWindowRequestKey = "";
-
-  function mergeExpensesById(incomingExpenses) {
-    if (!Array.isArray(incomingExpenses) || !incomingExpenses.length) return false;
-    const previousById = new Map(
-      (state.expenses || [])
-        .filter((expense) => expense && expense.id)
-        .map((expense) => [`${expense.id}`, expense])
-    );
-    let changed = false;
-    incomingExpenses.forEach((expense) => {
-      if (!expense || !expense.id) return;
-      const key = `${expense.id}`;
-      const prev = previousById.get(key);
-      if (!prev || JSON.stringify(prev) !== JSON.stringify(expense)) {
-        changed = true;
-      }
-      previousById.set(key, expense);
-    });
-    if (!changed && previousById.size === (state.expenses || []).length) {
-      return false;
-    }
-    state.expenses = Array.from(previousById.values()).sort((a, b) => {
-      const leftDate = `${a?.expenseDate || a?.date || ""}`;
-      const rightDate = `${b?.expenseDate || b?.date || ""}`;
-      if (leftDate === rightDate) {
-        return `${b?.createdAt || ""}`.localeCompare(`${a?.createdAt || ""}`);
-      }
-      return rightDate.localeCompare(leftDate);
-    });
-    return true;
-  }
-
-  async function ensureExpenseWindowLoaded(options = {}) {
-    const requestedFrom = normalizeExpenseDate(options.from || "");
-    const requestedTo = normalizeExpenseDate(options.to || "") || today;
-    if (!requestedFrom) return false;
-    const loadedBounds = getLoadedExpenseDateBounds();
-    const loadedMin = loadedBounds?.minDate || "";
-    if (loadedMin && requestedFrom >= loadedMin) {
-      return false;
-    }
-    const requestKey = `${requestedFrom}::${requestedTo}`;
-    if (expenseWindowRequestPromise && expenseWindowRequestKey === requestKey) {
-      return expenseWindowRequestPromise;
-    }
-    expenseWindowRequestKey = requestKey;
-    expenseWindowRequestPromise = (async () => {
-      const query = new URLSearchParams();
-      query.set("expense_from", requestedFrom);
-      query.set("expense_to", requestedTo);
-      const payload = await requestJson(`${STATE_API_PATH}?${query.toString()}`, {
-        method: "GET",
-      });
-      const incomingExpenses = Array.isArray(payload?.expenses)
-        ? payload.expenses.map(normalizeExpense).filter(Boolean)
-        : [];
-      const merged = mergeExpensesById(incomingExpenses);
-      if (merged) {
-        syncExpenseBodyDateRangeFromState();
-        window.state = state;
-      }
-      return merged;
-    })();
-    try {
-      return await expenseWindowRequestPromise;
-    } finally {
-      expenseWindowRequestPromise = null;
-      expenseWindowRequestKey = "";
-    }
-  }
-
-  async function ensureExpenseHistoryCoversDate(targetDate) {
-    const target = normalizeExpenseDate(targetDate || "");
-    if (!target) return true;
-    let safety = 0;
-    while (safety < 64) {
-      safety += 1;
-      const bounds = getLoadedExpenseDateBounds();
-      if (!bounds?.minDate) return false;
-      if (target >= bounds.minDate) return true;
-      const requestTo = shiftIsoDate(bounds.minDate, -1);
-      const requestFrom = shiftIsoDate(bounds.minDate, -90);
-      const merged = await ensureExpenseWindowLoaded({
-        from: requestFrom,
-        to: requestTo,
-      });
-      if (!merged) return false;
-    }
-    return false;
   }
 
   async function loadPersistentState() {
@@ -6165,24 +6031,13 @@
     });
   }
   if (refs.inputsExpenseCalendarPrev) {
-    refs.inputsExpenseCalendarPrev.addEventListener("click", async function () {
+    refs.inputsExpenseCalendarPrev.addEventListener("click", function () {
+      const bounds = getInputsExpenseCalendarBounds();
       const currentEnd = isValidDateString(state.inputsExpenseCalendarEndDate)
         ? state.inputsExpenseCalendarEndDate
         : today;
-      const targetEnd = shiftIsoDate(currentEnd, -7);
-      let bounds = getInputsExpenseCalendarBounds();
-      if (bounds.hasData && targetEnd < bounds.minEndDate) {
-        try {
-          await ensureExpenseHistoryCoversDate(targetEnd);
-          bounds = getInputsExpenseCalendarBounds();
-        } catch (error) {
-          feedback(error.message || "Unable to load older expenses.", true);
-          return;
-        }
-      }
-      if (!bounds.hasData) return;
-      if (targetEnd < bounds.minEndDate) return;
-      state.inputsExpenseCalendarEndDate = targetEnd;
+      if (!bounds.hasData || currentEnd <= bounds.minEndDate) return;
+      state.inputsExpenseCalendarEndDate = shiftIsoDate(state.inputsExpenseCalendarEndDate || today, -7);
       if (state.currentView === "inputs" && state.inputSubtab === "expenses") {
         renderInputsExpenseSummaryAndCalendarMeta();
         renderInputsExpenseCalendar();
@@ -8291,9 +8146,6 @@
     isAdmin,
     isExecutive,
     field,
-    ensureExpenseWindowLoaded,
-    ensureExpenseHistoryCoversDate,
-    syncExpenseBodyDateRangeFromState,
   };
 
   window.addEventListener("resize", postHeight);

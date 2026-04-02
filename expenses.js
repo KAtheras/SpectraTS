@@ -303,8 +303,8 @@
       .join("");
   }
 
-  async function applyExpenseFiltersFromForm(options) {
-    const { field, refs, parseDisplayDate, feedback, state, ensureExpenseHistoryCoversDate, ensureExpenseWindowLoaded, today } = deps();
+  function applyExpenseFiltersFromForm(options) {
+    const { field, refs, parseDisplayDate, feedback, state } = deps();
     const settings = options || {};
     const showErrors = settings.showErrors !== false;
     const userField = field(refs.expenseFilterForm, "user");
@@ -333,38 +333,6 @@
         feedback("From date cannot be after To date.", true);
       }
       return false;
-    }
-
-    if (parsedFrom && typeof ensureExpenseHistoryCoversDate === "function") {
-      try {
-        await ensureExpenseHistoryCoversDate(parsedFrom);
-      } catch (error) {
-        if (showErrors) {
-          feedback(error.message || "Unable to load older expenses.", true);
-        }
-        return false;
-      }
-    } else if (parsedFrom && typeof ensureExpenseWindowLoaded === "function") {
-      const minLoadedDate = (state.expenses || []).reduce((minDate, expense) => {
-        const value = `${expense?.expenseDate || expense?.date || ""}`.trim();
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return minDate;
-        if (!minDate || value < minDate) return value;
-        return minDate;
-      }, "");
-      if (!minLoadedDate || parsedFrom < minLoadedDate) {
-        const requestTo = minLoadedDate ? minLoadedDate : today;
-        try {
-          await ensureExpenseWindowLoaded({
-            from: parsedFrom,
-            to: requestTo,
-          });
-        } catch (error) {
-          if (showErrors) {
-            feedback(error.message || "Unable to load older expenses.", true);
-          }
-          return false;
-        }
-      }
     }
 
     state.expenseFilters = {
@@ -441,9 +409,7 @@
 
     if (refs.expensesBody) {
       const dates = state.expenses.map((e) => e.expenseDate).sort();
-      // Allow picking/navigating to earlier dates than the currently loaded window.
-      // Older rows are fetched on demand by the expense filter expansion path.
-      refs.expensesBody.dataset.rangeMin = "";
+      refs.expensesBody.dataset.rangeMin = dates[0] || "";
       refs.expensesBody.dataset.rangeMax = dates[dates.length - 1] || "";
     }
 
