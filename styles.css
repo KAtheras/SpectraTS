@@ -2397,6 +2397,18 @@ body[data-theme="dark"] .audit-detail-col {
   max-width: calc(1320px + (var(--shell-pad) * 2));
 }
 
+@media (min-width: 769px) {
+  .page-view.clients-page .catalog-grid {
+    height: calc(100vh - 320px);
+    max-height: calc(100vh - 320px);
+  }
+
+  .page-view.members-page .user-pane {
+    height: calc(100vh - 220px);
+    min-height: 500px;
+  }
+}
+
 .catalog-column {
   display: grid;
   grid-template-rows: auto auto auto minmax(0, 1fr);
