@@ -3780,7 +3780,10 @@ body[data-theme="dark"] .entry-approved td {
 
 @media (max-width: 768px) {
   .page-view.clients-page,
-  .page-view.members-page {
+  .page-view.members-page,
+  .page-view.inputs-view,
+  .page-view.entries-view,
+  .page-view.level-page {
     padding-left: 0;
     padding-right: 0;
   }
