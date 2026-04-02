@@ -135,6 +135,16 @@
       panel.hidden = !isActive;
     });
     applyMobileSettingsLayout();
+    const mobileMemberAdd = document.querySelector("#settings-page .member-info-mobile-add");
+    if (mobileMemberAdd) {
+      const addAllowed = mobileMemberAdd.dataset.memberAddAllowed === "true";
+      mobileMemberAdd.hidden = !(
+        isMobileSettingsLayout() &&
+        nextTab === "rates" &&
+        mobileSettingsMode === "detail" &&
+        addAllowed
+      );
+    }
   }
 
   function initSettingsTabs() {
@@ -395,6 +405,7 @@
             box-shadow:inset 0 0 0 2px color-mix(in srgb, var(--group-border) 55%, transparent);
           }
           #settings-page .settings-mobile-back{display:none}
+          #settings-page .member-info-mobile-top-actions{display:none}
           #settings-page .settings-panels{min-width:0}
           #settings-page .settings-panels [data-settings-tab]{width:100%}
           #settings-page .settings-panels .level-labels-inner{max-width:none;padding-top:0}
@@ -782,6 +793,13 @@
             #settings-page.settings-mobile-detail .settings-nav-shell{display:none}
             #settings-page .settings-mobile-back{
               display:inline-flex;
+              margin:0;
+            }
+            #settings-page .member-info-mobile-top-actions{
+              display:flex;
+              align-items:center;
+              justify-content:space-between;
+              gap:8px;
               margin:0 0 10px;
             }
             #settings-page .settings-tab-group + .settings-tab-group{margin-top:10px}
@@ -2610,6 +2628,35 @@
         sectionRight.insertBefore(addBtn, sectionRight.firstChild);
       }
       addBtn.hidden = !Boolean(state.permissions?.create_user);
+      const settingsContentShell = document.querySelector("#settings-page .settings-content-shell");
+      const mobileBackBtn = settingsContentShell?.querySelector(".settings-mobile-back");
+      if (settingsContentShell && mobileBackBtn) {
+        let topActions = settingsContentShell.querySelector(".member-info-mobile-top-actions");
+        if (!topActions) {
+          topActions = document.createElement("div");
+          topActions.className = "member-info-mobile-top-actions";
+          settingsContentShell.insertBefore(topActions, mobileBackBtn);
+        }
+        if (mobileBackBtn.parentElement !== topActions) {
+          topActions.appendChild(mobileBackBtn);
+        }
+        let mobileAddBtn = topActions.querySelector(".member-info-mobile-add");
+        if (!mobileAddBtn) {
+          mobileAddBtn = document.createElement("button");
+          mobileAddBtn.type = "button";
+          mobileAddBtn.className = "button member-info-mobile-add";
+          mobileAddBtn.dataset.memberAdd = "true";
+          mobileAddBtn.textContent = "Add member";
+          topActions.appendChild(mobileAddBtn);
+        }
+        mobileAddBtn.dataset.memberAddAllowed = addBtn.hidden ? "false" : "true";
+        mobileAddBtn.hidden = !(
+          isMobileSettingsLayout() &&
+          activeSettingsTab === "rates" &&
+          mobileSettingsMode === "detail" &&
+          !addBtn.hidden
+        );
+      }
     }
   }
 
