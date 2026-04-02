@@ -1053,7 +1053,11 @@
         );
         const created = (result?.users || []).find((u) => String(u.username || "").toLowerCase() === String(username).toLowerCase());
         if (created && departmentId && canEditProfile) {
-          await mutatePersistentState("set_user_department", { userId: created.id, departmentId }, { skipHydrate: true });
+          await mutatePersistentState(
+            "set_user_department",
+            { userId: created.id, departmentId },
+            { skipHydrate: true, returnState: false }
+          );
         }
       } else {
         const userId = memberEditorUserId;
@@ -1066,19 +1070,19 @@
           await mutatePersistentState(
             "update_user",
             { userId, displayName, username, email, employeeId, level, officeId },
-            { skipHydrate: true }
+            { skipHydrate: true, returnState: false }
           );
           await mutatePersistentState(
             "set_user_department",
             { userId, departmentId },
-            { skipHydrate: true }
+            { skipHydrate: true, returnState: false }
           );
         }
         if (canEditRates) {
           await mutatePersistentState(
             "update_user_rates",
             { userId, baseRate, costRate },
-            { skipHydrate: true }
+            { skipHydrate: true, returnState: false }
           );
         }
       }
@@ -3727,7 +3731,8 @@
   function isInputsTimeRowReadyToSave(row) {
     const fields = inputsTimeRowFields(row);
     const hours = Number(fields.hours?.value);
-    const normalizedDate = parseInputsTimeDateValue(fields.date?.value || "");
+    const normalizedDate =
+      fields.date?.dataset.dpCanonical || parseInputsTimeDateValue(fields.date?.value || "");
     return Boolean(fields.clientProject?.value) && Boolean(normalizedDate) && Number.isFinite(hours) && hours > 0;
   }
 
@@ -3825,7 +3830,7 @@
       const nextEntry = {
         id: existingId || crypto.randomUUID(),
         user: state.currentUser?.displayName || "",
-        date: parseInputsTimeDateValue(current.date?.value || ""),
+        date: current.date?.dataset.dpCanonical || parseInputsTimeDateValue(current.date?.value || ""),
         client: clientName || "",
         project: projectName || "",
         task: "",
@@ -4151,7 +4156,8 @@
   function isInputsExpenseRowReadyToSave(row) {
     const fields = inputsExpenseRowFields(row);
     const amount = Number(fields.amount?.value);
-    const normalizedDate = parseInputsTimeDateValue(fields.date?.value || "");
+    const normalizedDate =
+      fields.date?.dataset.dpCanonical || parseInputsTimeDateValue(fields.date?.value || "");
     return (
       Boolean(fields.clientProject?.value) &&
       Boolean(normalizedDate) &&
@@ -4258,7 +4264,8 @@
         userId: state.currentUser?.id || "",
         clientName: clientName || "",
         projectName: projectName || "",
-        expenseDate: parseInputsTimeDateValue(current.date?.value || ""),
+        expenseDate:
+          current.date?.dataset.dpCanonical || parseInputsTimeDateValue(current.date?.value || ""),
         category: current.category?.value || "",
         amount: Number(current.amount?.value),
         isBillable: current.billable ? current.billable.checked : true,
