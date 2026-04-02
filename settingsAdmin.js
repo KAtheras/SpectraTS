@@ -822,11 +822,13 @@
 
     const updateBulkUploadUiState = function () {
       const hasPreview = !preview?.hidden;
+      const rejectedCount = Array.isArray(latestRejectedRows) ? latestRejectedRows.length : 0;
+      const hasRejects = rejectedCount > 0;
       if (descriptionEl) {
-        descriptionEl.hidden = hasPreview;
+        descriptionEl.hidden = hasPreview || hasRejects;
       }
       if (templateActions) {
-        templateActions.hidden = hasPreview;
+        templateActions.hidden = hasPreview || hasRejects;
       }
       if (openTimeBtn && openExpensesBtn) {
         if (!hasPreview) {
@@ -863,8 +865,7 @@
         }
       }
       if (rejectsWrap) {
-        const rejectedCount = Array.isArray(latestRejectedRows) ? latestRejectedRows.length : 0;
-        const showRejects = hasPreview && previewKind === "time" && rejectedCount > 0;
+        const showRejects = rejectedCount > 0;
         rejectsWrap.hidden = !showRejects;
         if (rejectsText) {
           rejectsText.textContent = showRejects
@@ -1274,10 +1275,25 @@
       }
 
       const invalidCount = rejectedRows.length;
-      if (latestPreviewPayload?.headers && latestPreviewPayload?.objects) {
-        renderPreviewTable(latestPreviewPayload.headers, latestPreviewPayload.objects, "time");
+      if (preview) {
+        preview.hidden = true;
       }
-      setRejectedRows(rejectedRows);
+      if (previewTableWrap) {
+        previewTableWrap.innerHTML = `<div class="empty-state-panel">Preview coming next</div>`;
+      }
+      if (selectedFileLabel) {
+        selectedFileLabel.textContent = "";
+      }
+      if (timeInput) {
+        timeInput.value = "";
+      }
+      if (invalidCount > 0) {
+        setRejectedRows(rejectedRows);
+      } else {
+        setRejectedRows([]);
+      }
+      latestPreviewPayload = null;
+      previewKind = "";
       const baseMessage = `Imported ${importedCount} valid rows. ${invalidCount} invalid rows were not imported.`;
       deps().feedback(
         failedCount > 0 ? `${baseMessage} ${failedCount} row(s) failed during import.` : baseMessage,
