@@ -32,6 +32,7 @@
   let activeSettingsTab = loadPersistedSettingsTab() || "levels";
   let tabsInitialized = false;
   let mobileSettingsMode = "list";
+  let memberInfoSearchTerm = "";
   let delegationsSelectedDelegateId = "";
   const delegationsDraftCapabilitiesByDelegateId = new Map();
 
@@ -488,6 +489,18 @@
           #settings-page .settings-rates-cards{
             display:grid;
             gap:12px;
+          }
+          #settings-page .member-info-search-row{
+            margin:0 0 10px;
+          }
+          #settings-page .member-info-search-row input{
+            width:100%;
+          }
+          #settings-page .member-info-empty{
+            font-family:var(--font-head);
+            color:var(--muted);
+            font-size:.92rem;
+            padding:6px 2px 0;
           }
           #settings-page .member-info-card{
             border:1px solid var(--group-border);
@@ -2360,8 +2373,11 @@
             const raw = value == null ? "" : String(value).trim();
             return raw ? escapeHtml(raw) : "—";
           };
+          const searchHaystack = `${user.displayName || ""} ${user.email || ""}`.toLowerCase();
           return `
-          <article class="member-info-card member-info-card--enhanced" data-user-id="${escapeHtml(user.id)}">
+          <article class="member-info-card member-info-card--enhanced" data-user-id="${escapeHtml(
+            user.id
+          )}" data-member-info-search="${escapeHtml(searchHaystack)}">
             <div class="member-info-layout">
               <div class="member-info-identity">
                 <div class="member-info-name">${escapeHtml(user.displayName)}</div>
@@ -2419,10 +2435,45 @@
       )
       .join("");
     refs.ratesRows.innerHTML = `
+      <div class="member-info-search-row">
+        <input
+          type="search"
+          data-member-info-search-input
+          placeholder="Search members..."
+          value="${escapeHtml(memberInfoSearchTerm)}"
+          autocomplete="off"
+          spellcheck="false"
+        />
+      </div>
       <div class="settings-rates-cards">
         ${rowsHtml}
       </div>
+      <div class="member-info-empty" data-member-info-empty hidden>No members found</div>
     `;
+
+    const searchInput = refs.ratesRows.querySelector("[data-member-info-search-input]");
+    const cards = Array.from(refs.ratesRows.querySelectorAll(".member-info-card"));
+    const emptyNode = refs.ratesRows.querySelector("[data-member-info-empty]");
+    const applySearchFilter = (rawTerm) => {
+      const term = `${rawTerm || ""}`.trim().toLowerCase();
+      let visibleCount = 0;
+      cards.forEach((card) => {
+        const haystack = `${card.dataset.memberInfoSearch || ""}`;
+        const isVisible = !term || haystack.includes(term);
+        card.hidden = !isVisible;
+        if (isVisible) visibleCount += 1;
+      });
+      if (emptyNode) {
+        emptyNode.hidden = visibleCount > 0;
+      }
+    };
+    if (searchInput) {
+      searchInput.addEventListener("input", function () {
+        memberInfoSearchTerm = searchInput.value || "";
+        applySearchFilter(memberInfoSearchTerm);
+      });
+      applySearchFilter(memberInfoSearchTerm);
+    }
 
     if (!refs.ratesForm?.querySelector(".settings-section-right")) {
       arrangeSettingsSectionHeaders();
