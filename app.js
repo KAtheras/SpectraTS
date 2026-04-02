@@ -3816,7 +3816,7 @@
       row.dataset.createdAt = nextEntry.createdAt;
       setInputsTimeRowSaved(row);
       const container = row.parentElement;
-      const shouldAddNextRow = !wasEditingSavedRow && !hasTrailingBlankInputsTimeRow(container);
+      const shouldAddNextRow = !hasTrailingBlankInputsTimeRow(container);
       if (shouldAddNextRow) {
         addInputsTimeRowFrom(row, inputsTimeComboOptions());
       } else if (container) {
@@ -4237,7 +4237,7 @@
       row.dataset.createdAt = nextExpense.createdAt;
       setInputsExpenseRowSaved(row);
       const container = row.parentElement;
-      const shouldAddNextRow = !wasEditingSavedRow && !hasTrailingBlankInputsExpenseRow(container);
+      const shouldAddNextRow = !hasTrailingBlankInputsExpenseRow(container);
       if (shouldAddNextRow) {
         addInputsExpenseRowFrom(row, inputsExpenseComboOptions(), inputsExpenseCategoryOptions());
       } else if (container) {
