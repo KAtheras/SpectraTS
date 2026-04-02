@@ -43,6 +43,7 @@ exports.handler = async function handler(event) {
       manage_departments: can(currentUser, "manage_departments", {}, permissionIndex),
       manage_expense_categories: can(currentUser, "manage_expense_categories", {}, permissionIndex),
       manage_office_locations: can(currentUser, "manage_office_locations", {}, permissionIndex),
+      can_upload_data: can(currentUser, "can_upload_data", {}, permissionIndex),
       manage_settings_access: canManageSettingsAccess,
       can_delegate: can(currentUser, "can_delegate", {}, permissionIndex),
 

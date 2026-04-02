@@ -849,6 +849,7 @@ function buildPermissionsPayload(currentUser, permissionIndex) {
     manage_departments: can("manage_departments"),
     manage_expense_categories: can("manage_expense_categories"),
     manage_office_locations: can("manage_office_locations"),
+    can_upload_data: can("can_upload_data"),
     manage_settings_access: canManageSettingsAccess,
     can_delegate: can("can_delegate"),
     create_user: can("create_member"),

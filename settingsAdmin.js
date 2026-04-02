@@ -1021,6 +1021,7 @@
       "manage_levels",
       "manage_expense_categories",
       "manage_office_locations",
+      "can_upload_data",
       "can_delegate",
       "manage_settings_access",
     ];
@@ -1033,6 +1034,7 @@
       manage_levels: "Manage member levels",
       manage_expense_categories: "Manage expense categories",
       manage_office_locations: "Manage office locations",
+      can_upload_data: "Can upload data",
       can_delegate: "Can delegate access",
       manage_settings_access: "Manage access settings",
     };
