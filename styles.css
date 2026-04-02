@@ -4759,13 +4759,19 @@ body[data-theme="dark"] .entry-approved td {
   top: 0;
   z-index: 1;
   padding: 10px 12px;
-  border-bottom: 1px solid var(--line);
-  background: var(--surface);
-  color: var(--ink);
-  font-size: 0.8rem;
-  font-weight: 700;
+  border-bottom: 1px solid #c4ccd9;
+  background: #d9dfe8;
+  color: #2d3748;
+  font-size: 0.82rem;
+  font-weight: 620;
   letter-spacing: 0.02em;
   text-transform: uppercase;
+}
+
+body[data-theme="dark"] #inputs-view .inputs-drilldown-col-head {
+  border-bottom-color: #4f5b6d;
+  background: #5a6678;
+  color: #f3f6fb;
 }
 
 #inputs-view .inputs-drilldown-col-body {
