@@ -3889,10 +3889,18 @@
     const entry = (state.entries || []).find((item) => `${item?.id || ""}`.trim() === pendingId);
     if (!entry || !refs.inputsTimeForm) return;
     const container = refs.inputsTimeForm.parentElement;
-    populateInputsTimeRowForEntryEdit(refs.inputsTimeForm, entry, options);
+    const existingRows = Array.from(container?.querySelectorAll("form.input-row.input-row-body") || []);
+    let targetRow =
+      [...existingRows].reverse().find((row) => row.dataset.rowState !== "saved" && isInputsTimeRowBlank(row)) ||
+      [...existingRows].reverse().find((row) => row.dataset.rowState !== "saved") ||
+      null;
+    if (!targetRow) {
+      targetRow = addInputsTimeRowFrom(refs.inputsTimeForm, options) || refs.inputsTimeForm;
+    }
+    populateInputsTimeRowForEntryEdit(targetRow, entry, options);
     const rows = Array.from(container?.querySelectorAll("form.input-row.input-row-body") || []);
     syncInputsTimeRowInteractivity(rows);
-    const fields = inputsTimeRowFields(refs.inputsTimeForm);
+    const fields = inputsTimeRowFields(targetRow);
     fields.hours?.focus();
   }
 
@@ -4321,10 +4329,19 @@
     const expense = (state.expenses || []).find((item) => `${item?.id || ""}`.trim() === pendingId);
     if (!expense || !refs.inputsExpenseForm) return;
     const container = refs.inputsExpenseForm.parentElement;
-    populateInputsExpenseRowForEdit(refs.inputsExpenseForm, expense, comboOptions, categoryOptions);
+    const existingRows = Array.from(container?.querySelectorAll("form.input-row.input-row-body") || []);
+    let targetRow =
+      [...existingRows].reverse().find((row) => row.dataset.rowState !== "saved" && isInputsExpenseRowBlank(row)) ||
+      [...existingRows].reverse().find((row) => row.dataset.rowState !== "saved") ||
+      null;
+    if (!targetRow) {
+      targetRow =
+        addInputsExpenseRowFrom(refs.inputsExpenseForm, comboOptions, categoryOptions) || refs.inputsExpenseForm;
+    }
+    populateInputsExpenseRowForEdit(targetRow, expense, comboOptions, categoryOptions);
     const rows = Array.from(container?.querySelectorAll("form.input-row.input-row-body") || []);
     syncInputsExpenseRowInteractivity(rows);
-    const fields = inputsExpenseRowFields(refs.inputsExpenseForm);
+    const fields = inputsExpenseRowFields(targetRow);
     fields.amount?.focus();
   }
 
