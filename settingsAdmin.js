@@ -932,7 +932,7 @@
             const isInvalidBillable = kind === "time" && rawText !== "" && normalizedBillable === "";
             if (isInvalidBillable) {
               rowStatus = "Invalid";
-              rowError = "Invalid billable value";
+              rowError = `Invalid billable value: ${rawText}`;
               item[header] = rawText;
               return;
             }
