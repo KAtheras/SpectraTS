@@ -2013,6 +2013,17 @@ async function updateExpense(sql, payload, currentUser, accountId) {
   }
 
   const isBillable = safeExpense.isBillable === false || safeExpense.isBillable === 0 ? 0 : 1;
+  const previousBillable = existing.is_billable === 0 ? false : true;
+  const nextBillable = isBillable === 0 ? false : true;
+  const billableChanged = previousBillable !== nextBillable;
+  const existingStatus = normalizeStatus(existing.status);
+  const actorCanApprove = !isStaff(currentUser);
+  const nextStatus =
+    existingStatus === "approved" && billableChanged && !actorCanApprove
+      ? "pending"
+      : existing.status;
+  const nextApprovedAt =
+    normalizeStatus(nextStatus) === "approved" ? existing.approved_at : null;
   const now = new Date().toISOString();
 
   const beforeSnapshot = expenseSnapshot({
@@ -2035,7 +2046,7 @@ async function updateExpense(sql, payload, currentUser, accountId) {
     amount: normalizeAmount(safeExpense.amount),
     notes: normalizeText(safeExpense.notes),
     nonbillable: isBillable === 0,
-    status: existing.status,
+    status: nextStatus,
     category: safeExpense.category,
   });
 
@@ -2050,6 +2061,8 @@ async function updateExpense(sql, payload, currentUser, accountId) {
       amount = ${normalizeAmount(safeExpense.amount)},
       is_billable = ${isBillable},
       notes = ${normalizeText(safeExpense.notes)},
+      status = ${nextStatus},
+      approved_at = ${nextApprovedAt},
       updated_at = ${now}
     WHERE id = ${id}
       AND account_id = ${accountId}::uuid
@@ -2070,8 +2083,6 @@ async function updateExpense(sql, payload, currentUser, accountId) {
     changedFieldsJson: diffKeys(beforeSnapshot || {}, afterSnapshot || {}),
   });
 
-  const previousBillable = existing.is_billable === 0 ? false : true;
-  const nextBillable = isBillable === 0 ? false : true;
   if (previousBillable !== nextBillable) {
     await dispatchNotificationEvent(sql, {
       accountId,
@@ -2587,7 +2598,11 @@ async function saveEntry(sql, payload, currentUser, accountId) {
   const existing = existingRows[0];
   const persistedStatus = existing?.status;
 
-  const hasContentChanges = existing
+  const nextBillable = entry.billable === false ? false : true;
+  const billableChanged = existing
+    ? Boolean(existing.billable) !== nextBillable
+    : false;
+  const hasNonBillableContentChanges = existing
     ? !(
         existing.user_name === entry.user &&
         String(existing.entry_date) === entry.date &&
@@ -2595,18 +2610,33 @@ async function saveEntry(sql, payload, currentUser, accountId) {
         existing.project_name === entry.project &&
         (existing.task || "") === (entry.task || "") &&
         Number(existing.hours) === normalizeHours(entry.hours) &&
-        (existing.notes || "") === (entry.notes || "") &&
-        Boolean(existing.billable) === (entry.billable === false ? false : true)
+        (existing.notes || "") === (entry.notes || "")
       )
     : true;
+  const hasContentChanges = existing
+    ? hasNonBillableContentChanges || billableChanged
+    : true;
+  const persistedNormalizedStatus = persistedStatus
+    ? normalizeStatus(persistedStatus)
+    : "pending";
+  const actorCanApprove = !isStaff(currentUser);
+  const preserveApprovedOnBillableToggle =
+    Boolean(existing) &&
+    persistedNormalizedStatus === "approved" &&
+    billableChanged &&
+    !hasNonBillableContentChanges &&
+    actorCanApprove;
 
-  const status = hasContentChanges
-    ? "pending"
-    : persistedStatus
-      ? normalizeStatus(persistedStatus)
-      : "pending";
-  const approvedAt = status === "approved" && !hasContentChanges ? existing?.approved_at : null;
-  const approvedBy = status === "approved" && !hasContentChanges ? existing?.approved_by_user_id : null;
+  const status = preserveApprovedOnBillableToggle
+    ? "approved"
+    : hasContentChanges
+      ? "pending"
+      : persistedNormalizedStatus;
+  const keepApprovalMetadata =
+    status === "approved" &&
+    (!hasContentChanges || preserveApprovedOnBillableToggle);
+  const approvedAt = keepApprovalMetadata ? existing?.approved_at : null;
+  const approvedBy = keepApprovalMetadata ? existing?.approved_by_user_id : null;
   const createdAt = entry.createdAt
     ? normalizeText(entry.createdAt)
     : existing?.created_at || new Date().toISOString();
@@ -2641,7 +2671,7 @@ async function saveEntry(sql, payload, currentUser, accountId) {
       ${normalizeText(entry.task)},
       ${normalizeHours(entry.hours)},
       ${normalizeText(entry.notes)},
-      ${entry.billable === false ? false : true},
+      ${nextBillable},
       ${status},
       ${approvedAt},
       ${approvedBy},
