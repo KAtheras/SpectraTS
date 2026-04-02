@@ -2386,6 +2386,12 @@ body[data-theme="dark"] .audit-detail-col {
   padding: 0 var(--shell-pad);
 }
 
+#clients-page .catalog-grid.catalog-grid-narrow {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+
 .catalog-column {
   display: grid;
   grid-template-rows: auto auto auto minmax(0, 1fr);
@@ -2790,6 +2796,11 @@ body[data-theme="dark"] .audit-detail-col {
 .user-list {
   max-height: none;
   padding: 12px 22px 22px;
+}
+
+#members-page #user-list {
+  padding-left: 0;
+  padding-right: 0;
 }
 
 .member-card {
