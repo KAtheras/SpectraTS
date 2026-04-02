@@ -766,7 +766,7 @@
 
   function renderBulkUploadTab() {
     const panel = document.querySelector('[data-settings-tab="bulk_upload"]');
-    const { state } = deps();
+    const { state, escapeHtml } = deps();
     if (!panel || !state.permissions?.can_upload_data) return;
     panel.innerHTML = `
       <div class="settings-section-header">
@@ -782,9 +782,10 @@
         </div>
         <input type="file" id="bulk-upload-time-file" accept=".csv,.xlsx" hidden />
         <input type="file" id="bulk-upload-expenses-file" accept=".csv,.xlsx" hidden />
+        <p id="bulk-upload-error" class="feedback" hidden></p>
         <div id="bulk-upload-preview" hidden>
           <p id="bulk-upload-selected-file"></p>
-          <div class="empty-state-panel">Preview coming next</div>
+          <div id="bulk-upload-preview-table-wrap">Preview coming next</div>
         </div>
         <p class="feedback">Templates and import tools coming next.</p>
       </div>
@@ -796,10 +797,141 @@
     const expensesInput = panel.querySelector("#bulk-upload-expenses-file");
     const preview = panel.querySelector("#bulk-upload-preview");
     const selectedFileLabel = panel.querySelector("#bulk-upload-selected-file");
-    const showSelectedFile = function (file) {
+    const errorEl = panel.querySelector("#bulk-upload-error");
+    const previewTableWrap = panel.querySelector("#bulk-upload-preview-table-wrap");
+    let xlsxLoader = null;
+
+    const showError = function (message) {
+      if (!errorEl) return;
+      errorEl.hidden = !message;
+      errorEl.textContent = message || "";
+    };
+
+    const parseCsvLine = function (line) {
+      const result = [];
+      let value = "";
+      let inQuotes = false;
+      for (let i = 0; i < line.length; i += 1) {
+        const char = line[i];
+        if (char === '"') {
+          if (inQuotes && line[i + 1] === '"') {
+            value += '"';
+            i += 1;
+          } else {
+            inQuotes = !inQuotes;
+          }
+          continue;
+        }
+        if (char === "," && !inQuotes) {
+          result.push(value);
+          value = "";
+          continue;
+        }
+        value += char;
+      }
+      result.push(value);
+      return result;
+    };
+
+    const normalizeRows = function (rows2d) {
+      const rows = Array.isArray(rows2d) ? rows2d : [];
+      const headerRow = Array.isArray(rows[0]) ? rows[0] : [];
+      const headers = headerRow
+        .map((h, index) => `${h == null ? "" : h}`.trim() || `Column ${index + 1}`)
+        .filter(Boolean);
+      const dataRows = rows
+        .slice(1)
+        .filter((row) => Array.isArray(row) && row.some((cell) => `${cell ?? ""}`.trim() !== ""));
+      const objects = dataRows.map((row) => {
+        const item = {};
+        headers.forEach((header, index) => {
+          item[header] = row[index] ?? "";
+        });
+        return item;
+      });
+      return { headers, objects };
+    };
+
+    const renderPreviewTable = function (headers, objects) {
+      if (!preview || !selectedFileLabel || !previewTableWrap) return;
+      const rows = (Array.isArray(objects) ? objects : []).slice(0, 25);
+      if (!headers.length) {
+        previewTableWrap.innerHTML = `<div class="empty-state-panel">Preview coming next</div>`;
+        return;
+      }
+      const headHtml = headers.map((header) => `<th>${escapeHtml(header)}</th>`).join("");
+      const bodyHtml = rows.length
+        ? rows
+            .map(
+              (row) =>
+                `<tr>${headers
+                  .map((header) => `<td>${escapeHtml(`${row[header] ?? ""}`)}</td>`)
+                  .join("")}</tr>`
+            )
+            .join("")
+        : `<tr><td colspan="${headers.length}">No data rows found.</td></tr>`;
+      previewTableWrap.innerHTML = `
+        <div class="table-wrapper">
+          <table class="table">
+            <thead><tr>${headHtml}</tr></thead>
+            <tbody>${bodyHtml}</tbody>
+          </table>
+        </div>
+      `;
+    };
+
+    const ensureXlsx = async function () {
+      if (window.XLSX) return window.XLSX;
+      if (!xlsxLoader) {
+        xlsxLoader = new Promise((resolve, reject) => {
+          const script = document.createElement("script");
+          script.src = "https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js";
+          script.onload = function () {
+            resolve(window.XLSX || null);
+          };
+          script.onerror = function () {
+            reject(new Error("XLSX loader failed"));
+          };
+          document.head.appendChild(script);
+        });
+      }
+      return xlsxLoader;
+    };
+
+    const parseFile = async function (file) {
+      const name = `${file?.name || ""}`.trim().toLowerCase();
+      if (name.endsWith(".csv")) {
+        const text = await file.text();
+        const lines = text.replace(/^\uFEFF/, "").split(/\r?\n/).filter((line) => line.length > 0);
+        return normalizeRows(lines.map(parseCsvLine));
+      }
+      if (name.endsWith(".xlsx")) {
+        const XLSX = await ensureXlsx();
+        if (!XLSX) throw new Error("XLSX unavailable");
+        const buffer = await file.arrayBuffer();
+        const workbook = XLSX.read(buffer, { type: "array" });
+        const firstSheetName = workbook.SheetNames?.[0];
+        const sheet = firstSheetName ? workbook.Sheets[firstSheetName] : null;
+        const rows2d = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+        return normalizeRows(rows2d);
+      }
+      throw new Error("Unsupported file type");
+    };
+
+    const handleFileSelect = async function (file) {
       if (!file || !preview || !selectedFileLabel) return;
+      showError("");
       selectedFileLabel.textContent = `Selected file: ${file.name || ""}`;
       preview.hidden = false;
+      try {
+        const parsed = await parseFile(file);
+        renderPreviewTable(parsed.headers, parsed.objects);
+      } catch (error) {
+        if (previewTableWrap) {
+          previewTableWrap.innerHTML = `<div class="empty-state-panel">Preview coming next</div>`;
+        }
+        showError("Unable to read file. Please use template.");
+      }
     };
 
     openTimeBtn?.addEventListener("click", function () {
@@ -809,10 +941,10 @@
       expensesInput?.click();
     });
     timeInput?.addEventListener("change", function () {
-      showSelectedFile(timeInput.files?.[0]);
+      handleFileSelect(timeInput.files?.[0]);
     });
     expensesInput?.addEventListener("change", function () {
-      showSelectedFile(expensesInput.files?.[0]);
+      handleFileSelect(expensesInput.files?.[0]);
     });
   }
 
