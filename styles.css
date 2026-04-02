@@ -2392,6 +2392,11 @@ body[data-theme="dark"] .audit-detail-col {
   padding: 0;
 }
 
+.page-view.clients-page,
+.page-view.members-page {
+  max-width: calc(1320px + (var(--shell-pad) * 2));
+}
+
 .catalog-column {
   display: grid;
   grid-template-rows: auto auto auto minmax(0, 1fr);
