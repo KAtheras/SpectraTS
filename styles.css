@@ -838,8 +838,27 @@ body[data-theme="dark"] .app-topbar {
 }
 
 .settings-gear-button .inbox-button-icon {
-  width: 17px;
-  height: 17px;
+  width: 22px;
+  height: 22px;
+  display: block;
+  overflow: visible;
+}
+
+.settings-gear-button {
+  border: none;
+  background: transparent;
+  width: auto;
+  height: auto;
+  border-radius: 0;
+  padding: 0;
+  line-height: 0;
+}
+
+.settings-gear-button:hover,
+.settings-gear-button:focus-visible,
+.settings-gear-button.is-active {
+  background: transparent;
+  border: none;
 }
 
 .inbox-button-icon {
