@@ -1074,8 +1074,17 @@
       return;
     }
 
+    const submitButton = memberEditorSubmit;
+    const originalSubmitLabel = submitButton?.textContent || "Save";
+    if (submitButton) {
+      submitButton.disabled = true;
+      submitButton.textContent = "Saving...";
+    }
+
+    let successMessage = memberEditorMode === "create" ? "Member added." : "Member updated.";
+    let warningMessage = "";
+
     try {
-      let createdUserId = "";
       if (memberEditorMode === "create") {
         if (!canCreate) {
           feedback("Access denied.", true);
@@ -1089,16 +1098,17 @@
         const created = (result?.users || []).find(
           (u) => String(u.username || "").toLowerCase() === String(username).toLowerCase()
         );
-        createdUserId = created?.id || "";
-        closeMemberEditorModal();
+        const createdUserId = created?.id || "";
         if (createdUserId && departmentId && canEditProfile) {
-          mutatePersistentState(
-            "set_user_department",
-            { userId: createdUserId, departmentId },
-            { skipHydrate: true, returnState: false }
-          ).catch((error) => {
-            feedback(`Member added. Department update failed: ${error.message || "Unknown error."}`, true);
-          });
+          try {
+            await mutatePersistentState(
+              "set_user_department",
+              { userId: createdUserId, departmentId },
+              { skipHydrate: true, returnState: false }
+            );
+          } catch (error) {
+            warningMessage = ` Department update failed: ${error.message || "Unknown error."}`;
+          }
         }
       } else {
         const userId = memberEditorUserId;
@@ -1121,23 +1131,30 @@
             { skipHydrate: true, returnState: false }
           );
         }
-        closeMemberEditorModal();
         if (canEditProfile) {
-          mutatePersistentState(
-            "set_user_department",
-            { userId, departmentId },
-            { skipHydrate: true, returnState: false }
-          ).catch((error) => {
-            feedback(`Member updated. Department update failed: ${error.message || "Unknown error."}`, true);
-          });
+          try {
+            await mutatePersistentState(
+              "set_user_department",
+              { userId, departmentId },
+              { skipHydrate: true, returnState: false }
+            );
+          } catch (error) {
+            warningMessage = ` Department update failed: ${error.message || "Unknown error."}`;
+          }
         }
       }
-      refreshSettingsTab("rates").catch((error) => {
-        feedback(error.message || "Member saved but refresh failed.", true);
-      });
-      feedback(memberEditorMode === "create" ? "Member added." : "Member updated.", false);
+
+      closeMemberEditorModal();
+
+      await refreshSettingsTab("rates");
+      feedback(`${successMessage}${warningMessage}`, Boolean(warningMessage));
     } catch (error) {
       feedback(error.message || "Unable to save member.", true);
+    } finally {
+      if (submitButton) {
+        submitButton.disabled = false;
+        submitButton.textContent = originalSubmitLabel;
+      }
     }
   }
 
