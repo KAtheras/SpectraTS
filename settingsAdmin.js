@@ -2373,8 +2373,11 @@
             const raw = value == null ? "" : String(value).trim();
             return raw ? escapeHtml(raw) : "—";
           };
+          const searchIndex = `${user.displayName || ""} ${user.username || ""}`.toLowerCase();
           return `
-          <article class="member-info-card member-info-card--enhanced" data-user-id="${escapeHtml(user.id)}">
+          <article class="member-info-card member-info-card--enhanced" data-user-id="${escapeHtml(
+            user.id
+          )}" data-member-info-search="${escapeHtml(searchIndex)}">
             <div class="member-info-layout">
               <div class="member-info-identity">
                 <div class="member-info-name">${escapeHtml(user.displayName)}</div>
@@ -2455,7 +2458,7 @@
       const term = `${rawTerm || ""}`.trim().toLowerCase();
       let visibleCount = 0;
       cards.forEach((card) => {
-        const haystack = (card.textContent || "").toLowerCase();
+        const haystack = `${card.dataset.memberInfoSearch || ""}`;
         const isVisible = !term || haystack.includes(term);
         card.hidden = !isVisible;
         if (isVisible) visibleCount += 1;
