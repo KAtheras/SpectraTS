@@ -3326,7 +3326,18 @@
     const stored = readLastInputsClientProjectCombo();
     if (!stored) return "";
     const list = Array.isArray(options) ? options : [];
-    return list.some((item) => `${item?.value || ""}`.trim() === stored) ? stored : "";
+    const hasStored = list.some((item) => `${item?.value || ""}`.trim() === stored);
+    if (hasStored) return stored;
+    // Backward compatibility for older storage format: client:::project
+    if (stored.includes(":::")) {
+      const parts = stored.split(":::");
+      const migrated = encodeInputsTimeCombo(parts[0] || "", parts[1] || "");
+      if (list.some((item) => `${item?.value || ""}`.trim() === migrated)) {
+        writeLastInputsClientProjectCombo(migrated);
+        return migrated;
+      }
+    }
+    return "";
   }
 
   function parseInputsTimeDateValue(value) {
