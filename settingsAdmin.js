@@ -812,6 +812,18 @@
               min-width:28px;
               height:28px;
             }
+            #settings-page [data-settings-tab="levels"] .level-col{
+              display:none;
+            }
+            #settings-page [data-settings-tab="levels"] .settings-structured-row{
+              grid-template-columns:minmax(0,1fr) 30px;
+            }
+            #settings-page [data-settings-tab="levels"] .settings-structured-row .settings-row-main{
+              grid-column:1;
+            }
+            #settings-page [data-settings-tab="levels"] .settings-structured-row .settings-row-actions{
+              grid-column:2;
+            }
             #settings-page [data-settings-tab="locations"] .settings-structured-row-no-label{
               grid-template-columns:minmax(0,1fr) 36px;
               gap:6px;
@@ -2256,7 +2268,7 @@
       .map(
         (item) => `
           <div class="level-row settings-structured-row" data-level="${item.level}">
-            <span class="settings-row-label level-num">Level ${item.level}</span>
+            <span class="settings-row-label level-num level-col">Level ${item.level}</span>
             <div class="settings-row-main settings-row-main-split">
               <input type="text" value="${escapeHtml(item.label || "")}" data-level-label />
               <select data-level-permission>
@@ -2281,7 +2293,7 @@
       .join("");
     refs.levelRows.innerHTML = `
       <div class="level-row settings-structured-row settings-structured-row-header" aria-hidden="true">
-        <span class="settings-row-label">LEVEL</span>
+        <span class="settings-row-label level-col">LEVEL</span>
         <div class="settings-row-main settings-row-main-split">
           <span>TITLE</span>
           <span>ROLE</span>
