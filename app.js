@@ -1076,13 +1076,13 @@
 
     const submitButton = memberEditorSubmit;
     const originalSubmitLabel = submitButton?.textContent || "Save";
+    let coreSaved = false;
+    let successMessage = memberEditorMode === "create" ? "Member added." : "Member updated.";
+    const postSaveTasks = [];
+
     if (submitButton) {
       submitButton.disabled = true;
-      submitButton.textContent = "Saving...";
     }
-
-    let successMessage = memberEditorMode === "create" ? "Member added." : "Member updated.";
-    let warningMessage = "";
 
     try {
       if (memberEditorMode === "create") {
@@ -1095,20 +1095,19 @@
           { displayName, username, email, employeeId, level, officeId, baseRate, costRate },
           { skipHydrate: true }
         );
+        coreSaved = true;
         const created = (result?.users || []).find(
           (u) => String(u.username || "").toLowerCase() === String(username).toLowerCase()
         );
         const createdUserId = created?.id || "";
         if (createdUserId && departmentId && canEditProfile) {
-          try {
-            await mutatePersistentState(
+          postSaveTasks.push(
+            mutatePersistentState(
               "set_user_department",
               { userId: createdUserId, departmentId },
               { skipHydrate: true, returnState: false }
-            );
-          } catch (error) {
-            warningMessage = ` Department update failed: ${error.message || "Unknown error."}`;
-          }
+            )
+          );
         }
       } else {
         const userId = memberEditorUserId;
@@ -1131,29 +1130,36 @@
             { skipHydrate: true, returnState: false }
           );
         }
+        coreSaved = true;
         if (canEditProfile) {
-          try {
-            await mutatePersistentState(
+          postSaveTasks.push(
+            mutatePersistentState(
               "set_user_department",
               { userId, departmentId },
               { skipHydrate: true, returnState: false }
-            );
-          } catch (error) {
-            warningMessage = ` Department update failed: ${error.message || "Unknown error."}`;
-          }
+            )
+          );
         }
       }
 
       closeMemberEditorModal();
-
-      await refreshSettingsTab("rates");
-      feedback(`${successMessage}${warningMessage}`, Boolean(warningMessage));
+      feedback(successMessage, false);
+      postSaveTasks.push(refreshSettingsTab("rates"));
+      Promise.allSettled(postSaveTasks).then((results) => {
+        const failed = results.find((item) => item.status === "rejected");
+        if (!failed) return;
+        const error = failed.reason;
+        feedback(`Saved, but some follow-up updates failed: ${error?.message || "Unknown error."}`, true);
+      });
     } catch (error) {
       feedback(error.message || "Unable to save member.", true);
     } finally {
       if (submitButton) {
         submitButton.disabled = false;
         submitButton.textContent = originalSubmitLabel;
+      }
+      if (coreSaved && memberEditorModal && memberEditorModal.hidden !== true) {
+        closeMemberEditorModal();
       }
     }
   }
