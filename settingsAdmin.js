@@ -2191,6 +2191,10 @@
                   <span class="member-info-field-label">User ID</span>
                   <span class="member-info-field-value">${valueOrDash(user.username)}</span>
                 </div>
+                <div class="member-info-item member-info-item-inline">
+                  <span class="member-info-field-label">Employee ID</span>
+                  <span class="member-info-field-value">${valueOrDash(user.employeeId)}</span>
+                </div>
               </div>
               <div class="member-info-grid">
                 <div class="member-info-item">
@@ -2208,10 +2212,6 @@
                 <div class="member-info-item">
                   <span class="member-info-field-label">Email</span>
                   <span class="member-info-field-value">${valueOrDash(user.email)}</span>
-                </div>
-                <div class="member-info-item">
-                  <span class="member-info-field-label">Employee ID</span>
-                  <span class="member-info-field-value">${valueOrDash(user.employeeId)}</span>
                 </div>
                 <div class="member-info-item">
                   <span class="member-info-field-label">Base rate</span>
