@@ -4430,7 +4430,7 @@ body[data-theme="dark"] #inputs-view .input-row-head .cell-notes {
   border-right: none;
 }
 
-#inputs-view input,
+#inputs-view input:not([type="checkbox"]),
 #inputs-view select,
 #inputs-view button {
   height: 38px;
