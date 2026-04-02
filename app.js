@@ -832,6 +832,18 @@
           text-transform:uppercase;
           color:var(--muted);
         }
+        #member-editor-modal .member-editor-required{
+          color:var(--danger);
+          margin-left:4px;
+          font-weight:800;
+        }
+        #member-editor-modal .member-editor-required-note{
+          margin:0;
+          color:var(--danger);
+          font-family:var(--font-head);
+          font-size:.78rem;
+          font-weight:700;
+        }
         #member-editor-modal [data-member-editor-password-row] span{
           display:none;
         }
@@ -864,20 +876,21 @@
           </div>
           <form class="member-editor-form" data-member-editor-form>
             <div class="member-editor-row">
-              <label><span>Member name</span><input type="text" name="display_name" required /></label>
-              <label><span>User ID</span><input type="text" name="username" required /></label>
+              <label><span>Member name<span class="member-editor-required">*</span></span><input type="text" name="display_name" required /></label>
+              <label><span>User ID<span class="member-editor-required">*</span></span><input type="text" name="username" required /></label>
               <label><span>Employee ID</span><input type="text" name="employee_id" /></label>
             </div>
             <div class="member-editor-row">
-              <label><span>Title</span><select name="level"></select></label>
+              <label><span>Title<span class="member-editor-required">*</span></span><select name="level" required></select></label>
               <label><span>Department</span><select name="department_id"><option value="">No department</option></select></label>
-              <label><span>Office</span><select name="office_id" required><option value="">Select office</option></select></label>
+              <label><span>Office<span class="member-editor-required">*</span></span><select name="office_id" required><option value="">Select office</option></select></label>
             </div>
             <div class="member-editor-row">
               <label><span>Base rate</span><input type="number" step="0.01" min="0" name="base_rate" /></label>
               <label><span>Cost rate</span><input type="number" step="0.01" min="0" name="cost_rate" /></label>
-              <label><span>Email</span><input type="email" name="email" required /></label>
+              <label><span>Email<span class="member-editor-required">*</span></span><input type="email" name="email" required /></label>
             </div>
+            <p class="member-editor-required-note">* Required fields</p>
             <div class="member-editor-footer">
               <button class="button button-ghost" type="button" data-member-editor-cancel>Cancel</button>
               <button class="button button-ghost" type="button" data-member-editor-reset hidden>Reset password</button>
