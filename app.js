@@ -5530,7 +5530,10 @@
       refs.inputsViewTitle.textContent = inputSubtab === "expenses" ? "Enter Expenses" : "Enter Time";
     }
     if (refs.inputsTimeSummary) {
-      refs.inputsTimeSummary.hidden = inputSubtab !== "time";
+      refs.inputsTimeSummary.hidden = true;
+    }
+    if (refs.inputsExpenseSummary) {
+      refs.inputsExpenseSummary.hidden = true;
     }
     if (refs.inputsSwitchAction) {
       refs.inputsSwitchAction.textContent =
@@ -5649,16 +5652,12 @@
     if (view === "inputs") {
       if (state.inputSubtab === "time") {
         syncInputsTimeRow();
-        renderInputsTimeSummaryAndCalendarMeta();
-        if (state.inputsTimeCalendarExpanded) {
-          renderInputsTimeCalendar();
-        }
+        if (refs.inputsTimeCalendarView) refs.inputsTimeCalendarView.hidden = false;
+        renderInputsTimeCalendar();
       } else {
         syncInputsExpenseRow();
-        renderInputsExpenseSummaryAndCalendarMeta();
-        if (state.inputsExpenseCalendarExpanded) {
-          renderInputsExpenseCalendar();
-        }
+        if (refs.inputsExpenseCalendarView) refs.inputsExpenseCalendarView.hidden = false;
+        renderInputsExpenseCalendar();
       }
       postHeight();
       return;
