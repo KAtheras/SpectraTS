@@ -788,6 +788,10 @@
               max-height:calc(100vh - 150px);
               overflow:auto;
               padding:12px;
+              border:none;
+              border-radius:0;
+              background:transparent;
+              box-shadow:none;
             }
             #settings-page.settings-mobile-list .settings-content-shell{display:none}
             #settings-page.settings-mobile-detail .settings-nav-shell{display:none}
