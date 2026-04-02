@@ -302,24 +302,11 @@ function buildNotificationEmailContent(eventType, payload = {}) {
 }
 
 async function sendNotificationEmail({ to, subject, html }) {
-  const { handler: sendEmailHandler } = require("./send-email");
-  if (typeof sendEmailHandler !== "function") {
-    throw new Error("send-email handler is unavailable");
+  const { sendEmail } = require("./send-email");
+  if (typeof sendEmail !== "function") {
+    throw new Error("send-email helper is unavailable");
   }
-  const result = await sendEmailHandler({
-    httpMethod: "POST",
-    body: JSON.stringify({ to, subject, html }),
-  });
-  if (!result || Number(result.statusCode) >= 400) {
-    let message = "Unable to send notification email.";
-    try {
-      const parsed = JSON.parse(result?.body || "{}");
-      if (parsed?.error) message = parsed.error;
-    } catch (_err) {
-      // Ignore parse errors.
-    }
-    throw new Error(message);
-  }
+  await sendEmail({ to, subject, html });
 }
 
 async function deliverNotificationEmails(sql, payload = {}, recipientUserIds = []) {
