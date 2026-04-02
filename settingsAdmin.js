@@ -769,20 +769,20 @@
     const { state, escapeHtml } = deps();
     if (!panel || !state.permissions?.can_upload_data) return;
     panel.innerHTML = `
-      <div class="settings-section-header">
+      <div class="settings-section-header" style="border-top:1px solid var(--group-border);border-bottom:1px solid var(--group-border);padding-top:10px;padding-bottom:10px;">
         <div class="settings-section-left">
-          <h3>Bulk Upload</h3>
+          <h3 style="text-transform:uppercase;letter-spacing:.06em;">Bulk Upload</h3>
+        </div>
+        <div class="settings-section-right" id="bulk-upload-header-actions">
+          <button type="button" class="button" id="bulk-upload-time-open">Upload Time</button>
+          <button type="button" class="button" id="bulk-upload-expenses-open">Upload Expenses</button>
         </div>
       </div>
       <div class="settings-section-content">
-        <p>Upload time or expense data using a template.</p>
-        <div class="panel-head-actions">
+        <p id="bulk-upload-description">Upload time or expense data using a template.</p>
+        <div class="panel-head-actions" id="bulk-upload-template-actions">
           <button type="button" class="button button-ghost" id="bulk-download-time-template">Download Time Template</button>
           <button type="button" class="button button-ghost" id="bulk-download-expenses-template">Download Expense Template</button>
-        </div>
-        <div class="panel-head-actions">
-          <button type="button" class="button" id="bulk-upload-time-open">Upload Time</button>
-          <button type="button" class="button" id="bulk-upload-expenses-open">Upload Expenses</button>
         </div>
         <input type="file" id="bulk-upload-time-file" accept=".csv,.xlsx" hidden />
         <input type="file" id="bulk-upload-expenses-file" accept=".csv,.xlsx" hidden />
@@ -791,7 +791,6 @@
           <p id="bulk-upload-selected-file"></p>
           <div id="bulk-upload-preview-table-wrap">Preview coming next</div>
         </div>
-        <p class="feedback">Templates and import tools coming next.</p>
       </div>
     `;
 
@@ -802,10 +801,32 @@
     const timeInput = panel.querySelector("#bulk-upload-time-file");
     const expensesInput = panel.querySelector("#bulk-upload-expenses-file");
     const preview = panel.querySelector("#bulk-upload-preview");
+    const descriptionEl = panel.querySelector("#bulk-upload-description");
+    const templateActions = panel.querySelector("#bulk-upload-template-actions");
     const selectedFileLabel = panel.querySelector("#bulk-upload-selected-file");
     const errorEl = panel.querySelector("#bulk-upload-error");
     const previewTableWrap = panel.querySelector("#bulk-upload-preview-table-wrap");
     let xlsxLoader = null;
+    let previewKind = "";
+
+    const updateBulkUploadUiState = function () {
+      const hasPreview = !preview?.hidden;
+      if (descriptionEl) {
+        descriptionEl.hidden = hasPreview;
+      }
+      if (templateActions) {
+        templateActions.hidden = hasPreview;
+      }
+      if (openTimeBtn && openExpensesBtn) {
+        if (!hasPreview) {
+          openTimeBtn.hidden = false;
+          openExpensesBtn.hidden = false;
+        } else {
+          openTimeBtn.hidden = previewKind !== "time";
+          openExpensesBtn.hidden = previewKind !== "expenses";
+        }
+      }
+    };
 
     const showError = function (message) {
       if (!errorEl) return;
@@ -1058,8 +1079,10 @@
     const handleFileSelect = async function (file, kind) {
       if (!file || !preview || !selectedFileLabel) return;
       showError("");
+      previewKind = kind;
       selectedFileLabel.textContent = `Selected file: ${file.name || ""}`;
       preview.hidden = false;
+      updateBulkUploadUiState();
       try {
         const parsed = await parseFile(file, kind);
         renderPreviewTable(parsed.headers, parsed.objects, kind);
@@ -1067,6 +1090,9 @@
         if (previewTableWrap) {
           previewTableWrap.innerHTML = `<div class="empty-state-panel">Preview coming next</div>`;
         }
+        preview.hidden = true;
+        previewKind = "";
+        updateBulkUploadUiState();
         showError(
           error?.message === "INVALID_TEMPLATE"
             ? "Invalid template. Please use the provided template."
@@ -1093,6 +1119,7 @@
     expensesInput?.addEventListener("change", function () {
       handleFileSelect(expensesInput.files?.[0], "expenses");
     });
+    updateBulkUploadUiState();
   }
 
   function renderDelegationsTab() {
