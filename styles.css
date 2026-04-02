@@ -4747,6 +4747,7 @@ body[data-theme="dark"] .entry-approved td {
   border: 1px solid var(--line);
   border-radius: 10px;
   background: var(--panel);
+  overflow: hidden;
   min-height: 340px;
   max-height: 460px;
   display: flex;
@@ -4759,6 +4760,8 @@ body[data-theme="dark"] .entry-approved td {
   top: 0;
   z-index: 1;
   padding: 10px 12px;
+  border-top-left-radius: 10px;
+  border-top-right-radius: 10px;
   border-bottom: 1px solid #c4ccd9;
   background: #d9dfe8;
   color: #2d3748;
