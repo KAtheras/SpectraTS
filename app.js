@@ -867,6 +867,9 @@
               <label><span>Email</span><input type="email" name="email" required /></label>
             </div>
             <div class="member-editor-row">
+              <label><span>Employee ID</span><input type="text" name="employee_id" /></label>
+            </div>
+            <div class="member-editor-row">
               <label><span>Title</span><select name="level"></select></label>
               <label><span>Department</span><select name="department_id"><option value="">No department</option></select></label>
               <label><span>Office</span><select name="office_id" required><option value="">Select office</option></select></label>
@@ -970,6 +973,7 @@
     field(memberEditorForm, "display_name").value = user?.displayName || "";
     field(memberEditorForm, "username").value = user?.username || "";
     field(memberEditorForm, "email").value = user?.email || "";
+    field(memberEditorForm, "employee_id").value = user?.employeeId || "";
     field(memberEditorForm, "password").value = "";
     field(memberEditorForm, "level").value = String(user?.level || sortedLevelEntries[0]?.[0] || "1");
     field(memberEditorForm, "department_id").value = user?.departmentId || "";
@@ -978,7 +982,7 @@
     field(memberEditorForm, "cost_rate").value = user?.costRate ?? "";
 
     const profileEditable = mode === "create" ? canCreate : canEditProfile;
-    ["display_name", "username", "email", "level", "department_id", "office_id"].forEach((name) => {
+    ["display_name", "username", "email", "employee_id", "level", "department_id", "office_id"].forEach((name) => {
       const el = field(memberEditorForm, name);
       if (el) el.disabled = !profileEditable;
     });
@@ -1017,6 +1021,7 @@
     const displayName = field(memberEditorForm, "display_name").value.trim();
     const username = field(memberEditorForm, "username").value.trim();
     const email = field(memberEditorForm, "email").value.trim();
+    const employeeId = field(memberEditorForm, "employee_id").value.trim();
     const level = normalizeLevel(field(memberEditorForm, "level").value || "1");
     const departmentId = field(memberEditorForm, "department_id").value || null;
     const officeId = field(memberEditorForm, "office_id").value || null;
@@ -1041,7 +1046,7 @@
         }
         const result = await mutatePersistentState(
           "add_user",
-          { displayName, username, email, level, officeId, baseRate, costRate },
+          { displayName, username, email, employeeId, level, officeId, baseRate, costRate },
           { skipHydrate: true }
         );
         const created = (result?.users || []).find((u) => String(u.username || "").toLowerCase() === String(username).toLowerCase());
@@ -1058,7 +1063,7 @@
         if (canEditProfile) {
           await mutatePersistentState(
             "update_user",
-            { userId, displayName, username, email, level, officeId },
+            { userId, displayName, username, email, employeeId, level, officeId },
             { skipHydrate: true }
           );
           await mutatePersistentState(

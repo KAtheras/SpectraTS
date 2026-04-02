@@ -52,6 +52,12 @@
       typeof user.displayName === "string" && user.displayName.trim()
         ? user.displayName.trim()
         : "";
+    const employeeId =
+      typeof user.employeeId === "string"
+        ? user.employeeId.trim()
+        : typeof user.employee_id === "string"
+          ? user.employee_id.trim()
+          : "";
     const username =
       typeof user.username === "string" && user.username.trim()
         ? user.username.trim()
@@ -106,6 +112,7 @@
     return {
       id: typeof user.id === "string" && user.id ? user.id : crypto.randomUUID(),
       displayName,
+      employeeId,
       username,
       level,
       role,

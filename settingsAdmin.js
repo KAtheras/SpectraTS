@@ -1623,6 +1623,10 @@
                   <span class="member-info-field-value">${valueOrDash(user.email)}</span>
                 </div>
                 <div class="member-info-item">
+                  <span class="member-info-field-label">Employee ID</span>
+                  <span class="member-info-field-value">${valueOrDash(user.employeeId)}</span>
+                </div>
+                <div class="member-info-item">
                   <span class="member-info-field-label">Base rate</span>
                   <span class="member-info-field-value">${valueOrDash(user.baseRate)}</span>
                 </div>

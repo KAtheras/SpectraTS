@@ -159,6 +159,7 @@ async function ensureSchema(sql) {
       id TEXT PRIMARY KEY,
       username TEXT NOT NULL,
       email TEXT NOT NULL DEFAULT '',
+      employee_id TEXT NOT NULL DEFAULT '',
       display_name TEXT NOT NULL,
       base_rate NUMERIC(10,2),
       cost_rate NUMERIC(10,2),
@@ -177,6 +178,7 @@ async function ensureSchema(sql) {
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS level INT`;
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS account_id UUID REFERENCES accounts(id)`;
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT NOT NULL DEFAULT ''`;
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS employee_id TEXT NOT NULL DEFAULT ''`;
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS base_rate NUMERIC(10,2)`;
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS cost_rate NUMERIC(10,2)`;
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT FALSE`;
@@ -1057,6 +1059,7 @@ async function listUsers(sql, accountId) {
       users.id,
       users.username,
       users.email,
+      users.employee_id AS "employeeId",
       users.display_name AS "displayName",
       users.role,
       users.level,
@@ -1140,6 +1143,7 @@ async function listLevelLabels(sql, accountId) {
 async function createUserRecord(sql, payload) {
   const username = normalizeText(payload.username);
   const email = normalizeText(payload.email);
+  const employeeId = normalizeText(payload.employeeId ?? payload.employee_id);
   const displayName = normalizeText(payload.displayName);
   const password = String(payload.password || "");
   const level = normalizeLevel(payload.level ?? payload.role);
@@ -1221,6 +1225,7 @@ async function createUserRecord(sql, payload) {
       SET
         display_name = ${displayName},
       email = ${email},
+      employee_id = ${employeeId},
       password_hash = ${hashPassword(passwordValue)},
       level = ${level},
       role = ${mappedRole},
@@ -1236,6 +1241,7 @@ async function createUserRecord(sql, payload) {
       id: userRecord.id,
       username,
       email,
+      employeeId,
       displayName,
       level,
       role: mappedRole,
@@ -1253,6 +1259,7 @@ async function createUserRecord(sql, payload) {
     id: randomId(),
     username,
     email,
+    employeeId,
     displayName,
     level,
     role: mappedRole,
@@ -1271,6 +1278,7 @@ async function createUserRecord(sql, payload) {
       id,
       username,
       email,
+      employee_id,
       display_name,
       password_hash,
       role,
@@ -1288,6 +1296,7 @@ async function createUserRecord(sql, payload) {
       ${user.id},
       ${user.username},
       ${user.email},
+      ${user.employeeId},
       ${user.displayName},
       ${user.passwordHash},
       ${user.role},
@@ -1367,6 +1376,12 @@ async function updateUserRecord(sql, payload, actingUser) {
     payload.email !== undefined && payload.email !== null && payload.email !== ""
       ? normalizeText(payload.email)
       : normalizeText(existingUser?.email || "");
+  const employeeId =
+    payload.employeeId !== undefined && payload.employeeId !== null
+      ? normalizeText(payload.employeeId)
+      : payload.employee_id !== undefined && payload.employee_id !== null
+        ? normalizeText(payload.employee_id)
+        : normalizeText(existingUser?.employee_id || "");
   const rawBaseRate =
     payload.baseRate !== undefined && payload.baseRate !== null && payload.baseRate !== ""
       ? payload.baseRate
@@ -1449,6 +1464,7 @@ async function updateUserRecord(sql, payload, actingUser) {
     SET
       username = ${username},
       email = ${email},
+      employee_id = ${employeeId},
       display_name = ${displayName},
       level = ${level},
       role = ${mappedRole},
@@ -1477,6 +1493,7 @@ async function updateUserRecord(sql, payload, actingUser) {
       id: refreshed.id,
       username: refreshed.username,
       email: refreshed.email || "",
+      employeeId: refreshed.employee_id || "",
       displayName: refreshed.display_name,
       level: normalizeLevel(refreshed.level),
       baseRate: refreshed.base_rate ?? null,
