@@ -4520,6 +4520,41 @@ body[data-theme="dark"] #inputs-view .input-row-head .cell-notes {
   margin: 0;
 }
 
+#inputs-view .input-row-body .cell-billable input[type="checkbox"],
+#inputs-time-billable,
+#inputs-expense-billable {
+  width: 58px !important;
+  height: 40px !important;
+  border-radius: 12px !important;
+  border: 2px solid color-mix(in srgb, var(--accent) 42%, var(--line)) !important;
+  background: color-mix(in srgb, var(--surface-strong) 88%, var(--panel)) !important;
+  padding: 0 !important;
+}
+
+#inputs-view .input-row-body .cell-billable input[type="checkbox"]::after,
+#inputs-time-billable::after,
+#inputs-expense-billable::after {
+  top: 4px !important;
+  left: 4px !important;
+  width: 28px !important;
+  height: 28px !important;
+  background: #ffffff !important;
+  opacity: 1 !important;
+}
+
+#inputs-view .input-row-body .cell-billable input[type="checkbox"]:checked,
+#inputs-time-billable:checked,
+#inputs-expense-billable:checked {
+  background: color-mix(in srgb, var(--accent) 20%, var(--surface-strong)) !important;
+  border-color: color-mix(in srgb, var(--accent) 68%, var(--line)) !important;
+}
+
+#inputs-view .input-row-body .cell-billable input[type="checkbox"]:checked::after,
+#inputs-time-billable:checked::after,
+#inputs-expense-billable:checked::after {
+  transform: translateX(18px) !important;
+}
+
 input[type="checkbox"] {
   appearance: none;
   -webkit-appearance: none;
