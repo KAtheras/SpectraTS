@@ -2627,7 +2627,8 @@
         addBtn.textContent = "Add member";
         sectionRight.insertBefore(addBtn, sectionRight.firstChild);
       }
-      addBtn.hidden = !Boolean(state.permissions?.create_user);
+      const canCreateMember = Boolean(state.permissions?.create_user);
+      addBtn.hidden = !canCreateMember || isMobileSettingsLayout();
       const settingsContentShell = document.querySelector("#settings-page .settings-content-shell");
       const mobileBackBtn = settingsContentShell?.querySelector(".settings-mobile-back");
       if (settingsContentShell && mobileBackBtn) {
@@ -2649,12 +2650,12 @@
           mobileAddBtn.textContent = "Add member";
           topActions.appendChild(mobileAddBtn);
         }
-        mobileAddBtn.dataset.memberAddAllowed = addBtn.hidden ? "false" : "true";
+        mobileAddBtn.dataset.memberAddAllowed = canCreateMember ? "true" : "false";
         mobileAddBtn.hidden = !(
           isMobileSettingsLayout() &&
           activeSettingsTab === "rates" &&
           mobileSettingsMode === "detail" &&
-          !addBtn.hidden
+          canCreateMember
         );
       }
     }
