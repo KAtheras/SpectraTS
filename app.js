@@ -345,6 +345,7 @@
     navSettings: document.getElementById("nav-settings"),
     navMembers: document.getElementById("nav-members"),
     settingsToggle: document.getElementById("settings-toggle"),
+    settingsOpen: document.getElementById("settings-open"),
     settingsMenu: document.getElementById("settings-menu"),
     settingsMenuHeader: document.getElementById("settings-menu-header"),
     actingAsToggle: document.getElementById("acting-as-toggle"),
@@ -446,7 +447,6 @@
     changePasswordNew: document.getElementById("change-password-new"),
     changePasswordConfirm: document.getElementById("change-password-confirm"),
     changePasswordCancel: document.getElementById("change-password-cancel"),
-    settingsMenuSettings: document.getElementById("settings-menu-settings"),
     forcePasswordShell: document.getElementById("force-password-shell"),
     forcePasswordForm: document.getElementById("force-password-form"),
     forcePasswordCurrent: document.getElementById("force-password-current"),
@@ -1140,10 +1140,10 @@
 
   initExpenseFilterDatePickers();
 
-  // Enforce settings dropdown item order: Settings, Dark/Light, Change Password, Log out.
+  // Enforce settings dropdown item order: Audit Log, Dark/Light, Change Password, Log out.
   if (refs.settingsMenu) {
     [
-      refs.settingsMenuSettings,
+      refs.navAudit,
       refs.themeToggle,
       refs.changePasswordOpen,
       refs.logoutButton,
@@ -1256,14 +1256,13 @@
   function arrangeSettingsMenu(showAudit) {
     if (!refs.settingsMenu) return;
     const items = [
-      refs.settingsMenuSettings,
       showAudit ? refs.navAudit : null,
       refs.themeToggle,
       refs.changePasswordOpen,
       refs.logoutButton,
     ].filter(Boolean);
-    if (showAudit && refs.settingsMenuSettings && refs.navAudit) {
-      refs.navAudit.className = refs.settingsMenuSettings.className || "";
+    if (showAudit && refs.navAudit && refs.themeToggle) {
+      refs.navAudit.className = refs.themeToggle.className || "";
       refs.navAudit.style.marginLeft = "";
       refs.navAudit.style.paddingLeft = "";
     }
@@ -5306,10 +5305,11 @@
       refs.navClientsMobile.classList.toggle("is-active", view === "clients");
       refs.navClientsMobile.setAttribute("aria-current", view === "clients" ? "page" : "false");
     }
-    if (refs.settingsMenuSettings) {
-      const showSettingsLink = !!state.permissions?.view_settings_tab;
-      refs.settingsMenuSettings.hidden = !showSettingsLink;
-      refs.settingsMenuSettings.setAttribute("aria-current", view === "settings" ? "page" : "false");
+    if (refs.settingsOpen) {
+      const showSettingsAction = !!state.permissions?.view_settings_tab;
+      refs.settingsOpen.hidden = !showSettingsAction;
+      refs.settingsOpen.classList.toggle("is-active", showSettingsAction && view === "settings");
+      refs.settingsOpen.setAttribute("aria-current", showSettingsAction && view === "settings" ? "page" : "false");
     }
     if (refs.navInputs) {
       refs.navInputs.hidden = false;
@@ -6617,6 +6617,15 @@
       toggleSettingsMenu();
     });
   }
+  if (refs.settingsOpen) {
+    refs.settingsOpen.addEventListener("click", function () {
+      if (!state.permissions?.view_settings_tab) {
+        return;
+      }
+      closeSettingsMenu();
+      setView("settings");
+    });
+  }
   if (refs.actingAsToggle) {
     refs.actingAsToggle.addEventListener("click", function (event) {
       event.stopPropagation();
@@ -6691,15 +6700,6 @@
   }
   if (refs.changePasswordCancel) {
     refs.changePasswordCancel.addEventListener("click", closeChangePasswordModal);
-  }
-  if (refs.settingsMenuSettings) {
-    refs.settingsMenuSettings.addEventListener("click", function () {
-      if (!state.permissions.view_settings_tab) {
-        return;
-      }
-      setView("settings");
-      closeSettingsMenu();
-    });
   }
   if (refs.forcePasswordForm) {
     refs.forcePasswordForm.addEventListener("submit", submitForcePassword);

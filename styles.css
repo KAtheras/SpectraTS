@@ -837,6 +837,11 @@ body[data-theme="dark"] .app-topbar {
   color: color-mix(in srgb, var(--accent) 70%, var(--text-strong) 30%);
 }
 
+.settings-gear-button .inbox-button-icon {
+  width: 17px;
+  height: 17px;
+}
+
 .inbox-button-icon {
   width: 18px;
   height: 18px;

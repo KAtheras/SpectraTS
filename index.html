@@ -13,7 +13,7 @@
     />
     <meta name="theme-color" content="#1f3b63" />
     <link rel="manifest" href="/manifest.json" />
-    <link rel="stylesheet" href="./styles.css?v=9b54912-20260401033817" />
+    <link rel="stylesheet" href="./styles.css?v=b333e0a-20260402013530" />
   </head>
   <body>
     <div class="auth-shell" id="auth-shell" hidden>
@@ -136,13 +136,22 @@
               <button class="avatar-button" id="settings-toggle" type="button" aria-label="User menu">
                 <span id="session-indicator" hidden></span>
               </button>
+              <button class="inbox-button settings-gear-button" id="settings-open" type="button" aria-label="Open settings" title="Settings">
+                <svg class="inbox-button-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path
+                    d="M9.6 3.5h4.8l.5 2.2c.3.1.7.3 1 .4l2.1-1.1 3.4 3.4-1.1 2.1c.1.3.3.7.4 1l2.2.5v4.8l-2.2.5c-.1.3-.3.7-.4 1l1.1 2.1-3.4 3.4-2.1-1.1c-.3.1-.7.3-1 .4l-.5 2.2H9.6l-.5-2.2c-.3-.1-.7-.3-1-.4l-2.1 1.1-3.4-3.4 1.1-2.1c-.1-.3-.3-.7-.4-1l-2.2-.5v-4.8l2.2-.5c.1-.3.3-.7.4-1L2.6 8.4 6 5l2.1 1.1c.3-.1.7-.3 1-.4l.5-2.2Z"
+                    stroke="currentColor"
+                    stroke-width="1.6"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                  <circle cx="12" cy="14.4" r="3.2" stroke="currentColor" stroke-width="1.6" />
+                </svg>
+              </button>
               <div class="settings-menu" id="settings-menu" hidden>
                 <div class="settings-menu-header" id="settings-menu-header" hidden></div>
                 <button class="settings-item" id="change-password-open" type="button" hidden>
                   Change Password
-                </button>
-                <button class="settings-item" id="settings-menu-settings" type="button" hidden>
-                  Settings
                 </button>
                 <button class="settings-item" id="theme-toggle" type="button">
                   Dark/Light
@@ -920,6 +929,6 @@
     <script src="./timeEntries.js?v=1" defer></script>
     <script src="./catalogEditor.js?v=1" defer></script>
     <script src="./settingsAdmin.js?v=20260322-01" defer></script>
-    <script src="./app.js?v=9b54912-20260401033817" defer></script>
+    <script src="./app.js?v=b333e0a-20260402013530" defer></script>
   </body>
 </html>
