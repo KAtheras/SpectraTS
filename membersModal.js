@@ -150,6 +150,7 @@
     const mode = memberModalState.mode;
     const client = memberModalState.client;
     const project = memberModalState.project;
+    const projectLabel = client && project ? `${client} / ${project}` : project;
     const userId = memberModalState.userId;
     const assignedSet = new Set(memberModalState.assigned || []);
     const overrideMap = memberModalState.overrides || {};
@@ -160,19 +161,19 @@
     let title = "Manage Members";
     let subtext = "";
     if (mode === "project-add" || mode === "project-members-edit") {
-      title = `Add Members to ${project}`;
+      title = `Add Members to ${projectLabel}`;
       subtext = "Select staff to add to this project.";
     } else if (mode === "project-remove") {
-      title = `Remove Members from ${project}`;
+      title = `Remove Members from ${projectLabel}`;
       subtext = "Select staff to remove from this project.";
     } else if (mode === "project-add-member") {
-      title = `Add Member to ${project}`;
+      title = `Add Member to ${projectLabel}`;
       subtext = "Select an unassigned member.";
     } else if (mode === "project-remove-member") {
-      title = `Remove Member from ${project}`;
+      title = `Remove Member from ${projectLabel}`;
       subtext = "Select assigned members to remove.";
     } else if (mode === "project-members-edit") {
-      title = `Manage Members for ${project}`;
+      title = `Manage Members for ${projectLabel}`;
       subtext = "Edit assigned members by checking or unchecking their boxes.";
     } else if (mode === "client-assign") {
       title = `Assign Managers to ${client}`;
@@ -182,13 +183,13 @@
       title = `Unassign Managers from ${client}`;
       subtext = "Select managers to remove from this client.";
     } else if (mode === "project-assign-manager" || mode === "project-managers-edit") {
-      title = `Assign Managers to ${project}`;
+      title = `Assign Managers to ${projectLabel}`;
       subtext = "Select managers or global admins who should have access to this project.";
     } else if (mode === "project-unassign-manager") {
-      title = `Unassign Managers from ${project}`;
+      title = `Unassign Managers from ${projectLabel}`;
       subtext = "Select managers to remove from this project.";
     } else if (mode === "project-managers-edit") {
-      title = `Manage Managers for ${project}`;
+      title = `Manage Managers for ${projectLabel}`;
       subtext = "Edit assigned managers by checking or unchecking their boxes.";
     } else if (mode === "user-role") {
       const targetUser = getUserById(userId);
@@ -380,11 +381,14 @@
       const groupKey = groupByLevel
         ? `level:${String(currentLevel)}`
         : officeId || "__no_office";
+      const resolvedOfficeName = officeId ? officeNameById.get(officeId) || "" : "";
+      const safeOfficeLabel =
+        resolvedOfficeName && !String(resolvedOfficeName).startsWith("temp-office-")
+          ? resolvedOfficeName
+          : "No Office";
       const officeLabel = groupByLevel
         ? currentLevelLabel
-        : officeId
-          ? officeNameById.get(officeId) || officeId
-          : "No Office";
+        : safeOfficeLabel;
       const showRoleSecondary = new Set([
         "project-add",
         "project-add-member",
