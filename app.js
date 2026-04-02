@@ -1963,6 +1963,26 @@
     }
   }
 
+  async function ensureExpenseHistoryCoversDate(targetDate) {
+    const target = normalizeExpenseDate(targetDate || "");
+    if (!target) return true;
+    let safety = 0;
+    while (safety < 64) {
+      safety += 1;
+      const bounds = getLoadedExpenseDateBounds();
+      if (!bounds?.minDate) return false;
+      if (target >= bounds.minDate) return true;
+      const requestTo = shiftIsoDate(bounds.minDate, -1);
+      const requestFrom = shiftIsoDate(bounds.minDate, -90);
+      const merged = await ensureExpenseWindowLoaded({
+        from: requestFrom,
+        to: requestTo,
+      });
+      if (!merged) return false;
+    }
+    return false;
+  }
+
   async function loadPersistentState() {
     try {
       // Use the full state payload (same as bootstrap) so derived state like users,
@@ -6141,22 +6161,16 @@
       const targetEnd = shiftIsoDate(currentEnd, -7);
       let bounds = getInputsExpenseCalendarBounds();
       if (bounds.hasData && targetEnd < bounds.minEndDate) {
-        const requestTo = shiftIsoDate(bounds.minEndDate, -1);
-        const requestFrom = shiftIsoDate(targetEnd, -90);
         try {
-          const merged = await ensureExpenseWindowLoaded({
-            from: requestFrom,
-            to: requestTo,
-          });
-          if (merged) {
-            bounds = getInputsExpenseCalendarBounds();
-          }
+          await ensureExpenseHistoryCoversDate(targetEnd);
+          bounds = getInputsExpenseCalendarBounds();
         } catch (error) {
           feedback(error.message || "Unable to load older expenses.", true);
           return;
         }
       }
       if (!bounds.hasData) return;
+      if (targetEnd < bounds.minEndDate) return;
       state.inputsExpenseCalendarEndDate = targetEnd;
       if (state.currentView === "inputs" && state.inputSubtab === "expenses") {
         renderInputsExpenseSummaryAndCalendarMeta();
@@ -8267,6 +8281,7 @@
     isExecutive,
     field,
     ensureExpenseWindowLoaded,
+    ensureExpenseHistoryCoversDate,
   };
 
   window.addEventListener("resize", postHeight);

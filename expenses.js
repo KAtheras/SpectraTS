@@ -304,7 +304,7 @@
   }
 
   async function applyExpenseFiltersFromForm(options) {
-    const { field, refs, parseDisplayDate, feedback, state, ensureExpenseWindowLoaded, today } = deps();
+    const { field, refs, parseDisplayDate, feedback, state, ensureExpenseHistoryCoversDate, ensureExpenseWindowLoaded, today } = deps();
     const settings = options || {};
     const showErrors = settings.showErrors !== false;
     const userField = field(refs.expenseFilterForm, "user");
@@ -335,7 +335,16 @@
       return false;
     }
 
-    if (parsedFrom && typeof ensureExpenseWindowLoaded === "function") {
+    if (parsedFrom && typeof ensureExpenseHistoryCoversDate === "function") {
+      try {
+        await ensureExpenseHistoryCoversDate(parsedFrom);
+      } catch (error) {
+        if (showErrors) {
+          feedback(error.message || "Unable to load older expenses.", true);
+        }
+        return false;
+      }
+    } else if (parsedFrom && typeof ensureExpenseWindowLoaded === "function") {
       const minLoadedDate = (state.expenses || []).reduce((minDate, expense) => {
         const value = `${expense?.expenseDate || expense?.date || ""}`.trim();
         if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return minDate;
@@ -432,7 +441,9 @@
 
     if (refs.expensesBody) {
       const dates = state.expenses.map((e) => e.expenseDate).sort();
-      refs.expensesBody.dataset.rangeMin = dates[0] || "";
+      // Allow picking/navigating to earlier dates than the currently loaded window.
+      // Older rows are fetched on demand by the expense filter expansion path.
+      refs.expensesBody.dataset.rangeMin = "";
       refs.expensesBody.dataset.rangeMax = dates[dates.length - 1] || "";
     }
 
