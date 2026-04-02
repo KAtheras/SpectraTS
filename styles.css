@@ -3783,7 +3783,7 @@ body[data-theme="dark"] .entry-approved td {
 
 @media (max-width: 768px) {
   :root {
-    --shell-pad: 4px;
+    --shell-pad: 8px;
   }
 
   .shell-inner,
@@ -3796,6 +3796,20 @@ body[data-theme="dark"] .entry-approved td {
   .page-view {
     padding-left: 0;
     padding-right: 0;
+    min-width: 0;
+  }
+
+  .entries-view .input-shell,
+  .entries-view .entries-panel,
+  .entries-view .table-wrapper,
+  .entries-view .table-wrap {
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .entries-view {
+    overflow-x: hidden;
   }
 
   #clients-page .catalog-grid,
@@ -3994,7 +4008,7 @@ body[data-theme="dark"] .entry-approved td {
 
 @media (max-width: 640px) {
   :root {
-    --shell-pad: 4px;
+    --shell-pad: 8px;
   }
 
   .page-shell {
