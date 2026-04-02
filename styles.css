@@ -304,7 +304,7 @@ body.modal-open {
 }
 
 .shell-inner {
-  max-width: 1240px;
+  max-width: 1480px;
   margin: 0 auto;
   width: 100%;
   padding: 0;
@@ -365,7 +365,7 @@ body[data-theme="dark"] .button {
 
 .page-view {
   width: 100%;
-  max-width: calc(1240px + (var(--shell-pad) * 2));
+  max-width: calc(1480px + (var(--shell-pad) * 2));
   margin: 0 auto;
   min-height: 0;
   height: 100%;
@@ -2380,7 +2380,7 @@ body[data-theme="dark"] .audit-detail-col {
 }
 
 .catalog-grid-narrow {
-  max-width: 1240px;
+  max-width: 1480px;
   margin: 0 auto;
   width: 100%;
   padding: 0 var(--shell-pad);
