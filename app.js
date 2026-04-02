@@ -1054,7 +1054,7 @@
     }
 
     try {
-      let departmentSyncError = null;
+      let createdUserId = "";
       if (memberEditorMode === "create") {
         if (!canCreate) {
           feedback("Access denied.", true);
@@ -1065,19 +1065,20 @@
           { displayName, username, email, employeeId, level, officeId, baseRate, costRate },
           { skipHydrate: true }
         );
-        const created = (result?.users || []).find((u) => String(u.username || "").toLowerCase() === String(username).toLowerCase());
-        if (created && departmentId && canEditProfile) {
-          try {
-            await mutatePersistentState(
-              "set_user_department",
-              { userId: created.id, departmentId },
-              { skipHydrate: true, returnState: false }
-            );
-          } catch (error) {
-            departmentSyncError = error;
-          }
-        }
+        const created = (result?.users || []).find(
+          (u) => String(u.username || "").toLowerCase() === String(username).toLowerCase()
+        );
+        createdUserId = created?.id || "";
         closeMemberEditorModal();
+        if (createdUserId && departmentId && canEditProfile) {
+          mutatePersistentState(
+            "set_user_department",
+            { userId: createdUserId, departmentId },
+            { skipHydrate: true, returnState: false }
+          ).catch((error) => {
+            feedback(`Member added. Department update failed: ${error.message || "Unknown error."}`, true);
+          });
+        }
       } else {
         const userId = memberEditorUserId;
         const currentUser = (state.users || []).find((u) => u.id === userId);
@@ -1099,27 +1100,20 @@
             { skipHydrate: true, returnState: false }
           );
         }
-        if (canEditProfile) {
-          try {
-            await mutatePersistentState(
-              "set_user_department",
-              { userId, departmentId },
-              { skipHydrate: true, returnState: false }
-            );
-          } catch (error) {
-            departmentSyncError = error;
-          }
-        }
         closeMemberEditorModal();
+        if (canEditProfile) {
+          mutatePersistentState(
+            "set_user_department",
+            { userId, departmentId },
+            { skipHydrate: true, returnState: false }
+          ).catch((error) => {
+            feedback(`Member updated. Department update failed: ${error.message || "Unknown error."}`, true);
+          });
+        }
       }
-      await refreshSettingsTab("rates");
-      if (departmentSyncError) {
-        feedback(
-          `${memberEditorMode === "create" ? "Member added." : "Member updated."} Department update failed: ${departmentSyncError.message || "Unknown error."}`,
-          true
-        );
-        return;
-      }
+      refreshSettingsTab("rates").catch((error) => {
+        feedback(error.message || "Member saved but refresh failed.", true);
+      });
       feedback(memberEditorMode === "create" ? "Member added." : "Member updated.", false);
     } catch (error) {
       feedback(error.message || "Unable to save member.", true);
