@@ -939,11 +939,22 @@
     }
   }
 
-  function closeMemberEditorModal() {
+  function closeMemberEditorModal(options = {}) {
+    const { dispose = false } = options;
     if (!memberEditorModal) return;
     memberEditorModal.hidden = true;
     memberEditorModal.setAttribute("aria-hidden", "true");
     body.classList.remove("modal-open");
+    if (dispose) {
+      memberEditorModal.remove();
+      memberEditorModal = null;
+      memberEditorForm = null;
+      memberEditorTitle = null;
+      memberEditorSubmit = null;
+      memberEditorReset = null;
+      memberEditorMode = "create";
+      memberEditorUserId = "";
+    }
   }
 
   async function openMemberEditorModal(mode, userId) {
@@ -1142,7 +1153,7 @@
         }
       }
 
-      closeMemberEditorModal();
+      closeMemberEditorModal({ dispose: true });
       feedback(successMessage, false);
       postSaveTasks.push(refreshSettingsTab("rates"));
       Promise.allSettled(postSaveTasks).then((results) => {
@@ -1159,7 +1170,7 @@
         submitButton.textContent = originalSubmitLabel;
       }
       if (coreSaved && memberEditorModal && memberEditorModal.hidden !== true) {
-        closeMemberEditorModal();
+        closeMemberEditorModal({ dispose: true });
       }
     }
   }
