@@ -1,5 +1,6 @@
 (function () {
   const THEME_STORAGE_KEY = "timesheet-studio.theme.v1";
+  const VIEW_STORAGE_KEY = "timesheet-studio.view.v1";
   const body = document.body;
   const normalizedPath = window.location.pathname.replace(/\/+$/, "") || "/";
   if (normalizedPath === "/set-password") {
@@ -1355,6 +1356,61 @@
     return [];
   }
 
+  function persistCurrentView(view) {
+    const normalized = `${view || ""}`.trim();
+    if (!normalized) return;
+    try {
+      window.localStorage.setItem(VIEW_STORAGE_KEY, normalized);
+    } catch (error) {
+      return;
+    }
+  }
+
+  function loadPersistedView() {
+    try {
+      const raw = window.localStorage.getItem(VIEW_STORAGE_KEY);
+      return `${raw || ""}`.trim();
+    } catch (error) {
+      return "";
+    }
+  }
+
+  function clearPersistedView() {
+    try {
+      window.localStorage.removeItem(VIEW_STORAGE_KEY);
+    } catch (error) {
+      return;
+    }
+  }
+
+  function isViewAllowed(view) {
+    const nextView = `${view || ""}`.trim().toLowerCase();
+    if (!state.currentUser) return false;
+    if (!nextView) return false;
+    if (nextView === "inputs" || nextView === "entries" || nextView === "analytics" || nextView === "inbox") {
+      return true;
+    }
+    if (nextView === "clients") {
+      const group = permissionGroupForUser(state.currentUser);
+      return (
+        group === "manager" ||
+        group === "executive" ||
+        group === "admin" ||
+        group === "superuser"
+      );
+    }
+    if (nextView === "members") {
+      return isAdmin(state.currentUser) || isGlobalAdmin(state.currentUser) || isExecutive(state.currentUser);
+    }
+    if (nextView === "settings") {
+      return !!state.permissions?.view_settings_tab;
+    }
+    if (nextView === "audit") {
+      return isAdmin(state.currentUser);
+    }
+    return false;
+  }
+
   // Build user options from the currently visible expense rows (ignoring the user filter only).
   function visibleExpenseUserOptions() {
     const names = new Set(availableUsers());
@@ -2050,6 +2106,9 @@
   }
 
   function setView(view) {
+    if (!isViewAllowed(view)) {
+      view = "inputs";
+    }
     const previousView = state.currentView;
     if (view === "inbox" && previousView !== "inbox") {
       beginInboxVisit();
@@ -2058,6 +2117,7 @@
       commitInboxVisitRead();
     }
     state.currentView = view;
+    persistCurrentView(view);
     if (view === "settings" && previousView !== "settings") {
       loadSettingsMetadata();
     }
@@ -5031,6 +5091,7 @@
     const sessionToken = loadSessionToken();
 
     persistSessionToken("");
+    clearPersistedView();
     clearRemoteAppState();
     resetFilters();
     clearEntryAndExpenseDrafts();
@@ -8186,6 +8247,9 @@
 
   window.addEventListener("resize", postHeight);
   window.addEventListener("load", postHeight);
+  window.addEventListener("beforeunload", function () {
+    persistCurrentView(state.currentView);
+  });
   function registerServiceWorker() {
     if (!("serviceWorker" in navigator)) {
       return;
@@ -8220,6 +8284,19 @@
       }
       render();
       return;
+    }
+
+    const restoredView = loadPersistedView();
+    if (isViewAllowed(restoredView)) {
+      state.currentView = restoredView;
+      if (restoredView === "inbox") {
+        beginInboxVisit();
+      }
+      if (restoredView === "settings") {
+        loadSettingsMetadata();
+      }
+    } else {
+      state.currentView = "inputs";
     }
 
     syncFilterCatalogsUI(state.filters);
