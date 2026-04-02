@@ -971,7 +971,10 @@
     field(memberEditorForm, "username").value = user?.username || "";
     field(memberEditorForm, "email").value = user?.email || "";
     field(memberEditorForm, "employee_id").value = user?.employeeId || "";
-    field(memberEditorForm, "password").value = "";
+    const passwordInput = field(memberEditorForm, "password");
+    if (passwordInput) {
+      passwordInput.value = "";
+    }
     field(memberEditorForm, "level").value = String(user?.level || sortedLevelEntries[0]?.[0] || "1");
     field(memberEditorForm, "department_id").value = user?.departmentId || "";
     field(memberEditorForm, "office_id").value = user?.officeId || "";
