@@ -1309,6 +1309,31 @@
       updateBulkUploadUiState();
     };
 
+    const resetBulkUploadState = function () {
+      latestPreviewPayload = null;
+      latestImportSummary = null;
+      latestRejectedRows = [];
+      latestRejectedKind = "";
+      previewKind = "";
+      if (preview) {
+        preview.hidden = true;
+      }
+      if (previewTableWrap) {
+        previewTableWrap.innerHTML = `<div class="empty-state-panel">Preview coming next</div>`;
+      }
+      if (selectedFileLabel) {
+        selectedFileLabel.textContent = "";
+      }
+      if (timeInput) {
+        timeInput.value = "";
+      }
+      if (expensesInput) {
+        expensesInput.value = "";
+      }
+      showError("");
+      updateBulkUploadUiState();
+    };
+
     const importValidTimeRows = async function () {
       const objects = Array.isArray(latestPreviewPayload?.objects) ? latestPreviewPayload.objects : [];
       const validRows = objects.filter((row) => row.status === "Valid");
@@ -1550,7 +1575,15 @@
     });
     downloadRejectsBtn?.addEventListener("click", function () {
       if (!latestRejectedRows.length) return;
+      const hasPostImportState = Boolean(
+        latestImportSummary &&
+          Number.isFinite(latestImportSummary.successCount) &&
+          Number.isFinite(latestImportSummary.rejectedCount)
+      );
       downloadRejectsCsv(latestRejectedRows, latestRejectedKind || previewKind || "time");
+      if (hasPostImportState) {
+        resetBulkUploadState();
+      }
     });
     updateBulkUploadUiState();
   }
