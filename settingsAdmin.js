@@ -1,6 +1,16 @@
 (function () {
   const deps = () => window.settingsAdminDeps || {};
-  const SETTINGS_TABS = ["levels", "categories", "locations", "rates", "messaging_rules", "departments", "delegations", "permissions"];
+  const SETTINGS_TABS = [
+    "levels",
+    "categories",
+    "locations",
+    "rates",
+    "messaging_rules",
+    "departments",
+    "delegations",
+    "bulk_upload",
+    "permissions",
+  ];
   let activeSettingsTab = "levels";
   let tabsInitialized = false;
   let mobileSettingsMode = "list";
@@ -41,6 +51,7 @@
     if (state.permissions?.manage_settings_access) tabs.push("messaging_rules");
     if (state.permissions?.manage_departments) tabs.push("departments");
     if (state.permissions?.can_delegate) tabs.push("delegations");
+    if (state.permissions?.can_upload_data) tabs.push("bulk_upload");
     if (state.permissions?.manage_settings_access) tabs.push("permissions");
     return tabs;
   }
@@ -126,7 +137,7 @@
     if (!settingsPage) return;
     const sectionPanels = Array.from(
       settingsPage.querySelectorAll(
-        '[data-settings-tab="levels"], [data-settings-tab="categories"], [data-settings-tab="locations"], [data-settings-tab="rates"], [data-settings-tab="messaging_rules"], [data-settings-tab="departments"], [data-settings-tab="delegations"], [data-settings-tab="permissions"]'
+        '[data-settings-tab="levels"], [data-settings-tab="categories"], [data-settings-tab="locations"], [data-settings-tab="rates"], [data-settings-tab="messaging_rules"], [data-settings-tab="departments"], [data-settings-tab="delegations"], [data-settings-tab="bulk_upload"], [data-settings-tab="permissions"]'
       )
     );
 
@@ -221,6 +232,7 @@
       messaging_rules: "Messaging Rules",
       departments: "Practice departments",
       delegations: "Delegations",
+      bulk_upload: "Bulk Upload",
       permissions: "Member access levels",
     };
     const { tabButtons } = settingsTabElements();
@@ -685,6 +697,34 @@
       }
     }
 
+    const canUploadData = state.permissions?.can_upload_data;
+    if (canUploadData) {
+      const tabsContainer = document.querySelector("#settings-page .settings-tabs");
+      const panelsContainer = document.querySelector("#settings-page .settings-panels") || settingsPage;
+      if (tabsContainer && panelsContainer) {
+        let bulkBtn = tabsContainer.querySelector('[data-settings-tab-button="bulk_upload"]');
+        if (!bulkBtn) {
+          bulkBtn = document.createElement("button");
+          bulkBtn.className = "settings-tab catalog-item";
+          bulkBtn.type = "button";
+          bulkBtn.dataset.settingsTabButton = "bulk_upload";
+          bulkBtn.textContent = "Bulk Upload";
+          tabsContainer.appendChild(bulkBtn);
+          bulkBtn.addEventListener("click", function (event) {
+            event.preventDefault();
+            setActiveSettingsTab("bulk_upload", { fromUser: true });
+          });
+        }
+        let bulkPanel = panelsContainer.querySelector('[data-settings-tab="bulk_upload"]');
+        if (!bulkPanel) {
+          bulkPanel = document.createElement("div");
+          bulkPanel.dataset.settingsTab = "bulk_upload";
+          bulkPanel.className = "settings-panel";
+          panelsContainer.appendChild(bulkPanel);
+        }
+      }
+    }
+
     // Ensure permissions tab exists for superusers
     const canManageSettingsAccess = state.permissions?.manage_settings_access;
     if (canManageSettingsAccess) {
@@ -720,7 +760,29 @@
     applyMobileSettingsLayout();
     initSettingsTabs();
     renderDelegationsTab();
+    renderBulkUploadTab();
     renderPermissionsMatrix();
+  }
+
+  function renderBulkUploadTab() {
+    const panel = document.querySelector('[data-settings-tab="bulk_upload"]');
+    const { state } = deps();
+    if (!panel || !state.permissions?.can_upload_data) return;
+    panel.innerHTML = `
+      <div class="settings-section-header">
+        <div class="settings-section-left">
+          <h3>Bulk Upload</h3>
+        </div>
+      </div>
+      <div class="settings-section-content">
+        <p>Upload time or expense data using a template.</p>
+        <div class="panel-head-actions">
+          <button type="button" class="button" disabled>Upload Time</button>
+          <button type="button" class="button" disabled>Upload Expenses</button>
+        </div>
+        <p class="feedback">Templates and import tools coming next.</p>
+      </div>
+    `;
   }
 
   function renderDelegationsTab() {
