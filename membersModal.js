@@ -225,10 +225,15 @@
                 : user.level;
       const hasExplicitLevel = user.level !== undefined && user.level !== null && String(user.level).trim() !== "";
       const currentLevel = normalizeLevel(hasExplicitLevel ? user.level : inferredLevel);
+      const rawLevelLabel =
+        typeof user.level === "string" && user.level.trim() && Number.isNaN(Number(user.level))
+          ? user.level.trim()
+          : "";
       const currentLevelLabel =
-        hasExplicitLevel
+        rawLevelLabel ||
+        (hasExplicitLevel
           ? levelLabel(user.level)
-          : levelLabel(currentLevel);
+          : levelLabel(currentLevel));
       const isManagerEligible = isManager(user);
       const isAssignedToProject = project
         ? isUserAssignedToProject(user.id, client, project)
@@ -380,7 +385,7 @@
       const officeId = user.officeId || "";
       const groupByLevel = mode === "project-add-member";
       const groupKey = groupByLevel
-        ? `level:${String(currentLevel)}`
+        ? `level:${String(currentLevelLabel).toLowerCase()}`
         : officeId || "__no_office";
       const resolvedOfficeName = officeId ? officeNameById.get(officeId) || "" : "";
       const safeOfficeLabel =
@@ -422,14 +427,23 @@
         </article>
       `;
       if (!grouped.has(groupKey)) {
-        grouped.set(groupKey, { label: officeLabel, rows: [], level: currentLevel });
+        grouped.set(groupKey, {
+          label: officeLabel,
+          rows: [],
+          level: currentLevel,
+          levelLabel: currentLevelLabel,
+        });
       }
       grouped.get(groupKey).rows.push(rowHtml);
     });
 
     const sortedGroups = Array.from(grouped.values()).sort((a, b) => {
       if (mode === "project-add-member") {
-        return normalizeLevel(a.level) - normalizeLevel(b.level);
+        const levelDelta = normalizeLevel(a.level) - normalizeLevel(b.level);
+        if (levelDelta !== 0) {
+          return levelDelta;
+        }
+        return String(a.levelLabel || "").localeCompare(String(b.levelLabel || ""));
       }
       if (a.label === "No Office") return 1;
       if (b.label === "No Office") return -1;
