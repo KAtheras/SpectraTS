@@ -2690,16 +2690,13 @@
   }
 
   function getInputsTimeCalendarDates() {
-    const bounds = getInputsTimeCalendarBounds();
-    let endDate = isValidDateString(state.inputsTimeCalendarEndDate)
-      ? state.inputsTimeCalendarEndDate
-      : today;
-    if (endDate < bounds.minEndDate) endDate = bounds.minEndDate;
-    if (endDate > bounds.maxEndDate) endDate = bounds.maxEndDate;
-    state.inputsTimeCalendarEndDate = endDate;
+    const dateBounds = getInputsTimeUserDateBounds();
+    if (!dateBounds) return [];
+    const endDate = dateBounds.maxDate || today;
+    const startDate = dateBounds.minDate || endDate;
     const dates = [];
-    for (let offset = 6; offset >= 0; offset -= 1) {
-      const iso = shiftIsoDate(endDate, -offset);
+    let iso = endDate;
+    while (isValidDateString(iso) && iso >= startDate) {
       const date = new Date(`${iso}T00:00:00`);
       const dayLabel = date.toLocaleDateString(undefined, { weekday: "short" });
       const dateLabel = date.toLocaleDateString(undefined, {
@@ -2707,21 +2704,20 @@
         day: "2-digit",
       });
       dates.push({ iso, dayLabel, dateLabel });
+      if (iso === startDate) break;
+      iso = shiftIsoDate(iso, -1);
     }
     return dates;
   }
 
   function getInputsExpenseCalendarDates() {
-    const bounds = getInputsExpenseCalendarBounds();
-    let endDate = isValidDateString(state.inputsExpenseCalendarEndDate)
-      ? state.inputsExpenseCalendarEndDate
-      : today;
-    if (endDate < bounds.minEndDate) endDate = bounds.minEndDate;
-    if (endDate > bounds.maxEndDate) endDate = bounds.maxEndDate;
-    state.inputsExpenseCalendarEndDate = endDate;
+    const dateBounds = getInputsExpenseUserDateBounds();
+    if (!dateBounds) return [];
+    const endDate = dateBounds.maxDate || today;
+    const startDate = dateBounds.minDate || endDate;
     const dates = [];
-    for (let offset = 6; offset >= 0; offset -= 1) {
-      const iso = shiftIsoDate(endDate, -offset);
+    let iso = endDate;
+    while (isValidDateString(iso) && iso >= startDate) {
       const date = new Date(`${iso}T00:00:00`);
       const dayLabel = date.toLocaleDateString(undefined, { weekday: "short" });
       const dateLabel = date.toLocaleDateString(undefined, {
@@ -2729,6 +2725,8 @@
         day: "2-digit",
       });
       dates.push({ iso, dayLabel, dateLabel });
+      if (iso === startDate) break;
+      iso = shiftIsoDate(iso, -1);
     }
     return dates;
   }
@@ -2869,6 +2867,7 @@
     }
     if (refs.inputsTimeCalendarView) {
       refs.inputsTimeCalendarView.hidden = !state.inputsTimeCalendarExpanded;
+      refs.inputsTimeCalendarView.classList.add("inputs-drilldown-mode");
     }
     if (refs.inputsTimeCalendarRange) {
       const firstDate = dates[0]?.iso || "";
@@ -2877,12 +2876,15 @@
         firstDate && lastDate
           ? `${formatDisplayDateShort(firstDate)} - ${formatDisplayDateShort(lastDate)}`
           : "";
+      refs.inputsTimeCalendarRange.hidden = true;
     }
     if (refs.inputsTimeCalendarPrev) {
       refs.inputsTimeCalendarPrev.disabled = !bounds.hasData || currentEndDate <= bounds.minEndDate;
+      refs.inputsTimeCalendarPrev.hidden = true;
     }
     if (refs.inputsTimeCalendarNext) {
       refs.inputsTimeCalendarNext.disabled = !bounds.hasData || currentEndDate >= bounds.maxEndDate;
+      refs.inputsTimeCalendarNext.hidden = true;
     }
   }
 
@@ -3155,6 +3157,7 @@
     }
     if (refs.inputsExpenseCalendarView) {
       refs.inputsExpenseCalendarView.hidden = !state.inputsExpenseCalendarExpanded;
+      refs.inputsExpenseCalendarView.classList.add("inputs-drilldown-mode");
     }
     if (refs.inputsExpenseCalendarRange) {
       const firstDate = dates[0]?.iso || "";
@@ -3163,12 +3166,15 @@
         firstDate && lastDate
           ? `${formatDisplayDateShort(firstDate)} - ${formatDisplayDateShort(lastDate)}`
           : "";
+      refs.inputsExpenseCalendarRange.hidden = true;
     }
     if (refs.inputsExpenseCalendarPrev) {
       refs.inputsExpenseCalendarPrev.disabled = !bounds.hasData;
+      refs.inputsExpenseCalendarPrev.hidden = true;
     }
     if (refs.inputsExpenseCalendarNext) {
       refs.inputsExpenseCalendarNext.disabled = !bounds.hasData || currentEndDate >= bounds.maxEndDate;
+      refs.inputsExpenseCalendarNext.hidden = true;
     }
   }
 
