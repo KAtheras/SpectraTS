@@ -1883,13 +1883,17 @@
   }
 
   async function mutatePersistentState(action, payload, options = {}) {
-    const { skipHydrate, refreshState } = options;
+    const { skipHydrate, refreshState, returnState } = options;
+    const requestPayload = {
+      action,
+      payload,
+    };
+    if (returnState === false) {
+      requestPayload.returnState = false;
+    }
     const result = await requestJson(MUTATE_API_PATH, {
       method: "POST",
-      body: JSON.stringify({
-        action,
-        payload,
-      }),
+      body: JSON.stringify(requestPayload),
     });
     const canHydrateFromResult = !skipHydrate && result && result.currentUser;
     if (canHydrateFromResult) {
@@ -1963,7 +1967,7 @@
       return { ...item, isRead: true };
     });
 
-    mutatePersistentState("mark_inbox_items_read", { ids: unreadIds }, { skipHydrate: true }).catch(() => {});
+    mutatePersistentState("mark_inbox_items_read", { ids: unreadIds }, { skipHydrate: true, returnState: false }).catch(() => {});
   }
 
   function setView(view) {
@@ -5664,7 +5668,7 @@
     const id = `${itemId || ""}`.trim();
     if (!id) return;
     try {
-      await mutatePersistentState("delete_inbox_item", { id }, { refreshState: true });
+      await mutatePersistentState("delete_inbox_item", { id }, { refreshState: true, returnState: false });
       setInboxSelected(id, false);
       feedback("", false);
     } catch (error) {
@@ -5676,7 +5680,7 @@
     const ids = selectedInboxIds();
     if (!ids.length) return;
     try {
-      await mutatePersistentState("delete_inbox_items", { ids }, { refreshState: true });
+      await mutatePersistentState("delete_inbox_items", { ids }, { refreshState: true, returnState: false });
       clearInboxSelection();
       feedback("", false);
     } catch (error) {
@@ -5686,7 +5690,7 @@
 
   async function deleteAllReadInboxItems() {
     try {
-      await mutatePersistentState("delete_all_read_inbox_items", {}, { refreshState: true });
+      await mutatePersistentState("delete_all_read_inbox_items", {}, { refreshState: true, returnState: false });
       clearInboxSelection();
       feedback("", false);
     } catch (error) {
@@ -5698,7 +5702,7 @@
     const ids = selectedInboxIds();
     if (!ids.length) return;
     try {
-      await mutatePersistentState("mark_inbox_items_read", { ids }, { refreshState: true });
+      await mutatePersistentState("mark_inbox_items_read", { ids }, { refreshState: true, returnState: false });
       clearInboxSelection();
       feedback("", false);
     } catch (error) {
@@ -5815,7 +5819,7 @@
 
     if (!item.isRead) {
       try {
-        await mutatePersistentState("mark_inbox_item_read", { id }, { refreshState: true });
+        await mutatePersistentState("mark_inbox_item_read", { id }, { refreshState: true, returnState: false });
       } catch (error) {
         feedback(error.message || "Unable to mark inbox item as read.", true);
       }
