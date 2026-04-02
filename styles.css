@@ -1092,9 +1092,11 @@ body[data-theme="dark"] .mobile-tabbar {
   .mobile-tabbar {
     display: flex;
   }
-  .shell-inner,
   .app-frame {
     padding-bottom: 80px;
+  }
+  .page-view {
+    padding-bottom: calc(22px + 80px);
   }
 }
 
