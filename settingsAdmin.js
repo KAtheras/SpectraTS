@@ -365,7 +365,7 @@
             background:var(--panel);
             box-shadow:var(--shadow);
             padding:14px;
-            height:clamp(500px, calc(100vh - 170px), 80vh);
+            height:clamp(520px, calc(100vh - 150px), 84vh);
             overflow:auto;
           }
           #settings-page .settings-tabs{display:grid;gap:0}
@@ -695,7 +695,7 @@
             #settings-page .settings-nav-shell,
             #settings-page .settings-content-shell{
               height:auto;
-              max-height:calc(100vh - 180px);
+              max-height:calc(100vh - 150px);
               overflow:auto;
               padding:12px;
             }
