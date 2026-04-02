@@ -2366,25 +2366,15 @@
     const officeName = (id, fallbackName) =>
       id ? officeNameById.get(String(id)) || fallbackName || "No office" : fallbackName || "No office";
 
-    const normalizedSearchTerm = `${memberInfoSearchTerm || ""}`.trim().toLowerCase();
-    const filteredUsers = users.filter((user) => {
-      if (!normalizedSearchTerm) return true;
-      const haystack = `${user.displayName || ""} ${user.email || ""}`.toLowerCase();
-      return haystack.includes(normalizedSearchTerm);
-    });
-
-    const rowsHtml = filteredUsers
+    const rowsHtml = users
       .map(
         (user) => {
           const valueOrDash = (value) => {
             const raw = value == null ? "" : String(value).trim();
             return raw ? escapeHtml(raw) : "—";
           };
-          const searchHaystack = `${user.displayName || ""} ${user.email || ""}`.toLowerCase();
           return `
-          <article class="member-info-card member-info-card--enhanced" data-user-id="${escapeHtml(
-            user.id
-          )}" data-member-info-search="${escapeHtml(searchHaystack)}">
+          <article class="member-info-card member-info-card--enhanced" data-user-id="${escapeHtml(user.id)}">
             <div class="member-info-layout">
               <div class="member-info-identity">
                 <div class="member-info-name">${escapeHtml(user.displayName)}</div>
@@ -2455,17 +2445,31 @@
       <div class="settings-rates-cards">
         ${rowsHtml}
       </div>
-      <div class="member-info-empty" data-member-info-empty${filteredUsers.length ? " hidden" : ""}>No members found</div>
+      <div class="member-info-empty" data-member-info-empty hidden>No members found</div>
     `;
 
     const searchInput = refs.ratesRows.querySelector("[data-member-info-search-input]");
+    const cards = Array.from(refs.ratesRows.querySelectorAll(".member-info-card"));
+    const emptyNode = refs.ratesRows.querySelector("[data-member-info-empty]");
+    const applySearchFilter = (rawTerm) => {
+      const term = `${rawTerm || ""}`.trim().toLowerCase();
+      let visibleCount = 0;
+      cards.forEach((card) => {
+        const haystack = (card.textContent || "").toLowerCase();
+        const isVisible = !term || haystack.includes(term);
+        card.hidden = !isVisible;
+        if (isVisible) visibleCount += 1;
+      });
+      if (emptyNode) {
+        emptyNode.hidden = visibleCount > 0;
+      }
+    };
     if (searchInput) {
       searchInput.addEventListener("input", function () {
-        const nextTerm = searchInput.value || "";
-        if (nextTerm === memberInfoSearchTerm) return;
-        memberInfoSearchTerm = nextTerm;
-        renderRatesRows();
+        memberInfoSearchTerm = searchInput.value || "";
+        applySearchFilter(memberInfoSearchTerm);
       });
+      applySearchFilter(memberInfoSearchTerm);
     }
 
     if (!refs.ratesForm?.querySelector(".settings-section-right")) {
