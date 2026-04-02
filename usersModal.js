@@ -197,10 +197,6 @@
     }
 
     const assignments = assignmentSummary(selectedUser);
-    const canManageUsers = isAdmin(state.currentUser);
-    const canResetPassword = canManageUsers;
-    const canDeactivate = canManageUsers && state.currentUser?.id !== selectedUser.id;
-    const disabledReason = "Admin only.";
     const departmentName = departmentNameFor(selectedUser.departmentId);
     const officeName = officeNameFor(selectedUser.officeId);
     const detailHtml = `
@@ -225,28 +221,6 @@
           <div class="detail-divider"></div>
           <div><dt>Clients/Projects</dt><dd>${assignments.projects.length ? assignments.projects.map((p) => `${escapeHtml(p.client)} / ${escapeHtml(p.project)}`).join("<br>") : "None assigned"}</dd></div>
         </dl>
-        <div class="user-detail-secondary">
-          <button
-            type="button"
-            class="catalog-edit"
-            data-user-password="${escapeHtml(selectedUser.id)}"
-            ${disabledButtonAttrs(canResetPassword, disabledReason)}
-          >
-            Reset password
-          </button>
-          ${
-            canDeactivate
-              ? `<button
-                   type="button"
-                   class="catalog-delete"
-                   data-user-deactivate="${escapeHtml(selectedUser.id)}"
-                   ${disabledButtonAttrs(canDeactivate, disabledReason)}
-                 >
-                   Deactivate
-                 </button>`
-              : ""
-          }
-        </div>
       </div>
     `;
 
