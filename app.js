@@ -6618,11 +6618,14 @@
     });
   }
   if (refs.settingsOpen) {
-    refs.settingsOpen.addEventListener("click", function () {
+    refs.settingsOpen.addEventListener("click", function (event) {
+      event.preventDefault();
+      event.stopPropagation();
       if (!state.permissions?.view_settings_tab) {
         return;
       }
       closeSettingsMenu();
+      closeActingAsMenu();
       setView("settings");
     });
   }

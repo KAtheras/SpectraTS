@@ -838,8 +838,8 @@ body[data-theme="dark"] .app-topbar {
 }
 
 .settings-gear-button .inbox-button-icon {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   display: block;
   overflow: visible;
 }
@@ -855,6 +855,8 @@ body[data-theme="dark"] .app-topbar {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  color: var(--text-strong);
+  cursor: pointer;
 }
 
 .settings-gear-button:hover,
