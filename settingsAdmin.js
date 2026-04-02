@@ -59,17 +59,18 @@
 
   function allowedTabs() {
     const { state } = deps();
+    const isMobileLayout = isMobileSettingsLayout();
     const tabs = [];
     if (state.permissions?.manage_levels) tabs.push("levels");
     if (state.permissions?.manage_expense_categories) tabs.push("categories");
-    if (state.permissions?.manage_office_locations) tabs.push("locations");
+    if (state.permissions?.manage_office_locations && !isMobileLayout) tabs.push("locations");
     if (state.permissions?.view_members_page) {
       tabs.push("rates");
     }
-    if (state.permissions?.manage_settings_access) tabs.push("messaging_rules");
+    if (state.permissions?.manage_settings_access && !isMobileLayout) tabs.push("messaging_rules");
     if (state.permissions?.manage_departments) tabs.push("departments");
     if (state.permissions?.can_delegate) tabs.push("delegations");
-    if (state.permissions?.can_upload_data) tabs.push("bulk_upload");
+    if (state.permissions?.can_upload_data && !isMobileLayout) tabs.push("bulk_upload");
     if (state.permissions?.manage_settings_access) tabs.push("permissions");
     return tabs;
   }
