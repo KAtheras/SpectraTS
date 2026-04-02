@@ -1769,6 +1769,7 @@ async function renameClient(sql, payload, accountId) {
 }
 
 async function createExpense(sql, payload, currentUser, accountId) {
+  const isBulkUpload = normalizeText(payload?.source) === "bulk_upload";
   const actingContext = await resolveActingAsOwner(sql, {
     payload,
     currentUser,
@@ -1882,6 +1883,9 @@ async function createExpense(sql, payload, currentUser, accountId) {
     delegatedAction: canActOnBehalf,
     delegatedByUserId: canActOnBehalf ? currentUser?.id || null : null,
   });
+  if (isBulkUpload) {
+    afterSnapshot.bulkUpload = true;
+  }
 
   await logAudit(sql, {
     accountId,

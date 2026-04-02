@@ -869,16 +869,16 @@
         } else if (previewKind === "expenses") {
           const rows = Array.isArray(latestPreviewPayload?.objects) ? latestPreviewPayload.objects : [];
           const validCount = rows.filter((row) => row.status === "Valid").length;
-          openExpensesBtn.textContent = "Import Valid Expense Rows";
-          openExpensesBtn.classList.remove("button-ghost");
-          openExpensesBtn.disabled = validCount === 0;
-          openExpensesBtn.dataset.mode = "import-expenses";
-          openExpensesBtn.hidden = false;
-          openTimeBtn.textContent = "Upload Another Expense File";
-          openTimeBtn.classList.add("button-ghost");
-          openTimeBtn.disabled = false;
-          openTimeBtn.dataset.mode = "upload-another-expenses";
+          openTimeBtn.textContent = "Import Valid Expense Rows";
+          openTimeBtn.classList.remove("button-ghost");
+          openTimeBtn.disabled = validCount === 0;
+          openTimeBtn.dataset.mode = "import-expenses";
           openTimeBtn.hidden = false;
+          openExpensesBtn.textContent = "Upload Another Expense File";
+          openExpensesBtn.classList.add("button-ghost");
+          openExpensesBtn.disabled = false;
+          openExpensesBtn.dataset.mode = "upload-another-expenses";
+          openExpensesBtn.hidden = false;
         } else {
           openExpensesBtn.textContent = "Upload Expenses";
           openExpensesBtn.classList.remove("button-ghost");
@@ -1500,8 +1500,12 @@
         });
         return;
       }
-      if (mode === "upload-another-expenses") {
-        expensesInput?.click();
+      if (mode === "import-expenses") {
+        importValidExpenseRows().catch((error) => {
+          deps().feedback(error?.message || "Unable to import expense rows.", true);
+          if (openTimeBtn) openTimeBtn.disabled = false;
+          updateBulkUploadUiState();
+        });
         return;
       }
       timeInput?.click();
@@ -1512,12 +1516,8 @@
         timeInput?.click();
         return;
       }
-      if (mode === "import-expenses") {
-        importValidExpenseRows().catch((error) => {
-          deps().feedback(error?.message || "Unable to import expense rows.", true);
-          if (openExpensesBtn) openExpensesBtn.disabled = false;
-          updateBulkUploadUiState();
-        });
+      if (mode === "upload-another-expenses") {
+        expensesInput?.click();
         return;
       }
       expensesInput?.click();
