@@ -1260,10 +1260,8 @@
     const downloadRejectsCsv = function (rows, kind) {
       const rejectRows = Array.isArray(rows) ? rows : [];
       if (!rejectRows.length) return;
-      const columns =
-        kind === "expenses"
-          ? ["member", "client", "project", "category", "date", "amount", "billable", "notes", "error"]
-          : ["member", "client", "project", "date", "hours", "billable", "notes", "error"];
+      const templateColumns = (EXPECTED_HEADERS[kind] || EXPECTED_HEADERS.time).slice();
+      const columns = [...templateColumns, "error"];
       const lines = [columns.join(",")];
       rejectRows.forEach((row) => {
         const raw = row?._raw || {};
