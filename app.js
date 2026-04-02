@@ -2954,23 +2954,25 @@
           const billableText = detail.billable ? "Billable" : "Non-billable";
           return `<div class="inputs-drilldown-detail-row">
             <div class="inputs-drilldown-detail-main">
-              <span class="inputs-drilldown-detail-value">${escapeHtml(formatSummaryHours(detail.hours))}</span>
-              <span class="inputs-time-calendar-detail-chip inputs-time-calendar-detail-chip-status inputs-time-calendar-detail-chip-status-${
-                detail.status === "approved" ? "approved" : "pending"
-              }">${escapeHtml(statusText)}</span>
-              <span class="inputs-time-calendar-detail-chip inputs-time-calendar-detail-chip-billable">${escapeHtml(
-                billableText
-              )}</span>
+              <div class="inputs-drilldown-detail-meta">
+                <span class="inputs-drilldown-detail-value">${escapeHtml(formatSummaryHours(detail.hours))}</span>
+                <span class="inputs-time-calendar-detail-chip inputs-time-calendar-detail-chip-status inputs-time-calendar-detail-chip-status-${
+                  detail.status === "approved" ? "approved" : "pending"
+                }">${escapeHtml(statusText)}</span>
+                <span class="inputs-time-calendar-detail-chip inputs-time-calendar-detail-chip-billable">${escapeHtml(
+                  billableText
+                )}</span>
+              </div>
+              <div class="inputs-drilldown-detail-actions">
+                <button type="button" class="button button-ghost" data-action="inputs-time-detail-edit" data-id="${escapeHtml(
+                  detail.id
+                )}">Edit</button>
+                <button type="button" class="button button-ghost button-danger" data-action="inputs-time-detail-delete" data-id="${escapeHtml(
+                  detail.id
+                )}">Delete</button>
+              </div>
             </div>
             <div class="inputs-drilldown-detail-notes">${noteText}</div>
-            <div class="inputs-drilldown-detail-actions">
-              <button type="button" class="button button-ghost" data-action="inputs-time-detail-edit" data-id="${escapeHtml(
-                detail.id
-              )}">Edit</button>
-              <button type="button" class="button button-ghost button-danger" data-action="inputs-time-detail-delete" data-id="${escapeHtml(
-                detail.id
-              )}">Delete</button>
-            </div>
           </div>`;
         })
         .join("") || `<div class="inputs-drilldown-empty">Select a client/project to view details.</div>`;
@@ -3239,24 +3241,26 @@
           const categoryText = detail.category ? escapeHtml(detail.category) : "Uncategorized";
           return `<div class="inputs-drilldown-detail-row">
             <div class="inputs-drilldown-detail-main">
-              <span class="inputs-drilldown-detail-value">${escapeHtml(formatSummaryCurrency(detail.amount))}</span>
-              <span class="inputs-time-calendar-detail-chip inputs-time-calendar-detail-chip-status inputs-time-calendar-detail-chip-status-${
-                detail.status === "approved" ? "approved" : "pending"
-              }">${escapeHtml(statusText)}</span>
-              <span class="inputs-time-calendar-detail-chip inputs-time-calendar-detail-chip-billable">${escapeHtml(
-                billableText
-              )}</span>
-              <span class="inputs-time-calendar-detail-category">${categoryText}</span>
+              <div class="inputs-drilldown-detail-meta">
+                <span class="inputs-drilldown-detail-value">${escapeHtml(formatSummaryCurrency(detail.amount))}</span>
+                <span class="inputs-time-calendar-detail-chip inputs-time-calendar-detail-chip-status inputs-time-calendar-detail-chip-status-${
+                  detail.status === "approved" ? "approved" : "pending"
+                }">${escapeHtml(statusText)}</span>
+                <span class="inputs-time-calendar-detail-chip inputs-time-calendar-detail-chip-billable">${escapeHtml(
+                  billableText
+                )}</span>
+                <span class="inputs-time-calendar-detail-category">${categoryText}</span>
+              </div>
+              <div class="inputs-drilldown-detail-actions">
+                <button type="button" class="button button-ghost" data-action="inputs-expense-detail-edit" data-id="${escapeHtml(
+                  detail.id
+                )}">Edit</button>
+                <button type="button" class="button button-ghost button-danger" data-action="inputs-expense-detail-delete" data-id="${escapeHtml(
+                  detail.id
+                )}">Delete</button>
+              </div>
             </div>
             <div class="inputs-drilldown-detail-notes">${noteText}</div>
-            <div class="inputs-drilldown-detail-actions">
-              <button type="button" class="button button-ghost" data-action="inputs-expense-detail-edit" data-id="${escapeHtml(
-                detail.id
-              )}">Edit</button>
-              <button type="button" class="button button-ghost button-danger" data-action="inputs-expense-detail-delete" data-id="${escapeHtml(
-                detail.id
-              )}">Delete</button>
-            </div>
           </div>`;
         })
         .join("") || `<div class="inputs-drilldown-empty">Select a client/project to view details.</div>`;
