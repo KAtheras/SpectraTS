@@ -706,35 +706,68 @@
               margin:0 0 10px;
             }
             #settings-page .settings-tab-group + .settings-tab-group{margin-top:10px}
+            #settings-page .settings-section-header{
+              gap:8px;
+              margin:0 0 12px;
+              padding:0 0 10px;
+            }
+            #settings-page .settings-section-right{
+              gap:8px;
+              flex-wrap:wrap;
+              justify-content:flex-end;
+            }
+            #settings-page .settings-section-right .button,
+            #settings-page .settings-section-left .button{
+              min-height:34px;
+              height:34px;
+              padding:0 10px;
+              font-size:.82rem;
+            }
             #settings-page .settings-section-content .settings-structured-row{
               grid-template-columns:minmax(120px,.9fr) minmax(0,1fr) minmax(84px,max-content);
+              gap:8px;
             }
             #settings-page .settings-section-content .settings-structured-row-no-label{
               grid-template-columns:minmax(0,1fr) minmax(84px,max-content);
             }
             #settings-page .settings-rates-row{
-              display:block;
+              display:grid;
+              grid-template-columns:minmax(0,1fr) auto;
+              gap:8px;
+              align-items:center;
             }
             #settings-page .settings-row-actions{
               width:auto;
-              justify-content:flex-start;
+              justify-content:flex-end;
+              flex-wrap:wrap;
             }
             #settings-page .settings-row-main-split{
               grid-template-columns:minmax(0,1fr) minmax(140px,200px);
             }
           }
           @media (max-width: 720px){
+            #settings-page .settings-section-content{
+              gap:10px;
+            }
             #settings-page .settings-section-content .settings-structured-row{
-              grid-template-columns:1fr;
+              grid-template-columns:minmax(104px,.8fr) minmax(0,1fr) minmax(76px,max-content);
+              gap:8px;
             }
             #settings-page .settings-section-content .settings-structured-row-no-label{
-              grid-template-columns:1fr;
+              grid-template-columns:minmax(0,1fr) minmax(76px,max-content);
             }
             #settings-page .settings-rates-row{
-              display:block;
+              grid-template-columns:minmax(0,1fr) auto;
             }
             #settings-page .settings-row-main-split{
-              grid-template-columns:1fr;
+              grid-template-columns:minmax(0,1fr) minmax(116px,156px);
+              gap:8px;
+            }
+            #settings-page .settings-row-actions .button{
+              min-height:32px;
+              height:32px;
+              padding:0 9px;
+              font-size:.8rem;
             }
           }
         `;
