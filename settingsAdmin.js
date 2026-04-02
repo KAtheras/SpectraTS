@@ -331,7 +331,7 @@
           #settings-page .settings-mobile-back{display:none}
           #settings-page .settings-panels{min-width:0}
           #settings-page .settings-panels [data-settings-tab]{width:100%}
-          #settings-page .settings-panels .level-labels-inner{max-width:none}
+          #settings-page .settings-panels .level-labels-inner{max-width:none;padding-top:0}
           #settings-page .settings-section-header{
             display:flex;
             align-items:center;
@@ -779,7 +779,7 @@
     const { state, escapeHtml } = deps();
     if (!panel || !state.permissions?.can_upload_data) return;
     panel.innerHTML = `
-      <div class="settings-section-header" style="border-bottom:1px solid var(--group-border);padding-top:10px;padding-bottom:10px;">
+      <div class="settings-section-header">
         <div class="settings-section-left">
           <h3>Bulk Upload</h3>
         </div>
