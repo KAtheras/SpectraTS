@@ -4962,13 +4962,14 @@ body[data-theme="dark"] .entry-approved td {
   align-items: center;
   justify-content: center;
   justify-self: start;
-  padding: 0 2px;
+  padding: 2px 8px;
   border: 1px solid var(--panel-border);
   border-radius: 999px;
   color: var(--muted);
   background: var(--surface);
-  font-size: 0.63rem;
-  line-height: 1.2;
+  font-size: 0.84rem;
+  font-weight: 600;
+  line-height: 1.25;
   white-space: nowrap;
   flex: 0 0 auto;
 }
