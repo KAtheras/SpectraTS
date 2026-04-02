@@ -11,7 +11,25 @@
     "bulk_upload",
     "permissions",
   ];
-  let activeSettingsTab = "levels";
+  const SETTINGS_TAB_STORAGE_KEY = "timesheet-studio.settings-tab.v1";
+  function loadPersistedSettingsTab() {
+    try {
+      const raw = window.localStorage.getItem(SETTINGS_TAB_STORAGE_KEY);
+      return typeof raw === "string" ? raw.trim() : "";
+    } catch (error) {
+      return "";
+    }
+  }
+  function persistSettingsTab(tabKey) {
+    const normalized = `${tabKey || ""}`.trim();
+    if (!normalized) return;
+    try {
+      window.localStorage.setItem(SETTINGS_TAB_STORAGE_KEY, normalized);
+    } catch (error) {
+      return;
+    }
+  }
+  let activeSettingsTab = loadPersistedSettingsTab() || "levels";
   let tabsInitialized = false;
   let mobileSettingsMode = "list";
   let delegationsSelectedDelegateId = "";
@@ -88,6 +106,7 @@
       nextTab = allowed[0];
     }
     activeSettingsTab = nextTab;
+    persistSettingsTab(nextTab);
     if (isMobileSettingsLayout() && fromUser) {
       mobileSettingsMode = "detail";
     }
