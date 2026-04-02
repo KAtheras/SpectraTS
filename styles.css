@@ -496,7 +496,7 @@ body[data-theme="dark"] .button {
 }
 
 .inbox-item-check input[type="checkbox"] {
-  width: 44px;
+  width: 42px;
   height: 24px;
   margin: 0;
   cursor: pointer;
@@ -1270,7 +1270,7 @@ body[data-theme="dark"] .mobile-tabbar {
 }
 
 .input-row-body .cell-billable input[type="checkbox"] {
-  width: 44px;
+  width: 42px;
   height: 24px;
 }
 
@@ -1369,7 +1369,7 @@ body[data-theme="dark"] .mobile-tabbar {
 }
 
 #inputs-panel-time .input-row-body .cell-billable input[type="checkbox"] {
-  width: 44px;
+  width: 42px;
   height: 24px;
   margin: 0;
 }
@@ -1730,7 +1730,7 @@ input[name="cost_rate"] {
 }
 
 .rules-toggle input[type="checkbox"] {
-  width: 44px;
+  width: 42px;
   height: 24px;
   margin: 0;
 }
@@ -3044,7 +3044,7 @@ body[data-theme="dark"] .audit-detail-col {
 }
 
 .member-select input[type="checkbox"] {
-  width: 44px;
+  width: 42px;
   height: 24px;
 }
 
@@ -4515,44 +4515,9 @@ body[data-theme="dark"] #inputs-view .input-row-head .cell-notes {
 }
 
 #inputs-view .input-row-body .cell-billable input[type="checkbox"] {
-  width: 44px;
+  width: 42px;
   height: 24px;
   margin: 0;
-}
-
-#inputs-view .input-row-body .cell-billable input[type="checkbox"],
-#inputs-time-billable,
-#inputs-expense-billable {
-  width: 58px !important;
-  height: 40px !important;
-  border-radius: 12px !important;
-  border: 2px solid color-mix(in srgb, var(--accent) 42%, var(--line)) !important;
-  background: color-mix(in srgb, var(--surface-strong) 88%, var(--panel)) !important;
-  padding: 0 !important;
-}
-
-#inputs-view .input-row-body .cell-billable input[type="checkbox"]::after,
-#inputs-time-billable::after,
-#inputs-expense-billable::after {
-  top: 4px !important;
-  left: 4px !important;
-  width: 28px !important;
-  height: 28px !important;
-  background: #ffffff !important;
-  opacity: 1 !important;
-}
-
-#inputs-view .input-row-body .cell-billable input[type="checkbox"]:checked,
-#inputs-time-billable:checked,
-#inputs-expense-billable:checked {
-  background: color-mix(in srgb, var(--accent) 20%, var(--surface-strong)) !important;
-  border-color: color-mix(in srgb, var(--accent) 68%, var(--line)) !important;
-}
-
-#inputs-view .input-row-body .cell-billable input[type="checkbox"]:checked::after,
-#inputs-time-billable:checked::after,
-#inputs-expense-billable:checked::after {
-  transform: translateX(18px) !important;
 }
 
 input[type="checkbox"] {
@@ -4560,8 +4525,8 @@ input[type="checkbox"] {
   -webkit-appearance: none;
   position: relative;
   border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--accent) 38%, var(--line));
-  background: color-mix(in srgb, var(--surface-strong) 85%, var(--panel));
+  border: 1px solid var(--panel-border);
+  background: color-mix(in srgb, var(--danger) 10%, var(--panel));
   transition:
     background-color 160ms ease,
     border-color 160ms ease,
@@ -4579,20 +4544,23 @@ input[type="checkbox"]::after {
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: color-mix(in srgb, #ffffff 92%, var(--panel));
+  background: var(--ink);
+  opacity: .45;
   transition:
     transform 160ms ease,
+    opacity 160ms ease,
     background-color 160ms ease;
 }
 
 input[type="checkbox"]:checked {
-  background: color-mix(in srgb, var(--accent) 24%, var(--surface-strong));
-  border-color: color-mix(in srgb, var(--accent) 68%, var(--line));
+  background: color-mix(in srgb, #39a96b 20%, var(--panel));
+  border-color: color-mix(in srgb, #39a96b 55%, var(--panel-border));
 }
 
 input[type="checkbox"]:checked::after {
-  transform: translateX(20px);
-  background: #ffffff;
+  transform: translateX(18px);
+  opacity: 1;
+  background: #2f9d57;
 }
 
 input[type="checkbox"]:focus-visible {
