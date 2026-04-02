@@ -946,7 +946,7 @@
     body.classList.remove("modal-open");
   }
 
-  function openMemberEditorModal(mode, userId) {
+  async function openMemberEditorModal(mode, userId) {
     ensureMemberEditorModal();
     const canCreate = Boolean(state.permissions?.create_user);
     const canEditProfile = Boolean(state.permissions?.edit_user_profile);
@@ -966,6 +966,27 @@
     if (mode === "edit" && !user) {
       feedback("Team member not found.", true);
       return;
+    }
+
+    const needsSettingsMeta =
+      !Array.isArray(state.officeLocations) ||
+      state.officeLocations.length === 0 ||
+      !Array.isArray(state.departments);
+    if (state.currentUser && (needsSettingsMeta || state.settingsMetadataLoading)) {
+      if (state.settingsMetadataLoading) {
+        let guard = 0;
+        while (state.settingsMetadataLoading && guard < 40) {
+          await new Promise((resolve) => setTimeout(resolve, 50));
+          guard += 1;
+        }
+      }
+      if (
+        !Array.isArray(state.officeLocations) ||
+        state.officeLocations.length === 0 ||
+        !Array.isArray(state.departments)
+      ) {
+        await loadSettingsMetadata(true);
+      }
     }
 
     const levelField = field(memberEditorForm, "level");
@@ -7070,19 +7091,19 @@
   refs.userList.addEventListener("click", handleUserListAction);
   if (refs.ratesRows) {
     refs.ratesRows.addEventListener("click", handleUserListAction);
-    refs.ratesRows.addEventListener("click", function (event) {
+    refs.ratesRows.addEventListener("click", async function (event) {
       const editBtn = event.target.closest("[data-member-edit]");
       if (!editBtn) return;
       event.preventDefault();
-      openMemberEditorModal("edit", editBtn.dataset.memberEdit);
+      await openMemberEditorModal("edit", editBtn.dataset.memberEdit);
     });
   }
   if (refs.settingsPage) {
-    refs.settingsPage.addEventListener("click", function (event) {
+    refs.settingsPage.addEventListener("click", async function (event) {
       const addBtn = event.target.closest("[data-member-add]");
       if (!addBtn) return;
       event.preventDefault();
-      openMemberEditorModal("create");
+      await openMemberEditorModal("create");
     });
   }
   if (refs.addLevel) {
