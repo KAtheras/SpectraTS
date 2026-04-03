@@ -4496,13 +4496,15 @@
         fields.billable.checked = false;
       }
     });
-    fields.save?.addEventListener("click", function (event) {
+    const submitExpenseRowFromSave = function (event) {
       event.preventDefault();
       if (row.dataset.rowState === "saved" || row.dataset.saving === "true" || row.dataset.deleting === "true") {
         return;
       }
       row.requestSubmit();
-    });
+    };
+    fields.save?.addEventListener("pointerdown", submitExpenseRowFromSave);
+    fields.save?.addEventListener("click", submitExpenseRowFromSave);
 
     const refreshExpenseRowInteractivity = function () {
       syncInputsExpenseRowInteractivity(
