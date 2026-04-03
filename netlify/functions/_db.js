@@ -5,6 +5,25 @@ const { neon } = require("@netlify/neon");
 const permissions = require("./permissions");
 
 const DEFAULT_CLIENT_PROJECTS = {};
+const CORPORATE_FUNCTION_DEFAULTS = [
+  { groupName: "Professional Development", name: "Training" },
+  { groupName: "Professional Development", name: "Certifications / CPE" },
+  { groupName: "Professional Development", name: "Mentorship" },
+  { groupName: "Professional Development", name: "Internal Learning" },
+  { groupName: "Business Development", name: "Client Development" },
+  { groupName: "Business Development", name: "Proposals / RFPs" },
+  { groupName: "Business Development", name: "Networking" },
+  { groupName: "Business Development", name: "Conferences" },
+  { groupName: "Firm Contribution", name: "Recruiting / Interviews" },
+  { groupName: "Firm Contribution", name: "Knowledge Development" },
+  { groupName: "Firm Contribution", name: "Internal Initiatives" },
+  { groupName: "Firm Contribution", name: "Committees / Leadership" },
+  { groupName: "Administrative", name: "Internal Admin" },
+  { groupName: "Administrative", name: "Internal Meetings" },
+  { groupName: "Administrative", name: "Compliance" },
+  { groupName: "Administrative", name: "Timesheet / Reporting Admin" },
+  { groupName: "Other", name: "Other" },
+];
 
 const SESSION_TTL_DAYS = 14;
 
@@ -480,6 +499,18 @@ async function ensureSchema(sql) {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS corporate_function_categories (
+      id TEXT PRIMARY KEY,
+      account_id UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      group_name TEXT NOT NULL,
+      name TEXT NOT NULL,
+      is_active BOOLEAN NOT NULL DEFAULT TRUE,
+      sort_order INT NOT NULL DEFAULT 0,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
   await sql`ALTER TABLE departments DROP COLUMN IF EXISTS is_active`;
   await sql`ALTER TABLE expense_categories DROP COLUMN IF EXISTS is_active`;
 
@@ -514,6 +545,10 @@ async function ensureSchema(sql) {
   await sql`
     CREATE INDEX IF NOT EXISTS expense_categories_account_idx
       ON expense_categories(account_uuid)
+  `;
+  await sql`
+    CREATE INDEX IF NOT EXISTS corporate_function_categories_account_idx
+      ON corporate_function_categories(account_id, group_name, sort_order, created_at)
   `;
 
   await sql`
@@ -645,6 +680,7 @@ async function ensureSchema(sql) {
 
   await seedDefaultCatalog(sql, accountUuid);
   await seedDefaultExpenseCategories(sql, accountUuid);
+  await seedDefaultCorporateFunctionCategories(sql, accountUuid);
   await sql`DELETE FROM sessions WHERE expires_at <= NOW()`;
 }
 
@@ -784,6 +820,44 @@ async function seedDefaultExpenseCategories(sql, accountId) {
       VALUES (${randomId()}, ${accountId}::uuid, ${name}, NOW())
       ON CONFLICT DO NOTHING
     `;
+  }
+}
+
+async function seedDefaultCorporateFunctionCategories(sql, accountId) {
+  const [{ count }] = await sql`
+    SELECT COUNT(*)::INT AS count
+    FROM corporate_function_categories
+    WHERE account_id = ${accountId}::uuid
+  `;
+  if (count > 0) {
+    return;
+  }
+  let order = 10;
+  for (const item of CORPORATE_FUNCTION_DEFAULTS) {
+    await sql`
+      INSERT INTO corporate_function_categories (
+        id,
+        account_id,
+        group_name,
+        name,
+        is_active,
+        sort_order,
+        created_at,
+        updated_at
+      )
+      VALUES (
+        ${randomId()},
+        ${accountId}::uuid,
+        ${item.groupName},
+        ${item.name},
+        TRUE,
+        ${order},
+        NOW(),
+        NOW()
+      )
+      ON CONFLICT DO NOTHING
+    `;
+    order += 10;
   }
 }
 
@@ -1868,6 +1942,31 @@ async function listExpenseCategories(sql, accountId) {
   `;
 }
 
+async function listCorporateFunctionCategories(sql, accountId) {
+  return sql`
+    SELECT
+      id,
+      group_name AS "groupName",
+      name,
+      is_active AS "isActive",
+      sort_order AS "sortOrder"
+    FROM corporate_function_categories
+    WHERE account_id = ${accountId}::uuid
+    ORDER BY
+      CASE group_name
+        WHEN 'Professional Development' THEN 1
+        WHEN 'Business Development' THEN 2
+        WHEN 'Firm Contribution' THEN 3
+        WHEN 'Administrative' THEN 4
+        WHEN 'Other' THEN 5
+        ELSE 999
+      END,
+      sort_order,
+      created_at,
+      LOWER(name)
+  `;
+}
+
 async function listDepartments(sql, accountId) {
   return sql`
     SELECT
@@ -2927,6 +3026,7 @@ async function loadState(sql, currentUser) {
   // manage categories in Settings. Always return active categories; the
   // Settings UI is still gated by settingsAccess.manageCategories.
   const expenseCategories = await listExpenseCategories(sql, accountUuid);
+  const corporateFunctionCategories = await listCorporateFunctionCategories(sql, accountUuid);
   const assignments = {
     managerClients: [],
     managerProjects: [],
@@ -3038,6 +3138,7 @@ async function loadState(sql, currentUser) {
     expenses,
     projects,
     expenseCategories,
+    corporateFunctionCategories,
     assignments,
     levelLabels,
     inboxItems,
@@ -3180,6 +3281,7 @@ module.exports = {
   listClients,
   listProjects,
   listExpenseCategories,
+  listCorporateFunctionCategories,
   listDepartments,
   listOfficeLocations,
   listInboxItems,

@@ -256,6 +256,7 @@
     renderLevelRows,
     renderRatesRows,
     renderExpenseCategories,
+    renderCorporateFunctionCategories,
     renderOfficeLocations,
     renderSettingsTabs,
     sortedLevels,
@@ -431,6 +432,8 @@
     addCategory: document.getElementById("add-category"),
     saveCategories: document.getElementById("save-categories"),
     expenseCategoriesForm: document.getElementById("expense-categories-form"),
+    corporateFunctionsForm: document.getElementById("corporate-functions-form"),
+    corporateFunctionRows: document.getElementById("corporate-function-rows"),
     departmentsForm: document.getElementById("departments-form"),
     departmentRows: document.getElementById("department-rows"),
     addDepartment: document.getElementById("add-department"),
@@ -1199,6 +1202,7 @@
     levelLabels: {},
     officeLocations: [],
     expenseCategories: [],
+    corporateFunctionCategories: [],
     departments: [],
     departmentsSnapshot: [],
     account: null,
@@ -1671,6 +1675,15 @@
       ? data.expenseCategories.map((item) => ({
           id: item.id,
           name: item.name,
+        }))
+      : [];
+    state.corporateFunctionCategories = Array.isArray(data?.corporateFunctionCategories)
+      ? data.corporateFunctionCategories.map((item) => ({
+          id: item.id,
+          groupName: String(item.groupName || item.group_name || "").trim(),
+          name: String(item.name || "").trim(),
+          isActive: item.isActive === false || item.is_active === false ? false : true,
+          sortOrder: Number(item.sortOrder ?? item.sort_order ?? 0) || 0,
         }))
       : [];
     state.account = data?.account || null;
@@ -5728,6 +5741,7 @@
       renderLevelRows();
       renderRatesRows?.();
       renderExpenseCategories();
+      renderCorporateFunctionCategories?.();
       renderOfficeLocations();
       renderMessagingRules();
       if (window.settingsAdmin?.renderDepartments) {
@@ -7103,6 +7117,50 @@
     }
   }
 
+  function nextCorporateFunctionSortOrder(groupName) {
+    const existing = (state.corporateFunctionCategories || [])
+      .filter((item) => `${item?.groupName || ""}`.trim() === `${groupName || ""}`.trim())
+      .map((item) => Number(item?.sortOrder) || 0);
+    const maxSort = existing.length ? Math.max(...existing) : 0;
+    return maxSort + 10;
+  }
+
+  function collectCorporateFunctionCategoriesFromForm(form) {
+    const rows = Array.from(form?.querySelectorAll(".corporate-function-row") || []);
+    const categories = [];
+    const seen = new Set();
+    for (const row of rows) {
+      const id = `${row.dataset.corporateFunctionId || ""}`.trim();
+      const groupName = `${row.dataset.corporateFunctionGroup || ""}`.trim();
+      const sortOrder = Number(row.dataset.corporateFunctionSortOrder || 0) || 0;
+      const isActive = row.dataset.corporateFunctionActive !== "false";
+      const nameInput = row.querySelector("[data-corporate-function-name]");
+      const name = `${nameInput?.value || ""}`.trim();
+      if (!groupName) {
+        feedback("Category group is required.", true);
+        return null;
+      }
+      if (!name) {
+        feedback("Category name cannot be blank.", true);
+        return null;
+      }
+      const key = `${groupName.toLowerCase()}::${name.toLowerCase()}`;
+      if (seen.has(key)) {
+        feedback(`Duplicate category in ${groupName}.`, true);
+        return null;
+      }
+      seen.add(key);
+      categories.push({
+        id: id || null,
+        groupName,
+        name,
+        isActive,
+        sortOrder,
+      });
+    }
+    return categories;
+  }
+
   if (refs.expenseCategoriesForm) {
     refs.expenseCategoriesForm.addEventListener("submit", async function (event) {
       event.preventDefault();
@@ -7290,6 +7348,53 @@
 
   if (refs.settingsPage) {
     refs.settingsPage.addEventListener("click", async function (event) {
+      const addCorporateBtn = event.target.closest("[data-corporate-add-group]");
+      if (addCorporateBtn) {
+        if (!state.permissions?.manage_corporate_functions) {
+          feedback("Access denied.", true);
+          return;
+        }
+        const groupName = `${addCorporateBtn.dataset.corporateAddGroup || ""}`.trim();
+        if (!groupName) {
+          return;
+        }
+        state.corporateFunctionCategories = [
+          ...(state.corporateFunctionCategories || []),
+          {
+            id: `temp-corp-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+            groupName,
+            name: "",
+            isActive: true,
+            sortOrder: nextCorporateFunctionSortOrder(groupName),
+          },
+        ];
+        renderCorporateFunctionCategories?.();
+        return;
+      }
+
+      const toggleCorporateBtn = event.target.closest("[data-corporate-toggle-active]");
+      if (toggleCorporateBtn) {
+        if (!state.permissions?.manage_corporate_functions) {
+          feedback("Access denied.", true);
+          return;
+        }
+        const id = `${toggleCorporateBtn.dataset.corporateToggleActive || ""}`.trim();
+        if (!id) {
+          return;
+        }
+        state.corporateFunctionCategories = (state.corporateFunctionCategories || []).map((item) => {
+          if (`${item?.id || ""}`.trim() !== id) {
+            return item;
+          }
+          return {
+            ...item,
+            isActive: item?.isActive === false,
+          };
+        });
+        renderCorporateFunctionCategories?.();
+        return;
+      }
+
       const addDepartmentBtn = event.target.closest("#add-department");
       if (addDepartmentBtn) {
         if (!state.permissions?.manage_departments) {
@@ -7341,6 +7446,27 @@
     });
 
     refs.settingsPage.addEventListener("submit", async function (event) {
+      const corporateFunctionsForm = event.target.closest("#corporate-functions-form");
+      if (corporateFunctionsForm) {
+        event.preventDefault();
+        if (!state.permissions?.manage_corporate_functions) {
+          feedback("Access denied.", true);
+          return;
+        }
+        const categories = collectCorporateFunctionCategoriesFromForm(corporateFunctionsForm);
+        if (!categories) {
+          return;
+        }
+        try {
+          await mutatePersistentState("update_corporate_function_categories", { categories });
+          await refreshSettingsTab("corporate_functions");
+          feedback("Corporate functions updated.", false);
+        } catch (error) {
+          feedback(error.message || "Unable to update corporate functions.", true);
+        }
+        return;
+      }
+
       const departmentsForm = event.target.closest("#departments-form");
       if (!departmentsForm) {
         return;

@@ -3,6 +3,7 @@
   const SETTINGS_TABS = [
     "levels",
     "categories",
+    "corporate_functions",
     "locations",
     "rates",
     "messaging_rules",
@@ -66,6 +67,7 @@
     const tabs = [];
     if (state.permissions?.manage_levels) tabs.push("levels");
     if (state.permissions?.manage_expense_categories) tabs.push("categories");
+    if (state.permissions?.manage_corporate_functions) tabs.push("corporate_functions");
     if (state.permissions?.manage_office_locations && !isMobileLayout) tabs.push("locations");
     if (state.permissions?.view_members_page) {
       tabs.push("rates");
@@ -170,7 +172,7 @@
     if (!settingsPage) return;
     const sectionPanels = Array.from(
       settingsPage.querySelectorAll(
-        '[data-settings-tab="levels"], [data-settings-tab="categories"], [data-settings-tab="locations"], [data-settings-tab="rates"], [data-settings-tab="messaging_rules"], [data-settings-tab="departments"], [data-settings-tab="delegations"], [data-settings-tab="bulk_upload"], [data-settings-tab="permissions"]'
+        '[data-settings-tab="levels"], [data-settings-tab="categories"], [data-settings-tab="corporate_functions"], [data-settings-tab="locations"], [data-settings-tab="rates"], [data-settings-tab="messaging_rules"], [data-settings-tab="departments"], [data-settings-tab="delegations"], [data-settings-tab="bulk_upload"], [data-settings-tab="permissions"]'
       )
     );
 
@@ -260,6 +262,7 @@
     const labelByTab = {
       levels: "Member levels",
       categories: "Expense categories",
+      corporate_functions: "Corporate Functions",
       locations: "Office locations",
       rates: "Member information",
       messaging_rules: "Messaging Rules",
@@ -271,7 +274,7 @@
     const settingsTabGroups = [
       { key: "people", label: "PEOPLE", tabs: ["rates", "levels", "permissions", "delegations"] },
       { key: "organization", label: "ORGANIZATION", tabs: ["departments", "locations"] },
-      { key: "configuration", label: "CONFIGURATION", tabs: ["categories", "messaging_rules"] },
+      { key: "configuration", label: "CONFIGURATION", tabs: ["categories", "corporate_functions", "messaging_rules"] },
       { key: "tools", label: "TOOLS", tabs: ["bulk_upload"] },
     ];
     const { tabButtons } = settingsTabElements();
@@ -433,6 +436,12 @@
           #settings-page .settings-section-left h3{
             margin:0;
           }
+          #settings-page .settings-section-subtitle{
+            margin:0;
+            color:var(--muted);
+            font-size:.86rem;
+            font-weight:600;
+          }
           #settings-page [data-settings-tab="bulk_upload"] .settings-section-left h3,
           #settings-page [data-settings-tab="delegations"] .settings-section-left h3,
           #settings-page [data-settings-tab="permissions"] .settings-section-left h3{
@@ -457,6 +466,25 @@
             display:grid;
             gap:14px;
             padding-bottom:2px;
+          }
+          #settings-page .settings-subsection{
+            border:1px solid var(--group-border);
+            border-radius:12px;
+            padding:12px;
+            display:grid;
+            gap:10px;
+          }
+          #settings-page .settings-subsection h4{
+            margin:0;
+            font-family:var(--font-head);
+            font-size:.8rem;
+            text-transform:uppercase;
+            letter-spacing:.04em;
+            color:var(--muted);
+          }
+          #settings-page .corporate-function-row.is-inactive input{
+            text-decoration:line-through;
+            opacity:.7;
           }
           #settings-page .settings-section-content .level-rows{
             display:grid;
@@ -992,6 +1020,34 @@
       }
     }
 
+    const canManageCorporateFunctions = state.permissions?.manage_corporate_functions;
+    if (canManageCorporateFunctions) {
+      const tabsContainer = document.querySelector("#settings-page .settings-tabs");
+      const panelsContainer = document.querySelector("#settings-page .settings-panels") || settingsPage;
+      if (tabsContainer && panelsContainer) {
+        let corpBtn = tabsContainer.querySelector('[data-settings-tab-button="corporate_functions"]');
+        if (!corpBtn) {
+          corpBtn = document.createElement("button");
+          corpBtn.className = "settings-tab catalog-item";
+          corpBtn.type = "button";
+          corpBtn.dataset.settingsTabButton = "corporate_functions";
+          corpBtn.textContent = "Corporate Functions";
+          tabsContainer.appendChild(corpBtn);
+          corpBtn.addEventListener("click", function (event) {
+            event.preventDefault();
+            setActiveSettingsTab("corporate_functions", { fromUser: true });
+          });
+        }
+        let corpPanel = panelsContainer.querySelector('[data-settings-tab="corporate_functions"]');
+        if (!corpPanel) {
+          corpPanel = document.createElement("div");
+          corpPanel.dataset.settingsTab = "corporate_functions";
+          corpPanel.className = "settings-panel";
+          panelsContainer.appendChild(corpPanel);
+        }
+      }
+    }
+
     // Ensure permissions tab exists for superusers
     const canManageSettingsAccess = state.permissions?.manage_settings_access;
     if (canManageSettingsAccess) {
@@ -1028,7 +1084,109 @@
     initSettingsTabs();
     renderDelegationsTab();
     renderBulkUploadTab();
+    renderCorporateFunctionCategories();
     renderPermissionsMatrix();
+  }
+
+  function renderCorporateFunctionCategories() {
+    const { state, escapeHtml } = deps();
+    const panel = document.querySelector('[data-settings-tab="corporate_functions"]');
+    if (!panel || !state.permissions?.manage_corporate_functions) return;
+
+    const groups = [
+      "Professional Development",
+      "Business Development",
+      "Firm Contribution",
+      "Administrative",
+      "Other",
+    ];
+    const categories = Array.isArray(state.corporateFunctionCategories)
+      ? state.corporateFunctionCategories.slice()
+      : [];
+    const editable = Boolean(state.permissions?.manage_corporate_functions);
+
+    const groupHtml = groups.map((groupName) => {
+      const rows = categories
+        .filter((item) => `${item?.groupName || ""}`.trim() === groupName)
+        .sort((a, b) => {
+          const left = Number(a?.sortOrder) || 0;
+          const right = Number(b?.sortOrder) || 0;
+          return left - right;
+        })
+        .map((item) => {
+          const id = `${item?.id || ""}`.trim();
+          const isActive = item?.isActive === false ? false : true;
+          const sortOrder = Number(item?.sortOrder) || 0;
+          return `
+            <div
+              class="level-row settings-structured-row settings-structured-row-no-label corporate-function-row${isActive ? "" : " is-inactive"}"
+              data-corporate-function-id="${escapeHtml(id)}"
+              data-corporate-function-group="${escapeHtml(groupName)}"
+              data-corporate-function-sort-order="${escapeHtml(sortOrder)}"
+              data-corporate-function-active="${isActive ? "true" : "false"}"
+            >
+              <div class="settings-row-main">
+                <input
+                  type="text"
+                  value="${escapeHtml(item?.name || "")}"
+                  data-corporate-function-name
+                  placeholder="Category name"
+                  ${editable ? "" : "disabled"}
+                />
+              </div>
+              <div class="settings-row-actions expense-actions">
+                <button
+                  type="button"
+                  class="button button-ghost"
+                  data-corporate-toggle-active="${escapeHtml(id)}"
+                  ${editable ? "" : "disabled"}
+                >
+                  ${isActive ? "Deactivate" : "Reactivate"}
+                </button>
+              </div>
+            </div>
+          `;
+        })
+        .join("");
+
+      return `
+        <section class="settings-subsection">
+          <h4>${escapeHtml(groupName)}</h4>
+          <div class="level-rows" id="corporate-function-rows-${escapeHtml(groupName.toLowerCase().replace(/[^a-z0-9]+/g, "-"))}">
+            ${rows || ""}
+          </div>
+          <div class="level-labels-actions">
+            <button
+              class="button button-ghost"
+              type="button"
+              data-corporate-add-group="${escapeHtml(groupName)}"
+              ${editable ? "" : "disabled"}
+            >
+              Add category
+            </button>
+          </div>
+        </section>
+      `;
+    }).join("");
+
+    panel.innerHTML = `
+      <form id="corporate-functions-form" class="level-labels-form">
+        <div class="level-labels-inner">
+          <div class="settings-section-header">
+            <div class="settings-section-left">
+              <h3>Corporate Functions</h3>
+              <p class="settings-section-subtitle">Internal / non-client work</p>
+            </div>
+            <div class="settings-section-right">
+              <button class="button" type="submit" id="save-corporate-functions" ${editable ? "" : "disabled"}>Save categories</button>
+            </div>
+          </div>
+          <div class="settings-section-content">
+            ${groupHtml}
+          </div>
+        </div>
+      </form>
+    `;
   }
 
   function renderBulkUploadTab() {
@@ -2919,6 +3077,7 @@
     renderLevelRows,
     renderRatesRows,
     renderExpenseCategories,
+    renderCorporateFunctionCategories,
     renderOfficeLocations,
     renderDepartments,
     renderSettingsTabs,

@@ -48,6 +48,7 @@ exports.handler = async function handler(event) {
       manage_levels: can(currentUser, "manage_levels", {}, permissionIndex),
       manage_departments: can(currentUser, "manage_departments", {}, permissionIndex),
       manage_expense_categories: can(currentUser, "manage_expense_categories", {}, permissionIndex),
+      manage_corporate_functions: can(currentUser, "manage_expense_categories", {}, permissionIndex),
       manage_office_locations: can(currentUser, "manage_office_locations", {}, permissionIndex),
       can_upload_data: can(currentUser, "can_upload_data", {}, permissionIndex),
       manage_settings_access: canManageSettingsAccess,
@@ -97,6 +98,7 @@ exports.handler = async function handler(event) {
       permissions.manage_levels ||
       permissions.manage_departments ||
       permissions.manage_expense_categories ||
+      permissions.manage_corporate_functions ||
       permissions.manage_office_locations ||
       permissions.can_upload_data ||
       permissions.manage_settings_access ||

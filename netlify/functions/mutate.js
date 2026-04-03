@@ -52,6 +52,13 @@ const DELEGATION_CAPABILITIES = new Set([
   "create_reports_on_behalf",
   "print_reports_on_behalf",
 ]);
+const CORPORATE_FUNCTION_GROUPS = new Set([
+  "Professional Development",
+  "Business Development",
+  "Firm Contribution",
+  "Administrative",
+  "Other",
+]);
 
 function normalizeDelegationCapability(value) {
   const capability = normalizeText(value);
@@ -844,6 +851,7 @@ function buildPermissionsPayload(currentUser, permissionIndex) {
     manage_levels: can("manage_levels"),
     manage_departments: can("manage_departments"),
     manage_expense_categories: can("manage_expense_categories"),
+    manage_corporate_functions: can("manage_expense_categories"),
     manage_office_locations: can("manage_office_locations"),
     can_upload_data: can("can_upload_data"),
     manage_settings_access: canManageSettingsAccess,
@@ -877,6 +885,7 @@ function buildPermissionsPayload(currentUser, permissionIndex) {
     permissionsPayload.manage_levels ||
     permissionsPayload.manage_departments ||
     permissionsPayload.manage_expense_categories ||
+    permissionsPayload.manage_corporate_functions ||
     permissionsPayload.manage_office_locations ||
     permissionsPayload.can_upload_data ||
     permissionsPayload.manage_settings_access ||
@@ -1142,6 +1151,130 @@ async function updateExpenseCategories(sql, payload, accountId) {
         VALUES (${randomId()}, ${accountId}::uuid, ${item.name}, ${now})
       `;
     }
+  }
+
+  return null;
+}
+
+async function updateCorporateFunctionCategories(sql, payload, accountId) {
+  const categories = Array.isArray(payload?.categories) ? payload.categories : [];
+  if (!categories.length) {
+    return errorResponse(400, "Corporate function categories are required.");
+  }
+
+  const cleaned = [];
+  const existingRows = await sql`
+    SELECT id, group_name AS "groupName", name, is_active AS "isActive", sort_order AS "sortOrder"
+    FROM corporate_function_categories
+    WHERE account_id = ${accountId}::uuid
+  `;
+  const existingById = new Map(
+    existingRows
+      .map((row) => [`${row?.id || ""}`.trim(), row])
+      .filter(([id]) => Boolean(id))
+  );
+  const perGroupOrder = new Map();
+
+  categories.forEach((item, index) => {
+    const id = normalizeText(item?.id);
+    const groupName = normalizeText(item?.groupName || item?.group_name);
+    const name = normalizeText(item?.name);
+    const isActive = item?.isActive === false || item?.is_active === false ? false : true;
+    const parsedSortOrder = Number(item?.sortOrder ?? item?.sort_order);
+    const currentMax = Number(perGroupOrder.get(groupName) || 0);
+    const fallbackSort = currentMax + 10 || (index + 1) * 10;
+    const sortOrder =
+      Number.isFinite(parsedSortOrder) && parsedSortOrder >= 0
+        ? Math.floor(parsedSortOrder)
+        : fallbackSort;
+    perGroupOrder.set(groupName, Math.max(currentMax, sortOrder));
+    cleaned.push({ id, groupName, name, isActive, sortOrder });
+  });
+
+  for (const item of cleaned) {
+    if (!CORPORATE_FUNCTION_GROUPS.has(item.groupName)) {
+      return errorResponse(400, "Invalid corporate function group.");
+    }
+    if (!item.name) {
+      return errorResponse(400, "Category name cannot be blank.");
+    }
+  }
+
+  const finalRows = new Map(existingById);
+  cleaned.forEach((item, index) => {
+    if (item.id && finalRows.has(item.id)) {
+      finalRows.set(item.id, {
+        ...finalRows.get(item.id),
+        groupName: item.groupName,
+        name: item.name,
+        isActive: item.isActive,
+        sortOrder: item.sortOrder,
+      });
+      return;
+    }
+    const syntheticId = item.id || `new-${index}`;
+    finalRows.set(syntheticId, {
+      id: syntheticId,
+      groupName: item.groupName,
+      name: item.name,
+      isActive: item.isActive,
+      sortOrder: item.sortOrder,
+    });
+  });
+
+  const seen = new Set();
+  for (const row of finalRows.values()) {
+    const key = `${normalizeText(row.groupName).toLowerCase()}::${normalizeText(row.name).toLowerCase()}`;
+    if (!key || key.endsWith("::")) {
+      continue;
+    }
+    if (seen.has(key)) {
+      return errorResponse(400, `Duplicate category "${row.name}" in ${row.groupName}.`);
+    }
+    seen.add(key);
+  }
+
+  const now = new Date().toISOString();
+  for (const item of cleaned) {
+    if (item.id) {
+      const updated = await sql`
+        UPDATE corporate_function_categories
+        SET
+          group_name = ${item.groupName},
+          name = ${item.name},
+          is_active = ${item.isActive},
+          sort_order = ${item.sortOrder},
+          updated_at = ${now}
+        WHERE account_id = ${accountId}::uuid
+          AND id = ${item.id}
+        RETURNING id
+      `;
+      if (updated[0]) {
+        continue;
+      }
+    }
+    await sql`
+      INSERT INTO corporate_function_categories (
+        id,
+        account_id,
+        group_name,
+        name,
+        is_active,
+        sort_order,
+        created_at,
+        updated_at
+      )
+      VALUES (
+        ${item.id || randomId()},
+        ${accountId}::uuid,
+        ${item.groupName},
+        ${item.name},
+        ${item.isActive},
+        ${item.sortOrder},
+        ${now},
+        ${now}
+      )
+    `;
   }
 
   return null;
@@ -3888,6 +4021,13 @@ exports.handler = async function handler(event) {
           return errorResponse(403, "Access denied.");
         }
         mutationResult = await updateExpenseCategories(sql, request.payload || {}, accountId);
+        break;
+      }
+      case "update_corporate_function_categories": {
+        if (!can("manage_expense_categories", { resourceOfficeId: context.currentUser?.officeId || null })) {
+          return errorResponse(403, "Access denied.");
+        }
+        mutationResult = await updateCorporateFunctionCategories(sql, request.payload || {}, accountId);
         break;
       }
       case "update_office_locations": {
