@@ -4015,6 +4015,15 @@
         fields.billable.checked = false;
       }
     });
+    const submitTimeRowFromSave = function (event) {
+      event.preventDefault();
+      if (row.dataset.rowState === "saved" || row.dataset.saving === "true" || row.dataset.deleting === "true") {
+        return;
+      }
+      row.requestSubmit();
+    };
+    fields.save?.addEventListener("pointerdown", submitTimeRowFromSave);
+    fields.save?.addEventListener("click", submitTimeRowFromSave);
 
     const refreshTimeRowInteractivity = function () {
       syncInputsTimeRowInteractivity(
