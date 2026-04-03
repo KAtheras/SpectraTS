@@ -4010,6 +4010,11 @@
     fields.date?.addEventListener("change", function () {
       syncInputsTimeDateField(fields.date);
     });
+    fields.billable?.addEventListener("change", function () {
+      if (`${row.dataset.inputsSelectionType || ""}`.trim() === "corporate") {
+        fields.billable.checked = false;
+      }
+    });
 
     const refreshTimeRowInteractivity = function () {
       syncInputsTimeRowInteractivity(
@@ -4018,6 +4023,7 @@
     };
     row.addEventListener("input", refreshTimeRowInteractivity);
     row.addEventListener("change", refreshTimeRowInteractivity);
+    applyInputsTimeBillableDefaultForRow(row);
 
     row.addEventListener("submit", async function (event) {
       event.preventDefault();
@@ -4485,6 +4491,11 @@
     fields.date?.addEventListener("change", function () {
       syncInputsTimeDateField(fields.date);
     });
+    fields.billable?.addEventListener("change", function () {
+      if (`${row.dataset.inputsSelectionType || ""}`.trim() === "corporate") {
+        fields.billable.checked = false;
+      }
+    });
 
     const refreshExpenseRowInteractivity = function () {
       syncInputsExpenseRowInteractivity(
@@ -4493,6 +4504,7 @@
     };
     row.addEventListener("input", refreshExpenseRowInteractivity);
     row.addEventListener("change", refreshExpenseRowInteractivity);
+    applyInputsExpenseBillableDefaultForRow(row);
 
     row.addEventListener("submit", async function (event) {
       event.preventDefault();
