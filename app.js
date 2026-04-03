@@ -1202,6 +1202,7 @@
     levelLabels: {},
     officeLocations: [],
     expenseCategories: [],
+    corporateFunctionGroups: [],
     corporateFunctionCategories: [],
     departments: [],
     departmentsSnapshot: [],
@@ -1677,14 +1678,21 @@
           name: item.name,
         }))
       : [];
+    state.corporateFunctionGroups = Array.isArray(data?.corporateFunctionGroups)
+      ? data.corporateFunctionGroups.map((item) => ({
+          id: item.id,
+          name: String(item.name || "").trim(),
+          sortOrder: Number(item.sortOrder ?? item.sort_order ?? 0) || 0,
+        }))
+      : [];
     state.corporateFunctionCategories = Array.isArray(data?.corporateFunctionCategories)
       ? data.corporateFunctionCategories.map((item) => ({
           id: item.id,
+          groupId: String(item.groupId || item.group_id || "").trim(),
           groupName: String(item.groupName || item.group_name || "").trim(),
           name: String(item.name || "").trim(),
-          isActive: item.isActive === false || item.is_active === false ? false : true,
           sortOrder: Number(item.sortOrder ?? item.sort_order ?? 0) || 0,
-        }))
+        })).filter((item) => item.groupId && item.name)
       : [];
     state.account = data?.account || null;
     state.settingsAccess = data?.settingsAccess || {};
@@ -7117,48 +7125,73 @@
     }
   }
 
-  function nextCorporateFunctionSortOrder(groupName) {
+  function nextCorporateFunctionGroupSortOrder() {
+    const existing = (state.corporateFunctionGroups || []).map((item) => Number(item?.sortOrder) || 0);
+    const maxSort = existing.length ? Math.max(...existing) : 0;
+    return maxSort + 10;
+  }
+
+  function nextCorporateFunctionCategorySortOrder(groupId) {
     const existing = (state.corporateFunctionCategories || [])
-      .filter((item) => `${item?.groupName || ""}`.trim() === `${groupName || ""}`.trim())
+      .filter((item) => `${item?.groupId || ""}`.trim() === `${groupId || ""}`.trim())
       .map((item) => Number(item?.sortOrder) || 0);
     const maxSort = existing.length ? Math.max(...existing) : 0;
     return maxSort + 10;
   }
 
-  function collectCorporateFunctionCategoriesFromForm(form) {
-    const rows = Array.from(form?.querySelectorAll(".corporate-function-row") || []);
-    const categories = [];
-    const seen = new Set();
-    for (const row of rows) {
-      const id = `${row.dataset.corporateFunctionId || ""}`.trim();
-      const groupName = `${row.dataset.corporateFunctionGroup || ""}`.trim();
-      const sortOrder = Number(row.dataset.corporateFunctionSortOrder || 0) || 0;
-      const isActive = row.dataset.corporateFunctionActive !== "false";
-      const nameInput = row.querySelector("[data-corporate-function-name]");
-      const name = `${nameInput?.value || ""}`.trim();
+  function collectCorporateFunctionGroupsFromForm(form) {
+    const groupRows = Array.from(form?.querySelectorAll("[data-corporate-group-row]") || []);
+    const groups = [];
+    const groupSeen = new Set();
+    for (const groupRow of groupRows) {
+      const groupId = `${groupRow.dataset.corporateGroupId || ""}`.trim();
+      const groupSortOrder = Number(groupRow.dataset.corporateGroupSortOrder || 0) || 0;
+      const groupNameInput = groupRow.querySelector("[data-corporate-group-name]");
+      const groupName = `${groupNameInput?.value || ""}`.trim();
       if (!groupName) {
-        feedback("Category group is required.", true);
+        feedback("Group name cannot be blank.", true);
         return null;
       }
-      if (!name) {
-        feedback("Category name cannot be blank.", true);
+      const groupKey = groupName.toLowerCase();
+      if (groupSeen.has(groupKey)) {
+        feedback("Group names must be unique.", true);
         return null;
       }
-      const key = `${groupName.toLowerCase()}::${name.toLowerCase()}`;
-      if (seen.has(key)) {
-        feedback(`Duplicate category in ${groupName}.`, true);
-        return null;
+      groupSeen.add(groupKey);
+
+      const categoryRows = Array.from(groupRow.querySelectorAll(".corporate-function-row"));
+      const categories = [];
+      const categorySeen = new Set();
+      for (const categoryRow of categoryRows) {
+        const id = `${categoryRow.dataset.corporateFunctionId || ""}`.trim();
+        const sortOrder = Number(categoryRow.dataset.corporateFunctionSortOrder || 0) || 0;
+        const nameInput = categoryRow.querySelector("[data-corporate-function-name]");
+        const name = `${nameInput?.value || ""}`.trim();
+        if (!name) {
+          feedback(`Category name cannot be blank in ${groupName}.`, true);
+          return null;
+        }
+        const categoryKey = name.toLowerCase();
+        if (categorySeen.has(categoryKey)) {
+          feedback(`Category names must be unique within ${groupName}.`, true);
+          return null;
+        }
+        categorySeen.add(categoryKey);
+        categories.push({
+          id: id || null,
+          name,
+          sortOrder,
+        });
       }
-      seen.add(key);
-      categories.push({
-        id: id || null,
-        groupName,
-        name,
-        isActive,
-        sortOrder,
+
+      groups.push({
+        id: groupId || null,
+        name: groupName,
+        sortOrder: groupSortOrder,
+        categories,
       });
     }
-    return categories;
+    return groups;
   }
 
   if (refs.expenseCategoriesForm) {
@@ -7348,49 +7381,103 @@
 
   if (refs.settingsPage) {
     refs.settingsPage.addEventListener("click", async function (event) {
-      const addCorporateBtn = event.target.closest("[data-corporate-add-group]");
-      if (addCorporateBtn) {
+      const addCorporateGroupBtn = event.target.closest("[data-corporate-add-group]");
+      if (addCorporateGroupBtn) {
         if (!state.permissions?.manage_corporate_functions) {
           feedback("Access denied.", true);
           return;
         }
-        const groupName = `${addCorporateBtn.dataset.corporateAddGroup || ""}`.trim();
-        if (!groupName) {
-          return;
-        }
-        state.corporateFunctionCategories = [
-          ...(state.corporateFunctionCategories || []),
+        const newGroupId = `temp-corp-group-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+        state.corporateFunctionGroups = [
+          ...(state.corporateFunctionGroups || []),
           {
-            id: `temp-corp-${Date.now()}-${Math.random().toString(16).slice(2)}`,
-            groupName,
+            id: newGroupId,
             name: "",
-            isActive: true,
-            sortOrder: nextCorporateFunctionSortOrder(groupName),
+            sortOrder: nextCorporateFunctionGroupSortOrder(),
           },
         ];
         renderCorporateFunctionCategories?.();
         return;
       }
 
-      const toggleCorporateBtn = event.target.closest("[data-corporate-toggle-active]");
-      if (toggleCorporateBtn) {
+      const addCorporateCategoryBtn = event.target.closest("[data-corporate-add-category]");
+      if (addCorporateCategoryBtn) {
         if (!state.permissions?.manage_corporate_functions) {
           feedback("Access denied.", true);
           return;
         }
-        const id = `${toggleCorporateBtn.dataset.corporateToggleActive || ""}`.trim();
-        if (!id) {
+        const groupId = `${addCorporateCategoryBtn.dataset.corporateAddCategory || ""}`.trim();
+        if (!groupId) {
+          return;
+        }
+        const group = (state.corporateFunctionGroups || []).find(
+          (item) => `${item?.id || ""}`.trim() === groupId
+        );
+        if (!group) {
           return;
         }
         state.corporateFunctionCategories = (state.corporateFunctionCategories || []).map((item) => {
-          if (`${item?.id || ""}`.trim() !== id) {
-            return item;
-          }
-          return {
-            ...item,
-            isActive: item?.isActive === false,
-          };
+          if (!item || `${item?.groupId || ""}`.trim() !== groupId) return item;
+          return { ...item, groupName: group.name || "" };
         });
+        state.corporateFunctionCategories = [
+          ...(state.corporateFunctionCategories || []),
+          {
+            id: `temp-corp-cat-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+            groupId,
+            groupName: group.name || "",
+            name: "",
+            sortOrder: nextCorporateFunctionCategorySortOrder(groupId),
+          },
+        ];
+        renderCorporateFunctionCategories?.();
+        return;
+      }
+
+      const deleteCorporateCategoryBtn = event.target.closest("[data-corporate-delete-category]");
+      if (deleteCorporateCategoryBtn) {
+        if (!state.permissions?.manage_corporate_functions) {
+          feedback("Access denied.", true);
+          return;
+        }
+        const categoryId = `${deleteCorporateCategoryBtn.dataset.corporateDeleteCategory || ""}`.trim();
+        if (!categoryId) return;
+        state.corporateFunctionCategories = (state.corporateFunctionCategories || []).filter(
+          (item) => `${item?.id || ""}`.trim() !== categoryId
+        );
+        renderCorporateFunctionCategories?.();
+        return;
+      }
+
+      const deleteCorporateGroupBtn = event.target.closest("[data-corporate-delete-group]");
+      if (deleteCorporateGroupBtn) {
+        if (!state.permissions?.manage_corporate_functions) {
+          feedback("Access denied.", true);
+          return;
+        }
+        const groupId = `${deleteCorporateGroupBtn.dataset.corporateDeleteGroup || ""}`.trim();
+        if (!groupId) return;
+        const group = (state.corporateFunctionGroups || []).find(
+          (item) => `${item?.id || ""}`.trim() === groupId
+        );
+        const categoryCount = (state.corporateFunctionCategories || []).filter(
+          (item) => `${item?.groupId || ""}`.trim() === groupId
+        ).length;
+        const confirmation = await appDialog({
+          title: "Delete group?",
+          message: `Delete "${group?.name || "this group"}" and ${categoryCount} categor${categoryCount === 1 ? "y" : "ies"} in it?`,
+          confirmText: "Delete",
+          cancelText: "Cancel",
+        });
+        if (!confirmation.confirmed) {
+          return;
+        }
+        state.corporateFunctionGroups = (state.corporateFunctionGroups || []).filter(
+          (item) => `${item?.id || ""}`.trim() !== groupId
+        );
+        state.corporateFunctionCategories = (state.corporateFunctionCategories || []).filter(
+          (item) => `${item?.groupId || ""}`.trim() !== groupId
+        );
         renderCorporateFunctionCategories?.();
         return;
       }
@@ -7453,12 +7540,12 @@
           feedback("Access denied.", true);
           return;
         }
-        const categories = collectCorporateFunctionCategoriesFromForm(corporateFunctionsForm);
-        if (!categories) {
+        const groups = collectCorporateFunctionGroupsFromForm(corporateFunctionsForm);
+        if (!groups) {
           return;
         }
         try {
-          await mutatePersistentState("update_corporate_function_categories", { categories });
+          await mutatePersistentState("update_corporate_function_categories", { groups });
           await refreshSettingsTab("corporate_functions");
           feedback("Corporate functions updated.", false);
         } catch (error) {

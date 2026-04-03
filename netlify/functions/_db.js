@@ -500,17 +500,32 @@ async function ensureSchema(sql) {
     )
   `;
   await sql`
-    CREATE TABLE IF NOT EXISTS corporate_function_categories (
+    CREATE TABLE IF NOT EXISTS corporate_function_groups (
       id TEXT PRIMARY KEY,
       account_id UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
-      group_name TEXT NOT NULL,
       name TEXT NOT NULL,
-      is_active BOOLEAN NOT NULL DEFAULT TRUE,
       sort_order INT NOT NULL DEFAULT 0,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS corporate_function_categories (
+      id TEXT PRIMARY KEY,
+      account_id UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      group_id TEXT REFERENCES corporate_function_groups(id) ON DELETE CASCADE,
+      group_name TEXT,
+      name TEXT NOT NULL,
+      sort_order INT NOT NULL DEFAULT 0,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+  await sql`
+    ALTER TABLE corporate_function_categories
+    ADD COLUMN IF NOT EXISTS group_id TEXT REFERENCES corporate_function_groups(id) ON DELETE CASCADE
+  `;
+  await sql`ALTER TABLE corporate_function_categories DROP COLUMN IF EXISTS is_active`;
   await sql`ALTER TABLE departments DROP COLUMN IF EXISTS is_active`;
   await sql`ALTER TABLE expense_categories DROP COLUMN IF EXISTS is_active`;
 
@@ -547,9 +562,61 @@ async function ensureSchema(sql) {
       ON expense_categories(account_uuid)
   `;
   await sql`
-    CREATE INDEX IF NOT EXISTS corporate_function_categories_account_idx
-      ON corporate_function_categories(account_id, group_name, sort_order, created_at)
+    CREATE INDEX IF NOT EXISTS corporate_function_groups_account_idx
+      ON corporate_function_groups(account_id, sort_order, created_at)
   `;
+  await sql`
+    CREATE INDEX IF NOT EXISTS corporate_function_categories_account_idx
+      ON corporate_function_categories(account_id, group_id, sort_order, created_at)
+  `;
+  const legacyCorporateGroups = await sql`
+    SELECT DISTINCT COALESCE(NULLIF(TRIM(group_name), ''), 'Other') AS "groupName"
+    FROM corporate_function_categories
+    WHERE account_id = ${accountUuid}::uuid
+      AND group_id IS NULL
+    ORDER BY "groupName"
+  `;
+  let legacySort = 10;
+  for (const row of legacyCorporateGroups) {
+    const groupName = `${row?.groupName || ""}`.trim() || "Other";
+    const existingGroup = await sql`
+      SELECT id
+      FROM corporate_function_groups
+      WHERE account_id = ${accountUuid}::uuid
+        AND LOWER(name) = LOWER(${groupName})
+      ORDER BY created_at
+      LIMIT 1
+    `;
+    const groupId = existingGroup[0]?.id || randomId();
+    if (!existingGroup[0]) {
+      await sql`
+        INSERT INTO corporate_function_groups (
+          id,
+          account_id,
+          name,
+          sort_order,
+          created_at,
+          updated_at
+        )
+        VALUES (
+          ${groupId},
+          ${accountUuid}::uuid,
+          ${groupName},
+          ${legacySort},
+          NOW(),
+          NOW()
+        )
+      `;
+      legacySort += 10;
+    }
+    await sql`
+      UPDATE corporate_function_categories
+      SET group_id = ${groupId}
+      WHERE account_id = ${accountUuid}::uuid
+        AND group_id IS NULL
+        AND COALESCE(NULLIF(TRIM(group_name), ''), 'Other') = ${groupName}
+    `;
+  }
 
   await sql`
     CREATE TABLE IF NOT EXISTS audit_log (
@@ -824,23 +891,38 @@ async function seedDefaultExpenseCategories(sql, accountId) {
 }
 
 async function seedDefaultCorporateFunctionCategories(sql, accountId) {
-  const [{ count }] = await sql`
-    SELECT COUNT(*)::INT AS count
-    FROM corporate_function_categories
+  const [{ groupCount }] = await sql`
+    SELECT COUNT(*)::INT AS "groupCount"
+    FROM corporate_function_groups
     WHERE account_id = ${accountId}::uuid
   `;
-  if (count > 0) {
+  if (groupCount > 0) {
     return;
   }
-  let order = 10;
+  const groupedDefaults = new Map();
   for (const item of CORPORATE_FUNCTION_DEFAULTS) {
+    const key = `${item.groupName || ""}`.trim();
+    if (!groupedDefaults.has(key)) {
+      groupedDefaults.set(key, []);
+    }
+    groupedDefaults.get(key).push(item.name);
+  }
+
+  let groupOrder = 10;
+  for (const [groupName, names] of groupedDefaults.entries()) {
+    const groupId = randomId();
     await sql`
+      INSERT INTO corporate_function_groups (id, account_id, name, sort_order, created_at, updated_at)
+      VALUES (${groupId}, ${accountId}::uuid, ${groupName}, ${groupOrder}, NOW(), NOW())
+    `;
+    let categoryOrder = 10;
+    for (const name of names) {
+      await sql`
       INSERT INTO corporate_function_categories (
         id,
         account_id,
-        group_name,
+        group_id,
         name,
-        is_active,
         sort_order,
         created_at,
         updated_at
@@ -848,16 +930,17 @@ async function seedDefaultCorporateFunctionCategories(sql, accountId) {
       VALUES (
         ${randomId()},
         ${accountId}::uuid,
-        ${item.groupName},
-        ${item.name},
-        TRUE,
-        ${order},
+        ${groupId},
+        ${name},
+        ${categoryOrder},
         NOW(),
         NOW()
       )
       ON CONFLICT DO NOTHING
     `;
-    order += 10;
+      categoryOrder += 10;
+    }
+    groupOrder += 10;
   }
 }
 
@@ -1946,24 +2029,24 @@ async function listCorporateFunctionCategories(sql, accountId) {
   return sql`
     SELECT
       id,
-      group_name AS "groupName",
+      group_id AS "groupId",
       name,
-      is_active AS "isActive",
       sort_order AS "sortOrder"
     FROM corporate_function_categories
     WHERE account_id = ${accountId}::uuid
-    ORDER BY
-      CASE group_name
-        WHEN 'Professional Development' THEN 1
-        WHEN 'Business Development' THEN 2
-        WHEN 'Firm Contribution' THEN 3
-        WHEN 'Administrative' THEN 4
-        WHEN 'Other' THEN 5
-        ELSE 999
-      END,
-      sort_order,
-      created_at,
-      LOWER(name)
+    ORDER BY sort_order, created_at, LOWER(name)
+  `;
+}
+
+async function listCorporateFunctionGroups(sql, accountId) {
+  return sql`
+    SELECT
+      id,
+      name,
+      sort_order AS "sortOrder"
+    FROM corporate_function_groups
+    WHERE account_id = ${accountId}::uuid
+    ORDER BY sort_order, created_at, LOWER(name)
   `;
 }
 
@@ -3026,6 +3109,7 @@ async function loadState(sql, currentUser) {
   // manage categories in Settings. Always return active categories; the
   // Settings UI is still gated by settingsAccess.manageCategories.
   const expenseCategories = await listExpenseCategories(sql, accountUuid);
+  const corporateFunctionGroups = await listCorporateFunctionGroups(sql, accountUuid);
   const corporateFunctionCategories = await listCorporateFunctionCategories(sql, accountUuid);
   const assignments = {
     managerClients: [],
@@ -3137,6 +3221,7 @@ async function loadState(sql, currentUser) {
     entries,
     expenses,
     projects,
+    corporateFunctionGroups,
     expenseCategories,
     corporateFunctionCategories,
     assignments,
@@ -3281,6 +3366,7 @@ module.exports = {
   listClients,
   listProjects,
   listExpenseCategories,
+  listCorporateFunctionGroups,
   listCorporateFunctionCategories,
   listDepartments,
   listOfficeLocations,

@@ -482,10 +482,6 @@
             letter-spacing:.04em;
             color:var(--muted);
           }
-          #settings-page .corporate-function-row.is-inactive input{
-            text-decoration:line-through;
-            opacity:.7;
-          }
           #settings-page .settings-section-content .level-rows{
             display:grid;
             gap:10px;
@@ -1092,38 +1088,28 @@
     const { state, escapeHtml } = deps();
     const panel = document.querySelector('[data-settings-tab="corporate_functions"]');
     if (!panel || !state.permissions?.manage_corporate_functions) return;
-
-    const groups = [
-      "Professional Development",
-      "Business Development",
-      "Firm Contribution",
-      "Administrative",
-      "Other",
-    ];
+    const groups = Array.isArray(state.corporateFunctionGroups)
+      ? state.corporateFunctionGroups.slice().sort((a, b) => (Number(a?.sortOrder) || 0) - (Number(b?.sortOrder) || 0))
+      : [];
     const categories = Array.isArray(state.corporateFunctionCategories)
-      ? state.corporateFunctionCategories.slice()
+      ? state.corporateFunctionCategories.slice().sort((a, b) => (Number(a?.sortOrder) || 0) - (Number(b?.sortOrder) || 0))
       : [];
     const editable = Boolean(state.permissions?.manage_corporate_functions);
 
-    const groupHtml = groups.map((groupName) => {
+    const groupHtml = groups.map((group) => {
+      const groupId = `${group?.id || ""}`.trim();
+      const groupName = `${group?.name || ""}`.trim();
+      const groupSortOrder = Number(group?.sortOrder) || 0;
       const rows = categories
-        .filter((item) => `${item?.groupName || ""}`.trim() === groupName)
-        .sort((a, b) => {
-          const left = Number(a?.sortOrder) || 0;
-          const right = Number(b?.sortOrder) || 0;
-          return left - right;
-        })
+        .filter((item) => `${item?.groupId || ""}`.trim() === groupId)
         .map((item) => {
           const id = `${item?.id || ""}`.trim();
-          const isActive = item?.isActive === false ? false : true;
           const sortOrder = Number(item?.sortOrder) || 0;
           return `
             <div
-              class="level-row settings-structured-row settings-structured-row-no-label corporate-function-row${isActive ? "" : " is-inactive"}"
+              class="level-row settings-structured-row settings-structured-row-no-label corporate-function-row"
               data-corporate-function-id="${escapeHtml(id)}"
-              data-corporate-function-group="${escapeHtml(groupName)}"
               data-corporate-function-sort-order="${escapeHtml(sortOrder)}"
-              data-corporate-function-active="${isActive ? "true" : "false"}"
             >
               <div class="settings-row-main">
                 <input
@@ -1137,11 +1123,11 @@
               <div class="settings-row-actions expense-actions">
                 <button
                   type="button"
-                  class="button button-ghost"
-                  data-corporate-toggle-active="${escapeHtml(id)}"
+                  class="expense-delete"
+                  data-corporate-delete-category="${escapeHtml(id)}"
                   ${editable ? "" : "disabled"}
                 >
-                  ${isActive ? "Deactivate" : "Reactivate"}
+                  Delete
                 </button>
               </div>
             </div>
@@ -1150,16 +1136,37 @@
         .join("");
 
       return `
-        <section class="settings-subsection">
-          <h4>${escapeHtml(groupName)}</h4>
-          <div class="level-rows" id="corporate-function-rows-${escapeHtml(groupName.toLowerCase().replace(/[^a-z0-9]+/g, "-"))}">
+        <section
+          class="settings-subsection"
+          data-corporate-group-row
+          data-corporate-group-id="${escapeHtml(groupId)}"
+          data-corporate-group-sort-order="${escapeHtml(groupSortOrder)}"
+        >
+          <div class="settings-row-main settings-row-main-split">
+            <input
+              type="text"
+              value="${escapeHtml(groupName)}"
+              data-corporate-group-name
+              placeholder="Group name"
+              ${editable ? "" : "disabled"}
+            />
+            <button
+              type="button"
+              class="expense-delete"
+              data-corporate-delete-group="${escapeHtml(groupId)}"
+              ${editable ? "" : "disabled"}
+            >
+              Delete group
+            </button>
+          </div>
+          <div class="level-rows">
             ${rows || ""}
           </div>
           <div class="level-labels-actions">
             <button
               class="button button-ghost"
               type="button"
-              data-corporate-add-group="${escapeHtml(groupName)}"
+              data-corporate-add-category="${escapeHtml(groupId)}"
               ${editable ? "" : "disabled"}
             >
               Add category
@@ -1178,11 +1185,12 @@
               <p class="settings-section-subtitle">Internal / non-client work</p>
             </div>
             <div class="settings-section-right">
+              <button class="button button-ghost" type="button" data-corporate-add-group ${editable ? "" : "disabled"}>Add group</button>
               <button class="button" type="submit" id="save-corporate-functions" ${editable ? "" : "disabled"}>Save categories</button>
             </div>
           </div>
           <div class="settings-section-content">
-            ${groupHtml}
+            ${groupHtml || `<p class="settings-section-subtitle">No groups yet. Add a group to begin.</p>`}
           </div>
         </div>
       </form>

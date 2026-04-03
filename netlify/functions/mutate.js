@@ -52,13 +52,6 @@ const DELEGATION_CAPABILITIES = new Set([
   "create_reports_on_behalf",
   "print_reports_on_behalf",
 ]);
-const CORPORATE_FUNCTION_GROUPS = new Set([
-  "Professional Development",
-  "Business Development",
-  "Firm Contribution",
-  "Administrative",
-  "Other",
-]);
 
 function normalizeDelegationCapability(value) {
   const capability = normalizeText(value);
@@ -1157,124 +1150,180 @@ async function updateExpenseCategories(sql, payload, accountId) {
 }
 
 async function updateCorporateFunctionCategories(sql, payload, accountId) {
-  const categories = Array.isArray(payload?.categories) ? payload.categories : [];
-  if (!categories.length) {
-    return errorResponse(400, "Corporate function categories are required.");
-  }
+  const groups = Array.isArray(payload?.groups) ? payload.groups : [];
+  const cleanedGroups = [];
+  const groupNameSet = new Set();
 
-  const cleaned = [];
-  const existingRows = await sql`
-    SELECT id, group_name AS "groupName", name, is_active AS "isActive", sort_order AS "sortOrder"
-    FROM corporate_function_categories
-    WHERE account_id = ${accountId}::uuid
-  `;
-  const existingById = new Map(
-    existingRows
-      .map((row) => [`${row?.id || ""}`.trim(), row])
-      .filter(([id]) => Boolean(id))
-  );
-  const perGroupOrder = new Map();
-
-  categories.forEach((item, index) => {
-    const id = normalizeText(item?.id);
-    const groupName = normalizeText(item?.groupName || item?.group_name);
-    const name = normalizeText(item?.name);
-    const isActive = item?.isActive === false || item?.is_active === false ? false : true;
-    const parsedSortOrder = Number(item?.sortOrder ?? item?.sort_order);
-    const currentMax = Number(perGroupOrder.get(groupName) || 0);
-    const fallbackSort = currentMax + 10 || (index + 1) * 10;
+  for (let groupIndex = 0; groupIndex < groups.length; groupIndex += 1) {
+    const groupItem = groups[groupIndex] || {};
+    const id = normalizeText(groupItem?.id);
+    const name = normalizeText(groupItem?.name);
+    const parsedSortOrder = Number(groupItem?.sortOrder ?? groupItem?.sort_order);
     const sortOrder =
       Number.isFinite(parsedSortOrder) && parsedSortOrder >= 0
         ? Math.floor(parsedSortOrder)
-        : fallbackSort;
-    perGroupOrder.set(groupName, Math.max(currentMax, sortOrder));
-    cleaned.push({ id, groupName, name, isActive, sortOrder });
-  });
-
-  for (const item of cleaned) {
-    if (!CORPORATE_FUNCTION_GROUPS.has(item.groupName)) {
-      return errorResponse(400, "Invalid corporate function group.");
+        : (groupIndex + 1) * 10;
+    if (!name) {
+      return errorResponse(400, "Group name cannot be blank.");
     }
-    if (!item.name) {
-      return errorResponse(400, "Category name cannot be blank.");
+    const normalizedName = name.toLowerCase();
+    if (groupNameSet.has(normalizedName)) {
+      return errorResponse(400, "Group names must be unique.");
     }
+    groupNameSet.add(normalizedName);
+    const categories = Array.isArray(groupItem?.categories) ? groupItem.categories : [];
+    const cleanedCategories = [];
+    const categoryNameSet = new Set();
+    for (let categoryIndex = 0; categoryIndex < categories.length; categoryIndex += 1) {
+      const categoryItem = categories[categoryIndex] || {};
+      const categoryId = normalizeText(categoryItem?.id);
+      const categoryName = normalizeText(categoryItem?.name);
+      if (!categoryName) {
+        return errorResponse(400, `Category name cannot be blank in ${name}.`);
+      }
+      const normalizedCategoryName = categoryName.toLowerCase();
+      if (categoryNameSet.has(normalizedCategoryName)) {
+        return errorResponse(400, `Category names must be unique within ${name}.`);
+      }
+      categoryNameSet.add(normalizedCategoryName);
+      const parsedCategorySort = Number(categoryItem?.sortOrder ?? categoryItem?.sort_order);
+      const categorySortOrder =
+        Number.isFinite(parsedCategorySort) && parsedCategorySort >= 0
+          ? Math.floor(parsedCategorySort)
+          : (categoryIndex + 1) * 10;
+      cleanedCategories.push({
+        id: categoryId,
+        name: categoryName,
+        sortOrder: categorySortOrder,
+      });
+    }
+    cleanedGroups.push({ id, name, sortOrder, categories: cleanedCategories });
   }
 
-  const finalRows = new Map(existingById);
-  cleaned.forEach((item, index) => {
-    if (item.id && finalRows.has(item.id)) {
-      finalRows.set(item.id, {
-        ...finalRows.get(item.id),
-        groupName: item.groupName,
-        name: item.name,
-        isActive: item.isActive,
-        sortOrder: item.sortOrder,
-      });
-      return;
-    }
-    const syntheticId = item.id || `new-${index}`;
-    finalRows.set(syntheticId, {
-      id: syntheticId,
-      groupName: item.groupName,
-      name: item.name,
-      isActive: item.isActive,
-      sortOrder: item.sortOrder,
-    });
-  });
+  const existingGroups = await sql`
+    SELECT id
+    FROM corporate_function_groups
+    WHERE account_id = ${accountId}::uuid
+  `;
+  const existingGroupIds = new Set(
+    existingGroups.map((row) => `${row?.id || ""}`.trim()).filter(Boolean)
+  );
+  const keepGroupIds = new Set(
+    cleanedGroups.map((group) => `${group?.id || ""}`.trim()).filter(Boolean)
+  );
 
-  const seen = new Set();
-  for (const row of finalRows.values()) {
-    const key = `${normalizeText(row.groupName).toLowerCase()}::${normalizeText(row.name).toLowerCase()}`;
-    if (!key || key.endsWith("::")) {
-      continue;
+  for (const groupId of existingGroupIds) {
+    if (!keepGroupIds.has(groupId)) {
+      await sql`
+        DELETE FROM corporate_function_groups
+        WHERE account_id = ${accountId}::uuid
+          AND id = ${groupId}
+      `;
     }
-    if (seen.has(key)) {
-      return errorResponse(400, `Duplicate category "${row.name}" in ${row.groupName}.`);
-    }
-    seen.add(key);
   }
 
   const now = new Date().toISOString();
-  for (const item of cleaned) {
-    if (item.id) {
+  const resolvedGroupIds = new Map();
+  for (const group of cleanedGroups) {
+    let groupId = `${group.id || ""}`.trim();
+    if (groupId) {
       const updated = await sql`
-        UPDATE corporate_function_categories
+        UPDATE corporate_function_groups
         SET
-          group_name = ${item.groupName},
-          name = ${item.name},
-          is_active = ${item.isActive},
-          sort_order = ${item.sortOrder},
+          name = ${group.name},
+          sort_order = ${group.sortOrder},
           updated_at = ${now}
         WHERE account_id = ${accountId}::uuid
-          AND id = ${item.id}
+          AND id = ${groupId}
         RETURNING id
       `;
-      if (updated[0]) {
+      if (!updated[0]) {
+        groupId = randomId();
+        await sql`
+          INSERT INTO corporate_function_groups (id, account_id, name, sort_order, created_at, updated_at)
+          VALUES (${groupId}, ${accountId}::uuid, ${group.name}, ${group.sortOrder}, ${now}, ${now})
+        `;
+      }
+    } else {
+      groupId = randomId();
+      await sql`
+        INSERT INTO corporate_function_groups (id, account_id, name, sort_order, created_at, updated_at)
+        VALUES (${groupId}, ${accountId}::uuid, ${group.name}, ${group.sortOrder}, ${now}, ${now})
+      `;
+    }
+    resolvedGroupIds.set(group, groupId);
+    await sql`
+      UPDATE corporate_function_categories
+      SET group_name = ${group.name}
+      WHERE account_id = ${accountId}::uuid
+        AND group_id = ${groupId}
+    `;
+  }
+
+  for (const group of cleanedGroups) {
+    const groupId = resolvedGroupIds.get(group);
+    const existingCategories = await sql`
+      SELECT id
+      FROM corporate_function_categories
+      WHERE account_id = ${accountId}::uuid
+        AND group_id = ${groupId}
+    `;
+    const keepCategoryIds = new Set(
+      group.categories.map((category) => `${category?.id || ""}`.trim()).filter(Boolean)
+    );
+    for (const row of existingCategories) {
+      const categoryId = `${row?.id || ""}`.trim();
+      if (!categoryId || keepCategoryIds.has(categoryId)) {
         continue;
       }
+      await sql`
+        DELETE FROM corporate_function_categories
+        WHERE account_id = ${accountId}::uuid
+          AND id = ${categoryId}
+      `;
     }
-    await sql`
-      INSERT INTO corporate_function_categories (
-        id,
-        account_id,
-        group_name,
-        name,
-        is_active,
-        sort_order,
-        created_at,
-        updated_at
-      )
-      VALUES (
-        ${item.id || randomId()},
-        ${accountId}::uuid,
-        ${item.groupName},
-        ${item.name},
-        ${item.isActive},
-        ${item.sortOrder},
-        ${now},
-        ${now}
-      )
-    `;
+
+    for (const category of group.categories) {
+      const categoryId = `${category.id || ""}`.trim();
+      if (categoryId) {
+        const updatedCategory = await sql`
+          UPDATE corporate_function_categories
+          SET
+            group_id = ${groupId},
+            name = ${category.name},
+            sort_order = ${category.sortOrder},
+            updated_at = ${now}
+          WHERE account_id = ${accountId}::uuid
+            AND id = ${categoryId}
+          RETURNING id
+        `;
+        if (updatedCategory[0]) {
+          continue;
+        }
+      }
+      await sql`
+        INSERT INTO corporate_function_categories (
+          id,
+          account_id,
+          group_id,
+          group_name,
+          name,
+          sort_order,
+          created_at,
+          updated_at
+        )
+        VALUES (
+          ${categoryId || randomId()},
+          ${accountId}::uuid,
+          ${groupId},
+          ${group.name},
+          ${category.name},
+          ${category.sortOrder},
+          ${now},
+          ${now}
+        )
+      `;
+    }
   }
 
   return null;
