@@ -3865,6 +3865,12 @@
     const fields = inputsTimeRowFields(row);
     if (!fields.clientProject || !fields.billable) return;
     const selection = readInputsComboSelectionMeta(fields.clientProject);
+    if (selection.type === "corporate") {
+      fields.billable.checked = false;
+      fields.billable.disabled = true;
+      return;
+    }
+    fields.billable.disabled = false;
     if (selection.type !== "project") {
       return;
     }
@@ -3990,11 +3996,13 @@
         row.dataset.projectId = "";
         row.dataset.corporateCategoryId = `${selection.id || ""}`.trim();
         state.inputsTimeSelectedCorporateCategoryId = `${selection.id || ""}`.trim();
+        applyInputsTimeBillableDefaultForRow(row);
       } else {
         row.dataset.inputsSelectionType = "";
         row.dataset.projectId = "";
         row.dataset.corporateCategoryId = "";
         state.inputsTimeSelectedCorporateCategoryId = "";
+        applyInputsTimeBillableDefaultForRow(row);
       }
       row.dataset.lastCombo = fields.clientProject.value || "";
     });
@@ -4025,10 +4033,17 @@
       const current = inputsTimeRowFields(row);
       const existingId = `${row.dataset.entryId || ""}`.trim();
       const existingCreatedAt = `${row.dataset.createdAt || ""}`.trim();
-      const [clientName, projectName] = decodeInputsTimeCombo(current.clientProject?.value || "");
-      const projectId = `${row.dataset.projectId || ""}`.trim();
-      const chargeCenterId = `${row.dataset.corporateCategoryId || ""}`.trim();
-      const isCorporate = `${row.dataset.inputsSelectionType || ""}`.trim() === "corporate";
+      const selection = readInputsComboSelectionMeta(current.clientProject);
+      const isCorporate = selection.type === "corporate";
+      const [clientName, projectName] = isCorporate
+        ? ["", ""]
+        : decodeInputsTimeCombo(current.clientProject?.value || "");
+      const projectId = isCorporate
+        ? ""
+        : `${selection.id || row.dataset.projectId || ""}`.trim();
+      const chargeCenterId = isCorporate
+        ? `${selection.id || row.dataset.corporateCategoryId || ""}`.trim()
+        : "";
       const actingAsUserId = resolveActingAsUserId();
       const nextEntry = {
         id: existingId || crypto.randomUUID(),
@@ -4041,7 +4056,7 @@
         task: "",
         hours: Number(current.hours?.value),
         notes: (current.notes?.value || "").trim(),
-        billable: current.billable ? current.billable.checked : true,
+        billable: isCorporate ? false : current.billable ? current.billable.checked : true,
         createdAt: existingCreatedAt || new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         status: "pending",
@@ -4139,6 +4154,7 @@
     if (fields.billable) {
       fields.billable.checked = entry.billable !== false;
     }
+    applyInputsTimeBillableDefaultForRow(row);
     if (fields.notes) {
       fields.notes.value = typeof entry.notes === "string" ? entry.notes : "";
     }

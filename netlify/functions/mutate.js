@@ -988,8 +988,7 @@ function validateEntry(entry, currentUser) {
   }
   const projectId = normalizeText(entry.projectId || entry.project_id);
   const chargeCenterId = normalizeText(entry.chargeCenterId || entry.charge_center_id);
-  const hasLegacyProject = normalizeText(entry.client) && normalizeText(entry.project);
-  if (!projectId && !chargeCenterId && !hasLegacyProject) {
+  if (!projectId && !chargeCenterId) {
     return "Client / Project or Corporate Function is required.";
   }
 
@@ -1000,6 +999,9 @@ function validateEntry(entry, currentUser) {
 
   if (typeof entry.billable !== "boolean") {
     entry.billable = true;
+  }
+  if (chargeCenterId) {
+    entry.billable = false;
   }
 
   return "";
@@ -2746,7 +2748,7 @@ async function saveEntry(sql, payload, currentUser, accountId) {
   }
   const project = requestedProjectId
     ? await findProjectById(sql, requestedProjectId, accountId)
-    : await findProject(sql, entry.client, entry.project, accountId);
+    : null;
   const corporateCategory = requestedChargeCenterId
     ? await findCorporateFunctionCategoryById(sql, requestedChargeCenterId, accountId)
     : null;
@@ -2758,7 +2760,12 @@ async function saveEntry(sql, payload, currentUser, accountId) {
     ? "Internal"
     : normalizeText(project?.client || entry.client);
   const normalizedProject = isCorporateEntry
-    ? `${normalizeText(corporateCategory.group_name)} / ${normalizeText(corporateCategory.name)}`
+    ? (() => {
+        const groupName = normalizeText(corporateCategory.group_name);
+        const categoryName = normalizeText(corporateCategory.name);
+        if (groupName && categoryName) return `${groupName} / ${categoryName}`;
+        return categoryName || groupName || "Internal";
+      })()
     : normalizeText(project?.name || entry.project);
   const normalizedProjectId = isCorporateEntry ? null : project?.id || null;
   const normalizedChargeCenterId = isCorporateEntry ? normalizeText(corporateCategory.id) : null;
@@ -2868,7 +2875,7 @@ async function saveEntry(sql, payload, currentUser, accountId) {
   const existing = existingRows[0];
   const persistedStatus = existing?.status;
 
-  const nextBillable = entry.billable === false ? false : true;
+  const nextBillable = entry.chargeCenterId ? false : entry.billable === false ? false : true;
   const billableChanged = existing
     ? Boolean(existing.billable) !== nextBillable
     : false;

@@ -2649,7 +2649,7 @@ async function loadState(sql, currentUser) {
         END AS client,
         CASE
           WHEN entries.project_id IS NULL
-            THEN COALESCE(NULLIF(TRIM(CONCAT(cfg.name, ' / ', cfc.name)), ''), entries.project_name, 'Internal')
+            THEN COALESCE(NULLIF(TRIM(CONCAT_WS(' / ', NULLIF(TRIM(cfg.name), ''), NULLIF(TRIM(cfc.name), ''))), ''), NULLIF(TRIM(entries.project_name), ''), 'Internal')
           ELSE COALESCE(projects.name, entries.project_name, 'Internal')
         END AS project,
         entries.project_id AS "projectId",
@@ -2699,7 +2699,7 @@ async function loadState(sql, currentUser) {
           END AS client,
           CASE
             WHEN entries.project_id IS NULL
-              THEN COALESCE(NULLIF(TRIM(CONCAT(cfg.name, ' / ', cfc.name)), ''), entries.project_name, 'Internal')
+              THEN COALESCE(NULLIF(TRIM(CONCAT_WS(' / ', NULLIF(TRIM(cfg.name), ''), NULLIF(TRIM(cfc.name), ''))), ''), NULLIF(TRIM(entries.project_name), ''), 'Internal')
             ELSE COALESCE(projects.name, entries.project_name, 'Internal')
           END AS project,
           entries.project_id AS "projectId",
@@ -2754,7 +2754,7 @@ async function loadState(sql, currentUser) {
         END AS client,
         CASE
           WHEN entries.project_id IS NULL
-            THEN COALESCE(NULLIF(TRIM(CONCAT(cfg.name, ' / ', cfc.name)), ''), entries.project_name, 'Internal')
+            THEN COALESCE(NULLIF(TRIM(CONCAT_WS(' / ', NULLIF(TRIM(cfg.name), ''), NULLIF(TRIM(cfc.name), ''))), ''), NULLIF(TRIM(entries.project_name), ''), 'Internal')
           ELSE COALESCE(projects.name, entries.project_name, 'Internal')
         END AS project,
         entries.project_id AS "projectId",
@@ -2836,7 +2836,7 @@ async function loadState(sql, currentUser) {
           END AS client,
           CASE
             WHEN entries.project_id IS NULL
-              THEN COALESCE(NULLIF(TRIM(CONCAT(cfg.name, ' / ', cfc.name)), ''), entries.project_name, 'Internal')
+              THEN COALESCE(NULLIF(TRIM(CONCAT_WS(' / ', NULLIF(TRIM(cfg.name), ''), NULLIF(TRIM(cfc.name), ''))), ''), NULLIF(TRIM(entries.project_name), ''), 'Internal')
             ELSE COALESCE(projects.name, entries.project_name, 'Internal')
           END AS project,
           entries.project_id AS "projectId",
@@ -2885,7 +2885,7 @@ async function loadState(sql, currentUser) {
             END AS client,
             CASE
               WHEN entries.project_id IS NULL
-                THEN COALESCE(NULLIF(TRIM(CONCAT(cfg.name, ' / ', cfc.name)), ''), entries.project_name, 'Internal')
+                THEN COALESCE(NULLIF(TRIM(CONCAT_WS(' / ', NULLIF(TRIM(cfg.name), ''), NULLIF(TRIM(cfc.name), ''))), ''), NULLIF(TRIM(entries.project_name), ''), 'Internal')
               ELSE COALESCE(projects.name, entries.project_name, 'Internal')
             END AS project,
             entries.project_id AS "projectId",
@@ -2945,7 +2945,7 @@ async function loadState(sql, currentUser) {
               END AS client,
               CASE
                 WHEN entries.project_id IS NULL
-                  THEN COALESCE(NULLIF(TRIM(CONCAT(cfg.name, ' / ', cfc.name)), ''), entries.project_name, 'Internal')
+                  THEN COALESCE(NULLIF(TRIM(CONCAT_WS(' / ', NULLIF(TRIM(cfg.name), ''), NULLIF(TRIM(cfc.name), ''))), ''), NULLIF(TRIM(entries.project_name), ''), 'Internal')
                 ELSE COALESCE(projects.name, entries.project_name, 'Internal')
               END AS project,
               entries.project_id AS "projectId",
