@@ -4326,7 +4326,7 @@
       setInputsExpenseRowSaved,
       setInputsExpenseEditButtonVisible,
       setInputsExpenseDeleteButtonVisible,
-      isInputsExpenseRowReadyToSave
+      () => true
     );
   }
 
