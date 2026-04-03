@@ -4496,6 +4496,13 @@
         fields.billable.checked = false;
       }
     });
+    fields.save?.addEventListener("click", function (event) {
+      event.preventDefault();
+      if (row.dataset.rowState === "saved" || row.dataset.saving === "true" || row.dataset.deleting === "true") {
+        return;
+      }
+      row.requestSubmit();
+    });
 
     const refreshExpenseRowInteractivity = function () {
       syncInputsExpenseRowInteractivity(
