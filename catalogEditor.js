@@ -617,13 +617,16 @@
     }
 
     if (refs.expenseFilterProject) {
+      const allowProjectSelection = Boolean(selectedClient) && selectedClient !== "Internal";
       const projects = uniqueValues(
         expenseRows
-          .filter((row) => !selectedClient || row.clientName === selectedClient)
+          .filter((row) => allowProjectSelection && row.clientName === selectedClient)
           .map((row) => row.projectName)
           .filter(Boolean)
       );
-      const placeholder = selectedClient ? "All projects" : "Choose client first";
+      const placeholder = allowProjectSelection
+        ? "All projects"
+        : "Select client (for project entries)";
       setSelectOptionsWithPlaceholder(
         { escapeHtml },
         refs.expenseFilterProject,
@@ -631,6 +634,10 @@
         selectedProject,
         placeholder
       );
+      refs.expenseFilterProject.disabled = !allowProjectSelection;
+      if (!allowProjectSelection) {
+        refs.expenseFilterProject.value = "";
+      }
     }
   }
 
