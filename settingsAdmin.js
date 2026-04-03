@@ -33,6 +33,7 @@
   let activeSettingsTab = loadPersistedSettingsTab() || "levels";
   let tabsInitialized = false;
   let mobileSettingsMode = "list";
+  let collapsedCorporateGroupIds = new Set();
   let memberInfoSearchTerm = "";
   let memberInfoMobileMode = "list";
   let memberInfoMobileSelectedUserId = "";
@@ -491,6 +492,43 @@
             grid-template-columns:minmax(0,1fr) auto;
             gap:10px;
             align-items:center;
+          }
+          #settings-page .corporate-group-pill{
+            min-height:40px;
+            border:1px solid var(--input-border);
+            border-radius:16px;
+            background:var(--input-bg);
+            display:grid;
+            grid-template-columns:auto minmax(0,1fr);
+            align-items:center;
+            gap:6px;
+            padding:0 10px 0 6px;
+          }
+          #settings-page .corporate-group-toggle{
+            border:1px solid var(--group-border);
+            background:transparent;
+            color:var(--muted);
+            width:26px;
+            min-width:26px;
+            height:26px;
+            border-radius:999px;
+            font-weight:700;
+            font-size:1rem;
+            line-height:1;
+            display:inline-flex;
+            align-items:center;
+            justify-content:center;
+            cursor:pointer;
+          }
+          #settings-page .corporate-group-pill input[data-corporate-group-name]{
+            border:none;
+            background:transparent;
+            border-radius:0;
+            min-height:36px;
+            padding:0;
+          }
+          #settings-page .corporate-group-pill input[data-corporate-group-name]:focus{
+            box-shadow:none;
           }
           #settings-page .corporate-category-list{
             margin-left:16px;
@@ -1120,11 +1158,16 @@
       ? state.corporateFunctionCategories.slice().sort((a, b) => (Number(a?.sortOrder) || 0) - (Number(b?.sortOrder) || 0))
       : [];
     const editable = Boolean(state.permissions?.manage_corporate_functions);
+    const groupIdSet = new Set(groups.map((group) => `${group?.id || ""}`.trim()).filter(Boolean));
+    collapsedCorporateGroupIds = new Set(
+      Array.from(collapsedCorporateGroupIds).filter((id) => groupIdSet.has(id))
+    );
 
     const groupHtml = groups.map((group) => {
       const groupId = `${group?.id || ""}`.trim();
       const groupName = `${group?.name || ""}`.trim();
       const groupSortOrder = Number(group?.sortOrder) || 0;
+      const isCollapsed = collapsedCorporateGroupIds.has(groupId);
       const rows = categories
         .filter((item) => `${item?.groupId || ""}`.trim() === groupId)
         .map((item) => {
@@ -1168,13 +1211,22 @@
           data-corporate-group-sort-order="${escapeHtml(groupSortOrder)}"
         >
           <div class="corporate-group-header">
-            <input
-              type="text"
-              value="${escapeHtml(groupName)}"
-              data-corporate-group-name
-              placeholder="Group name"
-              ${editable ? "" : "disabled"}
-            />
+            <div class="corporate-group-pill">
+              <button
+                type="button"
+                class="corporate-group-toggle"
+                data-corporate-toggle-group="${escapeHtml(groupId)}"
+                aria-label="${isCollapsed ? "Expand group" : "Collapse group"}"
+                aria-expanded="${isCollapsed ? "false" : "true"}"
+              >${isCollapsed ? "+" : "-"}</button>
+              <input
+                type="text"
+                value="${escapeHtml(groupName)}"
+                data-corporate-group-name
+                placeholder="Group name"
+                ${editable ? "" : "disabled"}
+              />
+            </div>
             <button
               type="button"
               class="expense-delete"
@@ -1184,10 +1236,10 @@
               Delete group
             </button>
           </div>
-          <div class="corporate-category-list">
+          <div class="corporate-category-list" ${isCollapsed ? "hidden" : ""}>
             ${rows || ""}
           </div>
-          <div class="corporate-group-actions">
+          <div class="corporate-group-actions" ${isCollapsed ? "hidden" : ""}>
             <button
               class="button button-ghost"
               type="button"
@@ -1220,6 +1272,19 @@
         </div>
       </form>
     `;
+    panel.onclick = function (event) {
+      const toggleBtn = event.target.closest("[data-corporate-toggle-group]");
+      if (!toggleBtn) return;
+      event.preventDefault();
+      const groupId = `${toggleBtn.dataset.corporateToggleGroup || ""}`.trim();
+      if (!groupId) return;
+      if (collapsedCorporateGroupIds.has(groupId)) {
+        collapsedCorporateGroupIds.delete(groupId);
+      } else {
+        collapsedCorporateGroupIds.add(groupId);
+      }
+      renderCorporateFunctionCategories();
+    };
   }
 
   function renderBulkUploadTab() {
