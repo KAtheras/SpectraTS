@@ -384,6 +384,8 @@
     return {
       id: typeof entry.id === "string" && entry.id ? entry.id : crypto.randomUUID(),
       userId: entry.userId || entry.user_id || "",
+      projectId: entry.projectId || entry.project_id || null,
+      chargeCenterId: entry.chargeCenterId || entry.charge_center_id || null,
       user:
         typeof entry.user === "string" && entry.user.trim()
           ? entry.user.trim()

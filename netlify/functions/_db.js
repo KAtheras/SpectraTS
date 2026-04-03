@@ -473,6 +473,24 @@ async function ensureSchema(sql) {
   await sql`ALTER TABLE entries ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'pending'`;
   await sql`ALTER TABLE entries ADD COLUMN IF NOT EXISTS approved_at TIMESTAMPTZ`;
   await sql`ALTER TABLE entries ADD COLUMN IF NOT EXISTS approved_by_user_id TEXT REFERENCES users(id)`;
+  await sql`ALTER TABLE entries ADD COLUMN IF NOT EXISTS project_id BIGINT REFERENCES projects(id) ON DELETE SET NULL`;
+  await sql`ALTER TABLE entries ADD COLUMN IF NOT EXISTS charge_center_id TEXT REFERENCES corporate_function_categories(id) ON DELETE SET NULL`;
+  await sql`CREATE INDEX IF NOT EXISTS entries_account_project_idx ON entries(account_id, project_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS entries_account_charge_center_idx ON entries(account_id, charge_center_id)`;
+  await sql`
+    UPDATE entries
+    SET project_id = projects.id
+    FROM clients
+    JOIN projects
+      ON projects.client_id = clients.id
+     AND LOWER(projects.name) = LOWER(entries.project_name)
+    WHERE entries.account_id = ${accountUuid}::uuid
+      AND entries.account_id = clients.account_id
+      AND projects.account_id = entries.account_id
+      AND entries.project_id IS NULL
+      AND entries.charge_center_id IS NULL
+      AND LOWER(clients.name) = LOWER(entries.client_name)
+  `;
 
   await sql`
     CREATE TABLE IF NOT EXISTS level_labels (
@@ -2625,8 +2643,17 @@ async function loadState(sql, currentUser) {
         entries.user_name AS "user",
         u.id AS "userId",
         TO_CHAR(entries.entry_date, 'YYYY-MM-DD') AS date,
-        entries.client_name AS client,
-        entries.project_name AS project,
+        CASE
+          WHEN entries.project_id IS NULL THEN 'Internal'
+          ELSE COALESCE(clients.name, entries.client_name, 'Internal')
+        END AS client,
+        CASE
+          WHEN entries.project_id IS NULL
+            THEN COALESCE(NULLIF(TRIM(CONCAT(cfg.name, ' / ', cfc.name)), ''), entries.project_name, 'Internal')
+          ELSE COALESCE(projects.name, entries.project_name, 'Internal')
+        END AS project,
+        entries.project_id AS "projectId",
+        entries.charge_center_id AS "chargeCenterId",
         entries.task,
         entries.hours::FLOAT8 AS hours,
         entries.notes,
@@ -2638,20 +2665,45 @@ async function loadState(sql, currentUser) {
       LEFT JOIN users u
         ON LOWER(u.display_name) = LOWER(entries.user_name)
        AND u.account_id = ${accountUuid}::uuid
+      LEFT JOIN clients
+        ON LOWER(clients.name) = LOWER(entries.client_name)
+       AND clients.account_id = ${accountUuid}::uuid
+      LEFT JOIN projects
+        ON projects.id = entries.project_id
+        OR (
+          entries.project_id IS NULL
+          AND projects.client_id = clients.id
+          AND LOWER(projects.name) = LOWER(entries.project_name)
+        )
+      LEFT JOIN corporate_function_categories cfc
+        ON cfc.id = entries.charge_center_id
+       AND cfc.account_id = ${accountUuid}::uuid
+      LEFT JOIN corporate_function_groups cfg
+        ON cfg.id = cfc.group_id
+       AND cfg.account_id = ${accountUuid}::uuid
       WHERE entries.account_id = ${accountUuid}::uuid
       ORDER BY entries.entry_date DESC, entries.created_at DESC
     `;
   } else if (isManagerFlag) {
     const scope = await getManagerScope(sql, normalizedUser.id, accountUuid);
-    if (scope.projectIds.length) {
-      entries = await sql`
+    const scopedProjectIds = scope.projectIds.length ? scope.projectIds : [0];
+    entries = await sql`
         SELECT DISTINCT ON (entries.id)
           entries.id,
           entries.user_name AS "user",
           users.id AS "userId",
           TO_CHAR(entries.entry_date, 'YYYY-MM-DD') AS date,
-          entries.client_name AS client,
-          entries.project_name AS project,
+          CASE
+            WHEN entries.project_id IS NULL THEN 'Internal'
+            ELSE COALESCE(clients.name, entries.client_name, 'Internal')
+          END AS client,
+          CASE
+            WHEN entries.project_id IS NULL
+              THEN COALESCE(NULLIF(TRIM(CONCAT(cfg.name, ' / ', cfc.name)), ''), entries.project_name, 'Internal')
+            ELSE COALESCE(projects.name, entries.project_name, 'Internal')
+          END AS project,
+          entries.project_id AS "projectId",
+          entries.charge_center_id AS "chargeCenterId",
           entries.task,
           entries.hours::FLOAT8 AS hours,
           entries.notes,
@@ -2660,16 +2712,35 @@ async function loadState(sql, currentUser) {
           entries.created_at AS "createdAt",
           entries.updated_at AS "updatedAt"
         FROM entries
-        JOIN clients ON LOWER(clients.name) = LOWER(entries.client_name)
-        JOIN projects ON projects.client_id = clients.id
-          AND LOWER(projects.name) = LOWER(entries.project_name)
+        LEFT JOIN clients
+          ON LOWER(clients.name) = LOWER(entries.client_name)
+         AND clients.account_id = ${accountUuid}::uuid
+        LEFT JOIN projects
+          ON projects.id = entries.project_id
+          OR (
+            entries.project_id IS NULL
+            AND projects.client_id = clients.id
+            AND LOWER(projects.name) = LOWER(entries.project_name)
+          )
+        LEFT JOIN corporate_function_categories cfc
+          ON cfc.id = entries.charge_center_id
+         AND cfc.account_id = ${accountUuid}::uuid
+        LEFT JOIN corporate_function_groups cfg
+          ON cfg.id = cfc.group_id
+         AND cfg.account_id = ${accountUuid}::uuid
         JOIN users ON LOWER(users.display_name) = LOWER(entries.user_name)
-        WHERE projects.id = ANY(${scope.projectIds})
+        WHERE (
+          projects.id = ANY(${scopedProjectIds})
+          OR (
+            entries.project_id IS NULL
+            AND entries.charge_center_id IS NOT NULL
+            AND users.id = ${normalizedUser.id}
+          )
+        )
           AND (users.level <= 2 OR users.id = ${normalizedUser.id})
           AND entries.account_id = ${accountUuid}::uuid
         ORDER BY entries.id, entries.entry_date DESC, entries.created_at DESC
       `;
-    }
   } else if (normalizedUser && isStaffFlag) {
     entries = await sql`
       SELECT
@@ -2677,8 +2748,17 @@ async function loadState(sql, currentUser) {
         entries.user_name AS "user",
         u.id AS "userId",
         TO_CHAR(entries.entry_date, 'YYYY-MM-DD') AS date,
-        entries.client_name AS client,
-        entries.project_name AS project,
+        CASE
+          WHEN entries.project_id IS NULL THEN 'Internal'
+          ELSE COALESCE(clients.name, entries.client_name, 'Internal')
+        END AS client,
+        CASE
+          WHEN entries.project_id IS NULL
+            THEN COALESCE(NULLIF(TRIM(CONCAT(cfg.name, ' / ', cfc.name)), ''), entries.project_name, 'Internal')
+          ELSE COALESCE(projects.name, entries.project_name, 'Internal')
+        END AS project,
+        entries.project_id AS "projectId",
+        entries.charge_center_id AS "chargeCenterId",
         entries.task,
         entries.hours::FLOAT8 AS hours,
         entries.notes,
@@ -2690,6 +2770,22 @@ async function loadState(sql, currentUser) {
       LEFT JOIN users u
         ON LOWER(u.display_name) = LOWER(entries.user_name)
        AND u.account_id = ${accountUuid}::uuid
+      LEFT JOIN clients
+        ON LOWER(clients.name) = LOWER(entries.client_name)
+       AND clients.account_id = ${accountUuid}::uuid
+      LEFT JOIN projects
+        ON projects.id = entries.project_id
+        OR (
+          entries.project_id IS NULL
+          AND projects.client_id = clients.id
+          AND LOWER(projects.name) = LOWER(entries.project_name)
+        )
+      LEFT JOIN corporate_function_categories cfc
+        ON cfc.id = entries.charge_center_id
+       AND cfc.account_id = ${accountUuid}::uuid
+      LEFT JOIN corporate_function_groups cfg
+        ON cfg.id = cfc.group_id
+       AND cfg.account_id = ${accountUuid}::uuid
       WHERE entries.user_name = ${normalizedUser.displayName}
         AND entries.account_id = ${accountUuid}::uuid
       ORDER BY entries.entry_date DESC, entries.created_at DESC
@@ -2734,8 +2830,17 @@ async function loadState(sql, currentUser) {
           entries.user_name AS "user",
           u.id AS "userId",
           TO_CHAR(entries.entry_date, 'YYYY-MM-DD') AS date,
-          entries.client_name AS client,
-          entries.project_name AS project,
+          CASE
+            WHEN entries.project_id IS NULL THEN 'Internal'
+            ELSE COALESCE(clients.name, entries.client_name, 'Internal')
+          END AS client,
+          CASE
+            WHEN entries.project_id IS NULL
+              THEN COALESCE(NULLIF(TRIM(CONCAT(cfg.name, ' / ', cfc.name)), ''), entries.project_name, 'Internal')
+            ELSE COALESCE(projects.name, entries.project_name, 'Internal')
+          END AS project,
+          entries.project_id AS "projectId",
+          entries.charge_center_id AS "chargeCenterId",
           entries.task,
           entries.hours::FLOAT8 AS hours,
           entries.notes,
@@ -2747,6 +2852,22 @@ async function loadState(sql, currentUser) {
         LEFT JOIN users u
           ON LOWER(u.display_name) = LOWER(entries.user_name)
          AND u.account_id = ${accountUuid}::uuid
+        LEFT JOIN clients
+          ON LOWER(clients.name) = LOWER(entries.client_name)
+         AND clients.account_id = ${accountUuid}::uuid
+        LEFT JOIN projects
+          ON projects.id = entries.project_id
+          OR (
+            entries.project_id IS NULL
+            AND projects.client_id = clients.id
+            AND LOWER(projects.name) = LOWER(entries.project_name)
+          )
+        LEFT JOIN corporate_function_categories cfc
+          ON cfc.id = entries.charge_center_id
+         AND cfc.account_id = ${accountUuid}::uuid
+        LEFT JOIN corporate_function_groups cfg
+          ON cfg.id = cfc.group_id
+         AND cfg.account_id = ${accountUuid}::uuid
         WHERE entries.account_id = ${accountUuid}::uuid
       `;
       delegatedEntryRows.push(...rows);
@@ -2758,8 +2879,17 @@ async function loadState(sql, currentUser) {
             entries.user_name AS "user",
             u.id AS "userId",
             TO_CHAR(entries.entry_date, 'YYYY-MM-DD') AS date,
-            entries.client_name AS client,
-            entries.project_name AS project,
+            CASE
+              WHEN entries.project_id IS NULL THEN 'Internal'
+              ELSE COALESCE(clients.name, entries.client_name, 'Internal')
+            END AS client,
+            CASE
+              WHEN entries.project_id IS NULL
+                THEN COALESCE(NULLIF(TRIM(CONCAT(cfg.name, ' / ', cfc.name)), ''), entries.project_name, 'Internal')
+              ELSE COALESCE(projects.name, entries.project_name, 'Internal')
+            END AS project,
+            entries.project_id AS "projectId",
+            entries.charge_center_id AS "chargeCenterId",
             entries.task,
             entries.hours::FLOAT8 AS hours,
             entries.notes,
@@ -2771,6 +2901,22 @@ async function loadState(sql, currentUser) {
           JOIN users u
             ON LOWER(u.display_name) = LOWER(entries.user_name)
            AND u.account_id = ${accountUuid}::uuid
+          LEFT JOIN clients
+            ON LOWER(clients.name) = LOWER(entries.client_name)
+           AND clients.account_id = ${accountUuid}::uuid
+          LEFT JOIN projects
+            ON projects.id = entries.project_id
+            OR (
+              entries.project_id IS NULL
+              AND projects.client_id = clients.id
+              AND LOWER(projects.name) = LOWER(entries.project_name)
+            )
+          LEFT JOIN corporate_function_categories cfc
+            ON cfc.id = entries.charge_center_id
+           AND cfc.account_id = ${accountUuid}::uuid
+          LEFT JOIN corporate_function_groups cfg
+            ON cfg.id = cfc.group_id
+           AND cfg.account_id = ${accountUuid}::uuid
           WHERE entries.account_id = ${accountUuid}::uuid
             AND u.id = ANY(${delegatorSelfOnlyIds})
         `;
@@ -2785,15 +2931,25 @@ async function loadState(sql, currentUser) {
           });
         }
         const scopeProjectIds = Array.from(projectIdSet);
-        if (scopeProjectIds.length) {
+        const scopedDelegatorProjectIds = scopeProjectIds.length ? scopeProjectIds : [0];
+        {
           const rows = await sql`
             SELECT DISTINCT ON (entries.id)
               entries.id,
               entries.user_name AS "user",
               users.id AS "userId",
               TO_CHAR(entries.entry_date, 'YYYY-MM-DD') AS date,
-              entries.client_name AS client,
-              entries.project_name AS project,
+              CASE
+                WHEN entries.project_id IS NULL THEN 'Internal'
+                ELSE COALESCE(clients.name, entries.client_name, 'Internal')
+              END AS client,
+              CASE
+                WHEN entries.project_id IS NULL
+                  THEN COALESCE(NULLIF(TRIM(CONCAT(cfg.name, ' / ', cfc.name)), ''), entries.project_name, 'Internal')
+                ELSE COALESCE(projects.name, entries.project_name, 'Internal')
+              END AS project,
+              entries.project_id AS "projectId",
+              entries.charge_center_id AS "chargeCenterId",
               entries.task,
               entries.hours::FLOAT8 AS hours,
               entries.notes,
@@ -2802,12 +2958,32 @@ async function loadState(sql, currentUser) {
               entries.created_at AS "createdAt",
               entries.updated_at AS "updatedAt"
             FROM entries
-            JOIN clients ON LOWER(clients.name) = LOWER(entries.client_name)
-            JOIN projects ON projects.client_id = clients.id
-              AND LOWER(projects.name) = LOWER(entries.project_name)
+            LEFT JOIN clients
+              ON LOWER(clients.name) = LOWER(entries.client_name)
+             AND clients.account_id = ${accountUuid}::uuid
+            LEFT JOIN projects
+              ON projects.id = entries.project_id
+              OR (
+                entries.project_id IS NULL
+                AND projects.client_id = clients.id
+                AND LOWER(projects.name) = LOWER(entries.project_name)
+              )
+            LEFT JOIN corporate_function_categories cfc
+              ON cfc.id = entries.charge_center_id
+             AND cfc.account_id = ${accountUuid}::uuid
+            LEFT JOIN corporate_function_groups cfg
+              ON cfg.id = cfc.group_id
+             AND cfg.account_id = ${accountUuid}::uuid
             JOIN users ON LOWER(users.display_name) = LOWER(entries.user_name)
             WHERE entries.account_id = ${accountUuid}::uuid
-              AND projects.id = ANY(${scopeProjectIds})
+              AND (
+                projects.id = ANY(${scopedDelegatorProjectIds})
+                OR (
+                  entries.project_id IS NULL
+                  AND entries.charge_center_id IS NOT NULL
+                  AND users.id = ANY(${delegatorManagerLikeIds})
+                )
+              )
               AND (
                 users.level <= 2
                 OR users.id = ANY(${delegatorManagerLikeIds})

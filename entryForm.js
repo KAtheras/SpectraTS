@@ -45,7 +45,14 @@
     select.value = String(selectedValue);
   }
 
-  function setSelectOptionsWithPlaceholder({ escapeHtml }, select, options, selectedValue, placeholder) {
+  function setSelectOptionsWithPlaceholder(
+    { escapeHtml },
+    select,
+    options,
+    selectedValue,
+    placeholder,
+    placeholderConfig
+  ) {
     const optionMarkup = (option) => {
       if (typeof option === "string") {
         return `<option value="${escapeHtml(option)}">${escapeHtml(option)}</option>`;
@@ -64,9 +71,37 @@
         String(label)
       )}</option>`;
     };
-    select.innerHTML =
-      `<option value="">${escapeHtml(placeholder)}</option>` +
-      options.map(optionMarkup).join("");
+    const config = placeholderConfig || {};
+    const placeholderDisabledAttr = config.disabled ? " disabled" : "";
+    const placeholderHiddenAttr = config.hidden ? " hidden" : "";
+    const placeholderDataType = config.type
+      ? ` data-item-type="${escapeHtml(String(config.type))}"`
+      : "";
+    const placeholderMarkup = placeholder
+      ? `<option value=""${placeholderDisabledAttr}${placeholderHiddenAttr}${placeholderDataType}>${escapeHtml(
+          placeholder
+        )}</option>`
+      : "";
+    let inGroup = false;
+    const groupedOptionsMarkup = (options || [])
+      .map((option) => {
+        if (typeof option !== "string" && option?.type === "group-spacer") {
+          return "";
+        }
+        if (typeof option !== "string" && option?.type === "label") {
+          if (inGroup) {
+            inGroup = false;
+            return `</optgroup><optgroup label="${escapeHtml(String(option?.label || ""))}">`;
+          }
+          inGroup = true;
+          return `<optgroup label="${escapeHtml(String(option?.label || ""))}">`;
+        }
+        const markup = optionMarkup(option);
+        return inGroup ? markup : markup;
+      })
+      .join("");
+    const closeGroupMarkup = inGroup ? "</optgroup>" : "";
+    select.innerHTML = `${placeholderMarkup}${groupedOptionsMarkup}${closeGroupMarkup}`;
 
     select.value = selectedValue || "";
   }

@@ -3833,12 +3833,6 @@
       return projectItems;
     }
     const corporateItems = corporateGroups.flatMap((group) => {
-      const groupSpacer = {
-        type: "group-spacer",
-        value: `spacer-${group.groupId}`,
-        label: " ",
-        disabled: true,
-      };
       const groupLabel = {
         type: "label",
         value: `${INPUTS_COMBO_SECTION_VALUE}-${group.groupId}`,
@@ -3849,17 +3843,11 @@
         type: "corporate",
         id: `${category?.id || ""}`.trim(),
         group_name: group.groupName,
-        label: `\u00A0\u00A0\u00A0${category?.name || ""}`,
+        label: `\u00A0\u00A0\u00A0\u00A0${category?.name || ""}`,
         value: encodeInputsCorporateCombo(category?.id || ""),
       }));
-      return [groupSpacer, groupLabel, ...categoryItems];
+      return [groupLabel, ...categoryItems];
     });
-    const sectionHeader = {
-      type: "label",
-      value: `${INPUTS_COMBO_SECTION_VALUE}-corporate-functions`,
-      label: "Corporate Functions",
-      disabled: true,
-    };
     const divider = {
       type: "divider",
       value: INPUTS_COMBO_DIVIDER_VALUE,
@@ -3869,7 +3857,6 @@
     return [
       ...projectItems,
       ...(projectItems.length ? [divider] : []),
-      sectionHeader,
       ...corporateItems,
     ];
   }
@@ -3912,7 +3899,8 @@
       fields.clientProject,
       options,
       selected,
-      "Client / Project"
+      "Client / Project",
+      { disabled: true, hidden: true, type: "placeholder" }
     );
     fields.clientProject.disabled = options.length === 0;
 
@@ -4038,13 +4026,18 @@
       const existingId = `${row.dataset.entryId || ""}`.trim();
       const existingCreatedAt = `${row.dataset.createdAt || ""}`.trim();
       const [clientName, projectName] = decodeInputsTimeCombo(current.clientProject?.value || "");
+      const projectId = `${row.dataset.projectId || ""}`.trim();
+      const chargeCenterId = `${row.dataset.corporateCategoryId || ""}`.trim();
+      const isCorporate = `${row.dataset.inputsSelectionType || ""}`.trim() === "corporate";
       const actingAsUserId = resolveActingAsUserId();
       const nextEntry = {
         id: existingId || crypto.randomUUID(),
         user: state.currentUser?.displayName || "",
         date: parseInputsTimeDateValue(current.date?.value || ""),
-        client: clientName || "",
-        project: projectName || "",
+        client: isCorporate ? "Internal" : clientName || "",
+        project: isCorporate ? "" : projectName || "",
+        projectId: projectId || null,
+        chargeCenterId: chargeCenterId || null,
         task: "",
         hours: Number(current.hours?.value),
         notes: (current.notes?.value || "").trim(),
@@ -4101,7 +4094,12 @@
 
   function populateInputsTimeRowForEntryEdit(row, entry, options) {
     if (!row || !entry) return;
-    const comboValue = encodeInputsTimeCombo(entry.client || "", entry.project || "");
+    const chargeCenterId = `${entry.chargeCenterId || entry.charge_center_id || ""}`.trim();
+    const projectId = `${entry.projectId || entry.project_id || ""}`.trim();
+    const isCorporate = Boolean(chargeCenterId) && !projectId;
+    const comboValue = isCorporate
+      ? encodeInputsCorporateCombo(chargeCenterId)
+      : encodeInputsTimeCombo(entry.client || "", entry.project || "");
     const comboLabel = `${entry.client || ""} / ${entry.project || ""}`;
     const optionList = Array.isArray(options) ? options : [];
     const hydratedOptions =
@@ -4121,6 +4119,9 @@
     row.dataset.saving = "false";
     row.dataset.deleting = "false";
     row.dataset.lastCombo = comboValue;
+    row.dataset.inputsSelectionType = isCorporate ? "corporate" : "project";
+    row.dataset.projectId = isCorporate ? "" : projectId;
+    row.dataset.corporateCategoryId = isCorporate ? chargeCenterId : "";
 
     [fields.clientProject, fields.date, fields.hours, fields.billable, fields.notes].forEach((input) => {
       if (input) input.disabled = false;
@@ -4338,7 +4339,8 @@
       fields.clientProject,
       comboOptions,
       selectedCombo,
-      "Client / Project"
+      "Client / Project",
+      { disabled: true, hidden: true, type: "placeholder" }
     );
     fields.clientProject.disabled = comboOptions.length === 0;
 

@@ -4630,6 +4630,12 @@ body[data-theme="dark"] #inputs-view .input-row-head .cell-notes {
   font-weight: 600;
 }
 
+#inputs-view .input-row-body .cell-project select optgroup {
+  color: var(--ink);
+  font-weight: 600;
+  font-style: normal;
+}
+
 #inputs-view .input-row-body .cell-project select option[data-item-type="group-spacer"],
 #inputs-view .input-row-body .cell-project select option[data-item-type="group-spacer"]:disabled {
   color: transparent;

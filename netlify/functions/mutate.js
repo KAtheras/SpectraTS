@@ -986,11 +986,11 @@ function validateEntry(entry, currentUser) {
   if (!normalizeText(entry.date)) {
     return "Date is required.";
   }
-  if (!normalizeText(entry.client)) {
-    return "Client is required.";
-  }
-  if (!normalizeText(entry.project)) {
-    return "Project is required.";
+  const projectId = normalizeText(entry.projectId || entry.project_id);
+  const chargeCenterId = normalizeText(entry.chargeCenterId || entry.charge_center_id);
+  const hasLegacyProject = normalizeText(entry.client) && normalizeText(entry.project);
+  if (!projectId && !chargeCenterId && !hasLegacyProject) {
+    return "Client / Project or Corporate Function is required.";
   }
 
   const hours = normalizeHours(entry.hours);
@@ -1003,6 +1003,44 @@ function validateEntry(entry, currentUser) {
   }
 
   return "";
+}
+
+async function findProjectById(sql, projectId, accountId) {
+  const id = Number(projectId);
+  if (!Number.isFinite(id)) return null;
+  const rows = await sql`
+    SELECT
+      projects.id,
+      projects.name,
+      projects.client_id,
+      clients.name AS client
+    FROM projects
+    JOIN clients ON clients.id = projects.client_id
+    WHERE projects.id = ${id}
+      AND projects.account_id = ${accountId}::uuid
+    LIMIT 1
+  `;
+  return rows[0] || null;
+}
+
+async function findCorporateFunctionCategoryById(sql, categoryId, accountId) {
+  const id = normalizeText(categoryId);
+  if (!id) return null;
+  const rows = await sql`
+    SELECT
+      c.id,
+      c.name,
+      c.group_id,
+      COALESCE(g.name, c.group_name, 'Other') AS group_name
+    FROM corporate_function_categories c
+    LEFT JOIN corporate_function_groups g
+      ON g.id = c.group_id
+     AND g.account_id = c.account_id
+    WHERE c.id = ${id}
+      AND c.account_id = ${accountId}::uuid
+    LIMIT 1
+  `;
+  return rows[0] || null;
 }
 
 async function updateLevelLabels(sql, payload, accountId) {
@@ -2701,10 +2739,33 @@ async function saveEntry(sql, payload, currentUser, accountId) {
     return errorResponse(400, validationError);
   }
 
-  const project = await findProject(sql, entry.client, entry.project, accountId);
-  if (!project) {
-    return errorResponse(404, "Project not found.");
+  const requestedProjectId = normalizeText(entry.projectId || entry.project_id);
+  const requestedChargeCenterId = normalizeText(entry.chargeCenterId || entry.charge_center_id);
+  if (requestedProjectId && requestedChargeCenterId) {
+    return errorResponse(400, "Select either a project or a corporate function category.");
   }
+  const project = requestedProjectId
+    ? await findProjectById(sql, requestedProjectId, accountId)
+    : await findProject(sql, entry.client, entry.project, accountId);
+  const corporateCategory = requestedChargeCenterId
+    ? await findCorporateFunctionCategoryById(sql, requestedChargeCenterId, accountId)
+    : null;
+  if (!project && !corporateCategory) {
+    return errorResponse(404, "Project or corporate function category not found.");
+  }
+  const isCorporateEntry = Boolean(corporateCategory) && !project;
+  const normalizedClient = isCorporateEntry
+    ? "Internal"
+    : normalizeText(project?.client || entry.client);
+  const normalizedProject = isCorporateEntry
+    ? `${normalizeText(corporateCategory.group_name)} / ${normalizeText(corporateCategory.name)}`
+    : normalizeText(project?.name || entry.project);
+  const normalizedProjectId = isCorporateEntry ? null : project?.id || null;
+  const normalizedChargeCenterId = isCorporateEntry ? normalizeText(corporateCategory.id) : null;
+  entry.client = normalizedClient;
+  entry.project = normalizedProject;
+  entry.projectId = normalizedProjectId;
+  entry.chargeCenterId = normalizedChargeCenterId;
 
   const targetUser = canActOnBehalf
     ? actingContext.ownerUser
@@ -2723,14 +2784,18 @@ async function saveEntry(sql, payload, currentUser, accountId) {
   if (isAdmin(currentUser)) {
     // Full access.
   } else if (isManager(currentUser)) {
-    const hasAccess = await managerHasProjectAccess(
-      sql,
-      currentUser.id,
-      project.id,
-      accountId
-    );
-    if (!hasAccess) {
-      return errorResponse(403, "You are not assigned to this project.");
+    if (!isCorporateEntry) {
+      const hasAccess = await managerHasProjectAccess(
+        sql,
+        currentUser.id,
+        project.id,
+        accountId
+      );
+      if (!hasAccess) {
+        return errorResponse(403, "You are not assigned to this project.");
+      }
+    } else if (!canActOnBehalf && targetUser.id !== currentUser.id) {
+      return errorResponse(403, "You can only save your own internal entries.");
     }
     if (!canActOnBehalf && targetUser.id !== currentUser.id && targetGroup !== "staff") {
       return errorResponse(403, "Managers can only edit staff time.");
@@ -2739,19 +2804,21 @@ async function saveEntry(sql, payload, currentUser, accountId) {
     if (!canActOnBehalf && targetUser.id !== currentUser.id) {
       return errorResponse(403, "You can only save entries for your own account.");
     }
-    const memberRows = await sql`
-      SELECT id
-      FROM project_members
-      WHERE project_id = ${project.id}
-        AND user_id = ${currentUser.id}
-      LIMIT 1
-    `;
-    if (!memberRows[0]) {
-      return errorResponse(403, "You are not assigned to this project.");
+    if (!isCorporateEntry) {
+      const memberRows = await sql`
+        SELECT id
+        FROM project_members
+        WHERE project_id = ${project.id}
+          AND user_id = ${currentUser.id}
+        LIMIT 1
+      `;
+      if (!memberRows[0]) {
+        return errorResponse(403, "You are not assigned to this project.");
+      }
     }
   }
 
-  if (targetGroup === "staff") {
+  if (!isCorporateEntry && targetGroup === "staff") {
     const memberRows = await sql`
       SELECT id
       FROM project_members
@@ -2785,6 +2852,8 @@ async function saveEntry(sql, payload, currentUser, accountId) {
       entry_date,
       client_name,
       project_name,
+      project_id,
+      charge_center_id,
       task,
       hours,
       notes,
@@ -2852,6 +2921,8 @@ async function saveEntry(sql, payload, currentUser, accountId) {
       entry_date,
       client_name,
       project_name,
+      project_id,
+      charge_center_id,
       task,
       hours,
       notes,
@@ -2869,6 +2940,8 @@ async function saveEntry(sql, payload, currentUser, accountId) {
       ${normalizeText(entry.date)},
       ${normalizeText(entry.client)},
       ${normalizeText(entry.project)},
+      ${entry.projectId || null},
+      ${entry.chargeCenterId || null},
       ${normalizeText(entry.task)},
       ${normalizeHours(entry.hours)},
       ${normalizeText(entry.notes)},
@@ -2885,6 +2958,8 @@ async function saveEntry(sql, payload, currentUser, accountId) {
       entry_date = EXCLUDED.entry_date,
       client_name = EXCLUDED.client_name,
       project_name = EXCLUDED.project_name,
+      project_id = EXCLUDED.project_id,
+      charge_center_id = EXCLUDED.charge_center_id,
       task = EXCLUDED.task,
       hours = EXCLUDED.hours,
       notes = EXCLUDED.notes,
