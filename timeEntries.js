@@ -51,9 +51,13 @@
         const canBypassProjectScope =
           (typeof isAdmin === "function" && isAdmin(scopeUser)) ||
           (typeof isExecutive === "function" && isExecutive(scopeUser));
+        const entryClient = `${entry.client || ""}`.trim();
+        const entryProject = `${entry.project || ""}`.trim();
+        const isInternalEntry = !entryClient && !entryProject;
         if (
           !canBypassProjectScope &&
           allowedTupleKeys.size &&
+          !isInternalEntry &&
           !allowedTupleKeys.has(`${entry.client || ""}::${entry.project || ""}`)
         ) {
           return false;
@@ -211,13 +215,15 @@
     }
 
     refs.entriesBody.innerHTML = filteredEntries
-      .map(
-        (entry) => `
+      .map((entry) => {
+        const clientLabel = `${entry.client || ""}`.trim() || "Internal";
+        const projectLabel = `${entry.project || ""}`.trim() || `${entry.task || ""}`.trim() || "Internal";
+        return `
           <tr class="entry-row ${entry.status === "approved" ? "entry-approved" : ""}">
             <td>${escapeHtml(formatDisplayDateShort(entry.date))}</td>
             <td>${escapeHtml(entry.user)}</td>
-            <td>${escapeHtml(entry.client)}</td>
-            <td>${escapeHtml(entry.project)}</td>
+            <td>${escapeHtml(clientLabel)}</td>
+            <td>${escapeHtml(projectLabel)}</td>
             <td>${entry.hours.toFixed(2)}</td>
             <td>
               <span
@@ -268,8 +274,8 @@
               </button>
             </td>
           </tr>
-        `
-      )
+        `;
+      })
       .join("");
   }
 
@@ -353,12 +359,6 @@
     }
     if (!data.date) {
       return "Date is required.";
-    }
-    if (!data.client) {
-      return "Client is required.";
-    }
-    if (!data.project) {
-      return "Project is required.";
     }
     if (!Number.isFinite(data.hours) || data.hours <= 0 || data.hours > 24) {
       return "Hours must be between 0.25 and 24.";

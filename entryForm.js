@@ -490,7 +490,7 @@
       deps,
       projectField,
       allowedProjects,
-      nextClient ? "All projects" : "Choose client first",
+      nextClient ? "All projects" : "Select client (for project entries)",
       nextProject
     );
 
