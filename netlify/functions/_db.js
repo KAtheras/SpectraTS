@@ -483,13 +483,13 @@ async function ensureSchema(sql) {
     FROM clients
     JOIN projects
       ON projects.client_id = clients.id
-     AND LOWER(projects.name) = LOWER(entries.project_name)
     WHERE entries.account_id = ${accountUuid}::uuid
       AND entries.account_id = clients.account_id
       AND projects.account_id = entries.account_id
       AND entries.project_id IS NULL
       AND entries.charge_center_id IS NULL
       AND LOWER(clients.name) = LOWER(entries.client_name)
+      AND LOWER(projects.name) = LOWER(entries.project_name)
   `;
 
   await sql`
