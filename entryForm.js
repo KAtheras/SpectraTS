@@ -500,7 +500,12 @@
     const allowedClientsFiltered = allowedClientsRaw.filter((client) =>
       entryClients.includes(client)
     );
-    const allowedClients = allowedClientsFiltered;
+    const allowedClients = [
+      ...allowedClientsFiltered
+        .filter((client) => client !== "Internal")
+        .sort((a, b) => a.localeCompare(b)),
+      ...(allowedClientsFiltered.includes("Internal") ? ["Internal"] : []),
+    ];
     const nextClient = allowedClients.includes(requestedClient) ? requestedClient : "";
     const requestedProject = selection?.project ?? projectField?.value ?? "";
     const entryProjects = uniqueValues(

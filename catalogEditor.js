@@ -600,7 +600,13 @@
     }
 
     if (refs.expenseFilterClient) {
-      const clients = uniqueValues(expenseRows.map((row) => row.clientName).filter(Boolean));
+      const clientsRaw = uniqueValues(expenseRows.map((row) => row.clientName).filter(Boolean));
+      const clients = [
+        ...clientsRaw
+          .filter((client) => client !== "Internal")
+          .sort((a, b) => a.localeCompare(b)),
+        ...(clientsRaw.includes("Internal") ? ["Internal"] : []),
+      ];
       setSelectOptionsWithPlaceholder(
         { escapeHtml },
         refs.expenseFilterClient,
