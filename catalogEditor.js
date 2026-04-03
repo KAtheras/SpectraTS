@@ -617,7 +617,7 @@
     }
 
     if (refs.expenseFilterProject) {
-      const allowProjectSelection = Boolean(selectedClient) && selectedClient !== "Internal";
+      const allowProjectSelection = Boolean(selectedClient);
       const projects = uniqueValues(
         expenseRows
           .filter((row) => allowProjectSelection && row.clientName === selectedClient)
