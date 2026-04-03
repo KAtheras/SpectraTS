@@ -3833,9 +3833,15 @@
       return projectItems;
     }
     const corporateItems = corporateGroups.flatMap((group) => {
+      const groupSpacer = {
+        type: "group-spacer",
+        value: `spacer-${group.groupId}`,
+        label: " ",
+        disabled: true,
+      };
       const groupLabel = {
         type: "label",
-        value: `${INPUTS_COMBO_SECTION_VALUE}::${group.groupId}`,
+        value: `${INPUTS_COMBO_SECTION_VALUE}-${group.groupId}`,
         label: group.groupName,
         disabled: true,
       };
@@ -3843,14 +3849,14 @@
         type: "corporate",
         id: `${category?.id || ""}`.trim(),
         group_name: group.groupName,
-        label: `   ${category?.name || ""}`,
+        label: `\u00A0\u00A0\u00A0${category?.name || ""}`,
         value: encodeInputsCorporateCombo(category?.id || ""),
       }));
-      return [groupLabel, ...categoryItems];
+      return [groupSpacer, groupLabel, ...categoryItems];
     });
     const sectionHeader = {
       type: "label",
-      value: `${INPUTS_COMBO_SECTION_VALUE}::corporate-functions`,
+      value: `${INPUTS_COMBO_SECTION_VALUE}-corporate-functions`,
       label: "Corporate Functions",
       disabled: true,
     };
