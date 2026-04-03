@@ -3223,6 +3223,17 @@ body[data-theme="dark"] .audit-detail-col {
   vertical-align: top;
 }
 
+.entries-table .entry-cell-truncate {
+  max-width: 220px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.entries-table .entry-status-empty-cell {
+  width: 120px;
+}
+
 .notes-cell {
   width: 60px;
   text-align: center;

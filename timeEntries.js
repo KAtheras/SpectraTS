@@ -216,14 +216,33 @@
 
     refs.entriesBody.innerHTML = filteredEntries
       .map((entry) => {
+        const projectId = `${entry?.projectId || entry?.project_id || ""}`.trim();
+        const chargeCenterId = `${entry?.chargeCenterId || entry?.charge_center_id || ""}`.trim();
         const clientLabel = `${entry.client || ""}`.trim() || "Internal";
         const projectLabel = `${entry.project || ""}`.trim() || `${entry.task || ""}`.trim() || "Internal";
+        const isInternalEntry =
+          !projectId && (Boolean(chargeCenterId) || clientLabel.toLowerCase() === "internal");
+        const statusMarkup = isInternalEntry
+          ? ""
+          : `<span
+                class="entry-status entry-status-${entry.status} ${
+                  canManageApproval(entry) ? "entry-status-clickable" : ""
+                }"
+                ${canManageApproval(entry) ? `data-action="toggle-status" data-id="${entry.id}" role="button" tabindex="0"` : ""}
+                aria-label="${entry.status === "approved" ? "Approved" : "Pending"}"
+              >
+                ${entry.status === "approved" ? "Approved" : "Pending"}
+              </span>`;
         return `
           <tr class="entry-row ${entry.status === "approved" ? "entry-approved" : ""}">
             <td>${escapeHtml(formatDisplayDateShort(entry.date))}</td>
             <td>${escapeHtml(entry.user)}</td>
-            <td>${escapeHtml(clientLabel)}</td>
-            <td>${escapeHtml(projectLabel)}</td>
+            <td class="${isInternalEntry ? "entry-cell-truncate" : ""}"${
+              isInternalEntry ? ` title="${escapeHtml(clientLabel)}"` : ""
+            }>${escapeHtml(clientLabel)}</td>
+            <td class="${isInternalEntry ? "entry-cell-truncate" : ""}"${
+              isInternalEntry ? ` title="${escapeHtml(projectLabel)}"` : ""
+            }>${escapeHtml(projectLabel)}</td>
             <td>${entry.hours.toFixed(2)}</td>
             <td>
               <span
@@ -254,16 +273,8 @@
                     </button>`
               }
             </td>
-            <td>
-              <span
-                class="entry-status entry-status-${entry.status} ${
-                  canManageApproval(entry) ? "entry-status-clickable" : ""
-                }"
-                ${canManageApproval(entry) ? `data-action="toggle-status" data-id="${entry.id}" role="button" tabindex="0"` : ""}
-                aria-label="${entry.status === "approved" ? "Approved" : "Pending"}"
-              >
-                ${entry.status === "approved" ? "Approved" : "Pending"}
-              </span>
+            <td class="${isInternalEntry ? "entry-status-empty-cell" : ""}">
+              ${statusMarkup}
             </td>
             <td class="actions-cell">
               <button class="text-button" type="button" data-action="edit" data-id="${entry.id}">

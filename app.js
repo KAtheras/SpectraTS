@@ -4331,7 +4331,7 @@
   }
 
   function inputsExpenseComboOptions() {
-    return inputsTimeComboOptions().filter((item) => item?.type === "project");
+    return inputsTimeComboOptions();
   }
 
   function inputsExpenseCategoryOptions() {
@@ -4529,8 +4529,15 @@
       const nextExpense = {
         id: existingId || crypto.randomUUID(),
         userId: state.currentUser?.id || "",
-        clientName: clientName || "",
-        projectName: projectName || "",
+        clientName: isCorporate ? "Internal" : clientName || "",
+        projectName: isCorporate
+          ? (() => {
+              const categoryName = `${selection.label || ""}`.replace(/\s+/g, " ").trim();
+              const groupName = `${selection.group_name || ""}`.trim();
+              if (groupName && categoryName) return `${groupName} / ${categoryName}`;
+              return categoryName || groupName || "Internal";
+            })()
+          : projectName || "",
         expenseDate: parseInputsTimeDateValue(current.date?.value || ""),
         category: current.category?.value || "",
         amount: Number(current.amount?.value),
