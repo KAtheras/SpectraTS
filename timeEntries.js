@@ -220,8 +220,7 @@
         const chargeCenterId = `${entry?.chargeCenterId || entry?.charge_center_id || ""}`.trim();
         const clientLabel = `${entry.client || ""}`.trim() || "Internal";
         const projectLabel = `${entry.project || ""}`.trim() || `${entry.task || ""}`.trim() || "Internal";
-        const isInternalEntry =
-          !projectId && (Boolean(chargeCenterId) || clientLabel.toLowerCase() === "internal");
+        const isInternalEntry = Boolean(chargeCenterId);
         const statusMarkup = isInternalEntry
           ? ""
           : `<span

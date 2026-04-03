@@ -2644,13 +2644,13 @@ async function loadState(sql, currentUser) {
         u.id AS "userId",
         TO_CHAR(entries.entry_date, 'YYYY-MM-DD') AS date,
         CASE
-          WHEN entries.project_id IS NULL THEN 'Internal'
+          WHEN entries.charge_center_id IS NOT NULL THEN 'Internal'
           ELSE COALESCE(clients.name, entries.client_name, 'Internal')
         END AS client,
         CASE
-          WHEN entries.project_id IS NULL
+          WHEN entries.charge_center_id IS NOT NULL
             THEN COALESCE(NULLIF(TRIM(CONCAT_WS(' / ', NULLIF(TRIM(cfg.name), ''), NULLIF(TRIM(cfc.name), ''))), ''), NULLIF(TRIM(entries.project_name), ''), 'Internal')
-          ELSE COALESCE(projects.name, entries.project_name, 'Internal')
+          ELSE COALESCE(projects.name, NULLIF(TRIM(entries.project_name), ''), 'Internal')
         END AS project,
         entries.project_id AS "projectId",
         entries.charge_center_id AS "chargeCenterId",
@@ -2694,13 +2694,13 @@ async function loadState(sql, currentUser) {
           users.id AS "userId",
           TO_CHAR(entries.entry_date, 'YYYY-MM-DD') AS date,
           CASE
-            WHEN entries.project_id IS NULL THEN 'Internal'
+            WHEN entries.charge_center_id IS NOT NULL THEN 'Internal'
             ELSE COALESCE(clients.name, entries.client_name, 'Internal')
           END AS client,
           CASE
-            WHEN entries.project_id IS NULL
-              THEN COALESCE(NULLIF(TRIM(CONCAT_WS(' / ', NULLIF(TRIM(cfg.name), ''), NULLIF(TRIM(cfc.name), ''))), ''), NULLIF(TRIM(entries.project_name), ''), 'Internal')
-            ELSE COALESCE(projects.name, entries.project_name, 'Internal')
+            WHEN entries.charge_center_id IS NOT NULL
+            THEN COALESCE(NULLIF(TRIM(CONCAT_WS(' / ', NULLIF(TRIM(cfg.name), ''), NULLIF(TRIM(cfc.name), ''))), ''), NULLIF(TRIM(entries.project_name), ''), 'Internal')
+          ELSE COALESCE(projects.name, NULLIF(TRIM(entries.project_name), ''), 'Internal')
           END AS project,
           entries.project_id AS "projectId",
           entries.charge_center_id AS "chargeCenterId",
@@ -2749,13 +2749,13 @@ async function loadState(sql, currentUser) {
         u.id AS "userId",
         TO_CHAR(entries.entry_date, 'YYYY-MM-DD') AS date,
         CASE
-          WHEN entries.project_id IS NULL THEN 'Internal'
+          WHEN entries.charge_center_id IS NOT NULL THEN 'Internal'
           ELSE COALESCE(clients.name, entries.client_name, 'Internal')
         END AS client,
         CASE
-          WHEN entries.project_id IS NULL
+          WHEN entries.charge_center_id IS NOT NULL
             THEN COALESCE(NULLIF(TRIM(CONCAT_WS(' / ', NULLIF(TRIM(cfg.name), ''), NULLIF(TRIM(cfc.name), ''))), ''), NULLIF(TRIM(entries.project_name), ''), 'Internal')
-          ELSE COALESCE(projects.name, entries.project_name, 'Internal')
+          ELSE COALESCE(projects.name, NULLIF(TRIM(entries.project_name), ''), 'Internal')
         END AS project,
         entries.project_id AS "projectId",
         entries.charge_center_id AS "chargeCenterId",
@@ -2831,13 +2831,13 @@ async function loadState(sql, currentUser) {
           u.id AS "userId",
           TO_CHAR(entries.entry_date, 'YYYY-MM-DD') AS date,
           CASE
-            WHEN entries.project_id IS NULL THEN 'Internal'
+            WHEN entries.charge_center_id IS NOT NULL THEN 'Internal'
             ELSE COALESCE(clients.name, entries.client_name, 'Internal')
           END AS client,
           CASE
-            WHEN entries.project_id IS NULL
-              THEN COALESCE(NULLIF(TRIM(CONCAT_WS(' / ', NULLIF(TRIM(cfg.name), ''), NULLIF(TRIM(cfc.name), ''))), ''), NULLIF(TRIM(entries.project_name), ''), 'Internal')
-            ELSE COALESCE(projects.name, entries.project_name, 'Internal')
+            WHEN entries.charge_center_id IS NOT NULL
+            THEN COALESCE(NULLIF(TRIM(CONCAT_WS(' / ', NULLIF(TRIM(cfg.name), ''), NULLIF(TRIM(cfc.name), ''))), ''), NULLIF(TRIM(entries.project_name), ''), 'Internal')
+          ELSE COALESCE(projects.name, NULLIF(TRIM(entries.project_name), ''), 'Internal')
           END AS project,
           entries.project_id AS "projectId",
           entries.charge_center_id AS "chargeCenterId",
@@ -2880,13 +2880,13 @@ async function loadState(sql, currentUser) {
             u.id AS "userId",
             TO_CHAR(entries.entry_date, 'YYYY-MM-DD') AS date,
             CASE
-              WHEN entries.project_id IS NULL THEN 'Internal'
+              WHEN entries.charge_center_id IS NOT NULL THEN 'Internal'
               ELSE COALESCE(clients.name, entries.client_name, 'Internal')
             END AS client,
             CASE
-              WHEN entries.project_id IS NULL
-                THEN COALESCE(NULLIF(TRIM(CONCAT_WS(' / ', NULLIF(TRIM(cfg.name), ''), NULLIF(TRIM(cfc.name), ''))), ''), NULLIF(TRIM(entries.project_name), ''), 'Internal')
-              ELSE COALESCE(projects.name, entries.project_name, 'Internal')
+              WHEN entries.charge_center_id IS NOT NULL
+            THEN COALESCE(NULLIF(TRIM(CONCAT_WS(' / ', NULLIF(TRIM(cfg.name), ''), NULLIF(TRIM(cfc.name), ''))), ''), NULLIF(TRIM(entries.project_name), ''), 'Internal')
+          ELSE COALESCE(projects.name, NULLIF(TRIM(entries.project_name), ''), 'Internal')
             END AS project,
             entries.project_id AS "projectId",
             entries.charge_center_id AS "chargeCenterId",
@@ -2940,13 +2940,13 @@ async function loadState(sql, currentUser) {
               users.id AS "userId",
               TO_CHAR(entries.entry_date, 'YYYY-MM-DD') AS date,
               CASE
-                WHEN entries.project_id IS NULL THEN 'Internal'
+                WHEN entries.charge_center_id IS NOT NULL THEN 'Internal'
                 ELSE COALESCE(clients.name, entries.client_name, 'Internal')
               END AS client,
               CASE
-                WHEN entries.project_id IS NULL
-                  THEN COALESCE(NULLIF(TRIM(CONCAT_WS(' / ', NULLIF(TRIM(cfg.name), ''), NULLIF(TRIM(cfc.name), ''))), ''), NULLIF(TRIM(entries.project_name), ''), 'Internal')
-                ELSE COALESCE(projects.name, entries.project_name, 'Internal')
+                WHEN entries.charge_center_id IS NOT NULL
+            THEN COALESCE(NULLIF(TRIM(CONCAT_WS(' / ', NULLIF(TRIM(cfg.name), ''), NULLIF(TRIM(cfc.name), ''))), ''), NULLIF(TRIM(entries.project_name), ''), 'Internal')
+          ELSE COALESCE(projects.name, NULLIF(TRIM(entries.project_name), ''), 'Internal')
               END AS project,
               entries.project_id AS "projectId",
               entries.charge_center_id AS "chargeCenterId",
