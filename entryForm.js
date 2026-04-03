@@ -494,6 +494,9 @@
         ? clientNames()
         : allowedClientsForUser(targetUser)
       : clientNames();
+    if (entryClients.includes("Internal") && !allowedClientsRaw.includes("Internal")) {
+      allowedClientsRaw.push("Internal");
+    }
     const allowedClientsFiltered = allowedClientsRaw.filter((client) =>
       entryClients.includes(client)
     );
