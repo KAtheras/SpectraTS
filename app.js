@@ -2,6 +2,9 @@
   const THEME_STORAGE_KEY = "timesheet-studio.theme.v1";
   const VIEW_STORAGE_KEY = "timesheet-studio.view.v1";
   const LAST_INPUTS_COMBO_STORAGE_KEY = "timesheet-studio.inputs.last-client-project.v1";
+  const INPUTS_COMBO_CORPORATE_PREFIX = "__corp__::";
+  const INPUTS_COMBO_SECTION_VALUE = "__section__";
+  const INPUTS_COMBO_DIVIDER_VALUE = "__divider__";
   const body = document.body;
   const normalizedPath = window.location.pathname.replace(/\/+$/, "") || "/";
   if (normalizedPath === "/set-password") {
@@ -1224,10 +1227,12 @@
     inputsTimeCalendarEndDate: today,
     inputsTimeSelectedDate: today,
     inputsTimeSelectedClientProject: "",
+    inputsTimeSelectedCorporateCategoryId: "",
     inputsExpenseCalendarExpanded: false,
     inputsExpenseCalendarEndDate: today,
     inputsExpenseSelectedDate: today,
     inputsExpenseSelectedClientProject: "",
+    inputsExpenseSelectedCorporateCategoryId: "",
     pendingInputsTimeEditId: "",
     pendingInputsExpenseEditId: "",
     entriesSubtab: "time", // "time" | "expenses"
@@ -3393,8 +3398,19 @@
     return `${encodeURIComponent(clientName || "")}::${encodeURIComponent(projectName || "")}`;
   }
 
+  function encodeInputsCorporateCombo(categoryId) {
+    return `${INPUTS_COMBO_CORPORATE_PREFIX}${encodeURIComponent(categoryId || "")}`;
+  }
+
+  function decodeInputsCorporateCombo(value) {
+    const text = String(value || "").trim();
+    if (!text.startsWith(INPUTS_COMBO_CORPORATE_PREFIX)) return "";
+    return decodeURIComponent(text.slice(INPUTS_COMBO_CORPORATE_PREFIX.length) || "");
+  }
+
   function decodeInputsTimeCombo(value) {
     const text = String(value || "");
+    if (!text || text.startsWith(INPUTS_COMBO_CORPORATE_PREFIX)) return ["", ""];
     const splitAt = text.indexOf("::");
     if (splitAt < 0) return ["", ""];
     return [
@@ -3425,7 +3441,63 @@
     const stored = readLastInputsClientProjectCombo();
     if (!stored) return "";
     const list = Array.isArray(options) ? options : [];
-    return list.some((item) => `${item?.value || ""}`.trim() === stored) ? stored : "";
+    return list.some((item) => `${item?.value || ""}`.trim() === stored && !item?.disabled)
+      ? stored
+      : "";
+  }
+
+  function findProjectIdByClientProject(clientName, projectName) {
+    const match = (state.projects || []).find(
+      (item) =>
+        `${item?.client || ""}`.trim() === `${clientName || ""}`.trim() &&
+        `${item?.name || item?.project || ""}`.trim() === `${projectName || ""}`.trim()
+    );
+    return `${match?.id || ""}`.trim();
+  }
+
+  function groupedCorporateFunctionCategoriesForInputs() {
+    const groups = Array.isArray(state.corporateFunctionGroups)
+      ? state.corporateFunctionGroups.slice().sort((a, b) => (Number(a?.sortOrder) || 0) - (Number(b?.sortOrder) || 0))
+      : [];
+    const categories = Array.isArray(state.corporateFunctionCategories)
+      ? state.corporateFunctionCategories
+          .slice()
+          .sort((a, b) => (Number(a?.sortOrder) || 0) - (Number(b?.sortOrder) || 0))
+      : [];
+    return groups
+      .map((group) => ({
+        groupId: `${group?.id || ""}`.trim(),
+        groupName: `${group?.name || ""}`.trim(),
+        categories: categories.filter((item) => `${item?.groupId || ""}`.trim() === `${group?.id || ""}`.trim()),
+      }))
+      .filter((item) => item.groupId && item.groupName && item.categories.length);
+  }
+
+  function readInputsComboSelectionMeta(selectEl) {
+    const option = selectEl?.selectedOptions?.[0] || null;
+    const value = `${selectEl?.value || ""}`.trim();
+    const type = `${option?.dataset?.itemType || ""}`.trim();
+    const id = `${option?.dataset?.itemId || ""}`.trim();
+    const groupName = `${option?.dataset?.groupName || ""}`.trim();
+    if (type === "corporate" || value.startsWith(INPUTS_COMBO_CORPORATE_PREFIX)) {
+      return {
+        type: "corporate",
+        id: id || decodeInputsCorporateCombo(value),
+        group_name: groupName,
+        label: `${option?.textContent || ""}`.trim(),
+      };
+    }
+    const [clientName, projectName] = decodeInputsTimeCombo(value);
+    if (clientName && projectName) {
+      return {
+        type: "project",
+        id: id || findProjectIdByClientProject(clientName, projectName),
+        client: clientName,
+        project: projectName,
+        label: `${option?.textContent || ""}`.trim(),
+      };
+    }
+    return { type: "", id: "", label: "" };
   }
 
   function parseInputsTimeDateValue(value) {
@@ -3748,16 +3820,62 @@
   }
 
   function inputsTimeComboOptions() {
-    return assignedProjectTuplesForCurrentUser().map((item) => ({
+    const projectItems = assignedProjectTuplesForCurrentUser().map((item) => ({
+      type: "project",
+      id: findProjectIdByClientProject(item.client, item.project),
+      client: item.client,
+      project: item.project,
       label: `${item.client} / ${item.project}`,
       value: encodeInputsTimeCombo(item.client, item.project),
     }));
+    const corporateGroups = groupedCorporateFunctionCategoriesForInputs();
+    if (!corporateGroups.length) {
+      return projectItems;
+    }
+    const corporateItems = corporateGroups.flatMap((group) => {
+      const groupLabel = {
+        type: "label",
+        value: `${INPUTS_COMBO_SECTION_VALUE}::${group.groupId}`,
+        label: group.groupName,
+        disabled: true,
+      };
+      const categoryItems = group.categories.map((category) => ({
+        type: "corporate",
+        id: `${category?.id || ""}`.trim(),
+        group_name: group.groupName,
+        label: `   ${category?.name || ""}`,
+        value: encodeInputsCorporateCombo(category?.id || ""),
+      }));
+      return [groupLabel, ...categoryItems];
+    });
+    const sectionHeader = {
+      type: "label",
+      value: `${INPUTS_COMBO_SECTION_VALUE}::corporate-functions`,
+      label: "Corporate Functions",
+      disabled: true,
+    };
+    const divider = {
+      type: "divider",
+      value: INPUTS_COMBO_DIVIDER_VALUE,
+      label: "──────────",
+      disabled: true,
+    };
+    return [
+      ...projectItems,
+      ...(projectItems.length ? [divider] : []),
+      sectionHeader,
+      ...corporateItems,
+    ];
   }
 
   function applyInputsTimeBillableDefaultForRow(row) {
     const fields = inputsTimeRowFields(row);
     if (!fields.clientProject || !fields.billable) return;
-    const [, projectName] = decodeInputsTimeCombo(fields.clientProject.value);
+    const selection = readInputsComboSelectionMeta(fields.clientProject);
+    if (selection.type !== "project") {
+      return;
+    }
+    const projectName = selection.project || "";
     fields.billable.checked = !isNonBillableDefault(projectName || "");
   }
 
@@ -3866,7 +3984,24 @@
     if (!fields.clientProject) return;
 
     fields.clientProject.addEventListener("change", function () {
-      applyInputsTimeBillableDefaultForRow(row);
+      const selection = readInputsComboSelectionMeta(fields.clientProject);
+      if (selection.type === "project") {
+        row.dataset.inputsSelectionType = "project";
+        row.dataset.projectId = `${selection.id || ""}`.trim();
+        row.dataset.corporateCategoryId = "";
+        state.inputsTimeSelectedCorporateCategoryId = "";
+        applyInputsTimeBillableDefaultForRow(row);
+      } else if (selection.type === "corporate") {
+        row.dataset.inputsSelectionType = "corporate";
+        row.dataset.projectId = "";
+        row.dataset.corporateCategoryId = `${selection.id || ""}`.trim();
+        state.inputsTimeSelectedCorporateCategoryId = `${selection.id || ""}`.trim();
+      } else {
+        row.dataset.inputsSelectionType = "";
+        row.dataset.projectId = "";
+        row.dataset.corporateCategoryId = "";
+        state.inputsTimeSelectedCorporateCategoryId = "";
+      }
       row.dataset.lastCombo = fields.clientProject.value || "";
     });
 
@@ -4167,10 +4302,7 @@
   }
 
   function inputsExpenseComboOptions() {
-    return assignedProjectTuplesForCurrentUser().map((item) => ({
-      label: `${item.client} / ${item.project}`,
-      value: encodeInputsTimeCombo(item.client, item.project),
-    }));
+    return inputsTimeComboOptions();
   }
 
   function inputsExpenseCategoryOptions() {
@@ -4183,7 +4315,11 @@
   function applyInputsExpenseBillableDefaultForRow(row) {
     const fields = inputsExpenseRowFields(row);
     if (!fields.clientProject || !fields.billable) return;
-    const [, projectName] = decodeInputsTimeCombo(fields.clientProject.value);
+    const selection = readInputsComboSelectionMeta(fields.clientProject);
+    if (selection.type !== "project") {
+      return;
+    }
+    const projectName = selection.project || "";
     fields.billable.checked = !isNonBillableDefault(projectName || "");
   }
 
@@ -4293,7 +4429,24 @@
     if (!fields.clientProject) return;
 
     fields.clientProject.addEventListener("change", function () {
-      applyInputsExpenseBillableDefaultForRow(row);
+      const selection = readInputsComboSelectionMeta(fields.clientProject);
+      if (selection.type === "project") {
+        row.dataset.inputsSelectionType = "project";
+        row.dataset.projectId = `${selection.id || ""}`.trim();
+        row.dataset.corporateCategoryId = "";
+        state.inputsExpenseSelectedCorporateCategoryId = "";
+        applyInputsExpenseBillableDefaultForRow(row);
+      } else if (selection.type === "corporate") {
+        row.dataset.inputsSelectionType = "corporate";
+        row.dataset.projectId = "";
+        row.dataset.corporateCategoryId = `${selection.id || ""}`.trim();
+        state.inputsExpenseSelectedCorporateCategoryId = `${selection.id || ""}`.trim();
+      } else {
+        row.dataset.inputsSelectionType = "";
+        row.dataset.projectId = "";
+        row.dataset.corporateCategoryId = "";
+        state.inputsExpenseSelectedCorporateCategoryId = "";
+      }
       row.dataset.lastCombo = fields.clientProject.value || "";
     });
 

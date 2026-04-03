@@ -20,31 +20,53 @@
   }
 
   function setSelectOptions({ escapeHtml }, select, options, selectedValue) {
+    const optionMarkup = (option) => {
+      if (typeof option === "string") {
+        return `<option value="${escapeHtml(option)}">${escapeHtml(option)}</option>`;
+      }
+      const value = option?.value ?? "";
+      const label = option?.label ?? value;
+      const disabledAttr = option?.disabled ? " disabled" : "";
+      const dataAttrs = [
+        option?.type ? ` data-item-type="${escapeHtml(option.type)}"` : "",
+        option?.id ? ` data-item-id="${escapeHtml(String(option.id))}"` : "",
+        option?.group_name ? ` data-group-name="${escapeHtml(String(option.group_name))}"` : "",
+        option?.client ? ` data-client="${escapeHtml(String(option.client))}"` : "",
+        option?.project ? ` data-project="${escapeHtml(String(option.project))}"` : "",
+      ].join("");
+      return `<option value="${escapeHtml(String(value))}"${disabledAttr}${dataAttrs}>${escapeHtml(
+        String(label)
+      )}</option>`;
+    };
     select.innerHTML = options
-      .map(function (option) {
-        if (typeof option === "string") {
-          return `<option value="${escapeHtml(option)}">${escapeHtml(option)}</option>`;
-        }
-
-        return `<option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>`;
-      })
+      .map(optionMarkup)
       .join("");
 
     select.value = String(selectedValue);
   }
 
   function setSelectOptionsWithPlaceholder({ escapeHtml }, select, options, selectedValue, placeholder) {
+    const optionMarkup = (option) => {
+      if (typeof option === "string") {
+        return `<option value="${escapeHtml(option)}">${escapeHtml(option)}</option>`;
+      }
+      const value = option?.value ?? "";
+      const label = option?.label ?? value;
+      const disabledAttr = option?.disabled ? " disabled" : "";
+      const dataAttrs = [
+        option?.type ? ` data-item-type="${escapeHtml(option.type)}"` : "",
+        option?.id ? ` data-item-id="${escapeHtml(String(option.id))}"` : "",
+        option?.group_name ? ` data-group-name="${escapeHtml(String(option.group_name))}"` : "",
+        option?.client ? ` data-client="${escapeHtml(String(option.client))}"` : "",
+        option?.project ? ` data-project="${escapeHtml(String(option.project))}"` : "",
+      ].join("");
+      return `<option value="${escapeHtml(String(value))}"${disabledAttr}${dataAttrs}>${escapeHtml(
+        String(label)
+      )}</option>`;
+    };
     select.innerHTML =
       `<option value="">${escapeHtml(placeholder)}</option>` +
-      options
-        .map(function (option) {
-          if (typeof option === "string") {
-            return `<option value="${escapeHtml(option)}">${escapeHtml(option)}</option>`;
-          }
-
-          return `<option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>`;
-        })
-        .join("");
+      options.map(optionMarkup).join("");
 
     select.value = selectedValue || "";
   }
