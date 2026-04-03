@@ -4331,7 +4331,7 @@
   }
 
   function inputsExpenseComboOptions() {
-    return inputsTimeComboOptions();
+    return inputsTimeComboOptions().filter((item) => item?.type === "project");
   }
 
   function inputsExpenseCategoryOptions() {
