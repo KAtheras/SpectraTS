@@ -7582,6 +7582,7 @@
             { groups },
             { skipSettingsMetadataReload: true }
           );
+          await loadPersistentState();
           if (state.currentView === "settings") {
             renderCorporateFunctionCategories?.();
           }
