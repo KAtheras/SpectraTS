@@ -4339,6 +4339,12 @@
     const fields = inputsExpenseRowFields(row);
     if (!fields.clientProject || !fields.billable) return;
     const selection = readInputsComboSelectionMeta(fields.clientProject);
+    if (selection.type === "corporate") {
+      fields.billable.checked = false;
+      fields.billable.disabled = true;
+      return;
+    }
+    fields.billable.disabled = false;
     if (selection.type !== "project") {
       return;
     }
@@ -4465,11 +4471,13 @@
         row.dataset.projectId = "";
         row.dataset.corporateCategoryId = `${selection.id || ""}`.trim();
         state.inputsExpenseSelectedCorporateCategoryId = `${selection.id || ""}`.trim();
+        applyInputsExpenseBillableDefaultForRow(row);
       } else {
         row.dataset.inputsSelectionType = "";
         row.dataset.projectId = "";
         row.dataset.corporateCategoryId = "";
         state.inputsExpenseSelectedCorporateCategoryId = "";
+        applyInputsExpenseBillableDefaultForRow(row);
       }
       row.dataset.lastCombo = fields.clientProject.value || "";
     });
@@ -4500,7 +4508,11 @@
       const current = inputsExpenseRowFields(row);
       const existingId = `${row.dataset.entryId || ""}`.trim();
       const existingCreatedAt = `${row.dataset.createdAt || ""}`.trim();
-      const [clientName, projectName] = decodeInputsTimeCombo(current.clientProject?.value || "");
+      const selection = readInputsComboSelectionMeta(current.clientProject);
+      const isCorporate = selection.type === "corporate";
+      const [clientName, projectName] = isCorporate
+        ? ["", ""]
+        : decodeInputsTimeCombo(current.clientProject?.value || "");
       const actingAsUserId = resolveActingAsUserId();
       const nextExpense = {
         id: existingId || crypto.randomUUID(),
@@ -4510,7 +4522,7 @@
         expenseDate: parseInputsTimeDateValue(current.date?.value || ""),
         category: current.category?.value || "",
         amount: Number(current.amount?.value),
-        isBillable: current.billable ? current.billable.checked : true,
+        isBillable: isCorporate ? false : current.billable ? current.billable.checked : true,
         notes: (current.notes?.value || "").trim(),
         createdAt: existingCreatedAt || new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -4614,6 +4626,7 @@
     if (fields.billable) {
       fields.billable.checked = expense.isBillable !== false;
     }
+    applyInputsExpenseBillableDefaultForRow(row);
     if (fields.notes) {
       fields.notes.value = typeof expense.notes === "string" ? expense.notes : "";
     }
