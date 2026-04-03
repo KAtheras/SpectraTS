@@ -217,10 +217,15 @@
     refs.entriesBody.innerHTML = filteredEntries
       .map((entry) => {
         const projectId = `${entry?.projectId || entry?.project_id || ""}`.trim();
-        const chargeCenterId = `${entry?.chargeCenterId || entry?.charge_center_id || ""}`.trim();
+        const rawChargeCenterId = entry?.chargeCenterId ?? entry?.charge_center_id ?? "";
+        const chargeCenterId = `${rawChargeCenterId}`.trim();
+        const hasChargeCenterId =
+          chargeCenterId !== "" &&
+          chargeCenterId.toLowerCase() !== "null" &&
+          chargeCenterId.toLowerCase() !== "undefined";
         const clientLabel = `${entry.client || ""}`.trim() || "Internal";
         const projectLabel = `${entry.project || ""}`.trim() || `${entry.task || ""}`.trim() || "Internal";
-        const isInternalEntry = Boolean(chargeCenterId);
+        const isInternalEntry = hasChargeCenterId;
         const statusMarkup = isInternalEntry
           ? ""
           : `<span

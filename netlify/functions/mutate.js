@@ -579,11 +579,10 @@ function validateExpense(expense) {
   if (!normalizeText(expense.userId)) {
     return "Team member is required.";
   }
-  if (!normalizeText(expense.clientName)) {
-    return "Client is required.";
-  }
-  if (!normalizeText(expense.projectName)) {
-    return "Project is required.";
+  const chargeCenterId = normalizeText(expense.chargeCenterId || expense.charge_center_id);
+  const hasProjectPath = normalizeText(expense.clientName) && normalizeText(expense.projectName);
+  if (!chargeCenterId && !hasProjectPath) {
+    return "Client / Project or Corporate Function is required.";
   }
   if (!normalizeText(expense.expenseDate)) {
     return "Date is required.";
@@ -1043,6 +1042,14 @@ async function findCorporateFunctionCategoryById(sql, categoryId, accountId) {
     LIMIT 1
   `;
   return rows[0] || null;
+}
+
+function normalizeCorporateProjectLabel(groupName, categoryName, fallbackProjectName) {
+  const group = normalizeText(groupName);
+  const category = normalizeText(categoryName);
+  const fallback = normalizeText(fallbackProjectName);
+  if (group && category) return `${group} / ${category}`;
+  return category || group || fallback || "Internal";
 }
 
 async function updateLevelLabels(sql, payload, accountId) {
@@ -2035,9 +2042,26 @@ async function createExpense(sql, payload, currentUser, accountId) {
     return errorResponse(400, validationError);
   }
 
-  const project = await findProject(sql, expense.clientName, expense.projectName, accountId);
-  if (!project) {
+  const requestedChargeCenterId = normalizeText(expense.chargeCenterId || expense.charge_center_id);
+  const corporateCategory = requestedChargeCenterId
+    ? await findCorporateFunctionCategoryById(sql, requestedChargeCenterId, accountId)
+    : null;
+  let project = null;
+  if (!corporateCategory) {
+    project = await findProject(sql, expense.clientName, expense.projectName, accountId);
+  }
+  const isCorporateExpense =
+    Boolean(corporateCategory) || normalizeText(expense.clientName).toLowerCase() === "internal";
+  if (!project && !isCorporateExpense) {
     return errorResponse(404, "Project not found.");
+  }
+  if (corporateCategory) {
+    expense.clientName = "Internal";
+    expense.projectName = normalizeCorporateProjectLabel(
+      corporateCategory.group_name,
+      corporateCategory.name,
+      expense.projectName
+    );
   }
 
   const targetUser = await findUserById(sql, expense.userId, accountId);
@@ -2049,9 +2073,13 @@ async function createExpense(sql, payload, currentUser, accountId) {
   if (isAdmin(currentUser)) {
     // full access
   } else if (isManager(currentUser)) {
-    const hasAccess = await managerHasProjectAccess(sql, currentUser.id, project.id, accountId);
-    if (!hasAccess) {
-      return errorResponse(403, "You are not assigned to this project.");
+    if (!isCorporateExpense) {
+      const hasAccess = await managerHasProjectAccess(sql, currentUser.id, project.id, accountId);
+      if (!hasAccess) {
+        return errorResponse(403, "You are not assigned to this project.");
+      }
+    } else if (!canActOnBehalf && targetUser.id !== currentUser.id) {
+      return errorResponse(403, "You can only save your own internal expenses.");
     }
     if (!canActOnBehalf && targetUser.id !== currentUser.id && targetGroup !== "staff") {
       return errorResponse(403, "Managers can only edit staff expenses.");
@@ -2060,22 +2088,25 @@ async function createExpense(sql, payload, currentUser, accountId) {
     if (!canActOnBehalf && targetUser.id !== currentUser.id) {
       return errorResponse(403, "You can only save expenses for your own account.");
     }
-    const memberRows = await sql`
-      SELECT id
-      FROM project_members
-      WHERE project_id = ${project.id}
-        AND user_id = ${currentUser.id}
-        AND account_id = ${accountId}::uuid
-      LIMIT 1
-    `;
-    if (!memberRows[0]) {
-      return errorResponse(403, "You are not assigned to this project.");
+    if (!isCorporateExpense) {
+      const memberRows = await sql`
+        SELECT id
+        FROM project_members
+        WHERE project_id = ${project.id}
+          AND user_id = ${currentUser.id}
+          AND account_id = ${accountId}::uuid
+        LIMIT 1
+      `;
+      if (!memberRows[0]) {
+        return errorResponse(403, "You are not assigned to this project.");
+      }
     }
   }
 
   const now = new Date().toISOString();
   const id = normalizeText(expense.id) || randomId();
-  const isBillable = expense.isBillable === false || expense.isBillable === 0 ? 0 : 1;
+  const isBillable =
+    isCorporateExpense || expense.isBillable === false || expense.isBillable === 0 ? 0 : 1;
 
   await sql`
     INSERT INTO expenses (
@@ -2206,6 +2237,7 @@ async function updateExpense(sql, payload, currentUser, accountId) {
         : expense.is_billable !== undefined
           ? expense.is_billable !== 0
           : existing.is_billable !== 0,
+    chargeCenterId: normalizeText(expense.chargeCenterId || expense.charge_center_id),
   };
 
   const validationError = validateExpense(safeExpense);
@@ -2214,9 +2246,25 @@ async function updateExpense(sql, payload, currentUser, accountId) {
   }
 
   const previousProject = await findProject(sql, existing.client_name, existing.project_name, accountId);
-  const project = await findProject(sql, safeExpense.clientName, safeExpense.projectName, accountId);
-  if (!project) {
+  const corporateCategory = safeExpense.chargeCenterId
+    ? await findCorporateFunctionCategoryById(sql, safeExpense.chargeCenterId, accountId)
+    : null;
+  let project = null;
+  if (!corporateCategory) {
+    project = await findProject(sql, safeExpense.clientName, safeExpense.projectName, accountId);
+  }
+  const isCorporateExpense =
+    Boolean(corporateCategory) || normalizeText(safeExpense.clientName).toLowerCase() === "internal";
+  if (!project && !isCorporateExpense) {
     return errorResponse(404, "Project not found.");
+  }
+  if (corporateCategory) {
+    safeExpense.clientName = "Internal";
+    safeExpense.projectName = normalizeCorporateProjectLabel(
+      corporateCategory.group_name,
+      corporateCategory.name,
+      safeExpense.projectName
+    );
   }
 
   const targetUserId = normalizeText(safeExpense.userId) || existing.user_id;
@@ -2229,9 +2277,13 @@ async function updateExpense(sql, payload, currentUser, accountId) {
   if (isAdmin(currentUser)) {
     // full access
   } else if (isManager(currentUser)) {
-    const hasAccess = await managerHasProjectAccess(sql, currentUser.id, project.id, accountId);
-    if (!hasAccess) {
-      return errorResponse(403, "You are not assigned to this project.");
+    if (!isCorporateExpense) {
+      const hasAccess = await managerHasProjectAccess(sql, currentUser.id, project.id, accountId);
+      if (!hasAccess) {
+        return errorResponse(403, "You are not assigned to this project.");
+      }
+    } else if (targetUser.id !== currentUser.id) {
+      return errorResponse(403, "You can only save your own internal expenses.");
     }
     if (targetUser.id !== currentUser.id && targetGroup !== "staff") {
       return errorResponse(403, "Managers can only edit staff expenses.");
@@ -2240,20 +2292,23 @@ async function updateExpense(sql, payload, currentUser, accountId) {
     if (targetUser.id !== currentUser.id) {
       return errorResponse(403, "You can only save expenses for your own account.");
     }
-    const memberRows = await sql`
-      SELECT id
-      FROM project_members
-      WHERE project_id = ${project.id}
-        AND user_id = ${currentUser.id}
-        AND account_id = ${accountId}::uuid
-      LIMIT 1
-    `;
-    if (!memberRows[0]) {
-      return errorResponse(403, "You are not assigned to this project.");
+    if (!isCorporateExpense) {
+      const memberRows = await sql`
+        SELECT id
+        FROM project_members
+        WHERE project_id = ${project.id}
+          AND user_id = ${currentUser.id}
+          AND account_id = ${accountId}::uuid
+        LIMIT 1
+      `;
+      if (!memberRows[0]) {
+        return errorResponse(403, "You are not assigned to this project.");
+      }
     }
   }
 
-  const isBillable = safeExpense.isBillable === false || safeExpense.isBillable === 0 ? 0 : 1;
+  const isBillable =
+    isCorporateExpense || safeExpense.isBillable === false || safeExpense.isBillable === 0 ? 0 : 1;
   const previousBillable = existing.is_billable === 0 ? false : true;
   const nextBillable = isBillable === 0 ? false : true;
   const billableChanged = previousBillable !== nextBillable;

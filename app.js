@@ -4538,6 +4538,7 @@
               return categoryName || groupName || "Internal";
             })()
           : projectName || "",
+        chargeCenterId: isCorporate ? `${selection.id || ""}`.trim() || null : null,
         expenseDate: parseInputsTimeDateValue(current.date?.value || ""),
         category: current.category?.value || "",
         amount: Number(current.amount?.value),
