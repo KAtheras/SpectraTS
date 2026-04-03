@@ -1150,7 +1150,30 @@ async function updateExpenseCategories(sql, payload, accountId) {
 }
 
 async function updateCorporateFunctionCategories(sql, payload, accountId) {
-  const groups = Array.isArray(payload?.groups) ? payload.groups : [];
+  let groups = Array.isArray(payload?.groups) ? payload.groups : [];
+  if (!groups.length && Array.isArray(payload?.categories)) {
+    const grouped = new Map();
+    (payload.categories || []).forEach((item) => {
+      const groupName = normalizeText(item?.groupName || item?.group_name) || "Other";
+      if (!grouped.has(groupName)) grouped.set(groupName, []);
+      grouped.get(groupName).push({
+        id: item?.id || null,
+        name: item?.name || "",
+        sortOrder: item?.sortOrder ?? item?.sort_order ?? null,
+      });
+    });
+    let fallbackGroupOrder = 10;
+    groups = Array.from(grouped.entries()).map(([name, categories]) => {
+      const mapped = {
+        id: null,
+        name,
+        sortOrder: fallbackGroupOrder,
+        categories,
+      };
+      fallbackGroupOrder += 10;
+      return mapped;
+    });
+  }
   const cleanedGroups = [];
   const groupNameSet = new Set();
 
@@ -1211,16 +1234,6 @@ async function updateCorporateFunctionCategories(sql, payload, accountId) {
   const keepGroupIds = new Set(
     cleanedGroups.map((group) => `${group?.id || ""}`.trim()).filter(Boolean)
   );
-
-  for (const groupId of existingGroupIds) {
-    if (!keepGroupIds.has(groupId)) {
-      await sql`
-        DELETE FROM corporate_function_groups
-        WHERE account_id = ${accountId}::uuid
-          AND id = ${groupId}
-      `;
-    }
-  }
 
   const now = new Date().toISOString();
   const resolvedGroupIds = new Map();
@@ -1322,6 +1335,16 @@ async function updateCorporateFunctionCategories(sql, payload, accountId) {
           ${now},
           ${now}
         )
+      `;
+    }
+  }
+
+  for (const groupId of existingGroupIds) {
+    if (!keepGroupIds.has(groupId)) {
+      await sql`
+        DELETE FROM corporate_function_groups
+        WHERE account_id = ${accountId}::uuid
+          AND id = ${groupId}
       `;
     }
   }

@@ -474,6 +474,31 @@
             display:grid;
             gap:10px;
           }
+          #settings-page .corporate-toolbar{
+            display:flex;
+            align-items:center;
+            gap:8px;
+          }
+          #settings-page .corporate-pill{
+            min-height:32px;
+            padding:0 12px;
+            border-radius:999px;
+            font-size:.88rem;
+            line-height:1;
+          }
+          #settings-page .corporate-group-header{
+            display:grid;
+            grid-template-columns:minmax(0,1fr) auto;
+            gap:10px;
+            align-items:center;
+          }
+          #settings-page .corporate-category-list{
+            margin-left:16px;
+            padding-left:12px;
+            border-left:1px solid var(--group-border);
+            display:grid;
+            gap:8px;
+          }
           #settings-page .settings-subsection h4{
             margin:0;
             font-family:var(--font-head);
@@ -1142,7 +1167,7 @@
           data-corporate-group-id="${escapeHtml(groupId)}"
           data-corporate-group-sort-order="${escapeHtml(groupSortOrder)}"
         >
-          <div class="settings-row-main settings-row-main-split">
+          <div class="corporate-group-header">
             <input
               type="text"
               value="${escapeHtml(groupName)}"
@@ -1159,7 +1184,7 @@
               Delete group
             </button>
           </div>
-          <div class="level-rows">
+          <div class="corporate-category-list">
             ${rows || ""}
           </div>
           <div class="level-labels-actions">
@@ -1184,9 +1209,9 @@
               <h3>Corporate Functions</h3>
               <p class="settings-section-subtitle">Internal / non-client work</p>
             </div>
-            <div class="settings-section-right">
-              <button class="button button-ghost" type="button" data-corporate-add-group ${editable ? "" : "disabled"}>Add group</button>
-              <button class="button" type="submit" id="save-corporate-functions" ${editable ? "" : "disabled"}>Save categories</button>
+            <div class="settings-section-right corporate-toolbar">
+              <button class="button button-ghost corporate-pill" type="button" data-corporate-add-group ${editable ? "" : "disabled"}>Add group</button>
+              <button class="button corporate-pill" type="submit" id="save-corporate-functions" ${editable ? "" : "disabled"}>Save</button>
             </div>
           </div>
           <div class="settings-section-content">
