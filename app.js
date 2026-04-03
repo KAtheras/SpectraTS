@@ -2020,6 +2020,12 @@
         expenseCategories: Array.isArray(payload?.expenseCategories)
           ? payload.expenseCategories
           : state.expenseCategories,
+        corporateFunctionGroups: Array.isArray(payload?.corporateFunctionGroups)
+          ? payload.corporateFunctionGroups
+          : state.corporateFunctionGroups,
+        corporateFunctionCategories: Array.isArray(payload?.corporateFunctionCategories)
+          ? payload.corporateFunctionCategories
+          : state.corporateFunctionCategories,
         account: payload?.account ?? state.account,
         settingsAccess: payload?.settingsAccess ?? state.settingsAccess,
         notificationRules: Array.isArray(payload?.notificationRules)
@@ -7139,7 +7145,8 @@
     return maxSort + 10;
   }
 
-  function collectCorporateFunctionGroupsFromForm(form) {
+  function collectCorporateFunctionGroupsFromForm(form, options = {}) {
+    const validate = options.validate !== false;
     const groupRows = Array.from(form?.querySelectorAll("[data-corporate-group-row]") || []);
     const groups = [];
     const groupSeen = new Set();
@@ -7148,12 +7155,12 @@
       const groupSortOrder = Number(groupRow.dataset.corporateGroupSortOrder || 0) || 0;
       const groupNameInput = groupRow.querySelector("[data-corporate-group-name]");
       const groupName = `${groupNameInput?.value || ""}`.trim();
-      if (!groupName) {
+      if (validate && !groupName) {
         feedback("Group name cannot be blank.", true);
         return null;
       }
       const groupKey = groupName.toLowerCase();
-      if (groupSeen.has(groupKey)) {
+      if (validate && groupSeen.has(groupKey)) {
         feedback("Group names must be unique.", true);
         return null;
       }
@@ -7167,12 +7174,12 @@
         const sortOrder = Number(categoryRow.dataset.corporateFunctionSortOrder || 0) || 0;
         const nameInput = categoryRow.querySelector("[data-corporate-function-name]");
         const name = `${nameInput?.value || ""}`.trim();
-        if (!name) {
+        if (validate && !name) {
           feedback(`Category name cannot be blank in ${groupName}.`, true);
           return null;
         }
         const categoryKey = name.toLowerCase();
-        if (categorySeen.has(categoryKey)) {
+        if (validate && categorySeen.has(categoryKey)) {
           feedback(`Category names must be unique within ${groupName}.`, true);
           return null;
         }
@@ -7192,6 +7199,27 @@
       });
     }
     return groups;
+  }
+
+  function syncCorporateFunctionDraftFromForm() {
+    const form = document.getElementById("corporate-functions-form");
+    if (!form) return;
+    const draftGroups = collectCorporateFunctionGroupsFromForm(form, { validate: false });
+    if (!Array.isArray(draftGroups)) return;
+    state.corporateFunctionGroups = draftGroups.map((group) => ({
+      id: group.id || `temp-corp-group-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      name: group.name || "",
+      sortOrder: Number(group.sortOrder) || 0,
+    }));
+    state.corporateFunctionCategories = draftGroups.flatMap((group) =>
+      (group.categories || []).map((category) => ({
+        id: category.id || `temp-corp-cat-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        groupId: group.id || "",
+        groupName: group.name || "",
+        name: category.name || "",
+        sortOrder: Number(category.sortOrder) || 0,
+      }))
+    );
   }
 
   if (refs.expenseCategoriesForm) {
@@ -7387,6 +7415,7 @@
           feedback("Access denied.", true);
           return;
         }
+        syncCorporateFunctionDraftFromForm();
         const newGroupId = `temp-corp-group-${Date.now()}-${Math.random().toString(16).slice(2)}`;
         state.corporateFunctionGroups = [
           ...(state.corporateFunctionGroups || []),
@@ -7406,6 +7435,7 @@
           feedback("Access denied.", true);
           return;
         }
+        syncCorporateFunctionDraftFromForm();
         const groupId = `${addCorporateCategoryBtn.dataset.corporateAddCategory || ""}`.trim();
         if (!groupId) {
           return;
@@ -7440,6 +7470,7 @@
           feedback("Access denied.", true);
           return;
         }
+        syncCorporateFunctionDraftFromForm();
         const categoryId = `${deleteCorporateCategoryBtn.dataset.corporateDeleteCategory || ""}`.trim();
         if (!categoryId) return;
         state.corporateFunctionCategories = (state.corporateFunctionCategories || []).filter(
@@ -7455,6 +7486,7 @@
           feedback("Access denied.", true);
           return;
         }
+        syncCorporateFunctionDraftFromForm();
         const groupId = `${deleteCorporateGroupBtn.dataset.corporateDeleteGroup || ""}`.trim();
         if (!groupId) return;
         const group = (state.corporateFunctionGroups || []).find(
@@ -7545,8 +7577,14 @@
           return;
         }
         try {
-          await mutatePersistentState("update_corporate_function_categories", { groups });
-          await refreshSettingsTab("corporate_functions");
+          await mutatePersistentState(
+            "update_corporate_function_categories",
+            { groups },
+            { skipSettingsMetadataReload: true }
+          );
+          if (state.currentView === "settings") {
+            renderCorporateFunctionCategories?.();
+          }
           feedback("Corporate functions updated.", false);
         } catch (error) {
           feedback(error.message || "Unable to update corporate functions.", true);

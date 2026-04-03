@@ -1187,7 +1187,7 @@
           <div class="corporate-category-list">
             ${rows || ""}
           </div>
-          <div class="level-labels-actions">
+          <div class="corporate-group-actions">
             <button
               class="button button-ghost"
               type="button"
