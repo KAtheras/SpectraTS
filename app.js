@@ -8736,17 +8736,24 @@
         return;
       }
       const clientName = deleteButton.dataset.deleteClient;
-      const hoursLogged = clientHours(clientName);
-      const projectCount = state.projects.filter((p) => p.client === clientName).length;
+      const activeProjectCount = state.projects.filter((p) => p.client === clientName).length;
+      if (activeProjectCount > 0) {
+        await appDialog({
+          title: "Cannot Remove Client",
+          message:
+            "This client still has active projects assigned to it and cannot be removed.\n\n" +
+            "Please remove or reassign all active projects before deleting this client.\n\n" +
+            `${activeProjectCount} active projects`,
+          cancelText: "Cancel",
+          hideConfirm: true,
+        });
+        return;
+      }
       const dialogResult = await appDialog({
-        title: "Remove client",
-        message:
-          hoursLogged > 0 || projectCount > 0
-            ? `${clientName} already has ${hoursLogged.toFixed(
-                2
-              )} logged hours and ${projectCount} active projects. Removing it will also remove the active projects. Remove it from the active catalog and keep the history?`
-            : `Remove ${clientName} from the active catalog?`,
+        title: "Remove Client?",
+        message: "This client has no active projects assigned to it. Removing it cannot be undone.",
         confirmText: "Remove",
+        cancelText: "Cancel",
       });
       if (!dialogResult.confirmed) {
         return;
@@ -8766,6 +8773,18 @@
         }
       } catch (error) {
         const message = error.message || "Unable to remove client.";
+        if (message.includes("Cannot Remove Client")) {
+          const blockedBody = String(message).replace(/^Cannot Remove Client\s*\n?/, "").trim();
+          await appDialog({
+            title: "Cannot Remove Client",
+            message:
+              blockedBody ||
+              "This client still has active projects assigned to it and cannot be removed.\n\nPlease remove or reassign all active projects before deleting this client.",
+            cancelText: "Cancel",
+            hideConfirm: true,
+          });
+          return;
+        }
         feedback(message, true);
         window.alert(message);
         if (message.toLowerCase().includes("not found")) {
@@ -8897,16 +8916,32 @@
         feedback("Managers can only remove projects they created.", true);
         return;
       }
-      const hoursLogged = projectHours(state.selectedCatalogClient, projectName);
+      const assignedActiveMembers = new Set(
+        (state.assignments?.projectMembers || [])
+          .filter(
+            (assignment) =>
+              assignment?.client === state.selectedCatalogClient && assignment?.project === projectName
+          )
+          .map((assignment) => `${assignment?.userId || ""}`.trim())
+          .filter(Boolean)
+      ).size;
+      if (assignedActiveMembers > 0) {
+        await appDialog({
+          title: "Cannot Remove Project",
+          message:
+            "This project still has assigned active members and cannot be removed.\n\n" +
+            "Please remove or reassign all assigned active members before deleting this project.\n\n" +
+            `${assignedActiveMembers} assigned active members`,
+          cancelText: "Cancel",
+          hideConfirm: true,
+        });
+        return;
+      }
       const dialogResult = await appDialog({
-        title: "Remove project",
-        message:
-          hoursLogged > 0
-            ? `${projectName} already has ${hoursLogged.toFixed(
-                2
-              )} logged hours. Remove it from the active catalog and keep the history?`
-            : `Remove ${projectName} from the active catalog?`,
+        title: "Remove Project?",
+        message: "This project has no assigned active members. Removing it cannot be undone.",
         confirmText: "Remove",
+        cancelText: "Cancel",
       });
       if (!dialogResult.confirmed) {
         return;
@@ -8937,6 +8972,18 @@
         }
       } catch (error) {
         const message = error.message || "Unable to remove project.";
+        if (message.includes("Cannot Remove Project")) {
+          const blockedBody = String(message).replace(/^Cannot Remove Project\s*\n?/, "").trim();
+          await appDialog({
+            title: "Cannot Remove Project",
+            message:
+              blockedBody ||
+              "This project still has assigned active members and cannot be removed.\n\nPlease remove or reassign all assigned active members before deleting this project.",
+            cancelText: "Cancel",
+            hideConfirm: true,
+          });
+          return;
+        }
         feedback(message, true);
         window.alert(message);
         if (message.toLowerCase().includes("not found")) {

@@ -2799,30 +2799,25 @@ async function removeClient(sql, payload, accountId) {
     return errorResponse(404, "Client not found.");
   }
 
-  const rows = await sql`
-    SELECT COALESCE(SUM(hours)::FLOAT8, 0) AS total
-    FROM entries
-    WHERE LOWER(client_name) = LOWER(${client.name})
-      AND account_id = ${accountId}::uuid
-  `;
-  const hoursLogged = rows[0]?.total || 0;
-
   const projectCountRows = await sql`
     SELECT COUNT(*)::INT AS total
     FROM projects
     WHERE client_id = ${client.id}
       AND account_id = ${accountId}::uuid
   `;
-  const projectCount = projectCountRows[0]?.total || 0;
+  const activeProjectCount = projectCountRows[0]?.total || 0;
+  if (activeProjectCount > 0) {
+    return errorResponse(
+      400,
+      "Cannot Remove Client\n" +
+        "This client still has active projects assigned to it and cannot be removed.\n\n" +
+        "Please remove or reassign all active projects before deleting this client.\n\n" +
+        `${activeProjectCount} active projects`
+    );
+  }
 
   await sql`DELETE FROM clients WHERE id = ${client.id}`;
-
-  const message =
-    hoursLogged > 0 || projectCount > 0
-      ? `${client.name} already has ${hoursLogged.toFixed(2)} logged hours and ${projectCount} active projects. Removing it will also remove the active projects. Remove it from the active catalog and keep the history?`
-      : "";
-
-  return { message };
+  return { message: "" };
 }
 
 async function removeProject(sql, payload, accountId) {
@@ -2833,20 +2828,28 @@ async function removeProject(sql, payload, accountId) {
     return errorResponse(404, "Project not found.");
   }
 
-  const rows = await sql`
-    SELECT COALESCE(SUM(hours)::FLOAT8, 0) AS total
-    FROM entries
-    WHERE LOWER(client_name) = LOWER(${clientName})
-      AND LOWER(project_name) = LOWER(${project.name})
-      AND account_id = ${accountId}::uuid
+  const assignedMembersRows = await sql`
+    SELECT COUNT(DISTINCT project_members.user_id)::INT AS total
+    FROM project_members
+    JOIN users ON users.id = project_members.user_id
+    WHERE project_members.project_id = ${project.id}
+      AND project_members.account_id = ${accountId}::uuid
+      AND users.account_id = ${accountId}::uuid
+      AND users.is_active = TRUE
   `;
-  const hoursLogged = rows[0]?.total || 0;
+  const assignedActiveMembers = assignedMembersRows[0]?.total || 0;
+  if (assignedActiveMembers > 0) {
+    return errorResponse(
+      400,
+      "Cannot Remove Project\n" +
+        "This project still has assigned active members and cannot be removed.\n\n" +
+        "Please remove or reassign all assigned active members before deleting this project.\n\n" +
+        `${assignedActiveMembers} assigned active members`
+    );
+  }
 
   await sql`DELETE FROM projects WHERE id = ${project.id}`;
-
-  return hoursLogged > 0
-    ? { message: `Project removed from active catalog. ${hoursLogged.toFixed(2)} logged hours were kept in history.` }
-    : { message: "" };
+  return { message: "" };
 }
 
 async function saveEntry(sql, payload, currentUser, accountId) {
