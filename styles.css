@@ -2786,6 +2786,25 @@ body[data-theme="dark"] .audit-detail-col {
   background: color-mix(in srgb, var(--accent) 14%, var(--panel));
 }
 
+.catalog-item.is-inactive .catalog-item-copy,
+.catalog-item.is-inactive .catalog-item-copy * {
+  opacity: 0.2;
+}
+
+.catalog-item.is-inactive .catalog-item-actions .catalog-edit,
+.catalog-item.is-inactive .catalog-item-actions .catalog-delete {
+  opacity: 0.2;
+}
+
+.catalog-item.is-inactive .catalog-item-actions [data-view-time-project],
+.catalog-item.is-inactive .catalog-item-actions [data-view-expenses-project],
+.catalog-item.is-inactive .catalog-item-actions [data-reactivate-project],
+.catalog-item.is-inactive .catalog-item-actions [data-reactivate-client],
+.catalog-item.is-inactive .catalog-item-actions [data-delete-project],
+.catalog-item.is-inactive .catalog-item-actions [data-delete-client] {
+  opacity: 1;
+}
+
 .catalog-item span {
   color: var(--ink);
 }
@@ -3430,27 +3449,28 @@ body[data-theme="dark"] .audit-detail-col {
   cursor: pointer;
 }
 
-.catalog-item-actions > .catalog-edit[data-deactivate-project],
 .catalog-item-actions > .catalog-edit[data-reactivate-project],
-.catalog-item-actions > .catalog-edit[data-deactivate-client],
 .catalog-item-actions > .catalog-edit[data-reactivate-client] {
-  color: #b8611f;
+  color: #2f8f46;
 }
 
-.catalog-item-actions > .catalog-edit[data-deactivate-project]:hover,
 .catalog-item-actions > .catalog-edit[data-reactivate-project]:hover,
-.catalog-item-actions > .catalog-edit[data-deactivate-client]:hover,
 .catalog-item-actions > .catalog-edit[data-reactivate-client]:hover,
-.catalog-item-actions > .catalog-edit[data-deactivate-project]:focus-visible,
 .catalog-item-actions > .catalog-edit[data-reactivate-project]:focus-visible,
-.catalog-item-actions > .catalog-edit[data-deactivate-client]:focus-visible,
 .catalog-item-actions > .catalog-edit[data-reactivate-client]:focus-visible {
-  color: #d9782b;
+  color: #3cab58;
 }
 
 .catalog-edit:hover,
 .catalog-delete:hover {
   text-decoration: underline;
+}
+
+.catalog-edit:disabled,
+.catalog-delete:disabled {
+  opacity: 0.2;
+  cursor: not-allowed;
+  text-decoration: none;
 }
 
 .catalog-edit-inline {

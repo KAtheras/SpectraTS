@@ -77,10 +77,11 @@
           const clientRow = state.clients.find((c) => c.name === client) || null;
           const clientOffice = officeName(clientRow?.officeId);
           const clientIsActive = isClientActive(clientRow);
+          const canEditClientCard = canManageClients && clientIsActive;
           const visibleProjectCount = visibleCatalogProjectNames(client, state.currentUser, { forCatalogView: true }).length;
           return `
           <article
-            class="catalog-item${client === selectedClient ? " is-selected" : ""}"
+            class="catalog-item${client === selectedClient ? " is-selected" : ""}${clientIsActive ? "" : " is-inactive"}"
             data-client="${escapeHtml(client)}"
             role="button"
             tabindex="0"
@@ -100,7 +101,10 @@
                 class="catalog-edit catalog-edit-inline"
                 aria-label="Edit ${escapeHtml(client)}"
                 data-edit-client="${escapeHtml(client)}"
-                ${disabledButtonAttrs(canManageClients, "Admin only.")}
+                ${disabledButtonAttrs(
+                  canEditClientCard,
+                  clientIsActive ? "Admin only." : "Reactivate client to edit."
+                )}
               >
                 Edit
               </button>
@@ -179,6 +183,7 @@
                 (p) => p.client === selectedClient && p.name === project
               );
               const projectIsActive = isProjectActive(projectRow);
+              const canEditProjectCard = canEditProject && projectIsActive;
               const canManageMembers =
                 projectIsActive &&
                 (isAdmin(state.currentUser) ||
@@ -196,7 +201,7 @@
 
               return `
               <article
-                class="catalog-item catalog-item-project"
+                class="catalog-item catalog-item-project${projectIsActive ? "" : " is-inactive"}"
                 data-project="${escapeHtml(project)}"
               >
                 <div class="catalog-project-top">
@@ -226,7 +231,10 @@
                       class="catalog-edit catalog-edit-inline"
                       aria-label="Edit ${escapeHtml(project)}"
                       data-edit-project="${escapeHtml(project)}"
-                      ${disabledButtonAttrs(canEditProject, "Admin only.")}
+                      ${disabledButtonAttrs(
+                        canEditProjectCard,
+                        projectIsActive ? "Admin only." : "Reactivate project to edit."
+                      )}
                     >
                       Edit
                     </button>
