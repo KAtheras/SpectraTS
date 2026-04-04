@@ -182,6 +182,9 @@
       )
     );
     const useOfficeGrouping = representedOfficeKeys.length > 1;
+    if (!useOfficeGrouping && memberOfficeFilter) {
+      memberOfficeFilter = "";
+    }
 
     const listHtml = useOfficeGrouping
       ? (() => {
@@ -260,17 +263,19 @@
           <div class="user-list-column">
             <div class="member-card">
               <div class="member-card-head">
-                <label class="member-card-filter">
-                  <span class="sr-only">Office</span>
-                  <select class="member-office-filter" aria-label="Filter by office">
-                    <option value="">All</option>
-                    ${officeFilterOptions}
-                  </select>
-                </label>
+                ${useOfficeGrouping ? `
+                  <label class="member-card-filter">
+                    <span class="sr-only">Office</span>
+                    <select class="member-office-filter" aria-label="Filter by office">
+                      <option value="">Select Office</option>
+                      ${officeFilterOptions}
+                    </select>
+                  </label>
+                ` : ""}
                 <label class="member-card-filter">
                   <span class="sr-only">Level</span>
                   <select class="member-level-filter" aria-label="Filter by level">
-                    <option value="">All</option>
+                    <option value="">Select role</option>
                     ${Array.from(new Set(levels || [])).sort((a, b) => a - b).map((level) => `<option value="${escapeHtml(String(level))}" ${memberLevelFilter === String(level) ? "selected" : ""}>${escapeHtml(levelLabel(level))}</option>`).join("")}
                   </select>
                 </label>
@@ -382,19 +387,21 @@
     refs.userList.innerHTML = `
       <div class="user-pane">
         <div class="user-list-column">
-          <div class="member-card">
-            <div class="member-card-head">
-              <label class="member-card-filter">
-                <span class="sr-only">Office</span>
-                <select class="member-office-filter" aria-label="Filter by office">
-                  <option value="">All</option>
-                  ${officeFilterOptions}
-                </select>
-              </label>
+            <div class="member-card">
+              <div class="member-card-head">
+              ${useOfficeGrouping ? `
+                <label class="member-card-filter">
+                  <span class="sr-only">Office</span>
+                  <select class="member-office-filter" aria-label="Filter by office">
+                    <option value="">Select Office</option>
+                    ${officeFilterOptions}
+                  </select>
+                </label>
+              ` : ""}
               <label class="member-card-filter">
                 <span class="sr-only">Level</span>
                 <select class="member-level-filter" aria-label="Filter by level">
-                  <option value="">All</option>
+                  <option value="">Select role</option>
                   ${levelFilterOptions}
                 </select>
               </label>
