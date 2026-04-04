@@ -275,7 +275,7 @@
                 <label class="member-card-filter">
                   <span class="sr-only">Level</span>
                   <select class="member-level-filter" aria-label="Filter by level">
-                    <option value="">Select role</option>
+                    <option value="">Select by Role</option>
                     ${Array.from(new Set(levels || [])).sort((a, b) => a - b).map((level) => `<option value="${escapeHtml(String(level))}" ${memberLevelFilter === String(level) ? "selected" : ""}>${escapeHtml(levelLabel(level))}</option>`).join("")}
                   </select>
                 </label>
@@ -401,7 +401,7 @@
               <label class="member-card-filter">
                 <span class="sr-only">Level</span>
                 <select class="member-level-filter" aria-label="Filter by level">
-                  <option value="">Select role</option>
+                  <option value="">Select by Role</option>
                   ${levelFilterOptions}
                 </select>
               </label>
