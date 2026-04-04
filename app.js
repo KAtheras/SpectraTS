@@ -1349,6 +1349,15 @@
     }
   }
 
+  function clearThemePreference() {
+    try {
+      window.localStorage.removeItem(THEME_STORAGE_KEY);
+      window.localStorage.removeItem(THEME_EXPLICIT_STORAGE_KEY);
+    } catch (error) {
+      return;
+    }
+  }
+
   function resolveTheme() {
     const savedTheme = loadThemePreference();
     if (savedTheme === "light" || savedTheme === "dark") {
@@ -5506,6 +5515,7 @@
     const sessionToken = loadSessionToken();
 
     persistSessionToken("");
+    clearThemePreference();
     clearPersistedView();
     clearRemoteAppState();
     resetFilters();
