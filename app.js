@@ -639,7 +639,10 @@
     const allActiveUsers = (state.users || [])
       .filter((user) => user && user.isActive !== false && user.displayName)
       .sort((a, b) => String(a.displayName || "").localeCompare(String(b.displayName || "")));
-    const executiveEligibleUsers = allActiveUsers.filter((user) => isExecutive(user));
+    const executiveEligibleUsers = allActiveUsers.filter((user) => {
+      const group = String(permissionGroupForUser(user) || "").toLowerCase();
+      return group === "executive" || group === "admin" || group === "superuser";
+    });
     const eligibleIdSet = new Set(executiveEligibleUsers.map((user) => String(user.id || "").trim()));
     const currentSelectedUser = allActiveUsers.find((user) => String(user.id || "").trim() === selectedLeadId) || null;
 

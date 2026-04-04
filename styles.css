@@ -2815,10 +2815,11 @@ body[data-theme="dark"] .audit-detail-col {
 }
 
 .catalog-item-actions {
-  display: grid;
-  justify-items: end;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
   gap: 12px;
-  align-content: start;
+  align-self: stretch;
 }
 
 .catalog-item-actions > [data-view-time-project] {
@@ -2843,7 +2844,11 @@ body[data-theme="dark"] .audit-detail-col {
 
 .catalog-item-actions > [data-delete-project] {
   order: 60;
-  margin-top: 8px;
+  margin-top: auto;
+}
+
+.catalog-item-actions > [data-delete-client] {
+  margin-top: auto;
 }
 
 .catalog-item-title {
@@ -2855,6 +2860,22 @@ body[data-theme="dark"] .audit-detail-col {
   align-items: center;
   gap: 6px;
   min-width: 0;
+}
+
+.catalog-item-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+}
+
+.catalog-item-heading .catalog-item-title {
+  min-width: 0;
+}
+
+.catalog-item-heading .catalog-edit-inline {
+  flex-shrink: 0;
 }
 
 .catalog-item-copy small {
