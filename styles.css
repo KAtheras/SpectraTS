@@ -2919,6 +2919,14 @@ body[data-theme="dark"] .audit-detail-col {
   font-weight: 700 !important;
 }
 
+[data-project-lead-line] strong {
+  font-weight: 800 !important;
+}
+
+[data-project-lead-line] span {
+  font-weight: 700 !important;
+}
+
 .catalog-item-meta,
 .catalog-item-meta > span {
   font-weight: 400 !important;

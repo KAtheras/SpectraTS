@@ -1097,9 +1097,10 @@
         return;
       }
       const meta = copy.querySelector(".catalog-item-meta");
+      const leadMarkup = `<strong>Project Lead:</strong> <span>${escapeHtml(leadName)}</span>`;
       if (existing) {
         existing.classList.add("catalog-project-lead-line");
-        existing.textContent = `Project Lead: ${leadName}`;
+        existing.innerHTML = leadMarkup;
         if (meta && existing !== meta.previousElementSibling) {
           copy.insertBefore(existing, meta);
         }
@@ -1108,7 +1109,7 @@
       const node = document.createElement("div");
       node.setAttribute("data-project-lead-line", "1");
       node.className = "catalog-project-lead-line";
-      node.textContent = `Project Lead: ${leadName}`;
+      node.innerHTML = leadMarkup;
       if (meta) {
         copy.insertBefore(node, meta);
       } else {
@@ -2365,12 +2366,15 @@
     }
   }
 
-  async function loadSettingsMetadata(force = false) {
+  async function loadSettingsMetadata(force = false, options = {}) {
     if (!state.currentUser) return;
     if (state.settingsMetadataLoading) return;
     if (!force && state.settingsMetadataLoaded) return;
+    const deferRender = Boolean(options?.deferRender);
     state.settingsMetadataLoading = true;
-    render();
+    if (!deferRender) {
+      render();
+    }
     try {
       const payload = await requestJson(`${STATE_API_PATH}?settings_meta=1`, {
         method: "GET",
@@ -2419,7 +2423,9 @@
     } catch (error) {
       feedback(error.message || "Unable to load settings data.", true);
       state.settingsMetadataLoading = false;
-      render();
+      if (!deferRender) {
+        render();
+      }
       return;
     }
     state.settingsMetadataLoading = false;
@@ -2536,8 +2542,9 @@
     }
     state.currentView = view;
     persistCurrentView(view);
-    if ((view === "settings" || view === "members") && previousView !== view) {
-      loadSettingsMetadata();
+    if ((view === "settings" || view === "members") && previousView !== view && !state.settingsMetadataLoaded) {
+      loadSettingsMetadata(true, { deferRender: true });
+      return;
     }
     render();
   }
@@ -9366,7 +9373,7 @@
         beginInboxVisit();
       }
       if (restoredView === "settings" || restoredView === "members") {
-        loadSettingsMetadata();
+        await loadSettingsMetadata(true, { deferRender: true });
       }
     } else {
       state.currentView = "inputs";
