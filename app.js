@@ -551,6 +551,7 @@
   let memberEditorReset = null;
   let memberEditorMode = "create";
   let memberEditorUserId = "";
+  let projectDialogReturnContext = null;
 
   function ensureInboxBulkReadButton() {
     if (refs.inboxMarkSelectedRead) return;
@@ -625,6 +626,7 @@
     }
     if (
       !isAdmin(state.currentUser) &&
+      !isExecutive(state.currentUser) &&
       !(
         isManager(state.currentUser) &&
         canManagerAccessProject(state.currentUser, state.selectedCatalogClient, projectName)
@@ -645,9 +647,77 @@
     return true;
   }
 
+  async function openProjectEditDialogFlow(clientName, projectName) {
+    const normalizedClient = String(clientName || "").trim();
+    const normalizedProject = String(projectName || "").trim();
+    if (!normalizedClient || !normalizedProject) {
+      return;
+    }
+    const projectRow =
+      (state.projects || []).find(
+        (p) =>
+          p.client === normalizedClient &&
+          String(p.name || "").toLowerCase() === normalizedProject.toLowerCase()
+      ) || null;
+    if (!projectRow) {
+      feedback("Project not found.", true);
+      return;
+    }
+    const currentBudget = Number.isFinite(projectRow.budget) ? projectRow.budget : null;
+    const projectLeadId = String(projectRow?.projectLeadId || projectRow?.project_lead_id || "").trim() || null;
+    const managerNames = formatNameList(userNamesForIds(managerIdsForProject(normalizedClient, normalizedProject)));
+    const staffNames = formatNameList(userNamesForIds(staffIdsForProject(normalizedClient, normalizedProject)));
+    const projectDialog = await openProjectDialog({
+      mode: "edit",
+      projectName: normalizedProject,
+      budgetAmount: currentBudget,
+      projectLeadId,
+      managersText: managerNames,
+      staffText: staffNames,
+    });
+    if (!projectDialog) {
+      projectDialogReturnContext = null;
+      return;
+    }
+    if (projectDialog.memberAction === "add" || projectDialog.memberAction === "remove") {
+      projectDialogReturnContext = {
+        clientName: normalizedClient,
+        projectName: normalizedProject,
+      };
+      const opened = openProjectMemberManagement(normalizedProject, projectDialog.memberAction);
+      if (!opened) {
+        projectDialogReturnContext = null;
+      }
+      return;
+    }
+
+    const nextName = projectDialog.projectName;
+    try {
+      await mutatePersistentState("update_project", {
+        clientName: normalizedClient,
+        projectName: normalizedProject,
+        nextName,
+        budgetAmount: projectDialog.budgetAmount,
+        projectLeadId: projectDialog.projectLeadId,
+      });
+      if (state.filters.client === normalizedClient && state.filters.project === normalizedProject) {
+        state.filters.project = nextName.trim();
+      }
+    } catch (error) {
+      feedback(error.message || "Unable to update project.", true);
+      return;
+    }
+
+    await loadPersistentState();
+    syncFilterCatalogsUI(state.filters);
+    feedback("Project updated.", false);
+    render();
+  }
+
   async function openProjectDialog(options) {
     return new Promise((resolve) => {
       const mode = options?.mode === "edit" ? "edit" : "add";
+      const isProjectEditDialog = mode === "edit";
       const currentName = String(options?.projectName || "");
       const currentBudget = Number.isFinite(options?.budgetAmount) ? Number(options.budgetAmount) : null;
       const currentLeadId = String(options?.projectLeadId || "").trim();
@@ -713,6 +783,7 @@
       const budgetInput = form.querySelector('input[name="budget_amount"]');
       const leadSelect = form.querySelector('select[name="project_lead_id"]');
       const errorNode = form.querySelector("[data-project-dialog-error]");
+      const dialogCard = refs.dialog?.querySelector(".dialog-card");
       if (nameInput) {
         nameInput.value = currentName;
       }
@@ -732,6 +803,9 @@
         refs.dialogTextarea.hidden = true;
       }
       refs.dialogInputRow.appendChild(form);
+      if (isProjectEditDialog) {
+        dialogCard?.classList.add("dialog-card--project");
+      }
       refs.dialogConfirm.textContent = finalConfirmText;
       refs.dialogCancel.textContent = "Cancel";
       refs.dialog.hidden = false;
@@ -750,6 +824,9 @@
         refs.dialogCancel.removeEventListener("click", onCancel);
         form.removeEventListener("submit", onSubmit);
         form.remove();
+        if (isProjectEditDialog) {
+          dialogCard?.classList.remove("dialog-card--project");
+        }
         refs.dialogMessage.hidden = false;
         refs.dialogInputRow.hidden = true;
         refs.dialogInput.hidden = false;
@@ -2562,12 +2639,23 @@
   }
 
   function closeMembersModal() {
+    const returnContext =
+      projectDialogReturnContext &&
+      (memberModalState.mode === "project-add-member" || memberModalState.mode === "project-remove-member")
+        ? { ...projectDialogReturnContext }
+        : null;
     membersCloseMembersModal?.({
       refs,
       body,
       memberModalState,
       postHeight,
     });
+    if (returnContext) {
+      projectDialogReturnContext = null;
+      window.setTimeout(function () {
+        openProjectEditDialogFlow(returnContext.clientName, returnContext.projectName).catch(function () {});
+      }, 0);
+    }
   }
 
   function appDialog(options) {
@@ -8430,56 +8518,7 @@
         return;
       }
       const projectName = editButton.dataset.editProject;
-      const projectRow =
-        (state.projects || []).find(
-          (p) =>
-            p.client === state.selectedCatalogClient &&
-            (p.name || "").toLowerCase() === projectName.toLowerCase()
-        ) || null;
-      const currentBudget = projectRow && Number.isFinite(projectRow.budget) ? projectRow.budget : null;
-      const projectLeadId = String(projectRow?.projectLeadId || projectRow?.project_lead_id || "").trim() || null;
-      const managerNames = formatNameList(userNamesForIds(managerIdsForProject(state.selectedCatalogClient, projectName)));
-      const staffNames = formatNameList(userNamesForIds(staffIdsForProject(state.selectedCatalogClient, projectName)));
-      const projectDialog = await openProjectDialog({
-        mode: "edit",
-        projectName,
-        budgetAmount: currentBudget,
-        projectLeadId,
-        managersText: managerNames,
-        staffText: staffNames,
-      });
-      if (!projectDialog) {
-        return;
-      }
-      if (projectDialog.memberAction === "add" || projectDialog.memberAction === "remove") {
-        openProjectMemberManagement(projectName, projectDialog.memberAction);
-        return;
-      }
-      const nextName = projectDialog.projectName;
-
-      try {
-        await mutatePersistentState("update_project", {
-          clientName: state.selectedCatalogClient,
-          projectName,
-          nextName,
-          budgetAmount: projectDialog.budgetAmount,
-          projectLeadId: projectDialog.projectLeadId,
-        });
-        if (
-          state.filters.client === state.selectedCatalogClient &&
-          state.filters.project === projectName
-        ) {
-          state.filters.project = nextName.trim();
-        }
-      } catch (error) {
-        feedback(error.message || "Unable to update project.", true);
-        return;
-      }
-
-      await loadPersistentState();
-      syncFilterCatalogsUI(state.filters);
-      feedback("Project updated.", false);
-      render();
+      await openProjectEditDialogFlow(state.selectedCatalogClient, projectName);
       return;
     }
 

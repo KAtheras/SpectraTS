@@ -156,6 +156,13 @@ body.modal-open {
   gap: 14px;
 }
 
+.dialog-card.dialog-card--project {
+  width: min(1040px, calc(100vw - 32px));
+  max-height: min(88vh, 900px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
 .dialog-card h3 {
   margin: 0;
   font-family: var(--font-head);
