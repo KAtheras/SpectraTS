@@ -301,6 +301,7 @@ async function ensureSchema(sql) {
       account_id UUID REFERENCES accounts(id),
       name TEXT NOT NULL,
       office_id TEXT NULL REFERENCES office_locations(id) ON DELETE SET NULL,
+      client_lead_id TEXT NULL REFERENCES users(id) ON DELETE SET NULL,
       business_contact_first_name TEXT,
       business_contact_last_name TEXT,
       business_contact_email TEXT,
@@ -322,6 +323,10 @@ async function ensureSchema(sql) {
   await sql`
     ALTER TABLE clients
     ADD COLUMN IF NOT EXISTS office_id TEXT NULL REFERENCES office_locations(id) ON DELETE SET NULL
+  `;
+  await sql`
+    ALTER TABLE clients
+    ADD COLUMN IF NOT EXISTS client_lead_id TEXT NULL REFERENCES users(id) ON DELETE SET NULL
   `;
   await sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS business_contact_name TEXT`;
   await sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS business_contact_first_name TEXT`;
@@ -356,6 +361,7 @@ async function ensureSchema(sql) {
       client_id BIGINT NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
       account_id UUID REFERENCES accounts(id),
       office_id TEXT NULL REFERENCES office_locations(id) ON DELETE SET NULL,
+      project_lead_id TEXT NULL REFERENCES users(id) ON DELETE SET NULL,
       name TEXT NOT NULL,
       created_by TEXT REFERENCES users(id),
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -374,6 +380,10 @@ async function ensureSchema(sql) {
   await sql`
     ALTER TABLE projects
     ADD COLUMN IF NOT EXISTS office_id TEXT NULL REFERENCES office_locations(id) ON DELETE SET NULL
+  `;
+  await sql`
+    ALTER TABLE projects
+    ADD COLUMN IF NOT EXISTS project_lead_id TEXT NULL REFERENCES users(id) ON DELETE SET NULL
   `;
   await sql`UPDATE projects SET account_id = ${accountUuid}::uuid WHERE account_id IS NULL`;
   await sql`
@@ -1934,6 +1944,7 @@ async function findClient(sql, clientName, accountId) {
       id,
       name,
       office_id AS office_id,
+      client_lead_id AS client_lead_id,
       business_contact_name,
       business_contact_first_name AS business_contact_first_name,
       business_contact_last_name AS business_contact_last_name,
@@ -1963,31 +1974,36 @@ async function findClient(sql, clientName, accountId) {
 async function listClients(sql, accountId) {
   return sql`
     SELECT
-      id,
-      name,
-      office_id AS "officeId",
-      business_contact_name AS "businessContactName",
-      business_contact_first_name AS "businessContactFirstName",
-      business_contact_last_name AS "businessContactLastName",
-      business_contact_email AS "businessContactEmail",
-      business_contact_phone AS "businessContactPhone",
-      billing_contact_name AS "billingContactName",
-      billing_contact_email AS "billingContactEmail",
-      billing_contact_phone AS "billingContactPhone",
-      client_address AS "clientAddress",
-      address_street AS "addressStreet",
-      address_city AS "addressCity",
-      address_state AS "addressState",
-      address_postal AS "addressPostal",
-      admin_contact_first_name AS "adminContactFirstName",
-      admin_contact_last_name AS "adminContactLastName",
-      admin_contact_email AS "adminContactEmail",
-      admin_contact_phone AS "adminContactPhone",
-      created_at AS "createdAt",
-      updated_at AS "updatedAt"
+      clients.id,
+      clients.name,
+      clients.office_id AS "officeId",
+      clients.client_lead_id AS "clientLeadId",
+      lead.display_name AS "clientLeadName",
+      clients.business_contact_name AS "businessContactName",
+      clients.business_contact_first_name AS "businessContactFirstName",
+      clients.business_contact_last_name AS "businessContactLastName",
+      clients.business_contact_email AS "businessContactEmail",
+      clients.business_contact_phone AS "businessContactPhone",
+      clients.billing_contact_name AS "billingContactName",
+      clients.billing_contact_email AS "billingContactEmail",
+      clients.billing_contact_phone AS "billingContactPhone",
+      clients.client_address AS "clientAddress",
+      clients.address_street AS "addressStreet",
+      clients.address_city AS "addressCity",
+      clients.address_state AS "addressState",
+      clients.address_postal AS "addressPostal",
+      clients.admin_contact_first_name AS "adminContactFirstName",
+      clients.admin_contact_last_name AS "adminContactLastName",
+      clients.admin_contact_email AS "adminContactEmail",
+      clients.admin_contact_phone AS "adminContactPhone",
+      clients.created_at AS "createdAt",
+      clients.updated_at AS "updatedAt"
     FROM clients
-    WHERE account_id = ${accountId}::uuid
-    ORDER BY LOWER(name)
+    LEFT JOIN users lead
+      ON lead.id = clients.client_lead_id
+     AND lead.account_id = clients.account_id
+    WHERE clients.account_id = ${accountId}::uuid
+    ORDER BY LOWER(clients.name)
   `;
 }
 
@@ -2004,7 +2020,8 @@ async function findProject(sql, clientName, projectName, accountId) {
       projects.client_id AS client_id,
       projects.name,
       clients.name AS client,
-      projects.budget_amount AS budget
+      projects.budget_amount AS budget,
+      projects.project_lead_id AS project_lead_id
     FROM projects
     JOIN clients ON clients.id = projects.client_id
     WHERE projects.client_id = ${client.id}
@@ -2024,9 +2041,14 @@ async function listProjects(sql, accountId) {
       clients.name AS client,
       projects.created_by AS "createdBy",
       projects.budget_amount AS budget,
-      projects.office_id AS "officeId"
+      projects.office_id AS "officeId",
+      projects.project_lead_id AS "projectLeadId",
+      lead.display_name AS "projectLeadName"
     FROM projects
     JOIN clients ON clients.id = projects.client_id
+    LEFT JOIN users lead
+      ON lead.id = projects.project_lead_id
+     AND lead.account_id = projects.account_id
     WHERE projects.account_id = ${accountId}::uuid
     ORDER BY LOWER(clients.name), LOWER(projects.name)
   `;

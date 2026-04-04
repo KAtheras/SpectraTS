@@ -1466,6 +1466,13 @@ async function addClient(sql, payload, accountId) {
     const text = normalizeText(value);
     return text || null;
   };
+  const clientLeadId = clean(payload.clientLeadId ?? payload.client_lead_id);
+  if (clientLeadId) {
+    const lead = await findUserById(sql, clientLeadId, accountId);
+    if (!lead) {
+      return errorResponse(400, "Client lead not found.");
+    }
+  }
 
   if (await findClient(sql, clientName, accountId)) {
     return errorResponse(409, "That client already exists.");
@@ -1477,6 +1484,7 @@ async function addClient(sql, payload, accountId) {
       account_id,
       name,
       office_id,
+      client_lead_id,
       business_contact_name,
       business_contact_email,
       business_contact_phone,
@@ -1495,6 +1503,7 @@ async function addClient(sql, payload, accountId) {
       ${accountId}::uuid,
       ${clientName},
       ${clean(payload.officeId)},
+      ${clientLeadId},
       ${clean(payload.businessContactName)},
       ${clean(payload.businessContactEmail)},
       ${clean(payload.businessContactPhone)},
@@ -1547,12 +1556,25 @@ async function updateClient(sql, payload, accountId) {
     const text = normalizeText(value);
     return text || null;
   };
+  const hasClientLeadIdField =
+    Object.prototype.hasOwnProperty.call(payload || {}, "clientLeadId") ||
+    Object.prototype.hasOwnProperty.call(payload || {}, "client_lead_id");
+  const nextClientLeadId = hasClientLeadIdField
+    ? clean(payload.clientLeadId ?? payload.client_lead_id)
+    : client.client_lead_id || null;
+  if (nextClientLeadId) {
+    const lead = await findUserById(sql, nextClientLeadId, accountId);
+    if (!lead) {
+      return errorResponse(400, "Client lead not found.");
+    }
+  }
 
   await sql`
     UPDATE clients
     SET
       name = ${nextName},
       office_id = ${clean(payload.officeId)},
+      client_lead_id = ${nextClientLeadId},
       business_contact_name = ${clean(payload.businessContactName)},
       business_contact_email = ${clean(payload.businessContactEmail)},
       business_contact_phone = ${clean(payload.businessContactPhone)},
@@ -1612,10 +1634,24 @@ async function addProject(sql, payload, currentUser, accountId) {
   if (await findProject(sql, clientName, projectName, accountId)) {
     return errorResponse(409, "That project already exists for this client.");
   }
+  const projectLeadId = normalizeText(payload.projectLeadId ?? payload.project_lead_id) || null;
+  if (projectLeadId) {
+    const lead = await findUserById(sql, projectLeadId, accountId);
+    if (!lead) {
+      return errorResponse(400, "Project lead not found.");
+    }
+  }
 
   await sql`
-    INSERT INTO projects (client_id, account_id, office_id, name, created_by)
-    VALUES (${client.id}, ${accountId}::uuid, ${client.office_id || null}, ${projectName}, ${currentUser?.id || null})
+    INSERT INTO projects (client_id, account_id, office_id, project_lead_id, name, created_by)
+    VALUES (
+      ${client.id},
+      ${accountId}::uuid,
+      ${client.office_id || null},
+      ${projectLeadId},
+      ${projectName},
+      ${currentUser?.id || null}
+    )
   `;
 
   return null;
@@ -2654,6 +2690,9 @@ async function updateProject(sql, payload, currentUser, accountId) {
   const budgetRaw = payload.budgetAmount;
   const hasBudget = budgetRaw !== undefined && budgetRaw !== null && budgetRaw !== "";
   const budgetAmount = hasBudget ? Number(budgetRaw) : null;
+  const hasProjectLeadField =
+    Object.prototype.hasOwnProperty.call(payload || {}, "projectLeadId") ||
+    Object.prototype.hasOwnProperty.call(payload || {}, "project_lead_id");
 
   if (!clientName || !projectName) {
     return errorResponse(404, "Project not found.");
@@ -2675,6 +2714,15 @@ async function updateProject(sql, payload, currentUser, accountId) {
       : project.budget !== undefined
         ? project.budget
         : null;
+  const nextProjectLeadId = hasProjectLeadField
+    ? normalizeText(payload.projectLeadId ?? payload.project_lead_id) || null
+    : project.project_lead_id || null;
+  if (nextProjectLeadId) {
+    const lead = await findUserById(sql, nextProjectLeadId, accountId);
+    if (!lead) {
+      return errorResponse(400, "Project lead not found.");
+    }
+  }
 
   // Reuse admin requirement from rename_project
   if (!isAdmin(currentUser)) {
@@ -2692,6 +2740,7 @@ async function updateProject(sql, payload, currentUser, accountId) {
     UPDATE projects
     SET name = ${nextName},
         budget_amount = ${nextBudget},
+        project_lead_id = ${nextProjectLeadId},
         updated_at = NOW()
     WHERE id = ${project.id}
       AND account_id = ${accountId}::uuid

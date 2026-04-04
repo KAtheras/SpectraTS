@@ -34,6 +34,22 @@ exports.handler = async function handler(event) {
       return json(200, settingsMeta);
     }
     const state = await loadState(sql, context.currentUser);
+    if (Array.isArray(state.clients)) {
+      state.clients = state.clients.map((client) => ({
+        ...client,
+        clientLeadId: client?.clientLeadId ?? client?.client_lead_id ?? null,
+        client_lead_id: client?.clientLeadId ?? client?.client_lead_id ?? null,
+        clientLeadName: client?.clientLeadName ?? null,
+      }));
+    }
+    if (Array.isArray(state.projects)) {
+      state.projects = state.projects.map((project) => ({
+        ...project,
+        projectLeadId: project?.projectLeadId ?? project?.project_lead_id ?? null,
+        project_lead_id: project?.projectLeadId ?? project?.project_lead_id ?? null,
+        projectLeadName: project?.projectLeadName ?? null,
+      }));
+    }
     const currentUser = state.currentUser;
     const canManageSettingsAccess = can(currentUser, "manage_settings_access", {}, permissionIndex);
     const permissions = {
