@@ -9109,6 +9109,7 @@
       const roleOnlyMode = mode === "user-role";
       const isRemovalMode =
         mode === "project-remove" ||
+        mode === "project-remove-member" ||
         mode === "project-unassign-manager";
       const selected = roleOnlyMode
         ? memberModalState.userId
