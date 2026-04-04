@@ -1,5 +1,6 @@
 (function () {
   const THEME_STORAGE_KEY = "timesheet-studio.theme.v1";
+  const THEME_EXPLICIT_STORAGE_KEY = "timesheet-studio.theme.explicit.v1";
   const VIEW_STORAGE_KEY = "timesheet-studio.view.v1";
   const LAST_INPUTS_COMBO_STORAGE_KEY = "timesheet-studio.inputs.last-client-project.v1";
   const INPUTS_COMBO_CORPORATE_PREFIX = "__corp__::";
@@ -1328,6 +1329,10 @@
   function loadThemePreference() {
     try {
       const raw = window.localStorage.getItem(THEME_STORAGE_KEY);
+      const explicit = window.localStorage.getItem(THEME_EXPLICIT_STORAGE_KEY) === "1";
+      if (!explicit) {
+        return null;
+      }
       return raw === "light" || raw === "dark" ? raw : null;
     } catch (error) {
       return null;
@@ -1338,6 +1343,7 @@
   function saveThemePreference(theme) {
     try {
       window.localStorage.setItem(THEME_STORAGE_KEY, theme);
+      window.localStorage.setItem(THEME_EXPLICIT_STORAGE_KEY, "1");
     } catch (error) {
       return;
     }
