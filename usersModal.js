@@ -6,6 +6,15 @@
   let collapsedOfficeKeys = new Set();
   let initializedOfficeKeys = new Set();
 
+  function resetUsersDirectoryFilters() {
+    memberSearchTerm = "";
+    memberLevelFilter = "";
+    memberOfficeFilter = "";
+    collapsedOfficeKeys = new Set();
+    initializedOfficeKeys = new Set();
+    selectedUserId = null;
+  }
+
   function setUserFeedback(deps, message, isError) {
     const { refs } = deps;
     if (!refs.userFeedback) {
@@ -567,5 +576,6 @@
     setUserFeedback,
     renderUsersList,
     syncUserManagementControls,
+    resetUsersDirectoryFilters,
   };
 })();

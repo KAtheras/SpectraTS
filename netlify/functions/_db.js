@@ -3233,41 +3233,22 @@ async function loadState(sql, currentUser) {
 
   let users = [];
   if (normalizedUser) {
-    const viewable = allUsers.filter((user) =>
-      canCap("view_members", {
+    users = allUsers.map((user) => {
+      const canViewRates = canCap("view_member_rates", {
         resourceOfficeId: user.officeId ?? user.office_id ?? null,
         actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
-      })
-    );
-    if (viewable.length) {
-      users = viewable.map((user) => {
-        const canViewRates = canCap("view_member_rates", {
-          resourceOfficeId: user.officeId ?? user.office_id ?? null,
-          actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
-        });
-        const canEditRates = canCap("edit_member_rates", {
-          resourceOfficeId: user.officeId ?? user.office_id ?? null,
-          actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
-        });
-        const allowRates = canViewRates || canEditRates;
-        return {
-          ...user,
-          baseRate: allowRates ? user.baseRate : null,
-          costRate: allowRates ? user.costRate : null,
-        };
       });
-    } else {
-      const self = allUsers.find((user) => user.id === normalizedUser.id);
-      if (self) {
-        users = [
-          {
-            ...self,
-            baseRate: null,
-            costRate: null,
-          },
-        ];
-      }
-    }
+      const canEditRates = canCap("edit_member_rates", {
+        resourceOfficeId: user.officeId ?? user.office_id ?? null,
+        actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+      });
+      const allowRates = canViewRates || canEditRates;
+      return {
+        ...user,
+        baseRate: allowRates ? user.baseRate : null,
+        costRate: allowRates ? user.costRate : null,
+      };
+    });
     if (delegatorUserIds.length) {
       const existing = new Set(users.map((item) => `${item?.id || ""}`.trim()).filter(Boolean));
       allUsers.forEach((user) => {

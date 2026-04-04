@@ -178,6 +178,7 @@
     setUserFeedback: usersSetUserFeedback,
     renderUsersList: usersRenderUsersList,
     syncUserManagementControls: usersSyncUserManagementControls,
+    resetUsersDirectoryFilters: usersResetDirectoryFilters,
   } = window.usersModal || {};
   const {
     daysInMonth,
@@ -1970,6 +1971,7 @@
   }
 
   function applyLoadedState(data) {
+    const previousCurrentUserId = `${state.currentUser?.id || ""}`.trim();
     const previousActingAsUserId = `${state.actingAsUserId || ""}`.trim();
     const previousOfficeLocations = Array.isArray(state.officeLocations)
       ? state.officeLocations.slice()
@@ -1982,6 +1984,10 @@
       return user;
     };
     state.currentUser = data?.currentUser ? ensureRole(normalizeUser(data.currentUser)) : null;
+    const nextCurrentUserId = `${state.currentUser?.id || ""}`.trim();
+    if (previousCurrentUserId !== nextCurrentUserId) {
+      usersResetDirectoryFilters?.();
+    }
     state.users = Array.isArray(data?.users)
       ? data.users
           .map((u) => {
@@ -2539,6 +2545,7 @@
     }
     if (previousView !== "members" && view === "members") {
       state.mobileMembersView = "list";
+      usersResetDirectoryFilters?.();
     }
     state.currentView = view;
     persistCurrentView(view);
