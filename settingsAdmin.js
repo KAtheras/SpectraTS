@@ -2681,7 +2681,11 @@
       titleOptions.find((item) => item.level === Number(selectedLevel))?.label || "";
     const officeNameById = new Map((state.officeLocations || []).map((o) => [String(o.id), o.name || ""]));
     const deptNameById = new Map((departments || []).map((d) => [String(d.id), d.name || ""]));
-    const departmentName = (id) => (id ? deptNameById.get(String(id)) || "No department" : "No department");
+    const departmentName = (id, fallbackName) => {
+      const fallback = String(fallbackName || "").trim();
+      if (!id) return fallback || "No department";
+      return deptNameById.get(String(id)) || fallback || "No department";
+    };
     const officeName = (id, fallbackName) =>
       id ? officeNameById.get(String(id)) || fallbackName || "No office" : fallbackName || "No office";
 
@@ -2714,7 +2718,7 @@
                 </div>
                 <div class="member-info-item">
                   <span class="member-info-field-label">Department</span>
-                  <span class="member-info-field-value">${valueOrDash(departmentName(user.departmentId))}</span>
+                  <span class="member-info-field-value">${valueOrDash(departmentName(user.departmentId, user.departmentName))}</span>
                 </div>
                 <div class="member-info-item">
                   <span class="member-info-field-label">Office</span>

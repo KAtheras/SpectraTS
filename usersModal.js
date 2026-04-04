@@ -80,19 +80,21 @@
     const departmentNames = new Map(
       (state.departments || []).map((dept) => [dept.id != null ? String(dept.id) : "", dept.name || ""])
     );
-    const officeNameFor = (id) => {
-      if (id === undefined || id === null) return "";
+    const officeNameFor = (id, fallbackName) => {
+      const fallback = String(fallbackName || "").trim();
+      if (id === undefined || id === null || id === "") return fallback;
       const key = String(id);
-      return officeNames.get(key) || "";
+      return officeNames.get(key) || fallback;
     };
-    const departmentNameFor = (id) => {
-      if (id === undefined || id === null) return "";
+    const departmentNameFor = (id, fallbackName) => {
+      const fallback = String(fallbackName || "").trim();
+      if (id === undefined || id === null || id === "") return fallback;
       const key = String(id);
-      return departmentNames.get(key) || "";
+      return departmentNames.get(key) || fallback;
     };
     const filteredUsers = state.users.filter(function (user) {
       const officeId = user?.officeId != null ? String(user.officeId) : "";
-      const officeLabel = officeNameFor(user?.officeId).trim() || "No office";
+      const officeLabel = officeNameFor(user?.officeId, user?.officeName).trim() || "No office";
       const officeKey = officeId || `name:${officeLabel}`;
       if (memberOfficeFilter && officeKey !== memberOfficeFilter) {
         return false;
@@ -116,8 +118,8 @@
       const roleLabelText = levelLabel(user.level);
       const isCurrentUser = state.currentUser?.id === user.id;
       const isSelected = selectedUserId === user.id;
-      const officeName = officeNameFor(user.officeId);
-      const departmentName = departmentNameFor(user.departmentId);
+      const officeName = officeNameFor(user.officeId, user.officeName);
+      const departmentName = departmentNameFor(user.departmentId, user.departmentName);
       const showOfficeMeta = options.showOfficeMeta !== false;
       const currentDot = isCurrentUser
         ? '<span class="user-current-dot" aria-label="Current session"></span>'
@@ -176,7 +178,7 @@
       new Set(
         (state.users || []).map(function (user) {
           const officeId = user?.officeId != null ? String(user.officeId) : "";
-          const officeName = officeNameFor(user?.officeId).trim();
+          const officeName = officeNameFor(user?.officeId, user?.officeName).trim();
           return officeId || `name:${officeName || "No office"}`;
         })
       )
@@ -191,7 +193,7 @@
           const officeGroups = new Map();
           filteredUsers.forEach(function (user) {
             const officeId = user?.officeId != null ? String(user.officeId) : "";
-            const officeLabel = officeNameFor(user?.officeId).trim() || "No office";
+            const officeLabel = officeNameFor(user?.officeId, user?.officeName).trim() || "No office";
             const officeKey = officeId || `name:${officeLabel}`;
             if (!officeGroups.has(officeKey)) {
               officeGroups.set(officeKey, {
@@ -242,7 +244,7 @@
         (state.users || [])
           .map(function (user) {
             const officeId = user?.officeId != null ? String(user.officeId) : "";
-            const officeLabel = officeNameFor(user?.officeId).trim() || "No office";
+            const officeLabel = officeNameFor(user?.officeId, user?.officeName).trim() || "No office";
             const officeKey = officeId || `name:${officeLabel}`;
             return [officeKey, { key: officeKey, label: officeLabel }];
           })
@@ -354,8 +356,8 @@
     }
 
     const assignments = assignmentSummary(selectedUser);
-    const departmentName = departmentNameFor(selectedUser.departmentId);
-    const officeName = officeNameFor(selectedUser.officeId);
+    const departmentName = departmentNameFor(selectedUser.departmentId, selectedUser.departmentName);
+    const officeName = officeNameFor(selectedUser.officeId, selectedUser.officeName);
     const mobileDrilldownEnabled = typeof isMobileDrilldown === "function" ? isMobileDrilldown() : false;
     const mobileDetailView = mobileDrilldownEnabled && mobileView === "detail";
     const detailHtml = `
