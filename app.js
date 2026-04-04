@@ -619,17 +619,62 @@
     return { ok: true, value: parsed };
   }
 
+  function openProjectMemberManagement(projectName, actionType) {
+    if (!projectName) {
+      return false;
+    }
+    if (
+      !isAdmin(state.currentUser) &&
+      !(
+        isManager(state.currentUser) &&
+        canManagerAccessProject(state.currentUser, state.selectedCatalogClient, projectName)
+      )
+    ) {
+      feedback("Manager access required.", true);
+      return false;
+    }
+    const assignedStaff = staffIdsForProject(state.selectedCatalogClient, projectName);
+    const assignedManagers = directManagerIdsForProject(state.selectedCatalogClient, projectName);
+    memberModalState.mode = actionType === "remove" ? "project-remove-member" : "project-add-member";
+    memberModalState.client = state.selectedCatalogClient;
+    memberModalState.project = projectName;
+    memberModalState.assigned = [...new Set([...(assignedStaff || []), ...(assignedManagers || [])])];
+    memberModalState.overrides = {};
+    memberModalState.searchTerm = "";
+    openMembersModal();
+    return true;
+  }
+
   async function openProjectDialog(options) {
     return new Promise((resolve) => {
       const mode = options?.mode === "edit" ? "edit" : "add";
       const currentName = String(options?.projectName || "");
       const currentBudget = Number.isFinite(options?.budgetAmount) ? Number(options.budgetAmount) : null;
+      const currentLeadId = String(options?.projectLeadId || "").trim();
+      const managersText = String(options?.managersText || "None");
+      const staffText = String(options?.staffText || "None");
       const title = mode === "edit" ? "Edit project" : "Add project";
       const finalConfirmText = mode === "edit" ? "Save" : "Add";
+      const leadOptions = ['<option value="">Unassigned</option>']
+        .concat(
+          (state.users || [])
+            .filter((user) => user && user.isActive !== false && user.displayName)
+            .sort((a, b) => String(a.displayName).localeCompare(String(b.displayName)))
+            .map(
+              (user) =>
+                `<option value="${escapeHtml(String(user.id || ""))}">${escapeHtml(
+                  String(user.displayName || "")
+                )}</option>`
+            )
+        )
+        .join("");
+      const showTeamSection = mode === "edit";
 
       const form = document.createElement("form");
       form.className = "project-dialog-form";
       form.innerHTML = `
+        <section class="project-dialog-section">
+          <h3 class="panel-subheading">Core</h3>
         <label class="project-dialog-field">
           <span>Project name</span>
           <input type="text" name="project_name" required />
@@ -638,17 +683,44 @@
           <span>Budget (optional)</span>
           <input type="text" name="budget_amount" inputmode="decimal" placeholder="15000 or $15,000" />
         </label>
+          <label class="project-dialog-field">
+            <span>Project Lead</span>
+            <select name="project_lead_id">${leadOptions}</select>
+          </label>
+        </section>
+        ${
+          showTeamSection
+            ? `
+        <section class="project-dialog-section">
+          <h3 class="panel-subheading">Team</h3>
+          <p class="project-dialog-team-line">Managers: ${escapeHtml(managersText)}</p>
+          <p class="project-dialog-team-line">Staff: ${escapeHtml(staffText)}</p>
+        </section>
+        <section class="project-dialog-section">
+          <h3 class="panel-subheading">Actions</h3>
+          <div class="project-dialog-actions">
+            <button type="button" class="button button-ghost" data-project-team-action="add">Add Member</button>
+            <button type="button" class="button button-ghost" data-project-team-action="remove">Remove Member</button>
+          </div>
+        </section>
+        `
+            : ""
+        }
         <p class="project-dialog-error" data-project-dialog-error hidden></p>
       `;
 
       const nameInput = form.querySelector('input[name="project_name"]');
       const budgetInput = form.querySelector('input[name="budget_amount"]');
+      const leadSelect = form.querySelector('select[name="project_lead_id"]');
       const errorNode = form.querySelector("[data-project-dialog-error]");
       if (nameInput) {
         nameInput.value = currentName;
       }
       if (budgetInput) {
         budgetInput.value = currentBudget !== null ? String(currentBudget) : "";
+      }
+      if (leadSelect) {
+        leadSelect.value = currentLeadId;
       }
 
       refs.dialogTitle.textContent = title;
@@ -701,6 +773,7 @@
         resolve({
           projectName: nextName,
           budgetAmount: parsedBudget.value,
+          projectLeadId: String(leadSelect?.value || "").trim() || null,
         });
       };
 
@@ -719,6 +792,15 @@
       refs.dialogConfirm.addEventListener("click", onConfirm);
       refs.dialogCancel.addEventListener("click", onCancel);
       form.addEventListener("submit", onSubmit);
+      form.querySelectorAll("[data-project-team-action]").forEach((button) => {
+        button.addEventListener("click", function () {
+          cleanup();
+          resolve({
+            memberAction: String(button.dataset.projectTeamAction || "").trim(),
+            projectName: currentName,
+          });
+        });
+      });
       nameInput?.focus();
       nameInput?.select();
     });
@@ -735,6 +817,7 @@
       mode: "add",
       projectName: "",
       budgetAmount: null,
+      projectLeadId: null,
     });
     if (!projectDialog) {
       return;
@@ -748,6 +831,7 @@
         clientName: state.selectedCatalogClient,
         projectName: projectDialog.projectName,
         budgetAmount: projectDialog.budgetAmount,
+        projectLeadId: projectDialog.projectLeadId,
       });
     } catch (error) {
       feedback(error.message || "Unable to add project.", true);
@@ -790,6 +874,40 @@
     if (refs.addProjectForm && refs.addProjectForm.isConnected) {
       refs.addProjectForm.remove();
     }
+  }
+
+  function syncProjectCardsUx() {
+    if (!refs.projectList) return;
+    refs.projectList
+      .querySelectorAll("[data-add-member], [data-remove-member]")
+      .forEach((button) => button.remove());
+    refs.projectList.querySelectorAll(".catalog-item.catalog-item-project").forEach((card) => {
+      const projectName = String(card.getAttribute("data-project") || "").trim();
+      if (!projectName || !state.selectedCatalogClient) return;
+      const project = (state.projects || []).find(
+        (item) => item && item.client === state.selectedCatalogClient && String(item.name || "").trim() === projectName
+      );
+      const leadName = String(
+        project?.projectLeadName ||
+          getUserById(project?.projectLeadId || project?.project_lead_id || "")?.displayName ||
+          ""
+      ).trim();
+      const copy = card.querySelector(".catalog-item-copy");
+      if (!copy) return;
+      const existing = copy.querySelector("[data-project-lead-line]");
+      if (!leadName) {
+        existing?.remove();
+        return;
+      }
+      if (existing) {
+        existing.textContent = `Project Lead: ${leadName}`;
+        return;
+      }
+      const node = document.createElement("small");
+      node.setAttribute("data-project-lead-line", "1");
+      node.textContent = `Project Lead: ${leadName}`;
+      copy.appendChild(node);
+    });
   }
 
   function removeMembersAddCard() {
@@ -5986,6 +6104,7 @@
         field,
         ensureCatalogSelection,
       });
+      syncProjectCardsUx();
       syncClientsMobileDrilldownState();
       postHeight();
       return;
@@ -8318,12 +8437,22 @@
             (p.name || "").toLowerCase() === projectName.toLowerCase()
         ) || null;
       const currentBudget = projectRow && Number.isFinite(projectRow.budget) ? projectRow.budget : null;
+      const projectLeadId = String(projectRow?.projectLeadId || projectRow?.project_lead_id || "").trim() || null;
+      const managerNames = formatNameList(userNamesForIds(managerIdsForProject(state.selectedCatalogClient, projectName)));
+      const staffNames = formatNameList(userNamesForIds(staffIdsForProject(state.selectedCatalogClient, projectName)));
       const projectDialog = await openProjectDialog({
         mode: "edit",
         projectName,
         budgetAmount: currentBudget,
+        projectLeadId,
+        managersText: managerNames,
+        staffText: staffNames,
       });
       if (!projectDialog) {
+        return;
+      }
+      if (projectDialog.memberAction === "add" || projectDialog.memberAction === "remove") {
+        openProjectMemberManagement(projectName, projectDialog.memberAction);
         return;
       }
       const nextName = projectDialog.projectName;
@@ -8334,6 +8463,7 @@
           projectName,
           nextName,
           budgetAmount: projectDialog.budgetAmount,
+          projectLeadId: projectDialog.projectLeadId,
         });
         if (
           state.filters.client === state.selectedCatalogClient &&
@@ -8433,74 +8563,6 @@
       syncFilterCatalogsUI(state.filters);
       feedback(message || "Project removed from active catalog.", false);
       render();
-      return;
-    }
-
-    const addMemberButton = event.target.closest("[data-add-member]");
-    if (addMemberButton) {
-      if (
-        !isAdmin(state.currentUser) &&
-        !(
-          isManager(state.currentUser) &&
-          canManagerAccessProject(
-            state.currentUser,
-            state.selectedCatalogClient,
-            addMemberButton.dataset.addMember
-          )
-        )
-      ) {
-        feedback("Manager access required.", true);
-        return;
-      }
-      memberModalState.mode = "project-add-member";
-      memberModalState.client = state.selectedCatalogClient;
-      memberModalState.project = addMemberButton.dataset.addMember;
-      const assignedStaff = staffIdsForProject(
-        state.selectedCatalogClient,
-        addMemberButton.dataset.addMember
-      );
-      const assignedManagers = directManagerIdsForProject(
-        state.selectedCatalogClient,
-        addMemberButton.dataset.addMember
-      );
-      memberModalState.assigned = [...new Set([...(assignedStaff || []), ...(assignedManagers || [])])];
-      memberModalState.overrides = {};
-      memberModalState.searchTerm = "";
-      openMembersModal();
-      return;
-    }
-
-    const removeMemberButton = event.target.closest("[data-remove-member]");
-    if (removeMemberButton) {
-      if (
-        !isAdmin(state.currentUser) &&
-        !(
-          isManager(state.currentUser) &&
-          canManagerAccessProject(
-            state.currentUser,
-            state.selectedCatalogClient,
-            removeMemberButton.dataset.removeMember
-          )
-        )
-      ) {
-        feedback("Manager access required.", true);
-        return;
-      }
-      memberModalState.mode = "project-remove-member";
-      memberModalState.client = state.selectedCatalogClient;
-      memberModalState.project = removeMemberButton.dataset.removeMember;
-      const assignedStaff = staffIdsForProject(
-        state.selectedCatalogClient,
-        removeMemberButton.dataset.removeMember
-      );
-      const assignedManagers = directManagerIdsForProject(
-        state.selectedCatalogClient,
-        removeMemberButton.dataset.removeMember
-      );
-      memberModalState.assigned = [...new Set([...(assignedStaff || []), ...(assignedManagers || [])])];
-      memberModalState.overrides = {};
-      memberModalState.searchTerm = "";
-      openMembersModal();
       return;
     }
 
