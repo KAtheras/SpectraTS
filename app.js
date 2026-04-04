@@ -2536,7 +2536,7 @@
     }
     state.currentView = view;
     persistCurrentView(view);
-    if (view === "settings" && previousView !== "settings") {
+    if ((view === "settings" || view === "members") && previousView !== view) {
       loadSettingsMetadata();
     }
     render();
@@ -9365,7 +9365,7 @@
       if (restoredView === "inbox") {
         beginInboxVisit();
       }
-      if (restoredView === "settings") {
+      if (restoredView === "settings" || restoredView === "members") {
         loadSettingsMetadata();
       }
     } else {
