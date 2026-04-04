@@ -215,15 +215,36 @@ async function ensureSchema(sql) {
       id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
       account_id UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
       member_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      experience_type TEXT,
       certifications TEXT,
-      industry_concentration TEXT,
-      past_project_descriptions TEXT,
+      member_profile TEXT,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       UNIQUE (account_id, member_id)
     )
   `;
+  await sql`ALTER TABLE member_profiles ADD COLUMN IF NOT EXISTS certifications TEXT`;
+  await sql`ALTER TABLE member_profiles ADD COLUMN IF NOT EXISTS member_profile TEXT`;
+  await sql`
+    UPDATE member_profiles
+    SET member_profile = COALESCE(
+      NULLIF(TRIM(member_profile), ''),
+      NULLIF(
+        TRIM(
+          CONCAT_WS(
+            E'\n\n',
+            NULLIF(TRIM(experience_type), ''),
+            NULLIF(TRIM(industry_concentration), ''),
+            NULLIF(TRIM(past_project_descriptions), '')
+          )
+        ),
+        ''
+      )
+    )
+    WHERE member_profile IS NULL OR TRIM(member_profile) = ''
+  `;
+  await sql`ALTER TABLE member_profiles DROP COLUMN IF EXISTS experience_type`;
+  await sql`ALTER TABLE member_profiles DROP COLUMN IF EXISTS industry_concentration`;
+  await sql`ALTER TABLE member_profiles DROP COLUMN IF EXISTS past_project_descriptions`;
   await sql`
     CREATE INDEX IF NOT EXISTS member_profiles_account_member_idx
       ON member_profiles (account_id, member_id)
@@ -1273,10 +1294,8 @@ async function listUsers(sql, accountId) {
       offices.name AS "officeName",
       users.department_id AS "departmentId",
       d.name AS "departmentName",
-      mp.experience_type AS "experienceType",
       mp.certifications AS certifications,
-      mp.industry_concentration AS "industryConcentration",
-      mp.past_project_descriptions AS "pastProjectDescriptions",
+      mp.member_profile AS "memberProfile",
       users.must_change_password AS "mustChangePassword",
       users.account_id AS "accountId",
       users.is_active AS "isActive",
