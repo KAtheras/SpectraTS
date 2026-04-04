@@ -635,18 +635,31 @@
           state.clientEditor?.values?.client_lead_id ||
           ""
       ).trim();
+    const allActiveUsers = (state.users || [])
+      .filter((user) => user && user.isActive !== false && user.displayName)
+      .sort((a, b) => String(a.displayName || "").localeCompare(String(b.displayName || "")));
+    const executiveEligibleUsers = allActiveUsers.filter((user) => isExecutive(user));
+    const eligibleIdSet = new Set(executiveEligibleUsers.map((user) => String(user.id || "").trim()));
+    const currentSelectedUser = allActiveUsers.find((user) => String(user.id || "").trim() === selectedLeadId) || null;
+
     const options = ['<option value="">Unassigned</option>']
       .concat(
-        (state.users || [])
-          .filter((user) => user && user.isActive !== false && user.displayName)
-          .sort((a, b) => String(a.displayName || "").localeCompare(String(b.displayName || "")))
-          .map((user) => {
-            const id = String(user.id || "").trim();
-            const selected = id && id === selectedLeadId ? "selected" : "";
-            return `<option value="${escapeHtml(id)}" ${selected}>${escapeHtml(
-              String(user.displayName || "")
-            )}</option>`;
-          })
+        executiveEligibleUsers.map((user) => {
+          const id = String(user.id || "").trim();
+          const selected = id && id === selectedLeadId ? "selected" : "";
+          return `<option value="${escapeHtml(id)}" ${selected}>${escapeHtml(
+            String(user.displayName || "")
+          )}</option>`;
+        })
+      )
+      .concat(
+        selectedLeadId && !eligibleIdSet.has(selectedLeadId) && currentSelectedUser
+          ? [
+              `<option value="${escapeHtml(selectedLeadId)}" selected>${escapeHtml(
+                `${String(currentSelectedUser.displayName || "").trim()} (Current)`
+              )}</option>`,
+            ]
+          : []
       )
       .join("");
     leadSelect.innerHTML = options;
@@ -779,14 +792,28 @@
       const leadNameById = new Map(
         activeUsers.map((user) => [String(user.id || "").trim(), String(user.displayName || "").trim()])
       );
+      const managerEligibleUsers = activeUsers.filter((user) => isManager(user));
+      const managerEligibleIdSet = new Set(
+        managerEligibleUsers.map((user) => String(user.id || "").trim())
+      );
+      const currentLeadName = leadNameById.get(currentLeadId) || "";
       const leadOptions = ['<option value="">Unassigned</option>']
         .concat(
-          activeUsers.map(
+          managerEligibleUsers.map(
             (user) =>
               `<option value="${escapeHtml(String(user.id || ""))}">${escapeHtml(
                 String(user.displayName || "")
               )}</option>`
           )
+        )
+        .concat(
+          currentLeadId && !managerEligibleIdSet.has(currentLeadId) && currentLeadName
+            ? [
+                `<option value="${escapeHtml(currentLeadId)}">${escapeHtml(
+                  `${currentLeadName} (Current)`
+                )}</option>`,
+              ]
+            : []
         )
         .join("");
       const showTeamSection = mode === "edit";
