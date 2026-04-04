@@ -121,21 +121,20 @@
       const officeName = officeNameFor(user.officeId, user.officeName);
       const departmentName = departmentNameFor(user.departmentId, user.departmentName);
       const showOfficeMeta = options.showOfficeMeta !== false;
-      const currentDot = isCurrentUser
-        ? '<span class="user-current-dot" aria-label="Current session"></span>'
-        : "";
+      const currentDot = `<span class="user-current-dot${isCurrentUser ? "" : " is-hidden"}" ${isCurrentUser ? 'aria-label="Current session"' : 'aria-hidden="true"'}></span>`;
 
       return `
         <article class="catalog-item user-item ${isSelected ? "is-selected" : ""}" data-user-id="${escapeHtml(user.id)}">
           <div class="user-item-row">
             <span class="catalog-item-title">
-              ${currentDot}<span>${escapeHtml(user.displayName)}</span>
+              <span>${escapeHtml(user.displayName)}</span>
             </span>
             <span class="user-item-meta">
               <span>${escapeHtml(roleLabelText)}</span>
               ${showOfficeMeta && officeName ? `<span>${escapeHtml(officeName)}</span>` : ""}
               ${departmentName ? `<span>${escapeHtml(departmentName)}</span>` : ""}
             </span>
+            ${currentDot}
           </div>
         </article>
       `;

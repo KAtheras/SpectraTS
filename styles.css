@@ -3209,7 +3209,7 @@ body[data-theme="dark"] .audit-detail-col {
 
 .user-item-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 12px;
 }
@@ -3234,8 +3234,11 @@ body[data-theme="dark"] .audit-detail-col {
   border-radius: 999px;
   background: #2fa94f;
   display: inline-block;
-  margin-right: 8px;
-  vertical-align: middle;
+  justify-self: end;
+}
+
+.user-current-dot.is-hidden {
+  visibility: hidden;
 }
 
 .user-item-actions {
