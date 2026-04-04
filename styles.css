@@ -2678,7 +2678,7 @@ body[data-theme="dark"] .audit-detail-col {
 }
 
 .client-editor-row-fields-top {
-  grid-template-columns: minmax(240px, 1.2fr) minmax(180px, 1fr) minmax(220px, 1fr);
+  grid-template-columns: minmax(240px, 1.25fr) minmax(240px, 1.25fr) minmax(260px, 1fr);
 }
 
 .client-editor-third-pair {
@@ -3428,6 +3428,24 @@ body[data-theme="dark"] .audit-detail-col {
   letter-spacing: 0.04em;
   text-transform: uppercase;
   cursor: pointer;
+}
+
+.catalog-item-actions > .catalog-edit[data-deactivate-project],
+.catalog-item-actions > .catalog-edit[data-reactivate-project],
+.catalog-item-actions > .catalog-edit[data-deactivate-client],
+.catalog-item-actions > .catalog-edit[data-reactivate-client] {
+  color: #b8611f;
+}
+
+.catalog-item-actions > .catalog-edit[data-deactivate-project]:hover,
+.catalog-item-actions > .catalog-edit[data-reactivate-project]:hover,
+.catalog-item-actions > .catalog-edit[data-deactivate-client]:hover,
+.catalog-item-actions > .catalog-edit[data-reactivate-client]:hover,
+.catalog-item-actions > .catalog-edit[data-deactivate-project]:focus-visible,
+.catalog-item-actions > .catalog-edit[data-reactivate-project]:focus-visible,
+.catalog-item-actions > .catalog-edit[data-deactivate-client]:focus-visible,
+.catalog-item-actions > .catalog-edit[data-reactivate-client]:focus-visible {
+  color: #d9782b;
 }
 
 .catalog-edit:hover,
