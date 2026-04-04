@@ -2599,6 +2599,13 @@ body[data-theme="dark"] .audit-detail-col {
   text-transform: uppercase;
 }
 
+.catalog-column-head .catalog-lifecycle-toggle {
+  display: inline-flex;
+  justify-content: flex-start;
+  gap: 8px;
+  flex: 0 0 100%;
+}
+
 .catalog-create {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -2845,6 +2852,13 @@ body[data-theme="dark"] .audit-detail-col {
 
 .catalog-item-actions > [data-edit-members] {
   order: 50;
+}
+
+.catalog-item-actions > [data-deactivate-project],
+.catalog-item-actions > [data-reactivate-project],
+.catalog-item-actions > [data-deactivate-client],
+.catalog-item-actions > [data-reactivate-client] {
+  order: 55;
 }
 
 .catalog-item-actions > [data-delete-project] {

@@ -608,13 +608,14 @@
     header.style.display = "flex";
     header.style.alignItems = "center";
     header.style.gap = "10px";
+    header.style.flexWrap = "wrap";
 
     if (!addClientHeaderButton) {
       addClientHeaderButton = document.createElement("button");
       addClientHeaderButton.type = "button";
       addClientHeaderButton.className = "button button-ghost";
       addClientHeaderButton.textContent = "Add client";
-      addClientHeaderButton.style.marginLeft = "auto";
+      addClientHeaderButton.style.marginLeft = "0";
       addClientHeaderButton.addEventListener("click", async function () {
         if (!isAdmin(state.currentUser)) {
           feedback("Only Admins can add clients.", true);
@@ -652,11 +653,11 @@
       clientLifecycleToggleWrap.appendChild(clientLifecycleToggleInactive);
     }
 
-    if (!clientLifecycleToggleWrap.isConnected) {
-      header.appendChild(clientLifecycleToggleWrap);
-    }
     if (!addClientHeaderButton.isConnected) {
       header.appendChild(addClientHeaderButton);
+    }
+    if (!clientLifecycleToggleWrap.isConnected) {
+      header.appendChild(clientLifecycleToggleWrap);
     }
     syncClientLifecycleToggleUi();
     if (addForm.isConnected) {
@@ -1116,6 +1117,7 @@
     header.style.display = "flex";
     header.style.alignItems = "center";
     header.style.gap = "10px";
+    header.style.flexWrap = "wrap";
 
     if (!addProjectHeaderButton) {
       addProjectHeaderButton = document.createElement("button");
@@ -1123,7 +1125,7 @@
       addProjectHeaderButton.id = "add-project-header-button";
       addProjectHeaderButton.className = "button button-ghost";
       addProjectHeaderButton.textContent = "Add Project";
-      addProjectHeaderButton.style.marginLeft = "auto";
+      addProjectHeaderButton.style.marginLeft = "0";
       addProjectHeaderButton.addEventListener("click", function () {
         openAddProjectDialog();
       });
@@ -1154,11 +1156,11 @@
       projectLifecycleToggleWrap.appendChild(projectLifecycleToggleInactive);
     }
 
-    if (!projectLifecycleToggleWrap.isConnected) {
-      header.appendChild(projectLifecycleToggleWrap);
-    }
     if (!addProjectHeaderButton.isConnected) {
       header.appendChild(addProjectHeaderButton);
+    }
+    if (!projectLifecycleToggleWrap.isConnected) {
+      header.appendChild(projectLifecycleToggleWrap);
     }
     syncProjectLifecycleToggleUi();
     if (refs.addProjectForm && refs.addProjectForm.isConnected) {

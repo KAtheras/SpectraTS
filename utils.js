@@ -174,6 +174,8 @@
           name,
           createdBy: project.createdBy || "",
           budget: Number.isFinite(budgetRaw) ? budgetRaw : null,
+          isActive: project?.isActive ?? project?.is_active ?? true,
+          is_active: project?.isActive ?? project?.is_active ?? true,
           officeId: officeId ? String(officeId) : "",
           projectLeadId: projectLeadId || null,
           project_lead_id: projectLeadId || null,
