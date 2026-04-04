@@ -635,8 +635,10 @@
       clientLifecycleToggleActive.textContent = "Active";
       clientLifecycleToggleActive.addEventListener("click", function () {
         state.catalogClientLifecycleView = "active";
+        state.catalogProjectLifecycleView = "active";
         ensureCatalogSelection();
         syncClientLifecycleToggleUi();
+        syncProjectLifecycleToggleUi();
         renderCatalogAside();
         syncProjectCardsUx();
       });
@@ -645,8 +647,10 @@
       clientLifecycleToggleInactive.textContent = "Inactive";
       clientLifecycleToggleInactive.addEventListener("click", function () {
         state.catalogClientLifecycleView = "inactive";
+        state.catalogProjectLifecycleView = "inactive";
         ensureCatalogSelection();
         syncClientLifecycleToggleUi();
+        syncProjectLifecycleToggleUi();
         renderCatalogAside();
         syncProjectCardsUx();
       });
