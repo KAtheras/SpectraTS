@@ -2786,17 +2786,6 @@ body[data-theme="dark"] .audit-detail-col {
   background: color-mix(in srgb, var(--accent) 14%, var(--panel));
 }
 
-.catalog-item.is-inactive {
-  background: color-mix(in srgb, var(--panel) 84%, var(--surface) 16%);
-  border-color: color-mix(in srgb, var(--panel-border) 78%, var(--muted) 22%);
-}
-
-.catalog-item.is-inactive .catalog-item-title,
-.catalog-item.is-inactive .catalog-item-copy small,
-.catalog-item.is-inactive .catalog-item-meta span,
-.catalog-item.is-inactive strong {
-  color: color-mix(in srgb, var(--ink) 74%, var(--muted) 26%);
-}
 
 .catalog-item span {
   color: var(--ink);
@@ -2830,15 +2819,20 @@ body[data-theme="dark"] .audit-detail-col {
   color: var(--muted);
 }
 
-/* Keep inactive cards visibly distinct even after base/selected text color rules. */
 .catalog-item.is-inactive {
-  background: color-mix(in srgb, var(--panel) 82%, var(--surface) 18%);
-  border-color: color-mix(in srgb, var(--panel-border) 70%, var(--muted) 30%);
+  background: var(--surface);
+  border-color: var(--muted);
+  box-shadow: inset 0 0 0 1px var(--muted);
+  opacity: 0.9;
+  filter: none;
 }
 
 .catalog-item.is-selected.is-inactive {
-  background: color-mix(in srgb, var(--panel) 76%, var(--surface) 18%, var(--accent) 6%);
-  border-color: color-mix(in srgb, var(--accent) 38%, var(--panel-border) 62%);
+  background: var(--surface);
+  border-color: var(--muted);
+  box-shadow: inset 0 0 0 1px var(--muted);
+  opacity: 1;
+  filter: none;
 }
 
 .catalog-item.is-inactive .catalog-item-title,
@@ -2846,7 +2840,7 @@ body[data-theme="dark"] .audit-detail-col {
 .catalog-item.is-inactive .catalog-item-meta span,
 .catalog-item.is-inactive strong,
 .catalog-item.is-inactive span {
-  color: color-mix(in srgb, var(--ink) 72%, var(--muted) 28%);
+  color: var(--ink);
 }
 
 .catalog-item-project {
