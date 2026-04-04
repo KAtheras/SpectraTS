@@ -759,7 +759,7 @@
         projectName: normalizedProject,
         nextName,
         budgetAmount: projectDialog.budgetAmount,
-        projectLeadId: projectDialog.projectLeadId,
+        project_lead_id: projectDialog.projectLeadId,
       });
       if (state.filters.client === normalizedClient && state.filters.project === normalizedProject) {
         state.filters.project = nextName.trim();
@@ -1013,7 +1013,7 @@
         clientName: state.selectedCatalogClient,
         projectName: projectDialog.projectName,
         budgetAmount: projectDialog.budgetAmount,
-        projectLeadId: projectDialog.projectLeadId,
+        project_lead_id: projectDialog.projectLeadId,
       });
     } catch (error) {
       feedback(error.message || "Unable to add project.", true);
@@ -8430,7 +8430,7 @@
         clientName: editor.mode === "edit" ? editor.originalName : values.name,
         nextName: values.name,
         officeId: values.officeId || null,
-        clientLeadId: values.clientLeadId,
+        client_lead_id: values.clientLeadId,
         businessContactName: values.businessContactName,
         businessContactEmail: values.businessContactEmail,
         businessContactPhone: values.businessContactPhone,
