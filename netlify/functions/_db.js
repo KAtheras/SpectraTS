@@ -225,22 +225,37 @@ async function ensureSchema(sql) {
   await sql`ALTER TABLE member_profiles ADD COLUMN IF NOT EXISTS certifications TEXT`;
   await sql`ALTER TABLE member_profiles ADD COLUMN IF NOT EXISTS member_profile TEXT`;
   await sql`
-    UPDATE member_profiles
-    SET member_profile = COALESCE(
-      NULLIF(TRIM(member_profile), ''),
-      NULLIF(
-        TRIM(
-          CONCAT_WS(
-            E'\n\n',
-            NULLIF(TRIM(experience_type), ''),
-            NULLIF(TRIM(industry_concentration), ''),
-            NULLIF(TRIM(past_project_descriptions), '')
-          )
-        ),
-        ''
-      )
-    )
-    WHERE member_profile IS NULL OR TRIM(member_profile) = ''
+    DO $$
+    DECLARE
+      legacy_col TEXT;
+    BEGIN
+      FOREACH legacy_col IN ARRAY ARRAY[
+        'experience_type',
+        'industry_concentration',
+        'past_project_descriptions'
+      ]
+      LOOP
+        IF EXISTS (
+          SELECT 1
+          FROM information_schema.columns
+          WHERE table_schema = 'public'
+            AND table_name = 'member_profiles'
+            AND column_name = legacy_col
+        ) THEN
+          EXECUTE format(
+            $fmt$
+              UPDATE member_profiles
+              SET member_profile = CASE
+                WHEN %1$I IS NULL OR TRIM(%1$I) = '' THEN member_profile
+                WHEN member_profile IS NULL OR TRIM(member_profile) = '' THEN TRIM(%1$I)
+                ELSE CONCAT(member_profile, E'\\n\\n', TRIM(%1$I))
+              END
+            $fmt$,
+            legacy_col
+          );
+        END IF;
+      END LOOP;
+    END $$;
   `;
   await sql`ALTER TABLE member_profiles DROP COLUMN IF EXISTS experience_type`;
   await sql`ALTER TABLE member_profiles DROP COLUMN IF EXISTS industry_concentration`;
