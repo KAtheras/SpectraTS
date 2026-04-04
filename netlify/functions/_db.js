@@ -1542,6 +1542,37 @@ async function createUserRecord(sql, payload) {
     )
   `;
 
+  const certificationsValue =
+    payload.certifications !== undefined
+      ? String(payload.certifications ?? "").trim()
+      : "";
+  const memberProfileValue =
+    payload.memberProfile !== undefined || payload.member_profile !== undefined
+      ? String((payload.memberProfile ?? payload.member_profile) ?? "").trim()
+      : "";
+  if (certificationsValue || memberProfileValue) {
+    await sql`
+      INSERT INTO member_profiles (
+        account_id,
+        member_id,
+        certifications,
+        member_profile,
+        updated_at
+      )
+      VALUES (
+        ${accountUuid}::uuid,
+        ${user.id},
+        ${certificationsValue || null},
+        ${memberProfileValue || null},
+        NOW()
+      )
+      ON CONFLICT (account_id, member_id) DO UPDATE SET
+        certifications = EXCLUDED.certifications,
+        member_profile = EXCLUDED.member_profile,
+        updated_at = NOW()
+    `;
+  }
+
   return user;
 }
 
@@ -1624,6 +1655,16 @@ async function updateUserRecord(sql, payload, actingUser) {
       : existingUser?.cost_rate ?? null;
   const costRate =
     rawCostRate === null ? null : Number(rawCostRate);
+  const hasCertifications = Object.prototype.hasOwnProperty.call(payload || {}, "certifications");
+  const hasMemberProfile =
+    Object.prototype.hasOwnProperty.call(payload || {}, "memberProfile") ||
+    Object.prototype.hasOwnProperty.call(payload || {}, "member_profile");
+  const certificationsInput = hasCertifications
+    ? String(payload.certifications ?? "").trim()
+    : undefined;
+  const memberProfileInput = hasMemberProfile
+    ? String((payload.memberProfile ?? payload.member_profile) ?? "").trim()
+    : undefined;
 
   if (!existingUser || !existingUser.is_active) {
     throw new Error("User not found.");
@@ -1704,6 +1745,42 @@ async function updateUserRecord(sql, payload, actingUser) {
       updated_at = ${updatedAt}
     WHERE id = ${existingUser.id}
   `;
+
+  if (hasCertifications || hasMemberProfile) {
+    const existingProfile = await sql`
+      SELECT certifications, member_profile
+      FROM member_profiles
+      WHERE account_id = ${existingUser.account_id}::uuid
+        AND member_id = ${existingUser.id}
+      LIMIT 1
+    `;
+    const nextCertifications = hasCertifications
+      ? (certificationsInput || null)
+      : (existingProfile[0]?.certifications ?? null);
+    const nextMemberProfile = hasMemberProfile
+      ? (memberProfileInput || null)
+      : (existingProfile[0]?.member_profile ?? null);
+    await sql`
+      INSERT INTO member_profiles (
+        account_id,
+        member_id,
+        certifications,
+        member_profile,
+        updated_at
+      )
+      VALUES (
+        ${existingUser.account_id}::uuid,
+        ${existingUser.id},
+        ${nextCertifications},
+        ${nextMemberProfile},
+        NOW()
+      )
+      ON CONFLICT (account_id, member_id) DO UPDATE SET
+        certifications = EXCLUDED.certifications,
+        member_profile = EXCLUDED.member_profile,
+        updated_at = NOW()
+    `;
+  }
 
   if (existingUser.display_name !== displayName) {
     await sql`

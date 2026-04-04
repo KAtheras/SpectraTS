@@ -1200,12 +1200,64 @@
         #member-editor-modal .member-editor-footer{
           display:flex;
           justify-content:space-between;
+          align-items:flex-end;
           gap:10px;
           padding-top:6px;
+        }
+        #member-editor-modal .member-editor-footer-left{
+          display:flex;
+          align-items:flex-end;
+          gap:10px;
+          flex:1 1 auto;
+          min-width:0;
+        }
+        #member-editor-modal .member-editor-footer-left label{
+          margin:0;
+          display:grid;
+          gap:4px;
+          min-width:220px;
+          max-width:360px;
+        }
+        #member-editor-modal .member-editor-footer-left label span{
+          font-family:var(--font-head);
+          font-size:.72rem;
+          font-weight:700;
+          letter-spacing:.05em;
+          text-transform:uppercase;
+          color:var(--muted);
+        }
+        #member-editor-modal .member-editor-textarea label{
+          margin:0;
+          display:grid;
+          gap:4px;
+        }
+        #member-editor-modal .member-editor-textarea label span{
+          font-family:var(--font-head);
+          font-size:.72rem;
+          font-weight:700;
+          letter-spacing:.05em;
+          text-transform:uppercase;
+          color:var(--muted);
+        }
+        #member-editor-modal .member-editor-textarea textarea{
+          min-height:84px;
+          resize:vertical;
         }
         @media (max-width: 700px){
           #member-editor-modal .member-editor-row{
             grid-template-columns:1fr;
+          }
+          #member-editor-modal .member-editor-footer{
+            flex-direction:column;
+            align-items:stretch;
+          }
+          #member-editor-modal .member-editor-footer-left{
+            flex-direction:column;
+            align-items:stretch;
+          }
+          #member-editor-modal .member-editor-footer-left label{
+            min-width:0;
+            max-width:none;
           }
         }
       `;
@@ -1240,8 +1292,20 @@
               <label><span>Cost rate</span><input type="number" step="0.01" min="0" name="cost_rate" /></label>
               <label><span>Email</span><input type="email" name="email" required /></label>
             </div>
+            <div class="member-editor-textarea">
+              <label>
+                <span>Member Profile</span>
+                <textarea name="member_profile" placeholder="Enter member profile"></textarea>
+              </label>
+            </div>
             <div class="member-editor-footer">
-              <button class="button button-ghost" type="button" data-member-editor-cancel>Cancel</button>
+              <div class="member-editor-footer-left">
+                <label>
+                  <span>Certifications</span>
+                  <input type="text" name="certifications" placeholder="Enter certifications" />
+                </label>
+                <button class="button button-ghost" type="button" data-member-editor-cancel>Cancel</button>
+              </div>
               <button class="button button-ghost" type="button" data-member-editor-reset hidden>Reset password</button>
               <button class="button" type="submit" data-member-editor-submit>Add member</button>
             </div>
@@ -1344,9 +1408,11 @@
     field(memberEditorForm, "office_id").value = user?.officeId || "";
     field(memberEditorForm, "base_rate").value = user?.baseRate ?? "";
     field(memberEditorForm, "cost_rate").value = user?.costRate ?? "";
+    field(memberEditorForm, "certifications").value = user?.certifications || "";
+    field(memberEditorForm, "member_profile").value = user?.memberProfile || "";
 
     const profileEditable = mode === "create" ? canCreate : canEditProfile;
-    ["display_name", "username", "email", "employee_id", "level", "department_id", "office_id"].forEach((name) => {
+    ["display_name", "username", "email", "employee_id", "level", "department_id", "office_id", "certifications", "member_profile"].forEach((name) => {
       const el = field(memberEditorForm, name);
       if (el) el.disabled = !profileEditable;
     });
@@ -1389,6 +1455,8 @@
     const level = normalizeLevel(field(memberEditorForm, "level").value || "1");
     const departmentId = field(memberEditorForm, "department_id").value || null;
     const officeId = field(memberEditorForm, "office_id").value || null;
+    const certifications = field(memberEditorForm, "certifications").value.trim();
+    const memberProfile = field(memberEditorForm, "member_profile").value.trim();
     const baseRaw = field(memberEditorForm, "base_rate").value.trim();
     const costRaw = field(memberEditorForm, "cost_rate").value.trim();
     const baseRate = baseRaw === "" ? null : Number(baseRaw);
@@ -1410,7 +1478,18 @@
         }
         const result = await mutatePersistentState(
           "add_user",
-          { displayName, username, email, employeeId, level, officeId, baseRate, costRate },
+          {
+            displayName,
+            username,
+            email,
+            employeeId,
+            level,
+            officeId,
+            baseRate,
+            costRate,
+            certifications,
+            memberProfile,
+          },
           { skipHydrate: true }
         );
         const created = (result?.users || []).find((u) => String(u.username || "").toLowerCase() === String(username).toLowerCase());
@@ -1427,7 +1506,17 @@
         if (canEditProfile) {
           await mutatePersistentState(
             "update_user",
-            { userId, displayName, username, email, employeeId, level, officeId },
+            {
+              userId,
+              displayName,
+              username,
+              email,
+              employeeId,
+              level,
+              officeId,
+              certifications,
+              memberProfile,
+            },
             { skipHydrate: true }
           );
           await mutatePersistentState(
