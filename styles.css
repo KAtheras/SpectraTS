@@ -2830,6 +2830,25 @@ body[data-theme="dark"] .audit-detail-col {
   color: var(--muted);
 }
 
+/* Keep inactive cards visibly distinct even after base/selected text color rules. */
+.catalog-item.is-inactive {
+  background: color-mix(in srgb, var(--panel) 82%, var(--surface) 18%);
+  border-color: color-mix(in srgb, var(--panel-border) 70%, var(--muted) 30%);
+}
+
+.catalog-item.is-selected.is-inactive {
+  background: color-mix(in srgb, var(--panel) 76%, var(--surface) 18%, var(--accent) 6%);
+  border-color: color-mix(in srgb, var(--accent) 38%, var(--panel-border) 62%);
+}
+
+.catalog-item.is-inactive .catalog-item-title,
+.catalog-item.is-inactive .catalog-item-copy small,
+.catalog-item.is-inactive .catalog-item-meta span,
+.catalog-item.is-inactive strong,
+.catalog-item.is-inactive span {
+  color: color-mix(in srgb, var(--ink) 72%, var(--muted) 28%);
+}
+
 .catalog-item-project {
   display: flex;
   flex-direction: column;
