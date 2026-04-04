@@ -1,6 +1,13 @@
 (function () {
   const deps = () => window.expensesDeps || {};
 
+  function isInternalExpense(expense) {
+    const clientName = `${expense?.clientName || ""}`.trim().toLowerCase();
+    const projectName = `${expense?.projectName || ""}`.trim();
+    if (clientName === "internal") return true;
+    return clientName === "" && projectName === "";
+  }
+
   function activeExpenseCategories() {
     const { state } = deps();
     return (state.expenseCategories || []).filter((c) => c?.isActive !== false);
@@ -227,9 +234,11 @@
         const canBypassProjectScope =
           (typeof isAdmin === "function" && isAdmin(scopeUser)) ||
           (typeof isExecutive === "function" && isExecutive(scopeUser));
+        const isInternal = isInternalExpense(expense);
         if (
           !canBypassProjectScope &&
           allowedTupleKeys.size &&
+          !isInternal &&
           !allowedTupleKeys.has(`${expense.clientName || ""}::${expense.projectName || ""}`)
         ) {
           return false;

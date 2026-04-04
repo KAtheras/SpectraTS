@@ -1,6 +1,40 @@
 (function () {
   const deps = () => window.timeEntriesDeps || {};
 
+  function isInternalEntry(entry) {
+    const entryClient = `${entry?.client || ""}`.trim();
+    const entryProject = `${entry?.project || ""}`.trim();
+    const rawChargeCenterId = entry?.chargeCenterId ?? entry?.charge_center_id ?? "";
+    const chargeCenterId = `${rawChargeCenterId}`.trim().toLowerCase();
+    const hasChargeCenter = chargeCenterId !== "" && chargeCenterId !== "null" && chargeCenterId !== "undefined";
+    if (hasChargeCenter) return true;
+    if (entryClient.toLowerCase() === "internal") return true;
+    return !entryClient && !entryProject;
+  }
+
+  function internalProjectLabel(entry, state) {
+    const projectName = `${entry?.project || ""}`.trim();
+    if (projectName) return projectName;
+    const taskName = `${entry?.task || ""}`.trim();
+    if (taskName) return taskName;
+    const rawChargeCenterId = entry?.chargeCenterId ?? entry?.charge_center_id ?? "";
+    const chargeCenterId = `${rawChargeCenterId || ""}`.trim().toLowerCase();
+    if (chargeCenterId && chargeCenterId !== "null" && chargeCenterId !== "undefined") {
+      for (const category of state?.corporateFunctionCategories || []) {
+        if (`${category?.id || ""}`.trim().toLowerCase() === chargeCenterId) {
+          return `${category?.name || ""}`.trim() || "Internal";
+        }
+        const groupMatch = (category?.groups || []).find(
+          (group) => `${group?.id || ""}`.trim().toLowerCase() === chargeCenterId
+        );
+        if (groupMatch) {
+          return `${groupMatch?.name || ""}`.trim() || `${category?.name || ""}`.trim() || "Internal";
+        }
+      }
+    }
+    return "Internal";
+  }
+
   function currentEntries(filterOverrides) {
     const { state, effectiveScopeUser } = deps();
     const scopeUser =
@@ -51,13 +85,11 @@
         const canBypassProjectScope =
           (typeof isAdmin === "function" && isAdmin(scopeUser)) ||
           (typeof isExecutive === "function" && isExecutive(scopeUser));
-        const entryClient = `${entry.client || ""}`.trim();
-        const entryProject = `${entry.project || ""}`.trim();
-        const isInternalEntry = !entryClient && !entryProject;
+        const isInternal = isInternalEntry(entry);
         if (
           !canBypassProjectScope &&
           allowedTupleKeys.size &&
-          !isInternalEntry &&
+          !isInternal &&
           !allowedTupleKeys.has(`${entry.client || ""}::${entry.project || ""}`)
         ) {
           return false;
@@ -65,11 +97,18 @@
         if (filters.user && entry.user !== filters.user) {
           return false;
         }
-        if (filters.client && entry.client !== filters.client) {
-          return false;
+        if (filters.client) {
+          if (filters.client === "Internal") {
+            if (!isInternal) return false;
+          } else if (entry.client !== filters.client) {
+            return false;
+          }
         }
-        if (filters.project && entry.project !== filters.project) {
-          return false;
+        if (filters.project) {
+          const entryProjectForFilter = isInternal ? internalProjectLabel(entry, state) : entry.project;
+          if (entryProjectForFilter !== filters.project) {
+            return false;
+          }
         }
         if (filters.from && entry.date < filters.from) {
           return false;

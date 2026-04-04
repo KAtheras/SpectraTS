@@ -425,6 +425,44 @@
     projectField.disabled = !nextClient;
   }
 
+  function hasMeaningfulText(value) {
+    const normalized = `${value || ""}`.trim().toLowerCase();
+    return normalized !== "" && normalized !== "null" && normalized !== "undefined";
+  }
+
+  function isInternalFilterEntry(entry) {
+    const entryClient = `${entry?.client || ""}`.trim().toLowerCase();
+    const entryProject = `${entry?.project || ""}`.trim();
+    const rawChargeCenterId = entry?.chargeCenterId ?? entry?.charge_center_id ?? "";
+    if (hasMeaningfulText(rawChargeCenterId)) return true;
+    if (entryClient === "internal") return true;
+    return entryClient === "" && entryProject === "";
+  }
+
+  function resolveInternalProjectLabel(entry, state) {
+    const projectName = `${entry?.project || ""}`.trim();
+    if (projectName) return projectName;
+    const taskName = `${entry?.task || ""}`.trim();
+    if (taskName) return taskName;
+    const rawChargeCenterId = entry?.chargeCenterId ?? entry?.charge_center_id ?? "";
+    const chargeCenterId = `${rawChargeCenterId || ""}`.trim();
+    if (hasMeaningfulText(chargeCenterId)) {
+      const id = chargeCenterId.toLowerCase();
+      for (const category of state?.corporateFunctionCategories || []) {
+        if (`${category?.id || ""}`.trim().toLowerCase() === id) {
+          return `${category?.name || ""}`.trim() || "Internal";
+        }
+        const groupMatch = (category?.groups || []).find(
+          (group) => `${group?.id || ""}`.trim().toLowerCase() === id
+        );
+        if (groupMatch) {
+          return `${groupMatch?.name || ""}`.trim() || `${category?.name || ""}`.trim() || "Internal";
+        }
+      }
+    }
+    return "Internal";
+  }
+
   function syncFilterCatalogs(deps, selection) {
     const {
       refs,
@@ -484,6 +522,7 @@
     const entryClients = uniqueValues(
       scopeRows.map((entry) => entry.client).filter(Boolean)
     );
+    const hasInternalRows = scopeRows.some((entry) => isInternalFilterEntry(entry));
     const targetUser =
       nextUser && state.users.length
         ? state.users.find((u) => u.displayName === nextUser) || scopeUser
@@ -494,12 +533,15 @@
         ? clientNames()
         : allowedClientsForUser(targetUser)
       : clientNames();
-    if (entryClients.includes("Internal") && !allowedClientsRaw.includes("Internal")) {
+    if ((entryClients.includes("Internal") || hasInternalRows) && !allowedClientsRaw.includes("Internal")) {
       allowedClientsRaw.push("Internal");
     }
-    const allowedClientsFiltered = allowedClientsRaw.filter((client) =>
-      entryClients.includes(client)
-    );
+    const allowedClientsFiltered = allowedClientsRaw.filter((client) => {
+      if (client === "Internal") {
+        return entryClients.includes("Internal") || hasInternalRows;
+      }
+      return entryClients.includes(client);
+    });
     const allowedClients = [
       ...allowedClientsFiltered
         .filter((client) => client !== "Internal")
@@ -508,23 +550,31 @@
     ];
     const nextClient = allowedClients.includes(requestedClient) ? requestedClient : "";
     const requestedProject = selection?.project ?? projectField?.value ?? "";
+    const isInternalClient = nextClient === "Internal";
     const entryProjects = uniqueValues(
       scopeRows
-        .filter((entry) => !nextClient || entry.client === nextClient)
-        .map((entry) => entry.project)
+        .filter((entry) => {
+          if (!nextClient) return false;
+          if (isInternalClient) return isInternalFilterEntry(entry);
+          return entry.client === nextClient;
+        })
+        .map((entry) =>
+          isInternalClient ? resolveInternalProjectLabel(entry, state) : `${entry.project || ""}`.trim()
+        )
         .filter(Boolean)
     );
-    const allowedProjectsRaw = nextClient
+    const allowedProjectsRaw = !nextClient
       ? targetUser && !isAdmin(targetUser)
-        ? allowedProjectsForClient(targetUser, nextClient)
-        : projectNames(nextClient)
-      : targetUser && !isAdmin(targetUser)
         ? []
-        : projectNames(nextClient);
-    const allowedProjectsFiltered = allowedProjectsRaw.filter((project) =>
-      entryProjects.includes(project)
-    );
-    const allowedProjects = allowedProjectsFiltered;
+        : projectNames(nextClient)
+      : isInternalClient
+        ? entryProjects
+        : targetUser && !isAdmin(targetUser)
+          ? allowedProjectsForClient(targetUser, nextClient)
+          : projectNames(nextClient);
+    const allowedProjects = isInternalClient
+      ? allowedProjectsRaw
+      : allowedProjectsRaw.filter((project) => entryProjects.includes(project));
     const nextProject = allowedProjects.includes(requestedProject) ? requestedProject : "";
 
     populateSelect(deps, userField, userOptions, "All users", nextUser);
