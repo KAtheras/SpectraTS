@@ -2788,12 +2788,12 @@ body[data-theme="dark"] .audit-detail-col {
 
 .catalog-item.is-inactive .catalog-item-copy,
 .catalog-item.is-inactive .catalog-item-copy * {
-  opacity: 0.2;
+  opacity: 0.48;
 }
 
 .catalog-item.is-inactive .catalog-item-actions .catalog-edit,
 .catalog-item.is-inactive .catalog-item-actions .catalog-delete {
-  opacity: 0.2;
+  opacity: 0.48;
 }
 
 .catalog-item.is-inactive .catalog-item-actions [data-view-time-project],
