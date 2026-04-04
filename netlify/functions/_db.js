@@ -400,6 +400,7 @@ async function ensureSchema(sql) {
   await sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS admin_contact_last_name TEXT`;
   await sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS admin_contact_email TEXT`;
   await sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS admin_contact_phone TEXT`;
+  await sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE`;
   await sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`;
   await sql`UPDATE clients SET account_id = ${accountUuid}::uuid WHERE account_id IS NULL`;
   await sql`
@@ -449,6 +450,7 @@ async function ensureSchema(sql) {
     ALTER TABLE projects
     ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   `;
+  await sql`ALTER TABLE projects ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE`;
 
   await sql`
     CREATE UNIQUE INDEX IF NOT EXISTS projects_client_name_ci_idx
@@ -2098,7 +2100,8 @@ async function findClient(sql, clientName, accountId) {
       admin_contact_first_name AS admin_contact_first_name,
       admin_contact_last_name AS admin_contact_last_name,
       admin_contact_email AS admin_contact_email,
-      admin_contact_phone AS admin_contact_phone
+      admin_contact_phone AS admin_contact_phone,
+      is_active
     FROM clients
     WHERE LOWER(name) = LOWER(${normalized})
       AND account_id = ${accountId}::uuid
@@ -2133,6 +2136,7 @@ async function listClients(sql, accountId) {
       clients.admin_contact_last_name AS "adminContactLastName",
       clients.admin_contact_email AS "adminContactEmail",
       clients.admin_contact_phone AS "adminContactPhone",
+      clients.is_active AS "isActive",
       clients.created_at AS "createdAt",
       clients.updated_at AS "updatedAt"
     FROM clients
@@ -2158,7 +2162,8 @@ async function findProject(sql, clientName, projectName, accountId) {
       projects.name,
       clients.name AS client,
       projects.budget_amount AS budget,
-      projects.project_lead_id AS project_lead_id
+      projects.project_lead_id AS project_lead_id,
+      projects.is_active AS "isActive"
     FROM projects
     JOIN clients ON clients.id = projects.client_id
     WHERE projects.client_id = ${client.id}
@@ -2180,6 +2185,7 @@ async function listProjects(sql, accountId) {
       projects.budget_amount AS budget,
       projects.office_id AS "officeId",
       projects.project_lead_id AS "projectLeadId",
+      projects.is_active AS "isActive",
       lead.display_name AS "projectLeadName"
     FROM projects
     JOIN clients ON clients.id = projects.client_id
@@ -2780,8 +2786,11 @@ async function loadState(sql, currentUser) {
       clients.name AS client,
       projects.name AS project
     FROM clients
-    LEFT JOIN projects ON projects.client_id = clients.id
+    LEFT JOIN projects
+      ON projects.client_id = clients.id
+     AND projects.is_active = TRUE
     WHERE clients.account_id = ${accountUuid}::uuid
+      AND clients.is_active = TRUE
     ORDER BY LOWER(clients.name), LOWER(projects.name)
   `;
 

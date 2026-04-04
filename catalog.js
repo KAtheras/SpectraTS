@@ -23,6 +23,8 @@
       state,
       visibleCatalogClientNames,
       visibleCatalogProjectNames,
+      isClientActive,
+      isProjectActive,
       isAdmin,
       isExecutive,
       isManager,
@@ -47,7 +49,7 @@
     }, {});
     const officeName = (id) => officeMap[id != null ? String(id) : ""] || "";
 
-    const clients = visibleCatalogClientNames();
+    const clients = visibleCatalogClientNames(state.currentUser, { forCatalogView: true });
     const canManageClients = isAdmin(state.currentUser) || isExecutive(state.currentUser);
 
     if (!clients.length) {
@@ -60,7 +62,7 @@
 
     ensureCatalogSelection();
     const selectedClient = state.selectedCatalogClient;
-    const projects = visibleCatalogProjectNames(selectedClient);
+    const projects = visibleCatalogProjectNames(selectedClient, state.currentUser, { forCatalogView: true });
 
     const projectBudgetMap = (state.projects || []).reduce((acc, project) => {
       if (project && project.client === selectedClient) {
@@ -72,7 +74,10 @@
     refs.clientList.innerHTML = clients
       .map(
         (client) => {
-          const clientOffice = officeName(state.clients.find((c) => c.name === client)?.officeId);
+          const clientRow = state.clients.find((c) => c.name === client) || null;
+          const clientOffice = officeName(clientRow?.officeId);
+          const clientIsActive = isClientActive(clientRow);
+          const visibleProjectCount = visibleCatalogProjectNames(client, state.currentUser, { forCatalogView: true }).length;
           return `
           <article
             class="catalog-item${client === selectedClient ? " is-selected" : ""}"
@@ -84,8 +89,8 @@
                 <span class="catalog-item-heading">
                   <span class="catalog-item-title">${escapeHtml(client)}</span>
                 </span>
-                <small>${visibleCatalogProjectNames(client).length} ${
-                  visibleCatalogProjectNames(client).length === 1 ? "project" : "projects"
+                <small>${visibleProjectCount} ${
+                  visibleProjectCount === 1 ? "project" : "projects"
                 }</small>
                 ${clientOffice ? `<small>Office: ${escapeHtml(clientOffice)}</small>` : ""}
               </span>
@@ -98,6 +103,15 @@
                 ${disabledButtonAttrs(canManageClients, "Admin only.")}
               >
                 Edit
+              </button>
+              <button
+                type="button"
+                class="catalog-edit"
+                aria-label="${clientIsActive ? "Deactivate" : "Reactivate"} ${escapeHtml(client)}"
+                data-${clientIsActive ? "deactivate-client" : "reactivate-client"}="${escapeHtml(client)}"
+                ${disabledButtonAttrs(canManageClients, "Admin only.")}
+              >
+                ${clientIsActive ? "Deactivate" : "Reactivate"}
               </button>
               <button
                 type="button"
@@ -130,6 +144,7 @@
     }
     const canCreateProject =
       Boolean(selectedClient) &&
+      isClientActive(state.clients.find((c) => c.name === selectedClient)) &&
       (isAdmin(state.currentUser) ||
         isExecutive(state.currentUser) ||
         (isManager(state.currentUser) &&
@@ -160,11 +175,16 @@
                 isExecutive(state.currentUser) ||
                 (isManager(state.currentUser) &&
                   projectCreatedBy(selectedClient, project) === state.currentUser?.id);
+              const projectRow = (state.projects || []).find(
+                (p) => p.client === selectedClient && p.name === project
+              );
+              const projectIsActive = isProjectActive(projectRow);
               const canManageMembers =
-                isAdmin(state.currentUser) ||
-                isExecutive(state.currentUser) ||
-                (isManager(state.currentUser) &&
-                  canManagerAccessProject(state.currentUser, selectedClient, project));
+                projectIsActive &&
+                (isAdmin(state.currentUser) ||
+                  isExecutive(state.currentUser) ||
+                  (isManager(state.currentUser) &&
+                    canManagerAccessProject(state.currentUser, selectedClient, project)));
               const hasManagers = managerIdsForProject(selectedClient, project).length > 0;
               const hasStaff = staffIdsForProject(selectedClient, project).length > 0;
               const managerNames = formatNameList(
@@ -225,6 +245,18 @@
                       data-view-expenses-project="${escapeHtml(project)}"
                     >
                       View Expenses
+                    </button>
+                    <button
+                      type="button"
+                      class="catalog-edit"
+                      aria-label="${projectIsActive ? "Deactivate" : "Reactivate"} ${escapeHtml(project)}"
+                      data-${projectIsActive ? "deactivate-project" : "reactivate-project"}="${escapeHtml(project)}"
+                      ${disabledButtonAttrs(
+                        canDeleteProject,
+                        "Managers can only manage projects they created."
+                      )}
+                    >
+                      ${projectIsActive ? "Deactivate" : "Reactivate"}
                     </button>
                     <button
                       type="button"

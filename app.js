@@ -544,7 +544,13 @@
   };
 
   let addClientHeaderButton = null;
+  let clientLifecycleToggleWrap = null;
+  let clientLifecycleToggleActive = null;
+  let clientLifecycleToggleInactive = null;
   let addProjectHeaderButton = null;
+  let projectLifecycleToggleWrap = null;
+  let projectLifecycleToggleActive = null;
+  let projectLifecycleToggleInactive = null;
   let memberEditorModal = null;
   let memberEditorForm = null;
   let memberEditorTitle = null;
@@ -575,6 +581,24 @@
 
   ensureInboxBulkReadButton();
 
+  function syncClientLifecycleToggleUi() {
+    if (!clientLifecycleToggleActive || !clientLifecycleToggleInactive) return;
+    const activeSelected = state.catalogClientLifecycleView !== "inactive";
+    clientLifecycleToggleActive.className = activeSelected ? "button" : "button button-ghost";
+    clientLifecycleToggleInactive.className = activeSelected ? "button button-ghost" : "button";
+    clientLifecycleToggleActive.setAttribute("aria-pressed", activeSelected ? "true" : "false");
+    clientLifecycleToggleInactive.setAttribute("aria-pressed", activeSelected ? "false" : "true");
+  }
+
+  function syncProjectLifecycleToggleUi() {
+    if (!projectLifecycleToggleActive || !projectLifecycleToggleInactive) return;
+    const activeSelected = state.catalogProjectLifecycleView !== "inactive";
+    projectLifecycleToggleActive.className = activeSelected ? "button" : "button button-ghost";
+    projectLifecycleToggleInactive.className = activeSelected ? "button button-ghost" : "button";
+    projectLifecycleToggleActive.setAttribute("aria-pressed", activeSelected ? "true" : "false");
+    projectLifecycleToggleInactive.setAttribute("aria-pressed", activeSelected ? "false" : "true");
+  }
+
   function setupAddClientHeaderAction() {
     const addForm = refs.addClientForm;
     if (!addForm) return;
@@ -601,9 +625,40 @@
       });
     }
 
+    if (!clientLifecycleToggleWrap) {
+      clientLifecycleToggleWrap = document.createElement("div");
+      clientLifecycleToggleWrap.className = "catalog-lifecycle-toggle";
+      clientLifecycleToggleActive = document.createElement("button");
+      clientLifecycleToggleActive.type = "button";
+      clientLifecycleToggleActive.textContent = "Active";
+      clientLifecycleToggleActive.addEventListener("click", function () {
+        state.catalogClientLifecycleView = "active";
+        ensureCatalogSelection();
+        syncClientLifecycleToggleUi();
+        renderCatalogAside();
+        syncProjectCardsUx();
+      });
+      clientLifecycleToggleInactive = document.createElement("button");
+      clientLifecycleToggleInactive.type = "button";
+      clientLifecycleToggleInactive.textContent = "Inactive";
+      clientLifecycleToggleInactive.addEventListener("click", function () {
+        state.catalogClientLifecycleView = "inactive";
+        ensureCatalogSelection();
+        syncClientLifecycleToggleUi();
+        renderCatalogAside();
+        syncProjectCardsUx();
+      });
+      clientLifecycleToggleWrap.appendChild(clientLifecycleToggleActive);
+      clientLifecycleToggleWrap.appendChild(clientLifecycleToggleInactive);
+    }
+
+    if (!clientLifecycleToggleWrap.isConnected) {
+      header.appendChild(clientLifecycleToggleWrap);
+    }
     if (!addClientHeaderButton.isConnected) {
       header.appendChild(addClientHeaderButton);
     }
+    syncClientLifecycleToggleUi();
     if (addForm.isConnected) {
       addForm.remove();
     }
@@ -1011,6 +1066,14 @@
       return;
     }
 
+    const selectedClientRow = (state.clients || []).find(
+      (client) => client.name === state.selectedCatalogClient
+    );
+    if (!isClientActive(selectedClientRow)) {
+      feedback("Select an active client before adding a project.", true);
+      return;
+    }
+
     const projectDialog = await openProjectDialog({
       mode: "add",
       projectName: "",
@@ -1066,9 +1129,38 @@
       });
     }
 
+    if (!projectLifecycleToggleWrap) {
+      projectLifecycleToggleWrap = document.createElement("div");
+      projectLifecycleToggleWrap.className = "catalog-lifecycle-toggle";
+      projectLifecycleToggleActive = document.createElement("button");
+      projectLifecycleToggleActive.type = "button";
+      projectLifecycleToggleActive.textContent = "Active";
+      projectLifecycleToggleActive.addEventListener("click", function () {
+        state.catalogProjectLifecycleView = "active";
+        syncProjectLifecycleToggleUi();
+        renderCatalogAside();
+        syncProjectCardsUx();
+      });
+      projectLifecycleToggleInactive = document.createElement("button");
+      projectLifecycleToggleInactive.type = "button";
+      projectLifecycleToggleInactive.textContent = "Inactive";
+      projectLifecycleToggleInactive.addEventListener("click", function () {
+        state.catalogProjectLifecycleView = "inactive";
+        syncProjectLifecycleToggleUi();
+        renderCatalogAside();
+        syncProjectCardsUx();
+      });
+      projectLifecycleToggleWrap.appendChild(projectLifecycleToggleActive);
+      projectLifecycleToggleWrap.appendChild(projectLifecycleToggleInactive);
+    }
+
+    if (!projectLifecycleToggleWrap.isConnected) {
+      header.appendChild(projectLifecycleToggleWrap);
+    }
     if (!addProjectHeaderButton.isConnected) {
       header.appendChild(addProjectHeaderButton);
     }
+    syncProjectLifecycleToggleUi();
     if (refs.addProjectForm && refs.addProjectForm.isConnected) {
       refs.addProjectForm.remove();
     }
@@ -1661,6 +1753,8 @@
     },
     editingId: null,
     selectedCatalogClient: "",
+    catalogClientLifecycleView: "active",
+    catalogProjectLifecycleView: "active",
     sessionToken: loadSessionToken(),
     currentUser: null,
     users: [],
@@ -5404,21 +5498,46 @@
     applyExpenseFiltersFromForm({ showErrors: false });
   }
 
-  function catalogClientNames() {
+  function isClientActive(client) {
+    return client?.isActive !== false && client?.is_active !== false;
+  }
+
+  function isProjectActive(project) {
+    return project?.isActive !== false && project?.is_active !== false;
+  }
+
+  function lifecycleTargetView(entity, options = {}) {
+    if (options?.forCatalogView && state.currentView === "clients") {
+      if (entity === "client") {
+        return state.catalogClientLifecycleView === "inactive" ? "inactive" : "active";
+      }
+      if (entity === "project") {
+        return state.catalogProjectLifecycleView === "inactive" ? "inactive" : "active";
+      }
+    }
+    return "active";
+  }
+
+  function catalogClientNames(options = {}) {
+    const targetView = lifecycleTargetView("client", options);
     return (state.clients || [])
+      .filter((client) => (targetView === "inactive" ? !isClientActive(client) : isClientActive(client)))
       .map((c) => c.name)
       .filter(Boolean)
       .sort((a, b) => a.localeCompare(b));
   }
 
-  function visibleCatalogClientNames(targetUser) {
+  function visibleCatalogClientNames(targetUser, options = {}) {
     const user = targetUser || effectiveScopeUser();
+    const candidateClients = catalogClientNames(options);
     if (!user) {
-      return catalogClientNames();
+      return candidateClients;
     }
-    return isAdmin(user) || isExecutive(user)
-      ? catalogClientNames()
-      : allowedClientsForUser(user);
+    if (isAdmin(user) || isExecutive(user)) {
+      return candidateClients;
+    }
+    const allowed = new Set(allowedClientsForUser(user));
+    return candidateClients.filter((name) => allowed.has(name));
   }
 
   function historicalClientNames() {
@@ -5433,20 +5552,30 @@
     );
   }
 
-  function catalogProjectNames(client) {
-    const filtered = (state.projects || []).filter((p) => (client ? p.client === client : true));
+  function catalogProjectNames(client, options = {}) {
+    const targetView = lifecycleTargetView("project", options);
+    const filtered = (state.projects || []).filter((p) => {
+      if (client && p.client !== client) return false;
+      return targetView === "inactive" ? !isProjectActive(p) : isProjectActive(p);
+    });
     return uniqueValues(filtered.map((p) => p.name)).sort((a, b) => a.localeCompare(b));
   }
 
-  function visibleCatalogProjectNames(client, targetUser) {
+  function visibleCatalogProjectNames(client, targetUser, options = {}) {
     const user = targetUser || effectiveScopeUser();
+    const candidateProjects = catalogProjectNames(client, options);
     if (!user) {
-      return catalogProjectNames(client);
+      return candidateProjects;
     }
     if (isAdmin(user) || isExecutive(user)) {
-      return catalogProjectNames(client);
+      return candidateProjects;
     }
-    return allowedProjectsForClient(user, client, { projects: state.projects });
+    const allowed = new Set(
+      allowedProjectsForClient(user, client, {
+        projects: (state.projects || []).filter((project) => isProjectActive(project)),
+      })
+    );
+    return candidateProjects.filter((name) => allowed.has(name));
   }
 
   function projectNames(client) {
@@ -6501,6 +6630,8 @@
         state,
         visibleCatalogClientNames,
         visibleCatalogProjectNames,
+        isClientActive,
+        isProjectActive,
         isAdmin,
         isManager,
         canManagerAccessClient,
@@ -8730,6 +8861,83 @@
     }
 
     const deleteButton = event.target.closest("[data-delete-client]");
+    const deactivateButton = event.target.closest("[data-deactivate-client]");
+    const reactivateButton = event.target.closest("[data-reactivate-client]");
+    if (deactivateButton || reactivateButton) {
+      if (!state.permissions?.archive_client) {
+        feedback("Access denied.", true);
+        return;
+      }
+      const clientName = deactivateButton?.dataset.deactivateClient || reactivateButton?.dataset.reactivateClient;
+      if (!clientName) return;
+
+      if (deactivateButton) {
+        const activeProjectCount = (state.projects || []).filter(
+          (project) => project.client === clientName && isProjectActive(project)
+        ).length;
+        if (activeProjectCount > 0) {
+          await appDialog({
+            title: "Cannot Deactivate Client",
+            message:
+              "This client still has active projects.\n\n" +
+              "Please deactivate or remove all active projects before deactivating this client.\n\n" +
+              `${activeProjectCount} active projects`,
+            cancelText: "Cancel",
+            hideConfirm: true,
+          });
+          return;
+        }
+        const confirmation = await appDialog({
+          title: "Deactivate Client?",
+          message:
+            "This client will be removed from active use but its historical time and expense records will be preserved.",
+          confirmText: "Deactivate",
+          cancelText: "Cancel",
+        });
+        if (!confirmation.confirmed) {
+          return;
+        }
+        try {
+          await mutatePersistentState("deactivate_client", { clientName });
+        } catch (error) {
+          const message = error.message || "Unable to deactivate client.";
+          if (message.includes("Cannot Deactivate Client")) {
+            const blockedBody = String(message).replace(/^Cannot Deactivate Client\s*\n?/, "").trim();
+            await appDialog({
+              title: "Cannot Deactivate Client",
+              message:
+                blockedBody ||
+                "This client still has active projects.\n\nPlease deactivate or remove all active projects before deactivating this client.",
+              cancelText: "Cancel",
+              hideConfirm: true,
+            });
+            return;
+          }
+          feedback(message, true);
+          return;
+        }
+        await loadPersistentState();
+        ensureCatalogSelection();
+        syncFilterCatalogsUI(state.filters);
+        feedback("Client deactivated.", false);
+        render();
+        return;
+      }
+
+      try {
+        await mutatePersistentState("reactivate_client", { clientName });
+      } catch (error) {
+        feedback(error.message || "Unable to reactivate client.", true);
+        return;
+      }
+      await loadPersistentState();
+      ensureCatalogSelection();
+      syncFilterCatalogsUI(state.filters);
+      feedback("Client reactivated.", false);
+      render();
+      return;
+    }
+
     if (deleteButton) {
       if (!isAdmin(state.currentUser)) {
         feedback("Only Admins can remove clients.", true);
@@ -8901,6 +9109,125 @@
       }
       const projectName = editButton.dataset.editProject;
       await openProjectEditDialogFlow(state.selectedCatalogClient, projectName);
+      return;
+    }
+
+    const deactivateButton = event.target.closest("[data-deactivate-project]");
+    const reactivateButton = event.target.closest("[data-reactivate-project]");
+    if (deactivateButton || reactivateButton) {
+      const projectName = deactivateButton?.dataset.deactivateProject || reactivateButton?.dataset.reactivateProject;
+      const canManageProjectLifecycle =
+        isAdmin(state.currentUser) ||
+        isExecutive(state.currentUser) ||
+        (isManager(state.currentUser) &&
+          projectCreatedBy(state.selectedCatalogClient, projectName) === state.currentUser?.id);
+      if (!canManageProjectLifecycle) {
+        feedback("Managers can only manage projects they created.", true);
+        return;
+      }
+
+      if (deactivateButton) {
+        const assignedActiveMembers = new Set(
+          (state.assignments?.projectMembers || [])
+            .filter(
+              (assignment) =>
+                assignment?.client === state.selectedCatalogClient && assignment?.project === projectName
+            )
+            .map((assignment) => `${assignment?.userId || ""}`.trim())
+            .filter(Boolean)
+        ).size;
+        if (assignedActiveMembers > 0) {
+          await appDialog({
+            title: "Cannot Deactivate Project",
+            message:
+              "This project still has assigned active members.\n\n" +
+              "Please remove or reassign all assigned active members before deactivating this project.\n\n" +
+              `${assignedActiveMembers} assigned active members`,
+            cancelText: "Cancel",
+            hideConfirm: true,
+          });
+          return;
+        }
+        const confirmation = await appDialog({
+          title: "Deactivate Project?",
+          message:
+            "This project will be removed from active use but its historical time and expense records will be preserved.",
+          confirmText: "Deactivate",
+          cancelText: "Cancel",
+        });
+        if (!confirmation.confirmed) {
+          return;
+        }
+        try {
+          await mutatePersistentState("deactivate_project", {
+            clientName: state.selectedCatalogClient,
+            projectName,
+          });
+        } catch (error) {
+          const message = error.message || "Unable to deactivate project.";
+          if (message.includes("Cannot Deactivate Project")) {
+            const blockedBody = String(message).replace(/^Cannot Deactivate Project\s*\n?/, "").trim();
+            await appDialog({
+              title: "Cannot Deactivate Project",
+              message:
+                blockedBody ||
+                "This project still has assigned active members.\n\nPlease remove or reassign all assigned active members before deactivating this project.",
+              cancelText: "Cancel",
+              hideConfirm: true,
+            });
+            return;
+          }
+          feedback(message, true);
+          return;
+        }
+        await loadPersistentState();
+        syncFilterCatalogsUI(state.filters);
+        feedback("Project deactivated.", false);
+        render();
+        return;
+      }
+
+      const selectedClientRow = (state.clients || []).find(
+        (client) => client.name === state.selectedCatalogClient
+      );
+      if (!isClientActive(selectedClientRow)) {
+        await appDialog({
+          title: "Cannot Reactivate Project",
+          message:
+            "This project’s client is inactive.\n\n" +
+            "Please reactivate the client before reactivating this project.",
+          cancelText: "Cancel",
+          hideConfirm: true,
+        });
+        return;
+      }
+
+      try {
+        await mutatePersistentState("reactivate_project", {
+          clientName: state.selectedCatalogClient,
+          projectName,
+        });
+      } catch (error) {
+        const message = error.message || "Unable to reactivate project.";
+        if (message.includes("Cannot Reactivate Project")) {
+          const blockedBody = String(message).replace(/^Cannot Reactivate Project\s*\n?/, "").trim();
+          await appDialog({
+            title: "Cannot Reactivate Project",
+            message:
+              blockedBody ||
+              "This project’s client is inactive.\n\nPlease reactivate the client before reactivating this project.",
+            cancelText: "Cancel",
+            hideConfirm: true,
+          });
+          return;
+        }
+        feedback(message, true);
+        return;
+      }
+      await loadPersistentState();
+      syncFilterCatalogsUI(state.filters);
+      feedback("Project reactivated.", false);
+      render();
       return;
     }
 
@@ -9467,6 +9794,8 @@
     renderCatalogLists,
     visibleCatalogClientNames,
     visibleCatalogProjectNames,
+    isClientActive,
+    isProjectActive,
     isAdmin,
     isExecutive,
     isManager,

@@ -37,6 +37,8 @@ exports.handler = async function handler(event) {
     if (Array.isArray(state.clients)) {
       state.clients = state.clients.map((client) => ({
         ...client,
+        isActive: client?.isActive ?? client?.is_active ?? true,
+        is_active: client?.isActive ?? client?.is_active ?? true,
         clientLeadId: client?.clientLeadId ?? client?.client_lead_id ?? null,
         client_lead_id: client?.clientLeadId ?? client?.client_lead_id ?? null,
         clientLeadName: client?.clientLeadName ?? null,
@@ -45,6 +47,8 @@ exports.handler = async function handler(event) {
     if (Array.isArray(state.projects)) {
       state.projects = state.projects.map((project) => ({
         ...project,
+        isActive: project?.isActive ?? project?.is_active ?? true,
+        is_active: project?.isActive ?? project?.is_active ?? true,
         projectLeadId: project?.projectLeadId ?? project?.project_lead_id ?? null,
         project_lead_id: project?.projectLeadId ?? project?.project_lead_id ?? null,
         projectLeadName: project?.projectLeadName ?? null,

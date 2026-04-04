@@ -1576,6 +1576,9 @@ async function updateClient(sql, payload, accountId) {
   if (!client) {
     return errorResponse(404, "Client not found.");
   }
+  if (client.is_active === false) {
+    return errorResponse(400, "Client is inactive.");
+  }
 
   const nextName = nextNameRaw || client.name;
   if (nextName.toLowerCase() !== client.name.toLowerCase()) {
@@ -2852,6 +2855,132 @@ async function removeProject(sql, payload, accountId) {
   return { message: "" };
 }
 
+async function deactivateClient(sql, payload, accountId) {
+  const clientName = normalizeText(payload.clientName);
+  const client = await findClient(sql, clientName, accountId);
+  if (!client) {
+    return errorResponse(404, "Client not found.");
+  }
+
+  const dependencyRows = await sql`
+    SELECT COUNT(*)::INT AS total
+    FROM projects
+    WHERE client_id = ${client.id}
+      AND account_id = ${accountId}::uuid
+      AND is_active = TRUE
+  `;
+  const activeProjectCount = Number(dependencyRows?.[0]?.total || 0);
+  if (activeProjectCount > 0) {
+    return errorResponse(
+      400,
+      "Cannot Deactivate Client\n" +
+        "This client still has active projects.\n\n" +
+        "Please deactivate or remove all active projects before deactivating this client.\n\n" +
+        `${activeProjectCount} active projects`
+    );
+  }
+
+  await sql`
+    UPDATE clients
+    SET is_active = FALSE,
+        updated_at = NOW()
+    WHERE id = ${client.id}
+      AND account_id = ${accountId}::uuid
+  `;
+  return { message: "" };
+}
+
+async function reactivateClient(sql, payload, accountId) {
+  const clientName = normalizeText(payload.clientName);
+  const client = await findClient(sql, clientName, accountId);
+  if (!client) {
+    return errorResponse(404, "Client not found.");
+  }
+  await sql`
+    UPDATE clients
+    SET is_active = TRUE,
+        updated_at = NOW()
+    WHERE id = ${client.id}
+      AND account_id = ${accountId}::uuid
+  `;
+  return { message: "" };
+}
+
+async function deactivateProject(sql, payload, accountId) {
+  const clientName = normalizeText(payload.clientName);
+  const projectName = normalizeText(payload.projectName);
+  const project = await findProject(sql, clientName, projectName, accountId);
+  if (!project) {
+    return errorResponse(404, "Project not found.");
+  }
+
+  const assignedMembersRows = await sql`
+    SELECT COUNT(DISTINCT project_members.user_id)::INT AS total
+    FROM project_members
+    JOIN users ON users.id = project_members.user_id
+    WHERE project_members.project_id = ${project.id}
+      AND project_members.account_id = ${accountId}::uuid
+      AND users.account_id = ${accountId}::uuid
+      AND users.is_active = TRUE
+  `;
+  const assignedActiveMembers = Number(assignedMembersRows?.[0]?.total || 0);
+  if (assignedActiveMembers > 0) {
+    return errorResponse(
+      400,
+      "Cannot Deactivate Project\n" +
+        "This project still has assigned active members.\n\n" +
+        "Please remove or reassign all assigned active members before deactivating this project.\n\n" +
+        `${assignedActiveMembers} assigned active members`
+    );
+  }
+
+  await sql`
+    UPDATE projects
+    SET is_active = FALSE,
+        updated_at = NOW()
+    WHERE id = ${project.id}
+      AND account_id = ${accountId}::uuid
+  `;
+  return { message: "" };
+}
+
+async function reactivateProject(sql, payload, accountId) {
+  const clientName = normalizeText(payload.clientName);
+  const projectName = normalizeText(payload.projectName);
+  const project = await findProject(sql, clientName, projectName, accountId);
+  if (!project) {
+    return errorResponse(404, "Project not found.");
+  }
+
+  const clientRows = await sql`
+    SELECT clients.is_active AS "isActive"
+    FROM clients
+    JOIN projects ON projects.client_id = clients.id
+    WHERE projects.id = ${project.id}
+      AND projects.account_id = ${accountId}::uuid
+      AND clients.account_id = ${accountId}::uuid
+    LIMIT 1
+  `;
+  const clientIsActive = Boolean(clientRows?.[0]?.isActive);
+  if (!clientIsActive) {
+    return errorResponse(
+      400,
+      "Cannot Reactivate Project\n" +
+        "This project’s client is inactive.\n\n" +
+        "Please reactivate the client before reactivating this project."
+    );
+  }
+
+  await sql`
+    UPDATE projects
+    SET is_active = TRUE,
+        updated_at = NOW()
+    WHERE id = ${project.id}
+      AND account_id = ${accountId}::uuid
+  `;
+  return { message: "" };
+}
+
 async function saveEntry(sql, payload, currentUser, accountId) {
   const isBulkUpload = normalizeText(payload?.source) === "bulk_upload";
   const actingContext = await resolveActingAsOwner(sql, {
@@ -3887,6 +4016,36 @@ exports.handler = async function handler(event) {
         mutationResult = await removeClient(sql, request.payload || {}, accountId);
         break;
       }
+      case "deactivate_client": {
+        const targetClient = await findClient(sql, request.payload?.clientName, accountId);
+        if (!targetClient) {
+          return errorResponse(404, "Client not found.");
+        }
+        if (
+          !can("archive_client", {
+            resourceOfficeId: targetClient.office_id || null,
+          })
+        ) {
+          return errorResponse(403, "Access denied.");
+        }
+        mutationResult = await deactivateClient(sql, request.payload || {}, accountId);
+        break;
+      }
+      case "reactivate_client": {
+        const targetClient = await findClient(sql, request.payload?.clientName, accountId);
+        if (!targetClient) {
+          return errorResponse(404, "Client not found.");
+        }
+        if (
+          !can("archive_client", {
+            resourceOfficeId: targetClient.office_id || null,
+          })
+        ) {
+          return errorResponse(403, "Access denied.");
+        }
+        mutationResult = await reactivateClient(sql, request.payload || {}, accountId);
+        break;
+      }
       case "remove_project": {
         if (isAdmin(context.currentUser)) {
           mutationResult = await removeProject(sql, request.payload || {}, accountId);
@@ -3915,6 +4074,62 @@ exports.handler = async function handler(event) {
       mutationResult = await removeProject(sql, request.payload || {}, accountId);
       break;
     }
+      case "deactivate_project": {
+        if (isAdmin(context.currentUser)) {
+          mutationResult = await deactivateProject(sql, request.payload || {}, accountId);
+          break;
+        }
+        if (!isManager(context.currentUser)) {
+          return errorResponse(403, "Manager access required.");
+        }
+        const clientName = normalizeText(request.payload?.clientName);
+        const projectName = normalizeText(request.payload?.projectName);
+        const project = await findProject(sql, clientName, projectName, accountId);
+        if (!project) {
+          return errorResponse(404, "Project not found.");
+        }
+        const projectRow = await sql`
+          SELECT created_by
+          FROM projects
+          WHERE id = ${project.id}
+            AND account_id = ${accountId}::uuid
+          LIMIT 1
+        `;
+        const createdBy = projectRow[0]?.created_by || "";
+        if (createdBy !== context.currentUser.id) {
+          return errorResponse(403, "You can only deactivate projects you created.");
+        }
+        mutationResult = await deactivateProject(sql, request.payload || {}, accountId);
+        break;
+      }
+      case "reactivate_project": {
+        if (isAdmin(context.currentUser)) {
+          mutationResult = await reactivateProject(sql, request.payload || {}, accountId);
+          break;
+        }
+        if (!isManager(context.currentUser)) {
+          return errorResponse(403, "Manager access required.");
+        }
+        const clientName = normalizeText(request.payload?.clientName);
+        const projectName = normalizeText(request.payload?.projectName);
+        const project = await findProject(sql, clientName, projectName, accountId);
+        if (!project) {
+          return errorResponse(404, "Project not found.");
+        }
+        const projectRow = await sql`
+          SELECT created_by
+          FROM projects
+          WHERE id = ${project.id}
+            AND account_id = ${accountId}::uuid
+          LIMIT 1
+        `;
+        const createdBy = projectRow[0]?.created_by || "";
+        if (createdBy !== context.currentUser.id) {
+          return errorResponse(403, "You can only reactivate projects you created.");
+        }
+        mutationResult = await reactivateProject(sql, request.payload || {}, accountId);
+        break;
+      }
       case "update_user_rates": {
         const userId = normalizeText(request.payload?.userId);
         const baseRateRaw = request.payload?.baseRate;
