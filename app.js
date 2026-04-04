@@ -1328,9 +1328,9 @@
   function loadThemePreference() {
     try {
       const raw = window.localStorage.getItem(THEME_STORAGE_KEY);
-      return raw === "light" || raw === "dark" ? raw : "";
+      return raw === "light" || raw === "dark" ? raw : null;
     } catch (error) {
-      return "";
+      return null;
     }
   }
 
@@ -1344,7 +1344,12 @@
   }
 
   function resolveTheme() {
-    return loadThemePreference() || (themeMedia.matches ? "dark" : "light");
+    const savedTheme = loadThemePreference();
+    if (savedTheme === "light" || savedTheme === "dark") {
+      return savedTheme;
+    }
+    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    return prefersDark ? "dark" : "light";
   }
 
   function applyTheme(theme) {
