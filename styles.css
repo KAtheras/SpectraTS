@@ -2852,6 +2852,7 @@ body[data-theme="dark"] .audit-detail-col {
 }
 
 .catalog-item-actions > [data-delete-client] {
+  order: 60;
   margin-top: auto;
 }
 
