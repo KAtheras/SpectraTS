@@ -1090,6 +1090,34 @@
       node.textContent = `Project Lead: ${leadName}`;
       copy.appendChild(node);
     });
+    if (!refs.clientList) return;
+    refs.clientList.querySelectorAll(".catalog-item[data-client]").forEach((card) => {
+      const clientName = String(card.getAttribute("data-client") || "").trim();
+      if (!clientName) return;
+      const client = (state.clients || []).find(
+        (item) => item && String(item.name || "").trim() === clientName
+      );
+      const leadName = String(
+        client?.clientLeadName ||
+          getUserById(client?.clientLeadId || client?.client_lead_id || "")?.displayName ||
+          ""
+      ).trim();
+      const copy = card.querySelector(".catalog-item-copy");
+      if (!copy) return;
+      const existing = copy.querySelector("[data-client-lead-line]");
+      if (!leadName) {
+        existing?.remove();
+        return;
+      }
+      if (existing) {
+        existing.textContent = `Client Lead: ${leadName}`;
+        return;
+      }
+      const node = document.createElement("small");
+      node.setAttribute("data-client-lead-line", "1");
+      node.textContent = `Client Lead: ${leadName}`;
+      copy.appendChild(node);
+    });
   }
 
   function removeMembersAddCard() {

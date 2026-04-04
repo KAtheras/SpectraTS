@@ -319,6 +319,7 @@
     const name = typeof client.name === "string" ? client.name.trim() : "";
     if (!name) return null;
     const clean = (value) => (typeof value === "string" ? value.trim() : "");
+    const cleanId = (value) => (value === null || value === undefined ? "" : String(value).trim());
     const billingName =
       clean(client.billingContactName || client.billing_contact_name) ||
       clean(
@@ -326,6 +327,7 @@
           .filter(Boolean)
           .join(" ")
       );
+    const clientLeadId = cleanId(client.clientLeadId ?? client.client_lead_id);
     return {
       id: client.id,
       name,
@@ -346,6 +348,9 @@
       addressState: clean(client.addressState || client.address_state),
       addressPostal: clean(client.addressPostal || client.address_postal),
       officeId: clean(client.officeId || client.office_id),
+      clientLeadId: clientLeadId || null,
+      client_lead_id: clientLeadId || null,
+      clientLeadName: clean(client.clientLeadName || client.client_lead_name),
     };
   }
 

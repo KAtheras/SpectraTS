@@ -155,6 +155,19 @@
             : project.office_id !== undefined && project.office_id !== null
               ? project.office_id
               : "";
+        const projectLeadIdRaw =
+          project.projectLeadId !== undefined && project.projectLeadId !== null
+            ? project.projectLeadId
+            : project.project_lead_id !== undefined && project.project_lead_id !== null
+              ? project.project_lead_id
+              : "";
+        const projectLeadId = projectLeadIdRaw ? String(projectLeadIdRaw).trim() : "";
+        const projectLeadName =
+          typeof project.projectLeadName === "string" && project.projectLeadName.trim()
+            ? project.projectLeadName.trim()
+            : typeof project.project_lead_name === "string" && project.project_lead_name.trim()
+              ? project.project_lead_name.trim()
+              : "";
         return {
           id: project.id || "",
           client,
@@ -162,6 +175,9 @@
           createdBy: project.createdBy || "",
           budget: Number.isFinite(budgetRaw) ? budgetRaw : null,
           officeId: officeId ? String(officeId) : "",
+          projectLeadId: projectLeadId || null,
+          project_lead_id: projectLeadId || null,
+          projectLeadName,
         };
       })
       .filter(Boolean);
