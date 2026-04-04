@@ -1791,7 +1791,7 @@
       );
     }
     if (nextView === "members") {
-      return isAdmin(state.currentUser) || isGlobalAdmin(state.currentUser) || isExecutive(state.currentUser);
+      return true;
     }
     if (nextView === "settings") {
       return !!state.permissions?.view_settings_tab;
@@ -6174,15 +6174,13 @@
       refs.navSettingsMobile.setAttribute("aria-current", "false");
     }
     if (refs.navMembers) {
-      const showMembers =
-        isAdmin(state.currentUser) || isGlobalAdmin(state.currentUser) || isExecutive(state.currentUser);
+      const showMembers = true;
       refs.navMembers.hidden = !showMembers;
       refs.navMembers.classList.toggle("is-active", view === "members");
       refs.navMembers.setAttribute("aria-current", view === "members" ? "page" : "false");
     }
     if (refs.navMembersMobile) {
-      const showMembers =
-        isAdmin(state.currentUser) || isGlobalAdmin(state.currentUser) || isExecutive(state.currentUser);
+      const showMembers = true;
       refs.navMembersMobile.hidden = !showMembers;
       refs.navMembersMobile.classList.toggle("is-active", view === "members");
       refs.navMembersMobile.setAttribute("aria-current", view === "members" ? "page" : "false");

@@ -2,6 +2,7 @@
   let selectedUserId = null;
   let memberSearchTerm = "";
   let memberLevelFilter = "";
+  let collapsedOfficeKeys = new Set();
 
   function setUserFeedback(deps, message, isError) {
     const { refs } = deps;
@@ -103,74 +104,126 @@
       return name.includes(searchValue) || username.includes(searchValue);
     });
 
-    const levelGroups = new Map();
-
-    filteredUsers.forEach(function (user) {
-      const levelKey = String(user.level);
-      if (!levelGroups.has(levelKey)) {
-        levelGroups.set(levelKey, {
-          label: levelLabel(user.level),
-          users: [],
-        });
-      }
-      levelGroups.get(levelKey).users.push(user);
-    });
-
     const configuredOrder = Array.isArray(levels)
       ? Array.from(new Set(levels))
           .sort(function (a, b) { return a - b; })
           .map(function (lvl) { return String(lvl); })
       : [];
 
-    const extraLevels = Array.from(levelGroups.keys()).filter(function (lvl) {
-      return configuredOrder.indexOf(lvl) === -1;
-    });
+    const renderUserCard = function (user, options = {}) {
+      const roleLabelText = levelLabel(user.level);
+      const isCurrentUser = state.currentUser?.id === user.id;
+      const isSelected = selectedUserId === user.id;
+      const officeName = officeNameFor(user.officeId);
+      const departmentName = departmentNameFor(user.departmentId);
+      const showOfficeMeta = options.showOfficeMeta !== false;
+      const currentDot = isCurrentUser
+        ? '<span class="user-current-dot" aria-label="Current session"></span>'
+        : "";
 
-    const levelOrder = configuredOrder.concat(extraLevels);
-
-    const listHtml = levelOrder
-      .map(function (levelKey) {
-        const group = levelGroups.get(levelKey);
-        if (!group) return "";
-
-        const itemsHtml = group.users
-          .map(function (user) {
-            const roleLabelText = levelLabel(user.level);
-            const isCurrentUser = state.currentUser?.id === user.id;
-            const canManageUsers = isAdmin(state.currentUser);
-            const isSelected = selectedUserId === user.id;
-            const officeName = officeNameFor(user.officeId);
-            const departmentName = departmentNameFor(user.departmentId);
-
-            const currentDot = isCurrentUser
-              ? '<span class="user-current-dot" aria-label="Current session"></span>'
-              : "";
-
-            return `
-              <article class="catalog-item user-item ${isSelected ? "is-selected" : ""}" data-user-id="${escapeHtml(user.id)}">
-                <div class="user-item-row">
-                  <span class="catalog-item-title">
-                    ${currentDot}<span>${escapeHtml(user.displayName)}</span>
-                  </span>
-                  <span class="user-item-meta">
-                    <span>${escapeHtml(roleLabelText)}</span>
-                    ${officeName ? `<span>${escapeHtml(officeName)}</span>` : ""}
-                    ${departmentName ? `<span>${escapeHtml(departmentName)}</span>` : ""}
-                  </span>
-                </div>
-              </article>
-            `;
-          })
-          .join("");
-
-        return `
-          <div class="member-level-group">
-            <div class="member-level-heading">${escapeHtml(group.label)}</div>
-            ${itemsHtml}
+      return `
+        <article class="catalog-item user-item ${isSelected ? "is-selected" : ""}" data-user-id="${escapeHtml(user.id)}">
+          <div class="user-item-row">
+            <span class="catalog-item-title">
+              ${currentDot}<span>${escapeHtml(user.displayName)}</span>
+            </span>
+            <span class="user-item-meta">
+              <span>${escapeHtml(roleLabelText)}</span>
+              ${showOfficeMeta && officeName ? `<span>${escapeHtml(officeName)}</span>` : ""}
+              ${departmentName ? `<span>${escapeHtml(departmentName)}</span>` : ""}
+            </span>
           </div>
-        `;
-      })
-      .join("");
+        </article>
+      `;
+    };
+
+    const levelGroupsMarkup = function (users, options = {}) {
+      const groups = new Map();
+      users.forEach(function (user) {
+        const key = String(user.level);
+        if (!groups.has(key)) {
+          groups.set(key, {
+            label: levelLabel(user.level),
+            users: [],
+          });
+        }
+        groups.get(key).users.push(user);
+      });
+      const extraLevels = Array.from(groups.keys()).filter(function (lvl) {
+        return configuredOrder.indexOf(lvl) === -1;
+      });
+      const levelOrder = configuredOrder.concat(extraLevels);
+      return levelOrder
+        .map(function (levelKey) {
+          const group = groups.get(levelKey);
+          if (!group || !group.users.length) return "";
+          const itemsHtml = group.users.map(function (user) {
+            return renderUserCard(user, { showOfficeMeta: options.showOfficeMeta !== false });
+          }).join("");
+          return `
+            <div class="member-level-group">
+              <div class="member-level-heading">${escapeHtml(group.label)}</div>
+              ${itemsHtml}
+            </div>
+          `;
+        })
+        .join("");
+    };
+
+    const representedOfficeKeys = Array.from(
+      new Set(
+        (state.users || []).map(function (user) {
+          const officeId = user?.officeId != null ? String(user.officeId) : "";
+          const officeName = officeNameFor(user?.officeId).trim();
+          return officeId || `name:${officeName || "No office"}`;
+        })
+      )
+    );
+    const useOfficeGrouping = representedOfficeKeys.length > 1;
+
+    const listHtml = useOfficeGrouping
+      ? (() => {
+          const officeGroups = new Map();
+          filteredUsers.forEach(function (user) {
+            const officeId = user?.officeId != null ? String(user.officeId) : "";
+            const officeLabel = officeNameFor(user?.officeId).trim() || "No office";
+            const officeKey = officeId || `name:${officeLabel}`;
+            if (!officeGroups.has(officeKey)) {
+              officeGroups.set(officeKey, {
+                key: officeKey,
+                label: officeLabel,
+                users: [],
+              });
+            }
+            officeGroups.get(officeKey).users.push(user);
+          });
+          const officeOrder = Array.from(officeGroups.values()).sort(function (a, b) {
+            return a.label.localeCompare(b.label);
+          });
+          return officeOrder
+            .map(function (officeGroup) {
+              const isCollapsed = collapsedOfficeKeys.has(officeGroup.key);
+              const contentHtml = levelGroupsMarkup(officeGroup.users, { showOfficeMeta: false });
+              return `
+                <section class="member-office-group ${isCollapsed ? "is-collapsed" : ""}" data-office-group="${escapeHtml(officeGroup.key)}">
+                  <button
+                    type="button"
+                    class="member-office-toggle"
+                    data-office-toggle="${escapeHtml(officeGroup.key)}"
+                    aria-expanded="${isCollapsed ? "false" : "true"}"
+                  >
+                    <span class="member-office-toggle-label">${escapeHtml(officeGroup.label)}</span>
+                    <span class="member-office-toggle-count">${officeGroup.users.length}</span>
+                  </button>
+                  <div class="member-office-content" ${isCollapsed ? "hidden" : ""}>
+                    ${contentHtml}
+                  </div>
+                </section>
+              `;
+            })
+            .join("");
+        })()
+      : levelGroupsMarkup(filteredUsers, { showOfficeMeta: true });
 
     const levelFilterOptions = Array.isArray(levels)
       ? Array.from(new Set(levels))
@@ -305,6 +358,19 @@
           onUserSelected(id);
         }
         selectedUserId = id;
+        renderUsersList(deps);
+      });
+    });
+
+    refs.userList.querySelectorAll("[data-office-toggle]").forEach(function (toggle) {
+      toggle.addEventListener("click", function () {
+        const officeKey = `${toggle.dataset.officeToggle || ""}`.trim();
+        if (!officeKey) return;
+        if (collapsedOfficeKeys.has(officeKey)) {
+          collapsedOfficeKeys.delete(officeKey);
+        } else {
+          collapsedOfficeKeys.add(officeKey);
+        }
         renderUsersList(deps);
       });
     });

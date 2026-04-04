@@ -3027,6 +3027,57 @@ body[data-theme="dark"] .audit-detail-col {
   padding: 2px 4px;
 }
 
+.member-office-group {
+  display: grid;
+  gap: 8px;
+}
+
+.member-office-toggle {
+  appearance: none;
+  border: 1px solid var(--panel-border);
+  background: var(--surface-strong);
+  border-radius: 12px;
+  padding: 10px 12px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  font-family: var(--font-head);
+  font-size: 0.78rem;
+  color: var(--ink);
+}
+
+.member-office-toggle::before {
+  content: "▾";
+  margin-right: 8px;
+  color: var(--muted);
+  transition: transform 0.15s ease;
+}
+
+.member-office-group.is-collapsed .member-office-toggle::before {
+  transform: rotate(-90deg);
+}
+
+.member-office-toggle-label {
+  flex: 1;
+  text-align: left;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.member-office-toggle-count {
+  color: var(--muted);
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+}
+
+.member-office-content {
+  display: grid;
+  gap: 8px;
+}
+
 .user-item {
   display: grid;
   gap: 10px;
