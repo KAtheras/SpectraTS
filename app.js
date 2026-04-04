@@ -9128,11 +9128,19 @@
       }
 
       if (deactivateButton) {
+        const activeUserIds = new Set(
+          (state.users || [])
+            .filter((user) => user?.isActive !== false)
+            .map((user) => `${user?.id || ""}`.trim())
+            .filter(Boolean)
+        );
         const assignedActiveMembers = new Set(
           (state.assignments?.projectMembers || [])
             .filter(
               (assignment) =>
-                assignment?.client === state.selectedCatalogClient && assignment?.project === projectName
+                assignment?.client === state.selectedCatalogClient &&
+                assignment?.project === projectName &&
+                activeUserIds.has(`${assignment?.userId || ""}`.trim())
             )
             .map((assignment) => `${assignment?.userId || ""}`.trim())
             .filter(Boolean)
@@ -9248,7 +9256,10 @@
         (state.assignments?.projectMembers || [])
           .filter(
             (assignment) =>
-              assignment?.client === state.selectedCatalogClient && assignment?.project === projectName
+              assignment?.client === state.selectedCatalogClient &&
+              assignment?.project === projectName &&
+              (state.users || [])
+                .some((user) => user?.isActive !== false && `${user?.id || ""}`.trim() === `${assignment?.userId || ""}`.trim())
           )
           .map((assignment) => `${assignment?.userId || ""}`.trim())
           .filter(Boolean)
