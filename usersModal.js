@@ -367,6 +367,12 @@
     const assignments = assignmentSummary(selectedUser);
     const departmentName = departmentNameFor(selectedUser.departmentId, selectedUser.departmentName);
     const officeName = officeNameFor(selectedUser.officeId, selectedUser.officeName);
+    const profileExperienceType = `${selectedUser.experienceType || ""}`.trim() || "Not provided";
+    const profileCertifications = `${selectedUser.certifications || ""}`.trim() || "Not provided";
+    const profileIndustryConcentration =
+      `${selectedUser.industryConcentration || ""}`.trim() || "Not provided";
+    const profilePastProjects =
+      `${selectedUser.pastProjectDescriptions || ""}`.trim() || "Not provided";
     const mobileDrilldownEnabled = typeof isMobileDrilldown === "function" ? isMobileDrilldown() : false;
     const mobileDetailView = mobileDrilldownEnabled && mobileView === "detail";
     const detailHtml = `
@@ -391,6 +397,16 @@
           </div>
           <div class="detail-divider"></div>
           <div><dt>Clients/Projects</dt><dd>${assignments.projects.length ? assignments.projects.map((p) => `${escapeHtml(p.client)} / ${escapeHtml(p.project)}`).join("<br>") : "None assigned"}</dd></div>
+          <div class="detail-divider"></div>
+          <div>
+            <dt>Member Profile</dt>
+            <dd>
+              <strong>Experience Type:</strong> ${escapeHtml(profileExperienceType)}<br>
+              <strong>Certifications:</strong> ${escapeHtml(profileCertifications)}<br>
+              <strong>Industry Concentration:</strong> ${escapeHtml(profileIndustryConcentration)}<br>
+              <strong>Past Project Descriptions:</strong> ${escapeHtml(profilePastProjects)}
+            </dd>
+          </div>
         </dl>
         <div class="user-detail-actions">
           <button type="button" class="button button-ghost" data-user-edit="${escapeHtml(selectedUser.id)}">Edit</button>

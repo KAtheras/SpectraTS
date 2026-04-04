@@ -1984,6 +1984,20 @@
       return user;
     };
     state.currentUser = data?.currentUser ? ensureRole(normalizeUser(data.currentUser)) : null;
+    if (state.currentUser) {
+      state.currentUser.experienceType = String(
+        data?.currentUser?.experienceType ?? data?.currentUser?.experience_type ?? ""
+      ).trim();
+      state.currentUser.certifications = String(
+        data?.currentUser?.certifications ?? ""
+      ).trim();
+      state.currentUser.industryConcentration = String(
+        data?.currentUser?.industryConcentration ?? data?.currentUser?.industry_concentration ?? ""
+      ).trim();
+      state.currentUser.pastProjectDescriptions = String(
+        data?.currentUser?.pastProjectDescriptions ?? data?.currentUser?.past_project_descriptions ?? ""
+      ).trim();
+    }
     const nextCurrentUserId = `${state.currentUser?.id || ""}`.trim();
     if (previousCurrentUserId !== nextCurrentUserId) {
       usersResetDirectoryFilters?.();
@@ -2003,6 +2017,18 @@
               typeof u?.email === "string" && u.email.trim()
                 ? u.email.trim()
                 : "";
+            normalized.experienceType = String(
+              u?.experienceType ?? u?.experience_type ?? ""
+            ).trim();
+            normalized.certifications = String(
+              u?.certifications ?? ""
+            ).trim();
+            normalized.industryConcentration = String(
+              u?.industryConcentration ?? u?.industry_concentration ?? ""
+            ).trim();
+            normalized.pastProjectDescriptions = String(
+              u?.pastProjectDescriptions ?? u?.past_project_descriptions ?? ""
+            ).trim();
             return normalized;
           })
           .filter(Boolean)

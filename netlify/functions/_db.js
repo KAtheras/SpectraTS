@@ -210,6 +210,25 @@ async function ensureSchema(sql) {
     ADD COLUMN IF NOT EXISTS department_id TEXT NULL REFERENCES departments(id) ON DELETE SET NULL
   `;
 
+  await sql`
+    CREATE TABLE IF NOT EXISTS member_profiles (
+      id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+      account_id UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      member_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      experience_type TEXT,
+      certifications TEXT,
+      industry_concentration TEXT,
+      past_project_descriptions TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (account_id, member_id)
+    )
+  `;
+  await sql`
+    CREATE INDEX IF NOT EXISTS member_profiles_account_member_idx
+      ON member_profiles (account_id, member_id)
+  `;
+
   await sql`ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check`;
   await sql`UPDATE users SET role = 'superuser' WHERE role = 'global_admin'`;
   await sql`UPDATE users SET role = 'staff' WHERE role = 'member'`;
@@ -1254,6 +1273,10 @@ async function listUsers(sql, accountId) {
       offices.name AS "officeName",
       users.department_id AS "departmentId",
       d.name AS "departmentName",
+      mp.experience_type AS "experienceType",
+      mp.certifications AS certifications,
+      mp.industry_concentration AS "industryConcentration",
+      mp.past_project_descriptions AS "pastProjectDescriptions",
       users.must_change_password AS "mustChangePassword",
       users.account_id AS "accountId",
       users.is_active AS "isActive",
@@ -1265,6 +1288,9 @@ async function listUsers(sql, accountId) {
     LEFT JOIN office_locations offices
       ON offices.id = users.office_id
      AND offices.account_id = ${accountId}::uuid
+    LEFT JOIN member_profiles mp
+      ON mp.member_id = users.id
+     AND mp.account_id = ${accountId}::uuid
     WHERE users.is_active = TRUE
       AND users.account_id = ${accountId}::uuid
     ORDER BY LOWER(users.display_name), LOWER(users.username)
