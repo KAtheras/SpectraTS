@@ -2713,10 +2713,11 @@ body[data-theme="dark"] .audit-detail-col {
 }
 
 .client-editor-row-label-with-toggle {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 12px;
+  width: fit-content;
 }
 
 .client-editor-same-contact-toggle {
