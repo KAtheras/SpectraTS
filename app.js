@@ -1696,8 +1696,6 @@
   }
 
   ensureDepartmentSettingsUI();
-  setupAddClientHeaderAction();
-  setupAddProjectHeaderAction();
   removeMembersAddCard();
   ensureMemberEditorModal();
 
@@ -1814,6 +1812,9 @@
     auditHasMore: false,
     auditLoadingMore: false,
   };
+
+  setupAddClientHeaderAction();
+  setupAddProjectHeaderAction();
 
   // Expose audit dependencies for auditLog.js (no behavior change).
   window.auditLogDeps = {
