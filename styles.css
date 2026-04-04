@@ -2608,6 +2608,47 @@ body[data-theme="dark"] .audit-detail-col {
   white-space: nowrap;
 }
 
+.catalog-column-head .catalog-lifecycle-toggle .button,
+.catalog-column-head .catalog-lifecycle-toggle .button-ghost {
+  position: relative;
+}
+
+.catalog-column-head .catalog-lifecycle-toggle .button:disabled,
+.catalog-column-head .catalog-lifecycle-toggle .button-ghost:disabled {
+  opacity: 0.58;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.catalog-column-head .catalog-lifecycle-toggle .button:disabled {
+  background: color-mix(in srgb, var(--accent) 58%, var(--surface) 42%);
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+.catalog-column-head .catalog-lifecycle-toggle .button-ghost:disabled {
+  background: color-mix(in srgb, var(--surface-subtle) 72%, transparent);
+  border-color: color-mix(in srgb, var(--control-border) 70%, transparent);
+  color: color-mix(in srgb, var(--ink) 72%, var(--muted) 28%);
+}
+
+.catalog-column-head .catalog-lifecycle-toggle .button:disabled:hover,
+.catalog-column-head .catalog-lifecycle-toggle .button-ghost:disabled:hover {
+  transform: none;
+}
+
+.catalog-column-head .catalog-lifecycle-toggle .button:disabled:hover::after,
+.catalog-column-head .catalog-lifecycle-toggle .button-ghost:disabled:hover::after,
+.catalog-column-head .catalog-lifecycle-toggle .button:disabled:focus-visible::after,
+.catalog-column-head .catalog-lifecycle-toggle .button-ghost:disabled:focus-visible::after {
+  content: "⊘";
+  position: absolute;
+  top: -7px;
+  right: -4px;
+  font-size: 0.7rem;
+  line-height: 1;
+  color: var(--muted);
+}
+
 .catalog-create {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
