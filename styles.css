@@ -2861,6 +2861,20 @@ body[data-theme="dark"] .audit-detail-col {
 .catalog-item-actions > [data-deactivate-client],
 .catalog-item-actions > [data-reactivate-client] {
   order: 55;
+  color: #b8611f;
+  border-color: rgba(184, 97, 31, 0.45);
+}
+
+.catalog-item-actions > [data-deactivate-project]:hover,
+.catalog-item-actions > [data-reactivate-project]:hover,
+.catalog-item-actions > [data-deactivate-client]:hover,
+.catalog-item-actions > [data-reactivate-client]:hover,
+.catalog-item-actions > [data-deactivate-project]:focus-visible,
+.catalog-item-actions > [data-reactivate-project]:focus-visible,
+.catalog-item-actions > [data-deactivate-client]:focus-visible,
+.catalog-item-actions > [data-reactivate-client]:focus-visible {
+  color: #d9782b;
+  border-color: rgba(217, 120, 43, 0.7);
 }
 
 .catalog-item-actions > [data-delete-project] {
