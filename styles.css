@@ -2831,7 +2831,11 @@ body[data-theme="dark"] .audit-detail-col {
 }
 
 .catalog-item-actions > [data-edit-project] {
-  order: 30;
+  order: 5;
+}
+
+.catalog-item-actions > [data-edit-client] {
+  order: 5;
 }
 
 .catalog-item-actions > [data-edit-managers] {

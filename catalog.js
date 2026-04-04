@@ -83,15 +83,6 @@
               <span class="catalog-item-copy">
                 <span class="catalog-item-heading">
                   <span class="catalog-item-title">${escapeHtml(client)}</span>
-                  <button
-                    type="button"
-                    class="catalog-edit catalog-edit-inline"
-                    aria-label="Edit ${escapeHtml(client)}"
-                    data-edit-client="${escapeHtml(client)}"
-                    ${disabledButtonAttrs(canManageClients, "Admin only.")}
-                  >
-                    Edit
-                  </button>
                 </span>
                 <small>${visibleCatalogProjectNames(client).length} ${
                   visibleCatalogProjectNames(client).length === 1 ? "project" : "projects"
@@ -99,6 +90,15 @@
                 ${clientOffice ? `<small>Office: ${escapeHtml(clientOffice)}</small>` : ""}
               </span>
             <span class="catalog-item-actions">
+              <button
+                type="button"
+                class="catalog-edit catalog-edit-inline"
+                aria-label="Edit ${escapeHtml(client)}"
+                data-edit-client="${escapeHtml(client)}"
+                ${disabledButtonAttrs(canManageClients, "Admin only.")}
+              >
+                Edit
+              </button>
               <button
                 type="button"
                 class="catalog-delete"
@@ -183,15 +183,6 @@
                   <span class="catalog-item-copy">
                     <span class="catalog-item-heading">
                       <span class="catalog-item-title">${escapeHtml(project)}</span>
-                      <button
-                        type="button"
-                        class="catalog-edit catalog-edit-inline"
-                        aria-label="Edit ${escapeHtml(project)}"
-                        data-edit-project="${escapeHtml(project)}"
-                        ${disabledButtonAttrs(canEditProject, "Admin only.")}
-                      >
-                        Edit
-                      </button>
                     </span>
                     <small>${projectHours(selectedClient, project).toFixed(2)}h logged</small>
                     ${projectOffice ? `<small>Office: ${escapeHtml(projectOffice)}</small>` : ""}
@@ -210,6 +201,15 @@
                     </span>
                   </span>
                   <span class="catalog-item-actions">
+                    <button
+                      type="button"
+                      class="catalog-edit catalog-edit-inline"
+                      aria-label="Edit ${escapeHtml(project)}"
+                      data-edit-project="${escapeHtml(project)}"
+                      ${disabledButtonAttrs(canEditProject, "Admin only.")}
+                    >
+                      Edit
+                    </button>
                     <button
                       type="button"
                       class="catalog-edit"
