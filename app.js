@@ -3453,7 +3453,7 @@
             <div class="inputs-drilldown-detail-main">
               <div class="inputs-drilldown-detail-meta">
                 <span class="inputs-drilldown-detail-value">${escapeHtml(formatSummaryHours(detail.hours))}</span>
-                <span class="entry-status entry-status-${
+                <span class="inputs-time-calendar-detail-chip inputs-time-calendar-detail-chip-status inputs-time-calendar-detail-chip-status-${
                   detail.status === "approved" ? "approved" : "pending"
                 }">${escapeHtml(statusText)}</span>
                 <span class="billable-pill ${
@@ -3745,7 +3745,7 @@
             <div class="inputs-drilldown-detail-main">
               <div class="inputs-drilldown-detail-meta">
                 <span class="inputs-drilldown-detail-value">${escapeHtml(formatSummaryCurrency(detail.amount))}</span>
-                <span class="entry-status entry-status-${
+                <span class="inputs-time-calendar-detail-chip inputs-time-calendar-detail-chip-status inputs-time-calendar-detail-chip-status-${
                   detail.status === "approved" ? "approved" : "pending"
                 }">${escapeHtml(statusText)}</span>
                 <span class="billable-pill ${
