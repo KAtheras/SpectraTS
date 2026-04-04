@@ -417,16 +417,13 @@
       .map((expense) => {
         const billable = expense.isBillable !== false;
         const clientName = `${expense.clientName || ""}`.trim();
-        const isInternalExpense = clientName.toLowerCase() === "internal";
-        const clickableStatus = !isInternalExpense && canManageExpenseApproval(expense);
-        const statusMarkup = isInternalExpense
-          ? ""
-          : `<span
-                class="entry-status entry-status-${expense.status} ${clickableStatus ? "entry-status-clickable" : ""}"
-                ${clickableStatus ? `data-action="expense-toggle-status" data-id="${expense.id}" role="button" tabindex="0"` : ""}
-              >
-                ${expense.status === "approved" ? "Approved" : "Pending"}
-              </span>`;
+        const clickableStatus = canManageExpenseApproval(expense);
+        const statusMarkup = `<span
+              class="entry-status entry-status-${expense.status} ${clickableStatus ? "entry-status-clickable" : ""}"
+              ${clickableStatus ? `data-action="expense-toggle-status" data-id="${expense.id}" role="button" tabindex="0"` : ""}
+            >
+              ${expense.status === "approved" ? "Approved" : "Pending"}
+            </span>`;
         return `
           <tr class="${expense.status === "approved" ? "entry-approved" : ""}">
             <td>${escapeHtml(formatDisplayDateShort(expense.expenseDate))}</td>
@@ -462,7 +459,7 @@
                     </button>`
               }
             </td>
-            <td class="${isInternalExpense ? "entry-status-empty-cell" : ""}">
+            <td>
               ${statusMarkup}
             </td>
             <td class="actions-cell">

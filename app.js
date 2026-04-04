@@ -3279,6 +3279,11 @@
       const project = `${entry.project || ""}`.trim();
       if (!client || !project) return;
       const projectKeyValue = `${client}|||${project}`;
+      const chargeCenterId = `${entry.chargeCenterId || entry.charge_center_id || ""}`.trim();
+      const projectId = `${entry.projectId || entry.project_id || ""}`.trim();
+      const isCorporateEntry =
+        (Boolean(chargeCenterId) && !projectId) ||
+        (client.toLowerCase() === "internal" && !projectId);
       if (!perProject.has(projectKeyValue)) {
         perProject.set(projectKeyValue, {
           client,
@@ -3298,6 +3303,7 @@
         notes: typeof entry.notes === "string" ? entry.notes.trim() : "",
         billable: entry.billable !== false,
         status: entry.status === "approved" ? "approved" : "pending",
+        isCorporate: isCorporateEntry,
       });
       totalsByDate[entry.date] += hours;
     });
@@ -3449,13 +3455,16 @@
           const noteText = detail.notes ? escapeHtml(detail.notes) : "No note";
           const statusText = detail.status === "approved" ? "Approved" : "Pending";
           const billableText = detail.billable ? "Billable" : "Non-billable";
+          const statusMarkup = detail.isCorporate
+            ? ""
+            : `<span class="inputs-time-calendar-detail-chip inputs-time-calendar-detail-chip-status inputs-time-calendar-detail-chip-status-${
+                detail.status === "approved" ? "approved" : "pending"
+              }">${escapeHtml(statusText)}</span>`;
           return `<div class="inputs-drilldown-detail-row">
             <div class="inputs-drilldown-detail-main">
               <div class="inputs-drilldown-detail-meta">
                 <span class="inputs-drilldown-detail-value">${escapeHtml(formatSummaryHours(detail.hours))}</span>
-                <span class="inputs-time-calendar-detail-chip inputs-time-calendar-detail-chip-status inputs-time-calendar-detail-chip-status-${
-                  detail.status === "approved" ? "approved" : "pending"
-                }">${escapeHtml(statusText)}</span>
+                ${statusMarkup}
                 <span class="billable-pill ${
                   detail.billable ? "is-billable" : "is-nonbillable"
                 }">${escapeHtml(billableText)}</span>
