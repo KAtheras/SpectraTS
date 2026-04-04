@@ -306,7 +306,13 @@
       `;
     }
 
-    if (!selectedUserId || !filteredUsers.some((u) => u.id === selectedUserId)) {
+    const currentUserId = `${state.currentUser?.id || ""}`.trim();
+    if (!selectedUserId) {
+      const currentUserMatch = currentUserId
+        ? filteredUsers.find((u) => `${u?.id || ""}`.trim() === currentUserId)
+        : null;
+      selectedUserId = currentUserMatch?.id || filteredUsers[0]?.id || null;
+    } else if (!filteredUsers.some((u) => u.id === selectedUserId)) {
       selectedUserId = filteredUsers[0]?.id || null;
     }
     const selectedUser = filteredUsers.find((u) => u.id === selectedUserId) || filteredUsers[0] || null;
