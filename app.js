@@ -2957,6 +2957,7 @@
       const message = options?.message || "";
       const confirmText = options?.confirmText || "OK";
       const cancelText = options?.cancelText || "Cancel";
+      const hideConfirm = Boolean(options?.hideConfirm);
       const showInput = Boolean(options?.input);
       const defaultValue = options?.defaultValue || "";
 
@@ -2971,7 +2972,7 @@
       refs.dialogConfirm.textContent = confirmText;
       refs.dialogCancel.textContent = cancelText;
       refs.dialog.hidden = false;
-      refs.dialogConfirm.hidden = false;
+      refs.dialogConfirm.hidden = hideConfirm;
       refs.dialogCancel.disabled = false;
 
       const cleanup = () => {
@@ -8059,6 +8060,16 @@
       try {
         window.localStorage.setItem("timesheet.offices", JSON.stringify(locations));
       } catch (e) {}
+      if ((error?.message || "").includes("Cannot Remove Office")) {
+        const blockedBody = String(error.message || "").replace(/^Cannot Remove Office\s*\n?/, "").trim();
+        await appDialog({
+          title: "Cannot Remove Office",
+          message: blockedBody || "This office still has active items assigned to it and cannot be removed.",
+          cancelText: "Cancel",
+          hideConfirm: true,
+        });
+        return;
+      }
       feedback(error.message || "Unable to update office locations.", true);
     }
   }
@@ -8123,12 +8134,32 @@
           return;
         }
         const id = row.dataset.officeId;
-        const activeClients = (state.clients || []).filter((client) => (client.officeId || "") === (id || "")).length;
-        const activeProjects = (state.projects || []).filter((project) => (project.officeId || "") === (id || "")).length;
+        const officeKey = `${id || ""}`.trim();
+        const activeMembers = (state.users || []).filter((user) => `${user?.officeId || ""}`.trim() === officeKey).length;
+        const activeClients = (state.clients || []).filter((client) => `${client?.officeId || ""}`.trim() === officeKey).length;
+        const activeProjects = (state.projects || []).filter((project) => `${project?.officeId || ""}`.trim() === officeKey).length;
+        const hasDependencies = activeMembers > 0 || activeClients > 0 || activeProjects > 0;
+        if (hasDependencies) {
+          await appDialog({
+            title: "Cannot Remove Office",
+            message:
+              "This office still has active items assigned to it and cannot be removed.\n\n" +
+              "Please reassign or remove all active:\n" +
+              "- members\n" +
+              "- clients\n" +
+              "- projects\n\n" +
+              `${activeMembers} active members\n` +
+              `${activeClients} active clients\n` +
+              `${activeProjects} active projects`,
+            cancelText: "Cancel",
+            hideConfirm: true,
+          });
+          return;
+        }
         const confirmation = await appDialog({
-          title: "Delete office location?",
-          message: `Are you sure you would like to delete this office location?\nCurrently there are ${activeClients} clients and ${activeProjects} projects active in this office location.`,
-          confirmText: "Delete",
+          title: "Remove Office?",
+          message: "This office has no active members, clients, or projects assigned to it. Removing it cannot be undone.",
+          confirmText: "Remove",
           cancelText: "Cancel",
         });
         if (!confirmation.confirmed) {

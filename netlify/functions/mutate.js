@@ -1436,6 +1436,39 @@ async function updateOfficeLocations(sql, payload, accountId) {
   const keepIds = new Set(cleaned.map((c) => c.id));
   for (const existingRow of existing) {
     if (existingRow.id && !keepIds.has(existingRow.id)) {
+      const dependencyCounts = await sql`
+        SELECT
+          (SELECT COUNT(*)::INT
+           FROM users
+           WHERE account_id = ${accountId}::uuid
+             AND is_active = TRUE
+             AND office_id = ${existingRow.id}) AS "activeMembers",
+          (SELECT COUNT(*)::INT
+           FROM clients
+           WHERE account_id = ${accountId}::uuid
+             AND office_id = ${existingRow.id}) AS "activeClients",
+          (SELECT COUNT(*)::INT
+           FROM projects
+           WHERE account_id = ${accountId}::uuid
+             AND office_id = ${existingRow.id}) AS "activeProjects"
+      `;
+      const activeMembers = Number(dependencyCounts?.[0]?.activeMembers || 0);
+      const activeClients = Number(dependencyCounts?.[0]?.activeClients || 0);
+      const activeProjects = Number(dependencyCounts?.[0]?.activeProjects || 0);
+      if (activeMembers > 0 || activeClients > 0 || activeProjects > 0) {
+        return errorResponse(
+          400,
+          "Cannot Remove Office\n" +
+            "This office still has active items assigned to it and cannot be removed.\n\n" +
+            "Please reassign or remove all active:\n" +
+            "- members\n" +
+            "- clients\n" +
+            "- projects\n\n" +
+            `${activeMembers} active members\n` +
+            `${activeClients} active clients\n` +
+            `${activeProjects} active projects`
+        );
+      }
       await sql`
         DELETE FROM office_locations
         WHERE account_id = ${accountId}::uuid
