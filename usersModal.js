@@ -216,7 +216,8 @@
           });
           return officeOrder
             .map(function (officeGroup) {
-              const isCollapsed = collapsedOfficeKeys.has(officeGroup.key);
+              // Keep search results visible by auto-expanding matching offices while search is active.
+              const isCollapsed = searchValue ? false : collapsedOfficeKeys.has(officeGroup.key);
               const contentHtml = levelGroupsMarkup(officeGroup.users, { showOfficeMeta: false });
               return `
                 <section class="member-office-group ${isCollapsed ? "is-collapsed" : ""}" data-office-group="${escapeHtml(officeGroup.key)}">
