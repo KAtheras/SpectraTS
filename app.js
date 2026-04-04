@@ -6737,6 +6737,8 @@
         field,
         ensureCatalogSelection,
       });
+      syncClientLifecycleToggleUi();
+      syncProjectLifecycleToggleUi();
       syncProjectCardsUx();
       syncClientsMobileDrilldownState();
       postHeight();
@@ -9112,6 +9114,8 @@
 
     state.selectedCatalogClient = button.dataset.client;
     renderCatalogAside();
+    syncClientLifecycleToggleUi();
+    syncProjectLifecycleToggleUi();
     syncProjectCardsUx();
     if (isMobileDrilldownViewport()) {
       state.mobileClientsView = "detail";
