@@ -2867,7 +2867,17 @@ body[data-theme="dark"] .audit-detail-col {
   color: var(--muted);
   font-family: var(--font-head);
   font-size: 0.68rem;
+  font-weight: 400;
   letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.catalog-project-lead-line {
+  color: var(--muted);
+  font-family: var(--font-head);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 

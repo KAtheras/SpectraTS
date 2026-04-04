@@ -590,11 +590,12 @@
       addClientHeaderButton.className = "button button-ghost";
       addClientHeaderButton.textContent = "Add client";
       addClientHeaderButton.style.marginLeft = "auto";
-      addClientHeaderButton.addEventListener("click", function () {
+      addClientHeaderButton.addEventListener("click", async function () {
         if (!isAdmin(state.currentUser)) {
           feedback("Only Admins can add clients.", true);
           return;
         }
+        await ensureOfficeLocationsLoadedForClientEditor();
         openClientEditor({ mode: "create", clientName: "" });
       });
     }
@@ -665,6 +666,17 @@
     leadSelect.innerHTML = options;
     if (selectedLeadId) {
       leadSelect.value = selectedLeadId;
+    }
+  }
+
+  async function ensureOfficeLocationsLoadedForClientEditor() {
+    if (Array.isArray(state.officeLocations) && state.officeLocations.length) {
+      return;
+    }
+    try {
+      await loadSettingsMetadata(true);
+    } catch (error) {
+      // Keep existing behavior: editor can still open even if metadata load fails.
     }
   }
 
@@ -1085,10 +1097,16 @@
         existing.textContent = `Project Lead: ${leadName}`;
         return;
       }
-      const node = document.createElement("small");
+      const node = document.createElement("div");
       node.setAttribute("data-project-lead-line", "1");
+      node.className = "catalog-project-lead-line";
       node.textContent = `Project Lead: ${leadName}`;
-      copy.appendChild(node);
+      const meta = copy.querySelector(".catalog-item-meta");
+      if (meta) {
+        copy.insertBefore(node, meta);
+      } else {
+        copy.appendChild(node);
+      }
     });
     if (!refs.clientList) return;
     refs.clientList.querySelectorAll(".catalog-item[data-client]").forEach((card) => {
@@ -8346,7 +8364,7 @@
   }
 
   if (refs.addClientForm && refs.addClientForm.isConnected) {
-    refs.addClientForm.addEventListener("submit", function (event) {
+    refs.addClientForm.addEventListener("submit", async function (event) {
       event.preventDefault();
       if (!isAdmin(state.currentUser)) {
         feedback("Only Admins can add clients.", true);
@@ -8358,6 +8376,7 @@
         feedback("Client name is required.", true);
         return;
       }
+      await ensureOfficeLocationsLoadedForClientEditor();
       openClientEditor({ mode: "create", clientName: rawName });
       syncClientEditorLeadField();
     });
@@ -8493,13 +8512,14 @@
   }
 
   refs.clientList.addEventListener("click", async function (event) {
-      const editButton = event.target.closest("[data-edit-client]");
+    const editButton = event.target.closest("[data-edit-client]");
     if (editButton) {
       if (!isAdmin(state.currentUser)) {
         feedback("Only Admins can edit clients.", true);
         return;
       }
       const clientName = editButton.dataset.editClient;
+      await ensureOfficeLocationsLoadedForClientEditor();
       openClientEditor({ mode: "edit", clientName });
       syncClientEditorLeadField();
       return;
