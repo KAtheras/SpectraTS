@@ -47,6 +47,8 @@ const ACTING_AS_CAPABILITIES = new Set([
   "view_time_on_behalf",
   "view_expenses_on_behalf",
 ]);
+const ENSURE_SCHEMA_LOCK_KEY_A = 921104;
+const ENSURE_SCHEMA_LOCK_KEY_B = 1;
 
 async function getSql() {
   return neon();
@@ -83,6 +85,8 @@ async function ensureDefaultAccount(sql) {
 async function ensureSchema(sql) {
   const accountId = await ensureDefaultAccount(sql);
   const accountUuid = accountId ? `${accountId}` : accountId;
+  await sql`SELECT pg_advisory_lock(${ENSURE_SCHEMA_LOCK_KEY_A}, ${ENSURE_SCHEMA_LOCK_KEY_B})`;
+  try {
 
   // Permission schema (global, not per-account yet) driven by workbook seeds
   await sql`
@@ -830,10 +834,13 @@ async function ensureSchema(sql) {
     ON CONFLICT (project_id, user_id) DO NOTHING
   `;
 
-  await seedDefaultCatalog(sql, accountUuid);
-  await seedDefaultExpenseCategories(sql, accountUuid);
-  await seedDefaultCorporateFunctionCategories(sql, accountUuid);
-  await sql`DELETE FROM sessions WHERE expires_at <= NOW()`;
+    await seedDefaultCatalog(sql, accountUuid);
+    await seedDefaultExpenseCategories(sql, accountUuid);
+    await seedDefaultCorporateFunctionCategories(sql, accountUuid);
+    await sql`DELETE FROM sessions WHERE expires_at <= NOW()`;
+  } finally {
+    await sql`SELECT pg_advisory_unlock(${ENSURE_SCHEMA_LOCK_KEY_A}, ${ENSURE_SCHEMA_LOCK_KEY_B})`;
+  }
 }
 
 async function ensureNotificationRulesForAccount(sql, accountUuid) {
