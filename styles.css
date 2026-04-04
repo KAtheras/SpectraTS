@@ -3076,7 +3076,7 @@ body[data-theme="dark"] .audit-detail-col {
 .member-office-content {
   display: grid;
   gap: 8px;
-  padding-left: 10px;
+  padding-left: 14px;
 }
 
 .user-item {
