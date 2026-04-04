@@ -2669,7 +2669,7 @@ body[data-theme="dark"] .audit-detail-col {
 }
 
 .client-editor-row-fields-top {
-  grid-template-columns: minmax(240px, 1.2fr) minmax(180px, 1fr);
+  grid-template-columns: minmax(240px, 1.2fr) minmax(180px, 1fr) minmax(220px, 1fr);
 }
 
 .client-editor-message {
@@ -2700,6 +2700,12 @@ body[data-theme="dark"] .audit-detail-col {
 .client-editor-note {
   color: var(--muted);
   font-size: 0.85rem;
+}
+
+@media (max-width: 980px) {
+  .client-editor-row-fields-top {
+    grid-template-columns: 1fr;
+  }
 }
 
 .catalog-create input {

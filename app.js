@@ -607,6 +607,54 @@
     }
   }
 
+  function syncClientEditorLeadField() {
+    if (!refs.clientEditor || refs.clientEditor.hidden) return;
+    const form = refs.clientEditor.querySelector("[data-client-editor-form]");
+    if (!form) return;
+    const topRow = form.querySelector(".client-editor-row-fields-top");
+    if (!topRow) return;
+
+    let leadField = topRow.querySelector('[name="client_lead_id"]')?.closest(".client-editor-field");
+    if (!leadField) {
+      leadField = document.createElement("label");
+      leadField.className = "client-editor-field";
+      leadField.innerHTML = `
+        <span>Client Lead</span>
+        <select name="client_lead_id"></select>
+      `;
+      topRow.appendChild(leadField);
+    }
+
+    const leadSelect = leadField.querySelector('select[name="client_lead_id"]');
+    if (!leadSelect) return;
+
+    const selectedLeadId =
+      String(
+        leadSelect.value ||
+          state.clientEditor?.values?.clientLeadId ||
+          state.clientEditor?.values?.client_lead_id ||
+          ""
+      ).trim();
+    const options = ['<option value="">Unassigned</option>']
+      .concat(
+        (state.users || [])
+          .filter((user) => user && user.isActive !== false && user.displayName)
+          .sort((a, b) => String(a.displayName || "").localeCompare(String(b.displayName || "")))
+          .map((user) => {
+            const id = String(user.id || "").trim();
+            const selected = id && id === selectedLeadId ? "selected" : "";
+            return `<option value="${escapeHtml(id)}" ${selected}>${escapeHtml(
+              String(user.displayName || "")
+            )}</option>`;
+          })
+      )
+      .join("");
+    leadSelect.innerHTML = options;
+    if (selectedLeadId) {
+      leadSelect.value = selectedLeadId;
+    }
+  }
+
   function parseProjectBudgetAmount(rawValue) {
     const trimmed = String(rawValue || "").trim();
     if (!trimmed) {
@@ -6200,6 +6248,7 @@
 
     if (view === "clients") {
       renderClientEditor();
+      syncClientEditorLeadField();
       renderCatalogLists({
         refs,
         state,
@@ -8255,6 +8304,7 @@
         return;
       }
       openClientEditor({ mode: "create", clientName: rawName });
+      syncClientEditorLeadField();
     });
   }
 
@@ -8277,6 +8327,7 @@
       const editor = state.clientEditor;
       if (!editor) return;
       const values = readClientEditorForm(form);
+      values.clientLeadId = String(field(form, "client_lead_id")?.value || "").trim() || null;
       ["business_contact_phone", "billing_contact_phone", "business_contact_email", "billing_contact_email", "address_postal", "address_street", "address_city", "address_state"].forEach((name) =>
         setFieldError(form, name, false)
       );
@@ -8352,6 +8403,7 @@
         clientName: editor.mode === "edit" ? editor.originalName : values.name,
         nextName: values.name,
         officeId: values.officeId || null,
+        clientLeadId: values.clientLeadId,
         businessContactName: values.businessContactName,
         businessContactEmail: values.businessContactEmail,
         businessContactPhone: values.businessContactPhone,
@@ -8386,7 +8438,7 @@
   }
 
   refs.clientList.addEventListener("click", async function (event) {
-    const editButton = event.target.closest("[data-edit-client]");
+      const editButton = event.target.closest("[data-edit-client]");
     if (editButton) {
       if (!isAdmin(state.currentUser)) {
         feedback("Only Admins can edit clients.", true);
@@ -8394,6 +8446,7 @@
       }
       const clientName = editButton.dataset.editClient;
       openClientEditor({ mode: "edit", clientName });
+      syncClientEditorLeadField();
       return;
     }
 
