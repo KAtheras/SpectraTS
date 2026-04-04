@@ -5511,6 +5511,48 @@
     return project?.isActive !== false && project?.is_active !== false;
   }
 
+  function assignedActiveMembersCountForProject(clientName, projectName) {
+    const activeUserIds = new Set(
+      (state.users || [])
+        .filter((user) => user?.isActive !== false)
+        .map((user) => `${user?.id || ""}`.trim())
+        .filter(Boolean)
+    );
+    if (!activeUserIds.size) return 0;
+    const projectRecord = (state.projects || []).find(
+      (project) => project?.client === clientName && project?.name === projectName
+    );
+    const projectId = `${projectRecord?.id || ""}`.trim();
+    const assignedUserIds = new Set();
+    (state.assignments?.projectMembers || []).forEach((assignment) => {
+      const assignmentUserId = `${assignment?.userId || assignment?.user_id || ""}`.trim();
+      if (!assignmentUserId || !activeUserIds.has(assignmentUserId)) return;
+      const assignmentProjectId = `${assignment?.projectId || assignment?.project_id || ""}`.trim();
+      const assignmentClient = `${assignment?.client || assignment?.client_name || ""}`.trim();
+      const assignmentProject = `${assignment?.project || assignment?.project_name || ""}`.trim();
+      const matchesProject = projectId
+        ? assignmentProjectId === projectId
+        : assignmentClient === clientName && assignmentProject === projectName;
+      if (matchesProject) {
+        assignedUserIds.add(assignmentUserId);
+      }
+    });
+    (state.assignments?.managerProjects || []).forEach((assignment) => {
+      const assignmentUserId = `${assignment?.managerId || assignment?.manager_id || ""}`.trim();
+      if (!assignmentUserId || !activeUserIds.has(assignmentUserId)) return;
+      const assignmentProjectId = `${assignment?.projectId || assignment?.project_id || ""}`.trim();
+      const assignmentClient = `${assignment?.client || assignment?.client_name || ""}`.trim();
+      const assignmentProject = `${assignment?.project || assignment?.project_name || ""}`.trim();
+      const matchesProject = projectId
+        ? assignmentProjectId === projectId
+        : assignmentClient === clientName && assignmentProject === projectName;
+      if (matchesProject) {
+        assignedUserIds.add(assignmentUserId);
+      }
+    });
+    return assignedUserIds.size;
+  }
+
   function lifecycleTargetView(entity, options = {}) {
     if (options?.forCatalogView && state.currentView === "clients") {
       if (entity === "client") {
@@ -9132,23 +9174,10 @@
       }
 
       if (deactivateButton) {
-        const activeUserIds = new Set(
-          (state.users || [])
-            .filter((user) => user?.isActive !== false)
-            .map((user) => `${user?.id || ""}`.trim())
-            .filter(Boolean)
+        const assignedActiveMembers = assignedActiveMembersCountForProject(
+          state.selectedCatalogClient,
+          projectName
         );
-        const assignedActiveMembers = new Set(
-          (state.assignments?.projectMembers || [])
-            .filter(
-              (assignment) =>
-                assignment?.client === state.selectedCatalogClient &&
-                assignment?.project === projectName &&
-                activeUserIds.has(`${assignment?.userId || ""}`.trim())
-            )
-            .map((assignment) => `${assignment?.userId || ""}`.trim())
-            .filter(Boolean)
-        ).size;
         if (assignedActiveMembers > 0) {
           await appDialog({
             title: "Cannot Deactivate Project",
@@ -9256,18 +9285,10 @@
         feedback("Managers can only remove projects they created.", true);
         return;
       }
-      const assignedActiveMembers = new Set(
-        (state.assignments?.projectMembers || [])
-          .filter(
-            (assignment) =>
-              assignment?.client === state.selectedCatalogClient &&
-              assignment?.project === projectName &&
-              (state.users || [])
-                .some((user) => user?.isActive !== false && `${user?.id || ""}`.trim() === `${assignment?.userId || ""}`.trim())
-          )
-          .map((assignment) => `${assignment?.userId || ""}`.trim())
-          .filter(Boolean)
-      ).size;
+      const assignedActiveMembers = assignedActiveMembersCountForProject(
+        state.selectedCatalogClient,
+        projectName
+      );
       if (assignedActiveMembers > 0) {
         await appDialog({
           title: "Cannot Remove Project",

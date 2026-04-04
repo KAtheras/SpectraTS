@@ -2832,13 +2832,24 @@ async function removeProject(sql, payload, accountId) {
   }
 
   const assignedMembersRows = await sql`
-    SELECT COUNT(DISTINCT project_members.user_id)::INT AS total
-    FROM project_members
-    JOIN users ON users.id = project_members.user_id
-    WHERE project_members.project_id = ${project.id}
-      AND project_members.account_id = ${accountId}::uuid
-      AND users.account_id = ${accountId}::uuid
-      AND users.is_active = TRUE
+    SELECT COUNT(DISTINCT member_id)::INT AS total
+    FROM (
+      SELECT project_members.user_id AS member_id
+      FROM project_members
+      JOIN users ON users.id = project_members.user_id
+      WHERE project_members.project_id = ${project.id}
+        AND project_members.account_id = ${accountId}::uuid
+        AND users.account_id = ${accountId}::uuid
+        AND users.is_active = TRUE
+      UNION
+      SELECT manager_projects.manager_id AS member_id
+      FROM manager_projects
+      JOIN users ON users.id = manager_projects.manager_id
+      WHERE manager_projects.project_id = ${project.id}
+        AND manager_projects.account_id = ${accountId}::uuid
+        AND users.account_id = ${accountId}::uuid
+        AND users.is_active = TRUE
+    ) assigned_members
   `;
   const assignedActiveMembers = assignedMembersRows[0]?.total || 0;
   if (assignedActiveMembers > 0) {
@@ -2915,13 +2926,24 @@ async function deactivateProject(sql, payload, accountId) {
   }
 
   const assignedMembersRows = await sql`
-    SELECT COUNT(DISTINCT project_members.user_id)::INT AS total
-    FROM project_members
-    JOIN users ON users.id = project_members.user_id
-    WHERE project_members.project_id = ${project.id}
-      AND project_members.account_id = ${accountId}::uuid
-      AND users.account_id = ${accountId}::uuid
-      AND users.is_active = TRUE
+    SELECT COUNT(DISTINCT member_id)::INT AS total
+    FROM (
+      SELECT project_members.user_id AS member_id
+      FROM project_members
+      JOIN users ON users.id = project_members.user_id
+      WHERE project_members.project_id = ${project.id}
+        AND project_members.account_id = ${accountId}::uuid
+        AND users.account_id = ${accountId}::uuid
+        AND users.is_active = TRUE
+      UNION
+      SELECT manager_projects.manager_id AS member_id
+      FROM manager_projects
+      JOIN users ON users.id = manager_projects.manager_id
+      WHERE manager_projects.project_id = ${project.id}
+        AND manager_projects.account_id = ${accountId}::uuid
+        AND users.account_id = ${accountId}::uuid
+        AND users.is_active = TRUE
+    ) assigned_members
   `;
   const assignedActiveMembers = Number(assignedMembersRows?.[0]?.total || 0);
   if (assignedActiveMembers > 0) {
