@@ -383,22 +383,19 @@
         <h4>${escapeHtml(selectedUser.displayName)}</h4>
         <div class="detail-top-divider"></div>
         <dl>
-          <div class="member-top-row-wrap">
-            <div class="member-top-row">
-              <div class="member-top-item">
-                <dt>Level</dt>
-                <dd>${escapeHtml(levelLabel(selectedUser.level))}</dd>
-              </div>
-              <div class="member-top-item">
-                <dt>Department</dt>
-                <dd>${departmentName || "—"}</dd>
-              </div>
-              <div class="member-top-item">
-                <dt>Office</dt>
-                <dd>${officeName || "—"}</dd>
-              </div>
+          <div class="member-top-row">
+            <div class="member-top-item">
+              <dt>Level</dt>
+              <dd>${escapeHtml(levelLabel(selectedUser.level))}</dd>
             </div>
-            <button type="button" class="button button-ghost member-profile-edit-btn" data-user-edit="${escapeHtml(selectedUser.id)}">Edit</button>
+            <div class="member-top-item">
+              <dt>Department</dt>
+              <dd>${departmentName || "—"}</dd>
+            </div>
+            <div class="member-top-item">
+              <dt>Office</dt>
+              <dd>${officeName || "—"}</dd>
+            </div>
           </div>
           <div class="detail-divider"></div>
           <div><dt>Clients/Projects</dt><dd>${assignments.projects.length ? assignments.projects.map((p) => `${escapeHtml(p.client)} / ${escapeHtml(p.project)}`).join("<br>") : "None assigned"}</dd></div>
@@ -407,8 +404,11 @@
             <dd>${escapeHtml(profileCertifications)}</dd>
           </div>
           <div class="detail-divider"></div>
-          <div>
-            <dt>Member Profile</dt>
+          <div class="member-profile-row">
+            <dt>
+              <span>Member Profile</span>
+              <button type="button" class="button button-ghost member-profile-edit-btn" data-user-profile-edit="${escapeHtml(selectedUser.id)}">Edit</button>
+            </dt>
             <dd>${escapeHtml(profileSummary)}</dd>
           </div>
         </dl>

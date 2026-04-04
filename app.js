@@ -1359,7 +1359,7 @@
     body.classList.remove("modal-open");
   }
 
-  function openMemberEditorModal(mode, userId) {
+  function openMemberEditorModal(mode, userId, focusFieldName) {
     ensureMemberEditorModal();
     const canCreate = Boolean(state.permissions?.create_user);
     const canEditProfile = Boolean(state.permissions?.edit_user_profile);
@@ -1441,6 +1441,18 @@
     memberEditorModal.hidden = false;
     memberEditorModal.setAttribute("aria-hidden", "false");
     body.classList.add("modal-open");
+    if (focusFieldName) {
+      const focusField = field(memberEditorForm, focusFieldName);
+      if (focusField && !focusField.disabled) {
+        requestAnimationFrame(function () {
+          focusField.focus();
+          if (typeof focusField.setSelectionRange === "function") {
+            const valueLength = String(focusField.value || "").length;
+            focusField.setSelectionRange(valueLength, valueLength);
+          }
+        });
+      }
+    }
   }
 
   async function submitMemberEditorModal(event) {
@@ -6102,7 +6114,7 @@
 
   async function handleUserListAction(event) {
     const button = event.target.closest(
-      "[data-user-edit], [data-user-role], [data-user-password], [data-user-deactivate]"
+      "[data-user-edit], [data-user-profile-edit], [data-user-role], [data-user-password], [data-user-deactivate]"
     );
     if (!button) {
       return;
@@ -6128,6 +6140,10 @@
     }
 
     try {
+      if (button.dataset.userProfileEdit) {
+        openMemberEditorModal("edit", user.id, "member_profile");
+        return;
+      }
       if (button.dataset.userEdit) {
         const nameDialog = await appDialog({
           title: "Team member name",
