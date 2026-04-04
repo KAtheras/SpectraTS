@@ -408,12 +408,6 @@
             </dd>
           </div>
         </dl>
-        <div class="user-detail-actions">
-          <button type="button" class="button button-ghost" data-user-edit="${escapeHtml(selectedUser.id)}">Edit</button>
-          <button type="button" class="button button-ghost" data-user-role="${escapeHtml(selectedUser.id)}">Role</button>
-          <button type="button" class="button button-ghost" data-user-password="${escapeHtml(selectedUser.id)}">Password</button>
-          <button type="button" class="button button-ghost button-danger" data-user-deactivate="${escapeHtml(selectedUser.id)}">Remove</button>
-        </div>
       </div>
     `;
 
