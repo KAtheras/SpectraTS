@@ -181,15 +181,6 @@
                   <span class="catalog-item-copy">
                     <span class="catalog-item-title">
                       ${escapeHtml(project)}
-                      <button
-                        type="button"
-                        class="catalog-edit catalog-edit-inline"
-                        aria-label="Edit ${escapeHtml(project)}"
-                        data-edit-project="${escapeHtml(project)}"
-                        ${disabledButtonAttrs(canEditProject, "Admin only.")}
-                      >
-                        Edit
-                      </button>
                     </span>
                     <small>${projectHours(selectedClient, project).toFixed(2)}h logged</small>
                     ${projectOffice ? `<small>Office: ${escapeHtml(projectOffice)}</small>` : ""}
@@ -223,6 +214,15 @@
                       data-view-expenses-project="${escapeHtml(project)}"
                     >
                       View Expenses
+                    </button>
+                    <button
+                      type="button"
+                      class="catalog-edit"
+                      aria-label="Edit ${escapeHtml(project)}"
+                      data-edit-project="${escapeHtml(project)}"
+                      ${disabledButtonAttrs(canEditProject, "Admin only.")}
+                    >
+                      Edit
                     </button>
                     <button
                       type="button"

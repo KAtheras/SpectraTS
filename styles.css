@@ -2829,6 +2829,10 @@ body[data-theme="dark"] .audit-detail-col {
   order: 20;
 }
 
+.catalog-item-actions > [data-edit-project] {
+  order: 30;
+}
+
 .catalog-item-actions > [data-edit-managers] {
   order: 40;
 }
@@ -2870,6 +2874,10 @@ body[data-theme="dark"] .audit-detail-col {
   font-weight: 400;
   letter-spacing: 0.05em;
   text-transform: uppercase;
+}
+
+.catalog-item-meta > span {
+  font-weight: 400;
 }
 
 .catalog-project-lead-line {
