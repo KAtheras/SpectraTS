@@ -2829,12 +2829,16 @@ body[data-theme="dark"] .audit-detail-col {
 
 .catalog-item.is-inactive .catalog-item-copy,
 .catalog-item.is-inactive .catalog-item-copy * {
-  opacity: 0.48;
+  opacity: 0.62;
 }
 
 .catalog-item.is-inactive .catalog-item-actions .catalog-edit,
 .catalog-item.is-inactive .catalog-item-actions .catalog-delete {
-  opacity: 0.48;
+  opacity: 0.62;
+}
+
+.catalog-item.is-inactive .catalog-item-title {
+  opacity: 1;
 }
 
 .catalog-item.is-inactive .catalog-item-actions [data-view-time-project],
