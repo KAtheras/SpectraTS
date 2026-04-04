@@ -38,6 +38,7 @@
   let memberInfoMobileMode = "list";
   let memberInfoMobileSelectedUserId = "";
   let delegationsSelectedDelegateId = "";
+  let permissionsSaveInFlight = false;
   const delegationsDraftCapabilitiesByDelegateId = new Map();
 
   function isMobileSettingsLayout() {
@@ -2490,29 +2491,35 @@
       </div>
     `;
 
-    const saveBtn = document.getElementById("permissions-save");
-    panel.addEventListener("click", function (event) {
-      const input = event.target.closest('[data-perm-locked="true"]');
-      if (!input) return;
-      event.preventDefault();
-      event.stopPropagation();
-      input.checked = input.dataset.lockedValue === "true";
-    });
-    panel.addEventListener("keydown", function (event) {
-      const input = event.target.closest('[data-perm-locked="true"]');
-      if (!input) return;
-      event.preventDefault();
-      event.stopPropagation();
-    });
-    panel.addEventListener("change", function (event) {
-      const input = event.target.closest('[data-perm-locked="true"]');
-      if (!input) return;
-      input.checked = input.dataset.lockedValue === "true";
-    });
-    if (saveBtn) {
-      saveBtn.addEventListener("click", async function () {
-        const inputs = Array.from(panel.querySelectorAll("[data-perm-role][data-perm-cap]"));
+    const saveBtn = panel.querySelector("#permissions-save");
+    if (!panel.dataset.permissionsHandlersBound) {
+      panel.dataset.permissionsHandlersBound = "true";
+      panel.addEventListener("click", async function (event) {
+        const lockedInput = event.target.closest('[data-perm-locked="true"]');
+        if (lockedInput) {
+          event.preventDefault();
+          event.stopPropagation();
+          lockedInput.checked = lockedInput.dataset.lockedValue === "true";
+          return;
+        }
+        const clickedSave = event.target.closest("#permissions-save");
+        if (!clickedSave) return;
+        event.preventDefault();
+        if (permissionsSaveInFlight) return;
+        const livePanel = document.querySelector('[data-settings-tab="permissions"]');
+        if (!livePanel) return;
+        const liveSaveBtn = livePanel.querySelector("#permissions-save");
+        const liveRolePerms = Array.isArray(deps().state?.rolePermissions)
+          ? deps().state.rolePermissions
+          : [];
+        const currentAllowedSet = new Set(
+          liveRolePerms
+            .filter((p) => p.allowed && p.scope_key === "own_office")
+            .map((p) => `${p.role_key}|${p.capability_key}`)
+        );
+        const inputs = Array.from(livePanel.querySelectorAll("[data-perm-role][data-perm-cap]"));
         const next = [];
+        let changedCount = 0;
         inputs.forEach((input) => {
           const roleKey = input.dataset.permRole;
           if (roleKey === "superuser" || input.dataset.permLocked === "true") {
@@ -2520,8 +2527,20 @@
           }
           const capKey = input.dataset.permCap;
           const allowed = input.checked;
+          if (allowed !== currentAllowedSet.has(`${roleKey}|${capKey}`)) {
+            changedCount += 1;
+          }
           next.push({ role: roleKey, capability: capKey, allowed });
         });
+        if (!changedCount) {
+          deps().feedback("No access changes to save.", false);
+          return;
+        }
+        permissionsSaveInFlight = true;
+        if (liveSaveBtn) {
+          liveSaveBtn.disabled = true;
+          liveSaveBtn.dataset.loading = "true";
+        }
         try {
           await deps().mutatePersistentState(
             "update_role_permissions",
@@ -2530,12 +2549,36 @@
           );
           await deps().loadPersistentState();
           renderSettingsTabs();
-          renderPermissionsMatrix();
           deps().feedback("Access updated.", false);
         } catch (error) {
           deps().feedback(error.message || "Unable to save access.", true);
+        } finally {
+          permissionsSaveInFlight = false;
+          if (liveSaveBtn && liveSaveBtn.isConnected) {
+            liveSaveBtn.disabled = false;
+            delete liveSaveBtn.dataset.loading;
+          }
         }
       });
+      panel.addEventListener("keydown", function (event) {
+        const input = event.target.closest('[data-perm-locked="true"]');
+        if (!input) return;
+        event.preventDefault();
+        event.stopPropagation();
+      });
+      panel.addEventListener("change", function (event) {
+        const input = event.target.closest('[data-perm-locked="true"]');
+        if (!input) return;
+        input.checked = input.dataset.lockedValue === "true";
+      });
+    }
+    if (saveBtn) {
+      saveBtn.disabled = permissionsSaveInFlight;
+      if (permissionsSaveInFlight) {
+        saveBtn.dataset.loading = "true";
+      } else {
+        delete saveBtn.dataset.loading;
+      }
     }
     arrangeSettingsSectionHeaders();
   }
