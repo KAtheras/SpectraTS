@@ -1246,7 +1246,7 @@ body[data-theme="dark"] .mobile-tabbar {
 .input-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 12px;
 }
 
@@ -1255,7 +1255,7 @@ body[data-theme="dark"] .mobile-tabbar {
 }
 
 .input-switch-action {
-  margin-left: auto;
+  margin-left: 0;
   white-space: nowrap;
 }
 
@@ -3155,6 +3155,14 @@ body[data-theme="dark"] .audit-detail-col {
 
 .user-detail-card dd {
   margin: 0;
+}
+
+.user-detail-actions {
+  margin-top: auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 10px;
 }
 
 .user-detail-card input[type="number"]::-webkit-outer-spin-button,

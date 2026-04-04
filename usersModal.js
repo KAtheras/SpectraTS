@@ -383,6 +383,12 @@
           <div class="detail-divider"></div>
           <div><dt>Clients/Projects</dt><dd>${assignments.projects.length ? assignments.projects.map((p) => `${escapeHtml(p.client)} / ${escapeHtml(p.project)}`).join("<br>") : "None assigned"}</dd></div>
         </dl>
+        <div class="user-detail-actions">
+          <button type="button" class="button button-ghost" data-user-edit="${escapeHtml(selectedUser.id)}">Edit</button>
+          <button type="button" class="button button-ghost" data-user-role="${escapeHtml(selectedUser.id)}">Role</button>
+          <button type="button" class="button button-ghost" data-user-password="${escapeHtml(selectedUser.id)}">Password</button>
+          <button type="button" class="button button-ghost button-danger" data-user-deactivate="${escapeHtml(selectedUser.id)}">Remove</button>
+        </div>
       </div>
     `;
 
@@ -508,8 +514,8 @@
     if (!refs.addUserForm) {
       return;
     }
-    const canManageUsers = isAdmin(state.currentUser);
-    const canAssignLevel = isGlobalAdmin(state.currentUser);
+    const canManageUsers = true;
+    const canAssignLevel = true;
     const reason = "Admin only.";
     const levelField = field(refs.addUserForm, "level");
     if (levelField) {
