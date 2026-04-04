@@ -665,15 +665,15 @@
     }
     const currentBudget = Number.isFinite(projectRow.budget) ? projectRow.budget : null;
     const projectLeadId = String(projectRow?.projectLeadId || projectRow?.project_lead_id || "").trim() || null;
-    const managerNames = formatNameList(userNamesForIds(managerIdsForProject(normalizedClient, normalizedProject)));
-    const staffNames = formatNameList(userNamesForIds(staffIdsForProject(normalizedClient, normalizedProject)));
+    const managerNames = userNamesForIds(managerIdsForProject(normalizedClient, normalizedProject));
+    const staffNames = userNamesForIds(staffIdsForProject(normalizedClient, normalizedProject));
     const projectDialog = await openProjectDialog({
       mode: "edit",
       projectName: normalizedProject,
       budgetAmount: currentBudget,
       projectLeadId,
-      managersText: managerNames,
-      staffText: staffNames,
+      managerNames,
+      staffNames,
     });
     if (!projectDialog) {
       projectDialogReturnContext = null;
@@ -721,53 +721,73 @@
       const currentName = String(options?.projectName || "");
       const currentBudget = Number.isFinite(options?.budgetAmount) ? Number(options.budgetAmount) : null;
       const currentLeadId = String(options?.projectLeadId || "").trim();
-      const managersText = String(options?.managersText || "None");
-      const staffText = String(options?.staffText || "None");
+      const managerNames = Array.isArray(options?.managerNames) ? options.managerNames.filter(Boolean) : [];
+      const staffNames = Array.isArray(options?.staffNames) ? options.staffNames.filter(Boolean) : [];
       const title = mode === "edit" ? "Edit project" : "Add project";
       const finalConfirmText = mode === "edit" ? "Save" : "Add";
+      const activeUsers = (state.users || [])
+        .filter((user) => user && user.isActive !== false && user.displayName)
+        .sort((a, b) => String(a.displayName).localeCompare(String(b.displayName)));
+      const leadNameById = new Map(
+        activeUsers.map((user) => [String(user.id || "").trim(), String(user.displayName || "").trim()])
+      );
       const leadOptions = ['<option value="">Unassigned</option>']
         .concat(
-          (state.users || [])
-            .filter((user) => user && user.isActive !== false && user.displayName)
-            .sort((a, b) => String(a.displayName).localeCompare(String(b.displayName)))
-            .map(
-              (user) =>
-                `<option value="${escapeHtml(String(user.id || ""))}">${escapeHtml(
-                  String(user.displayName || "")
-                )}</option>`
-            )
+          activeUsers.map(
+            (user) =>
+              `<option value="${escapeHtml(String(user.id || ""))}">${escapeHtml(
+                String(user.displayName || "")
+              )}</option>`
+          )
         )
         .join("");
       const showTeamSection = mode === "edit";
+      const renderNameList = (items) =>
+        items.length
+          ? `<ul class="project-dialog-team-list">${items
+              .map((name) => `<li>${escapeHtml(String(name || "").trim())}</li>`)
+              .join("")}</ul>`
+          : '<p class="project-dialog-team-empty">None</p>';
 
       const form = document.createElement("form");
       form.className = "project-dialog-form";
       form.innerHTML = `
         <section class="project-dialog-section">
           <h3 class="panel-subheading">Core</h3>
-        <label class="project-dialog-field">
-          <span>Project name</span>
-          <input type="text" name="project_name" required />
-        </label>
-        <label class="project-dialog-field">
-          <span>Budget (optional)</span>
-          <input type="text" name="budget_amount" inputmode="decimal" placeholder="15000 or $15,000" />
-        </label>
+          <div class="project-dialog-core-row">
+            <label class="project-dialog-field">
+              <span>Project name</span>
+              <input type="text" name="project_name" required />
+            </label>
+            <label class="project-dialog-field">
+              <span>Budget (optional)</span>
+              <input type="text" name="budget_amount" inputmode="decimal" placeholder="15000 or $15,000" />
+            </label>
           <label class="project-dialog-field">
             <span>Project Lead</span>
             <select name="project_lead_id">${leadOptions}</select>
           </label>
+          </div>
         </section>
         ${
           showTeamSection
             ? `
         <section class="project-dialog-section">
           <h3 class="panel-subheading">Team</h3>
-          <p class="project-dialog-team-line">Managers: ${escapeHtml(managersText)}</p>
-          <p class="project-dialog-team-line">Staff: ${escapeHtml(staffText)}</p>
-        </section>
-        <section class="project-dialog-section">
-          <h3 class="panel-subheading">Actions</h3>
+          <div class="project-dialog-team-grid">
+            <div class="project-dialog-team-col">
+              <h4>Project Lead</h4>
+              <p class="project-dialog-team-empty" data-project-team-lead-display>Unassigned</p>
+            </div>
+            <div class="project-dialog-team-col">
+              <h4>Managers</h4>
+              ${renderNameList(managerNames)}
+            </div>
+            <div class="project-dialog-team-col">
+              <h4>Staff</h4>
+              ${renderNameList(staffNames)}
+            </div>
+          </div>
           <div class="project-dialog-actions">
             <button type="button" class="button button-ghost" data-project-team-action="add">Add Member</button>
             <button type="button" class="button button-ghost" data-project-team-action="remove">Remove Member</button>
@@ -782,6 +802,7 @@
       const nameInput = form.querySelector('input[name="project_name"]');
       const budgetInput = form.querySelector('input[name="budget_amount"]');
       const leadSelect = form.querySelector('select[name="project_lead_id"]');
+      const teamLeadDisplay = form.querySelector("[data-project-team-lead-display]");
       const errorNode = form.querySelector("[data-project-dialog-error]");
       const dialogCard = refs.dialog?.querySelector(".dialog-card");
       if (nameInput) {
@@ -793,6 +814,14 @@
       if (leadSelect) {
         leadSelect.value = currentLeadId;
       }
+      const syncTeamLeadDisplay = () => {
+        if (!teamLeadDisplay) return;
+        const selectedLeadId = String(leadSelect?.value || "").trim();
+        const leadName = selectedLeadId ? leadNameById.get(selectedLeadId) || "" : "";
+        teamLeadDisplay.textContent = leadName || "Unassigned";
+      };
+      syncTeamLeadDisplay();
+      leadSelect?.addEventListener("change", syncTeamLeadDisplay);
 
       refs.dialogTitle.textContent = title;
       refs.dialogMessage.textContent = "";
@@ -823,6 +852,7 @@
         refs.dialogConfirm.removeEventListener("click", onConfirm);
         refs.dialogCancel.removeEventListener("click", onCancel);
         form.removeEventListener("submit", onSubmit);
+        leadSelect?.removeEventListener("change", syncTeamLeadDisplay);
         form.remove();
         if (isProjectEditDialog) {
           dialogCard?.classList.remove("dialog-card--project");

@@ -195,6 +195,18 @@ body.modal-open {
   gap: 10px;
 }
 
+.project-dialog-section {
+  display: grid;
+  gap: 10px;
+}
+
+.project-dialog-core-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+
 .project-dialog-field {
   display: grid;
   gap: 4px;
@@ -212,6 +224,57 @@ body.modal-open {
 .project-dialog-error {
   color: var(--danger);
   font-size: 0.86rem;
+}
+
+.project-dialog-team-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.project-dialog-team-col {
+  display: grid;
+  gap: 8px;
+}
+
+.project-dialog-team-col h4 {
+  margin: 0;
+  color: var(--muted);
+  font-family: var(--font-head);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.project-dialog-team-list {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 4px;
+}
+
+.project-dialog-team-list li {
+  margin: 0;
+}
+
+.project-dialog-team-empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.project-dialog-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 980px) {
+  .project-dialog-core-row,
+  .project-dialog-team-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .dialog-actions {
