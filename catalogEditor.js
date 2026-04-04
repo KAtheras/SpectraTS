@@ -171,7 +171,7 @@
             </div>
             <div class="client-editor-row">
               <div class="client-editor-row-label">Address</div>
-              <div class="client-editor-row-fields">
+              <div class="client-editor-row-fields client-editor-row-fields-address">
                 <label class="client-editor-field">
                   <span>Street</span>
                   <input type="text" name="address_street" value="${escapeHtml(values.addressStreet || "")}" ${disabledAttr} />
@@ -180,16 +180,18 @@
                   <span>City</span>
                   <input type="text" name="address_city" value="${escapeHtml(values.addressCity || "")}" ${disabledAttr} />
                 </label>
-                <label class="client-editor-field">
-                  <span>State</span>
-                  <select name="address_state" ${disabledAttr}>
-                    ${renderStateOptions(values.addressState)}
-                  </select>
-                </label>
-                <label class="client-editor-field">
-                  <span>Zip code</span>
-                  <input type="text" name="address_postal" value="${escapeHtml(values.addressPostal || "")}" ${disabledAttr} />
-                </label>
+                <div class="client-editor-third-pair">
+                  <label class="client-editor-field">
+                    <span>State</span>
+                    <select name="address_state" ${disabledAttr}>
+                      ${renderStateOptions(values.addressState)}
+                    </select>
+                  </label>
+                  <label class="client-editor-field">
+                    <span>Zip code</span>
+                    <input type="text" name="address_postal" value="${escapeHtml(values.addressPostal || "")}" ${disabledAttr} />
+                  </label>
+                </div>
               </div>
             </div>
           </div>
