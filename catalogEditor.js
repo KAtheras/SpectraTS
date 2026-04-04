@@ -153,7 +153,18 @@
               </div>
             </div>
             <div class="client-editor-row">
-              <div class="client-editor-row-label">Billing Contact</div>
+              <div class="client-editor-row-label client-editor-row-label-with-toggle">
+                <span>Billing Contact</span>
+                <label class="rules-toggle client-editor-same-contact-toggle">
+                  <input
+                    type="checkbox"
+                    name="billing_same_as_business"
+                    data-billing-same-as-business
+                    ${disabledAttr}
+                  />
+                  <span>Same as Business Contact</span>
+                </label>
+              </div>
               <div class="client-editor-row-fields">
                 <label class="client-editor-field">
                   <span>Name</span>

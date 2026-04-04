@@ -795,6 +795,21 @@
     return { ok: true, value: parsed };
   }
 
+  function syncBillingContactFromBusiness(form) {
+    if (!form) return;
+    const sameAsBusiness = field(form, "billing_same_as_business");
+    if (!sameAsBusiness || !sameAsBusiness.checked) return;
+    const businessName = field(form, "business_contact_name");
+    const businessEmail = field(form, "business_contact_email");
+    const businessPhone = field(form, "business_contact_phone");
+    const billingName = field(form, "billing_contact_name");
+    const billingEmail = field(form, "billing_contact_email");
+    const billingPhone = field(form, "billing_contact_phone");
+    if (billingName && businessName) billingName.value = businessName.value || "";
+    if (billingEmail && businessEmail) billingEmail.value = businessEmail.value || "";
+    if (billingPhone && businessPhone) billingPhone.value = businessPhone.value || "";
+  }
+
   function openProjectMemberManagement(projectName, actionType) {
     if (!projectName) {
       return false;
@@ -8812,6 +8827,26 @@
       if (event.target.closest("[data-cancel-client]")) {
         closeClientEditor();
         render();
+      }
+    });
+
+    refs.clientEditor.addEventListener("change", function (event) {
+      const form = event.target.closest("[data-client-editor-form]");
+      if (!form) return;
+      if (event.target.matches("[data-billing-same-as-business]")) {
+        syncBillingContactFromBusiness(form);
+      }
+    });
+
+    refs.clientEditor.addEventListener("input", function (event) {
+      const form = event.target.closest("[data-client-editor-form]");
+      if (!form) return;
+      if (
+        event.target.matches(
+          '[name="business_contact_name"], [name="business_contact_email"], [name="business_contact_phone"]'
+        )
+      ) {
+        syncBillingContactFromBusiness(form);
       }
     });
 

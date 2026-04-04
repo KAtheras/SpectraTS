@@ -2712,6 +2712,25 @@ body[data-theme="dark"] .audit-detail-col {
   text-transform: uppercase;
 }
 
+.client-editor-row-label-with-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.client-editor-same-contact-toggle {
+  text-transform: none;
+  letter-spacing: normal;
+  font-size: 0.78rem;
+}
+
+.client-editor-same-contact-toggle input[type="checkbox"] {
+  width: 42px;
+  height: 24px;
+  margin: 0;
+}
+
 .client-editor-row-fields {
   display: grid;
   grid-template-columns: minmax(240px, 1.25fr) minmax(240px, 1.25fr) minmax(260px, 1fr);
