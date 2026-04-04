@@ -584,19 +584,56 @@
   function syncClientLifecycleToggleUi() {
     if (!clientLifecycleToggleActive || !clientLifecycleToggleInactive) return;
     const activeSelected = state.catalogClientLifecycleView !== "inactive";
+    const scopedUser = effectiveScopeUser();
+    const inactiveClientCount = (() => {
+      const inactiveClients = (state.clients || []).filter((client) => !isClientActive(client));
+      const candidateNames = new Set(
+        inactiveClients.map((client) => String(client?.name || "").trim()).filter(Boolean)
+      );
+      if (!scopedUser || isAdmin(scopedUser) || isExecutive(scopedUser)) {
+        return candidateNames.size;
+      }
+      const allowed = new Set(allowedClientsForUser(scopedUser));
+      return Array.from(candidateNames).filter((name) => allowed.has(name)).length;
+    })();
     clientLifecycleToggleActive.className = activeSelected ? "button" : "button button-ghost";
     clientLifecycleToggleInactive.className = activeSelected ? "button button-ghost" : "button";
     clientLifecycleToggleActive.setAttribute("aria-pressed", activeSelected ? "true" : "false");
     clientLifecycleToggleInactive.setAttribute("aria-pressed", activeSelected ? "false" : "true");
+    clientLifecycleToggleActive.disabled = false;
+    clientLifecycleToggleInactive.disabled = inactiveClientCount === 0;
   }
 
   function syncProjectLifecycleToggleUi() {
     if (!projectLifecycleToggleActive || !projectLifecycleToggleInactive) return;
     const activeSelected = state.catalogProjectLifecycleView !== "inactive";
+    const scopedUser = effectiveScopeUser();
+    const selectedClient = String(state.selectedCatalogClient || "").trim();
+    const countVisibleProjectsForLifecycle = (view) => {
+      if (!selectedClient) return 0;
+      const matchingProjects = (state.projects || []).filter((project) => {
+        if (!project || String(project.client || "").trim() !== selectedClient) return false;
+        return view === "inactive" ? !isProjectActive(project) : isProjectActive(project);
+      });
+      const candidateNames = uniqueValues(
+        matchingProjects.map((project) => String(project?.name || "").trim()).filter(Boolean)
+      );
+      if (!scopedUser || isAdmin(scopedUser) || isExecutive(scopedUser)) {
+        return candidateNames.length;
+      }
+      const allowed = new Set(
+        allowedProjectsForClient(scopedUser, selectedClient, { projects: matchingProjects })
+      );
+      return candidateNames.filter((name) => allowed.has(name)).length;
+    };
+    const activeProjectCount = countVisibleProjectsForLifecycle("active");
+    const inactiveProjectCount = countVisibleProjectsForLifecycle("inactive");
     projectLifecycleToggleActive.className = activeSelected ? "button" : "button button-ghost";
     projectLifecycleToggleInactive.className = activeSelected ? "button button-ghost" : "button";
     projectLifecycleToggleActive.setAttribute("aria-pressed", activeSelected ? "true" : "false");
     projectLifecycleToggleInactive.setAttribute("aria-pressed", activeSelected ? "false" : "true");
+    projectLifecycleToggleActive.disabled = activeProjectCount === 0;
+    projectLifecycleToggleInactive.disabled = inactiveProjectCount === 0;
   }
 
   function setupAddClientHeaderAction() {
