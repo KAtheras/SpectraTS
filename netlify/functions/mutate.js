@@ -2847,12 +2847,19 @@ async function saveEntry(sql, payload, currentUser, accountId) {
 
   const requestedProjectId = normalizeText(entry.projectId || entry.project_id);
   const requestedChargeCenterId = normalizeText(entry.chargeCenterId || entry.charge_center_id);
+  const requestedClientName = normalizeText(entry.client);
+  const requestedProjectName = normalizeText(entry.project);
   if (requestedProjectId && requestedChargeCenterId) {
+    return errorResponse(400, "Select either a project or a corporate function category.");
+  }
+  if (!requestedProjectId && !requestedChargeCenterId && !(requestedClientName && requestedProjectName)) {
     return errorResponse(400, "Select either a project or a corporate function category.");
   }
   const project = requestedProjectId
     ? await findProjectById(sql, requestedProjectId, accountId)
-    : null;
+    : requestedClientName && requestedProjectName
+      ? await findProject(sql, requestedClientName, requestedProjectName, accountId)
+      : null;
   const corporateCategory = requestedChargeCenterId
     ? await findCorporateFunctionCategoryById(sql, requestedChargeCenterId, accountId)
     : null;

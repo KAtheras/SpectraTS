@@ -4213,7 +4213,7 @@
   function inputsTimeComboOptions() {
     const projectItems = assignedProjectTuplesForCurrentUser().map((item) => ({
       type: "project",
-      id: findProjectIdByClientProject(item.client, item.project),
+      id: `${item.projectId || ""}`.trim() || findProjectIdByClientProject(item.client, item.project),
       client: item.client,
       project: item.project,
       label: `${item.client} / ${item.project}`,
@@ -5336,10 +5336,18 @@
     const projects = state.projects || [];
     const memberTuples = (assignments.projectMembers || [])
       .filter((item) => item.userId === userId)
-      .map((item) => ({ client: item.client || "", project: item.project || "" }));
+      .map((item) => ({
+        client: item.client || "",
+        project: item.project || "",
+        projectId: `${item.projectId || item.project_id || ""}`.trim(),
+      }));
     const managerProjectTuples = (assignments.managerProjects || [])
       .filter((item) => item.managerId === userId)
-      .map((item) => ({ client: item.client || "", project: item.project || "" }));
+      .map((item) => ({
+        client: item.client || "",
+        project: item.project || "",
+        projectId: `${item.projectId || item.project_id || ""}`.trim(),
+      }));
     const managerClients = new Set(
       (assignments.managerClients || [])
         .filter((item) => item.managerId === userId)
@@ -5348,7 +5356,11 @@
     );
     const managerClientTuples = projects
       .filter((project) => managerClients.has(project.client))
-      .map((project) => ({ client: project.client || "", project: project.name || "" }));
+      .map((project) => ({
+        client: project.client || "",
+        project: project.name || "",
+        projectId: `${project.id || ""}`.trim(),
+      }));
     const tupleMap = new Map();
     [...memberTuples, ...managerProjectTuples, ...managerClientTuples].forEach((item) => {
       if (!item.client || !item.project) return;
