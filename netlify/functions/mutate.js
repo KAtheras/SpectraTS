@@ -4079,8 +4079,10 @@ exports.handler = async function handler(event) {
           mutationResult = await deactivateProject(sql, request.payload || {}, accountId);
           break;
         }
-        if (!isManager(context.currentUser)) {
-          return errorResponse(403, "Manager access required.");
+        const managerUser = isManager(context.currentUser);
+        const executiveUser = isExecutive(context.currentUser);
+        if (!managerUser && !executiveUser) {
+          return errorResponse(403, "Manager or Executive access required.");
         }
         const clientName = normalizeText(request.payload?.clientName);
         const projectName = normalizeText(request.payload?.projectName);
@@ -4096,7 +4098,7 @@ exports.handler = async function handler(event) {
           LIMIT 1
         `;
         const createdBy = projectRow[0]?.created_by || "";
-        if (createdBy !== context.currentUser.id) {
+        if (managerUser && !executiveUser && createdBy !== context.currentUser.id) {
           return errorResponse(403, "You can only deactivate projects you created.");
         }
         mutationResult = await deactivateProject(sql, request.payload || {}, accountId);
@@ -4107,8 +4109,10 @@ exports.handler = async function handler(event) {
           mutationResult = await reactivateProject(sql, request.payload || {}, accountId);
           break;
         }
-        if (!isManager(context.currentUser)) {
-          return errorResponse(403, "Manager access required.");
+        const managerUser = isManager(context.currentUser);
+        const executiveUser = isExecutive(context.currentUser);
+        if (!managerUser && !executiveUser) {
+          return errorResponse(403, "Manager or Executive access required.");
         }
         const clientName = normalizeText(request.payload?.clientName);
         const projectName = normalizeText(request.payload?.projectName);
@@ -4124,7 +4128,7 @@ exports.handler = async function handler(event) {
           LIMIT 1
         `;
         const createdBy = projectRow[0]?.created_by || "";
-        if (createdBy !== context.currentUser.id) {
+        if (managerUser && !executiveUser && createdBy !== context.currentUser.id) {
           return errorResponse(403, "You can only reactivate projects you created.");
         }
         mutationResult = await reactivateProject(sql, request.payload || {}, accountId);
