@@ -6148,6 +6148,11 @@
 
     try {
       if (button.dataset.userProfileEdit) {
+        const currentUserId = `${state.currentUser?.id || ""}`.trim();
+        if (!currentUserId || currentUserId !== `${user.id || ""}`.trim()) {
+          feedback("Access denied.", true);
+          return;
+        }
         openMemberEditorModal("edit", user.id, "member_profile");
         return;
       }

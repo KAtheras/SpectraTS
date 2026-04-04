@@ -375,6 +375,7 @@
     const officeName = officeNameFor(selectedUser.officeId, selectedUser.officeName);
     const profileCertifications = `${selectedUser.certifications || ""}`.trim() || "Not provided";
     const profileSummary = `${selectedUser.memberProfile || ""}`.trim() || "Not provided";
+    const canEditOwnProfile = `${state.currentUser?.id || ""}`.trim() === `${selectedUser.id || ""}`.trim();
     const mobileDrilldownEnabled = typeof isMobileDrilldown === "function" ? isMobileDrilldown() : false;
     const mobileDetailView = mobileDrilldownEnabled && mobileView === "detail";
     const detailHtml = `
@@ -407,7 +408,7 @@
           <div class="member-profile-row">
             <dt>
               <span>Member Profile</span>
-              <button type="button" class="button button-ghost member-profile-edit-btn" data-user-profile-edit="${escapeHtml(selectedUser.id)}">Edit</button>
+              ${canEditOwnProfile ? `<button type="button" class="button button-ghost member-profile-edit-btn" data-user-profile-edit="${escapeHtml(selectedUser.id)}">Edit</button>` : ""}
             </dt>
             <dd>${escapeHtml(profileSummary)}</dd>
           </div>
