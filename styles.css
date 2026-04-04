@@ -2824,6 +2824,7 @@ body[data-theme="dark"] .audit-detail-col {
 
 .catalog-item-actions > [data-view-time-project] {
   order: 10;
+  margin-top: auto;
 }
 
 .catalog-item-actions > [data-view-expenses-project] {
@@ -2848,7 +2849,6 @@ body[data-theme="dark"] .audit-detail-col {
 
 .catalog-item-actions > [data-delete-project] {
   order: 60;
-  margin-top: auto;
 }
 
 .catalog-item-actions > [data-delete-client] {
