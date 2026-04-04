@@ -462,7 +462,7 @@
 
   function ensureCatalogSelection() {
     const { state, visibleCatalogClientNames } = deps();
-    const clients = visibleCatalogClientNames();
+    const clients = visibleCatalogClientNames(state.currentUser, { forCatalogView: true });
     if (!clients.length) {
       state.selectedCatalogClient = "";
       return;
