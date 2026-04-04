@@ -1093,15 +1093,19 @@
         existing?.remove();
         return;
       }
+      const meta = copy.querySelector(".catalog-item-meta");
       if (existing) {
+        existing.classList.add("catalog-project-lead-line");
         existing.textContent = `Project Lead: ${leadName}`;
+        if (meta && existing !== meta.previousElementSibling) {
+          copy.insertBefore(existing, meta);
+        }
         return;
       }
       const node = document.createElement("div");
       node.setAttribute("data-project-lead-line", "1");
       node.className = "catalog-project-lead-line";
       node.textContent = `Project Lead: ${leadName}`;
-      const meta = copy.querySelector(".catalog-item-meta");
       if (meta) {
         copy.insertBefore(node, meta);
       } else {
@@ -8593,6 +8597,7 @@
 
     state.selectedCatalogClient = button.dataset.client;
     renderCatalogAside();
+    syncProjectCardsUx();
     if (isMobileDrilldownViewport()) {
       state.mobileClientsView = "detail";
       syncClientsMobileDrilldownState();
