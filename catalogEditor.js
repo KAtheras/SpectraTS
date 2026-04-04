@@ -335,6 +335,8 @@
     return {
       id: client.id,
       name,
+      isActive: client?.isActive ?? client?.is_active ?? true,
+      is_active: client?.isActive ?? client?.is_active ?? true,
       businessContactName: clean(
         client.businessContactName ||
           client.business_contact_name ||

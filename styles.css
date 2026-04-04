@@ -2603,7 +2603,9 @@ body[data-theme="dark"] .audit-detail-col {
   display: inline-flex;
   justify-content: flex-start;
   gap: 8px;
-  flex: 0 0 100%;
+  flex: 0 0 auto;
+  margin-left: auto;
+  white-space: nowrap;
 }
 
 .catalog-create {

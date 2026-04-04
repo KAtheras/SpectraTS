@@ -608,7 +608,7 @@
     header.style.display = "flex";
     header.style.alignItems = "center";
     header.style.gap = "10px";
-    header.style.flexWrap = "wrap";
+    header.style.flexWrap = "nowrap";
 
     if (!addClientHeaderButton) {
       addClientHeaderButton = document.createElement("button");
@@ -629,6 +629,7 @@
     if (!clientLifecycleToggleWrap) {
       clientLifecycleToggleWrap = document.createElement("div");
       clientLifecycleToggleWrap.className = "catalog-lifecycle-toggle";
+      clientLifecycleToggleWrap.style.marginLeft = "auto";
       clientLifecycleToggleActive = document.createElement("button");
       clientLifecycleToggleActive.type = "button";
       clientLifecycleToggleActive.textContent = "Active";
@@ -1117,7 +1118,7 @@
     header.style.display = "flex";
     header.style.alignItems = "center";
     header.style.gap = "10px";
-    header.style.flexWrap = "wrap";
+    header.style.flexWrap = "nowrap";
 
     if (!addProjectHeaderButton) {
       addProjectHeaderButton = document.createElement("button");
@@ -1134,6 +1135,7 @@
     if (!projectLifecycleToggleWrap) {
       projectLifecycleToggleWrap = document.createElement("div");
       projectLifecycleToggleWrap.className = "catalog-lifecycle-toggle";
+      projectLifecycleToggleWrap.style.marginLeft = "auto";
       projectLifecycleToggleActive = document.createElement("button");
       projectLifecycleToggleActive.type = "button";
       projectLifecycleToggleActive.textContent = "Active";
