@@ -3453,12 +3453,12 @@
             <div class="inputs-drilldown-detail-main">
               <div class="inputs-drilldown-detail-meta">
                 <span class="inputs-drilldown-detail-value">${escapeHtml(formatSummaryHours(detail.hours))}</span>
-                <span class="inputs-time-calendar-detail-chip inputs-time-calendar-detail-chip-status inputs-time-calendar-detail-chip-status-${
+                <span class="entry-status entry-status-${
                   detail.status === "approved" ? "approved" : "pending"
                 }">${escapeHtml(statusText)}</span>
-                <span class="inputs-time-calendar-detail-chip inputs-time-calendar-detail-chip-billable">${escapeHtml(
-                  billableText
-                )}</span>
+                <span class="billable-pill ${
+                  detail.billable ? "is-billable" : "is-nonbillable"
+                }">${escapeHtml(billableText)}</span>
               </div>
               <div class="inputs-drilldown-detail-actions">
                 <button type="button" class="button button-ghost" data-action="inputs-time-detail-edit" data-id="${escapeHtml(
@@ -3745,12 +3745,12 @@
             <div class="inputs-drilldown-detail-main">
               <div class="inputs-drilldown-detail-meta">
                 <span class="inputs-drilldown-detail-value">${escapeHtml(formatSummaryCurrency(detail.amount))}</span>
-                <span class="inputs-time-calendar-detail-chip inputs-time-calendar-detail-chip-status inputs-time-calendar-detail-chip-status-${
+                <span class="entry-status entry-status-${
                   detail.status === "approved" ? "approved" : "pending"
                 }">${escapeHtml(statusText)}</span>
-                <span class="inputs-time-calendar-detail-chip inputs-time-calendar-detail-chip-billable">${escapeHtml(
-                  billableText
-                )}</span>
+                <span class="billable-pill ${
+                  detail.billable ? "is-billable" : "is-nonbillable"
+                }">${escapeHtml(billableText)}</span>
                 <span class="inputs-time-calendar-detail-category">${categoryText}</span>
               </div>
               <div class="inputs-drilldown-detail-actions">
