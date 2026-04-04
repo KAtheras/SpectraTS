@@ -6176,12 +6176,14 @@
     if (refs.navMembers) {
       const showMembers = true;
       refs.navMembers.hidden = !showMembers;
+      refs.navMembers.textContent = "Directory";
       refs.navMembers.classList.toggle("is-active", view === "members");
       refs.navMembers.setAttribute("aria-current", view === "members" ? "page" : "false");
     }
     if (refs.navMembersMobile) {
       const showMembers = true;
       refs.navMembersMobile.hidden = !showMembers;
+      refs.navMembersMobile.textContent = "Directory";
       refs.navMembersMobile.classList.toggle("is-active", view === "members");
       refs.navMembersMobile.setAttribute("aria-current", view === "members" ? "page" : "false");
     }

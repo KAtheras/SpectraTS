@@ -2,7 +2,9 @@
   let selectedUserId = null;
   let memberSearchTerm = "";
   let memberLevelFilter = "";
+  let memberOfficeFilter = "";
   let collapsedOfficeKeys = new Set();
+  let initializedOfficeKeys = new Set();
 
   function setUserFeedback(deps, message, isError) {
     const { refs } = deps;
@@ -62,12 +64,6 @@
       return;
     }
 
-    if (!selectedUserId || !state.users.some((u) => u.id === selectedUserId)) {
-      selectedUserId = state.users[0].id;
-    }
-
-    const selectedUser = state.users.find((u) => u.id === selectedUserId) || state.users[0];
-
     const previousScroll =
       refs.userList.querySelector(".member-card-list")?.scrollTop ??
       refs.userList.querySelector(".user-list-column")?.scrollTop ??
@@ -95,6 +91,12 @@
       return departmentNames.get(key) || "";
     };
     const filteredUsers = state.users.filter(function (user) {
+      const officeId = user?.officeId != null ? String(user.officeId) : "";
+      const officeLabel = officeNameFor(user?.officeId).trim() || "No office";
+      const officeKey = officeId || `name:${officeLabel}`;
+      if (memberOfficeFilter && officeKey !== memberOfficeFilter) {
+        return false;
+      }
       if (memberLevelFilter && String(user.level) !== memberLevelFilter) {
         return false;
       }
@@ -200,6 +202,13 @@
           const officeOrder = Array.from(officeGroups.values()).sort(function (a, b) {
             return a.label.localeCompare(b.label);
           });
+          officeOrder.forEach(function (officeGroup) {
+            if (!initializedOfficeKeys.has(officeGroup.key)) {
+              // Default new office groups to collapsed on first appearance.
+              collapsedOfficeKeys.add(officeGroup.key);
+              initializedOfficeKeys.add(officeGroup.key);
+            }
+          });
           return officeOrder
             .map(function (officeGroup) {
               const isCollapsed = collapsedOfficeKeys.has(officeGroup.key);
@@ -224,6 +233,92 @@
             .join("");
         })()
       : levelGroupsMarkup(filteredUsers, { showOfficeMeta: true });
+
+    const officeFilterOptions = Array.from(
+      new Map(
+        (state.users || [])
+          .map(function (user) {
+            const officeId = user?.officeId != null ? String(user.officeId) : "";
+            const officeLabel = officeNameFor(user?.officeId).trim() || "No office";
+            const officeKey = officeId || `name:${officeLabel}`;
+            return [officeKey, { key: officeKey, label: officeLabel }];
+          })
+          .filter(Boolean)
+      ).values()
+    )
+      .sort(function (a, b) {
+        return a.label.localeCompare(b.label);
+      })
+      .map(function (item) {
+        return `<option value="${escapeHtml(item.key)}" ${memberOfficeFilter === item.key ? "selected" : ""}>${escapeHtml(item.label)}</option>`;
+      })
+      .join("");
+
+    if (!filteredUsers.length) {
+      refs.userList.innerHTML = `
+        <div class="user-pane">
+          <div class="user-list-column">
+            <div class="member-card">
+              <div class="member-card-head">
+                <label class="member-card-filter">
+                  <span class="sr-only">Office</span>
+                  <select class="member-office-filter" aria-label="Filter by office">
+                    <option value="">All</option>
+                    ${officeFilterOptions}
+                  </select>
+                </label>
+                <label class="member-card-filter">
+                  <span class="sr-only">Level</span>
+                  <select class="member-level-filter" aria-label="Filter by level">
+                    <option value="">All</option>
+                    ${Array.from(new Set(levels || [])).sort((a, b) => a - b).map((level) => `<option value="${escapeHtml(String(level))}" ${memberLevelFilter === String(level) ? "selected" : ""}>${escapeHtml(levelLabel(level))}</option>`).join("")}
+                  </select>
+                </label>
+                <input
+                  type="search"
+                  class="member-card-search"
+                  placeholder="Search members"
+                  aria-label="Search members"
+                  value="${escapeHtml(memberSearchTerm)}"
+                />
+              </div>
+              <div class="catalog-list member-card-list"><p class="empty-state">No members match the current filters.</p></div>
+            </div>
+          </div>
+          <div class="user-detail-column"></div>
+        </div>
+      `;
+    }
+
+    if (!selectedUserId || !filteredUsers.some((u) => u.id === selectedUserId)) {
+      selectedUserId = filteredUsers[0]?.id || null;
+    }
+    const selectedUser = filteredUsers.find((u) => u.id === selectedUserId) || filteredUsers[0] || null;
+    if (!selectedUser) {
+      const searchInputOnly = refs.userList.querySelector(".member-card-search");
+      const levelSelectOnly = refs.userList.querySelector(".member-level-filter");
+      const officeSelectOnly = refs.userList.querySelector(".member-office-filter");
+      if (searchInputOnly) {
+        searchInputOnly.addEventListener("input", function (event) {
+          memberSearchTerm = event.target.value || "";
+          renderUsersList(deps);
+        });
+      }
+      if (levelSelectOnly) {
+        levelSelectOnly.addEventListener("change", function (event) {
+          memberLevelFilter = event.target.value || "";
+          renderUsersList(deps);
+        });
+      }
+      if (officeSelectOnly) {
+        officeSelectOnly.value = memberOfficeFilter;
+        officeSelectOnly.addEventListener("change", function (event) {
+          memberOfficeFilter = event.target.value || "";
+          renderUsersList(deps);
+        });
+      }
+      return;
+    }
 
     const levelFilterOptions = Array.isArray(levels)
       ? Array.from(new Set(levels))
@@ -289,6 +384,20 @@
         <div class="user-list-column">
           <div class="member-card">
             <div class="member-card-head">
+              <label class="member-card-filter">
+                <span class="sr-only">Office</span>
+                <select class="member-office-filter" aria-label="Filter by office">
+                  <option value="">All</option>
+                  ${officeFilterOptions}
+                </select>
+              </label>
+              <label class="member-card-filter">
+                <span class="sr-only">Level</span>
+                <select class="member-level-filter" aria-label="Filter by level">
+                  <option value="">All</option>
+                  ${levelFilterOptions}
+                </select>
+              </label>
               <input
                 type="search"
                 class="member-card-search"
@@ -296,13 +405,6 @@
                 aria-label="Search members"
                 value="${escapeHtml(memberSearchTerm)}"
               />
-              <label class="member-card-filter">
-                <span class="sr-only">Level</span>
-                <select aria-label="Filter by level">
-                  <option value="">All</option>
-                  ${levelFilterOptions}
-                </select>
-              </label>
             </div>
             <div class="catalog-list member-card-list">${listHtml}</div>
           </div>
@@ -312,7 +414,8 @@
     `;
 
     const searchInput = refs.userList.querySelector(".member-card-search");
-    const levelSelect = refs.userList.querySelector(".member-card-filter select");
+    const officeSelect = refs.userList.querySelector(".member-office-filter");
+    const levelSelect = refs.userList.querySelector(".member-level-filter");
 
     if (searchInput) {
       searchInput.value = memberSearchTerm;
@@ -326,6 +429,13 @@
       levelSelect.value = memberLevelFilter;
       levelSelect.addEventListener("change", function (event) {
         memberLevelFilter = event.target.value || "";
+        renderUsersList(deps);
+      });
+    }
+    if (officeSelect) {
+      officeSelect.value = memberOfficeFilter;
+      officeSelect.addEventListener("change", function (event) {
+        memberOfficeFilter = event.target.value || "";
         renderUsersList(deps);
       });
     }
