@@ -1167,8 +1167,14 @@
           flex-direction:column;
         }
         #member-editor-modal .panel-head{
+          display:flex;
+          justify-content:space-between;
           align-items:center;
           margin-bottom:10px;
+        }
+        #member-editor-modal .member-editor-head-cancel{
+          margin-left:12px;
+          flex:0 0 auto;
         }
         #member-editor-modal .member-editor-form{
           display:grid;
@@ -1275,6 +1281,7 @@
             <div>
               <h2 id="member-editor-title">Member</h2>
             </div>
+            <button class="button button-ghost member-editor-head-cancel" type="button" data-member-editor-cancel>Cancel</button>
           </div>
           <form class="member-editor-form" data-member-editor-form>
             <div class="member-editor-row">
@@ -1304,7 +1311,6 @@
                   <span>Certifications</span>
                   <input type="text" name="certifications" placeholder="Enter certifications" />
                 </label>
-                <button class="button button-ghost" type="button" data-member-editor-cancel>Cancel</button>
               </div>
               <button class="button button-ghost" type="button" data-member-editor-reset hidden>Reset password</button>
               <button class="button" type="submit" data-member-editor-submit>Add member</button>
@@ -6125,6 +6131,7 @@
 
     const userId =
       button.dataset.userEdit ||
+      button.dataset.userProfileEdit ||
       button.dataset.userRole ||
       button.dataset.userPassword ||
       button.dataset.userDeactivate;
