@@ -80,7 +80,7 @@
           const visibleProjectCount = visibleCatalogProjectNames(client, state.currentUser, { forCatalogView: true }).length;
           return `
           <article
-            class="catalog-item${client === selectedClient ? " is-selected" : ""}${clientIsActive ? "" : " is-inactive"}"
+            class="catalog-item${client === selectedClient ? " is-selected" : ""}"
             data-client="${escapeHtml(client)}"
             role="button"
             tabindex="0"
@@ -196,7 +196,7 @@
 
               return `
               <article
-                class="catalog-item catalog-item-project${projectIsActive ? "" : " is-inactive"}"
+                class="catalog-item catalog-item-project"
                 data-project="${escapeHtml(project)}"
               >
                 <div class="catalog-project-top">

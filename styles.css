@@ -2786,18 +2786,6 @@ body[data-theme="dark"] .audit-detail-col {
   background: color-mix(in srgb, var(--accent) 14%, var(--panel));
 }
 
-.catalog-item.is-inactive {
-  background: color-mix(in srgb, var(--panel) 84%, var(--surface) 16%);
-  border-color: color-mix(in srgb, var(--panel-border) 78%, var(--muted) 22%);
-}
-
-.catalog-item.is-inactive .catalog-item-title,
-.catalog-item.is-inactive .catalog-item-copy small,
-.catalog-item.is-inactive .catalog-item-meta span,
-.catalog-item.is-inactive strong {
-  color: color-mix(in srgb, var(--ink) 74%, var(--muted) 26%);
-}
-
 .catalog-item span {
   color: var(--ink);
 }
