@@ -4988,7 +4988,7 @@ body[data-theme="dark"] #inputs-view .input-row-head .cell-notes {
 #inputs-view .input-row-body[data-saved="true"] .cell-billable,
 #inputs-view .input-row-body[data-saved="true"] .cell-notes,
 #inputs-view .input-row-body[data-saved="true"] .cell-actions {
-  background: var(--surface-soft);
+  background: color-mix(in srgb, var(--panel) 96%, var(--surface-soft));
 }
 
 #inputs-view .cell-project,
