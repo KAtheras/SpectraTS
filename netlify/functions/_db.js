@@ -87,6 +87,7 @@ async function ensureSchema(sql) {
   const accountUuid = accountId ? `${accountId}` : accountId;
   await sql`SELECT pg_advisory_lock(${ENSURE_SCHEMA_LOCK_KEY_A}, ${ENSURE_SCHEMA_LOCK_KEY_B})`;
   try {
+    await sql`CREATE EXTENSION IF NOT EXISTS pgcrypto`;
 
   // Permission schema (global, not per-account yet) driven by workbook seeds
   await sql`
@@ -515,6 +516,21 @@ async function ensureSchema(sql) {
   `;
   await sql`UPDATE project_members SET account_id = ${accountUuid}::uuid WHERE account_id IS NULL`;
   await sql`ALTER TABLE project_members ADD COLUMN IF NOT EXISTS charge_rate_override NUMERIC(10,2)`;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS project_member_budgets (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      account_id UUID NOT NULL,
+      project_id UUID NOT NULL,
+      user_id UUID NOT NULL,
+      budget_hours NUMERIC,
+      budget_amount NUMERIC,
+      rate_override NUMERIC,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (project_id, user_id)
+    )
+  `;
 
   await sql`
     CREATE TABLE IF NOT EXISTS entries (
@@ -2363,6 +2379,99 @@ async function listProjectMembers(sql, accountId) {
   `;
 }
 
+async function getProjectMemberBudgets(sql, projectId, accountId) {
+  const normalizedProjectId = normalizeText(projectId);
+  if (!normalizedProjectId || !accountId) return [];
+  return sql`
+    SELECT
+      id,
+      account_id AS "accountId",
+      project_id AS "projectId",
+      user_id AS "userId",
+      budget_hours AS "budgetHours",
+      budget_amount AS "budgetAmount",
+      rate_override AS "rateOverride",
+      created_at AS "createdAt",
+      updated_at AS "updatedAt"
+    FROM project_member_budgets
+    WHERE account_id = ${accountId}::uuid
+      AND project_id = ${normalizedProjectId}::uuid
+    ORDER BY user_id
+  `;
+}
+
+async function upsertProjectMemberBudget(sql, payload, accountId) {
+  const projectId = normalizeText(payload?.projectId);
+  const userId = normalizeText(payload?.userId);
+  if (!accountId || !projectId || !userId) {
+    return null;
+  }
+  const toNumeric = (value) => {
+    if (value === null || value === undefined || value === "") return null;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  };
+  const budgetHours = toNumeric(payload?.budgetHours);
+  const budgetAmount = toNumeric(payload?.budgetAmount);
+  const rateOverride = toNumeric(payload?.rateOverride);
+  const rows = await sql`
+    INSERT INTO project_member_budgets (
+      account_id,
+      project_id,
+      user_id,
+      budget_hours,
+      budget_amount,
+      rate_override,
+      created_at,
+      updated_at
+    )
+    VALUES (
+      ${accountId}::uuid,
+      ${projectId}::uuid,
+      ${userId}::uuid,
+      ${budgetHours},
+      ${budgetAmount},
+      ${rateOverride},
+      NOW(),
+      NOW()
+    )
+    ON CONFLICT (project_id, user_id)
+    DO UPDATE SET
+      account_id = EXCLUDED.account_id,
+      budget_hours = EXCLUDED.budget_hours,
+      budget_amount = EXCLUDED.budget_amount,
+      rate_override = EXCLUDED.rate_override,
+      updated_at = NOW()
+    RETURNING
+      id,
+      account_id AS "accountId",
+      project_id AS "projectId",
+      user_id AS "userId",
+      budget_hours AS "budgetHours",
+      budget_amount AS "budgetAmount",
+      rate_override AS "rateOverride",
+      created_at AS "createdAt",
+      updated_at AS "updatedAt"
+  `;
+  return rows[0] || null;
+}
+
+async function deleteProjectMemberBudget(sql, projectId, userId, accountId) {
+  const normalizedProjectId = normalizeText(projectId);
+  const normalizedUserId = normalizeText(userId);
+  if (!accountId || !normalizedProjectId || !normalizedUserId) {
+    return null;
+  }
+  const rows = await sql`
+    DELETE FROM project_member_budgets
+    WHERE account_id = ${accountId}::uuid
+      AND project_id = ${normalizedProjectId}::uuid
+      AND user_id = ${normalizedUserId}::uuid
+    RETURNING id
+  `;
+  return rows[0] || null;
+}
+
 async function listManagerAssignmentsForUser(sql, managerId, accountId) {
   const clientRows = await sql`
     SELECT
@@ -3612,12 +3721,24 @@ async function listAuditLogs(sql, accountId, filters = {}) {
     LIMIT ${limit + 1}
     OFFSET ${offset}
   `;
+  const boundsRows = await sql`
+    SELECT
+      MIN(changed_at) AS min_changed_at,
+      MAX(changed_at) AS max_changed_at
+    FROM audit_log
+    WHERE account_id = ${accountId}::uuid
+  `;
+  const bounds = boundsRows?.[0] || {};
   const hasMore = rows.length > limit;
   const pageRows = hasMore ? rows.slice(0, limit) : rows;
   return {
     rows: pageRows,
     hasMore,
     nextOffset: offset + pageRows.length,
+    bounds: {
+      minChangedAt: bounds.min_changed_at || null,
+      maxChangedAt: bounds.max_changed_at || null,
+    },
   };
 }
 
@@ -3688,6 +3809,7 @@ module.exports = {
   getSessionContext,
   getSql,
   getManagerScope,
+  getProjectMemberBudgets,
   json,
   listManagerAssignmentsForUser,
   listManagerClientAssignments,
@@ -3716,6 +3838,8 @@ module.exports = {
   requireAdmin,
   requireSuperAdmin,
   requireAuth,
+  upsertProjectMemberBudget,
+  deleteProjectMemberBudget,
   updateUserPassword,
   updateUserRecord,
   verifyPassword,

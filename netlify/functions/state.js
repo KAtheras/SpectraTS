@@ -34,6 +34,17 @@ exports.handler = async function handler(event) {
       return json(200, settingsMeta);
     }
     const state = await loadState(sql, context.currentUser);
+    const projectMemberBudgets = await sql`
+      SELECT
+        project_id AS "projectId",
+        user_id AS "userId",
+        budget_hours AS "budgetHours",
+        budget_amount AS "budgetAmount",
+        rate_override AS "rateOverride"
+      FROM project_member_budgets
+      WHERE account_id = ${state?.account?.id || null}::uuid
+      ORDER BY project_id, user_id
+    `;
     if (Array.isArray(state.clients)) {
       state.clients = state.clients.map((client) => ({
         ...client,
@@ -136,6 +147,7 @@ exports.handler = async function handler(event) {
 
     return json(200, {
       ...state,
+      projectMemberBudgets: Array.isArray(projectMemberBudgets) ? projectMemberBudgets : [],
       permissions,
       permissionRoles,
       rolePermissions: canManageSettingsAccess ? permissionRows : [],

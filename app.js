@@ -685,6 +685,7 @@
   let memberEditorMode = "create";
   let memberEditorUserId = "";
   let projectDialogReturnContext = null;
+  let advancedBudgetReturnContext = null;
 
   function ensureInboxBulkReadButton() {
     if (refs.inboxMarkSelectedRead) return;
@@ -985,6 +986,7 @@
     const staffNames = userNamesForIds(staffIdsForProject(normalizedClient, normalizedProject));
     const projectDialog = await openProjectDialog({
       mode: "edit",
+      projectId: String(projectRow?.id || "").trim() || null,
       projectName: normalizedProject,
       budgetAmount: currentBudget,
       projectLeadId,
@@ -1030,10 +1032,272 @@
     render();
   }
 
+  async function openAdvancedBudgetModal(projectId) {
+    const normalizedProjectId = String(projectId || "").trim();
+    if (!normalizedProjectId) {
+      feedback("Project not found.", true);
+      return;
+    }
+    const projectRow =
+      (state.projects || []).find((item) => String(item?.id || "").trim() === normalizedProjectId) || null;
+    if (!projectRow) {
+      feedback("Project not found.", true);
+      return;
+    }
+
+    const assignmentMembers = (state.assignments?.projectMembers || [])
+      .filter((assignment) => String(assignment?.projectId || "").trim() === normalizedProjectId)
+      .map((assignment) => ({
+        userId: String(assignment?.userId || "").trim(),
+        rateOverride:
+          assignment?.chargeRateOverride === null || assignment?.chargeRateOverride === undefined
+            ? null
+            : Number(assignment.chargeRateOverride),
+      }))
+      .filter((item) => item.userId);
+    const managerMembers = (state.assignments?.managerProjects || [])
+      .filter((assignment) => String(assignment?.projectId || "").trim() === normalizedProjectId)
+      .map((assignment) => ({
+        userId: String(assignment?.managerId || "").trim(),
+        rateOverride:
+          assignment?.chargeRateOverride === null || assignment?.chargeRateOverride === undefined
+            ? null
+            : Number(assignment.chargeRateOverride),
+      }))
+      .filter((item) => item.userId);
+    const baseRows = [...assignmentMembers, ...managerMembers];
+    const existingBudgets = (state.projectMemberBudgets || [])
+      .filter((item) => String(item?.projectId || "").trim() === normalizedProjectId)
+      .map((item) => ({
+        userId: String(item?.userId || "").trim(),
+        budgetHours:
+          item?.budgetHours === null || item?.budgetHours === undefined ? null : Number(item.budgetHours),
+        budgetAmount:
+          item?.budgetAmount === null || item?.budgetAmount === undefined ? null : Number(item.budgetAmount),
+        rateOverride:
+          item?.rateOverride === null || item?.rateOverride === undefined ? null : Number(item.rateOverride),
+      }))
+      .filter((item) => item.userId);
+    const budgetsByUserId = new Map(existingBudgets.map((item) => [item.userId, item]));
+    const uniqueByUserId = new Map();
+    baseRows.forEach((row) => {
+      if (!row.userId || uniqueByUserId.has(row.userId)) return;
+      uniqueByUserId.set(row.userId, row);
+    });
+    existingBudgets.forEach((row) => {
+      if (!row.userId || uniqueByUserId.has(row.userId)) return;
+      uniqueByUserId.set(row.userId, { userId: row.userId, rateOverride: row.rateOverride });
+    });
+
+    let rows = Array.from(uniqueByUserId.values()).map((item) => {
+      const user = getUserById(item.userId);
+      const budgetRow = budgetsByUserId.get(item.userId) || null;
+      const baseRateRaw = user?.baseRate ?? user?.base_rate ?? null;
+      const rateFromUser = Number.isFinite(Number(baseRateRaw)) ? Number(baseRateRaw) : null;
+      const rateValue = Number.isFinite(Number(budgetRow?.rateOverride))
+        ? Number(budgetRow.rateOverride)
+        : Number.isFinite(Number(item.rateOverride))
+          ? Number(item.rateOverride)
+          : rateFromUser;
+      return {
+        userId: item.userId,
+        memberName: String(user?.displayName || user?.username || item.userId),
+        rateOverride: Number.isFinite(Number(rateValue)) ? Number(rateValue) : null,
+        budgetHours: Number.isFinite(Number(budgetRow?.budgetHours)) ? Number(budgetRow.budgetHours) : null,
+        budgetAmount: Number.isFinite(Number(budgetRow?.budgetAmount)) ? Number(budgetRow.budgetAmount) : null,
+      };
+    });
+
+    const modalTitle = `Advanced Budget${projectRow?.name ? ` · ${projectRow.name}` : ""}`;
+    const form = document.createElement("form");
+    form.className = "project-dialog-form";
+    form.innerHTML = `
+      <section class="project-dialog-section">
+        <div style="overflow:auto;">
+          <table class="entries-table" style="min-width:640px;">
+            <thead>
+              <tr>
+                <th>Member</th>
+                <th>Rate</th>
+                <th>Budget Hours</th>
+                <th>Budget $</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody data-advanced-budget-rows></tbody>
+          </table>
+        </div>
+      </section>
+      <section class="project-dialog-section" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+        <button type="button" class="button button-ghost" data-advanced-budget-add> Add Members </button>
+        <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+          <strong data-advanced-budget-total-hours>Total Hours: 0.00</strong>
+          <strong data-advanced-budget-total-amount>Total $: $0.00</strong>
+        </div>
+      </section>
+      <section class="project-dialog-section" style="display:flex;justify-content:flex-end;gap:10px;">
+        <button type="button" class="button button-ghost" data-advanced-budget-cancel>Cancel</button>
+        <button type="submit" class="button" data-advanced-budget-save>Save</button>
+      </section>
+    `;
+
+    const rowsBody = form.querySelector("[data-advanced-budget-rows]");
+    const totalHoursNode = form.querySelector("[data-advanced-budget-total-hours]");
+    const totalAmountNode = form.querySelector("[data-advanced-budget-total-amount]");
+    const addMembersButton = form.querySelector("[data-advanced-budget-add]");
+    const cancelButton = form.querySelector("[data-advanced-budget-cancel]");
+    const saveButton = form.querySelector("[data-advanced-budget-save]");
+    const dialogCard = refs.dialog?.querySelector(".dialog-card");
+
+    const parseNullableNumber = (value) => {
+      const trimmed = String(value ?? "").trim();
+      if (!trimmed) return null;
+      const parsed = Number(trimmed.replace(/[$,\s]/g, ""));
+      return Number.isFinite(parsed) ? parsed : null;
+    };
+
+    const renderRows = () => {
+      if (!rowsBody) return;
+      rowsBody.innerHTML = rows
+        .map((row, index) => {
+          return `
+            <tr data-row-index="${index}">
+              <td>${escapeHtml(row.memberName || row.userId || "Unknown")}</td>
+              <td><input type="text" data-field="rateOverride" value="${row.rateOverride ?? ""}" inputmode="decimal" /></td>
+              <td><input type="text" data-field="budgetHours" value="${row.budgetHours ?? ""}" inputmode="decimal" /></td>
+              <td><input type="text" data-field="budgetAmount" value="${row.budgetAmount ?? ""}" inputmode="decimal" /></td>
+              <td style="text-align:right;"><button type="button" class="button button-ghost" data-remove-row="${index}" aria-label="Remove member">🗑</button></td>
+            </tr>
+          `;
+        })
+        .join("");
+      syncTotals();
+    };
+
+    const syncTotals = () => {
+      const totalHours = rows.reduce((sum, row) => sum + (Number.isFinite(Number(row.budgetHours)) ? Number(row.budgetHours) : 0), 0);
+      const totalAmount = rows.reduce((sum, row) => sum + (Number.isFinite(Number(row.budgetAmount)) ? Number(row.budgetAmount) : 0), 0);
+      if (totalHoursNode) totalHoursNode.textContent = `Total Hours: ${totalHours.toFixed(2)}`;
+      if (totalAmountNode) totalAmountNode.textContent = `Total $: $${totalAmount.toFixed(2)}`;
+    };
+
+    const cleanup = () => {
+      refs.dialog.hidden = true;
+      form.removeEventListener("submit", onSubmit);
+      addMembersButton?.removeEventListener("click", onAddMembers);
+      cancelButton?.removeEventListener("click", onCancel);
+      rowsBody?.removeEventListener("input", onRowsInput);
+      rowsBody?.removeEventListener("click", onRowsClick);
+      form.remove();
+      dialogCard?.classList.remove("dialog-card--project");
+      refs.dialogMessage.hidden = false;
+      refs.dialogInputRow.hidden = true;
+      refs.dialogInput.hidden = false;
+      refs.dialogMessage.textContent = "";
+      refs.dialogConfirm.hidden = false;
+      refs.dialogCancel.disabled = false;
+      refs.dialogCancel.hidden = false;
+    };
+
+    const onRowsInput = (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLInputElement)) return;
+      const rowEl = target.closest("tr[data-row-index]");
+      if (!rowEl) return;
+      const rowIndex = Number(rowEl.dataset.rowIndex);
+      if (!Number.isInteger(rowIndex) || !rows[rowIndex]) return;
+      const fieldKey = String(target.dataset.field || "");
+      if (!fieldKey) return;
+      rows[rowIndex][fieldKey] = parseNullableNumber(target.value);
+      syncTotals();
+    };
+
+    const onRowsClick = (event) => {
+      const button = event.target?.closest?.("button[data-remove-row]");
+      if (!button) return;
+      const rowIndex = Number(button.dataset.removeRow);
+      if (!Number.isInteger(rowIndex)) return;
+      rows = rows.filter((_, index) => index !== rowIndex);
+      renderRows();
+    };
+
+    const onAddMembers = () => {
+      const clientName = String(projectRow?.client || "").trim();
+      const projectName = String(projectRow?.name || "").trim();
+      if (!clientName || !projectName) {
+        feedback("Project context is unavailable.", true);
+        return;
+      }
+      advancedBudgetReturnContext = {
+        projectId: normalizedProjectId,
+      };
+      memberModalState.mode = "project-add-member";
+      memberModalState.client = clientName;
+      memberModalState.project = projectName;
+      memberModalState.assigned = [...new Set([...(staffIdsForProject(clientName, projectName) || []), ...(directManagerIdsForProject(clientName, projectName) || [])])];
+      memberModalState.overrides = {};
+      memberModalState.searchTerm = "";
+      cleanup();
+      openMembersModal();
+    };
+
+    const onCancel = () => {
+      cleanup();
+    };
+
+    const onSubmit = async (event) => {
+      event.preventDefault();
+      if (!saveButton) return;
+      saveButton.disabled = true;
+      saveButton.textContent = "Saving...";
+      try {
+        await mutatePersistentState(
+          "save_project_advanced_budget",
+          {
+            projectId: normalizedProjectId,
+            members: rows.map((row) => ({
+              userId: row.userId,
+              budgetHours: row.budgetHours,
+              budgetAmount: row.budgetAmount,
+              rateOverride: row.rateOverride,
+            })),
+          },
+          { skipHydrate: true }
+        );
+        cleanup();
+        feedback("Advanced budget saved.", false);
+      } catch (error) {
+        saveButton.disabled = false;
+        saveButton.textContent = "Save";
+        feedback(error.message || "Unable to save advanced budget.", true);
+      }
+    };
+
+    refs.dialogTitle.textContent = modalTitle;
+    refs.dialogMessage.textContent = "";
+    refs.dialogMessage.hidden = true;
+    refs.dialogInputRow.hidden = false;
+    refs.dialogInput.hidden = true;
+    if (refs.dialogTextarea) refs.dialogTextarea.hidden = true;
+    refs.dialogInputRow.appendChild(form);
+    dialogCard?.classList.add("dialog-card--project");
+    refs.dialog.hidden = false;
+    refs.dialogConfirm.hidden = true;
+    refs.dialogCancel.hidden = true;
+
+    renderRows();
+    rowsBody?.addEventListener("input", onRowsInput);
+    rowsBody?.addEventListener("click", onRowsClick);
+    addMembersButton?.addEventListener("click", onAddMembers);
+    cancelButton?.addEventListener("click", onCancel);
+    form.addEventListener("submit", onSubmit);
+  }
+
   async function openProjectDialog(options) {
     return new Promise((resolve) => {
       const mode = options?.mode === "edit" ? "edit" : "add";
       const isProjectEditDialog = mode === "edit";
+      const currentProjectId = String(options?.projectId || "").trim() || null;
       const currentName = String(options?.projectName || "");
       const currentBudget = Number.isFinite(options?.budgetAmount) ? Number(options.budgetAmount) : null;
       const currentLeadId = String(options?.projectLeadId || "").trim();
@@ -1171,6 +1435,27 @@
       refs.dialogConfirm.hidden = false;
       refs.dialogCancel.disabled = false;
 
+      let advancedBudgetButton = null;
+      const canShowAdvancedBudget = isProjectEditDialog && currentProjectId;
+      if (canShowAdvancedBudget && refs.dialogConfirm?.parentElement) {
+        advancedBudgetButton = document.createElement("button");
+        advancedBudgetButton.type = "button";
+        advancedBudgetButton.className = "button button-ghost";
+        advancedBudgetButton.textContent = "Advanced Budget";
+        advancedBudgetButton.addEventListener("click", function () {
+          if (typeof openAdvancedBudgetModal === "function") {
+            openAdvancedBudgetModal(currentProjectId);
+            return;
+          }
+          if (typeof window.openAdvancedBudgetModal === "function") {
+            window.openAdvancedBudgetModal(currentProjectId);
+            return;
+          }
+          feedback("Advanced budget modal is not available yet.", true);
+        });
+        refs.dialogConfirm.parentElement.insertBefore(advancedBudgetButton, refs.dialogConfirm);
+      }
+
       const setError = (message) => {
         if (!errorNode) return;
         errorNode.textContent = message || "";
@@ -1184,6 +1469,7 @@
         form.removeEventListener("submit", onSubmit);
         leadSelect?.removeEventListener("change", syncTeamLeadDisplay);
         form.remove();
+        advancedBudgetButton?.remove();
         if (isProjectEditDialog) {
           dialogCard?.classList.remove("dialog-card--project");
         }
@@ -1960,6 +2246,7 @@
       managerProjects: [],
       projectMembers: [],
     },
+    projectMemberBudgets: [],
     currentView: "inputs", // "inputs" | "entries" | "inbox" | "clients" | "members" | "analytics" | "settings" | "audit"
     mobileClientsView: "list", // "list" | "detail"
     mobileMembersView: "list", // "list" | "detail"
@@ -2431,6 +2718,20 @@
       ? data.expenses.map(normalizeExpense).filter(Boolean)
       : [];
     state.assignments = normalizeAssignments(data?.assignments);
+    if (Array.isArray(data?.projectMemberBudgets)) {
+      state.projectMemberBudgets = data.projectMemberBudgets
+        .map((item) => ({
+          projectId: String(item?.projectId || "").trim(),
+          userId: String(item?.userId || "").trim(),
+          budgetHours:
+            item?.budgetHours === null || item?.budgetHours === undefined ? null : Number(item.budgetHours),
+          budgetAmount:
+            item?.budgetAmount === null || item?.budgetAmount === undefined ? null : Number(item.budgetAmount),
+          rateOverride:
+            item?.rateOverride === null || item?.rateOverride === undefined ? null : Number(item.rateOverride),
+        }))
+        .filter((item) => item.projectId && item.userId);
+    }
     state.levelLabels = data?.levelLabels && typeof data.levelLabels === "object"
       ? data.levelLabels
       : {};
@@ -2581,6 +2882,7 @@
       managerProjects: [],
       projectMembers: [],
     };
+    state.projectMemberBudgets = [];
     state.auditLogs = [];
     state.auditOffset = 0;
     state.auditHasMore = false;
@@ -2779,6 +3081,7 @@
           managerProjects: [],
           projectMembers: [],
         };
+        state.projectMemberBudgets = [];
         return true;
       }
 
@@ -2812,6 +3115,9 @@
         entries: Array.isArray(payload?.entries) ? payload.entries : state.entries,
         expenses: Array.isArray(payload?.expenses) ? payload.expenses : state.expenses,
         assignments: payload?.assignments ?? state.assignments,
+        projectMemberBudgets: Array.isArray(payload?.projectMemberBudgets)
+          ? payload.projectMemberBudgets
+          : state.projectMemberBudgets,
         levelLabels: payload?.levelLabels ?? state.levelLabels,
         permissionRoles: Array.isArray(payload?.permissionRoles)
           ? payload.permissionRoles
@@ -3230,6 +3536,10 @@
       (memberModalState.mode === "project-add-member" || memberModalState.mode === "project-remove-member")
         ? { ...projectDialogReturnContext }
         : null;
+    const advancedBudgetContext =
+      advancedBudgetReturnContext && memberModalState.mode === "project-add-member"
+        ? { ...advancedBudgetReturnContext }
+        : null;
     membersCloseMembersModal?.({
       refs,
       body,
@@ -3240,6 +3550,11 @@
       projectDialogReturnContext = null;
       window.setTimeout(function () {
         openProjectEditDialogFlow(returnContext.clientName, returnContext.projectName).catch(function () {});
+      }, 0);
+    } else if (advancedBudgetContext) {
+      advancedBudgetReturnContext = null;
+      window.setTimeout(function () {
+        openAdvancedBudgetModal(advancedBudgetContext.projectId).catch(function () {});
       }, 0);
     }
   }
@@ -6277,9 +6592,16 @@
         ? Number(payload.nextOffset)
         : state.auditLogs.length;
       state.auditHasMore = Boolean(payload?.hasMore);
+      const boundsMin = normalizeAuditDateValue(payload?.auditDateBounds?.minChangedAt || "");
+      const boundsMax = normalizeAuditDateValue(payload?.auditDateBounds?.maxChangedAt || "");
+      if (boundsMin || boundsMax) {
+        state.auditDateBounds = {
+          min: boundsMin || "",
+          max: boundsMax || "",
+        };
+      }
       renderAuditTable(filterAuditLogs(state.auditLogs));
       syncAuditLoadMoreButton();
-      ensureFullAuditDateBounds();
     } catch (error) {
       feedback("Unable to load audit logs.", true);
     } finally {

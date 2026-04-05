@@ -21,6 +21,9 @@ const {
   loadState,
   listLevelLabels,
   listAuditLogs,
+  getProjectMemberBudgets,
+  upsertProjectMemberBudget,
+  deleteProjectMemberBudget,
   normalizeLevel,
   normalizeText,
   parseBody,
@@ -4927,6 +4930,36 @@ exports.handler = async function handler(event) {
         );
         break;
       }
+      case "save_project_advanced_budget": {
+        const adminError = requireAdmin(context);
+        if (adminError) return adminError;
+        const projectId = normalizeText(request.payload?.projectId);
+        const members = Array.isArray(request.payload?.members) ? request.payload.members : [];
+        if (!projectId) {
+          return errorResponse(400, "Project id is required.");
+        }
+        const existing = await getProjectMemberBudgets(sql, projectId, accountId);
+        for (const row of existing) {
+          await deleteProjectMemberBudget(sql, projectId, row?.userId, accountId);
+        }
+        for (const member of members) {
+          const userId = normalizeText(member?.userId);
+          if (!userId) continue;
+          await upsertProjectMemberBudget(
+            sql,
+            {
+              projectId,
+              userId,
+              budgetHours: member?.budgetHours ?? null,
+              budgetAmount: member?.budgetAmount ?? null,
+              rateOverride: member?.rateOverride ?? null,
+            },
+            accountId
+          );
+        }
+        mutationResult = { ok: true };
+        break;
+      }
       case "create_expense": {
         mutationResult = await createExpense(
           sql,
@@ -5254,6 +5287,10 @@ exports.handler = async function handler(event) {
           auditLogs: Array.isArray(result?.rows) ? result.rows : [],
           hasMore: Boolean(result?.hasMore),
           nextOffset: Number(result?.nextOffset || 0),
+          auditDateBounds: {
+            minChangedAt: result?.bounds?.minChangedAt || null,
+            maxChangedAt: result?.bounds?.maxChangedAt || null,
+          },
         });
       }
       default:
