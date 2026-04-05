@@ -5743,6 +5743,16 @@ body[data-theme="dark"] #inputs-view .input-row-body .cell-actions .button.is-sa
   color: var(--muted);
 }
 
+body[data-theme="dark"] #inputs-view .input-row-body[data-saved="true"] .cell-actions .inputs-row-edit {
+  border-color: color-mix(in srgb, var(--line) 58%, var(--panel-border));
+  color: color-mix(in srgb, var(--ink) 88%, #d5deed 12%);
+}
+
+body[data-theme="dark"] #inputs-view .input-row-body[data-saved="true"] .cell-actions .inputs-row-delete {
+  border-color: color-mix(in srgb, var(--line) 52%, var(--panel-border));
+  color: color-mix(in srgb, var(--muted) 72%, #d5deed 28%);
+}
+
 #bulk-upload-header-actions .button:disabled {
   opacity: 0.52;
   cursor: not-allowed;
