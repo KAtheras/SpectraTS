@@ -1929,11 +1929,17 @@ async function updateClient(sql, payload, accountId) {
 async function addProject(sql, payload, currentUser, accountId) {
   const clientName = normalizeText(payload.clientName);
   const projectName = normalizeText(payload.projectName);
+  const contractRaw = payload.contractAmount;
+  const hasContract = contractRaw !== undefined && contractRaw !== null && contractRaw !== "";
+  const contractAmount = hasContract ? Number(contractRaw) : null;
   if (!clientName) {
     return errorResponse(400, "Select a client first.");
   }
   if (!projectName) {
     return errorResponse(400, "Project name is required.");
+  }
+  if (hasContract && (Number.isNaN(contractAmount) || contractAmount < 0)) {
+    return errorResponse(400, "Contract amount must be a non-negative number.");
   }
 
   const client = await findClient(sql, clientName, accountId);
@@ -1953,14 +1959,15 @@ async function addProject(sql, payload, currentUser, accountId) {
   }
 
   await sql`
-    INSERT INTO projects (client_id, account_id, office_id, project_lead_id, name, created_by)
+    INSERT INTO projects (client_id, account_id, office_id, project_lead_id, name, created_by, contract_amount)
     VALUES (
       ${client.id},
       ${accountId}::uuid,
       ${client.office_id || null},
       ${projectLeadId},
       ${projectName},
-      ${currentUser?.id || null}
+      ${currentUser?.id || null},
+      ${hasContract && !Number.isNaN(contractAmount) && contractAmount >= 0 ? contractAmount : null}
     )
   `;
 
@@ -2998,8 +3005,11 @@ async function updateProject(sql, payload, currentUser, accountId) {
   const projectName = normalizeText(payload.projectName);
   const nextName = normalizeText(payload.nextName || projectName);
   const budgetRaw = payload.budgetAmount;
+  const contractRaw = payload.contractAmount;
   const hasBudget = budgetRaw !== undefined && budgetRaw !== null && budgetRaw !== "";
+  const hasContract = contractRaw !== undefined && contractRaw !== null && contractRaw !== "";
   const budgetAmount = hasBudget ? Number(budgetRaw) : null;
+  const contractAmount = hasContract ? Number(contractRaw) : null;
   const hasProjectLeadField =
     Object.prototype.hasOwnProperty.call(payload || {}, "projectLeadId") ||
     Object.prototype.hasOwnProperty.call(payload || {}, "project_lead_id");
@@ -3013,6 +3023,9 @@ async function updateProject(sql, payload, currentUser, accountId) {
   if (hasBudget && (Number.isNaN(budgetAmount) || budgetAmount < 0)) {
     return errorResponse(400, "Budget must be a non-negative number.");
   }
+  if (hasContract && (Number.isNaN(contractAmount) || contractAmount < 0)) {
+    return errorResponse(400, "Contract amount must be a non-negative number.");
+  }
 
   const project = await findProject(sql, clientName, projectName, accountId);
   if (!project) {
@@ -3023,6 +3036,12 @@ async function updateProject(sql, payload, currentUser, accountId) {
       ? budgetAmount
       : project.budget !== undefined
         ? project.budget
+        : null;
+  const nextContractAmount =
+    hasContract && !Number.isNaN(contractAmount) && contractAmount >= 0
+      ? contractAmount
+      : project.contractAmount !== undefined
+        ? project.contractAmount
         : null;
   const nextProjectLeadId = hasProjectLeadField
     ? normalizeText(payload.projectLeadId ?? payload.project_lead_id) || null
@@ -3050,6 +3069,7 @@ async function updateProject(sql, payload, currentUser, accountId) {
     UPDATE projects
     SET name = ${nextName},
         budget_amount = ${nextBudget},
+        contract_amount = ${nextContractAmount},
         project_lead_id = ${nextProjectLeadId},
         updated_at = NOW()
     WHERE id = ${project.id}
@@ -4958,6 +4978,29 @@ exports.handler = async function handler(event) {
             accountId
           );
         }
+        const normalizedRows = members
+          .map((member) => {
+            const hours = member?.budgetHours === null || member?.budgetHours === undefined || member?.budgetHours === ""
+              ? null
+              : Number(member.budgetHours);
+            const amount = member?.budgetAmount === null || member?.budgetAmount === undefined || member?.budgetAmount === ""
+              ? null
+              : Number(member.budgetAmount);
+            const rate = member?.rateOverride === null || member?.rateOverride === undefined || member?.rateOverride === ""
+              ? null
+              : Number(member.rateOverride);
+            const computedAmount =
+              Number.isFinite(amount) ? amount : (Number.isFinite(rate) && Number.isFinite(hours) ? rate * hours : 0);
+            return Number.isFinite(computedAmount) ? computedAmount : 0;
+          });
+        const nextBudgetAmount = normalizedRows.reduce((sum, value) => sum + value, 0);
+        await sql`
+          UPDATE projects
+          SET budget_amount = ${Number(nextBudgetAmount.toFixed(2))},
+              updated_at = NOW()
+          WHERE id = ${projectId}
+            AND account_id = ${accountId}::uuid
+        `;
         mutationResult = { ok: true };
         break;
       }

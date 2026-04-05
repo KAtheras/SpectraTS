@@ -157,6 +157,20 @@
     const searchTerm = String(memberModalState.searchTerm || "")
       .trim()
       .toLowerCase();
+    const normalizedLevelMap = new Map(
+      Object.entries(state.levelLabels || {}).map(([key, value]) => {
+        const label =
+          typeof value === "object" && value && value.label
+            ? String(value.label)
+            : String(value || "");
+        return [label.trim().toLowerCase(), normalizeLevel(Number(key))];
+      })
+    );
+    const levelFromLabel = (label) => {
+      const normalized = String(label || "").trim().toLowerCase();
+      if (!normalized) return null;
+      return normalizedLevelMap.has(normalized) ? normalizedLevelMap.get(normalized) : null;
+    };
 
     let title = "Manage Members";
     let subtext = "";
@@ -234,6 +248,10 @@
         (hasExplicitLevel
           ? levelLabel(user.level)
           : levelLabel(currentLevel));
+      const resolvedLevel =
+        (hasExplicitLevel && !Number.isNaN(Number(user.level)))
+          ? normalizeLevel(Number(user.level))
+          : (levelFromLabel(currentLevelLabel) ?? currentLevel);
       const isManagerEligible = isManager(user);
       const isAssignedToProject = project
         ? isUserAssignedToProject(user.id, client, project)
@@ -432,7 +450,7 @@
         grouped.set(groupKey, {
           label: officeLabel,
           rows: [],
-          level: currentLevel,
+          level: resolvedLevel,
           levelLabel: currentLevelLabel,
         });
       }

@@ -981,6 +981,9 @@
       return;
     }
     const currentBudget = Number.isFinite(projectRow.budget) ? projectRow.budget : null;
+    const currentContractAmount = Number.isFinite(Number(projectRow.contractAmount))
+      ? Number(projectRow.contractAmount)
+      : null;
     const projectLeadId = String(projectRow?.projectLeadId || projectRow?.project_lead_id || "").trim() || null;
     const managerNames = userNamesForIds(managerIdsForProject(normalizedClient, normalizedProject));
     const staffNames = userNamesForIds(staffIdsForProject(normalizedClient, normalizedProject));
@@ -990,6 +993,7 @@
       clientName: normalizedClient,
       projectName: normalizedProject,
       budgetAmount: currentBudget,
+      contractAmount: currentContractAmount,
       projectLeadId,
       managerNames,
       staffNames,
@@ -1019,6 +1023,7 @@
         projectName: normalizedProject,
         nextName,
         budgetAmount: projectDialog.budgetAmount,
+        contractAmount: projectDialog.contractAmount,
         project_lead_id: projectDialog.projectLeadId,
       });
       if (state.filters.client === normalizedClient && state.filters.project === normalizedProject) {
@@ -1408,7 +1413,16 @@
       const currentProjectId = String(options?.projectId || "").trim() || null;
       const currentName = String(options?.projectName || "");
       const currentBudget = Number.isFinite(options?.budgetAmount) ? Number(options.budgetAmount) : null;
+      const currentContractAmount = Number.isFinite(Number(options?.contractAmount))
+        ? Number(options.contractAmount)
+        : null;
       const currentLeadId = String(options?.projectLeadId || "").trim();
+      const hasAdvancedBudgetSource =
+        isProjectEditDialog &&
+        Boolean(currentProjectId) &&
+        (state.projectMemberBudgets || []).some(
+          (row) => String(row?.projectId || "").trim() === currentProjectId
+        );
       const managerNames = Array.isArray(options?.managerNames) ? options.managerNames.filter(Boolean) : [];
       const staffNames = Array.isArray(options?.staffNames) ? options.staffNames.filter(Boolean) : [];
       const title = mode === "edit" ? "Edit project" : "Add project";
@@ -1455,26 +1469,28 @@
       form.innerHTML = `
         <section class="project-dialog-section">
           <h3 class="panel-subheading">Core</h3>
-          <div class="project-dialog-core-row">
+          <div class="project-dialog-core-row" style="grid-template-columns: repeat(2, minmax(0, 1fr));">
             <label class="project-dialog-field">
               <span>Project name</span>
               <input type="text" name="project_name" required />
             </label>
             <label class="project-dialog-field">
-              <span>Budget (optional)</span>
-              <div style="display:flex;align-items:center;gap:8px;">
-                <input type="text" name="budget_amount" inputmode="decimal" placeholder="15000 or $15,000" style="flex:1;" />
-                ${
-                  isProjectEditDialog && currentProjectId
-                    ? '<button type="button" class="button button-ghost" data-project-advanced-budget>Advanced Budget</button>'
-                    : ""
-                }
-              </div>
+              <span>Project Lead</span>
+              <select name="project_lead_id">${leadOptions}</select>
             </label>
-          <label class="project-dialog-field">
-            <span>Project Lead</span>
-            <select name="project_lead_id">${leadOptions}</select>
-          </label>
+          </div>
+          <div class="project-dialog-core-row" style="grid-template-columns: repeat(3, minmax(0, 1fr));">
+            <label class="project-dialog-field">
+              <span>Contract Amount (optional)</span>
+              <input type="text" name="contract_amount" inputmode="decimal" placeholder="25000 or $25,000" />
+            </label>
+            <label class="project-dialog-field">
+              <span>Budget (optional)</span>
+              <input type="text" name="budget_amount" inputmode="decimal" placeholder="15000 or $15,000" />
+            </label>
+            <div style="display:flex;align-items:flex-end;">
+              <button type="button" class="button button-ghost" data-project-advanced-budget>Advanced Budget</button>
+            </div>
           </div>
         </section>
         ${
@@ -1509,6 +1525,7 @@
 
       const nameInput = form.querySelector('input[name="project_name"]');
       const budgetInput = form.querySelector('input[name="budget_amount"]');
+      const contractAmountInput = form.querySelector('input[name="contract_amount"]');
       const leadSelect = form.querySelector('select[name="project_lead_id"]');
       const teamLeadDisplay = form.querySelector("[data-project-team-lead-display]");
       const advancedBudgetButton = form.querySelector("[data-project-advanced-budget]");
@@ -1519,6 +1536,21 @@
       }
       if (budgetInput) {
         budgetInput.value = currentBudget !== null ? String(currentBudget) : "";
+      }
+      const onBudgetLockedAttempt = () => {
+        setError("The amount must edited in the advanced budget screen.");
+      };
+      if (budgetInput && hasAdvancedBudgetSource) {
+        budgetInput.readOnly = true;
+        budgetInput.setAttribute("aria-readonly", "true");
+        budgetInput.title = "Budget is managed in Advanced Budget.";
+        budgetInput.addEventListener("focus", onBudgetLockedAttempt);
+        budgetInput.addEventListener("click", onBudgetLockedAttempt);
+        budgetInput.addEventListener("keydown", onBudgetLockedAttempt);
+      }
+      if (contractAmountInput) {
+        contractAmountInput.value =
+          currentContractAmount !== null ? String(currentContractAmount) : "";
       }
       if (leadSelect) {
         leadSelect.value = currentLeadId;
@@ -1541,9 +1573,7 @@
         refs.dialogTextarea.hidden = true;
       }
       refs.dialogInputRow.appendChild(form);
-      if (isProjectEditDialog) {
-        dialogCard?.classList.add("dialog-card--project");
-      }
+      dialogCard?.classList.add("dialog-card--project");
       refs.dialogConfirm.textContent = finalConfirmText;
       refs.dialogCancel.textContent = "Cancel";
       refs.dialog.hidden = false;
@@ -1552,11 +1582,14 @@
 
       const onOpenAdvancedBudget = () => {
         const projectIdForAdvanced = currentProjectId;
+        if (!projectIdForAdvanced) {
+          setError("Save project first to use Advanced Budget.");
+          return;
+        }
         const projectNameForAdvanced = currentName;
         const clientNameForAdvanced = String(options?.clientName || "").trim();
         cleanup();
         resolve({ openAdvancedBudget: true });
-        if (!projectIdForAdvanced) return;
         if (typeof openAdvancedBudgetModal === "function") {
           openAdvancedBudgetModal(projectIdForAdvanced, {
             returnToProjectDialog: true,
@@ -1590,10 +1623,11 @@
         form.removeEventListener("submit", onSubmit);
         leadSelect?.removeEventListener("change", syncTeamLeadDisplay);
         advancedBudgetButton?.removeEventListener("click", onOpenAdvancedBudget);
+        budgetInput?.removeEventListener("focus", onBudgetLockedAttempt);
+        budgetInput?.removeEventListener("click", onBudgetLockedAttempt);
+        budgetInput?.removeEventListener("keydown", onBudgetLockedAttempt);
         form.remove();
-        if (isProjectEditDialog) {
-          dialogCard?.classList.remove("dialog-card--project");
-        }
+        dialogCard?.classList.remove("dialog-card--project");
         refs.dialogMessage.hidden = false;
         refs.dialogInputRow.hidden = true;
         refs.dialogInput.hidden = false;
@@ -1613,10 +1647,17 @@
           budgetInput?.focus();
           return;
         }
+        const parsedContractAmount = parseProjectBudgetAmount(contractAmountInput?.value || "");
+        if (!parsedContractAmount.ok) {
+          setError("Contract amount must be a non-negative number.");
+          contractAmountInput?.focus();
+          return;
+        }
         cleanup();
         resolve({
           projectName: nextName,
           budgetAmount: parsedBudget.value,
+          contractAmount: parsedContractAmount.value,
           projectLeadId: String(leadSelect?.value || "").trim() || null,
         });
       };
@@ -1669,6 +1710,7 @@
       mode: "add",
       projectName: "",
       budgetAmount: null,
+      contractAmount: null,
       projectLeadId: null,
     });
     if (!projectDialog) {
@@ -1683,6 +1725,7 @@
         clientName: state.selectedCatalogClient,
         projectName: projectDialog.projectName,
         budgetAmount: projectDialog.budgetAmount,
+        contractAmount: projectDialog.contractAmount,
         project_lead_id: projectDialog.projectLeadId,
       });
     } catch (error) {
