@@ -5480,7 +5480,7 @@ body[data-theme="dark"] #inputs-view .inputs-drilldown-col-head {
 }
 
 #inputs-view .inputs-drilldown-item.is-active {
-  background: color-mix(in srgb, var(--accent-soft) 34%, var(--surface-strong));
+  background: color-mix(in srgb, var(--accent-soft) 38%, var(--surface-strong));
 }
 
 #inputs-view .inputs-drilldown-layout > .inputs-drilldown-col:nth-child(1) .inputs-drilldown-col-body,
@@ -5494,7 +5494,21 @@ body[data-theme="dark"] #inputs-view .inputs-drilldown-col-head {
 }
 
 #inputs-view .inputs-drilldown-layout > .inputs-drilldown-col:nth-child(3) .inputs-drilldown-col-body {
-  padding-top: 12px;
+  padding-top: 16px;
+  gap: 12px;
+}
+
+#inputs-view .inputs-drilldown-layout > .inputs-drilldown-col:nth-child(2) .inputs-drilldown-item.is-active {
+  background: color-mix(in srgb, var(--accent-soft) 46%, var(--surface-strong));
+  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--accent) 42%, transparent);
+}
+
+#inputs-view .inputs-drilldown-layout > .inputs-drilldown-col:nth-child(1) .inputs-drilldown-item:not(.is-active) {
+  opacity: 0.78;
+}
+
+#inputs-view .inputs-drilldown-layout > .inputs-drilldown-col:nth-child(1) .inputs-drilldown-item.is-active {
+  background: color-mix(in srgb, var(--accent-soft) 42%, var(--surface-strong));
 }
 
 #inputs-view .inputs-drilldown-item.is-zero:not(.is-active) {
@@ -5507,8 +5521,17 @@ body[data-theme="dark"] #inputs-view .inputs-drilldown-col-head {
 }
 
 body[data-theme="dark"] #inputs-view .inputs-drilldown-item.is-active {
-  background: color-mix(in srgb, var(--accent) 28%, var(--surface-strong));
+  background: color-mix(in srgb, var(--accent) 32%, var(--surface-strong));
   box-shadow: none;
+}
+
+body[data-theme="dark"] #inputs-view .inputs-drilldown-layout > .inputs-drilldown-col:nth-child(2) .inputs-drilldown-item.is-active {
+  background: color-mix(in srgb, var(--accent) 40%, var(--surface-strong));
+  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--accent) 68%, transparent);
+}
+
+body[data-theme="dark"] #inputs-view .inputs-drilldown-layout > .inputs-drilldown-col:nth-child(1) .inputs-drilldown-item:not(.is-active) {
+  opacity: 0.68;
 }
 
 body[data-theme="dark"] #inputs-view .inputs-drilldown-item.is-zero:not(.is-active) {
@@ -5550,7 +5573,7 @@ body[data-theme="dark"] #inputs-view .inputs-drilldown-item.is-active .inputs-dr
   background: color-mix(in srgb, var(--panel) 84%, var(--surface-strong));
   padding: 16px 14px 14px;
   display: grid;
-  gap: 14px;
+  gap: 16px;
 }
 
 #inputs-view .inputs-drilldown-detail-main {
@@ -5586,9 +5609,11 @@ body[data-theme="dark"] #inputs-view .inputs-drilldown-item.is-active .inputs-dr
 
 #inputs-view .inputs-drilldown-detail-actions {
   display: flex;
-  gap: 10px;
-  margin-left: auto;
-  margin-top: 8px;
+  gap: 8px;
+  margin-left: 0;
+  margin-top: 4px;
+  justify-content: flex-start;
+  align-self: flex-start;
   flex: 0 0 auto;
 }
 
