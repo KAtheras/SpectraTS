@@ -1298,191 +1298,6 @@ body[data-theme="dark"] .mobile-tabbar {
   background: transparent;
 }
 
-.input-grid {
-  display: grid;
-  gap: 8px;
-}
-
-.input-row {
-  display: grid;
-  grid-template-columns:
-    minmax(320px, 2.7fr)
-    minmax(118px, 0.8fr)
-    minmax(92px, 0.58fr)
-    minmax(120px, 0.72fr)
-    minmax(300px, 2.3fr)
-    minmax(96px, auto);
-  gap: 8px;
-  align-items: center;
-}
-
-.input-row-head {
-  font-family: var(--font-head);
-  font-size: 0.78rem;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-
-.input-row-head .cell-project,
-.input-row-head .cell-date,
-.input-row-head .cell-hours,
-.input-row-head .cell-billable,
-.input-row-head .cell-notes,
-.input-row-head .cell-actions {
-  padding: 0 2px;
-}
-
-.input-row-body .cell-project select,
-.input-row-body .cell-date input,
-.input-row-body .cell-hours input,
-.input-row-body .cell-notes input {
-  width: 100%;
-  height: 40px;
-  min-height: 40px;
-  border-radius: 10px;
-  padding: 0 10px;
-}
-
-.input-row-body .cell-hours input::-webkit-outer-spin-button,
-.input-row-body .cell-hours input::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-
-.input-row-body .cell-hours input {
-  -moz-appearance: textfield;
-}
-
-.input-row-body .cell-billable {
-  display: flex;
-  justify-content: center;
-}
-
-.input-row-body .cell-billable input[type="checkbox"] {
-  width: 42px;
-  height: 24px;
-}
-
-.input-row-body .cell-actions {
-  display: flex;
-  justify-content: flex-end;
-}
-
-.input-row-body .cell-actions .button {
-  height: 40px;
-  min-height: 40px;
-  padding: 0 16px;
-  min-width: 90px;
-}
-
-#inputs-panel-time {
-  padding: 0;
-  border-radius: 0;
-  border: none;
-  background: transparent;
-}
-
-#inputs-panel-time .input-grid {
-  gap: 0;
-  border: 1px solid color-mix(in srgb, var(--ink) 14%, transparent);
-  background: var(--panel);
-}
-
-#inputs-panel-time .input-row {
-  gap: 0;
-  grid-template-columns:
-    minmax(340px, 2.8fr)
-    minmax(84px, 0.6fr)
-    minmax(72px, 0.42fr)
-    minmax(83px, 0.45fr)
-    minmax(390px, 3fr)
-    minmax(110px, 0.8fr);
-}
-
-#inputs-panel-time .input-row > * {
-  min-height: 52px;
-  display: flex;
-  align-items: center;
-  padding: 0 10px;
-  border-right: 1px solid color-mix(in srgb, var(--ink) 10%, transparent);
-  border-bottom: 1px solid color-mix(in srgb, var(--ink) 10%, transparent);
-}
-
-#inputs-panel-time .input-row > *:last-child {
-  border-right: none;
-}
-
-#inputs-panel-time .input-row-head {
-  font-size: 0.92rem;
-  letter-spacing: 0.01em;
-  text-transform: none;
-  color: #ffffff !important;
-  font-weight: 650;
-}
-
-#inputs-panel-time .input-row-head > * {
-  min-height: 48px;
-  color: #ffffff !important;
-  background: #5c5c5c !important;
-  border-right: 1px solid rgba(255, 255, 255, 0.18);
-}
-
-#inputs-panel-time .input-row-head > *:last-child {
-  border-right: none;
-}
-
-#inputs-panel-time .input-row-body .cell-project,
-#inputs-panel-time .input-row-body .cell-date,
-#inputs-panel-time .input-row-body .cell-hours,
-#inputs-panel-time .input-row-body .cell-notes {
-  padding: 0;
-}
-
-#inputs-panel-time .input-row-body .cell-project select,
-#inputs-panel-time .input-row-body .cell-date input,
-#inputs-panel-time .input-row-body .cell-hours input,
-#inputs-panel-time .input-row-body .cell-notes input {
-  height: 52px;
-  min-height: 52px;
-  border: none;
-  border-radius: 0;
-  background: transparent;
-  padding: 0 10px;
-  font-size: 0.98rem;
-  line-height: 1.2;
-}
-
-#inputs-panel-time .input-row-body .cell-billable {
-  justify-content: center;
-  padding: 0;
-}
-
-#inputs-panel-time .input-row-body .cell-billable input[type="checkbox"] {
-  width: 42px;
-  height: 24px;
-  margin: 0;
-}
-
-#inputs-panel-time .input-row-body .cell-actions {
-  padding: 0;
-}
-
-#inputs-panel-time .input-row-body .cell-actions .button {
-  width: 100%;
-  height: 52px;
-  min-height: 52px;
-  border-radius: 0;
-  border: none;
-  padding: 0 10px;
-}
-
-#inputs-panel-time .input-row-body .cell-actions .button:disabled,
-#inputs-panel-time .input-row-body .cell-actions .button.is-saved {
-  opacity: 0.52;
-  cursor: not-allowed;
-}
-
 .panel {
   border-radius: var(--card-radius);
   padding: var(--card-pad);
@@ -4818,6 +4633,7 @@ body[data-theme="dark"] .entry-approved td {
   background: var(--bg);
   --inputs-grid-line: color-mix(in srgb, var(--line) 92%, transparent);
   --inputs-header-bg: color-mix(in srgb, #d9dfe8 64%, var(--panel));
+  --inputs-header-ink: #2d3748;
   --inputs-drilldown-head-bg: color-mix(in srgb, #d9dfe8 66%, var(--panel));
   --inputs-drilldown-head-border: color-mix(in srgb, #c4ccd9 45%, transparent);
   --inputs-c1-hover-bg: color-mix(in srgb, var(--accent-soft) 36%, var(--surface-strong));
@@ -4826,11 +4642,18 @@ body[data-theme="dark"] .entry-approved td {
   --inputs-c2-hover-bg: color-mix(in srgb, var(--accent-soft) 38%, var(--surface-strong));
   --inputs-c2-active-bg: color-mix(in srgb, var(--accent-soft) 52%, var(--surface-strong));
   --inputs-c2-active-accent: color-mix(in srgb, var(--accent) 48%, transparent);
+  --inputs-zero-opacity: 0.68;
+  --inputs-zero-ink: color-mix(in srgb, var(--muted) 78%, transparent);
+  --inputs-detail-row-border: color-mix(in srgb, var(--line) 28%, transparent);
+  --inputs-detail-row-bg: color-mix(in srgb, var(--panel) 86%, var(--surface-strong));
+  --inputs-detail-row-hover-bg: color-mix(in srgb, var(--surface-hover) 74%, var(--surface-strong));
+  --inputs-detail-row-hover-border: color-mix(in srgb, var(--line) 36%, transparent);
 }
 
 body[data-theme="dark"] #inputs-view {
   --inputs-grid-line: color-mix(in srgb, var(--line) 82%, transparent);
   --inputs-header-bg: color-mix(in srgb, #5a6678 70%, var(--surface-strong));
+  --inputs-header-ink: #f3f6fb;
   --inputs-drilldown-head-bg: color-mix(in srgb, #5a6678 70%, var(--surface-strong));
   --inputs-drilldown-head-border: color-mix(in srgb, #4f5b6d 48%, transparent);
   --inputs-c1-hover-bg: color-mix(in srgb, var(--accent) 26%, var(--surface-strong));
@@ -4839,6 +4662,12 @@ body[data-theme="dark"] #inputs-view {
   --inputs-c2-hover-bg: color-mix(in srgb, var(--accent) 28%, var(--surface-strong));
   --inputs-c2-active-bg: color-mix(in srgb, var(--accent) 44%, var(--surface-strong));
   --inputs-c2-active-accent: color-mix(in srgb, var(--accent) 72%, transparent);
+  --inputs-zero-opacity: 0.62;
+  --inputs-zero-ink: color-mix(in srgb, var(--muted) 82%, #d5deed 18%);
+  --inputs-detail-row-border: color-mix(in srgb, var(--line) 24%, transparent);
+  --inputs-detail-row-bg: color-mix(in srgb, var(--panel) 82%, var(--surface-strong));
+  --inputs-detail-row-hover-bg: color-mix(in srgb, var(--surface-hover) 48%, var(--surface-strong));
+  --inputs-detail-row-hover-border: color-mix(in srgb, var(--line) 34%, transparent);
 }
 
 #inputs-view #inputs-panel-time,
@@ -4888,7 +4717,7 @@ body[data-theme="dark"] #inputs-view {
   font-size: 0.82rem;
   letter-spacing: 0.02em;
   text-transform: uppercase;
-  color: #2d3748;
+  color: var(--inputs-header-ink);
   font-weight: 620;
   position: relative;
   border-bottom: 1px solid var(--inputs-grid-line);
@@ -4919,40 +4748,13 @@ body[data-theme="dark"] #inputs-view {
 #inputs-view .input-row-head .cell-notes {
   min-height: 44px;
   background: var(--inputs-header-bg) !important;
-  color: #2d3748 !important;
+  color: var(--inputs-header-ink) !important;
   border-radius: 0;
-}
-
-body[data-theme="dark"] #inputs-view .input-row-head {
-  color: #f3f6fb;
-}
-
-body[data-theme="dark"] #inputs-view #inputs-panel-time .input-row-head::after,
-body[data-theme="dark"] #inputs-view #inputs-panel-expenses .input-row-head::after,
-body[data-theme="dark"] #inputs-view .input-row-head .cell-project,
-body[data-theme="dark"] #inputs-view .input-row-head .cell-date,
-body[data-theme="dark"] #inputs-view .input-row-head .cell-category,
-body[data-theme="dark"] #inputs-view .input-row-head .cell-hours,
-body[data-theme="dark"] #inputs-view .input-row-head .cell-amount,
-body[data-theme="dark"] #inputs-view .input-row-head .cell-billable,
-body[data-theme="dark"] #inputs-view .input-row-head .cell-notes {
-  background: var(--inputs-header-bg) !important;
-  color: #f3f6fb !important;
+  border-bottom: none;
 }
 
 #inputs-view .input-row-head .cell-notes {
   border-right: none;
-}
-
-#inputs-view .input-row-head .cell-project,
-#inputs-view .input-row-head .cell-date,
-#inputs-view .input-row-head .cell-category,
-#inputs-view .input-row-head .cell-hours,
-#inputs-view .input-row-head .cell-amount,
-#inputs-view .input-row-head .cell-billable,
-#inputs-view .input-row-head .cell-notes,
-#inputs-view .input-row-head .cell-actions {
-  border-bottom: none;
 }
 
 #inputs-view .input-row-head .cell-actions {
@@ -4962,9 +4764,6 @@ body[data-theme="dark"] #inputs-view .input-row-head .cell-notes {
   border: none !important;
   border-radius: 0;
   box-shadow: none;
-  border-right: none !important;
-  border-bottom: none !important;
-  border-left: none !important;
   padding: 0;
 }
 
@@ -5517,10 +5316,6 @@ body[data-theme="dark"] #inputs-view .inputs-drilldown-col-head {
   outline: none;
 }
 
-#inputs-view .inputs-drilldown-item.is-active {
-  background: color-mix(in srgb, var(--accent-soft) 38%, var(--surface-strong));
-}
-
 #inputs-view .inputs-drilldown-layout > .inputs-drilldown-col:nth-child(1) .inputs-drilldown-col-body,
 #inputs-view .inputs-drilldown-layout > .inputs-drilldown-col:nth-child(2) .inputs-drilldown-col-body {
   gap: 12px;
@@ -5575,30 +5370,12 @@ body[data-theme="dark"] #inputs-view .inputs-drilldown-col-head {
 }
 
 #inputs-view .inputs-drilldown-item.is-zero:not(.is-active) {
-  opacity: 0.68;
+  opacity: var(--inputs-zero-opacity);
 }
 
 #inputs-view .inputs-drilldown-item.is-zero:not(.is-active) .inputs-drilldown-item-label,
 #inputs-view .inputs-drilldown-item.is-zero:not(.is-active) .inputs-drilldown-item-value {
-  color: color-mix(in srgb, var(--muted) 78%, transparent);
-}
-
-body[data-theme="dark"] #inputs-view .inputs-drilldown-layout > .inputs-drilldown-col:nth-child(1) .inputs-drilldown-item.is-zero:hover,
-body[data-theme="dark"] #inputs-view .inputs-drilldown-layout > .inputs-drilldown-col:nth-child(1) .inputs-drilldown-item.is-zero:focus-visible {
-  background: color-mix(in srgb, var(--panel) 90%, var(--surface-strong));
-}
-
-body[data-theme="dark"] #inputs-view .inputs-drilldown-layout > .inputs-drilldown-col:nth-child(1) .inputs-drilldown-item:not(.is-active) {
-  opacity: 1;
-}
-
-body[data-theme="dark"] #inputs-view .inputs-drilldown-item.is-zero:not(.is-active) {
-  opacity: 0.62;
-}
-
-body[data-theme="dark"] #inputs-view .inputs-drilldown-item.is-zero:not(.is-active) .inputs-drilldown-item-label,
-body[data-theme="dark"] #inputs-view .inputs-drilldown-item.is-zero:not(.is-active) .inputs-drilldown-item-value {
-  color: color-mix(in srgb, var(--muted) 82%, #d5deed 18%);
+  color: var(--inputs-zero-ink);
 }
 
 body[data-theme="dark"] #inputs-view .inputs-drilldown-item.is-active .inputs-drilldown-item-label {
@@ -5626,9 +5403,9 @@ body[data-theme="dark"] #inputs-view .inputs-drilldown-item.is-active .inputs-dr
 }
 
 #inputs-view .inputs-drilldown-detail-row {
-  border: 1px solid color-mix(in srgb, var(--line) 28%, transparent);
+  border: 1px solid var(--inputs-detail-row-border);
   border-radius: 8px;
-  background: color-mix(in srgb, var(--panel) 86%, var(--surface-strong));
+  background: var(--inputs-detail-row-bg);
   padding: 16px 14px 14px;
   display: grid;
   gap: 16px;
@@ -5638,19 +5415,8 @@ body[data-theme="dark"] #inputs-view .inputs-drilldown-item.is-active .inputs-dr
 
 #inputs-view .inputs-drilldown-detail-row:hover,
 #inputs-view .inputs-drilldown-detail-row:focus-within {
-  background: color-mix(in srgb, var(--surface-hover) 74%, var(--surface-strong));
-  border-color: color-mix(in srgb, var(--line) 36%, transparent);
-}
-
-body[data-theme="dark"] #inputs-view .inputs-drilldown-detail-row {
-  border-color: color-mix(in srgb, var(--line) 24%, transparent);
-  background: color-mix(in srgb, var(--panel) 82%, var(--surface-strong));
-}
-
-body[data-theme="dark"] #inputs-view .inputs-drilldown-detail-row:hover,
-body[data-theme="dark"] #inputs-view .inputs-drilldown-detail-row:focus-within {
-  background: color-mix(in srgb, var(--surface-hover) 48%, var(--surface-strong));
-  border-color: color-mix(in srgb, var(--line) 34%, transparent);
+  background: var(--inputs-detail-row-hover-bg);
+  border-color: var(--inputs-detail-row-hover-border);
 }
 
 #inputs-view .inputs-drilldown-detail-main {
