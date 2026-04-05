@@ -5596,9 +5596,9 @@ body[data-theme="dark"] #inputs-view .inputs-drilldown-item.is-active .inputs-dr
 }
 
 #inputs-view .inputs-drilldown-detail-row {
-  border: 1px solid color-mix(in srgb, var(--line) 20%, transparent);
+  border: 1px solid color-mix(in srgb, var(--line) 24%, transparent);
   border-radius: 8px;
-  background: color-mix(in srgb, var(--panel) 84%, var(--surface-strong));
+  background: color-mix(in srgb, var(--panel) 88%, var(--surface-strong));
   padding: 16px 14px 14px;
   display: grid;
   gap: 16px;
@@ -5608,8 +5608,19 @@ body[data-theme="dark"] #inputs-view .inputs-drilldown-item.is-active .inputs-dr
 
 #inputs-view .inputs-drilldown-detail-row:hover,
 #inputs-view .inputs-drilldown-detail-row:focus-within {
-  background: color-mix(in srgb, var(--surface-hover) 68%, var(--surface-strong));
+  background: color-mix(in srgb, var(--surface-hover) 74%, var(--surface-strong));
+  border-color: color-mix(in srgb, var(--line) 36%, transparent);
+}
+
+body[data-theme="dark"] #inputs-view .inputs-drilldown-detail-row {
   border-color: color-mix(in srgb, var(--line) 30%, transparent);
+  background: color-mix(in srgb, var(--panel) 76%, var(--surface-strong));
+}
+
+body[data-theme="dark"] #inputs-view .inputs-drilldown-detail-row:hover,
+body[data-theme="dark"] #inputs-view .inputs-drilldown-detail-row:focus-within {
+  background: color-mix(in srgb, var(--surface-hover) 58%, var(--surface-strong));
+  border-color: color-mix(in srgb, var(--line) 44%, transparent);
 }
 
 #inputs-view .inputs-drilldown-detail-main {
@@ -5662,8 +5673,8 @@ body[data-theme="dark"] #inputs-view .inputs-drilldown-item.is-active .inputs-dr
 
 #inputs-view .inputs-drilldown-detail-row:hover .inputs-drilldown-detail-actions .button,
 #inputs-view .inputs-drilldown-detail-row:focus-within .inputs-drilldown-detail-actions .button {
-  border-color: color-mix(in srgb, var(--accent) 42%, transparent);
-  background: color-mix(in srgb, var(--accent-soft) 22%, var(--surface));
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+  background: color-mix(in srgb, var(--accent-soft) 12%, var(--surface));
 }
 
 #inputs-view .inputs-drilldown-empty {
