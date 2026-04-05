@@ -4818,7 +4818,6 @@ body[data-theme="dark"] .entry-approved td {
   background: var(--bg);
   --inputs-grid-line: color-mix(in srgb, var(--line) 92%, transparent);
   --inputs-header-bg: color-mix(in srgb, #d9dfe8 64%, var(--panel));
-  --inputs-header-actions-bg: color-mix(in srgb, #4b5563 64%, #d9dfe8);
   --inputs-drilldown-head-bg: color-mix(in srgb, #d9dfe8 66%, var(--panel));
   --inputs-drilldown-head-border: color-mix(in srgb, #c4ccd9 45%, transparent);
   --inputs-c1-hover-bg: color-mix(in srgb, var(--accent-soft) 36%, var(--surface-strong));
@@ -4832,7 +4831,6 @@ body[data-theme="dark"] .entry-approved td {
 body[data-theme="dark"] #inputs-view {
   --inputs-grid-line: color-mix(in srgb, var(--line) 82%, transparent);
   --inputs-header-bg: color-mix(in srgb, #5a6678 70%, var(--surface-strong));
-  --inputs-header-actions-bg: color-mix(in srgb, #4b5563 72%, #5a6678);
   --inputs-drilldown-head-bg: color-mix(in srgb, #5a6678 70%, var(--surface-strong));
   --inputs-drilldown-head-border: color-mix(in srgb, #4f5b6d 48%, transparent);
   --inputs-c1-hover-bg: color-mix(in srgb, var(--accent) 26%, var(--surface-strong));
@@ -4896,6 +4894,22 @@ body[data-theme="dark"] #inputs-view {
   border-bottom: 1px solid var(--inputs-grid-line);
 }
 
+#inputs-view #inputs-panel-time .input-row-head::after {
+  content: "";
+  grid-column: 6;
+  min-height: 44px;
+  background: var(--inputs-header-bg);
+  border-bottom: none;
+}
+
+#inputs-view #inputs-panel-expenses .input-row-head::after {
+  content: "";
+  grid-column: 7;
+  min-height: 44px;
+  background: var(--inputs-header-bg);
+  border-bottom: none;
+}
+
 #inputs-view .input-row-head .cell-project,
 #inputs-view .input-row-head .cell-date,
 #inputs-view .input-row-head .cell-category,
@@ -4912,6 +4926,8 @@ body[data-theme="dark"] #inputs-view .input-row-head {
   color: #f3f6fb;
 }
 
+body[data-theme="dark"] #inputs-view #inputs-panel-time .input-row-head::after,
+body[data-theme="dark"] #inputs-view #inputs-panel-expenses .input-row-head::after,
 body[data-theme="dark"] #inputs-view .input-row-head .cell-project,
 body[data-theme="dark"] #inputs-view .input-row-head .cell-date,
 body[data-theme="dark"] #inputs-view .input-row-head .cell-category,
@@ -4940,18 +4956,14 @@ body[data-theme="dark"] #inputs-view .input-row-head .cell-notes {
 
 #inputs-view .input-row-head .cell-actions {
   min-height: 44px;
-  background: var(--inputs-header-actions-bg) !important;
+  background: var(--inputs-header-bg) !important;
   color: transparent !important;
   border: none !important;
   box-shadow: none;
   border-right: none !important;
   border-bottom: none !important;
-  border-left: 1px solid var(--inputs-grid-line) !important;
+  border-left: none !important;
   padding: 0;
-}
-
-body[data-theme="dark"] #inputs-view .input-row-head .cell-actions {
-  background: var(--inputs-header-actions-bg) !important;
 }
 
 #inputs-view .input-row-body .cell-project,
