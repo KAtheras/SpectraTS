@@ -4679,6 +4679,7 @@ body[data-theme="dark"] #inputs-view {
 }
 
 #inputs-view .input-grid {
+  display: grid;
   gap: 0;
   background: var(--panel);
   border: 1px solid var(--panel-border);
@@ -4687,6 +4688,7 @@ body[data-theme="dark"] #inputs-view {
 }
 
 #inputs-view .input-row {
+  display: grid;
   gap: 0;
   align-items: stretch;
 }
