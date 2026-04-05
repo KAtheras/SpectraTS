@@ -982,33 +982,17 @@
     }
     const currentBudget = Number.isFinite(projectRow.budget) ? projectRow.budget : null;
     const projectLeadId = String(projectRow?.projectLeadId || projectRow?.project_lead_id || "").trim() || null;
-    const managerNames = userNamesForIds(managerIdsForProject(normalizedClient, normalizedProject));
-    const staffNames = userNamesForIds(staffIdsForProject(normalizedClient, normalizedProject));
     const projectDialog = await openProjectDialog({
       mode: "edit",
       projectId: String(projectRow?.id || "").trim() || null,
       projectName: normalizedProject,
       budgetAmount: currentBudget,
       projectLeadId,
-      managerNames,
-      staffNames,
     });
     if (!projectDialog) {
       projectDialogReturnContext = null;
       return;
     }
-    if (projectDialog.memberAction === "add" || projectDialog.memberAction === "remove") {
-      projectDialogReturnContext = {
-        clientName: normalizedClient,
-        projectName: normalizedProject,
-      };
-      const opened = openProjectMemberManagement(normalizedProject, projectDialog.memberAction);
-      if (!opened) {
-        projectDialogReturnContext = null;
-      }
-      return;
-    }
-
     const nextName = projectDialog.projectName;
     try {
       await mutatePersistentState("update_project", {
@@ -1301,8 +1285,7 @@
       const currentName = String(options?.projectName || "");
       const currentBudget = Number.isFinite(options?.budgetAmount) ? Number(options.budgetAmount) : null;
       const currentLeadId = String(options?.projectLeadId || "").trim();
-      const managerNames = Array.isArray(options?.managerNames) ? options.managerNames.filter(Boolean) : [];
-      const staffNames = Array.isArray(options?.staffNames) ? options.staffNames.filter(Boolean) : [];
+      const canShowAdvancedBudget = isProjectEditDialog && currentProjectId;
       const title = mode === "edit" ? "Edit project" : "Add project";
       const finalConfirmText = mode === "edit" ? "Save" : "Add";
       const activeUsers = (state.users || [])
@@ -1335,14 +1318,6 @@
             : []
         )
         .join("");
-      const showTeamSection = mode === "edit";
-      const renderNameList = (items) =>
-        items.length
-          ? `<ul class="project-dialog-team-list">${items
-              .map((name) => `<li>${escapeHtml(String(name || "").trim())}</li>`)
-              .join("")}</ul>`
-          : '<p class="project-dialog-team-empty">None</p>';
-
       const form = document.createElement("form");
       form.className = "project-dialog-form";
       form.innerHTML = `
@@ -1355,7 +1330,14 @@
             </label>
             <label class="project-dialog-field">
               <span>Budget (optional)</span>
-              <input type="text" name="budget_amount" inputmode="decimal" placeholder="15000 or $15,000" />
+              <div style="display:flex;align-items:center;gap:8px;">
+                <input type="text" name="budget_amount" inputmode="decimal" placeholder="15000 or $15,000" style="flex:1;" />
+                ${
+                  canShowAdvancedBudget
+                    ? '<button type="button" class="button button-ghost" data-project-advanced-budget>Advanced Budget</button>'
+                    : ""
+                }
+              </div>
             </label>
           <label class="project-dialog-field">
             <span>Project Lead</span>
@@ -1363,40 +1345,13 @@
           </label>
           </div>
         </section>
-        ${
-          showTeamSection
-            ? `
-        <section class="project-dialog-section">
-          <h3 class="panel-subheading">Team</h3>
-          <div class="project-dialog-team-grid">
-            <div class="project-dialog-team-col">
-              <h4>Project Lead</h4>
-              <p class="project-dialog-team-empty" data-project-team-lead-display>Unassigned</p>
-            </div>
-            <div class="project-dialog-team-col">
-              <h4>Managers</h4>
-              ${renderNameList(managerNames)}
-            </div>
-            <div class="project-dialog-team-col">
-              <h4>Staff</h4>
-              ${renderNameList(staffNames)}
-            </div>
-          </div>
-          <div class="project-dialog-actions">
-            <button type="button" class="button button-ghost" data-project-team-action="add">Add Member</button>
-            <button type="button" class="button button-ghost" data-project-team-action="remove">Remove Member</button>
-          </div>
-        </section>
-        `
-            : ""
-        }
         <p class="project-dialog-error" data-project-dialog-error hidden></p>
       `;
 
       const nameInput = form.querySelector('input[name="project_name"]');
       const budgetInput = form.querySelector('input[name="budget_amount"]');
       const leadSelect = form.querySelector('select[name="project_lead_id"]');
-      const teamLeadDisplay = form.querySelector("[data-project-team-lead-display]");
+      const advancedBudgetButton = form.querySelector("[data-project-advanced-budget]");
       const errorNode = form.querySelector("[data-project-dialog-error]");
       const dialogCard = refs.dialog?.querySelector(".dialog-card");
       if (nameInput) {
@@ -1408,14 +1363,18 @@
       if (leadSelect) {
         leadSelect.value = currentLeadId;
       }
-      const syncTeamLeadDisplay = () => {
-        if (!teamLeadDisplay) return;
-        const selectedLeadId = String(leadSelect?.value || "").trim();
-        const leadName = selectedLeadId ? leadNameById.get(selectedLeadId) || "" : "";
-        teamLeadDisplay.textContent = leadName || "Unassigned";
+      const onOpenAdvancedBudget = () => {
+        if (typeof openAdvancedBudgetModal === "function") {
+          openAdvancedBudgetModal(currentProjectId);
+          return;
+        }
+        if (typeof window.openAdvancedBudgetModal === "function") {
+          window.openAdvancedBudgetModal(currentProjectId);
+          return;
+        }
+        feedback("Advanced budget modal is not available yet.", true);
       };
-      syncTeamLeadDisplay();
-      leadSelect?.addEventListener("change", syncTeamLeadDisplay);
+      advancedBudgetButton?.addEventListener("click", onOpenAdvancedBudget);
 
       refs.dialogTitle.textContent = title;
       refs.dialogMessage.textContent = "";
@@ -1435,27 +1394,6 @@
       refs.dialogConfirm.hidden = false;
       refs.dialogCancel.disabled = false;
 
-      let advancedBudgetButton = null;
-      const canShowAdvancedBudget = isProjectEditDialog && currentProjectId;
-      if (canShowAdvancedBudget && refs.dialogConfirm?.parentElement) {
-        advancedBudgetButton = document.createElement("button");
-        advancedBudgetButton.type = "button";
-        advancedBudgetButton.className = "button button-ghost";
-        advancedBudgetButton.textContent = "Advanced Budget";
-        advancedBudgetButton.addEventListener("click", function () {
-          if (typeof openAdvancedBudgetModal === "function") {
-            openAdvancedBudgetModal(currentProjectId);
-            return;
-          }
-          if (typeof window.openAdvancedBudgetModal === "function") {
-            window.openAdvancedBudgetModal(currentProjectId);
-            return;
-          }
-          feedback("Advanced budget modal is not available yet.", true);
-        });
-        refs.dialogConfirm.parentElement.insertBefore(advancedBudgetButton, refs.dialogConfirm);
-      }
-
       const setError = (message) => {
         if (!errorNode) return;
         errorNode.textContent = message || "";
@@ -1467,9 +1405,8 @@
         refs.dialogConfirm.removeEventListener("click", onConfirm);
         refs.dialogCancel.removeEventListener("click", onCancel);
         form.removeEventListener("submit", onSubmit);
-        leadSelect?.removeEventListener("change", syncTeamLeadDisplay);
+        advancedBudgetButton?.removeEventListener("click", onOpenAdvancedBudget);
         form.remove();
-        advancedBudgetButton?.remove();
         if (isProjectEditDialog) {
           dialogCard?.classList.remove("dialog-card--project");
         }
@@ -1515,15 +1452,6 @@
       refs.dialogConfirm.addEventListener("click", onConfirm);
       refs.dialogCancel.addEventListener("click", onCancel);
       form.addEventListener("submit", onSubmit);
-      form.querySelectorAll("[data-project-team-action]").forEach((button) => {
-        button.addEventListener("click", function () {
-          cleanup();
-          resolve({
-            memberAction: String(button.dataset.projectTeamAction || "").trim(),
-            projectName: currentName,
-          });
-        });
-      });
       nameInput?.focus();
       nameInput?.select();
     });
