@@ -4816,6 +4816,7 @@ body[data-theme="dark"] .entry-approved td {
    ================================ */
 #inputs-view {
   background: var(--bg);
+  --inputs-grid-line: color-mix(in srgb, var(--line) 92%, transparent);
   --inputs-header-bg: color-mix(in srgb, #d9dfe8 64%, var(--panel));
   --inputs-header-actions-bg: color-mix(in srgb, #4b5563 64%, #d9dfe8);
   --inputs-drilldown-head-bg: color-mix(in srgb, #d9dfe8 66%, var(--panel));
@@ -4829,6 +4830,7 @@ body[data-theme="dark"] .entry-approved td {
 }
 
 body[data-theme="dark"] #inputs-view {
+  --inputs-grid-line: color-mix(in srgb, var(--line) 82%, transparent);
   --inputs-header-bg: color-mix(in srgb, #5a6678 70%, var(--surface-strong));
   --inputs-header-actions-bg: color-mix(in srgb, #4b5563 72%, #5a6678);
   --inputs-drilldown-head-bg: color-mix(in srgb, #5a6678 70%, var(--surface-strong));
@@ -4891,6 +4893,7 @@ body[data-theme="dark"] #inputs-view {
   color: #2d3748;
   font-weight: 620;
   position: relative;
+  border-bottom: 1px solid var(--inputs-grid-line);
 }
 
 #inputs-view #inputs-panel-time .input-row-head::after {
@@ -4942,6 +4945,17 @@ body[data-theme="dark"] #inputs-view .input-row-head .cell-notes {
   border-right: none;
 }
 
+#inputs-view .input-row-head .cell-project,
+#inputs-view .input-row-head .cell-date,
+#inputs-view .input-row-head .cell-category,
+#inputs-view .input-row-head .cell-hours,
+#inputs-view .input-row-head .cell-amount,
+#inputs-view .input-row-head .cell-billable,
+#inputs-view .input-row-head .cell-notes,
+#inputs-view .input-row-head .cell-actions {
+  border-bottom: none;
+}
+
 #inputs-view .input-row-head .cell-actions {
   min-height: 44px;
   background: var(--inputs-header-actions-bg) !important;
@@ -4950,7 +4964,7 @@ body[data-theme="dark"] #inputs-view .input-row-head .cell-notes {
   box-shadow: none;
   border-right: none !important;
   border-bottom: none !important;
-  border-left: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-left: 1px solid var(--inputs-grid-line) !important;
   padding: 0;
 }
 
@@ -4992,8 +5006,8 @@ body[data-theme="dark"] #inputs-view .input-row-head .cell-actions {
   display: flex;
   align-items: center;
   padding: 0 10px;
-  border-right: 1px solid var(--line);
-  border-bottom: 1px solid var(--line);
+  border-right: 1px solid var(--inputs-grid-line);
+  border-bottom: 1px solid var(--inputs-grid-line);
   box-sizing: border-box;
 }
 
