@@ -519,40 +519,26 @@
           ? requestedUser
           : userOptions[0] || "";
     const requestedClient = selection?.client ?? clientField?.value ?? "";
+    const userScopedRows = nextUser
+      ? scopeRows.filter((entry) => entry.user === nextUser)
+      : scopeRows;
     const entryClients = uniqueValues(
-      scopeRows.map((entry) => entry.client).filter(Boolean)
+      userScopedRows.map((entry) => entry.client).filter(Boolean)
     );
-    const hasInternalRows = scopeRows.some((entry) => isInternalFilterEntry(entry));
-    const targetUser =
-      nextUser && state.users.length
-        ? state.users.find((u) => u.displayName === nextUser) || scopeUser
-        : scopeUser;
-
-    const allowedClientsRaw = targetUser
-      ? isAdmin(targetUser)
-        ? clientNames()
-        : allowedClientsForUser(targetUser)
-      : clientNames();
-    if ((entryClients.includes("Internal") || hasInternalRows) && !allowedClientsRaw.includes("Internal")) {
-      allowedClientsRaw.push("Internal");
-    }
-    const allowedClientsFiltered = allowedClientsRaw.filter((client) => {
-      if (client === "Internal") {
-        return entryClients.includes("Internal") || hasInternalRows;
-      }
-      return entryClients.includes(client);
-    });
+    const hasInternalRows = userScopedRows.some((entry) => isInternalFilterEntry(entry));
     const allowedClients = [
-      ...allowedClientsFiltered
+      ...entryClients
         .filter((client) => client !== "Internal")
         .sort((a, b) => a.localeCompare(b)),
-      ...(allowedClientsFiltered.includes("Internal") ? ["Internal"] : []),
+      ...((entryClients.includes("Internal") || hasInternalRows) ? ["Internal"] : []),
     ];
-    const nextClient = allowedClients.includes(requestedClient) ? requestedClient : "";
+    const nextClientBase = allowedClients.includes(requestedClient) ? requestedClient : "";
+    const nextClient =
+      !nextClientBase && allowedClients.length === 1 ? allowedClients[0] : nextClientBase;
     const requestedProject = selection?.project ?? projectField?.value ?? "";
     const isInternalClient = nextClient === "Internal";
     const entryProjects = uniqueValues(
-      scopeRows
+      userScopedRows
         .filter((entry) => {
           if (!nextClient) return false;
           if (isInternalClient) return isInternalFilterEntry(entry);
@@ -563,19 +549,10 @@
         )
         .filter(Boolean)
     );
-    const allowedProjectsRaw = !nextClient
-      ? targetUser && !isAdmin(targetUser)
-        ? []
-        : projectNames(nextClient)
-      : isInternalClient
-        ? entryProjects
-        : targetUser && !isAdmin(targetUser)
-          ? allowedProjectsForClient(targetUser, nextClient)
-          : projectNames(nextClient);
-    const allowedProjects = isInternalClient
-      ? allowedProjectsRaw
-      : allowedProjectsRaw.filter((project) => entryProjects.includes(project));
-    const nextProject = allowedProjects.includes(requestedProject) ? requestedProject : "";
+    const allowedProjects = entryProjects;
+    const nextProjectBase = allowedProjects.includes(requestedProject) ? requestedProject : "";
+    const nextProject =
+      !nextProjectBase && allowedProjects.length === 1 ? allowedProjects[0] : nextProjectBase;
 
     populateSelect(deps, userField, userOptions, "All users", nextUser);
     populateSelect(deps, clientField, allowedClients, "All clients", nextClient);

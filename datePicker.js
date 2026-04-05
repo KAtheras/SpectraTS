@@ -1,42 +1,23 @@
 (() => {
-  const isDesktop = window.matchMedia('(pointer: fine) and (hover: hover)').matches;
-  if (!isDesktop) return;
-
   const TARGET_IDS = ['entry-date', 'expense-date', 'audit-filter-date'];
   const inputs = TARGET_IDS.map((id) => document.getElementById(id)).filter(Boolean);
   // Bottom filter targets (hidden inputs) with anchors for positioning.
   const filterTargets = [
     {
-      input: document.querySelector('#filter-form input[name="from"]'),
-      anchor: document.querySelector('[data-filter-date="from"]'),
+      input: document.getElementById('filter-date-range'),
+      anchor: document.querySelector('[data-filter-date="range"]'),
       body: '#entries-body',
-      month: document.getElementById('filter-from-month'),
-      day: document.getElementById('filter-from-day'),
-      year: document.getElementById('filter-from-year'),
+      range: true,
+      fromInput: document.querySelector('#filter-form input[name="from"]'),
+      toInput: document.querySelector('#filter-form input[name="to"]'),
     },
     {
-      input: document.querySelector('#filter-form input[name="to"]'),
-      anchor: document.querySelector('[data-filter-date="to"]'),
-      body: '#entries-body',
-      month: document.getElementById('filter-to-month'),
-      day: document.getElementById('filter-to-day'),
-      year: document.getElementById('filter-to-year'),
-    },
-    {
-      input: document.querySelector('#expense-filter-form input[name="from"]'),
-      anchor: document.querySelector('[data-expense-filter-date="from"]'),
+      input: document.getElementById('expense-filter-date-range'),
+      anchor: document.querySelector('[data-expense-filter-date="range"]'),
       body: '#expenses-body',
-      month: document.getElementById('expense-filter-from-month'),
-      day: document.getElementById('expense-filter-from-day'),
-      year: document.getElementById('expense-filter-from-year'),
-    },
-    {
-      input: document.querySelector('#expense-filter-form input[name="to"]'),
-      anchor: document.querySelector('[data-expense-filter-date="to"]'),
-      body: '#expenses-body',
-      month: document.getElementById('expense-filter-to-month'),
-      day: document.getElementById('expense-filter-to-day'),
-      year: document.getElementById('expense-filter-to-year'),
+      range: true,
+      fromInput: document.querySelector('#expense-filter-form input[name="from"]'),
+      toInput: document.querySelector('#expense-filter-form input[name="to"]'),
     },
     {
       input: document.getElementById('audit-filter-date'),
@@ -49,6 +30,9 @@
     t.input.dataset.dpFilter = 'true';
     t.input._dpAnchor = t.anchor;
     t.input.dataset.dpBody = t.body;
+    t.input.dataset.dpRange = t.range ? 'true' : 'false';
+    t.input._dpRangeFrom = t.fromInput || null;
+    t.input._dpRangeTo = t.toInput || null;
     t.input._dpMonth = t.month;
     t.input._dpDay = t.day;
     t.input._dpYear = t.year;
@@ -65,6 +49,7 @@
         sel.addEventListener('click', handler);
         sel.addEventListener('focus', handler);
       });
+    syncRangeDisplay(t.input);
     inputs.push(t.input);
   });
   if (!inputs.length) return;
@@ -75,13 +60,66 @@
       : '';
   }
 
+  function formatDisplayShort(date) {
+    if (!date) return '';
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const year = String(date.getFullYear()).slice(-2);
+    return `${month}/${day}/${year}`;
+  }
+
+  function formatDisplayLong(date) {
+    if (!date) return '';
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const year = String(date.getFullYear());
+    return `${month}/${day}/${year}`;
+  }
+
   function setDisplay(input, date) {
     if (!input) return;
+    if (input.dataset.dpRange === 'true') return;
     const display = formatDisplay(date);
     input.dataset.display = display;
     if (input.dataset.dpFilter === 'true') {
       input.value = display;
     }
+  }
+
+  function parseHiddenDateInput(input) {
+    if (!input) return '';
+    const canonical = input.dataset.dpCanonical || '';
+    if (/^\d{4}-\d{2}-\d{2}$/.test(canonical)) return canonical;
+    const parsed = parseDisplayedDate(input.value || '');
+    return parsed || '';
+  }
+
+  function readRangeSelection(input) {
+    const fromIso = parseHiddenDateInput(input?._dpRangeFrom);
+    const toIsoRaw = parseHiddenDateInput(input?._dpRangeTo);
+    if (!fromIso) {
+      return { from: '', to: '' };
+    }
+    if (!toIsoRaw || toIsoRaw < fromIso) {
+      return { from: fromIso, to: '' };
+    }
+    return { from: fromIso, to: toIsoRaw };
+  }
+
+  function syncRangeDisplay(input) {
+    if (!input || input.dataset.dpRange !== 'true') return;
+    const { from, to } = readRangeSelection(input);
+    const fromDate = from ? dateFromISO(from) : null;
+    const toDate = to ? dateFromISO(to) : null;
+    if (fromDate && toDate) {
+      input.value = `${formatDisplayShort(fromDate)} – ${formatDisplayShort(toDate)}`;
+    } else if (fromDate) {
+      input.value = `${formatDisplayShort(fromDate)} –`;
+    } else {
+      input.value = 'Select date range';
+    }
+    input.dataset.dpRangeStart = from;
+    input.dataset.dpRangeEnd = to;
   }
 
   // Disable native desktop date picker for these inputs; keep mobile untouched.
@@ -111,6 +149,7 @@
 
   let openInput = null;
   let viewDate = today();
+  let suppressNextOutsideClick = false;
 
   function today() {
     const now = new Date();
@@ -233,6 +272,8 @@
     const daysInMonth = new Date(year, month + 1, 0).getDate();
 
     const selected = parseInput(openInput);
+    const isRangeInput = openInput.dataset.dpRange === 'true';
+    const rangeSelection = isRangeInput ? readRangeSelection(openInput) : { from: '', to: '' };
     const todayDate = today();
 
     for (let i = 0; i < startDay; i++) {
@@ -247,7 +288,18 @@
       btn.type = 'button';
       btn.className = 'dp-day';
       btn.textContent = String(day);
-      if (selected && formatDate(date) === formatDate(selected)) {
+      const dayIso = formatDate(date);
+      if (isRangeInput && rangeSelection.from) {
+        if (dayIso === rangeSelection.from) {
+          btn.classList.add('is-selected', 'is-range-start');
+        }
+        if (rangeSelection.to && dayIso === rangeSelection.to) {
+          btn.classList.add('is-selected', 'is-range-end');
+        }
+        if (rangeSelection.to && dayIso > rangeSelection.from && dayIso < rangeSelection.to) {
+          btn.classList.add('is-in-range');
+        }
+      } else if (selected && dayIso === formatDate(selected)) {
         btn.classList.add('is-selected');
       }
       if (formatDate(date) === formatDate(todayDate)) {
@@ -260,6 +312,46 @@
       } else {
         btn.addEventListener('click', () => {
           const canonical = formatDate(date);
+          if (isRangeInput) {
+            const fromInput = openInput._dpRangeFrom;
+            const toInput = openInput._dpRangeTo;
+            const current = readRangeSelection(openInput);
+            let nextFrom = current.from;
+            let nextTo = current.to;
+            if (!current.from || current.to) {
+              nextFrom = canonical;
+              nextTo = '';
+            } else if (canonical < current.from) {
+              nextFrom = canonical;
+              nextTo = '';
+            } else {
+              nextTo = canonical;
+            }
+            if (fromInput) {
+              fromInput.dataset.dpCanonical = nextFrom;
+              fromInput.value = nextFrom ? formatDisplayLong(dateFromISO(nextFrom)) : '';
+            }
+            if (toInput) {
+              toInput.dataset.dpCanonical = nextTo;
+              toInput.value = nextTo ? formatDisplayLong(dateFromISO(nextTo)) : '';
+            }
+            syncRangeDisplay(openInput);
+            // Keep airline-style selection flow in one open calendar:
+            // first click sets start, second click sets end and commits.
+            if (nextTo) {
+              openInput.dispatchEvent(new Event('input', { bubbles: true }));
+              openInput.dispatchEvent(new Event('change', { bubbles: true }));
+              closePopover();
+            } else {
+              // The clicked day button is removed when we re-render the grid.
+              // Skip the next document click close pass so the popover stays open
+              // for the second (end-date) click.
+              suppressNextOutsideClick = true;
+              render();
+            }
+            return;
+          }
+
           openInput.dataset.dpCanonical = canonical;
           if (openInput.dataset.dpFilter === 'true') {
             openInput.value = formatDisplay(date);
@@ -300,7 +392,8 @@
   }
 
   function openFor(input) {
-    if (input.dataset.dpFilter === 'true') {
+    const isRangeInput = input.dataset.dpRange === 'true';
+    if (input.dataset.dpFilter === 'true' && !isRangeInput) {
       setCanonicalFromSelects(input);
       const form = input.closest('form');
       const sibling = (name) => form?.elements?.namedItem(name);
@@ -321,7 +414,7 @@
       const range = sourceMin && sourceMax ? { min: sourceMin, max: sourceMax } : visibleRange(input.dataset.dpBody);
       let minVal = range?.min || '';
       let maxVal = range?.max || '';
-      if (input.dataset.dpFilter === 'true') {
+      if (input.dataset.dpFilter === 'true' && !isRangeInput) {
         const form = input.closest('form');
         const sibling = (name) => form?.elements?.namedItem(name);
         const fromVal = sibling('from')?.dataset?.dpCanonical || sibling('from')?.value || '';
@@ -337,7 +430,9 @@
       if (maxVal) input.setAttribute('max', maxVal); else input.removeAttribute('max');
     }
     openInput = input;
-    const parsed = parseInput(input) || today();
+    syncRangeDisplay(input);
+    const parsedRangeStart = isRangeInput ? dateFromISO(readRangeSelection(input).from) : null;
+    const parsed = parsedRangeStart || parseInput(input) || today();
     viewDate = clampToBounds(parsed, input);
     positionPopover(input);
     popover.classList.add('is-open');
@@ -360,6 +455,10 @@
   });
 
   document.addEventListener('click', (event) => {
+    if (suppressNextOutsideClick) {
+      suppressNextOutsideClick = false;
+      return;
+    }
     if (!openInput) return;
     const target = event.target;
     if (popover.contains(target)) return;

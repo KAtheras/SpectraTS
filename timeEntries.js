@@ -232,6 +232,19 @@
 
   function renderTable(filteredEntries) {
     const { refs, state, escapeHtml, formatDisplayDateShort } = deps();
+    const boundsSource = currentEntries({
+      ...(state.filters || {}),
+      from: "",
+      to: "",
+    });
+    if (refs.entriesBody) {
+      const dates = boundsSource
+        .map((entry) => entry.date)
+        .filter(Boolean)
+        .sort();
+      refs.entriesBody.dataset.rangeMin = dates[0] || "";
+      refs.entriesBody.dataset.rangeMax = dates[dates.length - 1] || "";
+    }
     if (!filteredEntries.length) {
       refs.entriesBody.innerHTML = `
         <tr>
@@ -244,13 +257,6 @@
         </tr>
       `;
       return;
-    }
-
-    // Store full-range dates (unfiltered) for picker bounds
-    if (refs.entriesBody) {
-      const dates = state.entries.map((e) => e.date).sort();
-      refs.entriesBody.dataset.rangeMin = dates[0] || "";
-      refs.entriesBody.dataset.rangeMax = dates[dates.length - 1] || "";
     }
 
     refs.entriesBody.innerHTML = filteredEntries
@@ -276,6 +282,14 @@
               >
                 ${entry.status === "approved" ? "Approved" : "Pending"}
               </span>`;
+        const canEditBillable = Boolean(state?.permissions?.create_entry);
+        const billableMarkup = `<input
+              type="checkbox"
+              class="entries-billable-toggle"
+              ${canEditBillable ? `data-action="toggle-billable" data-id="${entry.id}"` : "disabled"}
+              aria-label="${entry.billable === false ? "Mark as billable" : "Mark as non-billable"}"
+              ${entry.billable === false ? "" : "checked"}
+            />`;
         return `
           <tr class="entry-row ${entry.status === "approved" ? "entry-approved" : ""}">
             <td>${escapeHtml(formatDisplayDateShort(entry.date))}</td>
@@ -288,16 +302,7 @@
             }>${escapeHtml(projectLabel)}</td>
             <td>${entry.hours.toFixed(2)}</td>
             <td>
-              <span
-                class="billable-pill ${entry.billable === false ? "is-nonbillable" : "is-billable"} is-clickable"
-                data-action="toggle-billable"
-                data-id="${entry.id}"
-                role="button"
-                aria-label="${entry.billable === false ? "Mark as billable" : "Mark as non-billable"}"
-                tabindex="0"
-              >
-                ${entry.billable === false ? "Non-billable" : "Billable"}
-              </span>
+              ${billableMarkup}
             </td>
             <td class="notes-cell">
               ${

@@ -623,31 +623,41 @@
       );
     }
 
+    const userScopedRows = selectedUserId
+      ? expenseRows.filter((row) => row.userId === selectedUserId)
+      : expenseRows;
+    const clientsRaw = uniqueValues(userScopedRows.map((row) => row.clientName).filter(Boolean));
+    const clients = [
+      ...clientsRaw
+        .filter((client) => client !== "Internal")
+        .sort((a, b) => a.localeCompare(b)),
+      ...(clientsRaw.includes("Internal") ? ["Internal"] : []),
+    ];
+    const nextSelectedClientBase = clients.includes(selectedClient) ? selectedClient : "";
+    const nextSelectedClient =
+      !nextSelectedClientBase && clients.length === 1 ? clients[0] : nextSelectedClientBase;
+
     if (refs.expenseFilterClient) {
-      const clientsRaw = uniqueValues(expenseRows.map((row) => row.clientName).filter(Boolean));
-      const clients = [
-        ...clientsRaw
-          .filter((client) => client !== "Internal")
-          .sort((a, b) => a.localeCompare(b)),
-        ...(clientsRaw.includes("Internal") ? ["Internal"] : []),
-      ];
       setSelectOptionsWithPlaceholder(
         { escapeHtml },
         refs.expenseFilterClient,
         clients,
-        selectedClient,
+        nextSelectedClient,
         "All clients"
       );
     }
 
     if (refs.expenseFilterProject) {
-      const allowProjectSelection = Boolean(selectedClient);
+      const allowProjectSelection = Boolean(nextSelectedClient);
       const projects = uniqueValues(
-        expenseRows
-          .filter((row) => allowProjectSelection && row.clientName === selectedClient)
+        userScopedRows
+          .filter((row) => allowProjectSelection && row.clientName === nextSelectedClient)
           .map((row) => row.projectName)
           .filter(Boolean)
       );
+      const nextSelectedProjectBase = projects.includes(selectedProject) ? selectedProject : "";
+      const nextSelectedProject =
+        !nextSelectedProjectBase && projects.length === 1 ? projects[0] : nextSelectedProjectBase;
       const placeholder = allowProjectSelection
         ? "All projects"
         : "Select client (for project entries)";
@@ -655,7 +665,7 @@
         { escapeHtml },
         refs.expenseFilterProject,
         projects,
-        selectedProject,
+        nextSelectedProject,
         placeholder
       );
       refs.expenseFilterProject.disabled = !allowProjectSelection;

@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "node server.js",
+    "dev:netlify": "netlify dev",
     "start": "node server.js",
     "version:assets": "node scripts/update-asset-version.js",
     "build": "npm run version:assets"
@@ -11,5 +12,8 @@
   "dependencies": {
     "@netlify/neon": "^0.1.2",
     "resend": "^6.9.4"
+  },
+  "devDependencies": {
+    "netlify-cli": "^24.9.0"
   }
 }

@@ -501,6 +501,7 @@
     filterToMonth: document.getElementById("filter-to-month"),
     filterToDay: document.getElementById("filter-to-day"),
     filterToYear: document.getElementById("filter-to-year"),
+    filterDateRange: document.getElementById("filter-date-range"),
     expenseFilterForm: document.getElementById("expense-filter-form"),
     expenseClearFilters: document.getElementById("expense-clear-filters"),
     expenseExportCsv: document.getElementById("expense-export-csv"),
@@ -515,6 +516,7 @@
     expenseFilterToMonth: document.getElementById("expense-filter-to-month"),
     expenseFilterToDay: document.getElementById("expense-filter-to-day"),
     expenseFilterToYear: document.getElementById("expense-filter-to-year"),
+    expenseFilterDateRange: document.getElementById("expense-filter-date-range"),
     officeLocationsForm: document.getElementById("office-locations-form"),
     officeRows: document.getElementById("office-rows"),
     officeAddName: document.getElementById("office-add-name"),
@@ -542,6 +544,22 @@
     auditTableBody: document.getElementById("audit-table-body"),
     appTopbar: document.querySelector(".app-topbar"),
   };
+
+  function createHiddenFilterTarget() {
+    return {
+      hidden: true,
+      innerHTML: "",
+    };
+  }
+
+  if (refs.activeFilters) {
+    refs.activeFilters.remove();
+    refs.activeFilters = createHiddenFilterTarget();
+  }
+  if (refs.expenseActiveFilters) {
+    refs.expenseActiveFilters.remove();
+    refs.expenseActiveFilters = createHiddenFilterTarget();
+  }
 
   let addClientHeaderButton = null;
   let clientLifecycleToggleWrap = null;
@@ -2547,6 +2565,7 @@
       if (fromField) fromField.value = formatDisplayDate(timeFilters.from);
       if (toField) toField.value = formatDisplayDate(timeFilters.to);
       if (searchField) searchField.value = timeFilters.search;
+      syncEntriesDateRangeField(refs.filterDateRange, timeFilters.from, timeFilters.to);
       syncFilterDatePicker({ refs, isValidDateString, escapeHtml }, "from", timeFilters.from);
       syncFilterDatePicker({ refs, isValidDateString, escapeHtml }, "to", timeFilters.to);
     }
@@ -2564,6 +2583,7 @@
       if (fromField) fromField.value = formatDisplayDate(expenseFilters.from);
       if (toField) toField.value = formatDisplayDate(expenseFilters.to);
       if (searchField) searchField.value = expenseFilters.search;
+      syncEntriesDateRangeField(refs.expenseFilterDateRange, expenseFilters.from, expenseFilters.to);
       setExpenseFilterPickerValue("from", expenseFilters.from);
       setExpenseFilterPickerValue("to", expenseFilters.to);
     }
@@ -3367,6 +3387,23 @@
 
     const [year, month, day] = value.split("-");
     return `${month}/${day}/${year.slice(-2)}`;
+  }
+
+  function formatEntriesDateRangeDisplay(fromIso, toIso) {
+    const fromText = formatDisplayDateShort(fromIso);
+    const toText = formatDisplayDateShort(toIso);
+    if (fromText && toText) return `${fromText} – ${toText}`;
+    if (fromText) return `${fromText} –`;
+    return "Select date range";
+  }
+
+  function syncEntriesDateRangeField(input, fromIso, toIso) {
+    if (!input) return;
+    const safeFrom = isValidDateString(fromIso) ? fromIso : "";
+    const safeTo = isValidDateString(toIso) ? toIso : "";
+    input.value = formatEntriesDateRangeDisplay(safeFrom, safeTo);
+    input.dataset.dpRangeStart = safeFrom;
+    input.dataset.dpRangeEnd = safeTo;
   }
 
   function parseDisplayDate(value) {
@@ -6896,6 +6933,7 @@
 
     fromField.value = formatDisplayDate(state.filters.from);
     toField.value = formatDisplayDate(state.filters.to);
+    syncEntriesDateRangeField(refs.filterDateRange, state.filters.from, state.filters.to);
     feedback("", false);
     render();
     return true;
@@ -7808,6 +7846,18 @@
     event.preventDefault();
     applyFiltersFromForm();
   });
+
+  if (refs.filterDateRange) {
+    refs.filterDateRange.addEventListener("change", function () {
+      applyFiltersFromForm({ showErrors: false });
+    });
+  }
+
+  if (refs.expenseFilterDateRange) {
+    refs.expenseFilterDateRange.addEventListener("change", function () {
+      applyExpenseFiltersFromForm({ showErrors: false });
+    });
+  }
 
   refs.clearFilters.addEventListener("click", function () {
     refs.filterForm.reset();

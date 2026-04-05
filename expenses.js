@@ -400,6 +400,17 @@
     const { refs, state, escapeHtml, formatDisplayDateShort } = deps();
     if (!refs.expensesBody) return;
     const expenses = filtered || currentExpenses();
+    const boundsSource = currentExpenses({
+      ...(state.expenseFilters || {}),
+      from: "",
+      to: "",
+    });
+    const boundDates = boundsSource
+      .map((expense) => expense.expenseDate)
+      .filter(Boolean)
+      .sort();
+    refs.expensesBody.dataset.rangeMin = boundDates[0] || "";
+    refs.expensesBody.dataset.rangeMax = boundDates[boundDates.length - 1] || "";
     renderExpenseFilterState(expenses);
 
     if (!expenses.length) {
@@ -416,12 +427,6 @@
       return;
     }
 
-    if (refs.expensesBody) {
-      const dates = state.expenses.map((e) => e.expenseDate).sort();
-      refs.expensesBody.dataset.rangeMin = dates[0] || "";
-      refs.expensesBody.dataset.rangeMax = dates[dates.length - 1] || "";
-    }
-
     refs.expensesBody.innerHTML = expenses
       .map((expense) => {
         const billable = expense.isBillable !== false;
@@ -433,6 +438,14 @@
             >
               ${expense.status === "approved" ? "Approved" : "Pending"}
             </span>`;
+        const canEditBillable = Boolean(state?.permissions?.update_expense);
+        const billableMarkup = `<input
+              type="checkbox"
+              class="entries-billable-toggle"
+              ${canEditBillable ? `data-action="expense-toggle-billable" data-id="${expense.id}"` : "disabled"}
+              aria-label="${billable ? "Mark as non-billable" : "Mark as billable"}"
+              ${billable ? "checked" : ""}
+            />`;
         return `
           <tr class="${expense.status === "approved" ? "entry-approved" : ""}">
             <td>${escapeHtml(formatDisplayDateShort(expense.expenseDate))}</td>
@@ -442,14 +455,7 @@
             <td>${escapeHtml(expense.category)}</td>
             <td>$${Number(expense.amount || 0).toFixed(2)}</td>
             <td>
-              <span
-                class="billable-pill ${billable ? "is-billable" : "is-nonbillable"} is-clickable"
-                data-action="expense-toggle-billable"
-                data-id="${expense.id}"
-                role="button"
-              >
-                ${billable ? "Billable" : "Non-billable"}
-              </span>
+              ${billableMarkup}
             </td>
             <td class="notes-cell">
               ${
