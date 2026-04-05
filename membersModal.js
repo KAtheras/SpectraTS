@@ -441,7 +441,7 @@
 
     const sortedGroups = Array.from(grouped.values()).sort((a, b) => {
       if (mode === "project-add-member") {
-        const levelDelta = normalizeLevel(b.level) - normalizeLevel(a.level);
+        const levelDelta = normalizeLevel(a.level) - normalizeLevel(b.level);
         if (levelDelta !== 0) {
           return levelDelta;
         }

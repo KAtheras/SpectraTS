@@ -1074,6 +1074,10 @@
       }))
       .filter((item) => item.userId);
     const baseRows = [...assignmentMembers, ...managerMembers];
+    const initiallyAssignedUserIds = new Set(baseRows.map((item) => String(item?.userId || "").trim()).filter(Boolean));
+    const initiallyAssignedManagerIds = new Set(
+      managerMembers.map((item) => String(item?.userId || "").trim()).filter(Boolean)
+    );
     const existingBudgets = (state.projectMemberBudgets || [])
       .filter((item) => String(item?.projectId || "").trim() === normalizedProjectId)
       .map((item) => ({
@@ -1312,6 +1316,36 @@
             rateOverride: row?.rateOverride ?? null,
           }))
           .filter((row) => row.userId);
+        const outgoingUserIds = new Set(outgoingMembers.map((row) => row.userId));
+        const removedAssignedUserIds = Array.from(initiallyAssignedUserIds).filter(
+          (userId) => !outgoingUserIds.has(userId)
+        );
+        const clientName = String(projectRow?.client || "").trim();
+        const projectName = String(projectRow?.name || "").trim();
+        for (const removedUserId of removedAssignedUserIds) {
+          if (!clientName || !projectName) break;
+          if (initiallyAssignedManagerIds.has(removedUserId)) {
+            await mutatePersistentState(
+              "unassign_manager_project",
+              {
+                managerId: removedUserId,
+                clientName,
+                projectName,
+              },
+              { skipHydrate: true }
+            );
+          } else {
+            await mutatePersistentState(
+              "remove_project_member",
+              {
+                userId: removedUserId,
+                clientName,
+                projectName,
+              },
+              { skipHydrate: true }
+            );
+          }
+        }
         await mutatePersistentState(
           "save_project_advanced_budget",
           {
