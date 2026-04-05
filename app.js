@@ -4537,7 +4537,7 @@
         type: "corporate",
         id: `${category?.id || ""}`.trim(),
         group_name: group.groupName,
-        label: `\u00A0\u00A0\u00A0\u00A0${category?.name || ""}`,
+        label: `${category?.name || ""}`,
         value: encodeInputsCorporateCombo(category?.id || ""),
       }));
       return [groupLabel, ...categoryItems];

@@ -4792,7 +4792,7 @@ body[data-theme="dark"] #inputs-view {
   background: color-mix(in srgb, var(--panel) 94%, var(--surface-strong));
 }
 
-#inputs-view .input-row-body[data-saved="true"] {
+#inputs-view .input-row-body[data-saved="true"] .cell-project {
   box-shadow: inset 2px 0 0 color-mix(in srgb, var(--inputs-grid-line) 56%, var(--accent) 44%);
 }
 
