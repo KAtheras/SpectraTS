@@ -993,6 +993,17 @@
       projectDialogReturnContext = null;
       return;
     }
+    if (projectDialog.memberAction === "add" || projectDialog.memberAction === "remove") {
+      projectDialogReturnContext = {
+        clientName: normalizedClient,
+        projectName: normalizedProject,
+      };
+      const opened = openProjectMemberManagement(normalizedProject, projectDialog.memberAction);
+      if (!opened) {
+        projectDialogReturnContext = null;
+      }
+      return;
+    }
     const nextName = projectDialog.projectName;
     try {
       await mutatePersistentState("update_project", {
@@ -1345,6 +1356,18 @@
           </label>
           </div>
         </section>
+        ${
+          isProjectEditDialog
+            ? `
+        <section class="project-dialog-section">
+          <div class="project-dialog-actions">
+            <button type="button" class="button button-ghost" data-project-team-action="add">Add Member</button>
+            <button type="button" class="button button-ghost" data-project-team-action="remove">Remove Member</button>
+          </div>
+        </section>
+        `
+            : ""
+        }
         <p class="project-dialog-error" data-project-dialog-error hidden></p>
       `;
 
@@ -1452,6 +1475,15 @@
       refs.dialogConfirm.addEventListener("click", onConfirm);
       refs.dialogCancel.addEventListener("click", onCancel);
       form.addEventListener("submit", onSubmit);
+      form.querySelectorAll("[data-project-team-action]").forEach((button) => {
+        button.addEventListener("click", function () {
+          cleanup();
+          resolve({
+            memberAction: String(button.dataset.projectTeamAction || "").trim(),
+            projectName: String(nameInput?.value || currentName || "").trim(),
+          });
+        });
+      });
       nameInput?.focus();
       nameInput?.select();
     });
