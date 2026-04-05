@@ -5493,14 +5493,28 @@ body[data-theme="dark"] #inputs-view .inputs-drilldown-col-head {
   padding: 12px 14px;
 }
 
+#inputs-view .inputs-drilldown-layout > .inputs-drilldown-col:nth-child(1) .inputs-drilldown-item:hover,
+#inputs-view .inputs-drilldown-layout > .inputs-drilldown-col:nth-child(1) .inputs-drilldown-item:focus-visible {
+  background: color-mix(in srgb, var(--surface-hover) 84%, var(--surface));
+}
+
+#inputs-view .inputs-drilldown-layout > .inputs-drilldown-col:nth-child(1) .inputs-drilldown-item:hover .inputs-drilldown-item-label {
+  font-weight: 650;
+}
+
+#inputs-view .inputs-drilldown-layout > .inputs-drilldown-col:nth-child(2) .inputs-drilldown-item:hover,
+#inputs-view .inputs-drilldown-layout > .inputs-drilldown-col:nth-child(2) .inputs-drilldown-item:focus-visible {
+  background: color-mix(in srgb, var(--accent-soft) 28%, var(--surface-strong));
+}
+
 #inputs-view .inputs-drilldown-layout > .inputs-drilldown-col:nth-child(3) .inputs-drilldown-col-body {
   padding-top: 16px;
   gap: 12px;
 }
 
 #inputs-view .inputs-drilldown-layout > .inputs-drilldown-col:nth-child(2) .inputs-drilldown-item.is-active {
-  background: color-mix(in srgb, var(--accent-soft) 46%, var(--surface-strong));
-  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--accent) 42%, transparent);
+  background: color-mix(in srgb, var(--accent-soft) 52%, var(--surface-strong));
+  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--accent) 48%, transparent);
 }
 
 #inputs-view .inputs-drilldown-layout > .inputs-drilldown-col:nth-child(1) .inputs-drilldown-item:not(.is-active) {
@@ -5508,7 +5522,8 @@ body[data-theme="dark"] #inputs-view .inputs-drilldown-col-head {
 }
 
 #inputs-view .inputs-drilldown-layout > .inputs-drilldown-col:nth-child(1) .inputs-drilldown-item.is-active {
-  background: color-mix(in srgb, var(--accent-soft) 42%, var(--surface-strong));
+  background: color-mix(in srgb, var(--accent-soft) 44%, var(--surface-strong));
+  box-shadow: inset 1px 0 0 color-mix(in srgb, var(--accent) 28%, transparent);
 }
 
 #inputs-view .inputs-drilldown-item.is-zero:not(.is-active) {
@@ -5526,12 +5541,16 @@ body[data-theme="dark"] #inputs-view .inputs-drilldown-item.is-active {
 }
 
 body[data-theme="dark"] #inputs-view .inputs-drilldown-layout > .inputs-drilldown-col:nth-child(2) .inputs-drilldown-item.is-active {
-  background: color-mix(in srgb, var(--accent) 40%, var(--surface-strong));
-  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--accent) 68%, transparent);
+  background: color-mix(in srgb, var(--accent) 44%, var(--surface-strong));
+  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--accent) 72%, transparent);
 }
 
 body[data-theme="dark"] #inputs-view .inputs-drilldown-layout > .inputs-drilldown-col:nth-child(1) .inputs-drilldown-item:not(.is-active) {
   opacity: 0.68;
+}
+
+body[data-theme="dark"] #inputs-view .inputs-drilldown-layout > .inputs-drilldown-col:nth-child(1) .inputs-drilldown-item.is-active {
+  box-shadow: inset 1px 0 0 color-mix(in srgb, var(--accent) 48%, transparent);
 }
 
 body[data-theme="dark"] #inputs-view .inputs-drilldown-item.is-zero:not(.is-active) {
@@ -5568,12 +5587,20 @@ body[data-theme="dark"] #inputs-view .inputs-drilldown-item.is-active .inputs-dr
 }
 
 #inputs-view .inputs-drilldown-detail-row {
-  border: none;
+  border: 1px solid color-mix(in srgb, var(--line) 38%, transparent);
   border-radius: 8px;
   background: color-mix(in srgb, var(--panel) 84%, var(--surface-strong));
   padding: 16px 14px 14px;
   display: grid;
   gap: 16px;
+  cursor: default;
+  transition: background 140ms ease, border-color 140ms ease;
+}
+
+#inputs-view .inputs-drilldown-detail-row:hover,
+#inputs-view .inputs-drilldown-detail-row:focus-within {
+  background: color-mix(in srgb, var(--surface-hover) 78%, var(--surface-strong));
+  border-color: color-mix(in srgb, var(--line) 56%, transparent);
 }
 
 #inputs-view .inputs-drilldown-detail-main {
@@ -5621,6 +5648,13 @@ body[data-theme="dark"] #inputs-view .inputs-drilldown-item.is-active .inputs-dr
   min-height: 34px;
   padding: 0 12px;
   font-size: 0.76rem;
+  cursor: pointer;
+}
+
+#inputs-view .inputs-drilldown-detail-row:hover .inputs-drilldown-detail-actions .button,
+#inputs-view .inputs-drilldown-detail-row:focus-within .inputs-drilldown-detail-actions .button {
+  border-color: color-mix(in srgb, var(--accent) 42%, transparent);
+  background: color-mix(in srgb, var(--accent-soft) 22%, var(--surface));
 }
 
 #inputs-view .inputs-drilldown-empty {
