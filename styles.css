@@ -4874,7 +4874,7 @@ body[data-theme="dark"] .entry-approved td {
   content: "";
   grid-column: 6;
   min-height: 44px;
-  background: color-mix(in srgb, #d9dfe8 72%, var(--panel));
+  background: color-mix(in srgb, #d9dfe8 64%, var(--panel));
   border-bottom: none;
 }
 
@@ -4882,7 +4882,7 @@ body[data-theme="dark"] .entry-approved td {
   content: "";
   grid-column: 7;
   min-height: 44px;
-  background: color-mix(in srgb, #d9dfe8 72%, var(--panel));
+  background: color-mix(in srgb, #d9dfe8 64%, var(--panel));
   border-bottom: none;
 }
 
@@ -4894,7 +4894,7 @@ body[data-theme="dark"] .entry-approved td {
 #inputs-view .input-row-head .cell-billable,
 #inputs-view .input-row-head .cell-notes {
   min-height: 44px;
-  background: color-mix(in srgb, #d9dfe8 72%, var(--panel)) !important;
+  background: color-mix(in srgb, #d9dfe8 64%, var(--panel)) !important;
   color: #2d3748 !important;
 }
 
@@ -4911,7 +4911,7 @@ body[data-theme="dark"] #inputs-view .input-row-head .cell-hours,
 body[data-theme="dark"] #inputs-view .input-row-head .cell-amount,
 body[data-theme="dark"] #inputs-view .input-row-head .cell-billable,
 body[data-theme="dark"] #inputs-view .input-row-head .cell-notes {
-  background: color-mix(in srgb, #5a6678 78%, var(--surface-strong)) !important;
+  background: color-mix(in srgb, #5a6678 70%, var(--surface-strong)) !important;
   color: #f3f6fb !important;
 }
 
@@ -4921,7 +4921,7 @@ body[data-theme="dark"] #inputs-view .input-row-head .cell-notes {
 
 #inputs-view .input-row-head .cell-actions {
   min-height: 44px;
-  background: color-mix(in srgb, #4b5563 78%, #d9dfe8) !important;
+  background: color-mix(in srgb, #4b5563 64%, #d9dfe8) !important;
   color: transparent !important;
   border: none !important;
   box-shadow: none;
@@ -4932,7 +4932,7 @@ body[data-theme="dark"] #inputs-view .input-row-head .cell-notes {
 }
 
 body[data-theme="dark"] #inputs-view .input-row-head .cell-actions {
-  background: color-mix(in srgb, #4b5563 82%, #5a6678) !important;
+  background: color-mix(in srgb, #4b5563 72%, #5a6678) !important;
 }
 
 #inputs-view .input-row-body .cell-project,
@@ -5440,7 +5440,7 @@ input[type="checkbox"]:disabled {
   border-top-left-radius: 10px;
   border-top-right-radius: 10px;
   border-bottom: 1px solid color-mix(in srgb, #c4ccd9 45%, transparent);
-  background: color-mix(in srgb, #d9dfe8 72%, var(--panel));
+  background: color-mix(in srgb, #d9dfe8 66%, var(--panel));
   color: #2d3748;
   font-size: 0.82rem;
   font-weight: 620;
@@ -5450,7 +5450,7 @@ input[type="checkbox"]:disabled {
 
 body[data-theme="dark"] #inputs-view .inputs-drilldown-col-head {
   border-bottom-color: color-mix(in srgb, #4f5b6d 48%, transparent);
-  background: color-mix(in srgb, #5a6678 76%, var(--surface-strong));
+  background: color-mix(in srgb, #5a6678 70%, var(--surface-strong));
   color: #f3f6fb;
 }
 
@@ -5499,7 +5499,7 @@ body[data-theme="dark"] #inputs-view .inputs-drilldown-col-head {
 
 #inputs-view .inputs-drilldown-layout > .inputs-drilldown-col:nth-child(1) .inputs-drilldown-item:hover,
 #inputs-view .inputs-drilldown-layout > .inputs-drilldown-col:nth-child(1) .inputs-drilldown-item:focus-visible {
-  background: color-mix(in srgb, var(--accent-soft) 38%, var(--surface-strong));
+  background: color-mix(in srgb, var(--accent-soft) 36%, var(--surface-strong));
 }
 
 #inputs-view .inputs-drilldown-layout > .inputs-drilldown-col:nth-child(2) .inputs-drilldown-item:hover,
@@ -5531,8 +5531,8 @@ body[data-theme="dark"] #inputs-view .inputs-drilldown-col-head {
 }
 
 #inputs-view .inputs-drilldown-layout > .inputs-drilldown-col:nth-child(1) .inputs-drilldown-item.is-active {
-  background: color-mix(in srgb, var(--accent-soft) 52%, var(--surface-strong));
-  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--accent) 48%, transparent);
+  background: color-mix(in srgb, var(--accent-soft) 50%, var(--surface-strong));
+  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--accent) 44%, transparent);
 }
 
 #inputs-view .inputs-drilldown-item.is-zero:not(.is-active) {
@@ -5561,6 +5561,11 @@ body[data-theme="dark"] #inputs-view .inputs-drilldown-layout > .inputs-drilldow
   background: color-mix(in srgb, var(--accent) 28%, var(--surface-strong));
 }
 
+body[data-theme="dark"] #inputs-view .inputs-drilldown-layout > .inputs-drilldown-col:nth-child(1) .inputs-drilldown-item:hover,
+body[data-theme="dark"] #inputs-view .inputs-drilldown-layout > .inputs-drilldown-col:nth-child(1) .inputs-drilldown-item:focus-visible {
+  background: color-mix(in srgb, var(--accent) 26%, var(--surface-strong));
+}
+
 body[data-theme="dark"] #inputs-view .inputs-drilldown-layout > .inputs-drilldown-col:nth-child(1) .inputs-drilldown-item.is-zero:hover,
 body[data-theme="dark"] #inputs-view .inputs-drilldown-layout > .inputs-drilldown-col:nth-child(1) .inputs-drilldown-item.is-zero:focus-visible {
   background: color-mix(in srgb, var(--panel) 90%, var(--surface-strong));
@@ -5571,8 +5576,8 @@ body[data-theme="dark"] #inputs-view .inputs-drilldown-layout > .inputs-drilldow
 }
 
 body[data-theme="dark"] #inputs-view .inputs-drilldown-layout > .inputs-drilldown-col:nth-child(1) .inputs-drilldown-item.is-active {
-  background: color-mix(in srgb, var(--accent) 44%, var(--surface-strong));
-  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--accent) 72%, transparent);
+  background: color-mix(in srgb, var(--accent) 42%, var(--surface-strong));
+  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--accent) 68%, transparent);
 }
 
 body[data-theme="dark"] #inputs-view .inputs-drilldown-item.is-zero:not(.is-active) {
@@ -5609,9 +5614,9 @@ body[data-theme="dark"] #inputs-view .inputs-drilldown-item.is-active .inputs-dr
 }
 
 #inputs-view .inputs-drilldown-detail-row {
-  border: 1px solid color-mix(in srgb, var(--line) 24%, transparent);
+  border: 1px solid color-mix(in srgb, var(--line) 28%, transparent);
   border-radius: 8px;
-  background: color-mix(in srgb, var(--panel) 88%, var(--surface-strong));
+  background: color-mix(in srgb, var(--panel) 86%, var(--surface-strong));
   padding: 16px 14px 14px;
   display: grid;
   gap: 16px;
@@ -5626,14 +5631,14 @@ body[data-theme="dark"] #inputs-view .inputs-drilldown-item.is-active .inputs-dr
 }
 
 body[data-theme="dark"] #inputs-view .inputs-drilldown-detail-row {
-  border-color: color-mix(in srgb, var(--line) 30%, transparent);
-  background: color-mix(in srgb, var(--panel) 76%, var(--surface-strong));
+  border-color: color-mix(in srgb, var(--line) 24%, transparent);
+  background: color-mix(in srgb, var(--panel) 82%, var(--surface-strong));
 }
 
 body[data-theme="dark"] #inputs-view .inputs-drilldown-detail-row:hover,
 body[data-theme="dark"] #inputs-view .inputs-drilldown-detail-row:focus-within {
-  background: color-mix(in srgb, var(--surface-hover) 58%, var(--surface-strong));
-  border-color: color-mix(in srgb, var(--line) 44%, transparent);
+  background: color-mix(in srgb, var(--surface-hover) 48%, var(--surface-strong));
+  border-color: color-mix(in srgb, var(--line) 34%, transparent);
 }
 
 #inputs-view .inputs-drilldown-detail-main {
