@@ -527,6 +527,8 @@
     auditView: document.getElementById("audit-page"),
     auditFilterForm: document.getElementById("audit-filter-form"),
     auditFilterDate: document.getElementById("audit-filter-date"),
+    auditFilterBeginDate: document.querySelector('#audit-filter-form input[name="beginDate"]'),
+    auditFilterEndDate: document.querySelector('#audit-filter-form input[name="endDate"]'),
     auditFilterEntity: document.getElementById("audit-filter-entity"),
     auditFilterAction: document.getElementById("audit-filter-action"),
     auditFilterActor: document.getElementById("audit-filter-actor"),
@@ -562,12 +564,16 @@
     refs.expenseActiveFilters = createHiddenFilterTarget();
   }
 
-  function ensureAuditCategoryFilterControl() {
+  function ensureAuditFilterControls() {
     if (!refs.auditFilterForm) return;
+    const form = refs.auditFilterForm;
+    const labelFor = (selector) => form.querySelector(selector)?.closest("label") || null;
+
     let categorySelect = refs.auditFilterCategory;
-    if (!categorySelect) {
-      const label = document.createElement("label");
-      label.innerHTML = `
+    let categoryLabel = labelFor("#audit-filter-category");
+    if (!categorySelect || !categoryLabel) {
+      categoryLabel = document.createElement("label");
+      categoryLabel.innerHTML = `
         <span>Category</span>
         <select id="audit-filter-category" name="category">
           <option value="">All</option>
@@ -576,12 +582,92 @@
           <option value="settings_edits">Settings edits</option>
         </select>
       `;
-      refs.auditFilterForm.appendChild(label);
-      categorySelect = label.querySelector("#audit-filter-category");
+      form.appendChild(categoryLabel);
+      categorySelect = categoryLabel.querySelector("#audit-filter-category");
     }
+
+    let dateInput = refs.auditFilterDate;
+    let dateLabel = labelFor("#audit-filter-date");
+    if (!dateInput || !dateLabel) {
+      dateLabel = document.createElement("label");
+      dateLabel.innerHTML = `
+        <span>Date Range</span>
+        <input id="audit-filter-date" name="date" type="text" readonly data-audit-date-range placeholder="Select date range" />
+      `;
+      form.appendChild(dateLabel);
+      dateInput = dateLabel.querySelector("#audit-filter-date");
+    }
+
+    const dateLabelText = dateLabel.querySelector("span");
+    if (dateLabelText) dateLabelText.textContent = "Date Range";
+    if (dateInput) {
+      dateInput.type = "text";
+      dateInput.readOnly = true;
+      dateInput.placeholder = "Select date range";
+      dateInput.setAttribute("data-audit-date-range", "true");
+      dateInput.classList.add("filter-date-range-input");
+      dateInput.value = "Select date range";
+      dateInput.dataset.dpFilter = "true";
+      dateInput.dataset.dpRange = "true";
+      dateInput.dataset.dpBody = "#audit-table-body";
+    }
+
+    let beginInput = form.querySelector('input[name="beginDate"]');
+    if (!beginInput) {
+      beginInput = document.createElement("input");
+      beginInput.type = "text";
+      beginInput.name = "beginDate";
+      beginInput.hidden = true;
+      dateLabel.appendChild(beginInput);
+    }
+    let endInput = form.querySelector('input[name="endDate"]');
+    if (!endInput) {
+      endInput = document.createElement("input");
+      endInput.type = "text";
+      endInput.name = "endDate";
+      endInput.hidden = true;
+      dateLabel.appendChild(endInput);
+    }
+
+    if (dateInput) {
+      dateInput._dpRangeFrom = beginInput;
+      dateInput._dpRangeTo = endInput;
+      dateInput._dpAnchor = dateInput.closest("[data-audit-date-range]") || dateInput;
+    }
+
+    const actorLabel = labelFor("#audit-filter-actor");
+    const entityLabel = labelFor("#audit-filter-entity");
+    const actionLabel = labelFor("#audit-filter-action");
+    [categoryLabel, dateLabel, actorLabel, entityLabel, actionLabel]
+      .filter(Boolean)
+      .forEach((node) => form.appendChild(node));
+
+    refs.auditFilterDate = dateInput || null;
+    refs.auditFilterBeginDate = beginInput || null;
+    refs.auditFilterEndDate = endInput || null;
     refs.auditFilterCategory = categorySelect || null;
   }
-  ensureAuditCategoryFilterControl();
+  ensureAuditFilterControls();
+
+  function syncAuditDateRangeField(fromIso, toIso) {
+    const input = refs.auditFilterDate;
+    if (!input) return;
+    const safeFrom = isValidDateString(fromIso) ? fromIso : "";
+    const safeTo = isValidDateString(toIso) ? toIso : "";
+    const fromInput = refs.auditFilterBeginDate;
+    const toInput = refs.auditFilterEndDate;
+    if (fromInput) {
+      fromInput.dataset.dpCanonical = safeFrom;
+      fromInput.value = safeFrom ? formatDisplayDate(safeFrom) : "";
+    }
+    if (toInput) {
+      toInput.dataset.dpCanonical = safeTo;
+      toInput.value = safeTo ? formatDisplayDate(safeTo) : "";
+    }
+    input.value = formatEntriesDateRangeDisplay(safeFrom, safeTo);
+    input.dataset.dpRangeStart = safeFrom;
+    input.dataset.dpRangeEnd = safeTo;
+  }
 
   let addClientHeaderButton = null;
   let clientLifecycleToggleWrap = null;
@@ -1906,12 +1992,18 @@
       entity: "",
       action: "",
       actor: "",
-      date: "",
+      beginDate: "",
+      endDate: "",
       category: "",
     },
     auditOffset: 0,
     auditHasMore: false,
     auditLoadingMore: false,
+    auditDateBounds: {
+      min: "",
+      max: "",
+    },
+    auditDateBoundsLoading: false,
   };
 
   setupAddClientHeaderAction();
@@ -2643,9 +2735,11 @@
       entity: "",
       action: "",
       actor: "",
-      date: "",
+      beginDate: "",
+      endDate: "",
       category: "",
     };
+    syncAuditDateRangeField("", "");
   }
 
   async function loadPersistentState() {
@@ -5882,6 +5976,19 @@
     if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
       return value;
     }
+    const isoLikeDatePrefix = value.match(/^(\d{4}-\d{2}-\d{2})(?:[T\s].*)?$/);
+    if (isoLikeDatePrefix && isValidDateString(isoLikeDatePrefix[1])) {
+      return isoLikeDatePrefix[1];
+    }
+    const parsed = new Date(value);
+    if (!Number.isNaN(parsed.getTime())) {
+      const utcDate = `${parsed.getUTCFullYear()}-${String(parsed.getUTCMonth() + 1).padStart(2, "0")}-${String(
+        parsed.getUTCDate()
+      ).padStart(2, "0")}`;
+      if (isValidDateString(utcDate)) {
+        return utcDate;
+      }
+    }
     return parseDisplayDate(value) || "";
   }
 
@@ -5901,6 +6008,12 @@
   }
 
   function auditDateBounds() {
+    if (state.auditDateBounds?.min && state.auditDateBounds?.max) {
+      return {
+        min: state.auditDateBounds.min,
+        max: state.auditDateBounds.max,
+      };
+    }
     const dates = (state.auditLogs || [])
       .map((row) => normalizeAuditDateValue(row?.changed_at || row?.changedAt || ""))
       .filter(Boolean)
@@ -5912,6 +6025,30 @@
       min: dates[0] || "",
       max: dates[dates.length - 1] || "",
     };
+  }
+
+  async function ensureFullAuditDateBounds(options = {}) {
+    if (!isAdmin(state.currentUser)) return;
+    const force = options.force === true;
+    if (!force && state.auditDateBounds?.min && state.auditDateBounds?.max) return;
+    if (state.auditDateBoundsLoading) return;
+    state.auditDateBoundsLoading = true;
+    try {
+      const all = await fetchAllAuditLogs({});
+      const dates = all
+        .map((row) => normalizeAuditDateValue(row?.changed_at || row?.changedAt || ""))
+        .filter(Boolean)
+        .sort();
+      state.auditDateBounds = {
+        min: dates[0] || "",
+        max: dates[dates.length - 1] || "",
+      };
+      renderAuditTable(filterAuditLogs(state.auditLogs));
+    } catch (error) {
+      // Keep current fallback bounds if full-range fetch fails.
+    } finally {
+      state.auditDateBoundsLoading = false;
+    }
   }
 
   function applyAuditDownloadDateBounds(beginDate, endDate) {
@@ -5992,10 +6129,11 @@
   function openAuditDownloadDialog() {
     if (!isAdmin(state.currentUser) || !refs.auditDownloadDialog) return;
     syncAuditDownloadActorOptions();
-    const existingDate = normalizeAuditDateValue(state.auditFilters?.date || "");
-    syncAuditDownloadDateInput(refs.auditDownloadBeginDate, existingDate);
-    syncAuditDownloadDateInput(refs.auditDownloadEndDate, existingDate);
-    applyAuditDownloadDateBounds(existingDate, existingDate);
+    const existingBegin = normalizeAuditDateValue(state.auditFilters?.beginDate || "");
+    const existingEnd = normalizeAuditDateValue(state.auditFilters?.endDate || "");
+    syncAuditDownloadDateInput(refs.auditDownloadBeginDate, existingBegin);
+    syncAuditDownloadDateInput(refs.auditDownloadEndDate, existingEnd);
+    applyAuditDownloadDateBounds(existingBegin, existingEnd);
     if (refs.auditDownloadActor) {
       refs.auditDownloadActor.value = state.auditFilters?.actor || "";
     }
@@ -6124,9 +6262,7 @@
           action: "list_audit_logs",
           payload: {
             filters: {
-              entityType: state.auditFilters.entity || undefined,
-              action: state.auditFilters.action || undefined,
-              actorId: state.auditFilters.actor || undefined,
+              ...buildAuditServerFilters(state.auditFilters),
               offset: append ? state.auditOffset : 0,
               limit: 100,
             },
@@ -6143,6 +6279,7 @@
       state.auditHasMore = Boolean(payload?.hasMore);
       renderAuditTable(filterAuditLogs(state.auditLogs));
       syncAuditLoadMoreButton();
+      ensureFullAuditDateBounds();
     } catch (error) {
       feedback("Unable to load audit logs.", true);
     } finally {

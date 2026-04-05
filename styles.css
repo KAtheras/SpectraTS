@@ -3604,6 +3604,14 @@ body[data-theme="dark"] .audit-detail-col {
   border-bottom: 1px solid color-mix(in srgb, var(--line) 74%, transparent);
 }
 
+.audit-page .audit-table {
+  border-top: 1px solid color-mix(in srgb, var(--line) 100%, var(--ink) 18%);
+}
+
+.audit-page .audit-table th {
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 100%, var(--ink) 18%);
+}
+
 .entries-view #filter-user,
 .entries-view #filter-client,
 .entries-view #expense-filter-user,

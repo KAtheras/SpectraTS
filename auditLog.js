@@ -344,12 +344,19 @@
 
     // Store full-range dates for picker bounds using the full audit dataset, not the filtered subset.
     if (refs.auditTableBody) {
-      const allDates = (state.auditLogs || [])
-        .map((row) => toLocalIso(row.changed_at || row.changedAt || ""))
-        .filter(Boolean)
-        .sort();
-      refs.auditTableBody.dataset.rangeMin = allDates[0] || "";
-      refs.auditTableBody.dataset.rangeMax = allDates[allDates.length - 1] || "";
+      const globalMin = toLocalIso(state?.auditDateBounds?.min || "");
+      const globalMax = toLocalIso(state?.auditDateBounds?.max || "");
+      if (globalMin && globalMax) {
+        refs.auditTableBody.dataset.rangeMin = globalMin;
+        refs.auditTableBody.dataset.rangeMax = globalMax;
+      } else {
+        const allDates = (state.auditLogs || [])
+          .map((row) => toLocalIso(row.changed_at || row.changedAt || ""))
+          .filter(Boolean)
+          .sort();
+        refs.auditTableBody.dataset.rangeMin = allDates[0] || "";
+        refs.auditTableBody.dataset.rangeMax = allDates[allDates.length - 1] || "";
+      }
     }
 
     if (!rows.length) {
@@ -465,7 +472,7 @@
   function filterAuditLogs(logs) {
     const { state } = deps();
     let rows = Array.isArray(logs) ? logs : [];
-    const { entity, action, actor, date, category } = state.auditFilters || {};
+    const { entity, action, actor, beginDate, endDate, category } = state.auditFilters || {};
     if (category) {
       rows = rows.filter((row) => auditCategoryForRow(row) === category);
     }
@@ -478,10 +485,13 @@
     if (actor) {
       rows = rows.filter((row) => row.changed_by_user_id === actor);
     }
-    if (date) {
+    if (beginDate || endDate) {
       rows = rows.filter((row) => {
-        const changedAt = row.changed_at || row.changedAt || "";
-        return changedAt.slice(0, 10) === date;
+        const changedAtIso = String(row.changed_at || row.changedAt || "").slice(0, 10);
+        if (!changedAtIso) return false;
+        if (beginDate && changedAtIso < beginDate) return false;
+        if (endDate && changedAtIso > endDate) return false;
+        return true;
       });
     }
     return rows;
@@ -602,17 +612,24 @@
 
   function applyAuditFiltersFromForm() {
     const { parseDisplayDate, refs, state } = deps();
-    const dateIso = parseDisplayDate(refs.auditFilterDate?.value) || refs.auditFilterDate?.value || "";
+    const beginRaw =
+      refs.auditFilterBeginDate?.dataset?.dpCanonical ||
+      refs.auditFilterBeginDate?.value ||
+      "";
+    const endRaw =
+      refs.auditFilterEndDate?.dataset?.dpCanonical ||
+      refs.auditFilterEndDate?.value ||
+      "";
+    const beginDate = parseDisplayDate(beginRaw) || beginRaw || "";
+    const endDate = parseDisplayDate(endRaw) || endRaw || "";
     state.auditFilters = {
       category: refs.auditFilterCategory?.value || "",
       entity: refs.auditFilterEntity?.value || "",
       action: refs.auditFilterAction?.value || "",
       actor: refs.auditFilterActor?.value || "",
-      date: dateIso || "",
+      beginDate: beginDate || "",
+      endDate: endDate || "",
     };
-    if (refs.auditFilterDate) {
-      refs.auditFilterDate.value = dateIso;
-    }
     renderAuditTable(filterAuditLogs(state.auditLogs));
     loadAuditLogs();
   }
