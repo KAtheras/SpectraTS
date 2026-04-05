@@ -3682,9 +3682,12 @@
       }
       return;
     }
-    const daySet = new Set(dates.map((item) => item.iso));
-    if (!daySet.has(state.inputsTimeSelectedDate)) {
-      state.inputsTimeSelectedDate = daySet.has(today) ? today : dates[dates.length - 1].iso;
+    const selectableDays = dates
+      .filter((item) => Number(totalsByDate[item.iso] || 0) > 0)
+      .map((item) => item.iso);
+    const selectableDaySet = new Set(selectableDays);
+    if (!selectableDaySet.has(state.inputsTimeSelectedDate)) {
+      state.inputsTimeSelectedDate = selectableDaySet.has(today) ? today : selectableDays[0] || "";
     }
     const selectedDay = state.inputsTimeSelectedDate;
 
@@ -3978,9 +3981,12 @@
       }
       return;
     }
-    const daySet = new Set(dates.map((item) => item.iso));
-    if (!daySet.has(state.inputsExpenseSelectedDate)) {
-      state.inputsExpenseSelectedDate = daySet.has(today) ? today : dates[dates.length - 1].iso;
+    const selectableDays = dates
+      .filter((item) => Number(totalsByDate[item.iso] || 0) > 0)
+      .map((item) => item.iso);
+    const selectableDaySet = new Set(selectableDays);
+    if (!selectableDaySet.has(state.inputsExpenseSelectedDate)) {
+      state.inputsExpenseSelectedDate = selectableDaySet.has(today) ? today : selectableDays[0] || "";
     }
     const selectedDay = state.inputsExpenseSelectedDate;
 
