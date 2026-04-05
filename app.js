@@ -530,6 +530,7 @@
     auditFilterEntity: document.getElementById("audit-filter-entity"),
     auditFilterAction: document.getElementById("audit-filter-action"),
     auditFilterActor: document.getElementById("audit-filter-actor"),
+    auditFilterCategory: document.getElementById("audit-filter-category"),
     auditLoadMore: document.getElementById("audit-load-more"),
     auditDownloadOpen: document.getElementById("audit-download-open"),
     auditDownloadDialog: document.getElementById("audit-download-dialog"),
@@ -560,6 +561,27 @@
     refs.expenseActiveFilters.remove();
     refs.expenseActiveFilters = createHiddenFilterTarget();
   }
+
+  function ensureAuditCategoryFilterControl() {
+    if (!refs.auditFilterForm) return;
+    let categorySelect = refs.auditFilterCategory;
+    if (!categorySelect) {
+      const label = document.createElement("label");
+      label.innerHTML = `
+        <span>Category</span>
+        <select id="audit-filter-category" name="category">
+          <option value="">All</option>
+          <option value="activity">Activity</option>
+          <option value="client_project">Client/Project</option>
+          <option value="settings_edits">Settings edits</option>
+        </select>
+      `;
+      refs.auditFilterForm.appendChild(label);
+      categorySelect = label.querySelector("#audit-filter-category");
+    }
+    refs.auditFilterCategory = categorySelect || null;
+  }
+  ensureAuditCategoryFilterControl();
 
   let addClientHeaderButton = null;
   let clientLifecycleToggleWrap = null;
@@ -1885,6 +1907,7 @@
       action: "",
       actor: "",
       date: "",
+      category: "",
     },
     auditOffset: 0,
     auditHasMore: false,
@@ -2621,6 +2644,7 @@
       action: "",
       actor: "",
       date: "",
+      category: "",
     };
   }
 
@@ -7898,6 +7922,7 @@
   refs.auditFilterAction?.addEventListener("change", applyAuditFiltersFromForm);
   refs.auditFilterActor?.addEventListener("change", applyAuditFiltersFromForm);
   refs.auditFilterDate?.addEventListener("change", applyAuditFiltersFromForm);
+  refs.auditFilterCategory?.addEventListener("change", applyAuditFiltersFromForm);
   refs.auditDownloadOpen?.addEventListener("click", function () {
     openAuditDownloadDialog();
   });

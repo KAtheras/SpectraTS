@@ -825,6 +825,277 @@ function diffKeys(before, after) {
   return changed;
 }
 
+async function logEntityAudit(
+  sql,
+  {
+    accountId,
+    context,
+    entityType,
+    entityId,
+    action,
+    beforeSnapshot,
+    afterSnapshot,
+    targetUserId = null,
+    contextClientId = null,
+    contextProjectId = null,
+  }
+) {
+  await logAudit(sql, {
+    accountId,
+    entityType,
+    entityId,
+    action,
+    changedByUserId: context?.currentUser?.id || null,
+    changedByNameSnapshot: context?.currentUser?.displayName || "",
+    targetUserId,
+    contextClientId,
+    contextProjectId,
+    beforeJson: beforeSnapshot || null,
+    afterJson: afterSnapshot || null,
+    changedFieldsJson: diffKeys(beforeSnapshot || {}, afterSnapshot || {}),
+  });
+}
+
+async function runMutationWithAudit({
+  sql,
+  accountId,
+  context,
+  entityType,
+  entityId,
+  action,
+  runMutation,
+  getBeforeSnapshot = null,
+  getAfterSnapshot = null,
+  getSnapshot = null,
+  targetUserId = null,
+  contextClientId = null,
+  contextProjectId = null,
+}) {
+  const beforeSnapshot = getBeforeSnapshot
+    ? await getBeforeSnapshot()
+    : getSnapshot
+      ? await getSnapshot()
+      : null;
+  const mutationResult = await runMutation();
+  if (mutationResult?.statusCode) {
+    return mutationResult;
+  }
+  const afterSnapshot = getAfterSnapshot
+    ? await getAfterSnapshot(beforeSnapshot, mutationResult)
+    : getSnapshot
+      ? await getSnapshot()
+      : null;
+  await logEntityAudit(sql, {
+    accountId,
+    context,
+    entityType,
+    entityId,
+    action,
+    beforeSnapshot,
+    afterSnapshot,
+    targetUserId,
+    contextClientId,
+    contextProjectId,
+  });
+  return mutationResult;
+}
+
+async function snapshotDelegation(sql, accountId, delegatorUserId, delegateUserId) {
+  if (!delegateUserId) {
+    return {
+      delegator_user_id: delegatorUserId || null,
+      delegate_user_id: null,
+      capabilities: [],
+    };
+  }
+  const rows = await sql`
+    SELECT capability
+    FROM delegations
+    WHERE account_id = ${accountId}::uuid
+      AND delegator_user_id = ${delegatorUserId || ""}
+      AND delegate_user_id = ${delegateUserId}
+    ORDER BY capability
+  `;
+  return {
+    delegator_user_id: delegatorUserId || null,
+    delegate_user_id: delegateUserId || null,
+    capabilities: (rows || [])
+      .map((row) => normalizeText(row.capability))
+      .filter(Boolean),
+  };
+}
+
+async function snapshotLevelLabels(sql, accountId) {
+  const rows = await sql`
+    SELECT level, label, permission_group
+    FROM level_labels
+    WHERE account_id = ${accountId}::uuid
+    ORDER BY level ASC
+  `;
+  return (rows || []).map((row) => ({
+    level: Number(row.level),
+    label: normalizeText(row.label),
+    permission_group: normalizeText(row.permission_group) || "staff",
+  }));
+}
+
+async function snapshotExpenseCategories(sql, accountId) {
+  const rows = await sql`
+    SELECT id, name
+    FROM expense_categories
+    WHERE account_uuid = ${accountId}::uuid
+    ORDER BY LOWER(name), id
+  `;
+  return (rows || []).map((row) => ({
+    id: normalizeText(row.id),
+    name: normalizeText(row.name),
+  }));
+}
+
+async function snapshotOfficeLocations(sql, accountId) {
+  const rows = await sql`
+    SELECT id, name, office_lead_user_id, is_active
+    FROM office_locations
+    WHERE account_id = ${accountId}::uuid
+    ORDER BY LOWER(name), id
+  `;
+  return (rows || []).map((row) => ({
+    id: normalizeText(row.id),
+    name: normalizeText(row.name),
+    office_lead_user_id: normalizeText(row.office_lead_user_id),
+    is_active: row.is_active !== false,
+  }));
+}
+
+async function snapshotCorporateFunctions(sql, accountId) {
+  const groupRows = await sql`
+    SELECT id, name, sort_order
+    FROM corporate_function_groups
+    WHERE account_id = ${accountId}::uuid
+    ORDER BY sort_order ASC, LOWER(name), id
+  `;
+  const categoryRows = await sql`
+    SELECT id, group_id, group_name, name, sort_order
+    FROM corporate_function_categories
+    WHERE account_id = ${accountId}::uuid
+    ORDER BY sort_order ASC, LOWER(name), id
+  `;
+  return {
+    groups: (groupRows || []).map((row) => ({
+      id: normalizeText(row.id),
+      name: normalizeText(row.name),
+      sort_order: Number(row.sort_order) || 0,
+    })),
+    categories: (categoryRows || []).map((row) => ({
+      id: normalizeText(row.id),
+      group_id: normalizeText(row.group_id),
+      group_name: normalizeText(row.group_name),
+      name: normalizeText(row.name),
+      sort_order: Number(row.sort_order) || 0,
+    })),
+  };
+}
+
+async function snapshotRolePermissions(sql, accountId) {
+  const rows = await sql`
+    SELECT
+      pr.key AS role_key,
+      pc.key AS capability_key,
+      ps.key AS scope_key,
+      rp.allowed AS allowed
+    FROM role_permissions rp
+    JOIN permission_roles pr ON pr.id = rp.role_id
+    JOIN permission_capabilities pc ON pc.id = rp.capability_id
+    JOIN permission_scopes ps ON ps.id = rp.scope_id
+    WHERE rp.allowed = TRUE
+      AND ps.key = 'own_office'
+    ORDER BY pr.key, pc.key
+  `;
+  return (rows || []).map((row) => ({
+    role_key: normalizeText(row.role_key),
+    capability_key: normalizeText(row.capability_key),
+    scope_key: normalizeText(row.scope_key),
+    allowed: row.allowed === true,
+  }));
+}
+
+async function snapshotClientById(sql, clientId, accountId) {
+  if (!clientId) return null;
+  const rows = await sql`
+    SELECT
+      id,
+      name,
+      office_id,
+      client_lead_id,
+      business_contact_name,
+      business_contact_email,
+      business_contact_phone,
+      billing_contact_name,
+      billing_contact_email,
+      billing_contact_phone,
+      address_street,
+      address_city,
+      address_state,
+      address_postal,
+      is_active
+    FROM clients
+    WHERE id = ${clientId}
+      AND account_id = ${accountId}::uuid
+    LIMIT 1
+  `;
+  const row = rows[0];
+  if (!row) return null;
+  return {
+    id: row.id,
+    name: normalizeText(row.name),
+    office_id: normalizeText(row.office_id),
+    client_lead_id: normalizeText(row.client_lead_id),
+    business_contact_name: normalizeText(row.business_contact_name),
+    business_contact_email: normalizeText(row.business_contact_email),
+    business_contact_phone: normalizeText(row.business_contact_phone),
+    billing_contact_name: normalizeText(row.billing_contact_name),
+    billing_contact_email: normalizeText(row.billing_contact_email),
+    billing_contact_phone: normalizeText(row.billing_contact_phone),
+    address_street: normalizeText(row.address_street),
+    address_city: normalizeText(row.address_city),
+    address_state: normalizeText(row.address_state),
+    address_postal: normalizeText(row.address_postal),
+    is_active: row.is_active !== false,
+  };
+}
+
+async function snapshotProjectById(sql, projectId, accountId) {
+  if (!projectId) return null;
+  const rows = await sql`
+    SELECT
+      p.id,
+      p.name,
+      p.client_id,
+      p.office_id,
+      p.project_lead_id,
+      p.budget_amount,
+      p.is_active,
+      c.name AS client_name
+    FROM projects p
+    JOIN clients c ON c.id = p.client_id
+    WHERE p.id = ${projectId}
+      AND p.account_id = ${accountId}::uuid
+    LIMIT 1
+  `;
+  const row = rows[0];
+  if (!row) return null;
+  return {
+    id: row.id,
+    name: normalizeText(row.name),
+    client_id: row.client_id || null,
+    client_name: normalizeText(row.client_name),
+    office_id: normalizeText(row.office_id),
+    project_lead_id: normalizeText(row.project_lead_id),
+    budget_amount: row.budget_amount !== null && row.budget_amount !== undefined ? Number(row.budget_amount) : null,
+    is_active: row.is_active !== false,
+  };
+}
+
 function buildPermissionsPayload(currentUser, permissionIndex) {
   const can = (capability, ctx = {}) =>
     permissions.can(currentUser, capability, {
@@ -3775,18 +4046,48 @@ exports.handler = async function handler(event) {
           return errorResponse(403, "Access denied.");
         }
         mutationResult = await addClient(sql, request.payload || {}, accountId);
+        if (mutationResult?.statusCode) return mutationResult;
+        const clientName = normalizeText(request.payload?.clientName);
+        const createdClient = await findClient(sql, clientName, accountId);
+        const afterSnapshot = await snapshotClientById(sql, createdClient?.id || null, accountId);
+        await logEntityAudit(sql, {
+          accountId,
+          context,
+          entityType: "client",
+          entityId: createdClient?.id || randomId(),
+          action: "create",
+          beforeSnapshot: null,
+          afterSnapshot,
+          contextClientId: createdClient?.id || null,
+        });
         break;
       }
       case "add_project": {
         if (!isAdmin(context.currentUser) && !isExecutive(context.currentUser)) {
           return errorResponse(403, "Executive or Admin access required.");
         }
+        const clientName = normalizeText(request.payload?.clientName);
+        const projectName = normalizeText(request.payload?.projectName);
         mutationResult = await addProject(
           sql,
           request.payload || {},
           context.currentUser,
           accountId
         );
+        if (mutationResult?.statusCode) return mutationResult;
+        const createdProject = await findProject(sql, clientName, projectName, accountId);
+        const afterSnapshot = await snapshotProjectById(sql, createdProject?.id || null, accountId);
+        await logEntityAudit(sql, {
+          accountId,
+          context,
+          entityType: "project",
+          entityId: createdProject?.id || `${clientName}:${projectName}`,
+          action: "create",
+          beforeSnapshot: null,
+          afterSnapshot,
+          contextClientId: createdProject?.client_id || null,
+          contextProjectId: createdProject?.id || null,
+        });
         break;
       }
       case "rename_client": {
@@ -3808,7 +4109,20 @@ exports.handler = async function handler(event) {
         if (!canRename) {
           return errorResponse(403, "Access denied.");
         }
+        const beforeSnapshot = await snapshotClientById(sql, targetClient.id, accountId);
         mutationResult = await renameClient(sql, request.payload || {}, accountId);
+        if (mutationResult?.statusCode) return mutationResult;
+        const afterSnapshot = await snapshotClientById(sql, targetClient.id, accountId);
+        await logEntityAudit(sql, {
+          accountId,
+          context,
+          entityType: "client",
+          entityId: targetClient.id,
+          action: "update",
+          beforeSnapshot,
+          afterSnapshot,
+          contextClientId: targetClient.id,
+        });
         break;
       }
       case "update_client": {
@@ -3830,19 +4144,66 @@ exports.handler = async function handler(event) {
         if (!canEdit) {
           return errorResponse(403, "Access denied.");
         }
+        const beforeSnapshot = await snapshotClientById(sql, targetClient.id, accountId);
         mutationResult = await updateClient(sql, request.payload || {}, accountId);
+        if (mutationResult?.statusCode) return mutationResult;
+        const afterSnapshot = await snapshotClientById(sql, targetClient.id, accountId);
+        await logEntityAudit(sql, {
+          accountId,
+          context,
+          entityType: "client",
+          entityId: targetClient.id,
+          action: "update",
+          beforeSnapshot,
+          afterSnapshot,
+          contextClientId: targetClient.id,
+        });
         break;
       }
       case "rename_project": {
         const adminError = requireAdmin(context);
         if (adminError) return adminError;
+        const clientName = normalizeText(request.payload?.clientName);
+        const projectName = normalizeText(request.payload?.projectName);
+        const targetProject = await findProject(sql, clientName, projectName, accountId);
+        const beforeSnapshot = await snapshotProjectById(sql, targetProject?.id || null, accountId);
         mutationResult = await renameProject(sql, request.payload || {}, accountId);
+        if (mutationResult?.statusCode) return mutationResult;
+        const afterSnapshot = await snapshotProjectById(sql, targetProject?.id || null, accountId);
+        await logEntityAudit(sql, {
+          accountId,
+          context,
+          entityType: "project",
+          entityId: targetProject?.id || `${clientName}:${projectName}`,
+          action: "update",
+          beforeSnapshot,
+          afterSnapshot,
+          contextClientId: beforeSnapshot?.client_id || afterSnapshot?.client_id || null,
+          contextProjectId: targetProject?.id || null,
+        });
         break;
       }
       case "update_project": {
         const adminError = requireAdmin(context);
         if (adminError) return adminError;
+        const clientName = normalizeText(request.payload?.clientName);
+        const projectName = normalizeText(request.payload?.projectName);
+        const existingProject = await findProject(sql, clientName, projectName, accountId);
+        const beforeSnapshot = await snapshotProjectById(sql, existingProject?.id || null, accountId);
         mutationResult = await updateProject(sql, request.payload || {}, context.currentUser, accountId);
+        if (mutationResult?.statusCode) return mutationResult;
+        const afterSnapshot = await snapshotProjectById(sql, existingProject?.id || null, accountId);
+        await logEntityAudit(sql, {
+          accountId,
+          context,
+          entityType: "project",
+          entityId: existingProject?.id || normalizeText(request.payload?.projectId) || `${clientName}:${projectName}`,
+          action: "update",
+          beforeSnapshot,
+          afterSnapshot,
+          contextClientId: beforeSnapshot?.client_id || afterSnapshot?.client_id || null,
+          contextProjectId: existingProject?.id || null,
+        });
         break;
       }
       case "create_department": {
@@ -3850,20 +4211,81 @@ exports.handler = async function handler(event) {
           return errorResponse(403, "Access denied.");
         }
         mutationResult = await createDepartment(sql, request.payload || {}, accountId);
+        if (mutationResult?.statusCode) return mutationResult;
+        const afterSnapshot = mutationResult
+          ? {
+              id: normalizeText(mutationResult.id),
+              name: normalizeText(mutationResult.name),
+            }
+          : null;
+        await logEntityAudit(sql, {
+          accountId,
+          context,
+          entityType: "department",
+          entityId: afterSnapshot?.id || randomId(),
+          action: "create",
+          beforeSnapshot: null,
+          afterSnapshot,
+        });
         break;
       }
       case "rename_department": {
         if (!can("manage_departments")) {
           return errorResponse(403, "Access denied.");
         }
+        const departmentId = normalizeText(request.payload?.id);
+        const beforeRows = await sql`
+          SELECT id, name
+          FROM departments
+          WHERE id = ${departmentId}
+            AND account_id = ${accountId}::uuid
+          LIMIT 1
+        `;
+        const beforeSnapshot = beforeRows[0]
+          ? { id: normalizeText(beforeRows[0].id), name: normalizeText(beforeRows[0].name) }
+          : null;
         mutationResult = await renameDepartment(sql, request.payload || {}, accountId);
+        if (mutationResult?.statusCode) return mutationResult;
+        const afterSnapshot = mutationResult
+          ? { id: normalizeText(mutationResult.id), name: normalizeText(mutationResult.name) }
+          : null;
+        await logEntityAudit(sql, {
+          accountId,
+          context,
+          entityType: "department",
+          entityId: afterSnapshot?.id || departmentId || randomId(),
+          action: "update",
+          beforeSnapshot,
+          afterSnapshot,
+        });
         break;
       }
       case "delete_department": {
         if (!can("manage_departments")) {
           return errorResponse(403, "Access denied.");
         }
+        const departmentId = normalizeText(request.payload?.id);
+        const beforeRows = await sql`
+          SELECT id, name
+          FROM departments
+          WHERE id = ${departmentId}
+            AND account_id = ${accountId}::uuid
+          LIMIT 1
+        `;
+        const beforeSnapshot = beforeRows[0]
+          ? { id: normalizeText(beforeRows[0].id), name: normalizeText(beforeRows[0].name) }
+          : null;
         mutationResult = await deleteDepartment(sql, request.payload || {}, accountId);
+        if (mutationResult?.statusCode) return mutationResult;
+        await logEntityAudit(sql, {
+          accountId,
+          context,
+          entityType: "department",
+          entityId: departmentId || randomId(),
+          action: "delete",
+          beforeSnapshot,
+          afterSnapshot: null,
+        });
         break;
       }
       case "set_user_department": {
@@ -3908,6 +4330,9 @@ exports.handler = async function handler(event) {
         if (!can("manage_settings_access", { resourceOfficeId: context.currentUser?.officeId || null })) {
           return errorResponse(403, "Access denied.");
         }
+        const beforeSnapshot = {
+          permissions: await snapshotRolePermissions(sql, accountId),
+        };
         const items = Array.isArray(request.payload?.rolePermissions)
           ? request.payload.rolePermissions
           : [];
@@ -3988,39 +4413,93 @@ exports.handler = async function handler(event) {
         }
 
         mutationResult = await loadState(sql, context.currentUser);
+        const afterSnapshot = {
+          permissions: await snapshotRolePermissions(sql, accountId),
+        };
+        await logEntityAudit(sql, {
+          accountId,
+          context,
+          entityType: "role_permission",
+          entityId: "own_office",
+          action: "update",
+          beforeSnapshot,
+          afterSnapshot,
+        });
         break;
       }
       case "create_delegation": {
         if (!can("can_delegate")) {
           return errorResponse(403, "Access denied.");
         }
-        mutationResult = await createDelegation(
+        const delegateUserId = normalizeText(request.payload?.delegateUserId);
+        mutationResult = await runMutationWithAudit({
           sql,
-          { ...(request.payload || {}), delegatorUserId: context.currentUser?.id || "" },
-          accountId
-        );
+          accountId,
+          context,
+          entityType: "delegation",
+          entityId: `${context.currentUser?.id || ""}:${delegateUserId || ""}`,
+          action: "update",
+          runMutation: () =>
+            createDelegation(
+              sql,
+              { ...(request.payload || {}), delegatorUserId: context.currentUser?.id || "" },
+              accountId
+            ),
+          getSnapshot: () => snapshotDelegation(sql, accountId, context.currentUser?.id || null, delegateUserId),
+          targetUserId: delegateUserId || null,
+        });
         break;
       }
       case "delete_delegation": {
         if (!can("can_delegate")) {
           return errorResponse(403, "Access denied.");
         }
-        mutationResult = await deleteDelegation(
+        const delegateUserId = normalizeText(request.payload?.delegateUserId);
+        mutationResult = await runMutationWithAudit({
           sql,
-          { ...(request.payload || {}), delegatorUserId: context.currentUser?.id || "" },
-          accountId
-        );
+          accountId,
+          context,
+          entityType: "delegation",
+          entityId: `${context.currentUser?.id || ""}:${delegateUserId || ""}`,
+          action: "delete",
+          runMutation: () =>
+            deleteDelegation(
+              sql,
+              { ...(request.payload || {}), delegatorUserId: context.currentUser?.id || "" },
+              accountId
+            ),
+          getBeforeSnapshot: () =>
+            snapshotDelegation(sql, accountId, context.currentUser?.id || null, delegateUserId),
+          getAfterSnapshot: () => ({
+            delegator_user_id: context.currentUser?.id || null,
+            delegate_user_id: delegateUserId || null,
+            capabilities: [],
+          }),
+          targetUserId: delegateUserId || null,
+        });
         break;
       }
       case "save_delegate_capabilities": {
         if (!can("can_delegate")) {
           return errorResponse(403, "Access denied.");
         }
-        mutationResult = await saveDelegateCapabilities(
+        const delegateUserId = normalizeText(request.payload?.delegateUserId);
+        mutationResult = await runMutationWithAudit({
           sql,
-          { ...(request.payload || {}), delegatorUserId: context.currentUser?.id || "" },
-          accountId
-        );
+          accountId,
+          context,
+          entityType: "delegation",
+          entityId: `${context.currentUser?.id || ""}:${delegateUserId || ""}`,
+          action: "update",
+          runMutation: () =>
+            saveDelegateCapabilities(
+              sql,
+              { ...(request.payload || {}), delegatorUserId: context.currentUser?.id || "" },
+              accountId
+            ),
+          getSnapshot: () => snapshotDelegation(sql, accountId, context.currentUser?.id || null, delegateUserId),
+          targetUserId: delegateUserId || null,
+        });
         break;
       }
       case "remove_client": {
@@ -4035,7 +4514,17 @@ exports.handler = async function handler(event) {
         ) {
           return errorResponse(403, "Access denied.");
         }
-        mutationResult = await removeClient(sql, request.payload || {}, accountId);
+        mutationResult = await runMutationWithAudit({
+          sql,
+          accountId,
+          context,
+          entityType: "client",
+          entityId: targetClient.id,
+          action: "delete",
+          runMutation: () => removeClient(sql, request.payload || {}, accountId),
+          getBeforeSnapshot: () => snapshotClientById(sql, targetClient.id, accountId),
+          contextClientId: targetClient.id,
+        });
         break;
       }
       case "deactivate_client": {
@@ -4050,7 +4539,17 @@ exports.handler = async function handler(event) {
         ) {
           return errorResponse(403, "Access denied.");
         }
-        mutationResult = await deactivateClient(sql, request.payload || {}, accountId);
+        mutationResult = await runMutationWithAudit({
+          sql,
+          accountId,
+          context,
+          entityType: "client",
+          entityId: targetClient.id,
+          action: "update",
+          runMutation: () => deactivateClient(sql, request.payload || {}, accountId),
+          getSnapshot: () => snapshotClientById(sql, targetClient.id, accountId),
+          contextClientId: targetClient.id,
+        });
         break;
       }
       case "reactivate_client": {
@@ -4065,12 +4564,43 @@ exports.handler = async function handler(event) {
         ) {
           return errorResponse(403, "Access denied.");
         }
-        mutationResult = await reactivateClient(sql, request.payload || {}, accountId);
+        mutationResult = await runMutationWithAudit({
+          sql,
+          accountId,
+          context,
+          entityType: "client",
+          entityId: targetClient.id,
+          action: "update",
+          runMutation: () => reactivateClient(sql, request.payload || {}, accountId),
+          getSnapshot: () => snapshotClientById(sql, targetClient.id, accountId),
+          contextClientId: targetClient.id,
+        });
         break;
       }
       case "remove_project": {
+        let targetProject = null;
         if (isAdmin(context.currentUser)) {
-          mutationResult = await removeProject(sql, request.payload || {}, accountId);
+          targetProject = await findProject(
+            sql,
+            normalizeText(request.payload?.clientName),
+            normalizeText(request.payload?.projectName),
+            accountId
+          );
+          if (!targetProject) {
+            return errorResponse(404, "Project not found.");
+          }
+          mutationResult = await runMutationWithAudit({
+            sql,
+            accountId,
+            context,
+            entityType: "project",
+            entityId: targetProject.id,
+            action: "delete",
+            runMutation: () => removeProject(sql, request.payload || {}, accountId),
+            getBeforeSnapshot: () => snapshotProjectById(sql, targetProject.id, accountId),
+            contextClientId: targetProject.client_id || null,
+            contextProjectId: targetProject.id,
+          });
           break;
         }
         if (!isManager(context.currentUser)) {
@@ -4078,14 +4608,14 @@ exports.handler = async function handler(event) {
         }
         const clientName = normalizeText(request.payload?.clientName);
         const projectName = normalizeText(request.payload?.projectName);
-        const project = await findProject(sql, clientName, projectName, accountId);
-        if (!project) {
+        targetProject = await findProject(sql, clientName, projectName, accountId);
+        if (!targetProject) {
           return errorResponse(404, "Project not found.");
         }
         const projectRow = await sql`
           SELECT created_by
           FROM projects
-          WHERE id = ${project.id}
+          WHERE id = ${targetProject.id}
             AND account_id = ${accountId}::uuid
           LIMIT 1
         `;
@@ -4093,12 +4623,44 @@ exports.handler = async function handler(event) {
         if (createdBy !== context.currentUser.id) {
           return errorResponse(403, "You can only remove projects you created.");
       }
-      mutationResult = await removeProject(sql, request.payload || {}, accountId);
+      mutationResult = await runMutationWithAudit({
+        sql,
+        accountId,
+        context,
+        entityType: "project",
+        entityId: targetProject.id,
+        action: "delete",
+        runMutation: () => removeProject(sql, request.payload || {}, accountId),
+        getBeforeSnapshot: () => snapshotProjectById(sql, targetProject.id, accountId),
+        contextClientId: targetProject.client_id || null,
+        contextProjectId: targetProject.id,
+      });
       break;
     }
       case "deactivate_project": {
+        let targetProject = null;
         if (isAdmin(context.currentUser)) {
-          mutationResult = await deactivateProject(sql, request.payload || {}, accountId);
+          targetProject = await findProject(
+            sql,
+            normalizeText(request.payload?.clientName),
+            normalizeText(request.payload?.projectName),
+            accountId
+          );
+          if (!targetProject) {
+            return errorResponse(404, "Project not found.");
+          }
+          mutationResult = await runMutationWithAudit({
+            sql,
+            accountId,
+            context,
+            entityType: "project",
+            entityId: targetProject.id,
+            action: "update",
+            runMutation: () => deactivateProject(sql, request.payload || {}, accountId),
+            getSnapshot: () => snapshotProjectById(sql, targetProject.id, accountId),
+            contextClientId: targetProject.client_id || null,
+            contextProjectId: targetProject.id,
+          });
           break;
         }
         const managerUser = isManager(context.currentUser);
@@ -4108,14 +4670,14 @@ exports.handler = async function handler(event) {
         }
         const clientName = normalizeText(request.payload?.clientName);
         const projectName = normalizeText(request.payload?.projectName);
-        const project = await findProject(sql, clientName, projectName, accountId);
-        if (!project) {
+        targetProject = await findProject(sql, clientName, projectName, accountId);
+        if (!targetProject) {
           return errorResponse(404, "Project not found.");
         }
         const projectRow = await sql`
           SELECT created_by
           FROM projects
-          WHERE id = ${project.id}
+          WHERE id = ${targetProject.id}
             AND account_id = ${accountId}::uuid
           LIMIT 1
         `;
@@ -4123,12 +4685,44 @@ exports.handler = async function handler(event) {
         if (managerUser && !executiveUser && createdBy !== context.currentUser.id) {
           return errorResponse(403, "You can only deactivate projects you created.");
         }
-        mutationResult = await deactivateProject(sql, request.payload || {}, accountId);
+        mutationResult = await runMutationWithAudit({
+          sql,
+          accountId,
+          context,
+          entityType: "project",
+          entityId: targetProject.id,
+          action: "update",
+          runMutation: () => deactivateProject(sql, request.payload || {}, accountId),
+          getSnapshot: () => snapshotProjectById(sql, targetProject.id, accountId),
+          contextClientId: targetProject.client_id || null,
+          contextProjectId: targetProject.id,
+        });
         break;
       }
       case "reactivate_project": {
+        let targetProject = null;
         if (isAdmin(context.currentUser)) {
-          mutationResult = await reactivateProject(sql, request.payload || {}, accountId);
+          targetProject = await findProject(
+            sql,
+            normalizeText(request.payload?.clientName),
+            normalizeText(request.payload?.projectName),
+            accountId
+          );
+          if (!targetProject) {
+            return errorResponse(404, "Project not found.");
+          }
+          mutationResult = await runMutationWithAudit({
+            sql,
+            accountId,
+            context,
+            entityType: "project",
+            entityId: targetProject.id,
+            action: "update",
+            runMutation: () => reactivateProject(sql, request.payload || {}, accountId),
+            getSnapshot: () => snapshotProjectById(sql, targetProject.id, accountId),
+            contextClientId: targetProject.client_id || null,
+            contextProjectId: targetProject.id,
+          });
           break;
         }
         const managerUser = isManager(context.currentUser);
@@ -4138,14 +4732,14 @@ exports.handler = async function handler(event) {
         }
         const clientName = normalizeText(request.payload?.clientName);
         const projectName = normalizeText(request.payload?.projectName);
-        const project = await findProject(sql, clientName, projectName, accountId);
-        if (!project) {
+        targetProject = await findProject(sql, clientName, projectName, accountId);
+        if (!targetProject) {
           return errorResponse(404, "Project not found.");
         }
         const projectRow = await sql`
           SELECT created_by
           FROM projects
-          WHERE id = ${project.id}
+          WHERE id = ${targetProject.id}
             AND account_id = ${accountId}::uuid
           LIMIT 1
         `;
@@ -4153,7 +4747,18 @@ exports.handler = async function handler(event) {
         if (managerUser && !executiveUser && createdBy !== context.currentUser.id) {
           return errorResponse(403, "You can only reactivate projects you created.");
         }
-        mutationResult = await reactivateProject(sql, request.payload || {}, accountId);
+        mutationResult = await runMutationWithAudit({
+          sql,
+          accountId,
+          context,
+          entityType: "project",
+          entityId: targetProject.id,
+          action: "update",
+          runMutation: () => reactivateProject(sql, request.payload || {}, accountId),
+          getSnapshot: () => snapshotProjectById(sql, targetProject.id, accountId),
+          contextClientId: targetProject.client_id || null,
+          contextProjectId: targetProject.id,
+        });
         break;
       }
       case "update_user_rates": {
@@ -4407,11 +5012,36 @@ exports.handler = async function handler(event) {
         if (!can("manage_settings_access")) {
           return errorResponse(403, "Access denied.");
         }
-        mutationResult = await updateNotificationRule(
+        const eventType = normalizeText(request.payload?.eventType);
+        const getRuleSnapshot = async () => {
+          if (!eventType) return null;
+          const rows = await sql`
+            SELECT event_type, inbox_enabled, email_enabled, enabled
+            FROM notification_rules
+            WHERE account_id = ${accountId}::uuid
+              AND event_type = ${eventType}
+            LIMIT 1
+          `;
+          const rule = rows[0];
+          return rule
+            ? {
+                event_type: normalizeText(rule.event_type),
+                inbox_enabled: rule.inbox_enabled === true,
+                email_enabled: rule.email_enabled === true,
+                enabled: rule.enabled === true,
+              }
+            : null;
+        };
+        mutationResult = await runMutationWithAudit({
           sql,
-          request.payload || {},
-          accountId
-        );
+          accountId,
+          context,
+          entityType: "notification_rule",
+          entityId: eventType || "unknown",
+          action: "update",
+          runMutation: () => updateNotificationRule(sql, request.payload || {}, accountId),
+          getSnapshot: getRuleSnapshot,
+        });
         break;
       }
       case "add_user": {
@@ -4555,28 +5185,65 @@ exports.handler = async function handler(event) {
         if (!can("manage_levels", { resourceOfficeId: context.currentUser?.officeId || null })) {
           return errorResponse(403, "Access denied.");
         }
-        mutationResult = await updateLevelLabels(sql, request.payload || {}, accountId);
+        mutationResult = await runMutationWithAudit({
+          sql,
+          accountId,
+          context,
+          entityType: "level_label",
+          entityId: "all",
+          action: "update",
+          runMutation: () => updateLevelLabels(sql, request.payload || {}, accountId),
+          getSnapshot: async () => ({ levels: await snapshotLevelLabels(sql, accountId) }),
+        });
         break;
       }
       case "update_expense_categories": {
         if (!can("manage_expense_categories", { resourceOfficeId: context.currentUser?.officeId || null })) {
           return errorResponse(403, "Access denied.");
         }
-        mutationResult = await updateExpenseCategories(sql, request.payload || {}, accountId);
+        mutationResult = await runMutationWithAudit({
+          sql,
+          accountId,
+          context,
+          entityType: "expense_category",
+          entityId: "all",
+          action: "update",
+          runMutation: () => updateExpenseCategories(sql, request.payload || {}, accountId),
+          getSnapshot: async () => ({ categories: await snapshotExpenseCategories(sql, accountId) }),
+        });
         break;
       }
       case "update_corporate_function_categories": {
         if (!can("manage_expense_categories", { resourceOfficeId: context.currentUser?.officeId || null })) {
           return errorResponse(403, "Access denied.");
         }
-        mutationResult = await updateCorporateFunctionCategories(sql, request.payload || {}, accountId);
+        mutationResult = await runMutationWithAudit({
+          sql,
+          accountId,
+          context,
+          entityType: "corporate_function_category",
+          entityId: "all",
+          action: "update",
+          runMutation: () =>
+            updateCorporateFunctionCategories(sql, request.payload || {}, accountId),
+          getSnapshot: () => snapshotCorporateFunctions(sql, accountId),
+        });
         break;
       }
       case "update_office_locations": {
         if (!can("manage_office_locations", { resourceOfficeId: context.currentUser?.officeId || null })) {
           return errorResponse(403, "Access denied.");
         }
-        mutationResult = await updateOfficeLocations(sql, request.payload || {}, accountId);
+        mutationResult = await runMutationWithAudit({
+          sql,
+          accountId,
+          context,
+          entityType: "office_location",
+          entityId: "all",
+          action: "update",
+          runMutation: () => updateOfficeLocations(sql, request.payload || {}, accountId),
+          getSnapshot: async () => ({ offices: await snapshotOfficeLocations(sql, accountId) }),
+        });
         break;
       }
       case "list_audit_logs": {
