@@ -982,12 +982,17 @@
     }
     const currentBudget = Number.isFinite(projectRow.budget) ? projectRow.budget : null;
     const projectLeadId = String(projectRow?.projectLeadId || projectRow?.project_lead_id || "").trim() || null;
+    const managerNames = userNamesForIds(managerIdsForProject(normalizedClient, normalizedProject));
+    const staffNames = userNamesForIds(staffIdsForProject(normalizedClient, normalizedProject));
     const projectDialog = await openProjectDialog({
       mode: "edit",
       projectId: String(projectRow?.id || "").trim() || null,
+      clientName: normalizedClient,
       projectName: normalizedProject,
       budgetAmount: currentBudget,
       projectLeadId,
+      managerNames,
+      staffNames,
     });
     if (!projectDialog) {
       projectDialogReturnContext = null;
@@ -1002,6 +1007,9 @@
       if (!opened) {
         projectDialogReturnContext = null;
       }
+      return;
+    }
+    if (projectDialog.openAdvancedBudget) {
       return;
     }
     const nextName = projectDialog.projectName;
@@ -1027,7 +1035,7 @@
     render();
   }
 
-  async function openAdvancedBudgetModal(projectId) {
+  async function openAdvancedBudgetModal(projectId, options = {}) {
     const normalizedProjectId = String(projectId || "").trim();
     if (!normalizedProjectId) {
       feedback("Project not found.", true);
@@ -1039,25 +1047,30 @@
       feedback("Project not found.", true);
       return;
     }
+    const normalizeId = (value) => String(value || "").trim().toLowerCase();
+    const toNullableNumber = (value) => {
+      if (value === null || value === undefined || value === "") return null;
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? parsed : null;
+    };
+    const usersById = new Map(
+      (state.users || [])
+        .map((user) => [normalizeId(user?.id), user])
+        .filter((item) => item[0])
+    );
 
     const assignmentMembers = (state.assignments?.projectMembers || [])
       .filter((assignment) => String(assignment?.projectId || "").trim() === normalizedProjectId)
       .map((assignment) => ({
         userId: String(assignment?.userId || "").trim(),
-        rateOverride:
-          assignment?.chargeRateOverride === null || assignment?.chargeRateOverride === undefined
-            ? null
-            : Number(assignment.chargeRateOverride),
+        rateOverride: toNullableNumber(assignment?.chargeRateOverride),
       }))
       .filter((item) => item.userId);
     const managerMembers = (state.assignments?.managerProjects || [])
       .filter((assignment) => String(assignment?.projectId || "").trim() === normalizedProjectId)
       .map((assignment) => ({
         userId: String(assignment?.managerId || "").trim(),
-        rateOverride:
-          assignment?.chargeRateOverride === null || assignment?.chargeRateOverride === undefined
-            ? null
-            : Number(assignment.chargeRateOverride),
+        rateOverride: toNullableNumber(assignment?.chargeRateOverride),
       }))
       .filter((item) => item.userId);
     const baseRows = [...assignmentMembers, ...managerMembers];
@@ -1065,12 +1078,9 @@
       .filter((item) => String(item?.projectId || "").trim() === normalizedProjectId)
       .map((item) => ({
         userId: String(item?.userId || "").trim(),
-        budgetHours:
-          item?.budgetHours === null || item?.budgetHours === undefined ? null : Number(item.budgetHours),
-        budgetAmount:
-          item?.budgetAmount === null || item?.budgetAmount === undefined ? null : Number(item.budgetAmount),
-        rateOverride:
-          item?.rateOverride === null || item?.rateOverride === undefined ? null : Number(item.rateOverride),
+        budgetHours: toNullableNumber(item?.budgetHours),
+        budgetAmount: toNullableNumber(item?.budgetAmount),
+        rateOverride: toNullableNumber(item?.rateOverride),
       }))
       .filter((item) => item.userId);
     const budgetsByUserId = new Map(existingBudgets.map((item) => [item.userId, item]));
@@ -1085,22 +1095,27 @@
     });
 
     let rows = Array.from(uniqueByUserId.values()).map((item) => {
-      const user = getUserById(item.userId);
+      const user = usersById.get(normalizeId(item.userId)) || getUserById(item.userId);
       const budgetRow = budgetsByUserId.get(item.userId) || null;
-      const baseRateRaw = user?.baseRate ?? user?.base_rate ?? null;
-      const rateFromUser = Number.isFinite(Number(baseRateRaw)) ? Number(baseRateRaw) : null;
-      const rateValue = Number.isFinite(Number(budgetRow?.rateOverride))
-        ? Number(budgetRow.rateOverride)
-        : Number.isFinite(Number(item.rateOverride))
-          ? Number(item.rateOverride)
-          : rateFromUser;
+      const rateFromUser = toNullableNumber(user?.baseRate ?? user?.base_rate);
+      const rateValue = toNullableNumber(budgetRow?.rateOverride) ?? toNullableNumber(item.rateOverride) ?? rateFromUser;
+      const memberLevel = Number.isFinite(Number(user?.level)) ? Number(user.level) : null;
+      const memberTitle = memberLevel ? levelLabel(memberLevel) : String(user?.role || user?.permissionGroup || "").trim();
       return {
         userId: item.userId,
         memberName: String(user?.displayName || user?.username || item.userId),
-        rateOverride: Number.isFinite(Number(rateValue)) ? Number(rateValue) : null,
-        budgetHours: Number.isFinite(Number(budgetRow?.budgetHours)) ? Number(budgetRow.budgetHours) : null,
-        budgetAmount: Number.isFinite(Number(budgetRow?.budgetAmount)) ? Number(budgetRow.budgetAmount) : null,
+        memberTitle,
+        memberLevel,
+        rateOverride: toNullableNumber(rateValue),
+        budgetHours: toNullableNumber(budgetRow?.budgetHours),
+        budgetAmount: toNullableNumber(budgetRow?.budgetAmount),
       };
+    });
+    rows.sort((a, b) => {
+      const leftLevel = Number.isFinite(Number(a?.memberLevel)) ? Number(a.memberLevel) : 0;
+      const rightLevel = Number.isFinite(Number(b?.memberLevel)) ? Number(b.memberLevel) : 0;
+      if (leftLevel !== rightLevel) return leftLevel - rightLevel;
+      return String(a?.memberName || "").localeCompare(String(b?.memberName || ""));
     });
 
     const modalTitle = `Advanced Budget${projectRow?.name ? ` · ${projectRow.name}` : ""}`;
@@ -1130,6 +1145,7 @@
           <strong data-advanced-budget-total-amount>Total $: $0.00</strong>
         </div>
       </section>
+      <p class="project-dialog-error" data-advanced-budget-error hidden></p>
       <section class="project-dialog-section" style="display:flex;justify-content:flex-end;gap:10px;">
         <button type="button" class="button button-ghost" data-advanced-budget-cancel>Cancel</button>
         <button type="submit" class="button" data-advanced-budget-save>Save</button>
@@ -1142,6 +1158,7 @@
     const addMembersButton = form.querySelector("[data-advanced-budget-add]");
     const cancelButton = form.querySelector("[data-advanced-budget-cancel]");
     const saveButton = form.querySelector("[data-advanced-budget-save]");
+    const errorNode = form.querySelector("[data-advanced-budget-error]");
     const dialogCard = refs.dialog?.querySelector(".dialog-card");
 
     const parseNullableNumber = (value) => {
@@ -1150,6 +1167,21 @@
       const parsed = Number(trimmed.replace(/[$,\s]/g, ""));
       return Number.isFinite(parsed) ? parsed : null;
     };
+    const recalcRowBudgetAmount = (row) => {
+      const rate = parseNullableNumber(row?.rateOverride);
+      const hours = parseNullableNumber(row?.budgetHours);
+      if (rate === null || hours === null) return null;
+      return Number((rate * hours).toFixed(2));
+    };
+
+    rows = rows.map((row) => {
+      if (parseNullableNumber(row?.budgetAmount) !== null) return row;
+      const autoAmount = recalcRowBudgetAmount(row);
+      return {
+        ...row,
+        budgetAmount: autoAmount,
+      };
+    });
 
     const renderRows = () => {
       if (!rowsBody) return;
@@ -1157,7 +1189,14 @@
         .map((row, index) => {
           return `
             <tr data-row-index="${index}">
-              <td>${escapeHtml(row.memberName || row.userId || "Unknown")}</td>
+              <td>
+                <div>${escapeHtml(row.memberName || row.userId || "Unknown")}</div>
+                ${
+                  String(row.memberTitle || "").trim()
+                    ? `<div style="font-size:12px;opacity:.7;">${escapeHtml(String(row.memberTitle || ""))}</div>`
+                    : ""
+                }
+              </td>
               <td><input type="text" data-field="rateOverride" value="${row.rateOverride ?? ""}" inputmode="decimal" /></td>
               <td><input type="text" data-field="budgetHours" value="${row.budgetHours ?? ""}" inputmode="decimal" /></td>
               <td><input type="text" data-field="budgetAmount" value="${row.budgetAmount ?? ""}" inputmode="decimal" /></td>
@@ -1193,6 +1232,11 @@
       refs.dialogCancel.disabled = false;
       refs.dialogCancel.hidden = false;
     };
+    const setError = (message) => {
+      if (!errorNode) return;
+      errorNode.textContent = message || "";
+      errorNode.hidden = !message;
+    };
 
     const onRowsInput = (event) => {
       const target = event.target;
@@ -1204,6 +1248,14 @@
       const fieldKey = String(target.dataset.field || "");
       if (!fieldKey) return;
       rows[rowIndex][fieldKey] = parseNullableNumber(target.value);
+      if (fieldKey === "rateOverride" || fieldKey === "budgetHours") {
+        const nextAmount = recalcRowBudgetAmount(rows[rowIndex]);
+        rows[rowIndex].budgetAmount = nextAmount;
+        const budgetAmountInput = rowEl.querySelector('input[data-field="budgetAmount"]');
+        if (budgetAmountInput instanceof HTMLInputElement) {
+          budgetAmountInput.value = nextAmount === null ? "" : String(nextAmount);
+        }
+      }
       syncTotals();
     };
 
@@ -1238,32 +1290,59 @@
 
     const onCancel = () => {
       cleanup();
+      if (options?.returnToProjectDialog && options?.clientName && options?.projectName) {
+        window.setTimeout(function () {
+          openProjectEditDialogFlow(options.clientName, options.projectName).catch(function () {});
+        }, 0);
+      }
     };
 
     const onSubmit = async (event) => {
       event.preventDefault();
       if (!saveButton) return;
+      setError("");
       saveButton.disabled = true;
       saveButton.textContent = "Saving...";
       try {
+        const outgoingMembers = rows
+          .map((row) => ({
+            userId: String(row?.userId || "").trim(),
+            budgetHours: row?.budgetHours ?? null,
+            budgetAmount: row?.budgetAmount ?? null,
+            rateOverride: row?.rateOverride ?? null,
+          }))
+          .filter((row) => row.userId);
         await mutatePersistentState(
           "save_project_advanced_budget",
           {
             projectId: normalizedProjectId,
-            members: rows.map((row) => ({
-              userId: row.userId,
-              budgetHours: row.budgetHours,
-              budgetAmount: row.budgetAmount,
-              rateOverride: row.rateOverride,
-            })),
+            members: outgoingMembers,
           },
-          { skipHydrate: true }
+          { refreshState: true }
+        );
+        const preserved = (state.projectMemberBudgets || []).filter(
+          (item) => String(item?.projectId || "").trim() !== normalizedProjectId
+        );
+        state.projectMemberBudgets = preserved.concat(
+          outgoingMembers.map((item) => ({
+            projectId: normalizedProjectId,
+            userId: item.userId,
+            budgetHours: item.budgetHours,
+            budgetAmount: item.budgetAmount,
+            rateOverride: item.rateOverride,
+          }))
         );
         cleanup();
         feedback("Advanced budget saved.", false);
+        if (options?.returnToProjectDialog && options?.clientName && options?.projectName) {
+          window.setTimeout(function () {
+            openProjectEditDialogFlow(options.clientName, options.projectName).catch(function () {});
+          }, 0);
+        }
       } catch (error) {
         saveButton.disabled = false;
         saveButton.textContent = "Save";
+        setError(error.message || "Unable to save advanced budget.");
         feedback(error.message || "Unable to save advanced budget.", true);
       }
     };
@@ -1296,7 +1375,8 @@
       const currentName = String(options?.projectName || "");
       const currentBudget = Number.isFinite(options?.budgetAmount) ? Number(options.budgetAmount) : null;
       const currentLeadId = String(options?.projectLeadId || "").trim();
-      const canShowAdvancedBudget = isProjectEditDialog && currentProjectId;
+      const managerNames = Array.isArray(options?.managerNames) ? options.managerNames.filter(Boolean) : [];
+      const staffNames = Array.isArray(options?.staffNames) ? options.staffNames.filter(Boolean) : [];
       const title = mode === "edit" ? "Edit project" : "Add project";
       const finalConfirmText = mode === "edit" ? "Save" : "Add";
       const activeUsers = (state.users || [])
@@ -1329,6 +1409,13 @@
             : []
         )
         .join("");
+      const showTeamSection = mode === "edit";
+      const renderNameList = (items) =>
+        items.length
+          ? `<ul class="project-dialog-team-list">${items
+              .map((name) => `<li>${escapeHtml(String(name || "").trim())}</li>`)
+              .join("")}</ul>`
+          : '<p class="project-dialog-team-empty">None</p>';
       const form = document.createElement("form");
       form.className = "project-dialog-form";
       form.innerHTML = `
@@ -1344,7 +1431,7 @@
               <div style="display:flex;align-items:center;gap:8px;">
                 <input type="text" name="budget_amount" inputmode="decimal" placeholder="15000 or $15,000" style="flex:1;" />
                 ${
-                  canShowAdvancedBudget
+                  isProjectEditDialog && currentProjectId
                     ? '<button type="button" class="button button-ghost" data-project-advanced-budget>Advanced Budget</button>'
                     : ""
                 }
@@ -1357,9 +1444,24 @@
           </div>
         </section>
         ${
-          isProjectEditDialog
+          showTeamSection
             ? `
         <section class="project-dialog-section">
+          <h3 class="panel-subheading">Team</h3>
+          <div class="project-dialog-team-grid">
+            <div class="project-dialog-team-col">
+              <h4>Project Lead</h4>
+              <p class="project-dialog-team-empty" data-project-team-lead-display>Unassigned</p>
+            </div>
+            <div class="project-dialog-team-col">
+              <h4>Managers</h4>
+              ${renderNameList(managerNames)}
+            </div>
+            <div class="project-dialog-team-col">
+              <h4>Staff</h4>
+              ${renderNameList(staffNames)}
+            </div>
+          </div>
           <div class="project-dialog-actions">
             <button type="button" class="button button-ghost" data-project-team-action="add">Add Member</button>
             <button type="button" class="button button-ghost" data-project-team-action="remove">Remove Member</button>
@@ -1374,6 +1476,7 @@
       const nameInput = form.querySelector('input[name="project_name"]');
       const budgetInput = form.querySelector('input[name="budget_amount"]');
       const leadSelect = form.querySelector('select[name="project_lead_id"]');
+      const teamLeadDisplay = form.querySelector("[data-project-team-lead-display]");
       const advancedBudgetButton = form.querySelector("[data-project-advanced-budget]");
       const errorNode = form.querySelector("[data-project-dialog-error]");
       const dialogCard = refs.dialog?.querySelector(".dialog-card");
@@ -1386,18 +1489,14 @@
       if (leadSelect) {
         leadSelect.value = currentLeadId;
       }
-      const onOpenAdvancedBudget = () => {
-        if (typeof openAdvancedBudgetModal === "function") {
-          openAdvancedBudgetModal(currentProjectId);
-          return;
-        }
-        if (typeof window.openAdvancedBudgetModal === "function") {
-          window.openAdvancedBudgetModal(currentProjectId);
-          return;
-        }
-        feedback("Advanced budget modal is not available yet.", true);
+      const syncTeamLeadDisplay = () => {
+        if (!teamLeadDisplay) return;
+        const selectedLeadId = String(leadSelect?.value || "").trim();
+        const leadName = selectedLeadId ? leadNameById.get(selectedLeadId) || "" : "";
+        teamLeadDisplay.textContent = leadName || "Unassigned";
       };
-      advancedBudgetButton?.addEventListener("click", onOpenAdvancedBudget);
+      syncTeamLeadDisplay();
+      leadSelect?.addEventListener("change", syncTeamLeadDisplay);
 
       refs.dialogTitle.textContent = title;
       refs.dialogMessage.textContent = "";
@@ -1417,6 +1516,33 @@
       refs.dialogConfirm.hidden = false;
       refs.dialogCancel.disabled = false;
 
+      const onOpenAdvancedBudget = () => {
+        const projectIdForAdvanced = currentProjectId;
+        const projectNameForAdvanced = currentName;
+        const clientNameForAdvanced = String(options?.clientName || "").trim();
+        cleanup();
+        resolve({ openAdvancedBudget: true });
+        if (!projectIdForAdvanced) return;
+        if (typeof openAdvancedBudgetModal === "function") {
+          openAdvancedBudgetModal(projectIdForAdvanced, {
+            returnToProjectDialog: true,
+            clientName: clientNameForAdvanced,
+            projectName: projectNameForAdvanced,
+          });
+          return;
+        }
+        if (typeof window.openAdvancedBudgetModal === "function") {
+          window.openAdvancedBudgetModal(projectIdForAdvanced, {
+            returnToProjectDialog: true,
+            clientName: clientNameForAdvanced,
+            projectName: projectNameForAdvanced,
+          });
+          return;
+        }
+        feedback("Advanced budget modal is not available yet.", true);
+      };
+      advancedBudgetButton?.addEventListener("click", onOpenAdvancedBudget);
+
       const setError = (message) => {
         if (!errorNode) return;
         errorNode.textContent = message || "";
@@ -1428,6 +1554,7 @@
         refs.dialogConfirm.removeEventListener("click", onConfirm);
         refs.dialogCancel.removeEventListener("click", onCancel);
         form.removeEventListener("submit", onSubmit);
+        leadSelect?.removeEventListener("change", syncTeamLeadDisplay);
         advancedBudgetButton?.removeEventListener("click", onOpenAdvancedBudget);
         form.remove();
         if (isProjectEditDialog) {
@@ -1480,7 +1607,7 @@
           cleanup();
           resolve({
             memberAction: String(button.dataset.projectTeamAction || "").trim(),
-            projectName: String(nameInput?.value || currentName || "").trim(),
+            projectName: currentName,
           });
         });
       });
@@ -10095,7 +10222,11 @@
       }
 
       const overrideInputMap = {};
-      if (mode === "project-members-edit" || mode === "project-managers-edit") {
+      if (
+        mode === "project-members-edit" ||
+        mode === "project-managers-edit" ||
+        mode === "project-add-member"
+      ) {
         const overrideInputs = Array.from(
           refs.membersList.querySelectorAll("input[data-override-input]")
         );
@@ -10198,17 +10329,22 @@
               projectName: project,
             });
           } else if (mode === "project-add-member") {
+            const override = overrideInputMap.hasOwnProperty(user.id)
+              ? overrideInputMap[user.id]
+              : null;
             if (isStaff(effectiveUser)) {
               await mutatePersistentState("add_project_member", {
                 userId: user.id,
                 clientName: client,
                 projectName: project,
+                chargeRateOverride: override,
               });
             } else if (isManager(effectiveUser)) {
               await mutatePersistentState("assign_manager_project", {
                 managerId: user.id,
                 clientName: client,
                 projectName: project,
+                chargeRateOverride: override,
               });
             } else {
               continue;

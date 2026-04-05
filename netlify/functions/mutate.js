@@ -4931,8 +4931,9 @@ exports.handler = async function handler(event) {
         break;
       }
       case "save_project_advanced_budget": {
-        const adminError = requireAdmin(context);
-        if (adminError) return adminError;
+        if (!isAdmin(context.currentUser) && !isManager(context.currentUser)) {
+          return errorResponse(403, "Manager access required.");
+        }
         const projectId = normalizeText(request.payload?.projectId);
         const members = Array.isArray(request.payload?.members) ? request.payload.members : [];
         if (!projectId) {

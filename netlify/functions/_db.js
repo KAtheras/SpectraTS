@@ -521,8 +521,8 @@ async function ensureSchema(sql) {
     CREATE TABLE IF NOT EXISTS project_member_budgets (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       account_id UUID NOT NULL,
-      project_id UUID NOT NULL,
-      user_id UUID NOT NULL,
+      project_id BIGINT NOT NULL,
+      user_id TEXT NOT NULL,
       budget_hours NUMERIC,
       budget_amount NUMERIC,
       rate_override NUMERIC,
@@ -530,6 +530,16 @@ async function ensureSchema(sql) {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       UNIQUE (project_id, user_id)
     )
+  `;
+  await sql`
+    ALTER TABLE project_member_budgets
+    ALTER COLUMN user_id TYPE TEXT
+    USING user_id::text
+  `;
+  await sql`
+    ALTER TABLE project_member_budgets
+    ALTER COLUMN project_id TYPE BIGINT
+    USING project_id::text::bigint
   `;
 
   await sql`
@@ -2381,7 +2391,8 @@ async function listProjectMembers(sql, accountId) {
 
 async function getProjectMemberBudgets(sql, projectId, accountId) {
   const normalizedProjectId = normalizeText(projectId);
-  if (!normalizedProjectId || !accountId) return [];
+  const projectIdNumber = Number(normalizedProjectId);
+  if (!normalizedProjectId || !accountId || !Number.isInteger(projectIdNumber)) return [];
   return sql`
     SELECT
       id,
@@ -2395,7 +2406,7 @@ async function getProjectMemberBudgets(sql, projectId, accountId) {
       updated_at AS "updatedAt"
     FROM project_member_budgets
     WHERE account_id = ${accountId}::uuid
-      AND project_id = ${normalizedProjectId}::uuid
+      AND project_id = ${projectIdNumber}::bigint
     ORDER BY user_id
   `;
 }
@@ -2403,7 +2414,8 @@ async function getProjectMemberBudgets(sql, projectId, accountId) {
 async function upsertProjectMemberBudget(sql, payload, accountId) {
   const projectId = normalizeText(payload?.projectId);
   const userId = normalizeText(payload?.userId);
-  if (!accountId || !projectId || !userId) {
+  const projectIdNumber = Number(projectId);
+  if (!accountId || !projectId || !userId || !Number.isInteger(projectIdNumber)) {
     return null;
   }
   const toNumeric = (value) => {
@@ -2427,8 +2439,8 @@ async function upsertProjectMemberBudget(sql, payload, accountId) {
     )
     VALUES (
       ${accountId}::uuid,
-      ${projectId}::uuid,
-      ${userId}::uuid,
+      ${projectIdNumber}::bigint,
+      ${userId},
       ${budgetHours},
       ${budgetAmount},
       ${rateOverride},
@@ -2459,14 +2471,15 @@ async function upsertProjectMemberBudget(sql, payload, accountId) {
 async function deleteProjectMemberBudget(sql, projectId, userId, accountId) {
   const normalizedProjectId = normalizeText(projectId);
   const normalizedUserId = normalizeText(userId);
-  if (!accountId || !normalizedProjectId || !normalizedUserId) {
+  const projectIdNumber = Number(normalizedProjectId);
+  if (!accountId || !normalizedProjectId || !normalizedUserId || !Number.isInteger(projectIdNumber)) {
     return null;
   }
   const rows = await sql`
     DELETE FROM project_member_budgets
     WHERE account_id = ${accountId}::uuid
-      AND project_id = ${normalizedProjectId}::uuid
-      AND user_id = ${normalizedUserId}::uuid
+      AND project_id = ${projectIdNumber}::bigint
+      AND user_id = ${normalizedUserId}
     RETURNING id
   `;
   return rows[0] || null;
