@@ -4789,7 +4789,7 @@ body[data-theme="dark"] #inputs-view {
 #inputs-view .input-row-body[data-saved="true"] .cell-billable,
 #inputs-view .input-row-body[data-saved="true"] .cell-notes,
 #inputs-view .input-row-body[data-saved="true"] .cell-actions {
-  background: var(--surface-soft);
+  background: color-mix(in srgb, var(--panel) 94%, var(--surface-strong));
 }
 
 #inputs-view .cell-project,
@@ -4810,6 +4810,17 @@ body[data-theme="dark"] #inputs-view {
 
 #inputs-view .input-row .cell-actions {
   border-right: none;
+}
+
+#inputs-view .input-grid > .input-row:last-child .cell-project,
+#inputs-view .input-grid > .input-row:last-child .cell-date,
+#inputs-view .input-grid > .input-row:last-child .cell-category,
+#inputs-view .input-grid > .input-row:last-child .cell-hours,
+#inputs-view .input-grid > .input-row:last-child .cell-amount,
+#inputs-view .input-grid > .input-row:last-child .cell-billable,
+#inputs-view .input-grid > .input-row:last-child .cell-notes,
+#inputs-view .input-grid > .input-row:last-child .cell-actions {
+  border-bottom: none;
 }
 
 #inputs-view input:not([type="checkbox"]),
