@@ -4861,6 +4861,37 @@ body[data-theme="dark"] #inputs-view {
   padding: 0;
 }
 
+#inputs-view #inputs-panel-time .input-row-body .cell-project,
+#inputs-view #inputs-panel-time .input-row-body .cell-date,
+#inputs-view #inputs-panel-time .input-row-body .cell-hours,
+#inputs-view #inputs-panel-time .input-row-body .cell-notes {
+  padding: 0;
+}
+
+#inputs-view #inputs-panel-time .input-row-body .cell-project select,
+#inputs-view #inputs-panel-time .input-row-body .cell-date input,
+#inputs-view #inputs-panel-time .input-row-body .cell-hours input,
+#inputs-view #inputs-panel-time .input-row-body .cell-notes input {
+  height: 52px;
+  min-height: 52px;
+  border: none;
+  border-radius: 0;
+  background-color: transparent;
+  padding: 0 10px;
+  font-size: 0.98rem;
+  line-height: 1.2;
+}
+
+#inputs-view #inputs-panel-time .input-row-body .cell-hours input::-webkit-outer-spin-button,
+#inputs-view #inputs-panel-time .input-row-body .cell-hours input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+#inputs-view #inputs-panel-time .input-row-body .cell-hours input {
+  -moz-appearance: textfield;
+}
+
 #inputs-view #inputs-panel-expenses .input-row-body .cell-project select,
 #inputs-view #inputs-panel-expenses .input-row-body .cell-date input,
 #inputs-view #inputs-panel-expenses .input-row-body .cell-category select,
