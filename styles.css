@@ -5495,16 +5495,16 @@ body[data-theme="dark"] #inputs-view .inputs-drilldown-col-head {
 
 #inputs-view .inputs-drilldown-layout > .inputs-drilldown-col:nth-child(1) .inputs-drilldown-item:hover,
 #inputs-view .inputs-drilldown-layout > .inputs-drilldown-col:nth-child(1) .inputs-drilldown-item:focus-visible {
-  background: color-mix(in srgb, var(--surface-hover) 84%, var(--surface));
+  background: color-mix(in srgb, var(--accent-soft) 24%, var(--surface-strong));
 }
 
 #inputs-view .inputs-drilldown-layout > .inputs-drilldown-col:nth-child(1) .inputs-drilldown-item:hover .inputs-drilldown-item-label {
-  font-weight: 650;
+  font-weight: 670;
 }
 
 #inputs-view .inputs-drilldown-layout > .inputs-drilldown-col:nth-child(2) .inputs-drilldown-item:hover,
 #inputs-view .inputs-drilldown-layout > .inputs-drilldown-col:nth-child(2) .inputs-drilldown-item:focus-visible {
-  background: color-mix(in srgb, var(--accent-soft) 28%, var(--surface-strong));
+  background: color-mix(in srgb, var(--accent-soft) 38%, var(--surface-strong));
 }
 
 #inputs-view .inputs-drilldown-layout > .inputs-drilldown-col:nth-child(3) .inputs-drilldown-col-body {
@@ -5522,8 +5522,8 @@ body[data-theme="dark"] #inputs-view .inputs-drilldown-col-head {
 }
 
 #inputs-view .inputs-drilldown-layout > .inputs-drilldown-col:nth-child(1) .inputs-drilldown-item.is-active {
-  background: color-mix(in srgb, var(--accent-soft) 44%, var(--surface-strong));
-  box-shadow: inset 1px 0 0 color-mix(in srgb, var(--accent) 28%, transparent);
+  background: color-mix(in srgb, var(--accent-soft) 46%, var(--surface-strong));
+  box-shadow: inset 1px 0 0 color-mix(in srgb, var(--accent) 46%, transparent);
 }
 
 #inputs-view .inputs-drilldown-item.is-zero:not(.is-active) {
@@ -5550,7 +5550,7 @@ body[data-theme="dark"] #inputs-view .inputs-drilldown-layout > .inputs-drilldow
 }
 
 body[data-theme="dark"] #inputs-view .inputs-drilldown-layout > .inputs-drilldown-col:nth-child(1) .inputs-drilldown-item.is-active {
-  box-shadow: inset 1px 0 0 color-mix(in srgb, var(--accent) 48%, transparent);
+  box-shadow: inset 1px 0 0 color-mix(in srgb, var(--accent) 58%, transparent);
 }
 
 body[data-theme="dark"] #inputs-view .inputs-drilldown-item.is-zero:not(.is-active) {
@@ -5587,7 +5587,7 @@ body[data-theme="dark"] #inputs-view .inputs-drilldown-item.is-active .inputs-dr
 }
 
 #inputs-view .inputs-drilldown-detail-row {
-  border: 1px solid color-mix(in srgb, var(--line) 38%, transparent);
+  border: 1px solid color-mix(in srgb, var(--line) 20%, transparent);
   border-radius: 8px;
   background: color-mix(in srgb, var(--panel) 84%, var(--surface-strong));
   padding: 16px 14px 14px;
@@ -5599,8 +5599,8 @@ body[data-theme="dark"] #inputs-view .inputs-drilldown-item.is-active .inputs-dr
 
 #inputs-view .inputs-drilldown-detail-row:hover,
 #inputs-view .inputs-drilldown-detail-row:focus-within {
-  background: color-mix(in srgb, var(--surface-hover) 78%, var(--surface-strong));
-  border-color: color-mix(in srgb, var(--line) 56%, transparent);
+  background: color-mix(in srgb, var(--surface-hover) 68%, var(--surface-strong));
+  border-color: color-mix(in srgb, var(--line) 30%, transparent);
 }
 
 #inputs-view .inputs-drilldown-detail-main {
