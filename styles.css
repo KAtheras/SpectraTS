@@ -4725,20 +4725,20 @@ body[data-theme="dark"] #inputs-view {
   border-bottom: 1px solid var(--inputs-grid-line);
 }
 
-#inputs-view #inputs-panel-time .input-row-head::after {
+#inputs-view #inputs-panel-time .input-row-head::after,
+#inputs-view #inputs-panel-expenses .input-row-head::after {
   content: "";
-  grid-column: 6;
   min-height: 44px;
   background: var(--inputs-header-bg);
   border-bottom: none;
 }
 
+#inputs-view #inputs-panel-time .input-row-head::after {
+  grid-column: 6;
+}
+
 #inputs-view #inputs-panel-expenses .input-row-head::after {
-  content: "";
   grid-column: 7;
-  min-height: 44px;
-  background: var(--inputs-header-bg);
-  border-bottom: none;
 }
 
 #inputs-view .input-row-head .cell-project,
@@ -5381,10 +5381,6 @@ body[data-theme="dark"] #inputs-view .inputs-drilldown-col-head {
 #inputs-view .inputs-drilldown-layout > .inputs-drilldown-col:nth-child(3) .inputs-drilldown-col-body {
   padding-top: 16px;
   gap: 12px;
-}
-
-#inputs-view .inputs-drilldown-layout > .inputs-drilldown-col:nth-child(1) .inputs-drilldown-item:not(.is-active) {
-  opacity: 1;
 }
 
 #inputs-view .inputs-drilldown-layout > .inputs-drilldown-col:nth-child(1) .inputs-drilldown-item.is-zero {
