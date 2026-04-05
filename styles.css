@@ -4920,6 +4920,7 @@ body[data-theme="dark"] #inputs-view {
   min-height: 44px;
   background: var(--inputs-header-bg) !important;
   color: #2d3748 !important;
+  border-radius: 0;
 }
 
 body[data-theme="dark"] #inputs-view .input-row-head {
@@ -4959,6 +4960,7 @@ body[data-theme="dark"] #inputs-view .input-row-head .cell-notes {
   background: var(--inputs-header-bg) !important;
   color: transparent !important;
   border: none !important;
+  border-radius: 0;
   box-shadow: none;
   border-right: none !important;
   border-bottom: none !important;
@@ -5030,6 +5032,7 @@ body[data-theme="dark"] #inputs-view .input-row-head .cell-notes {
 #inputs-view .input-row-body .cell-amount input,
 #inputs-view .input-row-body .cell-notes input {
   width: 100%;
+  border-radius: 0;
 }
 
 #inputs-view #inputs-panel-time .input-row-body .cell-project select,
