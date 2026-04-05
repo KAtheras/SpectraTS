@@ -3715,7 +3715,9 @@
         const total = Number(totalsByDate[item.iso] || 0);
         const isActive = item.iso === selectedDay;
         const isZero = !Number.isFinite(total) || total <= 0;
-        return `<button type="button" class="inputs-drilldown-item${isActive ? " is-active" : ""}${isZero ? " is-zero" : ""}" data-action="inputs-time-day" data-day="${escapeHtml(item.iso)}">
+        return `<button type="button" class="inputs-drilldown-item${isActive ? " is-active" : ""}${isZero ? " is-zero" : ""}" data-action="inputs-time-day" data-day="${escapeHtml(item.iso)}"${
+          isZero ? ' disabled aria-disabled="true" tabindex="-1"' : ""
+        }>
           <span class="inputs-drilldown-item-label">${escapeHtml(item.dayLabel)} ${escapeHtml(item.dateLabel)}</span>
           <span class="inputs-drilldown-item-value">${escapeHtml(isZero ? "—" : formatSummaryHours(total))}</span>
         </button>`;
@@ -4009,7 +4011,9 @@
         const total = Number(totalsByDate[item.iso] || 0);
         const isActive = item.iso === selectedDay;
         const isZero = !Number.isFinite(total) || total <= 0;
-        return `<button type="button" class="inputs-drilldown-item${isActive ? " is-active" : ""}${isZero ? " is-zero" : ""}" data-action="inputs-expense-day" data-day="${escapeHtml(item.iso)}">
+        return `<button type="button" class="inputs-drilldown-item${isActive ? " is-active" : ""}${isZero ? " is-zero" : ""}" data-action="inputs-expense-day" data-day="${escapeHtml(item.iso)}"${
+          isZero ? ' disabled aria-disabled="true" tabindex="-1"' : ""
+        }>
           <span class="inputs-drilldown-item-label">${escapeHtml(item.dayLabel)} ${escapeHtml(item.dateLabel)}</span>
           <span class="inputs-drilldown-item-value">${escapeHtml(isZero ? "—" : formatSummaryCurrency(total))}</span>
         </button>`;
@@ -7320,6 +7324,9 @@
       if (!actionEl) return;
       const action = `${actionEl.dataset.action || ""}`.trim();
       if (action === "inputs-time-day") {
+        if (actionEl.classList.contains("is-zero") || actionEl.getAttribute("aria-disabled") === "true") {
+          return;
+        }
         const day = `${actionEl.dataset.day || ""}`.trim();
         if (isValidDateString(day)) {
           state.inputsTimeSelectedDate = day;
@@ -7404,6 +7411,9 @@
       if (!actionEl) return;
       const action = `${actionEl.dataset.action || ""}`.trim();
       if (action === "inputs-expense-day") {
+        if (actionEl.classList.contains("is-zero") || actionEl.getAttribute("aria-disabled") === "true") {
+          return;
+        }
         const day = `${actionEl.dataset.day || ""}`.trim();
         if (isValidDateString(day)) {
           state.inputsExpenseSelectedDate = day;

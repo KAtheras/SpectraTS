@@ -5521,6 +5521,15 @@ body[data-theme="dark"] #inputs-view .inputs-drilldown-col-head {
   opacity: 0.78;
 }
 
+#inputs-view .inputs-drilldown-layout > .inputs-drilldown-col:nth-child(1) .inputs-drilldown-item.is-zero {
+  cursor: default;
+}
+
+#inputs-view .inputs-drilldown-layout > .inputs-drilldown-col:nth-child(1) .inputs-drilldown-item.is-zero:hover,
+#inputs-view .inputs-drilldown-layout > .inputs-drilldown-col:nth-child(1) .inputs-drilldown-item.is-zero:focus-visible {
+  background: color-mix(in srgb, var(--panel) 90%, var(--surface-strong));
+}
+
 #inputs-view .inputs-drilldown-layout > .inputs-drilldown-col:nth-child(1) .inputs-drilldown-item.is-active {
   background: color-mix(in srgb, var(--accent-soft) 46%, var(--surface-strong));
   box-shadow: inset 1px 0 0 color-mix(in srgb, var(--accent) 46%, transparent);
