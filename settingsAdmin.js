@@ -40,6 +40,11 @@
   let delegationsSelectedDelegateId = "";
   let permissionsSaveInFlight = false;
   const delegationsDraftCapabilitiesByDelegateId = new Map();
+  const SETTINGS_DELETE_ICON = `
+    <svg viewBox="0 -960 960 960" aria-hidden="true">
+      <path d="M280-120q-33 0-56.5-23.5T200-200v-520h-40v-80h200v-40h240v40h200v80h-40v520q0 33-23.5 56.5T680-120H280Zm400-600H280v520h400v-520ZM360-280h80v-360h-80v360Zm160 0h80v-360h-80v360ZM280-720v520-520Z" fill="currentColor"/>
+    </svg>
+  `;
 
   function isMobileSettingsLayout() {
     return typeof window !== "undefined" && window.matchMedia("(max-width: 980px)").matches;
@@ -372,10 +377,12 @@
         }
       }
 
-      if (!document.getElementById("settings-layout-style")) {
-        const style = document.createElement("style");
-        style.id = "settings-layout-style";
-        style.textContent = `
+      const existing = document.getElementById("settings-layout-style");
+      if (existing) existing.remove();
+
+      const style = document.createElement("style");
+      style.id = "settings-layout-style";
+      style.textContent = `
           #settings-page .settings-layout{display:grid;grid-template-columns:minmax(240px,300px) minmax(0,1fr);gap:22px;align-items:stretch}
           #settings-page .settings-nav-shell,
           #settings-page .settings-content-shell{
@@ -482,36 +489,43 @@
             gap:8px;
           }
           #settings-page .corporate-pill{
-            min-height:32px;
-            padding:0 12px;
-            border-radius:999px;
-            font-size:.88rem;
+            min-height:var(--button-height);
+            padding:0 var(--button-pad-x);
+            border-radius:12px;
+            font-size:.92rem;
             line-height:1;
           }
-          #settings-page .corporate-group-header{
+          #settings-page [data-settings-tab="corporate_functions"] .corporate-group-header{
             display:grid;
-            grid-template-columns:minmax(0,1fr) auto;
+            grid-template-columns:minmax(0,1fr) 42px;
             gap:10px;
             align-items:center;
           }
-          #settings-page .corporate-group-pill{
-            min-height:40px;
-            border:1px solid var(--input-border);
-            border-radius:16px;
-            background:var(--input-bg);
-            display:grid;
-            grid-template-columns:auto minmax(0,1fr);
-            align-items:center;
-            gap:6px;
-            padding:0 10px 0 6px;
+          #settings-page [data-settings-tab="corporate_functions"] .settings-subsection{
+            border:none;
+            border-radius:0;
+            padding:0;
+            background:transparent;
+            gap:8px;
           }
-          #settings-page .corporate-group-toggle{
+          #settings-page [data-settings-tab="corporate_functions"] .corporate-group-pill{
+            min-height:0;
+            border:none;
+            border-radius:0;
+            background:transparent;
+            display:grid;
+            grid-template-columns:36px minmax(0,1fr);
+            align-items:center;
+            gap:10px;
+            padding:0;
+          }
+          #settings-page [data-settings-tab="corporate_functions"] .corporate-group-toggle{
             border:1px solid var(--group-border);
             background:transparent;
             color:var(--muted);
-            width:26px;
-            min-width:26px;
-            height:26px;
+            width:32px;
+            min-width:32px;
+            height:32px;
             border-radius:999px;
             font-weight:700;
             font-size:1rem;
@@ -521,22 +535,58 @@
             justify-content:center;
             cursor:pointer;
           }
-          #settings-page .corporate-group-pill input[data-corporate-group-name]{
-            border:none;
-            background:transparent;
-            border-radius:0;
-            min-height:36px;
-            padding:0;
+          #settings-page [data-settings-tab="corporate_functions"] .corporate-group-pill input[data-corporate-group-name]{
+            min-height:40px;
+            width:100%;
           }
-          #settings-page .corporate-group-pill input[data-corporate-group-name]:focus{
-            box-shadow:none;
-          }
-          #settings-page .corporate-category-list{
-            margin-left:16px;
-            padding-left:12px;
-            border-left:1px solid var(--group-border);
+          #settings-page [data-settings-tab="corporate_functions"] .corporate-category-list{
+            margin-left:0;
+            padding-left:0;
+            border-left:none;
+            position:relative;
             display:grid;
             gap:8px;
+          }
+          #settings-page [data-settings-tab="corporate_functions"] .corporate-category-list::before{
+            content:"";
+            position:absolute;
+            left:56px;
+            top:0;
+            bottom:0;
+            width:1px;
+            background:var(--group-border);
+          }
+          #settings-page [data-settings-tab="corporate_functions"] .settings-section-content .corporate-function-row{
+            display:grid;
+            grid-template-columns:68px minmax(0,1fr) 42px;
+            align-items:center;
+            gap:10px;
+            border-bottom:none;
+          }
+          #settings-page [data-settings-tab="corporate_functions"] .settings-section-content .corporate-function-row.level-row{
+            border-bottom:none;
+          }
+          #settings-page [data-settings-tab="corporate_functions"] .settings-section-content .corporate-group-header.level-row{
+            border-bottom:none;
+          }
+          #settings-page [data-settings-tab="corporate_functions"] .corporate-function-row .settings-row-main{
+            grid-column:2;
+            min-width:0;
+            width:100%;
+            display:block;
+            margin-left:0;
+          }
+          #settings-page [data-settings-tab="corporate_functions"] .corporate-function-row .settings-row-actions{
+            grid-column:3;
+            width:42px;
+            min-width:42px;
+            justify-content:flex-end;
+          }
+          #settings-page [data-settings-tab="corporate_functions"] .corporate-function-row .settings-field{
+            width:100%;
+          }
+          #settings-page [data-settings-tab="corporate_functions"] .corporate-group-actions{
+            margin-left:68px;
           }
           #settings-page .settings-subsection h4{
             margin:0;
@@ -676,21 +726,31 @@
           }
           #settings-page .member-info-remove{
             margin:0;
-            width:96px;
-            min-width:96px;
-            height:34px;
-            padding:0 10px;
-            border:1px solid color-mix(in srgb, var(--danger) 45%, var(--group-border));
-            border-radius:999px;
-            background:color-mix(in srgb, var(--panel) 88%, var(--danger) 12%);
+            width:42px;
+            min-width:42px;
+            height:42px;
+            padding:0;
+            border:0;
+            border-radius:0;
+            background:transparent;
             color:var(--danger);
-            font-weight:700;
-            font-size:.9rem;
             line-height:1;
             display:inline-flex;
             align-items:center;
             justify-content:center;
             cursor:pointer;
+            opacity:.8;
+          }
+          #settings-page .member-info-remove svg{
+            width:29px;
+            height:29px;
+            stroke:currentColor;
+          }
+          #settings-page .member-info-remove:hover,
+          #settings-page .member-info-remove:focus-visible{
+            color:color-mix(in srgb, var(--danger) 92%, #ff9f9f 8%);
+            opacity:1;
+            outline:none;
           }
           #settings-page .member-info-edit{
             margin:0;
@@ -706,9 +766,10 @@
           }
           #settings-page .settings-section-content .settings-structured-row{
             display:grid;
-            grid-template-columns:minmax(180px,220px) minmax(0,1fr) minmax(96px,max-content);
-            gap:12px;
+            grid-template-columns:1fr auto;
             align-items:center;
+            padding:10px 0;
+            border-bottom:1px solid #ececec;
           }
           #settings-page .settings-section-content .settings-structured-row-no-label{
             grid-template-columns:minmax(0,1fr) minmax(96px,max-content);
@@ -725,6 +786,43 @@
           #settings-page .settings-row-main{
             min-width:0;
             width:100%;
+            display:flex;
+            align-items:center;
+            gap:12px;
+          }
+          #settings-page .settings-field{
+            width:100%;
+            height:44px;
+            padding:0 14px;
+            border-radius:10px;
+            border:1px solid var(--border-subtle, #d6d6d6);
+            background:var(--surface-input, #f7f7f7);
+            font-size:14px;
+            color:inherit;
+            transition:border-color 0.15s ease, background 0.15s ease;
+          }
+          #settings-page .settings-field:focus{
+            border-color:var(--accent, #4f7cff);
+            background:#ffffff;
+            outline:none;
+          }
+          #settings-page .settings-field:hover{
+            border-color:#c2c2c2;
+          }
+          #settings-page select.settings-field{
+            appearance:none;
+            -webkit-appearance:none;
+            -moz-appearance:none;
+            padding-right:34px;
+            background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%236b7280' d='M1 1l4 4 4-4'/%3E%3C/svg%3E");
+            background-repeat:no-repeat;
+            background-position:right 12px center;
+            background-size:10px 6px;
+            cursor:pointer;
+          }
+          #settings-page select.settings-field:disabled,
+          #settings-page .settings-field:disabled{
+            cursor:not-allowed;
           }
           #settings-page .settings-row-main input,
           #settings-page .settings-row-main select{
@@ -741,6 +839,7 @@
             justify-content:flex-end;
             align-items:center;
             gap:8px;
+            min-width:40px;
           }
           #settings-page .settings-structured-row-header{
             border-bottom:1px solid var(--group-border);
@@ -763,28 +862,55 @@
             min-width:0;
           }
           #settings-page .settings-row-delete-icon{
-            width:30px;
-            min-width:30px;
-            height:30px;
+            width:42px;
+            min-width:42px;
+            height:42px;
             padding:0;
-            border:1px solid color-mix(in srgb, var(--danger) 45%, var(--group-border));
-            border-radius:8px;
-            background:color-mix(in srgb, var(--panel) 92%, var(--danger) 8%);
+            border:0;
+            border-radius:0;
+            background:transparent;
             color:var(--danger);
             display:inline-flex;
             align-items:center;
             justify-content:center;
             cursor:pointer;
+            opacity:.8;
+            transition:opacity 0.15s ease;
+          }
+          #settings-page [data-settings-tab="levels"] .settings-structured-row{
+            display:grid;
+            grid-template-columns:120px 1fr 220px 40px;
+            align-items:center;
+            column-gap:16px;
+            padding:10px 0;
+            border-bottom:1px solid #ececec;
+          }
+          #settings-page [data-settings-tab="levels"] .settings-row-main{
+            display:contents;
+          }
+          #settings-page [data-settings-tab="levels"] .settings-field{
+            width:100%;
+            height:40px;
+            border-radius:8px;
+          }
+          #settings-page [data-settings-tab="levels"] .settings-row-delete-icon{
+            justify-self:end;
+            align-self:center;
+          }
+          #settings-page [data-settings-tab="levels"] .settings-structured-row-header{
+            display:grid;
+            grid-template-columns:120px 1fr 220px 40px;
+            column-gap:16px;
           }
           #settings-page .settings-row-delete-icon svg{
-            width:14px;
-            height:14px;
+            width:29px;
+            height:29px;
             stroke:currentColor;
           }
           #settings-page .settings-row-delete-icon:hover,
           #settings-page .settings-row-delete-icon:focus-visible{
-            background:color-mix(in srgb, var(--panel) 88%, var(--danger) 12%);
-            border-color:color-mix(in srgb, var(--danger) 62%, var(--group-border));
+            color:color-mix(in srgb, var(--danger) 92%, #ff9f9f 8%);
+            opacity:1;
             outline:none;
           }
           #settings-page .settings-section-content .table-wrapper{
@@ -981,9 +1107,9 @@
               justify-content:flex-end;
             }
             #settings-page [data-settings-tab="levels"] .settings-row-delete-icon{
-              width:28px;
-              min-width:28px;
-              height:28px;
+              width:42px;
+              min-width:42px;
+              height:42px;
             }
             #settings-page [data-settings-tab="levels"] .level-col{
               display:none;
@@ -1014,14 +1140,13 @@
               justify-content:flex-start;
             }
             #settings-page [data-settings-tab="locations"] .settings-row-delete-icon{
-              width:26px;
-              min-width:26px;
-              height:26px;
+              width:39px;
+              min-width:39px;
+              height:39px;
             }
           }
         `;
-        document.head.appendChild(style);
-      }
+      document.head.appendChild(style);
     }
 
     const canDelegate = state.permissions?.can_delegate;
@@ -1182,6 +1307,7 @@
             >
               <div class="settings-row-main">
                 <input
+                  class="settings-field"
                   type="text"
                   value="${escapeHtml(item?.name || "")}"
                   data-corporate-function-name
@@ -1192,11 +1318,12 @@
               <div class="settings-row-actions expense-actions">
                 <button
                   type="button"
-                  class="expense-delete"
+                  class="settings-row-delete-icon"
                   data-corporate-delete-category="${escapeHtml(id)}"
+                  aria-label="Delete category"
                   ${editable ? "" : "disabled"}
                 >
-                  Delete
+                  ${SETTINGS_DELETE_ICON}
                 </button>
               </div>
             </div>
@@ -1221,6 +1348,7 @@
                 aria-expanded="${isCollapsed ? "false" : "true"}"
               >${isCollapsed ? "+" : "-"}</button>
               <input
+                class="settings-field"
                 type="text"
                 value="${escapeHtml(groupName)}"
                 data-corporate-group-name
@@ -1230,11 +1358,12 @@
             </div>
             <button
               type="button"
-              class="expense-delete"
+              class="settings-row-delete-icon"
               data-corporate-delete-group="${escapeHtml(groupId)}"
+              aria-label="Delete group"
               ${editable ? "" : "disabled"}
             >
-              Delete group
+              ${SETTINGS_DELETE_ICON}
             </button>
           </div>
           <div class="corporate-category-list" ${isCollapsed ? "hidden" : ""}>
@@ -2595,10 +2724,14 @@
         (item) => `
           <div class="level-row settings-structured-row settings-structured-row-no-label department-row" data-department-id="${escapeHtml(item.id || "")}">
             <div class="settings-row-main">
-              <input type="text" value="${escapeHtml(item.name || "")}" data-department-name placeholder="Department name" ${editable ? "" : "disabled"} />
+              <input class="settings-field" type="text" value="${escapeHtml(item.name || "")}" data-department-name placeholder="Department name" ${editable ? "" : "disabled"} />
             </div>
             <div class="settings-row-actions expense-actions">
-              ${editable ? `<button type="button" class="expense-delete" data-department-delete>Delete</button>` : ""}
+              ${
+                editable
+                  ? `<button type="button" class="settings-row-delete-icon" data-department-delete aria-label="Delete department">${SETTINGS_DELETE_ICON}</button>`
+                  : ""
+              }
             </div>
           </div>
         `
@@ -2657,8 +2790,8 @@
           <div class="level-row settings-structured-row" data-level="${item.level}">
             <span class="settings-row-label level-num level-col">Level ${item.level}</span>
             <div class="settings-row-main settings-row-main-split">
-              <input type="text" value="${escapeHtml(item.label || "")}" data-level-label />
-              <select data-level-permission>
+              <input class="settings-field" type="text" value="${escapeHtml(item.label || "")}" data-level-label />
+              <select class="settings-field" data-level-permission>
                 ${["staff", "manager", "executive", "admin", "superuser"]
                   .map(
                     (group) =>
@@ -2668,10 +2801,8 @@
               </select>
             </div>
             <div class="settings-row-actions">
-              <button type="button" class="level-delete settings-row-delete-icon" data-level-delete aria-label="Delete level">
-                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                  <path d="M4 7h16M9 7V5h6v2M8 7l1 12h6l1-12" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
+              <button type="button" class="settings-row-delete-icon" data-level-delete aria-label="Delete level">
+                ${SETTINGS_DELETE_ICON}
               </button>
             </div>
           </div>
@@ -2788,7 +2919,9 @@
                 }
                 ${
                   canEditProfile
-                    ? `<button type="button" class="member-info-remove" data-user-deactivate="${escapeHtml(user.id)}">Remove</button>`
+                    ? `<button type="button" class="member-info-remove settings-row-delete-icon" data-user-deactivate="${escapeHtml(
+                        user.id
+                      )}" aria-label="Remove member">${SETTINGS_DELETE_ICON}</button>`
                     : ""
                 }
               </div>
@@ -2984,10 +3117,12 @@
         (item) => `
           <div class="level-row settings-structured-row settings-structured-row-no-label expense-row" data-expense-id="${escapeHtml(item.id || "")}">
             <div class="settings-row-main">
-              <input type="text" value="${escapeHtml(item.name || "")}" data-expense-name placeholder="Category name" />
+              <input class="settings-field" type="text" value="${escapeHtml(item.name || "")}" data-expense-name placeholder="Category name" />
             </div>
             <div class="settings-row-actions expense-actions">
-              <button type="button" class="expense-delete" data-expense-delete>Delete</button>
+              <button type="button" class="settings-row-delete-icon" data-expense-delete aria-label="Delete category">
+                ${SETTINGS_DELETE_ICON}
+              </button>
             </div>
           </div>
         `
@@ -3026,14 +3161,12 @@
         return `
           <div class="level-row settings-structured-row settings-structured-row-no-label office-row" data-office-id="${escapeHtml(item.id || "")}">
             <div class="settings-row-main settings-row-main-split">
-              <input type="text" value="${escapeHtml(item.name)}" data-office-name placeholder="Location name" />
-              <select data-office-lead>${leadOptions}</select>
+              <input class="settings-field" type="text" value="${escapeHtml(item.name)}" data-office-name placeholder="Location name" />
+              <select class="settings-field" data-office-lead>${leadOptions}</select>
             </div>
             <div class="settings-row-actions office-actions">
-              <button type="button" class="expense-delete settings-row-delete-icon" data-office-delete aria-label="Delete location">
-                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                  <path d="M4 7h16M9 7V5h6v2M8 7l1 12h6l1-12" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
+              <button type="button" class="settings-row-delete-icon" data-office-delete aria-label="Delete location">
+                ${SETTINGS_DELETE_ICON}
               </button>
             </div>
           </div>
