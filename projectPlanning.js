@@ -47,20 +47,14 @@
       .project-planning-kpis {
         display: grid;
         grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: 9px;
+        gap: 12px;
         margin-bottom: 12px;
       }
       .project-planning-kpi {
         border: 1px solid var(--line);
-        border-radius: 10px;
-        padding: 8px 10px;
+        border-radius: 12px;
+        padding: 12px 14px;
         background: var(--surface);
-      }
-      .project-planning-kpi.is-primary {
-        padding: 14px 14px;
-      }
-      .project-planning-kpi.is-secondary {
-        padding: 8px 10px;
       }
       .project-planning-kpi-label {
         color: var(--muted);
@@ -69,16 +63,54 @@
         letter-spacing: .04em;
       }
       .project-planning-kpi-value {
-        margin-top: 6px;
-        font-size: 1.02rem;
+        margin-top: 8px;
+        font-size: 1.58rem;
         font-weight: 700;
-      }
-      .project-planning-kpi.is-primary .project-planning-kpi-value {
-        font-size: 1.32rem;
+        line-height: 1.2;
       }
       .project-planning-kpi.is-emphasis .project-planning-kpi-value {
-        font-size: 1.4rem;
+        font-size: 1.66rem;
         font-weight: 800;
+      }
+      .project-planning-kpi-sub {
+        margin-top: 8px;
+        display: grid;
+        gap: 4px;
+      }
+      .project-planning-kpi-subline {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+        color: var(--muted);
+        font-size: 0.82rem;
+        line-height: 1.25;
+        font-variant-numeric: tabular-nums;
+      }
+      .project-planning-kpi-subline strong {
+        color: var(--text);
+        font-weight: 600;
+      }
+      .project-planning-kpi-subline.is-positive strong {
+        color: var(--success);
+      }
+      .project-planning-kpi-subline.is-negative strong {
+        color: var(--danger);
+      }
+      .project-planning-kpi[data-kpi-card="contract"] .project-planning-kpi-value {
+        cursor: text;
+      }
+      .project-planning-kpi-edit-input {
+        width: 100%;
+        margin-top: 6px;
+        padding: 0;
+        border: 0;
+        outline: 0;
+        background: transparent;
+        color: var(--text);
+        font: inherit;
+        font-size: 1.58rem;
+        font-weight: 700;
+        line-height: 1.2;
       }
       .project-planning-field {
         display: grid;
@@ -391,8 +423,7 @@
         "Unassigned"
     );
     const overheadValue = toNullableNumber(project?.overheadPercent ?? project?.overhead_percent);
-    const contractAmount = toNullableNumber(project?.contractAmount ?? project?.contract_amount);
-    const budgetAmount = toNullableNumber(project?.budget);
+    let contractAmountValue = toNullableNumber(project?.contractAmount ?? project?.contract_amount);
     const memberBudgets = Array.isArray(state?.projectMemberBudgets)
       ? state.projectMemberBudgets.filter(
           (row) => String(row?.projectId || "").trim() === String(project?.id || "").trim()
@@ -456,7 +487,7 @@
       };
     });
     planningRows = computeRows(planningRows);
-    const initialTotals = computeTotals(planningRows, contractAmount, overheadValue);
+    const initialTotals = computeTotals(planningRows, contractAmountValue, overheadValue);
 
     container.innerHTML = `
       <section class="page-view project-planning-page" aria-labelledby="project-planning-title">
@@ -473,37 +504,51 @@
         <div class="project-planning-layout">
           <main>
             <section class="project-planning-kpis">
-              <article class="project-planning-kpi is-primary">
+              <article class="project-planning-kpi" data-kpi-card="contract">
                 <div class="project-planning-kpi-label">Contract Amount</div>
-                <div class="project-planning-kpi-value" data-kpi="contract">${escapeHtml(fmtMoneyZero(contractAmount))}</div>
+                <div class="project-planning-kpi-value" data-kpi="contract">${escapeHtml(fmtMoneyZero(contractAmountValue))}</div>
               </article>
-              <article class="project-planning-kpi is-primary">
+              <article class="project-planning-kpi">
                 <div class="project-planning-kpi-label">Planned Cost</div>
                 <div class="project-planning-kpi-value" data-kpi="plannedCost">${escapeHtml(fmtMoneyZero(initialTotals.totalCost))}</div>
+                <div class="project-planning-kpi-sub">
+                  <div class="project-planning-kpi-subline">
+                    <span>Direct</span>
+                    <strong data-kpi="plannedDirect">${escapeHtml(fmtMoneyZero(initialTotals.directCost))}</strong>
+                  </div>
+                  <div class="project-planning-kpi-subline">
+                    <span>Overhead</span>
+                    <strong data-kpi="plannedOverhead">${escapeHtml(fmtMoneyZero(initialTotals.overheadCost))}</strong>
+                  </div>
+                </div>
               </article>
-              <article class="project-planning-kpi is-primary is-emphasis">
+              <article class="project-planning-kpi is-emphasis">
                 <div class="project-planning-kpi-label">Gross Margin</div>
                 <div class="project-planning-kpi-value" data-kpi="grossMargin">${escapeHtml(initialTotals.hasContract ? fmtMoneyZero(initialTotals.grossMargin) : "—")}</div>
+                <div class="project-planning-kpi-sub">
+                  <div class="project-planning-kpi-subline">
+                    <span>Contract</span>
+                    <strong data-kpi="grossContract">${escapeHtml(fmtMoneyZero(contractAmountValue))}</strong>
+                  </div>
+                  <div class="project-planning-kpi-subline">
+                    <span>Cost</span>
+                    <strong data-kpi="grossCost">${escapeHtml(fmtMoneyZero(initialTotals.totalCost))}</strong>
+                  </div>
+                </div>
               </article>
-              <article class="project-planning-kpi is-primary is-emphasis">
-                <div class="project-planning-kpi-label">Margin %</div>
-                <div class="project-planning-kpi-value" data-kpi="marginPct">${escapeHtml(initialTotals.hasContract ? fmtPercent(initialTotals.marginPercent) : "—")}</div>
-              </article>
-              <article class="project-planning-kpi is-secondary">
-                <div class="project-planning-kpi-label">Budget</div>
-                <div class="project-planning-kpi-value" data-kpi="budget">${escapeHtml(fmtMoneyZero(budgetAmount))}</div>
-              </article>
-              <article class="project-planning-kpi is-secondary">
-                <div class="project-planning-kpi-label">Planned Hours</div>
-                <div class="project-planning-kpi-value" data-kpi="hours">${escapeHtml(fmtHours(initialTotals.totalHours))}</div>
-              </article>
-              <article class="project-planning-kpi is-secondary">
-                <div class="project-planning-kpi-label">Overhead %</div>
-                <div class="project-planning-kpi-value" data-kpi="overheadPct">${escapeHtml(fmtPercentZero(overheadValue))}</div>
-              </article>
-              <article class="project-planning-kpi is-secondary">
-                <div class="project-planning-kpi-label">Overhead $</div>
-                <div class="project-planning-kpi-value" data-kpi="overheadCost">${escapeHtml(fmtMoneyZero(initialTotals.overheadCost))}</div>
+              <article class="project-planning-kpi is-emphasis">
+                <div class="project-planning-kpi-label">Realization</div>
+                <div class="project-planning-kpi-value" data-kpi="realizationPct">${escapeHtml(initialTotals.hasContract && initialTotals.plannedRevenueTotal > 0 ? fmtPercent((contractAmountValue / initialTotals.plannedRevenueTotal) * 100) : "—")}</div>
+                <div class="project-planning-kpi-sub">
+                  <div class="project-planning-kpi-subline">
+                    <span>Std Rev</span>
+                    <strong data-kpi="standardRevenue">${escapeHtml(fmtMoneyZero(initialTotals.plannedRevenueTotal))}</strong>
+                  </div>
+                  <div class="project-planning-kpi-subline ${initialTotals.hasContract && contractAmountValue - initialTotals.plannedRevenueTotal < 0 ? "is-negative" : "is-positive"}">
+                    <span data-kpi-label="premiumDiscount">${initialTotals.hasContract && contractAmountValue < initialTotals.plannedRevenueTotal ? "Discount" : "Premium"}</span>
+                    <strong data-kpi="premiumDiscount">${escapeHtml(initialTotals.hasContract ? fmtMoney(contractAmountValue - initialTotals.plannedRevenueTotal) : "—")}</strong>
+                  </div>
+                </div>
               </article>
             </section>
             <section class="project-planning-block">
@@ -561,7 +606,7 @@
                 <div class="project-planning-econ-title">Revenue</div>
                 <div class="project-planning-econ-row">
                   <span class="project-planning-econ-label">Contract Amount</span>
-                  <span class="project-planning-econ-value" data-econ="contractAmount">${escapeHtml(fmtMoneyZero(contractAmount))}</span>
+                  <span class="project-planning-econ-value" data-econ="contractAmount">${escapeHtml(fmtMoneyZero(contractAmountValue))}</span>
                 </div>
                 <div class="project-planning-econ-row">
                   <span class="project-planning-econ-label">Planned Revenue</span>
@@ -569,12 +614,12 @@
                 </div>
                 <div class="project-planning-econ-row">
                   <span class="project-planning-econ-label" data-econ-label="discountPremium">
-                    ${initialTotals.hasContract && contractAmount - initialTotals.plannedRevenueTotal >= 0
+                    ${initialTotals.hasContract && contractAmountValue - initialTotals.plannedRevenueTotal >= 0
                       ? "Premium to Standard Rates"
                       : "Discount to Standard Rates"}
                   </span>
                   <span class="project-planning-econ-value" data-econ="discountPremium">
-                    ${escapeHtml(initialTotals.hasContract ? fmtMoney(contractAmount - initialTotals.plannedRevenueTotal) : "—")}
+                    ${escapeHtml(initialTotals.hasContract ? fmtMoney(contractAmountValue - initialTotals.plannedRevenueTotal) : "—")}
                   </span>
                 </div>
               </section>
@@ -608,7 +653,7 @@
                 <div class="project-planning-econ-title">Implied Metrics</div>
                 <div class="project-planning-econ-row">
                   <span class="project-planning-econ-label">Implied Rate</span>
-                  <span class="project-planning-econ-value" data-econ="impliedRate">${escapeHtml(initialTotals.hasContract && initialTotals.totalHours > 0 ? fmtMoney(contractAmount / initialTotals.totalHours) : "—")}</span>
+                  <span class="project-planning-econ-value" data-econ="impliedRate">${escapeHtml(initialTotals.hasContract && initialTotals.totalHours > 0 ? fmtMoney(contractAmountValue / initialTotals.totalHours) : "—")}</span>
                 </div>
               </section>
             </section>
@@ -654,13 +699,17 @@
     });
 
     const kpiContractNode = container.querySelector('[data-kpi="contract"]');
-    const kpiBudgetNode = container.querySelector('[data-kpi="budget"]');
     const kpiPlannedCostNode = container.querySelector('[data-kpi="plannedCost"]');
+    const kpiPlannedDirectNode = container.querySelector('[data-kpi="plannedDirect"]');
+    const kpiPlannedOverheadNode = container.querySelector('[data-kpi="plannedOverhead"]');
     const kpiGrossMarginNode = container.querySelector('[data-kpi="grossMargin"]');
-    const kpiMarginPctNode = container.querySelector('[data-kpi="marginPct"]');
-    const kpiHoursNode = container.querySelector('[data-kpi="hours"]');
-    const kpiOverheadPctNode = container.querySelector('[data-kpi="overheadPct"]');
-    const kpiOverheadCostNode = container.querySelector('[data-kpi="overheadCost"]');
+    const kpiGrossContractNode = container.querySelector('[data-kpi="grossContract"]');
+    const kpiGrossCostNode = container.querySelector('[data-kpi="grossCost"]');
+    const kpiRealizationPctNode = container.querySelector('[data-kpi="realizationPct"]');
+    const kpiStandardRevenueNode = container.querySelector('[data-kpi="standardRevenue"]');
+    const kpiPremiumDiscountNode = container.querySelector('[data-kpi="premiumDiscount"]');
+    const kpiPremiumDiscountLabelNode = container.querySelector('[data-kpi-label="premiumDiscount"]');
+    const contractCardNode = container.querySelector('[data-kpi-card="contract"]');
     const econContractNode = container.querySelector('[data-econ="contractAmount"]');
     const econPlannedRevenueNode = container.querySelector('[data-econ="plannedRevenue"]');
     const econDiscountPremiumNode = container.querySelector('[data-econ="discountPremium"]');
@@ -671,6 +720,48 @@
     const econGrossMarginNode = container.querySelector('[data-econ="grossMargin"]');
     const econGrossMarginPctNode = container.querySelector('[data-econ="grossMarginPct"]');
     const econImpliedRateNode = container.querySelector('[data-econ="impliedRate"]');
+    let isEditingContractAmount = false;
+
+    function commitContractAmount(rawValue) {
+      const trimmed = String(rawValue ?? "").trim();
+      if (!trimmed) {
+        contractAmountValue = null;
+        isEditingContractAmount = false;
+        renderComputed();
+        return;
+      }
+      const numeric = Number(trimmed.replace(/,/g, "").replace(/[^\d.-]/g, ""));
+      if (Number.isFinite(numeric)) {
+        contractAmountValue = numeric;
+      }
+      isEditingContractAmount = false;
+      renderComputed();
+    }
+
+    function enterContractAmountEditMode() {
+      if (!kpiContractNode || isEditingContractAmount) return;
+      isEditingContractAmount = true;
+      const currentRaw = contractAmountValue === null || contractAmountValue === undefined
+        ? ""
+        : String(Number(contractAmountValue));
+      kpiContractNode.innerHTML = `<input class="project-planning-kpi-edit-input" type="text" inputmode="decimal" value="${escapeHtml(currentRaw)}" data-contract-edit-input />`;
+      const editInput = kpiContractNode.querySelector("[data-contract-edit-input]");
+      if (!editInput) return;
+      editInput.focus();
+      editInput.select();
+      editInput.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          editInput.blur();
+        }
+        if (event.key === "Escape") {
+          event.preventDefault();
+          isEditingContractAmount = false;
+          renderComputed();
+        }
+      });
+      editInput.addEventListener("blur", () => commitContractAmount(editInput.value));
+    }
     function setEconomicSignal(node, value, options = {}) {
       if (!node) return;
       node.classList.remove("is-negative", "is-positive");
@@ -681,7 +772,11 @@
 
     function renderComputed() {
       planningRows = computeRows(planningRows);
-      const totals = computeTotals(planningRows, contractAmount, overheadValue);
+      const totals = computeTotals(planningRows, contractAmountValue, overheadValue);
+      const realizationPct =
+        totals.plannedRevenueTotal > 0 && Number.isFinite(contractAmountValue)
+          ? (contractAmountValue / totals.plannedRevenueTotal) * 100
+          : null;
 
       planningRows.forEach((row) => {
         const rowId = String(row.id);
@@ -695,16 +790,31 @@
         if (marginPctNode) marginPctNode.textContent = fmtPercentZero(row.marginPercent);
       });
 
-      if (kpiContractNode) kpiContractNode.textContent = fmtMoneyZero(contractAmount);
-      if (kpiBudgetNode) kpiBudgetNode.textContent = fmtMoneyZero(budgetAmount);
+      if (kpiContractNode && !isEditingContractAmount) kpiContractNode.textContent = fmtMoneyZero(contractAmountValue);
       if (kpiPlannedCostNode) kpiPlannedCostNode.textContent = fmtMoneyZero(totals.totalCost);
+      if (kpiPlannedDirectNode) kpiPlannedDirectNode.textContent = fmtMoneyZero(totals.directCost);
+      if (kpiPlannedOverheadNode) kpiPlannedOverheadNode.textContent = fmtMoneyZero(totals.overheadCost);
       if (kpiGrossMarginNode) kpiGrossMarginNode.textContent = totals.hasContract ? fmtMoneyZero(totals.grossMargin) : "—";
-      if (kpiMarginPctNode) kpiMarginPctNode.textContent = totals.hasContract ? fmtPercent(totals.marginPercent) : "—";
-      if (kpiHoursNode) kpiHoursNode.textContent = fmtHours(totals.totalHours);
-      if (kpiOverheadPctNode) kpiOverheadPctNode.textContent = fmtPercentZero(overheadValue);
-      if (kpiOverheadCostNode) kpiOverheadCostNode.textContent = fmtMoneyZero(totals.overheadCost);
-      const discountPremiumValue = totals.hasContract ? contractAmount - totals.plannedRevenueTotal : null;
-      if (econContractNode) econContractNode.textContent = fmtMoneyZero(contractAmount);
+      if (kpiGrossContractNode) kpiGrossContractNode.textContent = fmtMoneyZero(contractAmountValue);
+      if (kpiGrossCostNode) kpiGrossCostNode.textContent = fmtMoneyZero(totals.totalCost);
+      if (kpiRealizationPctNode) kpiRealizationPctNode.textContent = realizationPct === null ? "—" : fmtPercent(realizationPct);
+      if (kpiStandardRevenueNode) kpiStandardRevenueNode.textContent = fmtMoneyZero(totals.plannedRevenueTotal);
+      const discountPremiumValue = totals.hasContract ? contractAmountValue - totals.plannedRevenueTotal : null;
+      if (kpiPremiumDiscountLabelNode) {
+        kpiPremiumDiscountLabelNode.textContent =
+          totals.hasContract && Number.isFinite(discountPremiumValue) && discountPremiumValue < 0
+            ? "Discount"
+            : "Premium";
+      }
+      if (kpiPremiumDiscountNode) {
+        kpiPremiumDiscountNode.textContent = totals.hasContract ? fmtMoney(discountPremiumValue) : "—";
+        kpiPremiumDiscountNode.parentElement?.classList.remove("is-positive", "is-negative");
+        if (totals.hasContract && Number.isFinite(discountPremiumValue)) {
+          if (discountPremiumValue < 0) kpiPremiumDiscountNode.parentElement?.classList.add("is-negative");
+          if (discountPremiumValue > 0) kpiPremiumDiscountNode.parentElement?.classList.add("is-positive");
+        }
+      }
+      if (econContractNode) econContractNode.textContent = fmtMoneyZero(contractAmountValue);
       if (econPlannedRevenueNode) econPlannedRevenueNode.textContent = fmtMoneyZero(totals.plannedRevenueTotal);
       if (econDiscountPremiumLabelNode) {
         econDiscountPremiumLabelNode.textContent =
@@ -737,11 +847,16 @@
         });
       }
       if (econImpliedRateNode) {
-        const impliedRate = totals.hasContract && totals.totalHours > 0 ? contractAmount / totals.totalHours : null;
+        const impliedRate = totals.hasContract && totals.totalHours > 0 ? contractAmountValue / totals.totalHours : null;
         econImpliedRateNode.textContent = impliedRate === null ? "—" : fmtMoney(impliedRate);
       }
 
     }
+
+    kpiContractNode?.addEventListener("click", (event) => {
+      if (event.target && event.target.closest("[data-contract-edit-input]")) return;
+      enterContractAmountEditMode();
+    });
 
     container.querySelectorAll("[data-row-input]").forEach((input) => {
       input.addEventListener("input", (event) => {
