@@ -29,9 +29,13 @@
         gap: 10px;
         align-items: center;
       }
+      .project-planning-kpi-row {
+        width: 100%;
+        margin-bottom: 14px;
+      }
       .project-planning-layout {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) 312px;
+        grid-template-columns: minmax(0, 1fr) 320px;
         gap: 12px;
         align-items: start;
       }
@@ -48,7 +52,7 @@
         display: grid;
         grid-template-columns: repeat(4, minmax(0, 1fr));
         gap: 12px;
-        margin-bottom: 12px;
+        margin-bottom: 0;
       }
       .project-planning-kpi {
         border: 1px solid var(--line);
@@ -159,7 +163,7 @@
       .project-planning-right {
         display: grid;
         gap: 6px;
-        padding-top: 210px;
+        padding-top: 0;
       }
       .project-planning-economics h4 {
         margin: 0;
@@ -233,9 +237,6 @@
       @media (max-width: 1200px) {
         .project-planning-layout {
           grid-template-columns: 1fr;
-        }
-        .project-planning-right {
-          padding-top: 0;
         }
         .project-planning-kpis {
           grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -501,8 +502,7 @@
             <button type="button" class="button button-ghost" data-project-planning-back>Back</button>
           </div>
         </header>
-        <div class="project-planning-layout">
-          <main>
+        <section class="project-planning-kpi-row">
             <section class="project-planning-kpis">
               <article class="project-planning-kpi" data-kpi-card="contract">
                 <div class="project-planning-kpi-label">Contract Amount</div>
@@ -551,6 +551,9 @@
                 </div>
               </article>
             </section>
+        </section>
+        <div class="project-planning-layout">
+          <main>
             <section class="project-planning-block">
               <h3>Team Budgeting</h3>
               <div class="project-planning-table-wrap">
