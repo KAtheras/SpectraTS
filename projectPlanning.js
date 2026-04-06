@@ -147,6 +147,21 @@
       .project-planning-table input[data-row-input="hours"] {
         max-width: 96px;
       }
+      .project-planning-table input[data-row-input="costRate"]::-webkit-outer-spin-button,
+      .project-planning-table input[data-row-input="costRate"]::-webkit-inner-spin-button,
+      .project-planning-table input[data-row-input="chargeRate"]::-webkit-outer-spin-button,
+      .project-planning-table input[data-row-input="chargeRate"]::-webkit-inner-spin-button,
+      .project-planning-table input[data-row-input="hours"]::-webkit-outer-spin-button,
+      .project-planning-table input[data-row-input="hours"]::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+      }
+      .project-planning-table input[data-row-input="costRate"],
+      .project-planning-table input[data-row-input="chargeRate"],
+      .project-planning-table input[data-row-input="hours"] {
+        -moz-appearance: textfield;
+        appearance: textfield;
+      }
       .project-planning-consumption {
         border: 1px solid var(--line);
         border-radius: 10px;
@@ -209,7 +224,12 @@
   function fmtMoney(value) {
     const num = Number(value);
     if (!Number.isFinite(num)) return "—";
-    return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(num);
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(num);
   }
 
   function fmtMoneyZero(value) {
@@ -218,21 +238,36 @@
     return new Intl.NumberFormat("en-US", {
       style: "currency",
       currency: "USD",
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
     }).format(safe);
   }
 
   function fmtPercent(value) {
     const num = Number(value);
     if (!Number.isFinite(num)) return "—";
-    return `${num.toFixed(2)}%`;
+    return `${new Intl.NumberFormat("en-US", {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 1,
+    }).format(num)}%`;
   }
 
   function fmtPercentZero(value) {
     const num = Number(value);
     const safe = Number.isFinite(num) ? num : 0;
-    return `${safe.toFixed(2)}%`;
+    return `${new Intl.NumberFormat("en-US", {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 1,
+    }).format(safe)}%`;
+  }
+
+  function fmtHours(value) {
+    const num = Number(value);
+    const safe = Number.isFinite(num) ? num : 0;
+    return new Intl.NumberFormat("en-US", {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    }).format(safe);
   }
 
   function toNullableNumber(value) {
@@ -360,6 +395,9 @@
     const budgetByUserId = new Map(
       memberBudgets.map((row) => [String(row?.userId || "").trim(), row])
     );
+    const levelLabelMap = state?.levelLabels && typeof state.levelLabels === "object"
+      ? state.levelLabels
+      : {};
     const leadUserId = String(project?.projectLeadId || project?.project_lead_id || "").trim();
     const managerIds = new Set(
       managerAssignments.map((row) => String(row?.managerId || "").trim()).filter(Boolean)
@@ -394,12 +432,13 @@
       );
       const chargeRateOverride = managerChargeOverride ?? memberChargeOverride;
       const budgetRateOverride = toNullableNumber(budgetRow?.rateOverride);
-      const roleLabel =
-        userId === leadUserId
-          ? "Project Lead"
-          : managerIds.has(userId)
-            ? "Manager"
-            : (member?.permissionGroup || member?.permission_group || "Staff");
+      const memberLevel = Number.isFinite(Number(member?.level)) ? Number(member.level) : null;
+      const levelDef = memberLevel !== null ? levelLabelMap[String(memberLevel)] : null;
+      const titleFromLevel =
+        typeof levelDef?.label === "string" && levelDef.label.trim()
+          ? levelDef.label.trim()
+          : "";
+      const roleLabel = titleFromLevel || String(member?.role || member?.permissionGroup || member?.permission_group || "—");
       return {
         id: userId || `row-${index}`,
         userId: userId || null,
@@ -450,7 +489,7 @@
               </article>
               <article class="project-planning-kpi is-secondary">
                 <div class="project-planning-kpi-label">Planned Hours</div>
-                <div class="project-planning-kpi-value" data-kpi="hours">${escapeHtml(initialTotals.totalHours.toFixed(2))}</div>
+                <div class="project-planning-kpi-value" data-kpi="hours">${escapeHtml(fmtHours(initialTotals.totalHours))}</div>
               </article>
               <article class="project-planning-kpi is-secondary">
                 <div class="project-planning-kpi-label">Overhead %</div>
@@ -606,7 +645,7 @@
       if (kpiPlannedCostNode) kpiPlannedCostNode.textContent = fmtMoneyZero(totals.totalCost);
       if (kpiGrossMarginNode) kpiGrossMarginNode.textContent = totals.hasContract ? fmtMoneyZero(totals.grossMargin) : "—";
       if (kpiMarginPctNode) kpiMarginPctNode.textContent = totals.hasContract ? fmtPercent(totals.marginPercent) : "—";
-      if (kpiHoursNode) kpiHoursNode.textContent = totals.totalHours.toFixed(2);
+      if (kpiHoursNode) kpiHoursNode.textContent = fmtHours(totals.totalHours);
       if (kpiOverheadPctNode) kpiOverheadPctNode.textContent = fmtPercentZero(overheadValue);
       if (kpiOverheadCostNode) kpiOverheadCostNode.textContent = fmtMoneyZero(totals.overheadCost);
 
@@ -617,7 +656,7 @@
         const rawPct = contractAmount > 0 ? (totals.totalCost / contractAmount) * 100 : 0;
         const safePct = Math.max(0, rawPct);
         consumptionFill.style.width = `${Math.min(safePct, 100).toFixed(2)}%`;
-        consumptionLabel.textContent = `${safePct.toFixed(2)}% of contract consumed`;
+        consumptionLabel.textContent = `${fmtPercent(safePct)} of contract consumed`;
         consumptionWrap.classList.toggle("is-over", safePct > 100);
       }
     }
