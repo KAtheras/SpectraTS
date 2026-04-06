@@ -373,20 +373,8 @@
       return;
     }
 
-    const actorOptions = [
-      ...new Map(
-        rows
-          .filter((row) => row.changed_by_user_id)
-          .map((row) => [row.changed_by_user_id, row.changed_by_name_snapshot || row.changed_by_user_id])
-      ).entries(),
-    ];
-    if (refs.auditFilterActor && refs.auditFilterActor.options.length <= 1) {
-      refs.auditFilterActor.innerHTML = [
-        `<option value="">All</option>`,
-        ...actorOptions.map(
-          ([id, label]) => `<option value="${escapeHtml(id)}">${escapeHtml(label)}</option>`
-        ),
-      ].join("");
+    if (typeof deps().syncAuditFilterOptions === "function") {
+      deps().syncAuditFilterOptions(rows);
     }
 
     refs.auditTableBody.innerHTML = rows
@@ -611,7 +599,7 @@
   }
 
   function applyAuditFiltersFromForm() {
-    const { parseDisplayDate, refs, state } = deps();
+    const { parseDisplayDate, refs, state, loadAuditLogs } = deps();
     const beginRaw =
       refs.auditFilterBeginDate?.dataset?.dpCanonical ||
       refs.auditFilterBeginDate?.value ||
@@ -630,8 +618,11 @@
       beginDate: beginDate || "",
       endDate: endDate || "",
     };
+    if (typeof loadAuditLogs === "function") {
+      loadAuditLogs({ append: false });
+      return;
+    }
     renderAuditTable(filterAuditLogs(state.auditLogs));
-    loadAuditLogs();
   }
 
   window.auditLog = {

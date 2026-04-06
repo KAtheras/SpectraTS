@@ -1517,7 +1517,7 @@
           const rowId = escapeHtml(row.id);
           const selectedCategory = String(row.categoryId || "");
           const categorySelect = [
-            `<option value="" ${selectedCategory ? "" : "selected"}>Select category</option>`,
+            `<option value="" ${selectedCategory ? "" : "selected"}>Select</option>`,
             ...projectExpenseCategories.map(
               (item) =>
                 `<option value="${escapeHtml(item.id)}" ${item.id === selectedCategory ? "selected" : ""}>${escapeHtml(item.name)}</option>`

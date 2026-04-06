@@ -5196,6 +5196,19 @@ exports.handler = async function handler(event) {
         mutationResult = { ok: true };
         break;
       }
+      case "delete_project_member_budget": {
+        if (!isAdmin(context.currentUser) && !isManager(context.currentUser)) {
+          return errorResponse(403, "Manager access required.");
+        }
+        const projectId = normalizeText(request.payload?.projectId);
+        const userId = normalizeText(request.payload?.userId);
+        if (!projectId || !userId) {
+          return errorResponse(400, "Project id and user id are required.");
+        }
+        await deleteProjectMemberBudget(sql, projectId, userId, accountId);
+        mutationResult = { ok: true };
+        break;
+      }
       case "create_project_planned_expense": {
         if (!can("edit_expense") && !isAdmin(context.currentUser) && !isManager(context.currentUser)) {
           return errorResponse(403, "Access denied.");

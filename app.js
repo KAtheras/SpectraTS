@@ -206,6 +206,7 @@
     filterAuditLogs,
     humanizeEntity,
     humanizeAction,
+    auditCategoryForRow,
     humanizeField,
     formatValue,
     formatAuditKV,
@@ -2587,6 +2588,14 @@
       max: "",
     },
     auditDateBoundsLoading: false,
+    auditFilterOptions: {
+      entities: [],
+      actions: [],
+      actors: [],
+      categories: [],
+    },
+    auditFilterOptionsLoaded: false,
+    auditFilterOptionsLoading: false,
   };
 
   setupAddClientHeaderAction();
@@ -2603,6 +2612,8 @@
     formatDateTimeLocal,
     formatDisplayDate,
     parseDisplayDate,
+    loadAuditLogs,
+    syncAuditFilterOptions,
   };
 
   function arrangeSettingsMenu(showAudit) {
@@ -6852,6 +6863,103 @@
     };
   }
 
+  function buildAuditFilterOptions(rows) {
+    const sourceRows = Array.isArray(rows) ? rows : [];
+    const entityLabel = (value) => (typeof humanizeEntity === "function" ? humanizeEntity(value) : value || "");
+    const actionLabel = (value) => (typeof humanizeAction === "function" ? humanizeAction(value) : value || "");
+    const entities = [...new Set(sourceRows.map((row) => `${row?.entity_type || ""}`.trim()).filter(Boolean))].sort(
+      (a, b) => entityLabel(a).localeCompare(entityLabel(b))
+    );
+    const actions = [...new Set(sourceRows.map((row) => `${row?.action || ""}`.trim()).filter(Boolean))].sort(
+      (a, b) => actionLabel(a).localeCompare(actionLabel(b))
+    );
+    const actors = [
+      ...new Map(
+        sourceRows
+          .map((row) => ({
+            id: `${row?.changed_by_user_id || ""}`.trim(),
+            label: `${row?.changed_by_name_snapshot || userNameById(row?.changed_by_user_id) || row?.changed_by_user_id || ""}`.trim(),
+          }))
+          .filter((row) => row.id)
+          .map((row) => [row.id, row.label || row.id])
+      ).entries(),
+    ]
+      .map(([id, label]) => ({ id, label }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+    const categories = [
+      ...new Set(
+        sourceRows
+          .map((row) => (typeof auditCategoryForRow === "function" ? auditCategoryForRow(row) : ""))
+          .filter(Boolean)
+      ),
+    ].sort((a, b) => a.localeCompare(b));
+    return { entities, actions, actors, categories };
+  }
+
+  function syncAuditFilterOptions(rowsFallback) {
+    const options = state.auditFilterOptionsLoaded
+      ? state.auditFilterOptions
+      : buildAuditFilterOptions(rowsFallback || state.auditLogs || []);
+    const categoryLabelByValue = {
+      activity: "Activity",
+      client_project: "Client/Project",
+      settings_edits: "Settings edits",
+    };
+    if (refs.auditFilterEntity) {
+      const current = refs.auditFilterEntity.value || "";
+      refs.auditFilterEntity.innerHTML = [
+        `<option value="">All</option>`,
+        ...(options.entities || []).map(
+          (value) =>
+            `<option value="${escapeHtml(value)}">${escapeHtml(
+              typeof humanizeEntity === "function" ? humanizeEntity(value) : value
+            )}</option>`
+        ),
+      ].join("");
+      refs.auditFilterEntity.value = (options.entities || []).includes(current) ? current : "";
+    }
+    if (refs.auditFilterAction) {
+      const current = refs.auditFilterAction.value || "";
+      refs.auditFilterAction.innerHTML = [
+        `<option value="">All</option>`,
+        ...(options.actions || []).map(
+          (value) =>
+            `<option value="${escapeHtml(value)}">${escapeHtml(
+              typeof humanizeAction === "function" ? humanizeAction(value) : value
+            )}</option>`
+        ),
+      ].join("");
+      refs.auditFilterAction.value = (options.actions || []).includes(current) ? current : "";
+    }
+    if (refs.auditFilterActor) {
+      const current = refs.auditFilterActor.value || "";
+      refs.auditFilterActor.innerHTML = [
+        `<option value="">All</option>`,
+        ...(options.actors || []).map(
+          (item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.label || item.id)}</option>`
+        ),
+      ].join("");
+      refs.auditFilterActor.value = (options.actors || []).some((item) => item.id === current) ? current : "";
+    }
+    if (refs.auditFilterCategory) {
+      const current = refs.auditFilterCategory.value || "";
+      const categories = (options.categories || []).length
+        ? options.categories
+        : ["activity", "client_project", "settings_edits"];
+      refs.auditFilterCategory.innerHTML = [
+        `<option value="">All</option>`,
+        ...categories.map(
+          (value) =>
+            `<option value="${escapeHtml(value)}">${escapeHtml(
+              categoryLabelByValue[value] ||
+                (typeof humanizeEntity === "function" ? humanizeEntity(value) : value)
+            )}</option>`
+        ),
+      ].join("");
+      refs.auditFilterCategory.value = categories.includes(current) ? current : "";
+    }
+  }
+
   function auditDateBounds() {
     if (state.auditDateBounds?.min && state.auditDateBounds?.max) {
       return {
@@ -6893,6 +7001,24 @@
       // Keep current fallback bounds if full-range fetch fails.
     } finally {
       state.auditDateBoundsLoading = false;
+    }
+  }
+
+  async function ensureFullAuditFilterOptions(options = {}) {
+    if (!isAdmin(state.currentUser)) return;
+    const force = options.force === true;
+    if (!force && state.auditFilterOptionsLoaded) return;
+    if (state.auditFilterOptionsLoading) return;
+    state.auditFilterOptionsLoading = true;
+    try {
+      const all = await fetchAllAuditLogs({});
+      state.auditFilterOptions = buildAuditFilterOptions(all);
+      state.auditFilterOptionsLoaded = true;
+      syncAuditFilterOptions();
+    } catch (error) {
+      // Keep loaded-row fallback options if full-history option load fails.
+    } finally {
+      state.auditFilterOptionsLoading = false;
     }
   }
 
@@ -7130,6 +7256,7 @@
           max: boundsMax || "",
         };
       }
+      syncAuditFilterOptions(nextRows);
       renderAuditTable(filterAuditLogs(state.auditLogs));
       syncAuditLoadMoreButton();
     } catch (error) {
@@ -8055,6 +8182,14 @@
                   );
                 }
               }
+              await mutatePersistentState(
+                "delete_project_member_budget",
+                {
+                  projectId: deleteProjectId,
+                  userId: deleteUserId,
+                },
+                { skipHydrate: true, refreshState: false, returnState: false }
+              );
               if (Array.isArray(state.projectMemberBudgets)) {
                 state.projectMemberBudgets = state.projectMemberBudgets.filter(
                   (row) =>
@@ -8293,6 +8428,7 @@
       }
       renderAuditTable(state.auditLogs);
       syncAuditLoadMoreButton();
+      ensureFullAuditFilterOptions();
       if (!state.auditLogs.length) {
         loadAuditLogs();
       }
