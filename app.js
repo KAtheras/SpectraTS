@@ -2544,11 +2544,13 @@
     mobileMembersView: "list", // "list" | "detail"
     inputSubtab: "time", // "time" | "expenses"
     inputsTimeCalendarExpanded: false,
+    inputsTimeShowAllDays: false,
     inputsTimeCalendarEndDate: today,
     inputsTimeSelectedDate: today,
     inputsTimeSelectedClientProject: "",
     inputsTimeSelectedCorporateCategoryId: "",
     inputsExpenseCalendarExpanded: false,
+    inputsExpenseShowAllDays: false,
     inputsExpenseCalendarEndDate: today,
     inputsExpenseSelectedDate: today,
     inputsExpenseSelectedClientProject: "",
@@ -4573,11 +4575,25 @@
     ) || null;
     const selectedEntries = selectedProject ? selectedProject.entries : [];
 
-    const dayRowsHtml = dates
+    const allDays = dates.map((item) => {
+      const total = Number(totalsByDate[item.iso] || 0);
+      const hasEntries = Number.isFinite(total) && total > 0;
+      return {
+        ...item,
+        total,
+        hasEntries,
+      };
+    });
+    const showAllDays = state.inputsTimeShowAllDays === true;
+    const daysToRender = showAllDays
+      ? allDays
+      : allDays.filter((day) => day.hasEntries);
+
+    const dayRowsHtml = daysToRender
       .map((item) => {
-        const total = Number(totalsByDate[item.iso] || 0);
+        const total = Number(item.total || 0);
         const isActive = item.iso === selectedDay;
-        const isZero = !Number.isFinite(total) || total <= 0;
+        const isZero = !item.hasEntries;
         return `<button type="button" class="inputs-drilldown-item${isActive ? " is-active" : ""}${isZero ? " is-zero" : ""}" data-action="inputs-time-day" data-day="${escapeHtml(item.iso)}"${
           isZero ? ' disabled aria-disabled="true" tabindex="-1"' : ""
         }>
@@ -4635,7 +4651,7 @@
     refs.inputsTimeCalendarGrid.innerHTML = `
       <div class="inputs-drilldown-layout">
         <section class="inputs-drilldown-col">
-          <header class="inputs-drilldown-col-head">Days</header>
+          <header class="inputs-drilldown-col-head" style="position:relative;"><span>Days</span><button type="button" data-action="inputs-time-toggle-days" aria-label="${showAllDays ? "Collapse days" : "Expand days"}" title="${showAllDays ? "Show only days with entries" : "Show all days"}" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);margin:0;padding:0;border:0;background:transparent;appearance:none;-webkit-appearance:none;min-height:0;line-height:1;color:var(--muted);font-family:inherit;font-size:.74rem;font-weight:600;letter-spacing:0;text-transform:none;cursor:pointer;">${showAllDays ? "Collapse −" : "Expand +"}</button></header>
           <div class="inputs-drilldown-col-body">${dayRowsHtml}</div>
         </section>
         <section class="inputs-drilldown-col">
@@ -4872,11 +4888,25 @@
     ) || null;
     const selectedEntries = selectedProject ? selectedProject.entries : [];
 
-    const dayRowsHtml = dates
+    const allDays = dates.map((item) => {
+      const total = Number(totalsByDate[item.iso] || 0);
+      const hasEntries = Number.isFinite(total) && total > 0;
+      return {
+        ...item,
+        total,
+        hasEntries,
+      };
+    });
+    const showAllDays = state.inputsExpenseShowAllDays === true;
+    const daysToRender = showAllDays
+      ? allDays
+      : allDays.filter((day) => day.hasEntries);
+
+    const dayRowsHtml = daysToRender
       .map((item) => {
-        const total = Number(totalsByDate[item.iso] || 0);
+        const total = Number(item.total || 0);
         const isActive = item.iso === selectedDay;
-        const isZero = !Number.isFinite(total) || total <= 0;
+        const isZero = !item.hasEntries;
         return `<button type="button" class="inputs-drilldown-item${isActive ? " is-active" : ""}${isZero ? " is-zero" : ""}" data-action="inputs-expense-day" data-day="${escapeHtml(item.iso)}"${
           isZero ? ' disabled aria-disabled="true" tabindex="-1"' : ""
         }>
@@ -4933,7 +4963,7 @@
     refs.inputsExpenseCalendarGrid.innerHTML = `
       <div class="inputs-drilldown-layout">
         <section class="inputs-drilldown-col">
-          <header class="inputs-drilldown-col-head">Days</header>
+          <header class="inputs-drilldown-col-head" style="position:relative;"><span>Days</span><button type="button" data-action="inputs-expense-toggle-days" aria-label="${showAllDays ? "Collapse days" : "Expand days"}" title="${showAllDays ? "Show only days with entries" : "Show all days"}" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);margin:0;padding:0;border:0;background:transparent;appearance:none;-webkit-appearance:none;min-height:0;line-height:1;color:var(--muted);font-family:inherit;font-size:.74rem;font-weight:600;letter-spacing:0;text-transform:none;cursor:pointer;">${showAllDays ? "Collapse −" : "Expand +"}</button></header>
           <div class="inputs-drilldown-col-body">${dayRowsHtml}</div>
         </section>
         <section class="inputs-drilldown-col">
@@ -8340,6 +8370,12 @@
       const actionEl = event.target.closest("[data-action]");
       if (!actionEl) return;
       const action = `${actionEl.dataset.action || ""}`.trim();
+      if (action === "inputs-time-toggle-days") {
+        state.inputsTimeShowAllDays = !state.inputsTimeShowAllDays;
+        renderInputsTimeCalendar();
+        postHeight();
+        return;
+      }
       if (action === "inputs-time-day") {
         if (actionEl.classList.contains("is-zero") || actionEl.getAttribute("aria-disabled") === "true") {
           return;
@@ -8427,6 +8463,12 @@
       const actionEl = event.target.closest("[data-action]");
       if (!actionEl) return;
       const action = `${actionEl.dataset.action || ""}`.trim();
+      if (action === "inputs-expense-toggle-days") {
+        state.inputsExpenseShowAllDays = !state.inputsExpenseShowAllDays;
+        renderInputsExpenseCalendar();
+        postHeight();
+        return;
+      }
       if (action === "inputs-expense-day") {
         if (actionEl.classList.contains("is-zero") || actionEl.getAttribute("aria-disabled") === "true") {
           return;
