@@ -6961,10 +6961,15 @@
   }
 
   function auditDateBounds() {
+    const maxWithToday = (value) => {
+      const normalized = normalizeAuditDateValue(value || "");
+      if (!normalized) return today;
+      return normalized > today ? normalized : today;
+    };
     if (state.auditDateBounds?.min && state.auditDateBounds?.max) {
       return {
         min: state.auditDateBounds.min,
-        max: state.auditDateBounds.max,
+        max: maxWithToday(state.auditDateBounds.max),
       };
     }
     const dates = (state.auditLogs || [])
@@ -6976,7 +6981,7 @@
     }
     return {
       min: dates[0] || "",
-      max: dates[dates.length - 1] || "",
+      max: maxWithToday(dates[dates.length - 1] || ""),
     };
   }
 

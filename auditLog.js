@@ -332,6 +332,13 @@
     const { refs, state, escapeHtml, userNameById, projectNameById, clientNameById, formatDateTimeLocal } = deps();
     if (!refs.auditTableBody) return;
     const rows = Array.isArray(logs) ? logs : [];
+    const todayIso = (() => {
+      const d = new Date();
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${day}`;
+    })();
     const toLocalIso = (value) => {
       if (!value) return "";
       const d = new Date(value);
@@ -348,14 +355,19 @@
       const globalMax = toLocalIso(state?.auditDateBounds?.max || "");
       if (globalMin && globalMax) {
         refs.auditTableBody.dataset.rangeMin = globalMin;
-        refs.auditTableBody.dataset.rangeMax = globalMax;
+        refs.auditTableBody.dataset.rangeMax = globalMax > todayIso ? globalMax : todayIso;
       } else {
         const allDates = (state.auditLogs || [])
           .map((row) => toLocalIso(row.changed_at || row.changedAt || ""))
           .filter(Boolean)
           .sort();
         refs.auditTableBody.dataset.rangeMin = allDates[0] || "";
-        refs.auditTableBody.dataset.rangeMax = allDates[allDates.length - 1] || "";
+        const computedMax = allDates[allDates.length - 1] || "";
+        refs.auditTableBody.dataset.rangeMax = computedMax
+          ? computedMax > todayIso
+            ? computedMax
+            : todayIso
+          : todayIso;
       }
     }
 
