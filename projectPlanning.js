@@ -342,13 +342,13 @@
 
     const clientName = String(project?.client || "Unknown client");
     const projectName = String(project?.name || "Select a project");
+    const typeValue = project?.pricingModel ?? project?.pricing_model ?? null;
     const subtitle = `${clientName} / ${projectName} · ${fmtProjectType(typeValue)}`;
     const leadName = String(
       project?.projectLeadName ||
         usersById.get(String(project?.projectLeadId || project?.project_lead_id || "").trim())?.displayName ||
         "Unassigned"
     );
-    const typeValue = project?.pricingModel ?? project?.pricing_model ?? null;
     const overheadValue = toNullableNumber(project?.overheadPercent ?? project?.overhead_percent);
     const contractAmount = toNullableNumber(project?.contractAmount ?? project?.contract_amount);
     const budgetAmount = toNullableNumber(project?.budget);
