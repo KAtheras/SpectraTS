@@ -35,7 +35,7 @@
       }
       .project-planning-layout {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) 320px;
+        grid-template-columns: minmax(0, 73%) minmax(0, 27%);
         gap: 12px;
         align-items: stretch;
       }
@@ -54,7 +54,7 @@
       }
       .project-planning-kpis {
         display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
+        grid-template-columns: 1.23fr 2fr 2fr 2fr;
         gap: 12px;
         margin-bottom: 0;
       }
@@ -105,7 +105,35 @@
         color: var(--danger);
       }
       .project-planning-kpi[data-kpi-card="contract"] .project-planning-kpi-value {
-        cursor: text;
+        cursor: pointer;
+      }
+      .project-planning-kpi[data-kpi-card="contract"] {
+        position: relative;
+        cursor: pointer;
+        transition: border-color 0.15s ease, background-color 0.15s ease;
+      }
+      .project-planning-kpi[data-kpi-card="contract"]:hover {
+        border-color: color-mix(in srgb, var(--accent), var(--line) 62%);
+        background: color-mix(in srgb, var(--surface), var(--accent) 4%);
+      }
+      .project-planning-kpi-edit-icon {
+        position: absolute;
+        top: 10px;
+        right: 12px;
+        color: var(--muted);
+        font-size: 0.9rem;
+        line-height: 1;
+        pointer-events: none;
+        transition: color 0.15s ease;
+      }
+      .project-planning-kpi[data-kpi-card="contract"]:hover .project-planning-kpi-edit-icon {
+        color: var(--text);
+      }
+      .project-planning-kpi-edit-hint {
+        margin-top: 6px;
+        color: var(--muted);
+        font-size: 0.76rem;
+        line-height: 1.2;
       }
       .project-planning-kpi-edit-input {
         width: 100%;
@@ -534,7 +562,9 @@
             <section class="project-planning-kpis">
               <article class="project-planning-kpi" data-kpi-card="contract">
                 <div class="project-planning-kpi-label">Contract Amount</div>
+                <span class="project-planning-kpi-edit-icon" aria-hidden="true">✎</span>
                 <div class="project-planning-kpi-value" data-kpi="contract">${escapeHtml(fmtMoneyZero(contractAmountValue))}</div>
+                <div class="project-planning-kpi-edit-hint">Click to edit</div>
               </article>
               <article class="project-planning-kpi">
                 <div class="project-planning-kpi-label">Planned Cost</div>
@@ -884,7 +914,7 @@
 
     }
 
-    kpiContractNode?.addEventListener("click", (event) => {
+    contractCardNode?.addEventListener("click", (event) => {
       if (event.target && event.target.closest("[data-contract-edit-input]")) return;
       enterContractAmountEditMode();
     });
