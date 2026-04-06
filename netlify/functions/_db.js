@@ -2200,6 +2200,7 @@ async function findProject(sql, clientName, projectName, accountId) {
       clients.name AS client,
       projects.budget_amount AS budget,
       projects.contract_amount AS "contractAmount",
+      projects.contract_amount AS contract_amount,
       projects.project_lead_id AS project_lead_id,
       projects.is_active AS "isActive"
     FROM projects
@@ -2222,6 +2223,7 @@ async function listProjects(sql, accountId) {
       projects.created_by AS "createdBy",
       projects.budget_amount AS budget,
       projects.contract_amount AS "contractAmount",
+      projects.contract_amount AS contract_amount,
       projects.office_id AS "officeId",
       projects.project_lead_id AS "projectLeadId",
       projects.is_active AS "isActive",

@@ -981,8 +981,10 @@
       return;
     }
     const currentBudget = Number.isFinite(projectRow.budget) ? projectRow.budget : null;
-    const currentContractAmount = Number.isFinite(Number(projectRow.contractAmount))
-      ? Number(projectRow.contractAmount)
+    const currentContractAmount = Number.isFinite(
+      Number(projectRow.contractAmount ?? projectRow.contract_amount)
+    )
+      ? Number(projectRow.contractAmount ?? projectRow.contract_amount)
       : null;
     const projectLeadId = String(projectRow?.projectLeadId || projectRow?.project_lead_id || "").trim() || null;
     const managerNames = userNamesForIds(managerIdsForProject(normalizedClient, normalizedProject));
@@ -1457,7 +1459,8 @@
             : []
         )
         .join("");
-      const showTeamSection = mode === "edit";
+      const hasAssignedProjectMembers = managerNames.length > 0 || staffNames.length > 0;
+      const showTeamSection = true;
       const renderNameList = (items) =>
         items.length
           ? `<ul class="project-dialog-team-list">${items
@@ -1469,7 +1472,7 @@
       form.innerHTML = `
         <section class="project-dialog-section">
           <h3 class="panel-subheading">Core</h3>
-          <div class="project-dialog-core-row" style="grid-template-columns: repeat(2, minmax(0, 1fr));">
+          <div class="project-dialog-core-row" style="grid-template-columns: repeat(3, minmax(0, 1fr));">
             <label class="project-dialog-field">
               <span>Project name</span>
               <input type="text" name="project_name" required />
@@ -1478,6 +1481,7 @@
               <span>Project Lead</span>
               <select name="project_lead_id">${leadOptions}</select>
             </label>
+            <div></div>
           </div>
           <div class="project-dialog-core-row" style="grid-template-columns: repeat(3, minmax(0, 1fr));">
             <label class="project-dialog-field">
@@ -1488,7 +1492,8 @@
               <span>Budget (optional)</span>
               <input type="text" name="budget_amount" inputmode="decimal" placeholder="15000 or $15,000" />
             </label>
-            <div style="display:flex;align-items:flex-end;">
+            <div class="project-dialog-field">
+              <span style="visibility:hidden;">Advanced Budget</span>
               <button type="button" class="button button-ghost" data-project-advanced-budget>Advanced Budget</button>
             </div>
           </div>
@@ -1498,6 +1503,9 @@
             ? `
         <section class="project-dialog-section">
           <h3 class="panel-subheading">Team</h3>
+          ${
+            hasAssignedProjectMembers
+              ? `
           <div class="project-dialog-team-grid">
             <div class="project-dialog-team-col">
               <h4>Project Lead</h4>
@@ -1511,15 +1519,30 @@
               <h4>Staff</h4>
               ${renderNameList(staffNames)}
             </div>
-          </div>
-          <div class="project-dialog-actions">
-            <button type="button" class="button button-ghost" data-project-team-action="add">Add Member</button>
-            <button type="button" class="button button-ghost" data-project-team-action="remove">Remove Member</button>
-          </div>
+              </div>
+          `
+              : ""
+          }
         </section>
         `
             : ""
         }
+        <section class="project-dialog-section">
+          <div class="project-dialog-actions" style="justify-content:space-between;align-items:center;">
+            <div style="display:flex;gap:12px;flex-wrap:wrap;">
+              <button type="button" class="button button-ghost" data-project-team-action="add">Add Member</button>
+              ${
+                hasAssignedProjectMembers
+                  ? '<button type="button" class="button button-ghost" data-project-team-action="remove">Remove Member</button>'
+                  : ""
+              }
+            </div>
+            <div style="display:flex;gap:10px;align-items:center;">
+              <button type="button" class="button button-ghost" data-project-cancel>Cancel</button>
+              <button type="submit" class="button" data-project-save>${escapeHtml(finalConfirmText)}</button>
+            </div>
+          </div>
+        </section>
         <p class="project-dialog-error" data-project-dialog-error hidden></p>
       `;
 
@@ -1529,6 +1552,7 @@
       const leadSelect = form.querySelector('select[name="project_lead_id"]');
       const teamLeadDisplay = form.querySelector("[data-project-team-lead-display]");
       const advancedBudgetButton = form.querySelector("[data-project-advanced-budget]");
+      const projectCancelButton = form.querySelector("[data-project-cancel]");
       const errorNode = form.querySelector("[data-project-dialog-error]");
       const dialogCard = refs.dialog?.querySelector(".dialog-card");
       if (nameInput) {
@@ -1574,11 +1598,9 @@
       }
       refs.dialogInputRow.appendChild(form);
       dialogCard?.classList.add("dialog-card--project");
-      refs.dialogConfirm.textContent = finalConfirmText;
-      refs.dialogCancel.textContent = "Cancel";
       refs.dialog.hidden = false;
-      refs.dialogConfirm.hidden = false;
-      refs.dialogCancel.disabled = false;
+      refs.dialogConfirm.hidden = true;
+      refs.dialogCancel.hidden = true;
 
       const onOpenAdvancedBudget = () => {
         const projectIdForAdvanced = currentProjectId;
@@ -1618,11 +1640,10 @@
 
       const cleanup = () => {
         refs.dialog.hidden = true;
-        refs.dialogConfirm.removeEventListener("click", onConfirm);
-        refs.dialogCancel.removeEventListener("click", onCancel);
         form.removeEventListener("submit", onSubmit);
         leadSelect?.removeEventListener("change", syncTeamLeadDisplay);
         advancedBudgetButton?.removeEventListener("click", onOpenAdvancedBudget);
+        projectCancelButton?.removeEventListener("click", onCancel);
         budgetInput?.removeEventListener("focus", onBudgetLockedAttempt);
         budgetInput?.removeEventListener("click", onBudgetLockedAttempt);
         budgetInput?.removeEventListener("keydown", onBudgetLockedAttempt);
@@ -1662,9 +1683,6 @@
         });
       };
 
-      const onConfirm = () => {
-        finalize();
-      };
       const onSubmit = (event) => {
         event.preventDefault();
         finalize();
@@ -1674,11 +1692,14 @@
         resolve(null);
       };
 
-      refs.dialogConfirm.addEventListener("click", onConfirm);
-      refs.dialogCancel.addEventListener("click", onCancel);
+      projectCancelButton?.addEventListener("click", onCancel);
       form.addEventListener("submit", onSubmit);
       form.querySelectorAll("[data-project-team-action]").forEach((button) => {
         button.addEventListener("click", function () {
+          if (!isProjectEditDialog || !currentProjectId) {
+            setError("Save project first to manage project members.");
+            return;
+          }
           cleanup();
           resolve({
             memberAction: String(button.dataset.projectTeamAction || "").trim(),

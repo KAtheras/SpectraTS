@@ -149,6 +149,12 @@
           return null;
         }
         const budgetRaw = project.budget !== undefined ? Number(project.budget) : null;
+        const contractAmountRaw =
+          project.contractAmount !== undefined && project.contractAmount !== null
+            ? Number(project.contractAmount)
+            : project.contract_amount !== undefined && project.contract_amount !== null
+              ? Number(project.contract_amount)
+              : null;
         const officeId =
           project.officeId !== undefined && project.officeId !== null
             ? project.officeId
@@ -174,6 +180,8 @@
           name,
           createdBy: project.createdBy || "",
           budget: Number.isFinite(budgetRaw) ? budgetRaw : null,
+          contractAmount: Number.isFinite(contractAmountRaw) ? contractAmountRaw : null,
+          contract_amount: Number.isFinite(contractAmountRaw) ? contractAmountRaw : null,
           isActive: project?.isActive ?? project?.is_active ?? true,
           is_active: project?.isActive ?? project?.is_active ?? true,
           officeId: officeId ? String(officeId) : "",

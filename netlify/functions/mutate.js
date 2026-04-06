@@ -3042,7 +3042,9 @@ async function updateProject(sql, payload, currentUser, accountId) {
       ? contractAmount
       : project.contractAmount !== undefined
         ? project.contractAmount
-        : null;
+        : project.contract_amount !== undefined
+          ? project.contract_amount
+          : null;
   const nextProjectLeadId = hasProjectLeadField
     ? normalizeText(payload.projectLeadId ?? payload.project_lead_id) || null
     : project.project_lead_id || null;
