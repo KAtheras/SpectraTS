@@ -532,9 +532,9 @@ body[data-theme="dark"] .button {
 }
 
 .inbox-filters .button.is-active {
-  background: color-mix(in srgb, var(--accent) 12%, #ffffff);
-  border-color: color-mix(in srgb, var(--accent) 35%, var(--line));
-  color: color-mix(in srgb, var(--accent) 76%, var(--text) 24%);
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface-strong));
+  border-color: color-mix(in srgb, var(--accent) 32%, var(--line));
+  color: color-mix(in srgb, var(--accent) 72%, var(--ink) 28%);
 }
 
 .inbox-list {

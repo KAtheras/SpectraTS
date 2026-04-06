@@ -2879,6 +2879,14 @@
     if (!item || typeof item !== "object") return null;
     const id = `${item.id || ""}`.trim();
     if (!id) return null;
+    const isReadRaw =
+      item.isRead !== undefined && item.isRead !== null ? item.isRead : item.is_read;
+    const isRead =
+      isReadRaw === true ||
+      isReadRaw === 1 ||
+      isReadRaw === "1" ||
+      (typeof isReadRaw === "string" &&
+        (isReadRaw.trim().toLowerCase() === "true" || isReadRaw.trim().toLowerCase() === "t"));
     const deepLink = item.deepLink && typeof item.deepLink === "object" ? item.deepLink : null;
     return {
       id,
@@ -2889,7 +2897,7 @@
       subjectId: `${item.subjectId || item.subject_id || ""}`.trim(),
       message: `${item.message || ""}`.trim(),
       noteSnippet: `${item.noteSnippet || item.note_snippet || ""}`.trim(),
-      isRead: item.isRead === true || item.is_read === true || item.is_read === 1,
+      isRead,
       projectNameSnapshot: `${item.projectNameSnapshot || item.project_name_snapshot || ""}`.trim(),
       deepLink,
       createdAt: item.createdAt || item.created_at || null,
@@ -8030,10 +8038,22 @@
   }
 
   async function deleteAllReadInboxItems() {
+    const readBefore = inboxReadCount();
+    if (readBefore <= 0) {
+      feedback("No read notifications to delete.", false);
+      return;
+    }
     try {
       await mutatePersistentState("delete_all_read_inbox_items", {}, { refreshState: true, returnState: false });
       clearInboxSelection();
-      feedback("", false);
+      const readAfter = inboxReadCount();
+      const deletedCount = Math.max(0, readBefore - readAfter);
+      feedback(
+        deletedCount > 0
+          ? `Deleted ${deletedCount} read notification${deletedCount === 1 ? "" : "s"}.`
+          : "No read notifications were deleted.",
+        false
+      );
     } catch (error) {
       feedback(error.message || "Unable to delete read inbox items.", true);
     }
