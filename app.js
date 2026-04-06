@@ -316,7 +316,7 @@
       })
       .sort((a, b) => a.level - b.level);
 
-    await mutatePersistentState("update_level_labels", { levels });
+    await mutatePersistentState("update_level_labels", { levels }, settingsSaveFastOptions());
     await refreshSettingsTab("levels");
     feedback("Levels updated.", false);
   });
@@ -1361,7 +1361,7 @@
                 clientName,
                 projectName,
               },
-              { skipHydrate: true }
+              { skipHydrate: true, returnState: false }
             );
           } else {
             await mutatePersistentState(
@@ -1371,7 +1371,7 @@
                 clientName,
                 projectName,
               },
-              { skipHydrate: true }
+              { skipHydrate: true, returnState: false }
             );
           }
         }
@@ -2179,7 +2179,7 @@
           await mutatePersistentState(
             "send_user_setup_link",
             { userId: targetUser.id },
-            { skipHydrate: true }
+            { skipHydrate: true, returnState: false, skipSettingsMetadataReload: true }
           );
           feedback(`Password reset link sent to ${targetUser.displayName}.`, false);
         } catch (error) {
@@ -2294,6 +2294,11 @@
 
   async function submitMemberEditorModal(event) {
     event.preventDefault();
+    const submitLabel = memberEditorMode === "create" ? "Add member" : "Save changes";
+    if (memberEditorSubmit) {
+      memberEditorSubmit.disabled = true;
+      memberEditorSubmit.textContent = "Saving...";
+    }
     const canEditProfile = Boolean(state.permissions?.edit_user_profile);
     const canEditRates = Boolean(state.permissions?.edit_user_rates);
     const canCreate = Boolean(state.permissions?.create_user);
@@ -2339,11 +2344,15 @@
             certifications,
             memberProfile,
           },
-          { skipHydrate: true }
+          { skipHydrate: true, skipSettingsMetadataReload: true }
         );
         const created = (result?.users || []).find((u) => String(u.username || "").toLowerCase() === String(username).toLowerCase());
         if (created && departmentId && canEditProfile) {
-          await mutatePersistentState("set_user_department", { userId: created.id, departmentId }, { skipHydrate: true });
+          await mutatePersistentState(
+            "set_user_department",
+            { userId: created.id, departmentId },
+            settingsSaveFastOptions()
+          );
         }
       } else {
         const userId = memberEditorUserId;
@@ -2366,20 +2375,30 @@
               certifications,
               memberProfile,
             },
-            { skipHydrate: true }
+            settingsSaveFastOptions()
           );
-          await mutatePersistentState(
-            "set_user_department",
-            { userId, departmentId },
-            { skipHydrate: true }
+        }
+        const followUpMutations = [];
+        if (canEditProfile) {
+          followUpMutations.push(
+            mutatePersistentState(
+              "set_user_department",
+              { userId, departmentId },
+              settingsSaveFastOptions()
+            )
           );
         }
         if (canEditRates) {
-          await mutatePersistentState(
-            "update_user_rates",
-            { userId, baseRate, costRate },
-            { skipHydrate: true }
+          followUpMutations.push(
+            mutatePersistentState(
+              "update_user_rates",
+              { userId, baseRate, costRate },
+              settingsSaveFastOptions()
+            )
           );
+        }
+        if (followUpMutations.length) {
+          await Promise.all(followUpMutations);
         }
       }
       closeMemberEditorModal();
@@ -2387,6 +2406,11 @@
       feedback(memberEditorMode === "create" ? "Member added." : "Member updated.", false);
     } catch (error) {
       feedback(error.message || "Unable to save member.", true);
+    } finally {
+      if (memberEditorSubmit && memberEditorModal && !memberEditorModal.hidden) {
+        memberEditorSubmit.disabled = false;
+        memberEditorSubmit.textContent = submitLabel;
+      }
     }
   }
 
@@ -3462,12 +3486,45 @@
     render();
   }
 
+  const SETTINGS_SAVE_FAST_MUTATE_OPTIONS = Object.freeze({
+    skipHydrate: true,
+    returnState: false,
+    skipSettingsMetadataReload: true,
+  });
+
+  function settingsSaveFastOptions(overrides = {}) {
+    return { ...SETTINGS_SAVE_FAST_MUTATE_OPTIONS, ...(overrides || {}) };
+  }
+
+  function isSaveTraceEnabled() {
+    try {
+      if (window.__TS_SAVE_TRACE__ === true) return true;
+      return window.localStorage.getItem("timesheet.saveTrace") === "1";
+    } catch (error) {
+      return false;
+    }
+  }
+
+  function logSaveTrace(action, phase, startedAt) {
+    if (!isSaveTraceEnabled()) return;
+    const elapsedMs = Math.max(0, Math.round(performance.now() - startedAt));
+    console.log(`[save-trace] ${action} :: ${phase} (+${elapsedMs}ms)`);
+  }
+
   async function mutatePersistentState(action, payload, options = {}) {
-    const { skipHydrate, refreshState, returnState, skipSettingsMetadataReload } = options;
+    const startedAt = performance.now();
+    const {
+      skipHydrate,
+      refreshState,
+      returnState,
+      skipSettingsMetadataReload,
+      awaitSettingsMetadataReload,
+    } = options;
     const requestPayload = {
       action,
       payload,
     };
+    logSaveTrace(action, "request-started", startedAt);
     if (returnState === false) {
       requestPayload.returnState = false;
     }
@@ -3475,18 +3532,35 @@
       method: "POST",
       body: JSON.stringify(requestPayload),
     });
+    logSaveTrace(action, "response-received", startedAt);
     const canHydrateFromResult = !skipHydrate && result && result.currentUser;
     if (canHydrateFromResult) {
+      logSaveTrace(action, "hydrate-start", startedAt);
       applyLoadedState(result);
       render();
+      logSaveTrace(action, "hydrate-end", startedAt);
     }
     if (refreshState || (!skipHydrate && !canHydrateFromResult)) {
+      logSaveTrace(action, "state-refresh-start", startedAt);
       await loadPersistentState();
       render();
+      logSaveTrace(action, "state-refresh-end", startedAt);
     }
     if (!skipSettingsMetadataReload && state.currentView === "settings" && state.currentUser) {
-      await loadSettingsMetadata(true);
+      logSaveTrace(action, "settings-metadata-reload-start", startedAt);
+      const settingsReload = loadSettingsMetadata(true, { deferRender: true });
+      if (awaitSettingsMetadataReload) {
+        await settingsReload;
+        logSaveTrace(action, "settings-metadata-reload-end", startedAt);
+      } else {
+        settingsReload
+          .then(() => {
+            logSaveTrace(action, "settings-metadata-reload-end", startedAt);
+          })
+          .catch(() => {});
+      }
     }
+    logSaveTrace(action, "completed", startedAt);
     return result;
   }
 
@@ -3978,6 +4052,8 @@
               updatedAt: new Date().toISOString(),
             },
           };
+          refs.dialogCancel.disabled = true;
+          refs.dialogCancel.textContent = "Saving...";
           try {
             await mutatePersistentState("save_entry", payload);
             feedback("Note saved.", false);
@@ -4067,6 +4143,8 @@
               notes: nextNotes,
             },
           };
+          refs.dialogCancel.disabled = true;
+          refs.dialogCancel.textContent = "Saving...";
           try {
             await mutatePersistentState("update_expense", payload);
             feedback("Note saved.", false);
@@ -7310,6 +7388,8 @@
           userId: user.id,
         }, {
           skipHydrate: true,
+          returnState: false,
+          skipSettingsMetadataReload: true,
         });
         if (state.currentView === "settings") {
           await refreshSettingsTab("rates");
@@ -9065,7 +9145,7 @@
         }))
         .sort((a, b) => a.level - b.level);
       try {
-        await mutatePersistentState("update_level_labels", { levels });
+        await mutatePersistentState("update_level_labels", { levels }, settingsSaveFastOptions());
         await refreshSettingsTab("levels");
         feedback("Level added.", false);
       } catch (error) {
@@ -9211,7 +9291,7 @@
         categories.push({ id: id || null, name });
       }
       try {
-        await mutatePersistentState("update_expense_categories", { categories });
+        await mutatePersistentState("update_expense_categories", { categories }, settingsSaveFastOptions());
         await refreshSettingsTab("categories");
         feedback("Expense categories updated.", false);
       } catch (error) {
@@ -9229,7 +9309,7 @@
       try {
         window.localStorage.setItem("timesheet.offices", JSON.stringify(locations));
       } catch (e) {}
-      await mutatePersistentState("update_office_locations", { locations });
+      await mutatePersistentState("update_office_locations", { locations }, settingsSaveFastOptions());
       feedback("Office locations updated.", false);
       await refreshSettingsTab("locations");
     } catch (error) {
@@ -9384,7 +9464,7 @@
       state.expenseCategories = categories;
       renderExpenseCategories();
       try {
-        await mutatePersistentState("update_expense_categories", { categories }, { skipHydrate: true });
+        await mutatePersistentState("update_expense_categories", { categories }, settingsSaveFastOptions());
         await refreshSettingsTab("categories");
         feedback("Category deleted.", false);
       } catch (error) {
@@ -9568,7 +9648,7 @@
           await mutatePersistentState(
             "update_corporate_function_categories",
             { groups },
-            { skipSettingsMetadataReload: true }
+            settingsSaveFastOptions()
           );
           await loadPersistentState();
           if (state.currentView === "settings") {
@@ -9640,13 +9720,13 @@
 
       try {
         for (const op of createOps) {
-          await mutatePersistentState("create_department", { name: op.name });
+          await mutatePersistentState("create_department", { name: op.name }, settingsSaveFastOptions());
         }
         for (const op of renameOps) {
-          await mutatePersistentState("rename_department", { id: op.id, name: op.name });
+          await mutatePersistentState("rename_department", { id: op.id, name: op.name }, settingsSaveFastOptions());
         }
         for (const op of deleteOps) {
-          await mutatePersistentState("delete_department", { id: op.id });
+          await mutatePersistentState("delete_department", { id: op.id }, settingsSaveFastOptions());
         }
         await refreshSettingsTab("departments");
         feedback("Departments updated.", false);
@@ -9716,7 +9796,7 @@
       }
 
       try {
-        await mutatePersistentState("update_level_labels", { levels });
+        await mutatePersistentState("update_level_labels", { levels }, settingsSaveFastOptions());
         await refreshSettingsTab("levels");
         feedback("Level deleted.", false);
       } catch (error) {
