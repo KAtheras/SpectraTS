@@ -824,6 +824,28 @@
           #settings-page .settings-field:disabled{
             cursor:not-allowed;
           }
+          body[data-theme="dark"] #settings-page input.settings-field,
+          body[data-theme="dark"] #settings-page select.settings-field,
+          body[data-theme="dark"] #settings-page textarea.settings-field{
+            background:#1d222c;
+            color:#e8eef7;
+            border-color:#384150;
+          }
+          body[data-theme="dark"] #settings-page .settings-field::placeholder{
+            color:#a8b3c4;
+            opacity:1;
+          }
+          body[data-theme="dark"] #settings-page .settings-field:hover{
+            border-color:#4a5567;
+          }
+          body[data-theme="dark"] #settings-page .settings-field:focus{
+            background:#1f2631;
+            border-color:#6b8ecf;
+            outline:none;
+          }
+          body[data-theme="dark"] #settings-page select.settings-field{
+            background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%23cbd5e1' d='M1 1l4 4 4-4'/%3E%3C/svg%3E");
+          }
           #settings-page .settings-row-main input,
           #settings-page .settings-row-main select{
             width:100%;
