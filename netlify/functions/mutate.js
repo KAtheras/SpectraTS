@@ -20,6 +20,8 @@ const {
   json,
   loadState,
   listLevelLabels,
+  listProjectExpenseCategories,
+  createProjectExpenseCategory,
   listAuditLogs,
   getProjectMemberBudgets,
   upsertProjectMemberBudget,
@@ -955,6 +957,18 @@ async function snapshotExpenseCategories(sql, accountId) {
   }));
 }
 
+async function snapshotProjectExpenseCategories(sql, accountId) {
+  const rows = await listProjectExpenseCategories(sql, accountId, {
+    includeInactive: true,
+  });
+  return (rows || []).map((row) => ({
+    id: normalizeText(row.id),
+    name: normalizeText(row.name),
+    is_active: row.isActive !== false,
+    sort_order: Number(row.sortOrder) || 0,
+  }));
+}
+
 async function snapshotOfficeLocations(sql, accountId) {
   const rows = await sql`
     SELECT id, name, office_lead_user_id, is_active
@@ -1465,6 +1479,110 @@ async function updateExpenseCategories(sql, payload, accountId) {
         VALUES (${randomId()}, ${accountId}::uuid, ${item.name}, ${now})
       `;
     }
+  }
+
+  return null;
+}
+
+async function updateProjectExpenseCategories(sql, payload, accountId) {
+  const categories = Array.isArray(payload?.categories) ? payload.categories : [];
+
+  const cleaned = [];
+  const seen = new Set();
+  for (const item of categories) {
+    const id = normalizeText(item?.id);
+    const name = normalizeText(item?.name);
+    if (!name) {
+      return errorResponse(400, "Project category name cannot be blank.");
+    }
+    const key = name.toLowerCase();
+    if (seen.has(key)) {
+      return errorResponse(400, "Project category names must be unique.");
+    }
+    seen.add(key);
+    cleaned.push({ id, name });
+  }
+
+  const existingRows = await sql`
+    SELECT id, name
+    FROM project_expense_categories
+    WHERE account_id = ${accountId}::uuid
+  `;
+  const existingById = new Map();
+  const existingByName = new Map();
+  for (const row of existingRows || []) {
+    const id = normalizeText(row?.id);
+    const name = normalizeText(row?.name);
+    if (id) existingById.set(id, { id, name });
+    if (name) existingByName.set(name.toLowerCase(), { id, name });
+  }
+
+  const activeIds = new Set();
+  for (let index = 0; index < cleaned.length; index += 1) {
+    const item = cleaned[index];
+    const sortOrder = (index + 1) * 10;
+    const byName = existingByName.get(item.name.toLowerCase());
+    const byId = item.id ? existingById.get(item.id) : null;
+    const target = byName || byId || null;
+
+    if (target?.id) {
+      await sql`
+        UPDATE project_expense_categories
+        SET
+          name = ${item.name},
+          is_active = TRUE,
+          sort_order = ${sortOrder},
+          updated_at = NOW()
+        WHERE account_id = ${accountId}::uuid
+          AND id = ${target.id}
+      `;
+      activeIds.add(target.id);
+      continue;
+    }
+
+    const inserted = await sql`
+      INSERT INTO project_expense_categories (
+        id,
+        account_id,
+        name,
+        is_active,
+        sort_order,
+        created_at,
+        updated_at
+      )
+      VALUES (
+        ${randomId()},
+        ${accountId}::uuid,
+        ${item.name},
+        TRUE,
+        ${sortOrder},
+        NOW(),
+        NOW()
+      )
+      RETURNING id
+    `;
+    const insertedId = normalizeText(inserted?.[0]?.id);
+    if (insertedId) activeIds.add(insertedId);
+  }
+
+  const activeIdList = Array.from(activeIds).filter(Boolean);
+  if (activeIdList.length) {
+    await sql`
+      UPDATE project_expense_categories
+      SET
+        is_active = FALSE,
+        updated_at = NOW()
+      WHERE account_id = ${accountId}::uuid
+        AND id <> ALL(${activeIdList})
+    `;
+  } else {
+    await sql`
+      UPDATE project_expense_categories
+      SET
+        is_active = FALSE,
+        updated_at = NOW()
+      WHERE account_id = ${accountId}::uuid
+    `;
   }
 
   return null;
@@ -5358,6 +5476,49 @@ exports.handler = async function handler(event) {
           action: "update",
           runMutation: () => updateExpenseCategories(sql, request.payload || {}, accountId),
           getSnapshot: async () => ({ categories: await snapshotExpenseCategories(sql, accountId) }),
+        });
+        break;
+      }
+      case "create_project_expense_category": {
+        if (!can("manage_expense_categories", { resourceOfficeId: context.currentUser?.officeId || null })) {
+          return errorResponse(403, "Access denied.");
+        }
+        const requestedName = normalizeText(request.payload?.name);
+        if (!requestedName) {
+          return errorResponse(400, "Category name cannot be blank.");
+        }
+        mutationResult = await runMutationWithAudit({
+          sql,
+          accountId,
+          context,
+          entityType: "project_expense_category",
+          entityId: requestedName.toLowerCase(),
+          action: "create",
+          runMutation: () =>
+            createProjectExpenseCategory(sql, accountId, {
+              name: requestedName,
+            }),
+          getSnapshot: async () => ({
+            categories: await snapshotProjectExpenseCategories(sql, accountId),
+          }),
+        });
+        break;
+      }
+      case "update_project_expense_categories": {
+        if (!can("manage_expense_categories", { resourceOfficeId: context.currentUser?.officeId || null })) {
+          return errorResponse(403, "Access denied.");
+        }
+        mutationResult = await runMutationWithAudit({
+          sql,
+          accountId,
+          context,
+          entityType: "project_expense_category",
+          entityId: "all",
+          action: "update",
+          runMutation: () => updateProjectExpenseCategories(sql, request.payload || {}, accountId),
+          getSnapshot: async () => ({
+            categories: await snapshotProjectExpenseCategories(sql, accountId),
+          }),
         });
         break;
       }

@@ -8,6 +8,7 @@ const {
   json,
   loadState,
   loadSettingsMetadata,
+  listProjectExpenseCategories,
   requireAuth,
 } = require("./_db");
 const { can, buildIndex, loadPermissionsFromDb } = require("./permissions");
@@ -34,6 +35,10 @@ exports.handler = async function handler(event) {
       return json(200, settingsMeta);
     }
     const state = await loadState(sql, context.currentUser);
+    state.projectExpenseCategories = await listProjectExpenseCategories(
+      sql,
+      state?.account?.id || null
+    );
     const projectMemberBudgets = await sql`
       SELECT
         project_id AS "projectId",

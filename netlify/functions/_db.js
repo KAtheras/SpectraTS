@@ -627,6 +627,17 @@ async function ensureSchema(sql) {
     )
   `;
   await sql`
+    CREATE TABLE IF NOT EXISTS project_expense_categories (
+      id TEXT PRIMARY KEY,
+      account_id UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      is_active BOOLEAN NOT NULL DEFAULT TRUE,
+      sort_order INT NOT NULL DEFAULT 0,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+  await sql`
     CREATE TABLE IF NOT EXISTS corporate_function_groups (
       id TEXT PRIMARY KEY,
       account_id UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
@@ -687,6 +698,14 @@ async function ensureSchema(sql) {
   await sql`
     CREATE INDEX IF NOT EXISTS expense_categories_account_idx
       ON expense_categories(account_uuid)
+  `;
+  await sql`
+    CREATE INDEX IF NOT EXISTS project_expense_categories_account_idx
+      ON project_expense_categories(account_id, is_active, sort_order, created_at)
+  `;
+  await sql`
+    CREATE UNIQUE INDEX IF NOT EXISTS project_expense_categories_account_name_ci_idx
+      ON project_expense_categories(account_id, LOWER(TRIM(name)))
   `;
   await sql`
     CREATE INDEX IF NOT EXISTS corporate_function_groups_account_idx
@@ -874,6 +893,7 @@ async function ensureSchema(sql) {
 
     await seedDefaultCatalog(sql, accountUuid);
     await seedDefaultExpenseCategories(sql, accountUuid);
+    await seedDefaultProjectExpenseCategories(sql, accountUuid);
     await seedDefaultCorporateFunctionCategories(sql, accountUuid);
     await sql`DELETE FROM sessions WHERE expires_at <= NOW()`;
   } finally {
@@ -1017,6 +1037,54 @@ async function seedDefaultExpenseCategories(sql, accountId) {
       VALUES (${randomId()}, ${accountId}::uuid, ${name}, NOW())
       ON CONFLICT DO NOTHING
     `;
+  }
+}
+
+async function seedDefaultProjectExpenseCategories(sql, accountId) {
+  const [{ count }] = await sql`
+    SELECT COUNT(*)::INT AS count
+    FROM project_expense_categories
+    WHERE account_id = ${accountId}::uuid
+  `;
+  if (count > 0) {
+    return;
+  }
+  const defaults = [
+    "Travel",
+    "Lodging",
+    "Meals",
+    "Filing Fees",
+    "Printing / Reproduction",
+    "Courier / Delivery",
+    "Outside Consultants",
+    "Site Visits",
+    "Permits / Applications",
+    "Miscellaneous",
+  ];
+  let sortOrder = 10;
+  for (const name of defaults) {
+    await sql`
+      INSERT INTO project_expense_categories (
+        id,
+        account_id,
+        name,
+        is_active,
+        sort_order,
+        created_at,
+        updated_at
+      )
+      VALUES (
+        ${randomId()},
+        ${accountId}::uuid,
+        ${name},
+        TRUE,
+        ${sortOrder},
+        NOW(),
+        NOW()
+      )
+      ON CONFLICT DO NOTHING
+    `;
+    sortOrder += 10;
   }
 }
 
@@ -2263,6 +2331,86 @@ async function listExpenseCategories(sql, accountId) {
     WHERE account_uuid = ${accountId}::uuid
     ORDER BY created_at, LOWER(name)
   `;
+}
+
+async function listProjectExpenseCategories(sql, accountId, options = {}) {
+  const includeInactive = options?.includeInactive === true;
+  return sql`
+    SELECT
+      id,
+      name,
+      is_active AS "isActive",
+      sort_order AS "sortOrder"
+    FROM project_expense_categories
+    WHERE account_id = ${accountId}::uuid
+      ${includeInactive ? sql`` : sql`AND is_active = TRUE`}
+    ORDER BY sort_order, created_at, LOWER(name)
+  `;
+}
+
+async function createProjectExpenseCategory(sql, accountId, payload = {}) {
+  const name = normalizeText(payload?.name);
+  if (!name) {
+    throw new Error("Category name cannot be blank.");
+  }
+  const existing = await sql`
+    SELECT id, name, is_active, sort_order
+    FROM project_expense_categories
+    WHERE account_id = ${accountId}::uuid
+      AND LOWER(TRIM(name)) = LOWER(TRIM(${name}))
+    ORDER BY created_at
+    LIMIT 1
+  `;
+  if (existing[0]?.id) {
+    const row = await sql`
+      UPDATE project_expense_categories
+      SET
+        name = ${name},
+        is_active = TRUE,
+        updated_at = NOW()
+      WHERE id = ${existing[0].id}
+        AND account_id = ${accountId}::uuid
+      RETURNING
+        id,
+        name,
+        is_active AS "isActive",
+        sort_order AS "sortOrder"
+    `;
+    return row[0] || null;
+  }
+
+  const maxRows = await sql`
+    SELECT COALESCE(MAX(sort_order), 0)::INT AS max_sort
+    FROM project_expense_categories
+    WHERE account_id = ${accountId}::uuid
+  `;
+  const nextSort = (Number(maxRows?.[0]?.max_sort) || 0) + 10;
+  const inserted = await sql`
+    INSERT INTO project_expense_categories (
+      id,
+      account_id,
+      name,
+      is_active,
+      sort_order,
+      created_at,
+      updated_at
+    )
+    VALUES (
+      ${randomId()},
+      ${accountId}::uuid,
+      ${name},
+      TRUE,
+      ${nextSort},
+      NOW(),
+      NOW()
+    )
+    RETURNING
+      id,
+      name,
+      is_active AS "isActive",
+      sort_order AS "sortOrder"
+  `;
+  return inserted[0] || null;
 }
 
 async function listCorporateFunctionCategories(sql, accountId) {
@@ -3587,6 +3735,7 @@ async function loadState(sql, currentUser) {
   // manage categories in Settings. Always return active categories; the
   // Settings UI is still gated by settingsAccess.manageCategories.
   const expenseCategories = await listExpenseCategories(sql, accountUuid);
+  const projectExpenseCategories = await listProjectExpenseCategories(sql, accountUuid);
   const corporateFunctionGroups = await listCorporateFunctionGroups(sql, accountUuid);
   const corporateFunctionCategories = await listCorporateFunctionCategories(sql, accountUuid);
   const assignments = {
@@ -3701,6 +3850,7 @@ async function loadState(sql, currentUser) {
     projects,
     corporateFunctionGroups,
     expenseCategories,
+    projectExpenseCategories,
     corporateFunctionCategories,
     assignments,
     levelLabels,
@@ -3857,6 +4007,8 @@ module.exports = {
   listClients,
   listProjects,
   listExpenseCategories,
+  listProjectExpenseCategories,
+  createProjectExpenseCategory,
   listCorporateFunctionGroups,
   listCorporateFunctionCategories,
   listDepartments,

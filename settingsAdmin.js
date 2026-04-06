@@ -39,6 +39,9 @@
   let memberInfoMobileSelectedUserId = "";
   let delegationsSelectedDelegateId = "";
   let permissionsSaveInFlight = false;
+  let projectExpenseCategoriesDraft = [];
+  let projectExpenseCategoriesDraftDirty = false;
+  let expenseCategoriesEnhancementsWired = false;
   const delegationsDraftCapabilitiesByDelegateId = new Map();
   const SETTINGS_DELETE_ICON = `
     <svg viewBox="0 -960 960 960" aria-hidden="true">
@@ -596,6 +599,25 @@
             letter-spacing:.04em;
             color:var(--muted);
           }
+          #settings-page [data-settings-tab="categories"] .expense-categories-grid{
+            display:grid;
+            grid-template-columns:repeat(2, minmax(0,1fr));
+            gap:12px;
+          }
+          #settings-page [data-settings-tab="categories"] .expense-categories-column{
+            display:grid;
+            gap:10px;
+            align-content:start;
+          }
+          #settings-page [data-settings-tab="categories"] .expense-categories-column-header{
+            display:flex;
+            align-items:center;
+            justify-content:space-between;
+            gap:10px;
+          }
+          #settings-page [data-settings-tab="categories"] .expense-categories-column-header .button{
+            margin:0;
+          }
           #settings-page .settings-section-content .level-rows{
             display:grid;
             gap:10px;
@@ -1065,6 +1087,9 @@
               padding:0 10px;
               font-size:.82rem;
             }
+            #settings-page [data-settings-tab="categories"] .expense-categories-grid{
+              grid-template-columns:1fr;
+            }
             #settings-page .settings-section-content .settings-structured-row{
               grid-template-columns:minmax(120px,.9fr) minmax(0,1fr) minmax(84px,max-content);
               gap:8px;
@@ -1293,6 +1318,7 @@
     renderBulkUploadTab();
     renderCorporateFunctionCategories();
     renderPermissionsMatrix();
+    renderExpenseCategories();
   }
 
   function renderCorporateFunctionCategories() {
@@ -3150,6 +3176,249 @@
         `
       )
       .join("");
+
+    if (!projectExpenseCategoriesDraftDirty) {
+      const remoteProjectCategories = Array.isArray(state.projectExpenseCategories)
+        ? state.projectExpenseCategories
+        : [];
+      projectExpenseCategoriesDraft = remoteProjectCategories.map((item) => ({
+        id: `${item?.id || ""}`.trim() || `temp-project-expense-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        name: `${item?.name || ""}`.trim(),
+      }));
+    }
+
+    const sectionContent =
+      refs.expenseRows.closest(".settings-section-content") ||
+      refs.expenseRows.parentElement;
+    if (!sectionContent) return;
+
+    let categoriesGrid = sectionContent.querySelector(".expense-categories-grid");
+    if (!categoriesGrid) {
+      categoriesGrid = document.createElement("div");
+      categoriesGrid.className = "expense-categories-grid";
+      sectionContent.insertBefore(categoriesGrid, refs.expenseRows);
+    }
+
+    let corporateColumn = categoriesGrid.querySelector('[data-expense-column="corporate"]');
+    if (!corporateColumn) {
+      corporateColumn = document.createElement("div");
+      corporateColumn.className = "settings-subsection expense-categories-column";
+      corporateColumn.dataset.expenseColumn = "corporate";
+      corporateColumn.innerHTML = `
+        <div class="expense-categories-column-header">
+          <h4>Corporate Expense Categories</h4>
+        </div>
+      `;
+      categoriesGrid.appendChild(corporateColumn);
+    }
+    const corporateHeader = corporateColumn.querySelector(".expense-categories-column-header");
+    if (corporateHeader && refs.addCategory) {
+      refs.addCategory.textContent = "Add category";
+      if (refs.addCategory.parentElement !== corporateHeader) {
+        corporateHeader.appendChild(refs.addCategory);
+      }
+    }
+    if (refs.expenseRows.parentElement !== corporateColumn) {
+      corporateColumn.appendChild(refs.expenseRows);
+    }
+
+    let projectColumn = categoriesGrid.querySelector('[data-expense-column="project"]');
+    if (!projectColumn) {
+      projectColumn = document.createElement("div");
+      projectColumn.className = "settings-subsection expense-categories-column";
+      projectColumn.dataset.expenseColumn = "project";
+      projectColumn.innerHTML = `
+        <div class="expense-categories-column-header">
+          <h4>Project Expense Categories</h4>
+          <button type="button" class="button button-ghost" data-project-expense-add>Add category</button>
+        </div>
+        <div class="level-rows" data-project-expense-rows></div>
+      `;
+      categoriesGrid.appendChild(projectColumn);
+    }
+
+    const projectRows = projectColumn.querySelector("[data-project-expense-rows]");
+    if (!projectRows) return;
+    projectRows.innerHTML = projectExpenseCategoriesDraft
+      .map(
+        (item) => `
+          <div class="level-row settings-structured-row settings-structured-row-no-label expense-row" data-project-expense-row data-project-expense-id="${escapeHtml(item.id || "")}">
+            <div class="settings-row-main">
+              <input class="settings-field" type="text" value="${escapeHtml(item.name || "")}" data-project-expense-name placeholder="Category name" />
+            </div>
+            <div class="settings-row-actions expense-actions">
+              <button type="button" class="settings-row-delete-icon" data-project-expense-delete aria-label="Delete category">
+                ${SETTINGS_DELETE_ICON}
+              </button>
+            </div>
+          </div>
+        `
+      )
+      .join("");
+
+    wireExpenseCategoriesEnhancements();
+  }
+
+  function normalizeProjectExpenseDraftFromDom() {
+    const { refs } = deps();
+    const form = refs.expenseCategoriesForm;
+    if (!form) return [];
+    return Array.from(form.querySelectorAll("[data-project-expense-row]")).map((row) => ({
+      id: `${row.dataset.projectExpenseId || ""}`.trim(),
+      name: `${row.querySelector("[data-project-expense-name]")?.value || ""}`.trim(),
+    }));
+  }
+
+  function wireExpenseCategoriesEnhancements() {
+    const { refs, state, feedback, mutatePersistentState } = deps();
+    if (expenseCategoriesEnhancementsWired || !refs.expenseCategoriesForm) return;
+    expenseCategoriesEnhancementsWired = true;
+
+    refs.expenseCategoriesForm.addEventListener("click", function (event) {
+      const addBtn = event.target.closest("[data-project-expense-add]");
+      if (addBtn) {
+        if (!state.permissions?.manage_expense_categories) {
+          feedback("Access denied.", true);
+          return;
+        }
+        projectExpenseCategoriesDraft = normalizeProjectExpenseDraftFromDom();
+        projectExpenseCategoriesDraft.push({
+          id: `temp-project-expense-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+          name: "",
+        });
+        projectExpenseCategoriesDraftDirty = true;
+        renderExpenseCategories();
+        return;
+      }
+
+      const deleteBtn = event.target.closest("[data-project-expense-delete]");
+      if (!deleteBtn) return;
+      if (!state.permissions?.manage_expense_categories) {
+        feedback("Access denied.", true);
+        return;
+      }
+      const row = deleteBtn.closest("[data-project-expense-row]");
+      if (!row) return;
+      const targetId = `${row.dataset.projectExpenseId || ""}`.trim();
+      projectExpenseCategoriesDraft = normalizeProjectExpenseDraftFromDom().filter(
+        (item) => `${item.id || ""}`.trim() !== targetId
+      );
+      projectExpenseCategoriesDraftDirty = true;
+      renderExpenseCategories();
+    });
+
+    refs.expenseCategoriesForm.addEventListener("input", function (event) {
+      const input = event.target.closest("[data-project-expense-name]");
+      if (!input) return;
+      const row = input.closest("[data-project-expense-row]");
+      if (!row) return;
+      const rowId = `${row.dataset.projectExpenseId || ""}`.trim();
+      const nextName = `${input.value || ""}`;
+      const existing = projectExpenseCategoriesDraft.find((item) => `${item.id || ""}`.trim() === rowId);
+      if (existing) {
+        existing.name = nextName;
+      } else {
+        projectExpenseCategoriesDraft.push({ id: rowId, name: nextName });
+      }
+      projectExpenseCategoriesDraftDirty = true;
+    });
+
+    refs.expenseCategoriesForm.addEventListener(
+      "submit",
+      async function (event) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        if (!state.permissions?.manage_expense_categories) {
+          feedback("Access denied.", true);
+          return;
+        }
+
+        const corporateRows = Array.from(refs.expenseRows?.querySelectorAll(".level-row") || []);
+        if (!corporateRows.length) {
+          feedback("Add at least one category.", true);
+          return;
+        }
+        const corporateSeen = new Set();
+        const corporateCategories = [];
+        for (const row of corporateRows) {
+          const id = `${row.dataset.expenseId || ""}`.trim();
+          const nameInput = row.querySelector("[data-expense-name]");
+          const name = `${nameInput?.value || ""}`.trim();
+          if (!name) {
+            feedback("Category name cannot be blank.", true);
+            return;
+          }
+          const key = name.toLowerCase();
+          if (corporateSeen.has(key)) {
+            feedback("Category names must be unique.", true);
+            return;
+          }
+          corporateSeen.add(key);
+          corporateCategories.push({ id: id || null, name });
+        }
+
+        const draftRows = normalizeProjectExpenseDraftFromDom();
+        const seen = new Set();
+        const normalizedRows = [];
+        for (const row of draftRows) {
+          const name = `${row.name || ""}`.trim();
+          if (!name) {
+            feedback("Project planning category name cannot be blank.", true);
+            return;
+          }
+          const key = name.toLowerCase();
+          if (seen.has(key)) {
+            feedback("Project planning category names must be unique.", true);
+            return;
+          }
+          seen.add(key);
+          normalizedRows.push({
+            id: `${row.id || ""}`.trim(),
+            name,
+          });
+        }
+
+        try {
+          await mutatePersistentState(
+            "update_expense_categories",
+            { categories: corporateCategories },
+            {
+              skipHydrate: true,
+              returnState: false,
+              skipSettingsMetadataReload: true,
+            }
+          );
+          await mutatePersistentState(
+            "update_project_expense_categories",
+            { categories: normalizedRows },
+            {
+              skipHydrate: true,
+              returnState: false,
+              skipSettingsMetadataReload: true,
+            }
+          );
+          if (typeof deps().loadPersistentState === "function") {
+            await deps().loadPersistentState();
+          }
+          const latestRows = Array.isArray(state.projectExpenseCategories)
+            ? state.projectExpenseCategories
+            : [];
+          const latestIdByName = new Map(
+            latestRows.map((item) => [`${item?.name || ""}`.trim().toLowerCase(), `${item?.id || ""}`.trim()])
+          );
+          projectExpenseCategoriesDraft = normalizedRows.map((item) => {
+            const id = latestIdByName.get(item.name.toLowerCase()) || item.id;
+            return { id, name: item.name };
+          });
+          projectExpenseCategoriesDraftDirty = false;
+          renderExpenseCategories();
+          feedback("Expense categories updated.", false);
+        } catch (error) {
+          feedback(error.message || "Unable to update expense categories.", true);
+        }
+      },
+      true
+    );
   }
 
   function renderOfficeLocations() {

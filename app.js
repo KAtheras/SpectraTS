@@ -2523,6 +2523,7 @@
     levelLabels: {},
     officeLocations: [],
     expenseCategories: [],
+    projectExpenseCategories: [],
     corporateFunctionGroups: [],
     corporateFunctionCategories: [],
     departments: [],
@@ -3111,6 +3112,12 @@
           name: item.name,
         }))
       : [];
+    state.projectExpenseCategories = Array.isArray(data?.projectExpenseCategories)
+      ? data.projectExpenseCategories.map((item) => ({
+          id: item.id,
+          name: item.name,
+        }))
+      : [];
     state.corporateFunctionGroups = Array.isArray(data?.corporateFunctionGroups)
       ? data.corporateFunctionGroups.map((item) => ({
           id: item.id,
@@ -3213,6 +3220,7 @@
     state.levelLabels = {};
     state.officeLocations = [];
     state.expenseCategories = [];
+    state.projectExpenseCategories = [];
     state.account = null;
     state.notificationRules = [];
     state.assignments = {
@@ -3466,6 +3474,9 @@
         expenseCategories: Array.isArray(payload?.expenseCategories)
           ? payload.expenseCategories
           : state.expenseCategories,
+        projectExpenseCategories: Array.isArray(payload?.projectExpenseCategories)
+          ? payload.projectExpenseCategories
+          : state.projectExpenseCategories,
         corporateFunctionGroups: Array.isArray(payload?.corporateFunctionGroups)
           ? payload.corporateFunctionGroups
           : state.corporateFunctionGroups,
