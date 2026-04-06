@@ -7520,7 +7520,39 @@
             onBack: function () {
               setView(state.selectedCatalogClient ? "clients" : "entries");
             },
-            onSave: function () {
+            onSave: async function (payload) {
+              const saveProjectId = String(payload?.projectId || targetProjectId || "").trim();
+              if (!saveProjectId) {
+                feedback("Project context is unavailable.", true);
+                return;
+              }
+              const members = Array.isArray(payload?.members) ? payload.members : [];
+              await mutatePersistentState(
+                "save_project_advanced_budget",
+                {
+                  projectId: saveProjectId,
+                  members: members.map((member) => ({
+                    userId: String(member?.userId || "").trim(),
+                    budgetHours:
+                      member?.budgetHours === null || member?.budgetHours === undefined || member?.budgetHours === ""
+                        ? null
+                        : Number(member.budgetHours),
+                    budgetAmount:
+                      member?.budgetAmount === null || member?.budgetAmount === undefined || member?.budgetAmount === ""
+                        ? null
+                        : Number(member.budgetAmount),
+                    rateOverride:
+                      member?.rateOverride === null || member?.rateOverride === undefined || member?.rateOverride === ""
+                        ? null
+                        : Number(member.rateOverride),
+                  })),
+                },
+                { refreshState: false, returnState: false }
+              );
+              await loadPersistentState();
+              if (state.currentView === "project_planning") {
+                render();
+              }
               feedback("Project plan saved.", false);
             },
           });

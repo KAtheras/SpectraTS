@@ -346,6 +346,7 @@
             : (member?.permissionGroup || member?.permission_group || "Staff");
       return {
         id: userId || `row-${index}`,
+        userId: userId || null,
         memberName: member?.displayName || "Unassigned",
         role: roleLabel,
         costRate: costRate ?? baseRate ?? 0,
@@ -511,8 +512,37 @@
     container.querySelector("[data-project-planning-back]")?.addEventListener("click", () => {
       if (typeof onBack === "function") onBack();
     });
-    container.querySelector("[data-project-planning-save]")?.addEventListener("click", () => {
-      if (typeof onSave === "function") onSave();
+    const saveButton = container.querySelector("[data-project-planning-save]");
+    saveButton?.addEventListener("click", async () => {
+      if (typeof onSave !== "function") return;
+      planningRows = computeRows(planningRows);
+      const members = planningRows.map((row) => {
+        const rawHours = row.hours;
+        const normalizedHours =
+          rawHours === null || rawHours === undefined || rawHours === "" ? null : toNumberOrZero(rawHours);
+        const rateOverride =
+          row.chargeRate === null || row.chargeRate === undefined || row.chargeRate === ""
+            ? null
+            : toNumberOrZero(row.chargeRate);
+        const budgetAmount = normalizedHours === null || rateOverride === null
+          ? null
+          : Number((rateOverride * normalizedHours).toFixed(2));
+        return {
+          userId: String(row.userId || row.id || "").trim(),
+          budgetHours: normalizedHours,
+          budgetAmount,
+          rateOverride,
+        };
+      }).filter((row) => row.userId);
+      saveButton.disabled = true;
+      try {
+        await onSave({
+          projectId: String(project?.id || "").trim(),
+          members,
+        });
+      } finally {
+        saveButton.disabled = false;
+      }
     });
 
     const kpiContractNode = container.querySelector('[data-kpi="contract"]');
@@ -567,7 +597,8 @@
         if (!rowId || !field) return;
         const row = planningRows.find((item) => String(item.id) === rowId);
         if (!row) return;
-        row[field] = toNumberOrZero(target.value);
+        const raw = String(target.value || "").trim();
+        row[field] = raw === "" ? null : toNumberOrZero(raw);
         renderComputed();
       });
     });
