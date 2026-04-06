@@ -470,8 +470,12 @@
       const hours = toNumberOrZero(row.hours);
       const costRate = toNumberOrZero(row.costRate);
       const chargeRate = toNumberOrZero(row.chargeRate);
+      const baseRate = Number.isFinite(Number(row.baseRate))
+        ? Number(row.baseRate)
+        : chargeRate;
       const plannedCost = costRate * hours;
       const plannedRevenue = chargeRate * hours;
+      const standardRevenue = baseRate * hours;
       const margin = plannedRevenue - plannedCost;
       const marginPercent = plannedRevenue > 0 ? (margin / plannedRevenue) * 100 : 0;
       return {
@@ -479,8 +483,10 @@
         hours,
         costRate,
         chargeRate,
+        baseRate,
         plannedCost,
         plannedRevenue,
+        standardRevenue,
         margin,
         marginPercent,
       };
@@ -491,6 +497,7 @@
     const totalHours = rows.reduce((sum, row) => sum + toNumberOrZero(row.hours), 0);
     const directCost = rows.reduce((sum, row) => sum + toNumberOrZero(row.plannedCost), 0);
     const plannedRevenueTotal = rows.reduce((sum, row) => sum + toNumberOrZero(row.plannedRevenue), 0);
+    const standardRevenueTotal = rows.reduce((sum, row) => sum + toNumberOrZero(row.standardRevenue), 0);
     const overheadRate = toNumberOrZero(overheadPercent) / 100;
     const overheadCost = directCost * overheadRate;
     const totalCost = directCost + overheadCost;
@@ -501,6 +508,7 @@
       totalHours,
       directCost,
       plannedRevenueTotal,
+      standardRevenueTotal,
       overheadCost,
       totalCost,
       grossMargin,
@@ -627,6 +635,7 @@
           Boolean(userId) &&
           String(userId || "").trim() !== String(leadUserId || "").trim() &&
           Boolean(managerAssignment || memberAssignment),
+        baseRate,
         costRate: costRate ?? baseRate ?? 0,
         chargeRate: budgetRateOverride ?? chargeRateOverride ?? baseRate ?? 0,
         hours: toNullableNumber(budgetRow?.budgetHours) ?? 0,
@@ -634,6 +643,22 @@
     });
     planningRows = computeRows(planningRows);
     const initialTotals = computeTotals(planningRows, contractAmountValue, overheadValue);
+    const initialIsTmContract = contractType === "tm";
+    const initialGrossTopLineValue = initialIsTmContract
+      ? initialTotals.plannedRevenueTotal
+      : contractAmountValue;
+    const initialGrossMarginValue = Number.isFinite(initialGrossTopLineValue)
+      ? initialGrossTopLineValue - initialTotals.totalCost
+      : null;
+    const initialGrossMarginPct = Number.isFinite(initialGrossTopLineValue) && initialGrossTopLineValue > 0
+      ? (initialGrossMarginValue / initialGrossTopLineValue) * 100
+      : null;
+    const initialRealizationNumerator = initialIsTmContract
+      ? initialTotals.plannedRevenueTotal
+      : contractAmountValue;
+    const initialDiscountPremiumValue = Number.isFinite(initialRealizationNumerator)
+      ? initialRealizationNumerator - initialTotals.standardRevenueTotal
+      : null;
 
     container.innerHTML = `
       <section class="page-view project-planning-page" aria-labelledby="project-planning-title">
@@ -663,8 +688,8 @@
             </div>
           </div>
           <div class="project-planning-actions">
-            <button type="button" class="button" data-project-planning-save>Save Plan</button>
             <button type="button" class="button button-ghost" data-project-planning-back>Back</button>
+            <button type="button" class="button" data-project-planning-save>Submit</button>
           </div>
         </header>
         <section class="project-planning-kpi-row">
@@ -691,11 +716,11 @@
               </article>
               <article class="project-planning-kpi is-emphasis">
                 <div class="project-planning-kpi-label">Gross Margin</div>
-                <div class="project-planning-kpi-value" data-kpi="grossMargin">${escapeHtml(initialTotals.hasContract ? fmtMoneyZero(initialTotals.grossMargin) : "—")}</div>
+                <div class="project-planning-kpi-value" data-kpi="grossMargin">${escapeHtml(Number.isFinite(initialGrossMarginValue) ? fmtMoneyZero(initialGrossMarginValue) : "—")}</div>
                 <div class="project-planning-kpi-sub">
                   <div class="project-planning-kpi-subline">
-                    <span data-kpi-label="grossTopLine">Contract</span>
-                    <strong data-kpi="grossContract">${escapeHtml(fmtMoneyZero(contractAmountValue))}</strong>
+                    <span data-kpi-label="grossTopLine">${initialIsTmContract ? "Revenue" : "Contract"}</span>
+                    <strong data-kpi="grossContract">${escapeHtml(fmtMoneyZero(initialGrossTopLineValue))}</strong>
                   </div>
                   <div class="project-planning-kpi-subline">
                     <span>Cost</span>
@@ -705,15 +730,15 @@
               </article>
               <article class="project-planning-kpi is-emphasis">
                 <div class="project-planning-kpi-label" data-kpi-label="realizationPrimary">Realization</div>
-                <div class="project-planning-kpi-value" data-kpi="realizationPct">${escapeHtml(initialTotals.hasContract && initialTotals.plannedRevenueTotal > 0 ? fmtPercent((contractAmountValue / initialTotals.plannedRevenueTotal) * 100) : "—")}</div>
+                <div class="project-planning-kpi-value" data-kpi="realizationPct">${escapeHtml(initialTotals.standardRevenueTotal > 0 && Number.isFinite(initialRealizationNumerator) ? fmtPercent((initialRealizationNumerator / initialTotals.standardRevenueTotal) * 100) : "—")}</div>
                 <div class="project-planning-kpi-sub" data-kpi="realizationSub">
                   <div class="project-planning-kpi-subline">
                     <span>Std Rev</span>
-                    <strong data-kpi="standardRevenue">${escapeHtml(fmtMoneyZero(initialTotals.plannedRevenueTotal))}</strong>
+                    <strong data-kpi="standardRevenue">${escapeHtml(fmtMoneyZero(initialTotals.standardRevenueTotal))}</strong>
                   </div>
-                  <div class="project-planning-kpi-subline ${initialTotals.hasContract && contractAmountValue - initialTotals.plannedRevenueTotal < 0 ? "is-negative" : "is-positive"}">
-                    <span data-kpi-label="premiumDiscount">${initialTotals.hasContract && contractAmountValue < initialTotals.plannedRevenueTotal ? "Discount" : "Premium"}</span>
-                    <strong data-kpi="premiumDiscount">${escapeHtml(initialTotals.hasContract ? fmtMoney(contractAmountValue - initialTotals.plannedRevenueTotal) : "—")}</strong>
+                  <div class="project-planning-kpi-subline ${Number.isFinite(initialDiscountPremiumValue) && initialDiscountPremiumValue < 0 ? "is-negative" : "is-positive"}">
+                    <span data-kpi-label="premiumDiscount">${initialIsTmContract ? "Variance to Standard" : Number.isFinite(initialDiscountPremiumValue) && initialDiscountPremiumValue < 0 ? "Discount" : "Premium"}</span>
+                    <strong data-kpi="premiumDiscount">${escapeHtml(Number.isFinite(initialDiscountPremiumValue) ? fmtMoney(initialDiscountPremiumValue) : "—")}</strong>
                   </div>
                 </div>
               </article>
@@ -782,21 +807,27 @@
               <section class="project-planning-econ-section">
                 <div class="project-planning-econ-title">Revenue</div>
                 <div class="project-planning-econ-row">
-                  <span class="project-planning-econ-label">Contract Amount</span>
-                  <span class="project-planning-econ-value" data-econ="contractAmount">${escapeHtml(fmtMoneyZero(contractAmountValue))}</span>
+                  <span class="project-planning-econ-label" data-econ-label="revenuePrimary">${initialIsTmContract ? "Time Revenue" : "Contract Amount"}</span>
+                  <span class="project-planning-econ-value" data-econ="revenuePrimary">${escapeHtml(initialIsTmContract ? fmtMoneyZero(initialTotals.plannedRevenueTotal) : fmtMoneyZero(contractAmountValue))}</span>
                 </div>
                 <div class="project-planning-econ-row">
-                  <span class="project-planning-econ-label">Planned Revenue</span>
-                  <span class="project-planning-econ-value" data-econ="plannedRevenue">${escapeHtml(fmtMoneyZero(initialTotals.plannedRevenueTotal))}</span>
+                  <span class="project-planning-econ-label" data-econ-label="revenueSecondary">${initialIsTmContract ? "Expense Revenue" : "Standard Revenue"}</span>
+                  <span class="project-planning-econ-value" data-econ="revenueSecondary">${escapeHtml(initialIsTmContract ? fmtMoneyZero(0) : fmtMoneyZero(initialTotals.standardRevenueTotal))}</span>
                 </div>
                 <div class="project-planning-econ-row">
-                  <span class="project-planning-econ-label" data-econ-label="discountPremium">
-                    ${initialTotals.hasContract && contractAmountValue - initialTotals.plannedRevenueTotal >= 0
-                      ? "Premium to Standard Rates"
-                      : "Discount to Standard Rates"}
+                  <span class="project-planning-econ-label" data-econ-label="revenueTertiary">
+                    ${initialIsTmContract
+                      ? "Total Revenue"
+                      : "Variance to Standard"}
                   </span>
-                  <span class="project-planning-econ-value" data-econ="discountPremium">
-                    ${escapeHtml(initialTotals.hasContract ? fmtMoney(contractAmountValue - initialTotals.plannedRevenueTotal) : "—")}
+                  <span class="project-planning-econ-value" data-econ="revenueTertiary">
+                    ${escapeHtml(
+                      initialIsTmContract
+                        ? fmtMoneyZero(initialTotals.plannedRevenueTotal)
+                        : Number.isFinite(contractAmountValue)
+                          ? fmtMoney(contractAmountValue - initialTotals.standardRevenueTotal)
+                          : "—"
+                    )}
                   </span>
                 </div>
               </section>
@@ -805,6 +836,10 @@
                 <div class="project-planning-econ-row">
                   <span class="project-planning-econ-label">Direct Labor Cost</span>
                   <span class="project-planning-econ-value" data-econ="directCost">${escapeHtml(fmtMoneyZero(initialTotals.directCost))}</span>
+                </div>
+                <div class="project-planning-econ-row" data-econ-row="expenseCost" ${initialIsTmContract ? "" : "hidden"}>
+                  <span class="project-planning-econ-label">Expense Cost</span>
+                  <span class="project-planning-econ-value" data-econ="expenseCost">${escapeHtml(fmtMoneyZero(0))}</span>
                 </div>
                 <div class="project-planning-econ-row">
                   <span class="project-planning-econ-label">Overhead</span>
@@ -819,18 +854,11 @@
                 <div class="project-planning-econ-title">Profitability</div>
                 <div class="project-planning-econ-row">
                   <span class="project-planning-econ-label">Gross Margin</span>
-                  <span class="project-planning-econ-value" data-econ="grossMargin">${escapeHtml(initialTotals.hasContract ? fmtMoney(initialTotals.grossMargin) : "—")}</span>
+                  <span class="project-planning-econ-value" data-econ="grossMargin">${escapeHtml(Number.isFinite(initialGrossMarginValue) ? fmtMoney(initialGrossMarginValue) : "—")}</span>
                 </div>
                 <div class="project-planning-econ-row">
                   <span class="project-planning-econ-label">Gross Margin %</span>
-                  <span class="project-planning-econ-value" data-econ="grossMarginPct">${escapeHtml(initialTotals.hasContract ? fmtPercent(initialTotals.marginPercent) : "—")}</span>
-                </div>
-              </section>
-              <section class="project-planning-econ-section">
-                <div class="project-planning-econ-title">Implied Metrics</div>
-                <div class="project-planning-econ-row">
-                  <span class="project-planning-econ-label">Implied Rate</span>
-                  <span class="project-planning-econ-value" data-econ="impliedRate">${escapeHtml(initialTotals.hasContract && initialTotals.totalHours > 0 ? fmtMoney(contractAmountValue / initialTotals.totalHours) : "—")}</span>
+                  <span class="project-planning-econ-value" data-econ="grossMarginPct">${escapeHtml(Number.isFinite(initialGrossMarginPct) ? fmtPercent(initialGrossMarginPct) : "—")}</span>
                 </div>
               </section>
             </section>
@@ -902,16 +930,19 @@
     const kpiContractEditIconNode = container.querySelector('[data-kpi="contractEditIcon"]');
     const kpiContractEditHintNode = container.querySelector('[data-kpi="contractEditHint"]');
     const contractCardNode = container.querySelector('[data-kpi-card="contract"]');
-    const econContractNode = container.querySelector('[data-econ="contractAmount"]');
-    const econPlannedRevenueNode = container.querySelector('[data-econ="plannedRevenue"]');
-    const econDiscountPremiumNode = container.querySelector('[data-econ="discountPremium"]');
-    const econDiscountPremiumLabelNode = container.querySelector('[data-econ-label="discountPremium"]');
+    const econRevenuePrimaryNode = container.querySelector('[data-econ="revenuePrimary"]');
+    const econRevenueSecondaryNode = container.querySelector('[data-econ="revenueSecondary"]');
+    const econRevenueTertiaryNode = container.querySelector('[data-econ="revenueTertiary"]');
+    const econRevenuePrimaryLabelNode = container.querySelector('[data-econ-label="revenuePrimary"]');
+    const econRevenueSecondaryLabelNode = container.querySelector('[data-econ-label="revenueSecondary"]');
+    const econRevenueTertiaryLabelNode = container.querySelector('[data-econ-label="revenueTertiary"]');
     const econDirectCostNode = container.querySelector('[data-econ="directCost"]');
+    const econExpenseCostNode = container.querySelector('[data-econ="expenseCost"]');
+    const econExpenseCostRowNode = container.querySelector('[data-econ-row="expenseCost"]');
     const econOverheadCostNode = container.querySelector('[data-econ="overheadCost"]');
     const econTotalCostNode = container.querySelector('[data-econ="totalCost"]');
     const econGrossMarginNode = container.querySelector('[data-econ="grossMargin"]');
     const econGrossMarginPctNode = container.querySelector('[data-econ="grossMarginPct"]');
-    const econImpliedRateNode = container.querySelector('[data-econ="impliedRate"]');
     let isEditingContractAmount = false;
 
     async function commitContractAmount(rawValue) {
@@ -984,9 +1015,22 @@
       planningRows = computeRows(planningRows);
       const totals = computeTotals(planningRows, contractAmountValue, overheadValue);
       const isTmContract = contractType === "tm";
+      const grossTopLineValue = isTmContract ? totals.plannedRevenueTotal : contractAmountValue;
+      const expenseRevenueTotal = 0;
+      const expenseCostTotal = 0;
+      const totalRevenueValue = totals.plannedRevenueTotal + expenseRevenueTotal;
+      const totalCostValue = totals.totalCost + expenseCostTotal;
+      const grossMarginValue = Number.isFinite(grossTopLineValue)
+        ? (isTmContract ? totalRevenueValue : grossTopLineValue) - totalCostValue
+        : null;
+      const grossMarginPctDenominator = isTmContract ? totalRevenueValue : grossTopLineValue;
+      const grossMarginPct = Number.isFinite(grossMarginPctDenominator) && grossMarginPctDenominator > 0
+        ? (grossMarginValue / grossMarginPctDenominator) * 100
+        : null;
+      const realizationNumerator = isTmContract ? totals.plannedRevenueTotal : contractAmountValue;
       const realizationPct =
-        totals.plannedRevenueTotal > 0 && Number.isFinite(contractAmountValue)
-          ? (contractAmountValue / totals.plannedRevenueTotal) * 100
+        totals.standardRevenueTotal > 0 && Number.isFinite(realizationNumerator)
+          ? (realizationNumerator / totals.standardRevenueTotal) * 100
           : null;
 
       planningRows.forEach((row) => {
@@ -1014,7 +1058,7 @@
       if (kpiPlannedCostNode) kpiPlannedCostNode.textContent = fmtMoneyZero(totals.totalCost);
       if (kpiPlannedDirectNode) kpiPlannedDirectNode.textContent = fmtMoneyZero(totals.directCost);
       if (kpiPlannedOverheadNode) kpiPlannedOverheadNode.textContent = fmtMoneyZero(totals.overheadCost);
-      if (kpiGrossMarginNode) kpiGrossMarginNode.textContent = totals.hasContract ? fmtMoneyZero(totals.grossMargin) : "—";
+      if (kpiGrossMarginNode) kpiGrossMarginNode.textContent = Number.isFinite(grossMarginValue) ? fmtMoneyZero(grossMarginValue) : "—";
       if (kpiGrossTopLineLabelNode) {
         kpiGrossTopLineLabelNode.textContent = isTmContract ? "Revenue" : "Contract";
       }
@@ -1033,59 +1077,69 @@
       if (kpiRealizationPctNode) {
         kpiRealizationPctNode.textContent = realizationPct === null ? "—" : fmtPercent(realizationPct);
       }
-      if (kpiStandardRevenueNode) kpiStandardRevenueNode.textContent = fmtMoneyZero(totals.plannedRevenueTotal);
-      const discountPremiumValue = totals.hasContract ? contractAmountValue - totals.plannedRevenueTotal : null;
+      if (kpiStandardRevenueNode) kpiStandardRevenueNode.textContent = fmtMoneyZero(totals.standardRevenueTotal);
+      const discountPremiumValue = Number.isFinite(realizationNumerator)
+        ? realizationNumerator - totals.standardRevenueTotal
+        : null;
       if (kpiPremiumDiscountLabelNode) {
-        kpiPremiumDiscountLabelNode.textContent =
-          totals.hasContract && Number.isFinite(discountPremiumValue) && discountPremiumValue < 0
+        kpiPremiumDiscountLabelNode.textContent = isTmContract
+          ? "Variance to Standard"
+          : Number.isFinite(discountPremiumValue) && discountPremiumValue < 0
             ? "Discount"
             : "Premium";
       }
       if (kpiPremiumDiscountNode) {
-        kpiPremiumDiscountNode.textContent = totals.hasContract ? fmtMoney(discountPremiumValue) : "—";
+        kpiPremiumDiscountNode.textContent = Number.isFinite(discountPremiumValue) ? fmtMoney(discountPremiumValue) : "—";
         kpiPremiumDiscountNode.parentElement?.classList.remove("is-positive", "is-negative");
-        if (totals.hasContract && Number.isFinite(discountPremiumValue)) {
+        if (Number.isFinite(discountPremiumValue)) {
           if (discountPremiumValue < 0) kpiPremiumDiscountNode.parentElement?.classList.add("is-negative");
           if (discountPremiumValue > 0) kpiPremiumDiscountNode.parentElement?.classList.add("is-positive");
         }
       }
-      if (econContractNode) econContractNode.textContent = fmtMoneyZero(contractAmountValue);
-      if (econPlannedRevenueNode) econPlannedRevenueNode.textContent = fmtMoneyZero(totals.plannedRevenueTotal);
-      if (econDiscountPremiumLabelNode) {
-        econDiscountPremiumLabelNode.textContent =
-          totals.hasContract && Number.isFinite(discountPremiumValue) && discountPremiumValue >= 0
-            ? "Premium to Standard Rates"
-            : "Discount to Standard Rates";
+      if (econRevenuePrimaryLabelNode) econRevenuePrimaryLabelNode.textContent = isTmContract ? "Time Revenue" : "Contract Amount";
+      if (econRevenueSecondaryLabelNode) econRevenueSecondaryLabelNode.textContent = isTmContract ? "Expense Revenue" : "Standard Revenue";
+      if (econRevenueTertiaryLabelNode) {
+        econRevenueTertiaryLabelNode.textContent = isTmContract
+          ? "Total Revenue"
+          : "Variance to Standard";
       }
-      if (econDiscountPremiumNode) {
-        econDiscountPremiumNode.textContent = totals.hasContract ? fmtMoney(discountPremiumValue) : "—";
-        setEconomicSignal(econDiscountPremiumNode, discountPremiumValue, {
-          negativeIsDanger: true,
-          positiveIsSuccess: true,
-        });
+      if (econRevenuePrimaryNode) {
+        econRevenuePrimaryNode.textContent = isTmContract ? fmtMoneyZero(totals.plannedRevenueTotal) : fmtMoneyZero(contractAmountValue);
+      }
+      if (econRevenueSecondaryNode) {
+        econRevenueSecondaryNode.textContent = isTmContract ? fmtMoneyZero(expenseRevenueTotal) : fmtMoneyZero(totals.standardRevenueTotal);
+      }
+      if (econRevenueTertiaryNode) {
+        if (isTmContract) {
+          econRevenueTertiaryNode.textContent = fmtMoneyZero(totalRevenueValue);
+          econRevenueTertiaryNode.classList.remove("is-negative", "is-positive");
+        } else {
+          econRevenueTertiaryNode.textContent = Number.isFinite(discountPremiumValue) ? fmtMoney(discountPremiumValue) : "—";
+          setEconomicSignal(econRevenueTertiaryNode, discountPremiumValue, {
+            negativeIsDanger: true,
+            positiveIsSuccess: true,
+          });
+        }
       }
       if (econDirectCostNode) econDirectCostNode.textContent = fmtMoneyZero(totals.directCost);
+      if (econExpenseCostRowNode) econExpenseCostRowNode.hidden = !isTmContract;
+      if (econExpenseCostNode) econExpenseCostNode.textContent = fmtMoneyZero(expenseCostTotal);
       if (econOverheadCostNode) econOverheadCostNode.textContent = fmtMoneyZero(totals.overheadCost);
-      if (econTotalCostNode) econTotalCostNode.textContent = fmtMoneyZero(totals.totalCost);
+      if (econTotalCostNode) econTotalCostNode.textContent = fmtMoneyZero(totalCostValue);
       if (econGrossMarginNode) {
-        econGrossMarginNode.textContent = totals.hasContract ? fmtMoney(totals.grossMargin) : "—";
-        setEconomicSignal(econGrossMarginNode, totals.grossMargin, {
+        econGrossMarginNode.textContent = Number.isFinite(grossMarginValue) ? fmtMoney(grossMarginValue) : "—";
+        setEconomicSignal(econGrossMarginNode, grossMarginValue, {
           negativeIsDanger: true,
           positiveIsSuccess: true,
         });
       }
       if (econGrossMarginPctNode) {
-        econGrossMarginPctNode.textContent = totals.hasContract ? fmtPercent(totals.marginPercent) : "—";
-        setEconomicSignal(econGrossMarginPctNode, totals.marginPercent, {
+        econGrossMarginPctNode.textContent = Number.isFinite(grossMarginPct) ? fmtPercent(grossMarginPct) : "—";
+        setEconomicSignal(econGrossMarginPctNode, grossMarginPct, {
           negativeIsDanger: true,
           positiveIsSuccess: true,
         });
       }
-      if (econImpliedRateNode) {
-        const impliedRate = totals.hasContract && totals.totalHours > 0 ? contractAmountValue / totals.totalHours : null;
-        econImpliedRateNode.textContent = impliedRate === null ? "—" : fmtMoney(impliedRate);
-      }
-
     }
 
     contractCardNode?.addEventListener("click", (event) => {
