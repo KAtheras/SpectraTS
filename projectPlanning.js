@@ -37,7 +37,11 @@
         display: grid;
         grid-template-columns: minmax(0, 1fr) 320px;
         gap: 12px;
-        align-items: start;
+        align-items: stretch;
+      }
+      .project-planning-body {
+        height: calc(100vh - 320px);
+        min-height: 460px;
       }
       .project-planning-block {
         border: 1px solid var(--line);
@@ -129,8 +133,17 @@
       .project-planning-field-value {
         font-weight: 600;
       }
+      .project-planning-table-card {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        min-height: 0;
+      }
       .project-planning-table-wrap {
-        overflow: auto;
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
+        overflow-x: auto;
       }
       .project-planning-table {
         width: 100%;
@@ -149,6 +162,10 @@
         font-size: .76rem;
         text-transform: uppercase;
         letter-spacing: .04em;
+        position: sticky;
+        top: 0;
+        background: var(--surface);
+        z-index: 2;
       }
       .project-planning-table th:nth-child(6),
       .project-planning-table th:nth-child(7),
@@ -164,20 +181,27 @@
         display: grid;
         gap: 6px;
         padding-top: 0;
+        height: 100%;
+        min-height: 0;
       }
       .project-planning-economics h4 {
         margin: 0;
       }
       .project-planning-economics {
-        display: grid;
+        display: flex;
+        flex-direction: column;
         gap: 12px;
+        height: 100%;
+        min-height: 0;
       }
       .project-planning-econ-section {
         display: grid;
         gap: 6px;
       }
       .project-planning-econ-section + .project-planning-econ-section {
-        margin-top: 2px;
+        margin-top: 8px;
+        padding-top: 10px;
+        border-top: 1px solid var(--line);
       }
       .project-planning-econ-title {
         color: var(--muted);
@@ -237,6 +261,10 @@
       @media (max-width: 1200px) {
         .project-planning-layout {
           grid-template-columns: 1fr;
+        }
+        .project-planning-body {
+          height: auto;
+          min-height: 0;
         }
         .project-planning-kpis {
           grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -552,9 +580,9 @@
               </article>
             </section>
         </section>
-        <div class="project-planning-layout">
+        <div class="project-planning-layout project-planning-body">
           <main>
-            <section class="project-planning-block">
+            <section class="project-planning-block project-planning-table-card">
               <h3>Team Budgeting</h3>
               <div class="project-planning-table-wrap">
                 <table class="project-planning-table">
