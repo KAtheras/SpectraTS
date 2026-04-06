@@ -76,6 +76,10 @@
       .project-planning-kpi.is-primary .project-planning-kpi-value {
         font-size: 1.32rem;
       }
+      .project-planning-kpi.is-emphasis .project-planning-kpi-value {
+        font-size: 1.4rem;
+        font-weight: 800;
+      }
       .project-planning-field {
         display: grid;
         gap: 4px;
@@ -123,31 +127,7 @@
       .project-planning-right {
         display: grid;
         gap: 6px;
-      }
-      .project-planning-gauge-card h4 {
-        margin: 0 0 10px;
-      }
-      .project-planning-gauge-wrap {
-        display: grid;
-        gap: 6px;
-      }
-      .project-planning-gauge {
-        width: 100%;
-        height: 164px;
-      }
-      .project-planning-gauge-empty {
-        color: var(--muted);
-        font-size: 0.88rem;
-      }
-      .project-planning-gauge-value {
-        font-size: 1.32rem;
-        font-weight: 700;
-        line-height: 1.1;
-        font-variant-numeric: tabular-nums;
-      }
-      .project-planning-gauge-subtitle {
-        color: var(--muted);
-        font-size: 0.84rem;
+        padding-top: 210px;
       }
       .project-planning-economics h4 {
         margin: 0;
@@ -221,6 +201,9 @@
       @media (max-width: 1200px) {
         .project-planning-layout {
           grid-template-columns: 1fr;
+        }
+        .project-planning-right {
+          padding-top: 0;
         }
         .project-planning-kpis {
           grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -352,28 +335,6 @@
     if (value === "time_and_materials") return "Time & Materials";
     if (value === "fixed_fee") return "Fixed Fee";
     return "—";
-  }
-
-  let echartsLoaderPromise = null;
-  function loadEcharts() {
-    if (window.echarts) return Promise.resolve(window.echarts);
-    if (echartsLoaderPromise) return echartsLoaderPromise;
-    echartsLoaderPromise = new Promise((resolve, reject) => {
-      const existing = document.querySelector('script[data-lib="echarts"]');
-      if (existing) {
-        existing.addEventListener("load", () => resolve(window.echarts));
-        existing.addEventListener("error", () => reject(new Error("Failed to load ECharts.")));
-        return;
-      }
-      const script = document.createElement("script");
-      script.src = "https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js";
-      script.defer = true;
-      script.dataset.lib = "echarts";
-      script.onload = () => resolve(window.echarts);
-      script.onerror = () => reject(new Error("Failed to load ECharts."));
-      document.head.appendChild(script);
-    });
-    return echartsLoaderPromise;
   }
 
   function renderProjectPlanningPage({ projectId, state, container, onBack, onSave }) {
@@ -520,17 +481,17 @@
                 <div class="project-planning-kpi-label">Planned Cost</div>
                 <div class="project-planning-kpi-value" data-kpi="plannedCost">${escapeHtml(fmtMoneyZero(initialTotals.totalCost))}</div>
               </article>
-              <article class="project-planning-kpi is-primary">
+              <article class="project-planning-kpi is-primary is-emphasis">
                 <div class="project-planning-kpi-label">Gross Margin</div>
                 <div class="project-planning-kpi-value" data-kpi="grossMargin">${escapeHtml(initialTotals.hasContract ? fmtMoneyZero(initialTotals.grossMargin) : "—")}</div>
+              </article>
+              <article class="project-planning-kpi is-primary is-emphasis">
+                <div class="project-planning-kpi-label">Margin %</div>
+                <div class="project-planning-kpi-value" data-kpi="marginPct">${escapeHtml(initialTotals.hasContract ? fmtPercent(initialTotals.marginPercent) : "—")}</div>
               </article>
               <article class="project-planning-kpi is-secondary">
                 <div class="project-planning-kpi-label">Budget</div>
                 <div class="project-planning-kpi-value" data-kpi="budget">${escapeHtml(fmtMoneyZero(budgetAmount))}</div>
-              </article>
-              <article class="project-planning-kpi is-secondary">
-                <div class="project-planning-kpi-label">Margin %</div>
-                <div class="project-planning-kpi-value" data-kpi="marginPct">${escapeHtml(initialTotals.hasContract ? fmtPercent(initialTotals.marginPercent) : "—")}</div>
               </article>
               <article class="project-planning-kpi is-secondary">
                 <div class="project-planning-kpi-label">Planned Hours</div>
@@ -594,15 +555,6 @@
             </section>
           </main>
           <aside class="project-planning-right">
-            <section class="project-planning-block project-planning-gauge-card">
-              <h4>Contract Consumed</h4>
-              <div class="project-planning-gauge-wrap">
-                <div class="project-planning-gauge" data-consumption-gauge></div>
-                <div class="project-planning-gauge-empty" data-consumption-empty hidden>No contract amount</div>
-                <div class="project-planning-gauge-value" data-consumption-gauge-value>—</div>
-                <div class="project-planning-gauge-subtitle">of contract consumed</div>
-              </div>
-            </section>
             <section class="project-planning-block project-planning-economics">
               <h4>Project Economics</h4>
               <section class="project-planning-econ-section">
@@ -719,100 +671,12 @@
     const econGrossMarginNode = container.querySelector('[data-econ="grossMargin"]');
     const econGrossMarginPctNode = container.querySelector('[data-econ="grossMarginPct"]');
     const econImpliedRateNode = container.querySelector('[data-econ="impliedRate"]');
-    const consumptionGaugeNode = container.querySelector("[data-consumption-gauge]");
-    const consumptionGaugeEmptyNode = container.querySelector("[data-consumption-empty]");
-    const consumptionGaugeValueNode = container.querySelector("[data-consumption-gauge-value]");
-    let consumptionGaugeChart = null;
-
     function setEconomicSignal(node, value, options = {}) {
       if (!node) return;
       node.classList.remove("is-negative", "is-positive");
       if (typeof value !== "number" || !Number.isFinite(value)) return;
       if (options.negativeIsDanger && value < 0) node.classList.add("is-negative");
       if (options.positiveIsSuccess && value > 0) node.classList.add("is-positive");
-    }
-
-    function renderConsumptionGauge(totals) {
-      const hasContract = totals.hasContract && Number(contractAmount) > 0;
-      if (consumptionGaugeEmptyNode) {
-        consumptionGaugeEmptyNode.hidden = hasContract;
-      }
-      if (consumptionGaugeValueNode) {
-        if (!hasContract) {
-          consumptionGaugeValueNode.textContent = "—";
-        } else {
-          const rawPct = (totals.totalCost / contractAmount) * 100;
-          const safePct = Math.max(0, rawPct);
-          consumptionGaugeValueNode.textContent = fmtPercent(safePct);
-          consumptionGaugeValueNode.style.color = safePct > 100 ? "var(--danger)" : "";
-        }
-      }
-      if (!consumptionGaugeNode) return;
-      if (!hasContract) {
-        if (consumptionGaugeChart) {
-          consumptionGaugeChart.clear();
-        }
-        return;
-      }
-      loadEcharts()
-        .then((echarts) => {
-          if (!echarts || !document.body.contains(consumptionGaugeNode)) return;
-          if (!consumptionGaugeChart) {
-            consumptionGaugeChart = echarts.init(consumptionGaugeNode, null, { renderer: "svg" });
-          }
-          const rawPct = (totals.totalCost / contractAmount) * 100;
-          const safePct = Math.max(0, rawPct);
-          const gaugeValue = Math.min(safePct, 120);
-          consumptionGaugeChart.setOption(
-            {
-              animation: false,
-              series: [
-                {
-                  type: "gauge",
-                  startAngle: 180,
-                  endAngle: 0,
-                  min: 0,
-                  max: 120,
-                  radius: "100%",
-                  center: ["50%", "76%"],
-                  splitNumber: 6,
-                  axisLine: {
-                    roundCap: true,
-                    lineStyle: {
-                      width: 14,
-                      color: [
-                        [70 / 120, "#3d8a69"],
-                        [100 / 120, "#c28b2b"],
-                        [1, "#c24545"],
-                      ],
-                    },
-                  },
-                  pointer: {
-                    show: true,
-                    length: "58%",
-                    width: 5,
-                  },
-                  axisTick: { show: false },
-                  splitLine: { show: false },
-                  axisLabel: { show: false },
-                  progress: { show: false },
-                  anchor: { show: true, size: 8 },
-                  title: { show: false },
-                  detail: { show: false },
-                  data: [{ value: gaugeValue }],
-                },
-              ],
-            },
-            true
-          );
-          consumptionGaugeChart.resize();
-        })
-        .catch(() => {
-          if (consumptionGaugeEmptyNode) {
-            consumptionGaugeEmptyNode.hidden = false;
-            consumptionGaugeEmptyNode.textContent = "Gauge unavailable";
-          }
-        });
     }
 
     function renderComputed() {
@@ -877,7 +741,6 @@
         econImpliedRateNode.textContent = impliedRate === null ? "—" : fmtMoney(impliedRate);
       }
 
-      renderConsumptionGauge(totals);
     }
 
     container.querySelectorAll("[data-row-input]").forEach((input) => {
