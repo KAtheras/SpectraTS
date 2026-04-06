@@ -1,4 +1,4 @@
-const CACHE_NAME = "trakmetric-shell-v3";
+const CACHE_NAME = "trakmetric-shell-v4";
 const SHELL_PATHS = ["/", "/index.html", "/styles.css", "/app.js"];
 const SHELL_SET = new Set(SHELL_PATHS);
 
@@ -23,18 +23,31 @@ self.addEventListener("fetch", (event) => {
 
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
-  if (!SHELL_SET.has(url.pathname)) return;
+  const isNavigation = request.mode === "navigate";
+  const isShellAsset = SHELL_SET.has(url.pathname);
+  if (!isShellAsset && !isNavigation) return;
 
   event.respondWith((async () => {
     try {
       const fresh = await fetch(request);
-      const cache = await caches.open(CACHE_NAME);
-      cache.put(url.pathname, fresh.clone());
+      if (isShellAsset) {
+        const cache = await caches.open(CACHE_NAME);
+        cache.put(url.pathname, fresh.clone());
+      }
       return fresh;
     } catch (error) {
-      const cached = await caches.match(url.pathname);
-      if (cached) return cached;
-      throw error;
+      if (isNavigation) {
+        const cachedIndex = await caches.match("/index.html");
+        if (cachedIndex) return cachedIndex;
+      }
+      if (isShellAsset) {
+        const cached = await caches.match(url.pathname);
+        if (cached) return cached;
+      }
+      return new Response("Offline", {
+        status: 503,
+        headers: { "Content-Type": "text/plain; charset=utf-8" },
+      });
     }
   })());
 });
