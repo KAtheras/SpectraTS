@@ -1929,6 +1929,12 @@ async function updateClient(sql, payload, accountId) {
 async function addProject(sql, payload, currentUser, accountId) {
   const clientName = normalizeText(payload.clientName);
   const projectName = normalizeText(payload.projectName);
+  const pricingModelRaw = normalizeText(payload.pricingModel ?? payload.pricing_model);
+  const pricingModel = pricingModelRaw || null;
+  const allowedPricingModels = new Set(["fixed_fee", "time_and_materials"]);
+  const overheadRaw = payload.overheadPercent ?? payload.overhead_percent;
+  const hasOverhead = overheadRaw !== undefined && overheadRaw !== null && overheadRaw !== "";
+  const overheadPercent = hasOverhead ? Number(overheadRaw) : null;
   const contractRaw = payload.contractAmount;
   const hasContract = contractRaw !== undefined && contractRaw !== null && contractRaw !== "";
   const contractAmount = hasContract ? Number(contractRaw) : null;
@@ -1940,6 +1946,12 @@ async function addProject(sql, payload, currentUser, accountId) {
   }
   if (hasContract && (Number.isNaN(contractAmount) || contractAmount < 0)) {
     return errorResponse(400, "Contract amount must be a non-negative number.");
+  }
+  if (pricingModel && !allowedPricingModels.has(pricingModel)) {
+    return errorResponse(400, "Invalid pricing model.");
+  }
+  if (hasOverhead && Number.isNaN(overheadPercent)) {
+    return errorResponse(400, "Overhead percent must be a number.");
   }
 
   const client = await findClient(sql, clientName, accountId);
@@ -1959,7 +1971,17 @@ async function addProject(sql, payload, currentUser, accountId) {
   }
 
   await sql`
-    INSERT INTO projects (client_id, account_id, office_id, project_lead_id, name, created_by, contract_amount)
+    INSERT INTO projects (
+      client_id,
+      account_id,
+      office_id,
+      project_lead_id,
+      name,
+      created_by,
+      contract_amount,
+      pricing_model,
+      overhead_percent
+    )
     VALUES (
       ${client.id},
       ${accountId}::uuid,
@@ -1967,7 +1989,9 @@ async function addProject(sql, payload, currentUser, accountId) {
       ${projectLeadId},
       ${projectName},
       ${currentUser?.id || null},
-      ${hasContract && !Number.isNaN(contractAmount) && contractAmount >= 0 ? contractAmount : null}
+      ${hasContract && !Number.isNaN(contractAmount) && contractAmount >= 0 ? contractAmount : null},
+      ${pricingModel},
+      ${hasOverhead && !Number.isNaN(overheadPercent) ? overheadPercent : null}
     )
   `;
 
@@ -3005,11 +3029,22 @@ async function updateProject(sql, payload, currentUser, accountId) {
   const projectName = normalizeText(payload.projectName);
   const nextName = normalizeText(payload.nextName || projectName);
   const budgetRaw = payload.budgetAmount;
+  const pricingModelRaw = normalizeText(payload.pricingModel ?? payload.pricing_model);
+  const hasPricingModelField =
+    Object.prototype.hasOwnProperty.call(payload || {}, "pricingModel") ||
+    Object.prototype.hasOwnProperty.call(payload || {}, "pricing_model");
+  const allowedPricingModels = new Set(["fixed_fee", "time_and_materials"]);
+  const overheadRaw = payload.overheadPercent ?? payload.overhead_percent;
+  const hasOverheadField =
+    Object.prototype.hasOwnProperty.call(payload || {}, "overheadPercent") ||
+    Object.prototype.hasOwnProperty.call(payload || {}, "overhead_percent");
   const contractRaw = payload.contractAmount;
   const hasBudget = budgetRaw !== undefined && budgetRaw !== null && budgetRaw !== "";
   const hasContract = contractRaw !== undefined && contractRaw !== null && contractRaw !== "";
+  const hasOverhead = overheadRaw !== undefined && overheadRaw !== null && overheadRaw !== "";
   const budgetAmount = hasBudget ? Number(budgetRaw) : null;
   const contractAmount = hasContract ? Number(contractRaw) : null;
+  const overheadPercent = hasOverhead ? Number(overheadRaw) : null;
   const hasProjectLeadField =
     Object.prototype.hasOwnProperty.call(payload || {}, "projectLeadId") ||
     Object.prototype.hasOwnProperty.call(payload || {}, "project_lead_id");
@@ -3025,6 +3060,12 @@ async function updateProject(sql, payload, currentUser, accountId) {
   }
   if (hasContract && (Number.isNaN(contractAmount) || contractAmount < 0)) {
     return errorResponse(400, "Contract amount must be a non-negative number.");
+  }
+  if (hasPricingModelField && pricingModelRaw && !allowedPricingModels.has(pricingModelRaw)) {
+    return errorResponse(400, "Invalid pricing model.");
+  }
+  if (hasOverheadField && hasOverhead && Number.isNaN(overheadPercent)) {
+    return errorResponse(400, "Overhead percent must be a number.");
   }
 
   const project = await findProject(sql, clientName, projectName, accountId);
@@ -3048,6 +3089,22 @@ async function updateProject(sql, payload, currentUser, accountId) {
   const nextProjectLeadId = hasProjectLeadField
     ? normalizeText(payload.projectLeadId ?? payload.project_lead_id) || null
     : project.project_lead_id || null;
+  const nextPricingModel = hasPricingModelField
+    ? pricingModelRaw || null
+    : project.pricingModel !== undefined
+      ? project.pricingModel
+      : project.pricing_model !== undefined
+        ? project.pricing_model
+        : null;
+  const nextOverheadPercent = hasOverheadField
+    ? hasOverhead && !Number.isNaN(overheadPercent)
+      ? overheadPercent
+      : null
+    : project.overheadPercent !== undefined
+      ? project.overheadPercent
+      : project.overhead_percent !== undefined
+        ? project.overhead_percent
+        : null;
   if (nextProjectLeadId) {
     const lead = await findUserById(sql, nextProjectLeadId, accountId);
     if (!lead) {
@@ -3072,6 +3129,8 @@ async function updateProject(sql, payload, currentUser, accountId) {
     SET name = ${nextName},
         budget_amount = ${nextBudget},
         contract_amount = ${nextContractAmount},
+        pricing_model = ${nextPricingModel},
+        overhead_percent = ${nextOverheadPercent},
         project_lead_id = ${nextProjectLeadId},
         updated_at = NOW()
     WHERE id = ${project.id}

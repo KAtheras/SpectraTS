@@ -457,6 +457,14 @@ async function ensureSchema(sql) {
   `;
   await sql`
     ALTER TABLE projects
+    ADD COLUMN IF NOT EXISTS pricing_model TEXT
+  `;
+  await sql`
+    ALTER TABLE projects
+    ADD COLUMN IF NOT EXISTS overhead_percent NUMERIC
+  `;
+  await sql`
+    ALTER TABLE projects
     ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   `;
   await sql`ALTER TABLE projects ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE`;
@@ -2201,6 +2209,10 @@ async function findProject(sql, clientName, projectName, accountId) {
       projects.budget_amount AS budget,
       projects.contract_amount AS "contractAmount",
       projects.contract_amount AS contract_amount,
+      projects.pricing_model AS "pricingModel",
+      projects.pricing_model AS pricing_model,
+      projects.overhead_percent AS "overheadPercent",
+      projects.overhead_percent AS overhead_percent,
       projects.project_lead_id AS project_lead_id,
       projects.is_active AS "isActive"
     FROM projects
@@ -2224,6 +2236,10 @@ async function listProjects(sql, accountId) {
       projects.budget_amount AS budget,
       projects.contract_amount AS "contractAmount",
       projects.contract_amount AS contract_amount,
+      projects.pricing_model AS "pricingModel",
+      projects.pricing_model AS pricing_model,
+      projects.overhead_percent AS "overheadPercent",
+      projects.overhead_percent AS overhead_percent,
       projects.office_id AS "officeId",
       projects.project_lead_id AS "projectLeadId",
       projects.is_active AS "isActive",

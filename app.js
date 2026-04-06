@@ -210,6 +210,7 @@
     formatAuditKV,
     applyAuditFiltersFromForm,
   } = window.auditLog || {};
+  const { renderProjectPlanningPage } = window.projectPlanning || {};
   const {
     syncExpenseCatalogs: syncExpenseCatalogsImport,
     activeExpenseCategories,
@@ -986,6 +987,16 @@
     )
       ? Number(projectRow.contractAmount ?? projectRow.contract_amount)
       : null;
+    const currentPricingModelRaw = String(
+      projectRow.pricingModel ?? projectRow.pricing_model ?? ""
+    ).trim();
+    const currentPricingModel =
+      currentPricingModelRaw === "time_and_materials" ? "time_and_materials" : "fixed_fee";
+    const currentOverheadPercent = Number.isFinite(
+      Number(projectRow.overheadPercent ?? projectRow.overhead_percent)
+    )
+      ? Number(projectRow.overheadPercent ?? projectRow.overhead_percent)
+      : null;
     const projectLeadId = String(projectRow?.projectLeadId || projectRow?.project_lead_id || "").trim() || null;
     const managerNames = userNamesForIds(managerIdsForProject(normalizedClient, normalizedProject));
     const staffNames = userNamesForIds(staffIdsForProject(normalizedClient, normalizedProject));
@@ -996,6 +1007,8 @@
       projectName: normalizedProject,
       budgetAmount: currentBudget,
       contractAmount: currentContractAmount,
+      pricingModel: currentPricingModel,
+      overheadPercent: currentOverheadPercent,
       projectLeadId,
       managerNames,
       staffNames,
@@ -1018,6 +1031,12 @@
     if (projectDialog.openAdvancedBudget) {
       return;
     }
+    if (projectDialog.openProjectPlanning) {
+      state.currentProjectPlanningId =
+        String(projectDialog.projectId || projectRow?.id || "").trim() || "";
+      setView("project_planning");
+      return;
+    }
     const nextName = projectDialog.projectName;
     try {
       await mutatePersistentState("update_project", {
@@ -1026,6 +1045,8 @@
         nextName,
         budgetAmount: projectDialog.budgetAmount,
         contractAmount: projectDialog.contractAmount,
+        pricingModel: projectDialog.pricingModel,
+        overheadPercent: projectDialog.overheadPercent,
         project_lead_id: projectDialog.projectLeadId,
       });
       if (state.filters.client === normalizedClient && state.filters.project === normalizedProject) {
@@ -1419,6 +1440,12 @@
         ? Number(options.contractAmount)
         : null;
       const currentLeadId = String(options?.projectLeadId || "").trim();
+      const currentPricingModelRaw = String(options?.pricingModel || "").trim();
+      const currentPricingModel =
+        currentPricingModelRaw === "time_and_materials" ? "time_and_materials" : "fixed_fee";
+      const currentOverheadPercent = Number.isFinite(Number(options?.overheadPercent))
+        ? Number(options.overheadPercent)
+        : null;
       const hasAdvancedBudgetSource =
         isProjectEditDialog &&
         Boolean(currentProjectId) &&
@@ -1494,8 +1521,25 @@
             </label>
             <div class="project-dialog-field">
               <span style="visibility:hidden;">Advanced Budget</span>
-              <button type="button" class="button button-ghost" data-project-advanced-budget>Advanced Budget</button>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <button type="button" class="button button-ghost" data-project-advanced-budget>Advanced Budget</button>
+                <button type="button" class="button button-ghost" data-project-open-planning>Open Project Planning</button>
+              </div>
             </div>
+          </div>
+          <div class="project-dialog-core-row" style="grid-template-columns: repeat(3, minmax(0, 1fr));">
+            <label class="project-dialog-field">
+              <span>Project Type</span>
+              <select name="pricing_model">
+                <option value="fixed_fee">Fixed Fee</option>
+                <option value="time_and_materials">Time &amp; Materials</option>
+              </select>
+            </label>
+            <label class="project-dialog-field">
+              <span>Overhead %</span>
+              <input type="text" name="overhead_percent" inputmode="decimal" placeholder="e.g. 12.5" />
+            </label>
+            <div></div>
           </div>
         </section>
         ${
@@ -1550,8 +1594,11 @@
       const budgetInput = form.querySelector('input[name="budget_amount"]');
       const contractAmountInput = form.querySelector('input[name="contract_amount"]');
       const leadSelect = form.querySelector('select[name="project_lead_id"]');
+      const pricingModelSelect = form.querySelector('select[name="pricing_model"]');
+      const overheadPercentInput = form.querySelector('input[name="overhead_percent"]');
       const teamLeadDisplay = form.querySelector("[data-project-team-lead-display]");
       const advancedBudgetButton = form.querySelector("[data-project-advanced-budget]");
+      const openPlanningButton = form.querySelector("[data-project-open-planning]");
       const projectCancelButton = form.querySelector("[data-project-cancel]");
       const errorNode = form.querySelector("[data-project-dialog-error]");
       const dialogCard = refs.dialog?.querySelector(".dialog-card");
@@ -1575,6 +1622,13 @@
       if (contractAmountInput) {
         contractAmountInput.value =
           currentContractAmount !== null ? String(currentContractAmount) : "";
+      }
+      if (pricingModelSelect) {
+        pricingModelSelect.value = currentPricingModel;
+      }
+      if (overheadPercentInput) {
+        overheadPercentInput.value =
+          currentOverheadPercent !== null ? String(currentOverheadPercent) : "";
       }
       if (leadSelect) {
         leadSelect.value = currentLeadId;
@@ -1632,6 +1686,20 @@
       };
       advancedBudgetButton?.addEventListener("click", onOpenAdvancedBudget);
 
+      const onOpenProjectPlanning = () => {
+        const projectIdForPlanning = currentProjectId;
+        if (!projectIdForPlanning) {
+          setError("Save project first to open Project Planning.");
+          return;
+        }
+        cleanup();
+        resolve({
+          openProjectPlanning: true,
+          projectId: projectIdForPlanning,
+        });
+      };
+      openPlanningButton?.addEventListener("click", onOpenProjectPlanning);
+
       const setError = (message) => {
         if (!errorNode) return;
         errorNode.textContent = message || "";
@@ -1643,6 +1711,7 @@
         form.removeEventListener("submit", onSubmit);
         leadSelect?.removeEventListener("change", syncTeamLeadDisplay);
         advancedBudgetButton?.removeEventListener("click", onOpenAdvancedBudget);
+        openPlanningButton?.removeEventListener("click", onOpenProjectPlanning);
         projectCancelButton?.removeEventListener("click", onCancel);
         budgetInput?.removeEventListener("focus", onBudgetLockedAttempt);
         budgetInput?.removeEventListener("click", onBudgetLockedAttempt);
@@ -1674,11 +1743,19 @@
           contractAmountInput?.focus();
           return;
         }
+        const parsedOverheadPercent = parseProjectBudgetAmount(overheadPercentInput?.value || "");
+        if (!parsedOverheadPercent.ok) {
+          setError("Overhead % must be a non-negative number.");
+          overheadPercentInput?.focus();
+          return;
+        }
         cleanup();
         resolve({
           projectName: nextName,
           budgetAmount: parsedBudget.value,
           contractAmount: parsedContractAmount.value,
+          pricingModel: String(pricingModelSelect?.value || "fixed_fee").trim() || "fixed_fee",
+          overheadPercent: parsedOverheadPercent.value,
           projectLeadId: String(leadSelect?.value || "").trim() || null,
         });
       };
@@ -1732,6 +1809,8 @@
       projectName: "",
       budgetAmount: null,
       contractAmount: null,
+      pricingModel: "fixed_fee",
+      overheadPercent: null,
       projectLeadId: null,
     });
     if (!projectDialog) {
@@ -1747,6 +1826,8 @@
         projectName: projectDialog.projectName,
         budgetAmount: projectDialog.budgetAmount,
         contractAmount: projectDialog.contractAmount,
+        pricingModel: projectDialog.pricingModel,
+        overheadPercent: projectDialog.overheadPercent,
         project_lead_id: projectDialog.projectLeadId,
       });
     } catch (error) {
@@ -2432,7 +2513,8 @@
       projectMembers: [],
     },
     projectMemberBudgets: [],
-    currentView: "inputs", // "inputs" | "entries" | "inbox" | "clients" | "members" | "analytics" | "settings" | "audit"
+    currentView: "inputs", // "inputs" | "entries" | "inbox" | "clients" | "members" | "analytics" | "settings" | "audit" | "project_planning"
+    currentProjectPlanningId: "",
     mobileClientsView: "list", // "list" | "detail"
     mobileMembersView: "list", // "list" | "detail"
     inputSubtab: "time", // "time" | "expenses"
@@ -2646,8 +2728,22 @@
     const nextView = `${view || ""}`.trim().toLowerCase();
     if (!state.currentUser) return false;
     if (!nextView) return false;
-    if (nextView === "inputs" || nextView === "entries" || nextView === "analytics" || nextView === "inbox") {
+    if (
+      nextView === "inputs" ||
+      nextView === "entries" ||
+      nextView === "analytics" ||
+      nextView === "inbox"
+    ) {
       return true;
+    }
+    if (nextView === "project_planning") {
+      const group = permissionGroupForUser(state.currentUser);
+      return (
+        group === "manager" ||
+        group === "executive" ||
+        group === "admin" ||
+        group === "superuser"
+      );
     }
     if (nextView === "clients") {
       const group = permissionGroupForUser(state.currentUser);
@@ -7234,6 +7330,7 @@
       refs.appShell.classList.toggle("page-inputs", view === "inputs");
       refs.appShell.classList.toggle("page-entries", view === "entries");
       refs.appShell.classList.toggle("page-inbox", view === "inbox");
+      refs.appShell.classList.toggle("page-project-planning", view === "project_planning");
     }
 
     const currentLevel = normalizeLevel(state.currentUser?.level);
@@ -7395,6 +7492,44 @@
     }
     if (refs.auditView) {
       refs.auditView.hidden = view !== "audit";
+    }
+
+    if (view === "project_planning") {
+      if (refs.mainFrame) {
+        const normalizedPlanningProjectId = String(state.currentProjectPlanningId || "").trim();
+        const fallbackProjectByFilter = (state.projects || []).find(
+          (project) =>
+            project &&
+            project.client === state.selectedCatalogClient &&
+            String(project.name || "").trim() === String(state.filters?.project || "").trim()
+        );
+        const fallbackProjectByClient = (state.projects || []).find(
+          (project) => project && project.client === state.selectedCatalogClient
+        );
+        const fallbackProject = fallbackProjectByFilter || fallbackProjectByClient || (state.projects || [])[0] || null;
+        const targetProjectId =
+          normalizedPlanningProjectId ||
+          String(fallbackProject?.id || "").trim() ||
+          "";
+        refs.mainFrame.style.display = "";
+        if (typeof renderProjectPlanningPage === "function") {
+          renderProjectPlanningPage({
+            projectId: targetProjectId,
+            state,
+            container: refs.mainFrame,
+            onBack: function () {
+              setView(state.selectedCatalogClient ? "clients" : "entries");
+            },
+            onSave: function () {
+              feedback("Project plan saved.", false);
+            },
+          });
+        } else {
+          refs.mainFrame.innerHTML = "";
+        }
+      }
+      postHeight();
+      return;
     }
 
     const inputSubtab = state.inputSubtab === "expenses" ? "expenses" : "time";

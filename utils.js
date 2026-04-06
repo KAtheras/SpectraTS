@@ -155,6 +155,18 @@
             : project.contract_amount !== undefined && project.contract_amount !== null
               ? Number(project.contract_amount)
               : null;
+        const pricingModelRaw =
+          project.pricingModel !== undefined && project.pricingModel !== null
+            ? String(project.pricingModel).trim()
+            : project.pricing_model !== undefined && project.pricing_model !== null
+              ? String(project.pricing_model).trim()
+              : "";
+        const overheadPercentRaw =
+          project.overheadPercent !== undefined && project.overheadPercent !== null
+            ? Number(project.overheadPercent)
+            : project.overhead_percent !== undefined && project.overhead_percent !== null
+              ? Number(project.overhead_percent)
+              : null;
         const officeId =
           project.officeId !== undefined && project.officeId !== null
             ? project.officeId
@@ -182,6 +194,10 @@
           budget: Number.isFinite(budgetRaw) ? budgetRaw : null,
           contractAmount: Number.isFinite(contractAmountRaw) ? contractAmountRaw : null,
           contract_amount: Number.isFinite(contractAmountRaw) ? contractAmountRaw : null,
+          pricingModel: pricingModelRaw || null,
+          pricing_model: pricingModelRaw || null,
+          overheadPercent: Number.isFinite(overheadPercentRaw) ? overheadPercentRaw : null,
+          overhead_percent: Number.isFinite(overheadPercentRaw) ? overheadPercentRaw : null,
           isActive: project?.isActive ?? project?.is_active ?? true,
           is_active: project?.isActive ?? project?.is_active ?? true,
           officeId: officeId ? String(officeId) : "",
