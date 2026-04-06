@@ -31,7 +31,7 @@
       }
       .project-planning-layout {
         display: grid;
-        grid-template-columns: 260px minmax(0, 1fr) 312px;
+        grid-template-columns: minmax(0, 1fr) 312px;
         gap: 12px;
         align-items: start;
       }
@@ -46,7 +46,7 @@
       }
       .project-planning-kpis {
         display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat(4, minmax(0, 1fr));
         gap: 9px;
         margin-bottom: 12px;
       }
@@ -75,10 +75,6 @@
       }
       .project-planning-kpi.is-primary .project-planning-kpi-value {
         font-size: 1.32rem;
-      }
-      .project-planning-sidebar {
-        display: grid;
-        gap: 12px;
       }
       .project-planning-field {
         display: grid;
@@ -188,6 +184,11 @@
         .project-planning-layout {
           grid-template-columns: 1fr;
         }
+        .project-planning-kpis {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+      }
+      @media (max-width: 900px) {
         .project-planning-kpis {
           grid-template-columns: repeat(2, minmax(0, 1fr));
         }
@@ -341,7 +342,7 @@
 
     const clientName = String(project?.client || "Unknown client");
     const projectName = String(project?.name || "Select a project");
-    const subtitle = `${clientName} / ${projectName}`;
+    const subtitle = `${clientName} / ${projectName} · ${fmtProjectType(typeValue)}`;
     const leadName = String(
       project?.projectLeadName ||
         usersById.get(String(project?.projectLeadId || project?.project_lead_id || "").trim())?.displayName ||
@@ -425,27 +426,6 @@
           </div>
         </header>
         <div class="project-planning-layout">
-          <aside class="project-planning-sidebar">
-            <section class="project-planning-block">
-              <h3>Project Basics</h3>
-              <div class="project-planning-field">
-                <span class="project-planning-field-label">Project Name</span>
-                <span class="project-planning-field-value">${escapeHtml(projectName)}</span>
-              </div>
-              <div class="project-planning-field">
-                <span class="project-planning-field-label">Client</span>
-                <span class="project-planning-field-value">${escapeHtml(clientName)}</span>
-              </div>
-              <div class="project-planning-field">
-                <span class="project-planning-field-label">Project Lead</span>
-                <span class="project-planning-field-value">${escapeHtml(leadName || "Unassigned")}</span>
-              </div>
-              <div class="project-planning-field">
-                <span class="project-planning-field-label">Project Type</span>
-                <span class="project-planning-field-value">${escapeHtml(fmtProjectType(typeValue))}</span>
-              </div>
-            </section>
-          </aside>
           <main>
             <section class="project-planning-kpis">
               <article class="project-planning-kpi is-primary">
@@ -471,6 +451,14 @@
               <article class="project-planning-kpi is-secondary">
                 <div class="project-planning-kpi-label">Planned Hours</div>
                 <div class="project-planning-kpi-value" data-kpi="hours">${escapeHtml(initialTotals.totalHours.toFixed(2))}</div>
+              </article>
+              <article class="project-planning-kpi is-secondary">
+                <div class="project-planning-kpi-label">Overhead %</div>
+                <div class="project-planning-kpi-value" data-kpi="overheadPct">${escapeHtml(fmtPercentZero(overheadValue))}</div>
+              </article>
+              <article class="project-planning-kpi is-secondary">
+                <div class="project-planning-kpi-label">Overhead $</div>
+                <div class="project-planning-kpi-value" data-kpi="overheadCost">${escapeHtml(fmtMoneyZero(initialTotals.overheadCost))}</div>
               </article>
             </section>
             <section class="project-planning-consumption" data-consumption-wrap ${initialTotals.hasContract ? "" : "hidden"}>
@@ -591,6 +579,8 @@
     const kpiGrossMarginNode = container.querySelector('[data-kpi="grossMargin"]');
     const kpiMarginPctNode = container.querySelector('[data-kpi="marginPct"]');
     const kpiHoursNode = container.querySelector('[data-kpi="hours"]');
+    const kpiOverheadPctNode = container.querySelector('[data-kpi="overheadPct"]');
+    const kpiOverheadCostNode = container.querySelector('[data-kpi="overheadCost"]');
     const consumptionWrap = container.querySelector("[data-consumption-wrap]");
     const consumptionFill = container.querySelector("[data-consumption-fill]");
     const consumptionLabel = container.querySelector("[data-consumption-label]");
@@ -617,6 +607,8 @@
       if (kpiGrossMarginNode) kpiGrossMarginNode.textContent = totals.hasContract ? fmtMoneyZero(totals.grossMargin) : "—";
       if (kpiMarginPctNode) kpiMarginPctNode.textContent = totals.hasContract ? fmtPercent(totals.marginPercent) : "—";
       if (kpiHoursNode) kpiHoursNode.textContent = totals.totalHours.toFixed(2);
+      if (kpiOverheadPctNode) kpiOverheadPctNode.textContent = fmtPercentZero(overheadValue);
+      if (kpiOverheadCostNode) kpiOverheadCostNode.textContent = fmtMoneyZero(totals.overheadCost);
 
       if (consumptionWrap) {
         consumptionWrap.hidden = !totals.hasContract;
