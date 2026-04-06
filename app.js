@@ -211,7 +211,6 @@
     formatAuditKV,
     applyAuditFiltersFromForm,
   } = window.auditLog || {};
-  const { renderProjectPlanningPage } = window.projectPlanning || {};
   const {
     syncExpenseCatalogs: syncExpenseCatalogsImport,
     activeExpenseCategories,
@@ -7528,8 +7527,9 @@
         const targetProjectId = normalizedPlanningProjectId || "";
         persistProjectPlanningId(targetProjectId);
         refs.mainFrame.style.display = "";
-        if (typeof renderProjectPlanningPage === "function") {
-          renderProjectPlanningPage({
+        const planningRenderer = window.projectPlanning?.renderProjectPlanningPage;
+        if (typeof planningRenderer === "function") {
+          planningRenderer({
             projectId: targetProjectId,
             state,
             container: refs.mainFrame,
@@ -7575,7 +7575,27 @@
             },
           });
         } else {
-          refs.mainFrame.innerHTML = "";
+          refs.mainFrame.innerHTML = `
+            <section class="page-view project-planning-page" aria-labelledby="project-planning-title">
+              <header class="project-planning-head">
+                <div>
+                  <h2 id="project-planning-title">Project Planning</h2>
+                  <p class="project-planning-subtitle">Unable to load page module</p>
+                </div>
+                <div class="project-planning-actions">
+                  <button type="button" class="button button-ghost" data-planning-fallback-back>Back</button>
+                </div>
+              </header>
+              <section class="project-planning-block">
+                <p class="project-planning-placeholder">Project Planning script is unavailable. Refresh once and try again.</p>
+              </section>
+            </section>
+          `;
+          refs.mainFrame
+            .querySelector("[data-planning-fallback-back]")
+            ?.addEventListener("click", function () {
+              setView(state.selectedCatalogClient ? "clients" : "entries");
+            });
         }
       }
       postHeight();
