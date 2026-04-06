@@ -516,6 +516,12 @@ body[data-theme="dark"] .button {
   justify-content: flex-start;
 }
 
+.inbox-head-controls .button {
+  min-height: 34px;
+  height: 34px;
+  padding: 7px 12px;
+}
+
 .inbox-delete-read,
 #inbox-delete-selected {
   min-height: 34px;

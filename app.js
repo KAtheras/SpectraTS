@@ -8019,6 +8019,16 @@
     state.inboxSelectedIds = [];
   }
 
+  function refreshInboxUi() {
+    if (state.currentView === "inbox") {
+      renderInboxList();
+    } else {
+      syncInboxBulkControls();
+    }
+    syncInboxHeaderButton(state.currentView === "inbox");
+    postHeight();
+  }
+
   function syncInboxBulkControls() {
     const selectedCount = selectedInboxIds().length;
     const selectedSet = new Set(selectedInboxIds());
@@ -8046,11 +8056,16 @@
   async function deleteInboxItem(itemId) {
     const id = `${itemId || ""}`.trim();
     if (!id) return;
+    const previousItems = Array.isArray(state.inboxItems) ? state.inboxItems.slice() : [];
+    state.inboxItems = previousItems.filter((item) => `${item?.id || ""}`.trim() !== id);
+    setInboxSelected(id, false);
+    refreshInboxUi();
     try {
-      await mutatePersistentState("delete_inbox_item", { id }, { refreshState: true, returnState: false });
-      setInboxSelected(id, false);
+      await mutatePersistentState("delete_inbox_item", { id }, { refreshState: false, returnState: false });
       feedback("", false);
     } catch (error) {
+      state.inboxItems = previousItems;
+      refreshInboxUi();
       feedback(error.message || "Unable to delete inbox item.", true);
     }
   }
@@ -8058,11 +8073,17 @@
   async function deleteSelectedInboxItems() {
     const ids = selectedInboxIds();
     if (!ids.length) return;
+    const idSet = new Set(ids);
+    const previousItems = Array.isArray(state.inboxItems) ? state.inboxItems.slice() : [];
+    state.inboxItems = previousItems.filter((item) => !idSet.has(`${item?.id || ""}`.trim()));
+    clearInboxSelection();
+    refreshInboxUi();
     try {
-      await mutatePersistentState("delete_inbox_items", { ids }, { refreshState: true, returnState: false });
-      clearInboxSelection();
+      await mutatePersistentState("delete_inbox_items", { ids }, { refreshState: false, returnState: false });
       feedback("", false);
     } catch (error) {
+      state.inboxItems = previousItems;
+      refreshInboxUi();
       feedback(error.message || "Unable to delete selected inbox items.", true);
     }
   }
@@ -8073,11 +8094,13 @@
       feedback("No read notifications to delete.", false);
       return;
     }
+    const previousItems = Array.isArray(state.inboxItems) ? state.inboxItems.slice() : [];
+    state.inboxItems = previousItems.filter((item) => !item?.isRead);
+    clearInboxSelection();
+    refreshInboxUi();
+    const deletedCount = Math.max(0, readBefore);
     try {
-      await mutatePersistentState("delete_all_read_inbox_items", {}, { refreshState: true, returnState: false });
-      clearInboxSelection();
-      const readAfter = inboxReadCount();
-      const deletedCount = Math.max(0, readBefore - readAfter);
+      await mutatePersistentState("delete_all_read_inbox_items", {}, { refreshState: false, returnState: false });
       feedback(
         deletedCount > 0
           ? `Deleted ${deletedCount} read notification${deletedCount === 1 ? "" : "s"}.`
@@ -8085,6 +8108,8 @@
         false
       );
     } catch (error) {
+      state.inboxItems = previousItems;
+      refreshInboxUi();
       feedback(error.message || "Unable to delete read inbox items.", true);
     }
   }
@@ -8092,11 +8117,21 @@
   async function markSelectedInboxRead() {
     const ids = selectedInboxIds();
     if (!ids.length) return;
+    const idSet = new Set(ids);
+    const previousItems = Array.isArray(state.inboxItems) ? state.inboxItems.slice() : [];
+    state.inboxItems = previousItems.map((item) => {
+      const itemId = `${item?.id || ""}`.trim();
+      if (!item || !idSet.has(itemId) || item.isRead) return item;
+      return { ...item, isRead: true };
+    });
+    clearInboxSelection();
+    refreshInboxUi();
     try {
-      await mutatePersistentState("mark_inbox_items_read", { ids }, { refreshState: true, returnState: false });
-      clearInboxSelection();
+      await mutatePersistentState("mark_inbox_items_read", { ids }, { refreshState: false, returnState: false });
       feedback("", false);
     } catch (error) {
+      state.inboxItems = previousItems;
+      refreshInboxUi();
       feedback(error.message || "Unable to mark selected inbox items as read.", true);
     }
   }
@@ -8205,13 +8240,21 @@
   async function openInboxItem(itemId) {
     const id = `${itemId || ""}`.trim();
     if (!id) return;
-    const item = (state.inboxItems || []).find((inboxItem) => inboxItem.id === id);
+    const itemIndex = (state.inboxItems || []).findIndex((inboxItem) => inboxItem.id === id);
+    const item = itemIndex >= 0 ? state.inboxItems[itemIndex] : null;
     if (!item) return;
 
     if (!item.isRead) {
+      const previousItems = Array.isArray(state.inboxItems) ? state.inboxItems.slice() : [];
+      state.inboxItems = previousItems.map((inboxItem, index) =>
+        index === itemIndex ? { ...inboxItem, isRead: true } : inboxItem
+      );
+      refreshInboxUi();
       try {
-        await mutatePersistentState("mark_inbox_item_read", { id }, { refreshState: true, returnState: false });
+        await mutatePersistentState("mark_inbox_item_read", { id }, { refreshState: false, returnState: false });
       } catch (error) {
+        state.inboxItems = previousItems;
+        refreshInboxUi();
         feedback(error.message || "Unable to mark inbox item as read.", true);
       }
     }
