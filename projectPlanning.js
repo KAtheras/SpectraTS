@@ -22,12 +22,23 @@
         gap: 12px;
         flex-wrap: wrap;
       }
+      .project-planning-head-main {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 0;
+        flex-wrap: wrap;
+      }
       .project-planning-head h2 {
         margin: 0;
       }
       .project-planning-subtitle {
-        margin: 4px 0 0;
+        margin: 0;
         color: var(--muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        min-width: 0;
       }
       .project-planning-actions {
         display: flex;
@@ -37,10 +48,6 @@
       .project-planning-kpi-row {
         width: 100%;
         margin-bottom: 14px;
-      }
-      .project-planning-contract-type-row {
-        width: 100%;
-        margin-bottom: 10px;
       }
       .project-planning-contract-type-toggle {
         display: inline-flex;
@@ -502,13 +509,7 @@
     };
   }
 
-  function fmtProjectType(value) {
-    if (value === "time_and_materials") return "Time & Materials";
-    if (value === "fixed_fee") return "Fixed Fee";
-    return "—";
-  }
-
-  function renderProjectPlanningPage({ projectId, state, container, onBack, onSave, onAddMember }) {
+  function renderProjectPlanningPage({ projectId, state, container, onBack, onSave, onAddMember, onPersistField, onDeleteMember, onPersistContractType, onPersistContractAmount }) {
     ensurePlanningStyles();
     if (!container) return;
 
@@ -554,8 +555,7 @@
 
     const clientName = String(project?.client || "Unknown client");
     const projectName = String(project?.name || "Select a project");
-    const typeValue = project?.pricingModel ?? project?.pricing_model ?? null;
-    const subtitle = `${clientName} / ${projectName} · ${fmtProjectType(typeValue)}`;
+    const subtitle = `${clientName} / ${projectName}`;
     const leadName = String(
       project?.projectLeadName ||
         usersById.get(String(project?.projectLeadId || project?.project_lead_id || "").trim())?.displayName ||
@@ -563,7 +563,8 @@
     );
     const overheadValue = toNullableNumber(project?.overheadPercent ?? project?.overhead_percent);
     let contractAmountValue = toNullableNumber(project?.contractAmount ?? project?.contract_amount);
-    let contractType = "fixed";
+    const pricingModel = String(project?.pricingModel ?? project?.pricing_model ?? "").trim().toLowerCase();
+    let contractType = pricingModel === "time_and_materials" ? "tm" : "fixed";
     const memberBudgets = Array.isArray(state?.projectMemberBudgets)
       ? state.projectMemberBudgets.filter(
           (row) => String(row?.projectId || "").trim() === String(project?.id || "").trim()
@@ -594,7 +595,6 @@
       projectMemberAssignments.map((row) => [String(row?.userId || "").trim(), row])
     );
 
-    const pendingRemovedMembersByUserId = new Map();
     let planningRows = dedupedUserIds.map((userId, index) => {
       const member = usersById.get(userId);
       const budgetRow = budgetByUserId.get(userId);
@@ -638,44 +638,42 @@
     container.innerHTML = `
       <section class="page-view project-planning-page" aria-labelledby="project-planning-title">
         <header class="project-planning-head">
-          <div>
+          <div class="project-planning-head-main">
             <h2 id="project-planning-title">Project Planning</h2>
             <p class="project-planning-subtitle">${escapeHtml(subtitle)}</p>
+            <div class="project-planning-contract-type-toggle" role="tablist" aria-label="Contract type">
+              <button
+                type="button"
+                class="project-planning-contract-type-option is-active"
+                data-contract-type-value="fixed"
+                role="tab"
+                aria-selected="true"
+              >
+                Fixed Fee
+              </button>
+              <button
+                type="button"
+                class="project-planning-contract-type-option"
+                data-contract-type-value="tm"
+                role="tab"
+                aria-selected="false"
+              >
+                Time &amp; Materials
+              </button>
+            </div>
           </div>
           <div class="project-planning-actions">
             <button type="button" class="button" data-project-planning-save>Save Plan</button>
             <button type="button" class="button button-ghost" data-project-planning-back>Back</button>
           </div>
         </header>
-        <section class="project-planning-contract-type-row">
-          <div class="project-planning-contract-type-toggle" role="tablist" aria-label="Contract type">
-            <button
-              type="button"
-              class="project-planning-contract-type-option is-active"
-              data-contract-type-value="fixed"
-              role="tab"
-              aria-selected="true"
-            >
-              Fixed Fee
-            </button>
-            <button
-              type="button"
-              class="project-planning-contract-type-option"
-              data-contract-type-value="tm"
-              role="tab"
-              aria-selected="false"
-            >
-              Time &amp; Materials
-            </button>
-          </div>
-        </section>
         <section class="project-planning-kpi-row">
             <section class="project-planning-kpis">
               <article class="project-planning-kpi" data-kpi-card="contract">
-                <div class="project-planning-kpi-label">Contract Amount</div>
-                <span class="project-planning-kpi-edit-icon" aria-hidden="true">✎</span>
+                <div class="project-planning-kpi-label" data-kpi-label="contractPrimary">Contract Amount</div>
+                <span class="project-planning-kpi-edit-icon" data-kpi="contractEditIcon" aria-hidden="true">✎</span>
                 <div class="project-planning-kpi-value" data-kpi="contract">${escapeHtml(fmtMoneyZero(contractAmountValue))}</div>
-                <div class="project-planning-kpi-edit-hint">Click to edit</div>
+                <div class="project-planning-kpi-edit-hint" data-kpi="contractEditHint">Click to edit</div>
               </article>
               <article class="project-planning-kpi">
                 <div class="project-planning-kpi-label">Planned Cost</div>
@@ -696,7 +694,7 @@
                 <div class="project-planning-kpi-value" data-kpi="grossMargin">${escapeHtml(initialTotals.hasContract ? fmtMoneyZero(initialTotals.grossMargin) : "—")}</div>
                 <div class="project-planning-kpi-sub">
                   <div class="project-planning-kpi-subline">
-                    <span>Contract</span>
+                    <span data-kpi-label="grossTopLine">Contract</span>
                     <strong data-kpi="grossContract">${escapeHtml(fmtMoneyZero(contractAmountValue))}</strong>
                   </div>
                   <div class="project-planning-kpi-subline">
@@ -706,9 +704,9 @@
                 </div>
               </article>
               <article class="project-planning-kpi is-emphasis">
-                <div class="project-planning-kpi-label">Realization</div>
+                <div class="project-planning-kpi-label" data-kpi-label="realizationPrimary">Realization</div>
                 <div class="project-planning-kpi-value" data-kpi="realizationPct">${escapeHtml(initialTotals.hasContract && initialTotals.plannedRevenueTotal > 0 ? fmtPercent((contractAmountValue / initialTotals.plannedRevenueTotal) * 100) : "—")}</div>
-                <div class="project-planning-kpi-sub">
+                <div class="project-planning-kpi-sub" data-kpi="realizationSub">
                   <div class="project-planning-kpi-subline">
                     <span>Std Rev</span>
                     <strong data-kpi="standardRevenue">${escapeHtml(fmtMoneyZero(initialTotals.plannedRevenueTotal))}</strong>
@@ -866,19 +864,26 @@
           rateOverride,
         };
       }).filter((row) => row.userId);
-      const removedMembers = Array.from(pendingRemovedMembersByUserId.values());
       saveButton.disabled = true;
       try {
         await onSave({
           projectId: String(project?.id || "").trim(),
           members,
-          removedMembers,
         });
       } finally {
         saveButton.disabled = false;
       }
     });
 
+    const persistedRowFields = new Map(
+      planningRows.map((row) => [
+        String(row.id),
+        {
+          chargeRate: row.chargeRate,
+          hours: row.hours,
+        },
+      ])
+    );
     const kpiContractNode = container.querySelector('[data-kpi="contract"]');
     const kpiPlannedCostNode = container.querySelector('[data-kpi="plannedCost"]');
     const kpiPlannedDirectNode = container.querySelector('[data-kpi="plannedDirect"]');
@@ -887,9 +892,15 @@
     const kpiGrossContractNode = container.querySelector('[data-kpi="grossContract"]');
     const kpiGrossCostNode = container.querySelector('[data-kpi="grossCost"]');
     const kpiRealizationPctNode = container.querySelector('[data-kpi="realizationPct"]');
+    const kpiRealizationSubNode = container.querySelector('[data-kpi="realizationSub"]');
+    const kpiContractLabelNode = container.querySelector('[data-kpi-label="contractPrimary"]');
+    const kpiRealizationLabelNode = container.querySelector('[data-kpi-label="realizationPrimary"]');
+    const kpiGrossTopLineLabelNode = container.querySelector('[data-kpi-label="grossTopLine"]');
     const kpiStandardRevenueNode = container.querySelector('[data-kpi="standardRevenue"]');
     const kpiPremiumDiscountNode = container.querySelector('[data-kpi="premiumDiscount"]');
     const kpiPremiumDiscountLabelNode = container.querySelector('[data-kpi-label="premiumDiscount"]');
+    const kpiContractEditIconNode = container.querySelector('[data-kpi="contractEditIcon"]');
+    const kpiContractEditHintNode = container.querySelector('[data-kpi="contractEditHint"]');
     const contractCardNode = container.querySelector('[data-kpi-card="contract"]');
     const econContractNode = container.querySelector('[data-econ="contractAmount"]');
     const econPlannedRevenueNode = container.querySelector('[data-econ="plannedRevenue"]');
@@ -903,20 +914,36 @@
     const econImpliedRateNode = container.querySelector('[data-econ="impliedRate"]');
     let isEditingContractAmount = false;
 
-    function commitContractAmount(rawValue) {
+    async function commitContractAmount(rawValue) {
+      const previousValue = contractAmountValue;
       const trimmed = String(rawValue ?? "").trim();
+      let nextValue = previousValue;
       if (!trimmed) {
-        contractAmountValue = null;
-        isEditingContractAmount = false;
-        renderComputed();
-        return;
+        nextValue = null;
+      } else {
+        const numeric = Number(trimmed.replace(/,/g, "").replace(/[^\d.-]/g, ""));
+        if (Number.isFinite(numeric)) {
+          nextValue = numeric;
+        }
       }
-      const numeric = Number(trimmed.replace(/,/g, "").replace(/[^\d.-]/g, ""));
-      if (Number.isFinite(numeric)) {
-        contractAmountValue = numeric;
-      }
+      const unchanged =
+        (previousValue === null && nextValue === null) ||
+        (previousValue !== null && nextValue !== null && Number(previousValue) === Number(nextValue));
+      contractAmountValue = nextValue;
       isEditingContractAmount = false;
       renderComputed();
+      if (unchanged) return;
+      try {
+        if (typeof onPersistContractAmount === "function") {
+          await onPersistContractAmount({
+            projectId: String(project?.id || "").trim(),
+            contractAmount: nextValue,
+          });
+        }
+      } catch (error) {
+        contractAmountValue = previousValue;
+        renderComputed();
+      }
     }
 
     function enterContractAmountEditMode() {
@@ -941,7 +968,9 @@
           renderComputed();
         }
       });
-      editInput.addEventListener("blur", () => commitContractAmount(editInput.value));
+      editInput.addEventListener("blur", () => {
+        commitContractAmount(editInput.value);
+      });
     }
     function setEconomicSignal(node, value, options = {}) {
       if (!node) return;
@@ -954,6 +983,7 @@
     function renderComputed() {
       planningRows = computeRows(planningRows);
       const totals = computeTotals(planningRows, contractAmountValue, overheadValue);
+      const isTmContract = contractType === "tm";
       const realizationPct =
         totals.plannedRevenueTotal > 0 && Number.isFinite(contractAmountValue)
           ? (contractAmountValue / totals.plannedRevenueTotal) * 100
@@ -967,14 +997,42 @@
         if (revenueNode) revenueNode.textContent = fmtMoneyZero(row.plannedRevenue);
       });
 
-      if (kpiContractNode && !isEditingContractAmount) kpiContractNode.textContent = fmtMoneyZero(contractAmountValue);
+      if (kpiContractLabelNode) {
+        kpiContractLabelNode.textContent = isTmContract ? "Planned Revenue" : "Contract Amount";
+      }
+      if (kpiContractEditIconNode) {
+        kpiContractEditIconNode.hidden = isTmContract;
+      }
+      if (kpiContractEditHintNode) {
+        kpiContractEditHintNode.hidden = isTmContract;
+      }
+      if (kpiContractNode && !isEditingContractAmount) {
+        kpiContractNode.textContent = isTmContract
+          ? fmtMoneyZero(totals.plannedRevenueTotal)
+          : fmtMoneyZero(contractAmountValue);
+      }
       if (kpiPlannedCostNode) kpiPlannedCostNode.textContent = fmtMoneyZero(totals.totalCost);
       if (kpiPlannedDirectNode) kpiPlannedDirectNode.textContent = fmtMoneyZero(totals.directCost);
       if (kpiPlannedOverheadNode) kpiPlannedOverheadNode.textContent = fmtMoneyZero(totals.overheadCost);
       if (kpiGrossMarginNode) kpiGrossMarginNode.textContent = totals.hasContract ? fmtMoneyZero(totals.grossMargin) : "—";
-      if (kpiGrossContractNode) kpiGrossContractNode.textContent = fmtMoneyZero(contractAmountValue);
+      if (kpiGrossTopLineLabelNode) {
+        kpiGrossTopLineLabelNode.textContent = isTmContract ? "Revenue" : "Contract";
+      }
+      if (kpiGrossContractNode) {
+        kpiGrossContractNode.textContent = isTmContract
+          ? fmtMoneyZero(totals.plannedRevenueTotal)
+          : fmtMoneyZero(contractAmountValue);
+      }
       if (kpiGrossCostNode) kpiGrossCostNode.textContent = fmtMoneyZero(totals.totalCost);
-      if (kpiRealizationPctNode) kpiRealizationPctNode.textContent = realizationPct === null ? "—" : fmtPercent(realizationPct);
+      if (kpiRealizationLabelNode) {
+        kpiRealizationLabelNode.textContent = "Realization";
+      }
+      if (kpiRealizationSubNode) {
+        kpiRealizationSubNode.hidden = false;
+      }
+      if (kpiRealizationPctNode) {
+        kpiRealizationPctNode.textContent = realizationPct === null ? "—" : fmtPercent(realizationPct);
+      }
       if (kpiStandardRevenueNode) kpiStandardRevenueNode.textContent = fmtMoneyZero(totals.plannedRevenueTotal);
       const discountPremiumValue = totals.hasContract ? contractAmountValue - totals.plannedRevenueTotal : null;
       if (kpiPremiumDiscountLabelNode) {
@@ -1031,10 +1089,29 @@
     }
 
     contractCardNode?.addEventListener("click", (event) => {
+      if (contractType === "tm") return;
       if (event.target && event.target.closest("[data-contract-edit-input]")) return;
       enterContractAmountEditMode();
     });
 
+    function normalizeBudgetFieldValue(value) {
+      if (value === null || value === undefined || value === "") return null;
+      const numeric = Number(value);
+      return Number.isFinite(numeric) ? numeric : null;
+    }
+    function fieldValuesEqual(left, right) {
+      if (left === right) return true;
+      if (left === null || left === undefined || left === "") {
+        return right === null || right === undefined || right === "";
+      }
+      if (right === null || right === undefined || right === "") {
+        return false;
+      }
+      const leftNumber = Number(left);
+      const rightNumber = Number(right);
+      if (!Number.isFinite(leftNumber) || !Number.isFinite(rightNumber)) return false;
+      return leftNumber === rightNumber;
+    }
     container.querySelectorAll("[data-row-input]").forEach((input) => {
       input.addEventListener("input", (event) => {
         const target = event.target;
@@ -1043,9 +1120,43 @@
         if (!rowId || !field) return;
         const row = planningRows.find((item) => String(item.id) === rowId);
         if (!row) return;
-        const raw = String(target.value || "").trim();
-        row[field] = raw === "" ? null : toNumberOrZero(raw);
+        const nextValue = normalizeBudgetFieldValue(String(target.value || "").trim());
+        row[field] = nextValue;
         renderComputed();
+      });
+      input.addEventListener("blur", async (event) => {
+        const target = event.target;
+        const rowId = String(target?.dataset?.rowId || "");
+        const field = String(target?.dataset?.rowInput || "");
+        if (!rowId || !field) return;
+        if (field !== "chargeRate" && field !== "hours") return;
+        const row = planningRows.find((item) => String(item.id) === rowId);
+        if (!row) return;
+        const persisted = persistedRowFields.get(rowId) || {};
+        const previousValue = persisted[field];
+        const nextValue = row[field];
+        if (fieldValuesEqual(previousValue, nextValue)) return;
+        if (typeof onPersistField !== "function") {
+          persistedRowFields.set(rowId, { ...persisted, [field]: nextValue });
+          return;
+        }
+        target.disabled = true;
+        try {
+          await onPersistField({
+            projectId: String(project?.id || "").trim(),
+            userId: String(row.userId || "").trim(),
+            rowId,
+            field,
+            value: nextValue,
+          });
+          persistedRowFields.set(rowId, { ...persisted, [field]: nextValue });
+        } catch (error) {
+          row[field] = previousValue ?? null;
+          target.value = previousValue === null || previousValue === undefined ? "" : String(previousValue);
+          renderComputed();
+        } finally {
+          target.disabled = false;
+        }
       });
     });
 
@@ -1072,29 +1183,52 @@
       });
     };
     contractTypeButtons.forEach((button) => {
-      button.addEventListener("click", () => {
+      button.addEventListener("click", async () => {
         const next = String(button.dataset.contractTypeValue || "").trim();
         if (next !== "fixed" && next !== "tm") return;
+        if (next === contractType) return;
+        const previous = contractType;
         contractType = next;
         syncContractTypeToggle();
+        renderComputed();
+        try {
+          if (typeof onPersistContractType === "function") {
+            await onPersistContractType({
+              projectId: String(project?.id || "").trim(),
+              contractType: next,
+            });
+          }
+        } catch (error) {
+          contractType = previous;
+          syncContractTypeToggle();
+          renderComputed();
+        }
       });
     });
     syncContractTypeToggle();
 
     container.querySelectorAll("[data-row-delete]").forEach((button) => {
-      button.addEventListener("click", () => {
+      button.addEventListener("click", async () => {
         const rowId = String(button.dataset.rowDelete || "").trim();
         if (!rowId) return;
         const row = planningRows.find((item) => String(item.id) === rowId);
         if (!row || !row.canDelete) return;
-        const confirmed = window.confirm(`Remove ${row.memberName} from this project?`);
+        const confirmed = window.confirm("Remove this member?");
         if (!confirmed) return;
-        if (row.userId && row.removeAction) {
-          pendingRemovedMembersByUserId.set(row.userId, {
-            userId: row.userId,
-            action: row.removeAction,
-          });
+        button.disabled = true;
+        try {
+          if (typeof onDeleteMember === "function") {
+            await onDeleteMember({
+              projectId: String(project?.id || "").trim(),
+              userId: String(row.userId || "").trim(),
+              action: String(row.removeAction || "").trim().toLowerCase(),
+            });
+          }
+        } catch (error) {
+          button.disabled = false;
+          return;
         }
+        persistedRowFields.delete(rowId);
         planningRows = planningRows.filter((item) => String(item.id) !== rowId);
         const rowEl = button.closest("tr");
         rowEl?.remove();

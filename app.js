@@ -7718,37 +7718,6 @@
                 (state.projects || []).find(
                   (item) => String(item?.id || "").trim() === saveProjectId
                 ) || null;
-              const planningClientName = String(planningProject?.client || "").trim();
-              const planningProjectName = String(planningProject?.name || "").trim();
-              const removedMembers = Array.isArray(payload?.removedMembers)
-                ? payload.removedMembers
-                : [];
-              for (const removedMember of removedMembers) {
-                const removedUserId = String(removedMember?.userId || "").trim();
-                if (!removedUserId || !planningClientName || !planningProjectName) continue;
-                const removedAction = String(removedMember?.action || "").trim().toLowerCase();
-                if (removedAction === "manager") {
-                  await mutatePersistentState(
-                    "unassign_manager_project",
-                    {
-                      managerId: removedUserId,
-                      clientName: planningClientName,
-                      projectName: planningProjectName,
-                    },
-                    { skipHydrate: true, returnState: false }
-                  );
-                } else {
-                  await mutatePersistentState(
-                    "remove_project_member",
-                    {
-                      userId: removedUserId,
-                      clientName: planningClientName,
-                      projectName: planningProjectName,
-                    },
-                    { skipHydrate: true, returnState: false }
-                  );
-                }
-              }
               const members = Array.isArray(payload?.members) ? payload.members : [];
               await mutatePersistentState(
                 "save_project_advanced_budget",
@@ -7777,6 +7746,225 @@
                 render();
               }
               feedback("Project plan saved.", false);
+            },
+            onPersistField: async function (payload) {
+              const persistProjectId = String(payload?.projectId || targetProjectId || "").trim();
+              const userId = String(payload?.userId || "").trim();
+              const field = String(payload?.field || "").trim();
+              const value =
+                payload?.value === null || payload?.value === undefined || payload?.value === ""
+                  ? null
+                  : Number(payload.value);
+              if (!persistProjectId || !userId || !field) {
+                throw new Error("Project context is unavailable.");
+              }
+              if (value !== null && !Number.isFinite(value)) {
+                throw new Error("Invalid value.");
+              }
+
+              if (field !== "chargeRate" && field !== "hours") {
+                throw new Error("Unsupported field.");
+              }
+
+              const existingRows = Array.isArray(state.projectMemberBudgets)
+                ? state.projectMemberBudgets.filter(
+                    (row) => String(row?.projectId || "").trim() === persistProjectId
+                  )
+                : [];
+              const rowsByUserId = new Map(
+                existingRows.map((row) => [String(row?.userId || "").trim(), { ...row }])
+              );
+              const nextRow = rowsByUserId.get(userId) || {
+                projectId: persistProjectId,
+                userId,
+                budgetHours: null,
+                budgetAmount: null,
+                rateOverride: null,
+              };
+              if (field === "chargeRate") {
+                nextRow.rateOverride = value;
+              } else if (field === "hours") {
+                nextRow.budgetHours = value;
+              }
+              const nextHours =
+                nextRow?.budgetHours === null || nextRow?.budgetHours === undefined || nextRow?.budgetHours === ""
+                  ? null
+                  : Number(nextRow.budgetHours);
+              const nextRate =
+                nextRow?.rateOverride === null || nextRow?.rateOverride === undefined || nextRow?.rateOverride === ""
+                  ? null
+                  : Number(nextRow.rateOverride);
+              nextRow.budgetAmount =
+                Number.isFinite(nextHours) && Number.isFinite(nextRate)
+                  ? Number((nextHours * nextRate).toFixed(2))
+                  : null;
+              rowsByUserId.set(userId, nextRow);
+              const members = Array.from(rowsByUserId.values())
+                .map((row) => ({
+                  userId: String(row?.userId || "").trim(),
+                  budgetHours:
+                    row?.budgetHours === null || row?.budgetHours === undefined || row?.budgetHours === ""
+                      ? null
+                      : Number(row.budgetHours),
+                  budgetAmount:
+                    row?.budgetAmount === null || row?.budgetAmount === undefined || row?.budgetAmount === ""
+                      ? null
+                      : Number(row.budgetAmount),
+                  rateOverride:
+                    row?.rateOverride === null || row?.rateOverride === undefined || row?.rateOverride === ""
+                      ? null
+                      : Number(row.rateOverride),
+                }))
+                .filter((row) => row.userId);
+              await mutatePersistentState(
+                "save_project_advanced_budget",
+                {
+                  projectId: persistProjectId,
+                  members,
+                },
+                { skipHydrate: true, refreshState: false, returnState: false }
+              );
+              const preserved = (state.projectMemberBudgets || []).filter(
+                (row) => String(row?.projectId || "").trim() !== persistProjectId
+              );
+              state.projectMemberBudgets = preserved.concat(
+                members.map((member) => ({
+                  projectId: persistProjectId,
+                  userId: member.userId,
+                  budgetHours: member.budgetHours,
+                  budgetAmount: member.budgetAmount,
+                  rateOverride: member.rateOverride,
+                }))
+              );
+            },
+            onDeleteMember: async function (payload) {
+              const deleteProjectId = String(payload?.projectId || targetProjectId || "").trim();
+              const deleteUserId = String(payload?.userId || "").trim();
+              const deleteAction = String(payload?.action || "").trim().toLowerCase();
+              if (!deleteProjectId || !deleteUserId) {
+                throw new Error("Project context is unavailable.");
+              }
+              const planningProject =
+                (state.projects || []).find(
+                  (item) => String(item?.id || "").trim() === deleteProjectId
+                ) || null;
+              const clientName = String(planningProject?.client || "").trim();
+              const projectName = String(planningProject?.name || "").trim();
+              if (!clientName || !projectName) {
+                throw new Error("Project context is unavailable.");
+              }
+              if (deleteAction === "manager") {
+                await mutatePersistentState(
+                  "unassign_manager_project",
+                  {
+                    managerId: deleteUserId,
+                    clientName,
+                    projectName,
+                  },
+                  { skipHydrate: true, refreshState: false, returnState: false }
+                );
+                if (state.assignments?.managerProjects) {
+                  state.assignments.managerProjects = state.assignments.managerProjects.filter(
+                    (row) =>
+                      !(
+                        String(row?.projectId || "").trim() === deleteProjectId &&
+                        String(row?.managerId || "").trim() === deleteUserId
+                      )
+                  );
+                }
+              } else {
+                await mutatePersistentState(
+                  "remove_project_member",
+                  {
+                    userId: deleteUserId,
+                    clientName,
+                    projectName,
+                  },
+                  { skipHydrate: true, refreshState: false, returnState: false }
+                );
+                if (state.assignments?.projectMembers) {
+                  state.assignments.projectMembers = state.assignments.projectMembers.filter(
+                    (row) =>
+                      !(
+                        String(row?.projectId || "").trim() === deleteProjectId &&
+                        String(row?.userId || "").trim() === deleteUserId
+                      )
+                  );
+                }
+              }
+              if (Array.isArray(state.projectMemberBudgets)) {
+                state.projectMemberBudgets = state.projectMemberBudgets.filter(
+                  (row) =>
+                    !(
+                      String(row?.projectId || "").trim() === deleteProjectId &&
+                      String(row?.userId || "").trim() === deleteUserId
+                    )
+                );
+              }
+            },
+            onPersistContractType: async function (payload) {
+              const persistProjectId = String(payload?.projectId || targetProjectId || "").trim();
+              const contractType = String(payload?.contractType || "").trim();
+              if (!persistProjectId || (contractType !== "fixed" && contractType !== "tm")) {
+                throw new Error("Project context is unavailable.");
+              }
+              const planningProject =
+                (state.projects || []).find(
+                  (item) => String(item?.id || "").trim() === persistProjectId
+                ) || null;
+              const clientName = String(planningProject?.client || "").trim();
+              const projectName = String(planningProject?.name || "").trim();
+              if (!clientName || !projectName) {
+                throw new Error("Project context is unavailable.");
+              }
+              await mutatePersistentState(
+                "update_project",
+                {
+                  clientName,
+                  projectName,
+                  pricingModel: contractType === "tm" ? "time_and_materials" : "fixed_fee",
+                },
+                { skipHydrate: true, refreshState: false, returnState: false }
+              );
+              if (planningProject) {
+                planningProject.pricingModel = contractType === "tm" ? "time_and_materials" : "fixed_fee";
+                planningProject.pricing_model = planningProject.pricingModel;
+              }
+            },
+            onPersistContractAmount: async function (payload) {
+              const persistProjectId = String(payload?.projectId || targetProjectId || "").trim();
+              const contractAmount =
+                payload?.contractAmount === null || payload?.contractAmount === undefined || payload?.contractAmount === ""
+                  ? null
+                  : Number(payload.contractAmount);
+              if (!persistProjectId) {
+                throw new Error("Project context is unavailable.");
+              }
+              if (contractAmount !== null && !Number.isFinite(contractAmount)) {
+                throw new Error("Invalid contract amount.");
+              }
+              const planningProject =
+                (state.projects || []).find(
+                  (item) => String(item?.id || "").trim() === persistProjectId
+                ) || null;
+              const clientName = String(planningProject?.client || "").trim();
+              const projectName = String(planningProject?.name || "").trim();
+              if (!clientName || !projectName) {
+                throw new Error("Project context is unavailable.");
+              }
+              await mutatePersistentState(
+                "update_project",
+                {
+                  clientName,
+                  projectName,
+                  contractAmount,
+                },
+                { skipHydrate: true, refreshState: false, returnState: false }
+              );
+              if (planningProject) {
+                planningProject.contractAmount = contractAmount;
+                planningProject.contract_amount = contractAmount;
+              }
             },
             onAddMember: function (payload) {
               const addProjectId = String(payload?.projectId || targetProjectId || "").trim();
