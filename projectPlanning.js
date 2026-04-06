@@ -271,9 +271,15 @@
     const project =
       projects.find((item) => String(item?.id || "").trim() === targetId) ||
       null;
-    const projectMembers = Array.isArray(state?.assignments?.projectMembers)
+    const projectIdKey = String(project?.id || "").trim();
+    const projectMemberAssignments = Array.isArray(state?.assignments?.projectMembers)
       ? state.assignments.projectMembers.filter(
-          (row) => String(row?.projectId || "").trim() === String(project?.id || "").trim()
+          (row) => String(row?.projectId || "").trim() === projectIdKey
+        )
+      : [];
+    const managerAssignments = Array.isArray(state?.assignments?.managerProjects)
+      ? state.assignments.managerProjects.filter(
+          (row) => String(row?.projectId || "").trim() === projectIdKey
         )
       : [];
     const usersById = new Map((state?.users || []).map((u) => [String(u?.id || "").trim(), u]));
@@ -298,18 +304,50 @@
     const budgetByUserId = new Map(
       memberBudgets.map((row) => [String(row?.userId || "").trim(), row])
     );
-    let planningRows = projectMembers.map((row, index) => {
-      const userId = String(row?.userId || "").trim();
+    const leadUserId = String(project?.projectLeadId || project?.project_lead_id || "").trim();
+    const managerIds = new Set(
+      managerAssignments.map((row) => String(row?.managerId || "").trim()).filter(Boolean)
+    );
+    const allAssignedUserIds = [];
+    if (leadUserId) allAssignedUserIds.push(leadUserId);
+    managerIds.forEach((id) => allAssignedUserIds.push(id));
+    projectMemberAssignments.forEach((row) => {
+      const id = String(row?.userId || "").trim();
+      if (id) allAssignedUserIds.push(id);
+    });
+    const dedupedUserIds = Array.from(new Set(allAssignedUserIds));
+    const managerAssignmentByUser = new Map(
+      managerAssignments.map((row) => [String(row?.managerId || "").trim(), row])
+    );
+    const memberAssignmentByUser = new Map(
+      projectMemberAssignments.map((row) => [String(row?.userId || "").trim(), row])
+    );
+
+    let planningRows = dedupedUserIds.map((userId, index) => {
       const member = usersById.get(userId);
       const budgetRow = budgetByUserId.get(userId);
+      const managerAssignment = managerAssignmentByUser.get(userId);
+      const memberAssignment = memberAssignmentByUser.get(userId);
       const baseRate = toNullableNumber(member?.baseRate ?? member?.base_rate);
       const costRate = toNullableNumber(member?.costRate ?? member?.cost_rate);
-      const chargeRateOverride = toNullableNumber(row?.chargeRateOverride ?? row?.charge_rate_override);
+      const managerChargeOverride = toNullableNumber(
+        managerAssignment?.chargeRateOverride ?? managerAssignment?.charge_rate_override
+      );
+      const memberChargeOverride = toNullableNumber(
+        memberAssignment?.chargeRateOverride ?? memberAssignment?.charge_rate_override
+      );
+      const chargeRateOverride = managerChargeOverride ?? memberChargeOverride;
       const budgetRateOverride = toNullableNumber(budgetRow?.rateOverride);
+      const roleLabel =
+        userId === leadUserId
+          ? "Project Lead"
+          : managerIds.has(userId)
+            ? "Manager"
+            : (member?.permissionGroup || member?.permission_group || "Staff");
       return {
         id: userId || `row-${index}`,
         memberName: member?.displayName || "Unassigned",
-        role: member?.permissionGroup || member?.permission_group || "—",
+        role: roleLabel,
         costRate: costRate ?? baseRate ?? 0,
         chargeRate: budgetRateOverride ?? chargeRateOverride ?? baseRate ?? 0,
         hours: toNullableNumber(budgetRow?.budgetHours) ?? 0,
