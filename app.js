@@ -5480,19 +5480,73 @@
   function syncInputsTimeFormRow(row, options) {
     const fields = inputsTimeRowFields(row);
     if (!fields.clientProject) return;
-    const selected = resolveInputsComboDefault(fields.clientProject.value || "", options);
+    const optionList = Array.isArray(options) ? options : [];
+    const optionHasValue = (value) =>
+      optionList.some((item) => `${item?.value || ""}`.trim() === `${value || ""}`.trim());
+
+    let selected = resolveInputsComboDefault(fields.clientProject.value || "", optionList);
+    if (!selected) {
+      const entryId = `${row.dataset.entryId || ""}`.trim();
+      if (entryId) {
+        const sourceEntry = (state.entries || []).find((item) => `${item?.id || ""}`.trim() === entryId);
+        if (sourceEntry) {
+          const sourceChargeCenterId = `${sourceEntry.chargeCenterId || sourceEntry.charge_center_id || ""}`.trim();
+          const sourceProjectId = `${sourceEntry.projectId || sourceEntry.project_id || ""}`.trim();
+          selected =
+            sourceChargeCenterId && !sourceProjectId
+              ? encodeInputsCorporateCombo(sourceChargeCenterId)
+              : encodeInputsTimeCombo(sourceEntry.client || "", sourceEntry.project || "");
+        }
+      }
+    }
     if (!fields.clientProject.value && selected) {
       fields.clientProject.value = selected;
     }
+
+    let hydratedOptions = optionList;
+    if (selected && !optionHasValue(selected)) {
+      if (selected.startsWith(INPUTS_COMBO_CORPORATE_PREFIX)) {
+        const categoryId = decodeInputsCorporateCombo(selected);
+        const category = (state.corporateFunctionCategories || []).find(
+          (item) => `${item?.id || ""}`.trim() === categoryId
+        );
+        const categoryName = `${category?.name || ""}`.trim() || "Internal";
+        hydratedOptions = [
+          {
+            type: "corporate",
+            id: categoryId,
+            label: categoryName,
+            value: selected,
+          },
+          ...optionList,
+        ];
+      } else {
+        const [clientName, projectName] = decodeInputsTimeCombo(selected);
+        const comboLabel =
+          clientName && projectName ? `${clientName} / ${projectName}` : "Client / Project";
+        hydratedOptions = [
+          {
+            type: "project",
+            id: findProjectIdByClientProject(clientName, projectName),
+            client: clientName,
+            project: projectName,
+            label: comboLabel,
+            value: selected,
+          },
+          ...optionList,
+        ];
+      }
+    }
+
     setSelectOptionsWithPlaceholder(
       { escapeHtml },
       fields.clientProject,
-      options,
+      hydratedOptions,
       selected,
       "Client / Project",
       { disabled: true, hidden: true, type: "placeholder" }
     );
-    fields.clientProject.disabled = options.length === 0;
+    fields.clientProject.disabled = hydratedOptions.length === 0;
 
     if (fields.billable && row.dataset.lastCombo !== fields.clientProject.value) {
       applyInputsTimeBillableDefaultForRow(row);
