@@ -305,6 +305,28 @@
       projects.find((item) => String(item?.id || "").trim() === targetId) ||
       null;
     const projectIdKey = String(project?.id || "").trim();
+    if (!project || !projectIdKey) {
+      container.innerHTML = `
+        <section class="page-view project-planning-page" aria-labelledby="project-planning-title">
+          <header class="project-planning-head">
+            <div>
+              <h2 id="project-planning-title">Project Planning</h2>
+              <p class="project-planning-subtitle">Project context unavailable</p>
+            </div>
+            <div class="project-planning-actions">
+              <button type="button" class="button button-ghost" data-project-planning-back>Back</button>
+            </div>
+          </header>
+          <section class="project-planning-block">
+            <p class="project-planning-placeholder">Select a project from the Clients page, then open Project Planning again.</p>
+          </section>
+        </section>
+      `;
+      container.querySelector("[data-project-planning-back]")?.addEventListener("click", () => {
+        if (typeof onBack === "function") onBack();
+      });
+      return;
+    }
     const projectMemberAssignments = Array.isArray(state?.assignments?.projectMembers)
       ? state.assignments.projectMembers.filter(
           (row) => String(row?.projectId || "").trim() === projectIdKey

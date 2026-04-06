@@ -2,6 +2,7 @@
   const THEME_STORAGE_KEY = "timesheet-studio.theme.v1";
   const THEME_EXPLICIT_STORAGE_KEY = "timesheet-studio.theme.explicit.v1";
   const VIEW_STORAGE_KEY = "timesheet-studio.view.v1";
+  const PROJECT_PLANNING_ID_STORAGE_KEY = "timesheet-studio.project-planning-id.v1";
   const LAST_INPUTS_COMBO_STORAGE_KEY = "timesheet-studio.inputs.last-client-project.v1";
   const INPUTS_COMBO_CORPORATE_PREFIX = "__corp__::";
   const INPUTS_COMBO_SECTION_VALUE = "__section__";
@@ -1034,6 +1035,7 @@
     if (projectDialog.openProjectPlanning) {
       state.currentProjectPlanningId =
         String(projectDialog.projectId || projectRow?.id || "").trim() || "";
+      persistProjectPlanningId(state.currentProjectPlanningId);
       setView("project_planning");
       return;
     }
@@ -2721,6 +2723,28 @@
       window.localStorage.removeItem(VIEW_STORAGE_KEY);
     } catch (error) {
       return;
+    }
+  }
+
+  function persistProjectPlanningId(projectId) {
+    const normalized = `${projectId || ""}`.trim();
+    try {
+      if (normalized) {
+        window.localStorage.setItem(PROJECT_PLANNING_ID_STORAGE_KEY, normalized);
+      } else {
+        window.localStorage.removeItem(PROJECT_PLANNING_ID_STORAGE_KEY);
+      }
+    } catch (error) {
+      return;
+    }
+  }
+
+  function loadPersistedProjectPlanningId() {
+    try {
+      const raw = window.localStorage.getItem(PROJECT_PLANNING_ID_STORAGE_KEY);
+      return `${raw || ""}`.trim();
+    } catch (error) {
+      return "";
     }
   }
 
@@ -7496,21 +7520,13 @@
 
     if (view === "project_planning") {
       if (refs.mainFrame) {
-        const normalizedPlanningProjectId = String(state.currentProjectPlanningId || "").trim();
-        const fallbackProjectByFilter = (state.projects || []).find(
-          (project) =>
-            project &&
-            project.client === state.selectedCatalogClient &&
-            String(project.name || "").trim() === String(state.filters?.project || "").trim()
-        );
-        const fallbackProjectByClient = (state.projects || []).find(
-          (project) => project && project.client === state.selectedCatalogClient
-        );
-        const fallbackProject = fallbackProjectByFilter || fallbackProjectByClient || (state.projects || [])[0] || null;
-        const targetProjectId =
-          normalizedPlanningProjectId ||
-          String(fallbackProject?.id || "").trim() ||
-          "";
+        const normalizedPlanningProjectId =
+          String(state.currentProjectPlanningId || "").trim() || loadPersistedProjectPlanningId();
+        if (normalizedPlanningProjectId && !String(state.currentProjectPlanningId || "").trim()) {
+          state.currentProjectPlanningId = normalizedPlanningProjectId;
+        }
+        const targetProjectId = normalizedPlanningProjectId || "";
+        persistProjectPlanningId(targetProjectId);
         refs.mainFrame.style.display = "";
         if (typeof renderProjectPlanningPage === "function") {
           renderProjectPlanningPage({
@@ -7526,6 +7542,8 @@
                 feedback("Project context is unavailable.", true);
                 return;
               }
+              state.currentProjectPlanningId = saveProjectId;
+              persistProjectPlanningId(saveProjectId);
               const members = Array.isArray(payload?.members) ? payload.members : [];
               await mutatePersistentState(
                 "save_project_advanced_budget",
@@ -10964,6 +10982,9 @@
     const restoredView = loadPersistedView();
     if (isViewAllowed(restoredView)) {
       state.currentView = restoredView;
+      if (restoredView === "project_planning") {
+        state.currentProjectPlanningId = loadPersistedProjectPlanningId();
+      }
       if (restoredView === "inbox") {
         beginInboxVisit();
       }
