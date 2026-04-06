@@ -2524,6 +2524,7 @@
     officeLocations: [],
     expenseCategories: [],
     projectExpenseCategories: [],
+    projectPlannedExpenses: [],
     corporateFunctionGroups: [],
     corporateFunctionCategories: [],
     departments: [],
@@ -3118,6 +3119,19 @@
           name: item.name,
         }))
       : [];
+    state.projectPlannedExpenses = Array.isArray(data?.projectPlannedExpenses)
+      ? data.projectPlannedExpenses.map((item) => ({
+          id: item.id,
+          projectId: item.projectId,
+          categoryId: item.categoryId ?? null,
+          description: item.description ?? "",
+          units: Number.isFinite(Number(item.units)) ? Number(item.units) : 0,
+          unitCost: Number.isFinite(Number(item.unitCost)) ? Number(item.unitCost) : 0,
+          markupPct: Number.isFinite(Number(item.markupPct)) ? Number(item.markupPct) : 0,
+          billable: item.billable === true,
+          sortOrder: Number.isFinite(Number(item.sortOrder)) ? Number(item.sortOrder) : 0,
+        }))
+      : [];
     state.corporateFunctionGroups = Array.isArray(data?.corporateFunctionGroups)
       ? data.corporateFunctionGroups.map((item) => ({
           id: item.id,
@@ -3221,6 +3235,7 @@
     state.officeLocations = [];
     state.expenseCategories = [];
     state.projectExpenseCategories = [];
+    state.projectPlannedExpenses = [];
     state.account = null;
     state.notificationRules = [];
     state.assignments = {
@@ -3477,6 +3492,9 @@
         projectExpenseCategories: Array.isArray(payload?.projectExpenseCategories)
           ? payload.projectExpenseCategories
           : state.projectExpenseCategories,
+        projectPlannedExpenses: Array.isArray(payload?.projectPlannedExpenses)
+          ? payload.projectPlannedExpenses
+          : state.projectPlannedExpenses,
         corporateFunctionGroups: Array.isArray(payload?.corporateFunctionGroups)
           ? payload.corporateFunctionGroups
           : state.corporateFunctionGroups,
@@ -7847,6 +7865,111 @@
                   rateOverride: member.rateOverride,
                 }))
               );
+            },
+            onCreateExpenseRow: async function (payload) {
+              const persistProjectId = String(payload?.projectId || targetProjectId || "").trim();
+              if (!persistProjectId) {
+                throw new Error("Project context is unavailable.");
+              }
+              const result = await mutatePersistentState(
+                "create_project_planned_expense",
+                {
+                  projectId: persistProjectId,
+                  categoryId: payload?.categoryId || null,
+                  description: payload?.description || "",
+                  units:
+                    payload?.units === null || payload?.units === undefined || payload?.units === ""
+                      ? 0
+                      : Number(payload.units),
+                  unitCost:
+                    payload?.unitCost === null || payload?.unitCost === undefined || payload?.unitCost === ""
+                      ? 0
+                      : Number(payload.unitCost),
+                  markupPct:
+                    payload?.markupPct === null || payload?.markupPct === undefined || payload?.markupPct === ""
+                      ? 0
+                      : Number(payload.markupPct),
+                  billable: payload?.billable === true,
+                },
+                { skipHydrate: true, refreshState: false, returnState: false }
+              );
+              const created = result?.expense || null;
+              if (!created?.id) {
+                throw new Error("Unable to create expense row.");
+              }
+              const existing = Array.isArray(state.projectPlannedExpenses) ? state.projectPlannedExpenses : [];
+              state.projectPlannedExpenses = existing.concat({
+                id: String(created.id),
+                projectId: String(created.projectId || persistProjectId),
+                categoryId: created.categoryId || null,
+                description: String(created.description || ""),
+                units: Number.isFinite(Number(created.units)) ? Number(created.units) : 0,
+                unitCost: Number.isFinite(Number(created.unitCost)) ? Number(created.unitCost) : 0,
+                markupPct: Number.isFinite(Number(created.markupPct)) ? Number(created.markupPct) : 0,
+                billable: created.billable === true,
+                sortOrder: Number.isFinite(Number(created.sortOrder)) ? Number(created.sortOrder) : 0,
+              });
+              return created;
+            },
+            onPersistExpenseField: async function (payload) {
+              const persistProjectId = String(payload?.projectId || targetProjectId || "").trim();
+              const expenseId = String(payload?.expenseId || "").trim();
+              const field = String(payload?.field || "").trim();
+              if (!persistProjectId || !expenseId || !field) {
+                throw new Error("Project context is unavailable.");
+              }
+              const result = await mutatePersistentState(
+                "update_project_planned_expense",
+                {
+                  projectId: persistProjectId,
+                  expenseId,
+                  field,
+                  value: payload?.value,
+                },
+                { skipHydrate: true, refreshState: false, returnState: false }
+              );
+              const updated = result?.expense || null;
+              if (!updated?.id) {
+                throw new Error("Unable to save expense row.");
+              }
+              if (Array.isArray(state.projectPlannedExpenses)) {
+                state.projectPlannedExpenses = state.projectPlannedExpenses.map((row) =>
+                  String(row?.id || "") === String(updated.id)
+                    ? {
+                        ...row,
+                        projectId: String(updated.projectId || row?.projectId || persistProjectId),
+                        categoryId: updated.categoryId || null,
+                        description: String(updated.description || ""),
+                        units: Number.isFinite(Number(updated.units)) ? Number(updated.units) : 0,
+                        unitCost: Number.isFinite(Number(updated.unitCost)) ? Number(updated.unitCost) : 0,
+                        markupPct: Number.isFinite(Number(updated.markupPct)) ? Number(updated.markupPct) : 0,
+                        billable: updated.billable === true,
+                        sortOrder: Number.isFinite(Number(updated.sortOrder)) ? Number(updated.sortOrder) : (Number(row?.sortOrder) || 0),
+                      }
+                    : row
+                );
+              }
+              return updated;
+            },
+            onDeleteExpenseRow: async function (payload) {
+              const persistProjectId = String(payload?.projectId || targetProjectId || "").trim();
+              const expenseId = String(payload?.expenseId || "").trim();
+              if (!persistProjectId || !expenseId) {
+                throw new Error("Project context is unavailable.");
+              }
+              await mutatePersistentState(
+                "delete_project_planned_expense",
+                {
+                  projectId: persistProjectId,
+                  expenseId,
+                },
+                { skipHydrate: true, refreshState: false, returnState: false }
+              );
+              if (Array.isArray(state.projectPlannedExpenses)) {
+                state.projectPlannedExpenses = state.projectPlannedExpenses.filter(
+                  (row) => String(row?.id || "").trim() !== expenseId
+                );
+              }
             },
             onDeleteMember: async function (payload) {
               const deleteProjectId = String(payload?.projectId || targetProjectId || "").trim();

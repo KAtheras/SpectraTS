@@ -544,6 +544,22 @@ async function ensureSchema(sql) {
     )
   `;
   await sql`
+    CREATE TABLE IF NOT EXISTS project_planned_expenses (
+      id TEXT PRIMARY KEY,
+      account_id UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      project_id BIGINT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      category_id TEXT REFERENCES project_expense_categories(id) ON DELETE SET NULL,
+      description TEXT NOT NULL DEFAULT '',
+      units NUMERIC NOT NULL DEFAULT 0,
+      unit_cost NUMERIC NOT NULL DEFAULT 0,
+      markup_pct NUMERIC NOT NULL DEFAULT 0,
+      billable BOOLEAN NOT NULL DEFAULT FALSE,
+      sort_order INT NOT NULL DEFAULT 0,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+  await sql`
     ALTER TABLE project_member_budgets
     ALTER COLUMN user_id TYPE TEXT
     USING user_id::text
@@ -702,6 +718,10 @@ async function ensureSchema(sql) {
   await sql`
     CREATE INDEX IF NOT EXISTS project_expense_categories_account_idx
       ON project_expense_categories(account_id, is_active, sort_order, created_at)
+  `;
+  await sql`
+    CREATE INDEX IF NOT EXISTS project_planned_expenses_account_project_idx
+      ON project_planned_expenses(account_id, project_id, sort_order, created_at)
   `;
   await sql`
     CREATE UNIQUE INDEX IF NOT EXISTS project_expense_categories_account_name_ci_idx
@@ -2657,6 +2677,263 @@ async function deleteProjectMemberBudget(sql, projectId, userId, accountId) {
   return rows[0] || null;
 }
 
+async function listProjectPlannedExpenses(sql, accountId, projectId = null) {
+  if (!accountId) return [];
+  const normalizedProjectId = normalizeText(projectId);
+  const projectIdNumber =
+    normalizedProjectId === null || normalizedProjectId === undefined || normalizedProjectId === ""
+      ? null
+      : Number(normalizedProjectId);
+  if (normalizedProjectId && !Number.isInteger(projectIdNumber)) return [];
+  return sql`
+    SELECT
+      id,
+      project_id AS "projectId",
+      category_id AS "categoryId",
+      description,
+      units,
+      unit_cost AS "unitCost",
+      markup_pct AS "markupPct",
+      billable,
+      sort_order AS "sortOrder",
+      created_at AS "createdAt",
+      updated_at AS "updatedAt"
+    FROM project_planned_expenses
+    WHERE account_id = ${accountId}::uuid
+      ${Number.isInteger(projectIdNumber) ? sql`AND project_id = ${projectIdNumber}::bigint` : sql``}
+    ORDER BY project_id, sort_order, created_at, id
+  `;
+}
+
+async function createProjectPlannedExpense(sql, payload = {}, accountId) {
+  const projectIdRaw = normalizeText(payload?.projectId);
+  const projectId = Number(projectIdRaw);
+  if (!accountId || !projectIdRaw || !Number.isInteger(projectId)) return null;
+  const projectRows = await sql`
+    SELECT id
+    FROM projects
+    WHERE id = ${projectId}
+      AND account_id = ${accountId}::uuid
+    LIMIT 1
+  `;
+  if (!projectRows[0]) return null;
+  const categoryId = normalizeText(payload?.categoryId) || null;
+  const description = normalizeText(payload?.description) || "";
+  const unitsValue = Number(payload?.units);
+  const unitCostValue = Number(payload?.unitCost);
+  const markupPctValue = Number(payload?.markupPct);
+  const units = Number.isFinite(unitsValue) ? Math.max(0, unitsValue) : 0;
+  const unitCost = Number.isFinite(unitCostValue) ? Math.max(0, unitCostValue) : 0;
+  const markupPct = Number.isFinite(markupPctValue) ? Math.max(0, markupPctValue) : 0;
+  const billable = payload?.billable === true;
+  const maxRows = await sql`
+    SELECT COALESCE(MAX(sort_order), 0)::INT AS max_sort
+    FROM project_planned_expenses
+    WHERE account_id = ${accountId}::uuid
+      AND project_id = ${projectId}::bigint
+  `;
+  const nextSort = (Number(maxRows?.[0]?.max_sort) || 0) + 10;
+  const rows = await sql`
+    INSERT INTO project_planned_expenses (
+      id,
+      account_id,
+      project_id,
+      category_id,
+      description,
+      units,
+      unit_cost,
+      markup_pct,
+      billable,
+      sort_order,
+      created_at,
+      updated_at
+    )
+    VALUES (
+      ${randomId()},
+      ${accountId}::uuid,
+      ${projectId}::bigint,
+      ${categoryId},
+      ${description},
+      ${units},
+      ${unitCost},
+      ${markupPct},
+      ${billable},
+      ${nextSort},
+      NOW(),
+      NOW()
+    )
+    RETURNING
+      id,
+      project_id AS "projectId",
+      category_id AS "categoryId",
+      description,
+      units,
+      unit_cost AS "unitCost",
+      markup_pct AS "markupPct",
+      billable,
+      sort_order AS "sortOrder",
+      created_at AS "createdAt",
+      updated_at AS "updatedAt"
+  `;
+  return rows[0] || null;
+}
+
+async function updateProjectPlannedExpense(sql, payload = {}, accountId) {
+  const expenseId = normalizeText(payload?.expenseId);
+  const projectIdRaw = normalizeText(payload?.projectId);
+  const projectId = Number(projectIdRaw);
+  const field = normalizeText(payload?.field);
+  if (!accountId || !expenseId || !projectIdRaw || !Number.isInteger(projectId) || !field) return null;
+  let rows;
+  if (field === "categoryId") {
+    const nextCategoryId = normalizeText(payload?.value) || null;
+    rows = await sql`
+      UPDATE project_planned_expenses
+      SET category_id = ${nextCategoryId}, updated_at = NOW()
+      WHERE id = ${expenseId}
+        AND account_id = ${accountId}::uuid
+        AND project_id = ${projectId}::bigint
+      RETURNING
+        id,
+        project_id AS "projectId",
+        category_id AS "categoryId",
+        description,
+        units,
+        unit_cost AS "unitCost",
+        markup_pct AS "markupPct",
+        billable,
+        sort_order AS "sortOrder",
+        created_at AS "createdAt",
+        updated_at AS "updatedAt"
+    `;
+  } else if (field === "description") {
+    const nextDescription = normalizeText(payload?.value) || "";
+    rows = await sql`
+      UPDATE project_planned_expenses
+      SET description = ${nextDescription}, updated_at = NOW()
+      WHERE id = ${expenseId}
+        AND account_id = ${accountId}::uuid
+        AND project_id = ${projectId}::bigint
+      RETURNING
+        id,
+        project_id AS "projectId",
+        category_id AS "categoryId",
+        description,
+        units,
+        unit_cost AS "unitCost",
+        markup_pct AS "markupPct",
+        billable,
+        sort_order AS "sortOrder",
+        created_at AS "createdAt",
+        updated_at AS "updatedAt"
+    `;
+  } else if (field === "units" || field === "unitCost" || field === "markupPct") {
+    const numeric = Number(payload?.value);
+    if (!Number.isFinite(numeric)) return null;
+    const normalizedNumeric = Math.max(0, numeric);
+    if (field === "unitCost") {
+      rows = await sql`
+        UPDATE project_planned_expenses
+        SET unit_cost = ${normalizedNumeric}, updated_at = NOW()
+        WHERE id = ${expenseId}
+          AND account_id = ${accountId}::uuid
+          AND project_id = ${projectId}::bigint
+        RETURNING
+          id,
+          project_id AS "projectId",
+          category_id AS "categoryId",
+          description,
+          units,
+          unit_cost AS "unitCost",
+          markup_pct AS "markupPct",
+          billable,
+          sort_order AS "sortOrder",
+          created_at AS "createdAt",
+          updated_at AS "updatedAt"
+      `;
+    } else if (field === "markupPct") {
+      rows = await sql`
+        UPDATE project_planned_expenses
+        SET markup_pct = ${normalizedNumeric}, updated_at = NOW()
+        WHERE id = ${expenseId}
+          AND account_id = ${accountId}::uuid
+          AND project_id = ${projectId}::bigint
+        RETURNING
+          id,
+          project_id AS "projectId",
+          category_id AS "categoryId",
+          description,
+          units,
+          unit_cost AS "unitCost",
+          markup_pct AS "markupPct",
+          billable,
+          sort_order AS "sortOrder",
+          created_at AS "createdAt",
+          updated_at AS "updatedAt"
+      `;
+    } else {
+      rows = await sql`
+        UPDATE project_planned_expenses
+        SET units = ${normalizedNumeric}, updated_at = NOW()
+        WHERE id = ${expenseId}
+          AND account_id = ${accountId}::uuid
+          AND project_id = ${projectId}::bigint
+        RETURNING
+          id,
+          project_id AS "projectId",
+          category_id AS "categoryId",
+          description,
+          units,
+          unit_cost AS "unitCost",
+          markup_pct AS "markupPct",
+          billable,
+          sort_order AS "sortOrder",
+          created_at AS "createdAt",
+          updated_at AS "updatedAt"
+      `;
+    }
+  } else if (field === "billable") {
+    const nextBillable = payload?.value === true;
+    rows = await sql`
+      UPDATE project_planned_expenses
+      SET billable = ${nextBillable}, updated_at = NOW()
+      WHERE id = ${expenseId}
+        AND account_id = ${accountId}::uuid
+        AND project_id = ${projectId}::bigint
+      RETURNING
+        id,
+        project_id AS "projectId",
+        category_id AS "categoryId",
+        description,
+        units,
+        unit_cost AS "unitCost",
+        markup_pct AS "markupPct",
+        billable,
+        sort_order AS "sortOrder",
+        created_at AS "createdAt",
+        updated_at AS "updatedAt"
+    `;
+  } else {
+    return null;
+  }
+  return rows?.[0] || null;
+}
+
+async function deleteProjectPlannedExpense(sql, payload = {}, accountId) {
+  const expenseId = normalizeText(payload?.expenseId);
+  const projectIdRaw = normalizeText(payload?.projectId);
+  const projectId = Number(projectIdRaw);
+  if (!accountId || !expenseId || !projectIdRaw || !Number.isInteger(projectId)) return null;
+  const rows = await sql`
+    DELETE FROM project_planned_expenses
+    WHERE id = ${expenseId}
+      AND account_id = ${accountId}::uuid
+      AND project_id = ${projectId}::bigint
+    RETURNING id
+  `;
+  return rows[0] || null;
+}
+
 async function listManagerAssignmentsForUser(sql, managerId, accountId) {
   const clientRows = await sql`
     SELECT
@@ -3736,6 +4013,7 @@ async function loadState(sql, currentUser) {
   // Settings UI is still gated by settingsAccess.manageCategories.
   const expenseCategories = await listExpenseCategories(sql, accountUuid);
   const projectExpenseCategories = await listProjectExpenseCategories(sql, accountUuid);
+  const projectPlannedExpenses = await listProjectPlannedExpenses(sql, accountUuid);
   const corporateFunctionGroups = await listCorporateFunctionGroups(sql, accountUuid);
   const corporateFunctionCategories = await listCorporateFunctionCategories(sql, accountUuid);
   const assignments = {
@@ -3851,6 +4129,7 @@ async function loadState(sql, currentUser) {
     corporateFunctionGroups,
     expenseCategories,
     projectExpenseCategories,
+    projectPlannedExpenses,
     corporateFunctionCategories,
     assignments,
     levelLabels,
@@ -4009,6 +4288,10 @@ module.exports = {
   listExpenseCategories,
   listProjectExpenseCategories,
   createProjectExpenseCategory,
+  listProjectPlannedExpenses,
+  createProjectPlannedExpense,
+  updateProjectPlannedExpense,
+  deleteProjectPlannedExpense,
   listCorporateFunctionGroups,
   listCorporateFunctionCategories,
   listDepartments,

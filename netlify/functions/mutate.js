@@ -22,6 +22,9 @@ const {
   listLevelLabels,
   listProjectExpenseCategories,
   createProjectExpenseCategory,
+  createProjectPlannedExpense,
+  updateProjectPlannedExpense,
+  deleteProjectPlannedExpense,
   listAuditLogs,
   getProjectMemberBudgets,
   upsertProjectMemberBudget,
@@ -5193,6 +5196,51 @@ exports.handler = async function handler(event) {
         mutationResult = { ok: true };
         break;
       }
+      case "create_project_planned_expense": {
+        if (!can("edit_expense") && !isAdmin(context.currentUser) && !isManager(context.currentUser)) {
+          return errorResponse(403, "Access denied.");
+        }
+        const created = await createProjectPlannedExpense(
+          sql,
+          request.payload || {},
+          accountId
+        );
+        if (!created) {
+          return errorResponse(400, "Unable to create planned expense row.");
+        }
+        mutationResult = { expense: created };
+        break;
+      }
+      case "update_project_planned_expense": {
+        if (!can("edit_expense") && !isAdmin(context.currentUser) && !isManager(context.currentUser)) {
+          return errorResponse(403, "Access denied.");
+        }
+        const updated = await updateProjectPlannedExpense(
+          sql,
+          request.payload || {},
+          accountId
+        );
+        if (!updated) {
+          return errorResponse(400, "Unable to update planned expense row.");
+        }
+        mutationResult = { expense: updated };
+        break;
+      }
+      case "delete_project_planned_expense": {
+        if (!can("edit_expense") && !isAdmin(context.currentUser) && !isManager(context.currentUser)) {
+          return errorResponse(403, "Access denied.");
+        }
+        const deleted = await deleteProjectPlannedExpense(
+          sql,
+          request.payload || {},
+          accountId
+        );
+        if (!deleted) {
+          return errorResponse(400, "Unable to delete planned expense row.");
+        }
+        mutationResult = { ok: true };
+        break;
+      }
       case "create_expense": {
         mutationResult = await createExpense(
           sql,
@@ -5577,6 +5625,9 @@ exports.handler = async function handler(event) {
       return mutationResult;
     }
     if (!returnState) {
+      if (mutationResult && typeof mutationResult === "object") {
+        return json(200, { ok: true, ...mutationResult });
+      }
       return json(200, { ok: true });
     }
 

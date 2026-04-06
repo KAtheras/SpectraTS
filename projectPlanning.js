@@ -81,6 +81,11 @@
         gap: 12px;
         align-items: stretch;
       }
+      .project-planning-layout > main {
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+      }
       .project-planning-body {
         height: calc(100vh - 320px);
         min-height: 460px;
@@ -210,6 +215,8 @@
         flex-direction: column;
         height: 100%;
         min-height: 0;
+        overflow: hidden;
+        flex: 1;
       }
       .project-planning-table-head {
         display: flex;
@@ -218,14 +225,40 @@
         gap: 10px;
         margin: 0 0 10px;
       }
+      .project-planning-table-head-main {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+      }
       .project-planning-table-head h3 {
         margin: 0;
       }
       .project-planning-table-wrap {
         flex: 1;
+        height: 100%;
         min-height: 0;
         overflow-y: auto;
         overflow-x: auto;
+      }
+      .project-planning-table-panels {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+      }
+      .project-planning-table-panels > [data-planning-tab-panel] {
+        flex: 1;
+        min-height: 0;
+      }
+      .project-planning-expenses-panel {
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+      }
+      .project-planning-expenses-actions {
+        display: flex;
+        justify-content: flex-end;
       }
       .project-planning-table {
         width: 100%;
@@ -375,6 +408,108 @@
         -moz-appearance: textfield;
         appearance: textfield;
       }
+      .project-planning-table input[data-expense-input="units"],
+      .project-planning-table input[data-expense-input="unitCost"],
+      .project-planning-table input[data-expense-input="markupPct"] {
+        max-width: 110px;
+      }
+      .project-planning-table input[data-expense-input="units"]::-webkit-outer-spin-button,
+      .project-planning-table input[data-expense-input="units"]::-webkit-inner-spin-button,
+      .project-planning-table input[data-expense-input="unitCost"]::-webkit-outer-spin-button,
+      .project-planning-table input[data-expense-input="unitCost"]::-webkit-inner-spin-button,
+      .project-planning-table input[data-expense-input="markupPct"]::-webkit-outer-spin-button,
+      .project-planning-table input[data-expense-input="markupPct"]::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+      }
+      .project-planning-table input[data-expense-input="units"],
+      .project-planning-table input[data-expense-input="unitCost"],
+      .project-planning-table input[data-expense-input="markupPct"] {
+        -moz-appearance: textfield;
+        appearance: textfield;
+      }
+      .project-planning-expenses-panel .project-planning-table {
+        table-layout: fixed;
+      }
+      .project-planning-expenses-panel .project-planning-table th:nth-child(1),
+      .project-planning-expenses-panel .project-planning-table td:nth-child(1) {
+        width: 17%;
+      }
+      .project-planning-expenses-panel .project-planning-table th:nth-child(2),
+      .project-planning-expenses-panel .project-planning-table td:nth-child(2) {
+        width: 35%;
+      }
+      .project-planning-expenses-panel .project-planning-table th:nth-child(3),
+      .project-planning-expenses-panel .project-planning-table td:nth-child(3) {
+        width: 9%;
+      }
+      .project-planning-expenses-panel .project-planning-table th:nth-child(4),
+      .project-planning-expenses-panel .project-planning-table td:nth-child(4) {
+        width: 12%;
+      }
+      .project-planning-expenses-panel .project-planning-table th:nth-child(5),
+      .project-planning-expenses-panel .project-planning-table td:nth-child(5) {
+        width: 9%;
+      }
+      .project-planning-expenses-panel .project-planning-table th:nth-child(6),
+      .project-planning-expenses-panel .project-planning-table td:nth-child(6) {
+        width: 11%;
+        text-align: right;
+      }
+      .project-planning-expenses-panel .project-planning-table th:nth-child(7),
+      .project-planning-expenses-panel .project-planning-table td:nth-child(7) {
+        width: 10%;
+        text-align: center;
+      }
+      .project-planning-expenses-panel .project-planning-table th:nth-child(8),
+      .project-planning-expenses-panel .project-planning-table td:nth-child(8) {
+        width: 6%;
+        text-align: right;
+      }
+      .project-planning-table .perm-switch{
+        position:relative;
+        display:inline-flex;
+        width:42px;
+        height:24px;
+        vertical-align:middle;
+      }
+      .project-planning-table .perm-switch input{
+        position:absolute;
+        width:1px;
+        height:1px;
+        opacity:0;
+        pointer-events:none;
+      }
+      .project-planning-table .perm-switch-track{
+        width:100%;
+        height:100%;
+        border-radius:999px;
+        border:1px solid var(--line);
+        background:color-mix(in srgb, var(--danger) 10%, var(--surface));
+        position:relative;
+        transition:background 140ms ease,border-color 140ms ease,opacity 140ms ease;
+      }
+      .project-planning-table .perm-switch-track::after{
+        content:"";
+        position:absolute;
+        top:2px;
+        left:2px;
+        width:18px;
+        height:18px;
+        border-radius:50%;
+        background:var(--ink);
+        opacity:.45;
+        transition:transform 140ms ease,opacity 140ms ease,background 140ms ease;
+      }
+      .project-planning-table .perm-switch input:checked + .perm-switch-track{
+        background:color-mix(in srgb, #39a96b 20%, var(--surface));
+        border-color:color-mix(in srgb, #39a96b 55%, var(--line));
+      }
+      .project-planning-table .perm-switch input:checked + .perm-switch-track::after{
+        transform:translateX(18px);
+        opacity:1;
+        background:#2f9d57;
+      }
       @media (max-width: 1200px) {
         .project-planning-layout {
           grid-template-columns: 1fr;
@@ -517,7 +652,37 @@
     };
   }
 
-  function renderProjectPlanningPage({ projectId, state, container, onBack, onSave, onAddMember, onPersistField, onDeleteMember, onPersistContractType, onPersistContractAmount }) {
+  function computeExpenseTotals(rows) {
+    const source = Array.isArray(rows) ? rows : [];
+    let expenseCost = 0;
+    let expenseRevenue = 0;
+    source.forEach((row) => {
+      const units = toNumberOrZero(row?.units);
+      const unitCost = toNumberOrZero(row?.unitCost);
+      const markupPct = toNumberOrZero(row?.markupPct);
+      const rowCost = units * unitCost;
+      const rowRevenue = row?.billable === true ? rowCost * (1 + markupPct / 100) : 0;
+      expenseCost += rowCost;
+      expenseRevenue += rowRevenue;
+    });
+    return { expenseCost, expenseRevenue };
+  }
+
+  function renderProjectPlanningPage({
+    projectId,
+    state,
+    container,
+    onBack,
+    onSave,
+    onAddMember,
+    onPersistField,
+    onDeleteMember,
+    onPersistContractType,
+    onPersistContractAmount,
+    onCreateExpenseRow,
+    onPersistExpenseField,
+    onDeleteExpenseRow,
+  }) {
     ensurePlanningStyles();
     if (!container) return;
 
@@ -573,10 +738,12 @@
     let contractAmountValue = toNullableNumber(project?.contractAmount ?? project?.contract_amount);
     const pricingModel = String(project?.pricingModel ?? project?.pricing_model ?? "").trim().toLowerCase();
     let contractType = pricingModel === "time_and_materials" ? "tm" : "fixed";
+    let activePlanningTab = "time";
+    let planningExpenseRows = [];
     const memberBudgets = Array.isArray(state?.projectMemberBudgets)
       ? state.projectMemberBudgets.filter(
           (row) => String(row?.projectId || "").trim() === String(project?.id || "").trim()
-        )
+      )
       : [];
     const budgetByUserId = new Map(
       memberBudgets.map((row) => [String(row?.userId || "").trim(), row])
@@ -602,6 +769,14 @@
     const memberAssignmentByUser = new Map(
       projectMemberAssignments.map((row) => [String(row?.userId || "").trim(), row])
     );
+    const projectExpenseCategories = Array.isArray(state?.projectExpenseCategories)
+      ? state.projectExpenseCategories
+          .map((item) => ({
+            id: String(item?.id || "").trim(),
+            name: String(item?.name || "").trim(),
+          }))
+          .filter((item) => item.id && item.name)
+      : [];
 
     let planningRows = dedupedUserIds.map((userId, index) => {
       const member = usersById.get(userId);
@@ -642,16 +817,32 @@
       };
     });
     planningRows = computeRows(planningRows);
+    const plannedExpensesSource = Array.isArray(state?.projectPlannedExpenses)
+      ? state.projectPlannedExpenses
+      : [];
+    planningExpenseRows = plannedExpensesSource
+      .filter((row) => String(row?.projectId || "").trim() === projectIdKey)
+      .map((row) => ({
+        id: String(row?.id || "").trim(),
+        categoryId: String(row?.categoryId || "").trim(),
+        description: String(row?.description || ""),
+        units: toNumberOrZero(row?.units),
+        unitCost: toNumberOrZero(row?.unitCost),
+        markupPct: toNumberOrZero(row?.markupPct),
+        billable: row?.billable === true,
+      }))
+      .filter((row) => row.id);
     const initialTotals = computeTotals(planningRows, contractAmountValue, overheadValue);
+    const initialExpenseTotals = computeExpenseTotals(planningExpenseRows);
     const initialIsTmContract = contractType === "tm";
-    const initialGrossTopLineValue = initialIsTmContract
+    const initialBaseRevenue = initialIsTmContract
       ? initialTotals.plannedRevenueTotal
-      : contractAmountValue;
-    const initialGrossMarginValue = Number.isFinite(initialGrossTopLineValue)
-      ? initialGrossTopLineValue - initialTotals.totalCost
-      : null;
-    const initialGrossMarginPct = Number.isFinite(initialGrossTopLineValue) && initialGrossTopLineValue > 0
-      ? (initialGrossMarginValue / initialGrossTopLineValue) * 100
+      : (Number.isFinite(contractAmountValue) ? contractAmountValue : 0);
+    const initialTotalRevenue = initialBaseRevenue + initialExpenseTotals.expenseRevenue;
+    const initialTotalCost = initialTotals.directCost + initialExpenseTotals.expenseCost + initialTotals.overheadCost;
+    const initialGrossMarginValue = initialTotalRevenue - initialTotalCost;
+    const initialGrossMarginPct = initialTotalRevenue > 0
+      ? (initialGrossMarginValue / initialTotalRevenue) * 100
       : null;
     const initialRealizationNumerator = initialIsTmContract
       ? initialTotals.plannedRevenueTotal
@@ -695,14 +886,14 @@
         <section class="project-planning-kpi-row">
             <section class="project-planning-kpis">
               <article class="project-planning-kpi" data-kpi-card="contract">
-                <div class="project-planning-kpi-label" data-kpi-label="contractPrimary">Contract Amount</div>
+                <div class="project-planning-kpi-label" data-kpi-label="contractPrimary">Planned Revenue</div>
                 <span class="project-planning-kpi-edit-icon" data-kpi="contractEditIcon" aria-hidden="true">✎</span>
-                <div class="project-planning-kpi-value" data-kpi="contract">${escapeHtml(fmtMoneyZero(contractAmountValue))}</div>
+                <div class="project-planning-kpi-value" data-kpi="contract">${escapeHtml(fmtMoneyZero(initialTotalRevenue))}</div>
                 <div class="project-planning-kpi-edit-hint" data-kpi="contractEditHint">Click to edit</div>
               </article>
               <article class="project-planning-kpi">
                 <div class="project-planning-kpi-label">Planned Cost</div>
-                <div class="project-planning-kpi-value" data-kpi="plannedCost">${escapeHtml(fmtMoneyZero(initialTotals.totalCost))}</div>
+                <div class="project-planning-kpi-value" data-kpi="plannedCost">${escapeHtml(fmtMoneyZero(initialTotalCost))}</div>
                 <div class="project-planning-kpi-sub">
                   <div class="project-planning-kpi-subline">
                     <span>Direct</span>
@@ -710,7 +901,7 @@
                   </div>
                   <div class="project-planning-kpi-subline">
                     <span>Overhead</span>
-                    <strong data-kpi="plannedOverhead">${escapeHtml(fmtMoneyZero(initialTotals.overheadCost))}</strong>
+                    <strong data-kpi="plannedOverhead">${escapeHtml(fmtMoneyZero(initialTotals.overheadCost + initialExpenseTotals.expenseCost))}</strong>
                   </div>
                 </div>
               </article>
@@ -719,12 +910,12 @@
                 <div class="project-planning-kpi-value" data-kpi="grossMargin">${escapeHtml(Number.isFinite(initialGrossMarginValue) ? fmtMoneyZero(initialGrossMarginValue) : "—")}</div>
                 <div class="project-planning-kpi-sub">
                   <div class="project-planning-kpi-subline">
-                    <span data-kpi-label="grossTopLine">${initialIsTmContract ? "Revenue" : "Contract"}</span>
-                    <strong data-kpi="grossContract">${escapeHtml(fmtMoneyZero(initialGrossTopLineValue))}</strong>
+                    <span data-kpi-label="grossTopLine">Revenue</span>
+                    <strong data-kpi="grossContract">${escapeHtml(fmtMoneyZero(initialTotalRevenue))}</strong>
                   </div>
                   <div class="project-planning-kpi-subline">
                     <span>Cost</span>
-                    <strong data-kpi="grossCost">${escapeHtml(fmtMoneyZero(initialTotals.totalCost))}</strong>
+                    <strong data-kpi="grossCost">${escapeHtml(fmtMoneyZero(initialTotalCost))}</strong>
                   </div>
                 </div>
               </article>
@@ -748,56 +939,106 @@
           <main>
             <section class="project-planning-block project-planning-table-card">
               <div class="project-planning-table-head">
-                <h3>Team Budgeting</h3>
-                <button type="button" class="button button-ghost" data-project-planning-add-member>Add Member</button>
+                <div class="project-planning-table-head-main">
+                  <h3>Team Budgeting</h3>
+                  <div class="project-planning-contract-type-toggle" role="tablist" aria-label="Planning table">
+                    <button
+                      type="button"
+                      class="project-planning-contract-type-option is-active"
+                      data-planning-tab-value="time"
+                      role="tab"
+                      aria-selected="true"
+                    >
+                      Time
+                    </button>
+                    <button
+                      type="button"
+                      class="project-planning-contract-type-option"
+                      data-planning-tab-value="expenses"
+                      role="tab"
+                      aria-selected="false"
+                    >
+                      Expenses
+                    </button>
+                  </div>
+                </div>
+                <div class="project-planning-actions">
+                  <button type="button" class="button button-ghost" data-project-planning-add-member>Add Member</button>
+                  <button type="button" class="button button-ghost" data-project-planning-add-expense hidden>Add Expense</button>
+                </div>
               </div>
-              <div class="project-planning-table-wrap">
-                <table class="project-planning-table">
-                  <thead>
-                    <tr>
-                      <th>Member</th>
-                      <th>Role</th>
-                      <th>Cost Rate</th>
-                      <th>Charge Rate</th>
-                      <th>Hours</th>
-                      <th>Cost</th>
-                      <th>Revenue</th>
-                      <th class="table-actions"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    ${
-                      planningRows.length
-                        ? planningRows
-                            .map((row) => {
-                              return `
-                                <tr class="table-row-surface" data-row-id="${escapeHtml(row.id)}">
-                                  <td>${escapeHtml(row.memberName)}</td>
-                                  <td>${escapeHtml(String(row.role).replace(/_/g, " "))}</td>
-                                  <td class="table-numeric table-output" data-row-output="costRate" data-row-id="${escapeHtml(row.id)}">${escapeHtml(fmtMoneyZero(row.costRate))}</td>
-                                  <td class="table-numeric table-input-cell"><input class="project-planning-input table-input" type="number" min="0" step="0.01" data-row-input="chargeRate" data-row-id="${escapeHtml(row.id)}" value="${escapeHtml(row.chargeRate)}" /></td>
-                                  <td class="table-numeric table-input-cell"><input class="project-planning-input table-input" type="number" min="0" step="0.25" data-row-input="hours" data-row-id="${escapeHtml(row.id)}" value="${escapeHtml(row.hours)}" /></td>
-                                  <td class="table-numeric table-output" data-row-output="cost" data-row-id="${escapeHtml(row.id)}">${escapeHtml(fmtMoneyZero(row.plannedCost))}</td>
-                                  <td class="table-numeric table-output" data-row-output="revenue" data-row-id="${escapeHtml(row.id)}">${escapeHtml(fmtMoneyZero(row.plannedRevenue))}</td>
-                                  <td class="table-actions">
-                                    ${
-                                      row.canDelete
-                                        ? `<button type="button" class="project-planning-row-delete" data-row-delete="${escapeHtml(row.id)}" aria-label="Delete member">${PROJECT_PLANNING_DELETE_ICON}</button>`
-                                        : `<button type="button" class="project-planning-row-delete" aria-hidden="true" disabled>${PROJECT_PLANNING_DELETE_ICON}</button>`
-                                    }
-                                  </td>
-                                </tr>
-                              `;
-                            })
-                            .join("")
-                        : `
-                          <tr>
-                            <td colspan="8" class="project-planning-placeholder">No team budgeting rows yet.</td>
-                          </tr>
-                        `
-                    }
-                  </tbody>
-                </table>
+              <div class="project-planning-table-panels">
+                <div class="project-planning-table-wrap" data-planning-tab-panel="time">
+                  <table class="project-planning-table">
+                    <thead>
+                      <tr>
+                        <th>Member</th>
+                        <th>Role</th>
+                        <th>Cost Rate</th>
+                        <th>Charge Rate</th>
+                        <th>Hours</th>
+                        <th>Cost</th>
+                        <th>Revenue</th>
+                        <th class="table-actions"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${
+                        planningRows.length
+                          ? planningRows
+                              .map((row) => {
+                                return `
+                                  <tr class="table-row-surface" data-row-id="${escapeHtml(row.id)}">
+                                    <td>${escapeHtml(row.memberName)}</td>
+                                    <td>${escapeHtml(String(row.role).replace(/_/g, " "))}</td>
+                                    <td class="table-numeric table-output" data-row-output="costRate" data-row-id="${escapeHtml(row.id)}">${escapeHtml(fmtMoneyZero(row.costRate))}</td>
+                                    <td class="table-numeric table-input-cell"><input class="project-planning-input table-input" type="number" min="0" step="0.01" data-row-input="chargeRate" data-row-id="${escapeHtml(row.id)}" value="${escapeHtml(row.chargeRate)}" /></td>
+                                    <td class="table-numeric table-input-cell"><input class="project-planning-input table-input" type="number" min="0" step="0.25" data-row-input="hours" data-row-id="${escapeHtml(row.id)}" value="${escapeHtml(row.hours)}" /></td>
+                                    <td class="table-numeric table-output" data-row-output="cost" data-row-id="${escapeHtml(row.id)}">${escapeHtml(fmtMoneyZero(row.plannedCost))}</td>
+                                    <td class="table-numeric table-output" data-row-output="revenue" data-row-id="${escapeHtml(row.id)}">${escapeHtml(fmtMoneyZero(row.plannedRevenue))}</td>
+                                    <td class="table-actions">
+                                      ${
+                                        row.canDelete
+                                          ? `<button type="button" class="project-planning-row-delete" data-row-delete="${escapeHtml(row.id)}" aria-label="Delete member">${PROJECT_PLANNING_DELETE_ICON}</button>`
+                                          : `<button type="button" class="project-planning-row-delete" aria-hidden="true" disabled>${PROJECT_PLANNING_DELETE_ICON}</button>`
+                                      }
+                                    </td>
+                                  </tr>
+                                `;
+                              })
+                              .join("")
+                          : `
+                            <tr>
+                              <td colspan="8" class="project-planning-placeholder">No team budgeting rows yet.</td>
+                            </tr>
+                          `
+                      }
+                    </tbody>
+                  </table>
+                </div>
+                <div class="project-planning-expenses-panel" data-planning-tab-panel="expenses" hidden>
+                  <div class="project-planning-table-wrap">
+                    <table class="project-planning-table">
+                      <thead>
+                        <tr>
+                          <th>Category</th>
+                          <th>Description</th>
+                          <th>Units</th>
+                          <th>Unit Cost</th>
+                          <th>Markup %</th>
+                          <th>Total</th>
+                          <th>Billable</th>
+                          <th class="table-actions"></th>
+                        </tr>
+                      </thead>
+                      <tbody data-expense-rows-body>
+                        <tr>
+                          <td colspan="8" class="project-planning-placeholder">No expense rows yet.</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
               </div>
             </section>
           </main>
@@ -811,23 +1052,13 @@
                   <span class="project-planning-econ-value" data-econ="revenuePrimary">${escapeHtml(initialIsTmContract ? fmtMoneyZero(initialTotals.plannedRevenueTotal) : fmtMoneyZero(contractAmountValue))}</span>
                 </div>
                 <div class="project-planning-econ-row">
-                  <span class="project-planning-econ-label" data-econ-label="revenueSecondary">${initialIsTmContract ? "Expense Revenue" : "Standard Revenue"}</span>
-                  <span class="project-planning-econ-value" data-econ="revenueSecondary">${escapeHtml(initialIsTmContract ? fmtMoneyZero(0) : fmtMoneyZero(initialTotals.standardRevenueTotal))}</span>
+                  <span class="project-planning-econ-label" data-econ-label="revenueSecondary">Expense Revenue</span>
+                  <span class="project-planning-econ-value" data-econ="revenueSecondary">${escapeHtml(fmtMoneyZero(initialExpenseTotals.expenseRevenue))}</span>
                 </div>
                 <div class="project-planning-econ-row">
-                  <span class="project-planning-econ-label" data-econ-label="revenueTertiary">
-                    ${initialIsTmContract
-                      ? "Total Revenue"
-                      : "Variance to Standard"}
-                  </span>
+                  <span class="project-planning-econ-label" data-econ-label="revenueTertiary">Total Revenue</span>
                   <span class="project-planning-econ-value" data-econ="revenueTertiary">
-                    ${escapeHtml(
-                      initialIsTmContract
-                        ? fmtMoneyZero(initialTotals.plannedRevenueTotal)
-                        : Number.isFinite(contractAmountValue)
-                          ? fmtMoney(contractAmountValue - initialTotals.standardRevenueTotal)
-                          : "—"
-                    )}
+                    ${escapeHtml(fmtMoneyZero(initialTotalRevenue))}
                   </span>
                 </div>
               </section>
@@ -837,9 +1068,9 @@
                   <span class="project-planning-econ-label">Direct Labor Cost</span>
                   <span class="project-planning-econ-value" data-econ="directCost">${escapeHtml(fmtMoneyZero(initialTotals.directCost))}</span>
                 </div>
-                <div class="project-planning-econ-row" data-econ-row="expenseCost" ${initialIsTmContract ? "" : "hidden"}>
+                <div class="project-planning-econ-row" data-econ-row="expenseCost">
                   <span class="project-planning-econ-label">Expense Cost</span>
-                  <span class="project-planning-econ-value" data-econ="expenseCost">${escapeHtml(fmtMoneyZero(0))}</span>
+                  <span class="project-planning-econ-value" data-econ="expenseCost">${escapeHtml(fmtMoneyZero(initialExpenseTotals.expenseCost))}</span>
                 </div>
                 <div class="project-planning-econ-row">
                   <span class="project-planning-econ-label">Overhead</span>
@@ -847,7 +1078,7 @@
                 </div>
                 <div class="project-planning-econ-row">
                   <span class="project-planning-econ-label">Total Cost</span>
-                  <span class="project-planning-econ-value" data-econ="totalCost">${escapeHtml(fmtMoneyZero(initialTotals.totalCost))}</span>
+                  <span class="project-planning-econ-value" data-econ="totalCost">${escapeHtml(fmtMoneyZero(initialTotalCost))}</span>
                 </div>
               </section>
               <section class="project-planning-econ-section">
@@ -1014,18 +1245,18 @@
     function renderComputed() {
       planningRows = computeRows(planningRows);
       const totals = computeTotals(planningRows, contractAmountValue, overheadValue);
+      const expenseTotals = computeExpenseTotals(planningExpenseRows);
       const isTmContract = contractType === "tm";
-      const grossTopLineValue = isTmContract ? totals.plannedRevenueTotal : contractAmountValue;
-      const expenseRevenueTotal = 0;
-      const expenseCostTotal = 0;
-      const totalRevenueValue = totals.plannedRevenueTotal + expenseRevenueTotal;
-      const totalCostValue = totals.totalCost + expenseCostTotal;
-      const grossMarginValue = Number.isFinite(grossTopLineValue)
-        ? (isTmContract ? totalRevenueValue : grossTopLineValue) - totalCostValue
-        : null;
-      const grossMarginPctDenominator = isTmContract ? totalRevenueValue : grossTopLineValue;
-      const grossMarginPct = Number.isFinite(grossMarginPctDenominator) && grossMarginPctDenominator > 0
-        ? (grossMarginValue / grossMarginPctDenominator) * 100
+      const baseRevenueValue = isTmContract
+        ? totals.plannedRevenueTotal
+        : (Number.isFinite(contractAmountValue) ? contractAmountValue : 0);
+      const expenseRevenueTotal = expenseTotals.expenseRevenue;
+      const expenseCostTotal = expenseTotals.expenseCost;
+      const totalRevenueValue = baseRevenueValue + expenseRevenueTotal;
+      const totalCostValue = totals.directCost + expenseCostTotal + totals.overheadCost;
+      const grossMarginValue = totalRevenueValue - totalCostValue;
+      const grossMarginPct = totalRevenueValue > 0
+        ? (grossMarginValue / totalRevenueValue) * 100
         : null;
       const realizationNumerator = isTmContract ? totals.plannedRevenueTotal : contractAmountValue;
       const realizationPct =
@@ -1042,7 +1273,7 @@
       });
 
       if (kpiContractLabelNode) {
-        kpiContractLabelNode.textContent = isTmContract ? "Planned Revenue" : "Contract Amount";
+        kpiContractLabelNode.textContent = "Planned Revenue";
       }
       if (kpiContractEditIconNode) {
         kpiContractEditIconNode.hidden = isTmContract;
@@ -1051,23 +1282,19 @@
         kpiContractEditHintNode.hidden = isTmContract;
       }
       if (kpiContractNode && !isEditingContractAmount) {
-        kpiContractNode.textContent = isTmContract
-          ? fmtMoneyZero(totals.plannedRevenueTotal)
-          : fmtMoneyZero(contractAmountValue);
+        kpiContractNode.textContent = fmtMoneyZero(totalRevenueValue);
       }
-      if (kpiPlannedCostNode) kpiPlannedCostNode.textContent = fmtMoneyZero(totals.totalCost);
+      if (kpiPlannedCostNode) kpiPlannedCostNode.textContent = fmtMoneyZero(totalCostValue);
       if (kpiPlannedDirectNode) kpiPlannedDirectNode.textContent = fmtMoneyZero(totals.directCost);
-      if (kpiPlannedOverheadNode) kpiPlannedOverheadNode.textContent = fmtMoneyZero(totals.overheadCost);
+      if (kpiPlannedOverheadNode) kpiPlannedOverheadNode.textContent = fmtMoneyZero(totals.overheadCost + expenseCostTotal);
       if (kpiGrossMarginNode) kpiGrossMarginNode.textContent = Number.isFinite(grossMarginValue) ? fmtMoneyZero(grossMarginValue) : "—";
       if (kpiGrossTopLineLabelNode) {
-        kpiGrossTopLineLabelNode.textContent = isTmContract ? "Revenue" : "Contract";
+        kpiGrossTopLineLabelNode.textContent = "Revenue";
       }
       if (kpiGrossContractNode) {
-        kpiGrossContractNode.textContent = isTmContract
-          ? fmtMoneyZero(totals.plannedRevenueTotal)
-          : fmtMoneyZero(contractAmountValue);
+        kpiGrossContractNode.textContent = fmtMoneyZero(totalRevenueValue);
       }
-      if (kpiGrossCostNode) kpiGrossCostNode.textContent = fmtMoneyZero(totals.totalCost);
+      if (kpiGrossCostNode) kpiGrossCostNode.textContent = fmtMoneyZero(totalCostValue);
       if (kpiRealizationLabelNode) {
         kpiRealizationLabelNode.textContent = "Realization";
       }
@@ -1097,32 +1324,20 @@
         }
       }
       if (econRevenuePrimaryLabelNode) econRevenuePrimaryLabelNode.textContent = isTmContract ? "Time Revenue" : "Contract Amount";
-      if (econRevenueSecondaryLabelNode) econRevenueSecondaryLabelNode.textContent = isTmContract ? "Expense Revenue" : "Standard Revenue";
-      if (econRevenueTertiaryLabelNode) {
-        econRevenueTertiaryLabelNode.textContent = isTmContract
-          ? "Total Revenue"
-          : "Variance to Standard";
-      }
+      if (econRevenueSecondaryLabelNode) econRevenueSecondaryLabelNode.textContent = "Expense Revenue";
+      if (econRevenueTertiaryLabelNode) econRevenueTertiaryLabelNode.textContent = "Total Revenue";
       if (econRevenuePrimaryNode) {
         econRevenuePrimaryNode.textContent = isTmContract ? fmtMoneyZero(totals.plannedRevenueTotal) : fmtMoneyZero(contractAmountValue);
       }
       if (econRevenueSecondaryNode) {
-        econRevenueSecondaryNode.textContent = isTmContract ? fmtMoneyZero(expenseRevenueTotal) : fmtMoneyZero(totals.standardRevenueTotal);
+        econRevenueSecondaryNode.textContent = fmtMoneyZero(expenseRevenueTotal);
       }
       if (econRevenueTertiaryNode) {
-        if (isTmContract) {
-          econRevenueTertiaryNode.textContent = fmtMoneyZero(totalRevenueValue);
-          econRevenueTertiaryNode.classList.remove("is-negative", "is-positive");
-        } else {
-          econRevenueTertiaryNode.textContent = Number.isFinite(discountPremiumValue) ? fmtMoney(discountPremiumValue) : "—";
-          setEconomicSignal(econRevenueTertiaryNode, discountPremiumValue, {
-            negativeIsDanger: true,
-            positiveIsSuccess: true,
-          });
-        }
+        econRevenueTertiaryNode.textContent = fmtMoneyZero(totalRevenueValue);
+        econRevenueTertiaryNode.classList.remove("is-negative", "is-positive");
       }
       if (econDirectCostNode) econDirectCostNode.textContent = fmtMoneyZero(totals.directCost);
-      if (econExpenseCostRowNode) econExpenseCostRowNode.hidden = !isTmContract;
+      if (econExpenseCostRowNode) econExpenseCostRowNode.hidden = false;
       if (econExpenseCostNode) econExpenseCostNode.textContent = fmtMoneyZero(expenseCostTotal);
       if (econOverheadCostNode) econOverheadCostNode.textContent = fmtMoneyZero(totals.overheadCost);
       if (econTotalCostNode) econTotalCostNode.textContent = fmtMoneyZero(totalCostValue);
@@ -1215,6 +1430,564 @@
     });
 
     const addMemberButton = container.querySelector("[data-project-planning-add-member]");
+    const addExpenseButton = container.querySelector("[data-project-planning-add-expense]");
+    const planningTabButtons = Array.from(container.querySelectorAll("[data-planning-tab-value]"));
+    const planningTabPanels = {
+      time: container.querySelector('[data-planning-tab-panel="time"]'),
+      expenses: container.querySelector('[data-planning-tab-panel="expenses"]'),
+    };
+    const expenseRowsBody = container.querySelector("[data-expense-rows-body]");
+
+    function makeExpenseRow(defaultBillable = false) {
+      return {
+        id: `expense-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        categoryId: "",
+        description: "",
+        units: 0,
+        unitCost: 0,
+        markupPct: 0,
+        billable: defaultBillable === true,
+      };
+    }
+
+    function normalizeExpenseFieldValue(field, value) {
+      if (field === "categoryId" || field === "description") {
+        return String(value || "").trim();
+      }
+      if (field === "billable") {
+        return value === true;
+      }
+      if (field === "units") {
+        const numeric = Number(value);
+        return Number.isFinite(numeric) ? Math.max(0, Math.trunc(numeric)) : 0;
+      }
+      if (field === "unitCost" || field === "markupPct") {
+        const numeric = Number(value);
+        return Number.isFinite(numeric) ? Math.max(0, numeric) : 0;
+      }
+      return value;
+    }
+
+    function expenseFieldValuesEqual(field, left, right) {
+      const a = normalizeExpenseFieldValue(field, left);
+      const b = normalizeExpenseFieldValue(field, right);
+      if (typeof a === "number" && typeof b === "number") return a === b;
+      return a === b;
+    }
+
+    const persistedExpenseFields = new Map(
+      planningExpenseRows.map((row) => [
+        String(row.id),
+        {
+          categoryId: String(row.categoryId || "").trim(),
+          description: String(row.description || "").trim(),
+          units: normalizeExpenseFieldValue("units", row.units),
+          unitCost: normalizeExpenseFieldValue("unitCost", row.unitCost),
+          markupPct: normalizeExpenseFieldValue("markupPct", row.markupPct),
+          billable: row.billable === true,
+        },
+      ])
+    );
+    const expenseDraftMeta = new Map(
+      planningExpenseRows.map((row) => [
+        String(row.id),
+        {
+          isNew: false,
+          customizedMarkupPct: false,
+          customizedBillable: false,
+        },
+      ])
+    );
+    const expenseFieldRequestSeq = new Map();
+
+    function computeExpenseRowTotal(row) {
+      const units = toNumberOrZero(row?.units);
+      const unitCost = toNumberOrZero(row?.unitCost);
+      return units * unitCost;
+    }
+
+    function renderExpensesTable() {
+      if (!expenseRowsBody) return;
+      if (!planningExpenseRows.length) {
+        expenseRowsBody.innerHTML = `<tr><td colspan="8" class="project-planning-placeholder">No expense rows yet.</td></tr>`;
+        return;
+      }
+      expenseRowsBody.innerHTML = planningExpenseRows
+        .map((row) => {
+          const rowId = escapeHtml(row.id);
+          const selectedCategory = String(row.categoryId || "");
+          const categorySelect = [
+            `<option value="" ${selectedCategory ? "" : "selected"}>Select category</option>`,
+            ...projectExpenseCategories.map(
+              (item) =>
+                `<option value="${escapeHtml(item.id)}" ${item.id === selectedCategory ? "selected" : ""}>${escapeHtml(item.name)}</option>`
+            ),
+          ].join("");
+          return `
+            <tr class="table-row-surface" data-expense-row-id="${rowId}">
+              <td>
+                <select class="project-planning-input table-input" data-expense-input="categoryId" data-expense-row-id="${rowId}">
+                  ${categorySelect}
+                </select>
+              </td>
+              <td>
+                <input class="project-planning-input table-input" type="text" data-expense-input="description" data-expense-row-id="${rowId}" value="${escapeHtml(row.description || "")}" />
+              </td>
+              <td class="table-numeric">
+                <input class="project-planning-input table-input" type="number" min="0" step="1" data-expense-input="units" data-expense-row-id="${rowId}" value="${escapeHtml(toNumberOrZero(row.units))}" />
+              </td>
+              <td class="table-numeric">
+                <input class="project-planning-input table-input" type="number" min="0" step="0.01" data-expense-input="unitCost" data-expense-row-id="${rowId}" value="${escapeHtml(toNumberOrZero(row.unitCost))}" />
+              </td>
+              <td class="table-numeric">
+                <input class="project-planning-input table-input" type="number" min="0" step="0.01" data-expense-input="markupPct" data-expense-row-id="${rowId}" value="${escapeHtml(toNumberOrZero(row.markupPct))}" />
+              </td>
+              <td class="table-numeric table-output">${escapeHtml(fmtMoneyZero(computeExpenseRowTotal(row)))}</td>
+              <td>
+                <label class="perm-switch" aria-label="Billable">
+                  <input type="checkbox" data-expense-input="billable" data-expense-row-id="${rowId}" ${row.billable ? "checked" : ""} />
+                  <span class="perm-switch-track" aria-hidden="true"></span>
+                </label>
+              </td>
+              <td class="table-actions">
+                <button type="button" class="project-planning-row-delete" data-expense-delete="${rowId}" aria-label="Delete expense">${PROJECT_PLANNING_DELETE_ICON}</button>
+              </td>
+            </tr>
+          `;
+        })
+        .join("");
+    }
+
+    function syncPlanningTab() {
+      planningTabButtons.forEach((button) => {
+        const value = String(button.dataset.planningTabValue || "").trim();
+        const isActive = value === activePlanningTab;
+        button.classList.toggle("is-active", isActive);
+        button.setAttribute("aria-selected", isActive ? "true" : "false");
+      });
+      if (planningTabPanels.time) {
+        planningTabPanels.time.hidden = activePlanningTab !== "time";
+      }
+      if (planningTabPanels.expenses) {
+        planningTabPanels.expenses.hidden = activePlanningTab !== "expenses";
+      }
+      if (addMemberButton) {
+        addMemberButton.hidden = activePlanningTab !== "time";
+      }
+      if (addExpenseButton) {
+        addExpenseButton.hidden = activePlanningTab !== "expenses";
+      }
+    }
+
+    planningTabButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        const nextTab = String(button.dataset.planningTabValue || "").trim();
+        if (nextTab !== "time" && nextTab !== "expenses") return;
+        if (nextTab === activePlanningTab) return;
+        activePlanningTab = nextTab;
+        syncPlanningTab();
+      });
+    });
+
+    addExpenseButton?.addEventListener("click", async () => {
+      const projectIdValue = String(project?.id || "").trim();
+      if (!projectIdValue) return;
+      const defaultBillable = contractType === "tm";
+      const optimisticRow = makeExpenseRow(defaultBillable);
+      const optimisticId = String(optimisticRow.id);
+      planningExpenseRows = [...planningExpenseRows, optimisticRow];
+      persistedExpenseFields.set(optimisticId, {
+        categoryId: "",
+        description: "",
+        units: 0,
+        unitCost: 0,
+        markupPct: 0,
+        billable: defaultBillable,
+      });
+      expenseDraftMeta.set(optimisticId, {
+        isNew: true,
+        customizedMarkupPct: false,
+        customizedBillable: false,
+      });
+      renderExpensesTable();
+      renderComputed();
+      addExpenseButton.disabled = true;
+      try {
+        if (typeof onCreateExpenseRow === "function") {
+          const created = await onCreateExpenseRow({
+            projectId: projectIdValue,
+            categoryId: "",
+            description: "",
+            units: 0,
+            unitCost: 0,
+            markupPct: 0,
+            billable: defaultBillable,
+          });
+          const createdId = String(created?.id || "").trim();
+          if (!createdId) {
+            throw new Error("Unable to create expense row.");
+          }
+          const nextRow = {
+            id: createdId,
+            categoryId: String(created?.categoryId || "").trim(),
+            description: String(created?.description || ""),
+            units: normalizeExpenseFieldValue("units", created?.units),
+            unitCost: normalizeExpenseFieldValue("unitCost", created?.unitCost),
+            markupPct: normalizeExpenseFieldValue("markupPct", created?.markupPct),
+            billable: created?.billable === true,
+          };
+          planningExpenseRows = planningExpenseRows.map((item) =>
+            String(item.id) === optimisticId ? nextRow : item
+          );
+          persistedExpenseFields.delete(optimisticId);
+          expenseDraftMeta.delete(optimisticId);
+          persistedExpenseFields.set(createdId, {
+            categoryId: nextRow.categoryId,
+            description: String(nextRow.description || "").trim(),
+            units: nextRow.units,
+            unitCost: nextRow.unitCost,
+            markupPct: nextRow.markupPct,
+            billable: nextRow.billable,
+          });
+          expenseDraftMeta.set(createdId, {
+            isNew: true,
+            customizedMarkupPct: false,
+            customizedBillable: false,
+          });
+        }
+        renderExpensesTable();
+        renderComputed();
+      } catch (error) {
+        planningExpenseRows = planningExpenseRows.filter((item) => String(item.id) !== optimisticId);
+        persistedExpenseFields.delete(optimisticId);
+        expenseDraftMeta.delete(optimisticId);
+        renderExpensesTable();
+        renderComputed();
+        if (typeof window !== "undefined" && typeof window.alert === "function") {
+          window.alert(error?.message || "Unable to create expense row.");
+        }
+        return;
+      } finally {
+        addExpenseButton.disabled = false;
+      }
+    });
+
+    expenseRowsBody?.addEventListener("input", (event) => {
+      const target = event.target;
+      const inputKey = String(target?.dataset?.expenseInput || "").trim();
+      const rowId = String(target?.dataset?.expenseRowId || "").trim();
+      if (!inputKey || !rowId) return;
+      const row = planningExpenseRows.find((item) => String(item.id) === rowId);
+      if (!row) return;
+      if (inputKey === "description" || inputKey === "categoryId") {
+        row[inputKey] = String(target.value || "");
+      } else if (inputKey === "units" || inputKey === "unitCost" || inputKey === "markupPct") {
+        const next = String(target.value || "").trim();
+        if (inputKey === "units") {
+          const parsed = next === "" ? 0 : Math.max(0, Math.trunc(toNumberOrZero(next)));
+          row.units = parsed;
+          target.value = String(parsed);
+        } else if (inputKey === "markupPct") {
+          row.markupPct = next === "" ? 0 : Math.max(0, toNumberOrZero(next));
+        } else {
+          row.unitCost = next === "" ? 0 : Math.max(0, toNumberOrZero(next));
+        }
+        const rowNode = target.closest("tr");
+        const totalNode = rowNode?.querySelector("td:nth-child(6)");
+        if (totalNode) {
+          totalNode.textContent = fmtMoneyZero(computeExpenseRowTotal(row));
+        }
+      }
+      renderComputed();
+    });
+
+    expenseRowsBody?.addEventListener("change", async (event) => {
+      const target = event.target;
+      const inputKey = String(target?.dataset?.expenseInput || "").trim();
+      const rowId = String(target?.dataset?.expenseRowId || "").trim();
+      if (!inputKey || !rowId) return;
+      const row = planningExpenseRows.find((item) => String(item.id) === rowId);
+      if (!row) return;
+      if (inputKey === "billable") {
+        const previousValue = row.billable === true;
+        const nextValue = target.checked === true;
+        row.billable = nextValue;
+        renderComputed();
+        const persisted = persistedExpenseFields.get(rowId) || {};
+        if (expenseFieldValuesEqual("billable", persisted.billable, nextValue)) {
+          return;
+        }
+        if (typeof onPersistExpenseField !== "function") {
+          persistedExpenseFields.set(rowId, { ...persisted, billable: nextValue });
+          return;
+        }
+        const requestKey = `${rowId}:billable`;
+        const requestSeq = (expenseFieldRequestSeq.get(requestKey) || 0) + 1;
+        expenseFieldRequestSeq.set(requestKey, requestSeq);
+        try {
+          await onPersistExpenseField({
+            projectId: String(project?.id || "").trim(),
+            expenseId: rowId,
+            field: "billable",
+            value: nextValue,
+          });
+          if ((expenseFieldRequestSeq.get(requestKey) || 0) !== requestSeq) {
+            return;
+          }
+          const meta = expenseDraftMeta.get(rowId) || {};
+          meta.customizedBillable = true;
+          expenseDraftMeta.set(rowId, meta);
+          persistedExpenseFields.set(rowId, { ...persisted, billable: nextValue });
+        } catch (error) {
+          if ((expenseFieldRequestSeq.get(requestKey) || 0) !== requestSeq) {
+            return;
+          }
+          row.billable = previousValue;
+          target.checked = previousValue;
+          renderComputed();
+        }
+      } else if (inputKey === "categoryId") {
+        const previousCategoryId = String(row.categoryId || "");
+        const nextCategoryId = String(target.value || "");
+        row.categoryId = nextCategoryId;
+        const persisted = persistedExpenseFields.get(rowId) || {};
+        const meta = expenseDraftMeta.get(rowId) || {
+          isNew: false,
+          customizedMarkupPct: false,
+          customizedBillable: false,
+        };
+        const selectedCategory = projectExpenseCategories.find(
+          (item) => String(item?.id || "").trim() === nextCategoryId
+        );
+        const hasDefaultBillable =
+          typeof selectedCategory?.defaultBillable === "boolean" ||
+          typeof selectedCategory?.default_billable === "boolean";
+        const hasDefaultMarkup =
+          selectedCategory?.defaultMarkupPct !== undefined ||
+          selectedCategory?.default_markup_pct !== undefined;
+        const nextDefaultBillable =
+          typeof selectedCategory?.defaultBillable === "boolean"
+            ? selectedCategory.defaultBillable
+            : typeof selectedCategory?.default_billable === "boolean"
+              ? selectedCategory.default_billable
+              : row.billable;
+        const nextDefaultMarkup = hasDefaultMarkup
+          ? normalizeExpenseFieldValue(
+              "markupPct",
+              selectedCategory?.defaultMarkupPct ?? selectedCategory?.default_markup_pct
+            )
+          : row.markupPct;
+        const shouldApplyDefaults = Boolean(meta.isNew);
+        const applyBillable = shouldApplyDefaults && hasDefaultBillable && !meta.customizedBillable;
+        const applyMarkup = shouldApplyDefaults && hasDefaultMarkup && !meta.customizedMarkupPct;
+        const previousBillable = row.billable;
+        const previousMarkup = row.markupPct;
+        if (applyBillable) row.billable = nextDefaultBillable === true;
+        if (applyMarkup) row.markupPct = nextDefaultMarkup;
+        if (expenseFieldValuesEqual("categoryId", persisted.categoryId, nextCategoryId)) {
+          if (applyBillable) {
+            const checkbox = expenseRowsBody.querySelector(
+              `input[data-expense-input="billable"][data-expense-row-id="${rowId}"]`
+            );
+            if (checkbox) checkbox.checked = row.billable;
+          }
+          if (applyMarkup) {
+            const markupInput = expenseRowsBody.querySelector(
+              `input[data-expense-input="markupPct"][data-expense-row-id="${rowId}"]`
+            );
+            if (markupInput) markupInput.value = String(row.markupPct);
+          }
+          renderComputed();
+          return;
+        }
+        if (typeof onPersistExpenseField !== "function") {
+          persistedExpenseFields.set(rowId, {
+            ...persisted,
+            categoryId: nextCategoryId,
+            ...(applyBillable ? { billable: row.billable } : {}),
+            ...(applyMarkup ? { markupPct: row.markupPct } : {}),
+          });
+          renderComputed();
+          return;
+        }
+        target.disabled = true;
+        try {
+          await onPersistExpenseField({
+            projectId: String(project?.id || "").trim(),
+            expenseId: rowId,
+            field: "categoryId",
+            value: nextCategoryId,
+          });
+          const nextPersisted = {
+            ...persisted,
+            categoryId: nextCategoryId,
+          };
+          if (applyBillable) {
+            await onPersistExpenseField({
+              projectId: String(project?.id || "").trim(),
+              expenseId: rowId,
+              field: "billable",
+              value: row.billable,
+            });
+            nextPersisted.billable = row.billable;
+          }
+          if (applyMarkup) {
+            await onPersistExpenseField({
+              projectId: String(project?.id || "").trim(),
+              expenseId: rowId,
+              field: "markupPct",
+              value: row.markupPct,
+            });
+            nextPersisted.markupPct = row.markupPct;
+          }
+          persistedExpenseFields.set(rowId, nextPersisted);
+          renderComputed();
+        } catch (error) {
+          row.categoryId = previousCategoryId;
+          row.billable = previousBillable;
+          row.markupPct = previousMarkup;
+          target.value = previousCategoryId;
+          const checkbox = expenseRowsBody.querySelector(
+            `input[data-expense-input="billable"][data-expense-row-id="${rowId}"]`
+          );
+          if (checkbox) checkbox.checked = previousBillable;
+          const markupInput = expenseRowsBody.querySelector(
+            `input[data-expense-input="markupPct"][data-expense-row-id="${rowId}"]`
+          );
+          if (markupInput) markupInput.value = String(previousMarkup);
+          renderComputed();
+        } finally {
+          target.disabled = false;
+        }
+      } else if (inputKey === "units") {
+        const normalized = Math.max(0, Math.trunc(toNumberOrZero(target.value)));
+        row.units = normalized;
+        target.value = String(normalized);
+      } else if (inputKey === "unitCost") {
+        const normalized = Math.max(0, toNumberOrZero(target.value));
+        row.unitCost = normalized;
+        target.value = String(normalized);
+      } else if (inputKey === "markupPct") {
+        const normalized = Math.max(0, toNumberOrZero(target.value));
+        row.markupPct = normalized;
+        target.value = String(normalized);
+        const meta = expenseDraftMeta.get(rowId) || {};
+        meta.customizedMarkupPct = true;
+        expenseDraftMeta.set(rowId, meta);
+      }
+    });
+
+    expenseRowsBody?.addEventListener("focusout", async (event) => {
+      const target = event.target;
+      const inputKey = String(target?.dataset?.expenseInput || "").trim();
+      const rowId = String(target?.dataset?.expenseRowId || "").trim();
+      if (!inputKey || !rowId) return;
+      if (
+        inputKey !== "description" &&
+        inputKey !== "units" &&
+        inputKey !== "unitCost" &&
+        inputKey !== "markupPct"
+      ) {
+        return;
+      }
+      const row = planningExpenseRows.find((item) => String(item.id) === rowId);
+      if (!row) return;
+      const persisted = persistedExpenseFields.get(rowId) || {};
+      const nextValue = row[inputKey];
+      const previousValue = persisted[inputKey];
+      if (expenseFieldValuesEqual(inputKey, previousValue, nextValue)) return;
+      if (typeof onPersistExpenseField !== "function") {
+        persistedExpenseFields.set(rowId, { ...persisted, [inputKey]: normalizeExpenseFieldValue(inputKey, nextValue) });
+        renderComputed();
+        return;
+      }
+      target.disabled = true;
+      try {
+        await onPersistExpenseField({
+          projectId: String(project?.id || "").trim(),
+          expenseId: rowId,
+          field: inputKey,
+          value: normalizeExpenseFieldValue(inputKey, nextValue),
+        });
+        persistedExpenseFields.set(rowId, {
+          ...persisted,
+          [inputKey]: normalizeExpenseFieldValue(inputKey, nextValue),
+        });
+        if (inputKey === "markupPct") {
+          const meta = expenseDraftMeta.get(rowId) || {};
+          meta.customizedMarkupPct = true;
+          expenseDraftMeta.set(rowId, meta);
+        }
+        renderComputed();
+      } catch (error) {
+        row[inputKey] = previousValue;
+        if (inputKey === "description") {
+          target.value = String(previousValue || "");
+        } else {
+          target.value = String(normalizeExpenseFieldValue(inputKey, previousValue));
+          const rowNode = target.closest("tr");
+          const totalNode = rowNode?.querySelector("td:nth-child(6)");
+          if (totalNode) totalNode.textContent = fmtMoneyZero(computeExpenseRowTotal(row));
+        }
+        renderComputed();
+      } finally {
+        target.disabled = false;
+      }
+    });
+
+    expenseRowsBody?.addEventListener("click", async (event) => {
+      const deleteButton = event.target.closest("[data-expense-delete]");
+      if (!deleteButton) return;
+      const rowId = String(deleteButton.dataset.expenseDelete || "").trim();
+      if (!rowId) return;
+      const rowIndex = planningExpenseRows.findIndex((item) => String(item.id) === rowId);
+      const row = rowIndex >= 0 ? planningExpenseRows[rowIndex] : null;
+      if (!row) return;
+      const confirmed = window.confirm("Remove this expense?");
+      if (!confirmed) return;
+      const removedRow = { ...row };
+      planningExpenseRows = planningExpenseRows.filter((item) => String(item.id) !== rowId);
+      persistedExpenseFields.delete(rowId);
+      expenseDraftMeta.delete(rowId);
+      renderExpensesTable();
+      renderComputed();
+      try {
+        if (typeof onDeleteExpenseRow === "function") {
+          await onDeleteExpenseRow({
+            projectId: String(project?.id || "").trim(),
+            expenseId: rowId,
+          });
+        }
+      } catch (error) {
+        const nextRows = planningExpenseRows.slice();
+        const restoreIndex = rowIndex >= 0 && rowIndex <= nextRows.length ? rowIndex : nextRows.length;
+        nextRows.splice(restoreIndex, 0, removedRow);
+        planningExpenseRows = nextRows;
+        persistedExpenseFields.set(rowId, {
+          categoryId: String(removedRow.categoryId || ""),
+          description: String(removedRow.description || "").trim(),
+          units: normalizeExpenseFieldValue("units", removedRow.units),
+          unitCost: normalizeExpenseFieldValue("unitCost", removedRow.unitCost),
+          markupPct: normalizeExpenseFieldValue("markupPct", removedRow.markupPct),
+          billable: removedRow.billable === true,
+        });
+        expenseDraftMeta.set(rowId, {
+          isNew: false,
+          customizedMarkupPct: true,
+          customizedBillable: true,
+        });
+        renderExpensesTable();
+        renderComputed();
+        if (typeof window !== "undefined" && typeof window.alert === "function") {
+          window.alert(error?.message || "Unable to remove expense row.");
+        }
+        return;
+      }
+    });
+
+    renderExpensesTable();
+    syncPlanningTab();
+
     addMemberButton?.addEventListener("click", () => {
       if (typeof onAddMember === "function") {
         onAddMember({
@@ -1265,11 +2038,22 @@
       button.addEventListener("click", async () => {
         const rowId = String(button.dataset.rowDelete || "").trim();
         if (!rowId) return;
-        const row = planningRows.find((item) => String(item.id) === rowId);
+        const rowIndex = planningRows.findIndex((item) => String(item.id) === rowId);
+        const row = rowIndex >= 0 ? planningRows[rowIndex] : null;
         if (!row || !row.canDelete) return;
         const confirmed = window.confirm("Remove this member?");
         if (!confirmed) return;
-        button.disabled = true;
+        const tbody = container.querySelector(".project-planning-table tbody");
+        const rowEl = button.closest("tr");
+        const nextSibling = rowEl?.nextElementSibling || null;
+        const removedRow = { ...row };
+        persistedRowFields.delete(rowId);
+        planningRows = planningRows.filter((item) => String(item.id) !== rowId);
+        rowEl?.remove();
+        if (!planningRows.length && tbody) {
+          tbody.innerHTML = `<tr><td colspan="8" class="project-planning-placeholder">No team budgeting rows yet.</td></tr>`;
+        }
+        renderComputed();
         try {
           if (typeof onDeleteMember === "function") {
             await onDeleteMember({
@@ -1279,20 +2063,27 @@
             });
           }
         } catch (error) {
-          button.disabled = false;
+          const nextRows = planningRows.slice();
+          const restoreIndex = rowIndex >= 0 && rowIndex <= nextRows.length ? rowIndex : nextRows.length;
+          nextRows.splice(restoreIndex, 0, removedRow);
+          planningRows = nextRows;
+          persistedRowFields.set(rowId, {
+            chargeRate: Number(removedRow.chargeRate) || 0,
+            hours: Number(removedRow.hours) || 0,
+          });
+          if (tbody) {
+            const placeholder = tbody.querySelector(".project-planning-placeholder")?.closest("tr");
+            if (placeholder) placeholder.remove();
+            if (rowEl) {
+              const anchor = nextSibling && nextSibling.parentNode === tbody ? nextSibling : null;
+              tbody.insertBefore(rowEl, anchor);
+              const restoredButton = rowEl.querySelector("[data-row-delete]");
+              if (restoredButton) restoredButton.disabled = false;
+            }
+          }
+          renderComputed();
           return;
         }
-        persistedRowFields.delete(rowId);
-        planningRows = planningRows.filter((item) => String(item.id) !== rowId);
-        const rowEl = button.closest("tr");
-        rowEl?.remove();
-        if (!planningRows.length) {
-          const tbody = container.querySelector(".project-planning-table tbody");
-          if (tbody) {
-            tbody.innerHTML = `<tr><td colspan="8" class="project-planning-placeholder">No team budgeting rows yet.</td></tr>`;
-          }
-        }
-        renderComputed();
       });
     });
 
