@@ -1,5 +1,10 @@
 (function () {
   const STYLE_ID = "project-planning-page-style";
+  const PROJECT_PLANNING_DELETE_ICON = `
+    <svg viewBox="0 -960 960 960" aria-hidden="true">
+      <path d="M280-120q-33 0-56.5-23.5T200-200v-520h-40v-80h200v-40h240v40h200v80h-40v520q0 33-23.5 56.5T680-120H280Zm400-600H280v520h400v-520ZM360-280h80v-360h-80v360Zm160 0h80v-360h-80v360ZM280-720v520-520Z" fill="currentColor"/>
+    </svg>
+  `;
 
   function ensurePlanningStyles() {
     if (document.getElementById(STYLE_ID)) return;
@@ -61,36 +66,38 @@
       .project-planning-kpi {
         border: 1px solid var(--line);
         border-radius: 12px;
-        padding: 12px 14px;
+        padding: 11px 14px;
         background: var(--surface);
       }
       .project-planning-kpi-label {
         color: var(--muted);
-        font-size: 0.78rem;
+        font-size: 0.75rem;
         text-transform: uppercase;
-        letter-spacing: .04em;
+        letter-spacing: .06em;
+        font-weight: 600;
       }
       .project-planning-kpi-value {
-        margin-top: 8px;
-        font-size: 1.58rem;
-        font-weight: 700;
+        margin-top: 6px;
+        font-size: 1.62rem;
+        font-weight: 750;
         line-height: 1.2;
       }
       .project-planning-kpi.is-emphasis .project-planning-kpi-value {
-        font-size: 1.66rem;
+        font-size: 1.68rem;
         font-weight: 800;
       }
       .project-planning-kpi-sub {
-        margin-top: 8px;
+        margin-top: 6px;
         display: grid;
-        gap: 4px;
+        gap: 3px;
       }
       .project-planning-kpi-subline {
-        display: flex;
-        justify-content: space-between;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center;
         gap: 8px;
         color: var(--muted);
-        font-size: 0.82rem;
+        font-size: 0.79rem;
         line-height: 1.25;
         font-variant-numeric: tabular-nums;
       }
@@ -118,10 +125,10 @@
       }
       .project-planning-kpi-edit-icon {
         position: absolute;
-        top: 10px;
+        top: 11px;
         right: 12px;
         color: var(--muted);
-        font-size: 0.9rem;
+        font-size: 0.86rem;
         line-height: 1;
         pointer-events: none;
         transition: color 0.15s ease;
@@ -130,9 +137,9 @@
         color: var(--text);
       }
       .project-planning-kpi-edit-hint {
-        margin-top: 6px;
-        color: var(--muted);
-        font-size: 0.76rem;
+        margin-top: 5px;
+        color: color-mix(in srgb, var(--muted) 90%, transparent);
+        font-size: 0.72rem;
         line-height: 1.2;
       }
       .project-planning-kpi-edit-input {
@@ -167,6 +174,16 @@
         height: 100%;
         min-height: 0;
       }
+      .project-planning-table-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin: 0 0 10px;
+      }
+      .project-planning-table-head h3 {
+        margin: 0;
+      }
       .project-planning-table-wrap {
         flex: 1;
         min-height: 0;
@@ -197,12 +214,8 @@
       }
       .project-planning-table th:nth-child(6),
       .project-planning-table th:nth-child(7),
-      .project-planning-table th:nth-child(8),
-      .project-planning-table th:nth-child(9),
       .project-planning-table td:nth-child(6),
-      .project-planning-table td:nth-child(7),
-      .project-planning-table td:nth-child(8),
-      .project-planning-table td:nth-child(9) {
+      .project-planning-table td:nth-child(7) {
         text-align: right;
       }
       .project-planning-right {
@@ -266,13 +279,53 @@
         width: 100%;
         min-width: 74px;
       }
-      .project-planning-table input[data-row-input="costRate"],
+      .project-planning-table .table-numeric {
+        text-align: right;
+      }
+      .project-planning-table-card .project-planning-table .table-input {
+        text-align: right;
+        background: color-mix(in srgb, var(--surface-strong) 82%, var(--surface));
+        border: 1px solid color-mix(in srgb, var(--line) 72%, transparent);
+      }
+      .project-planning-table .table-output {
+        color: color-mix(in srgb, var(--text) 86%, var(--muted) 14%);
+      }
+      .project-planning-table .table-actions {
+        width: 1%;
+        text-align: right;
+      }
+      .project-planning-row-delete {
+        border: 0;
+        background: transparent;
+        color: var(--danger);
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+      }
+      .project-planning-row-delete svg {
+        width: 18px;
+        height: 18px;
+      }
+      .project-planning-row-delete:hover,
+      .project-planning-row-delete:focus-visible {
+        background: color-mix(in srgb, var(--danger) 10%, transparent);
+      }
+      .project-planning-row-delete[disabled] {
+        opacity: 0.35;
+        cursor: default;
+      }
+      .project-planning-table tr.table-row-surface td {
+        background: color-mix(in srgb, var(--surface-strong) 72%, var(--surface));
+        border-bottom-color: color-mix(in srgb, var(--line) 62%, transparent);
+      }
       .project-planning-table input[data-row-input="chargeRate"],
       .project-planning-table input[data-row-input="hours"] {
         max-width: 96px;
       }
-      .project-planning-table input[data-row-input="costRate"]::-webkit-outer-spin-button,
-      .project-planning-table input[data-row-input="costRate"]::-webkit-inner-spin-button,
       .project-planning-table input[data-row-input="chargeRate"]::-webkit-outer-spin-button,
       .project-planning-table input[data-row-input="chargeRate"]::-webkit-inner-spin-button,
       .project-planning-table input[data-row-input="hours"]::-webkit-outer-spin-button,
@@ -280,7 +333,6 @@
         -webkit-appearance: none;
         margin: 0;
       }
-      .project-planning-table input[data-row-input="costRate"],
       .project-planning-table input[data-row-input="chargeRate"],
       .project-planning-table input[data-row-input="hours"] {
         -moz-appearance: textfield;
@@ -426,7 +478,7 @@
     return "—";
   }
 
-  function renderProjectPlanningPage({ projectId, state, container, onBack, onSave }) {
+  function renderProjectPlanningPage({ projectId, state, container, onBack, onSave, onAddMember }) {
     ensurePlanningStyles();
     if (!container) return;
 
@@ -511,6 +563,7 @@
       projectMemberAssignments.map((row) => [String(row?.userId || "").trim(), row])
     );
 
+    const pendingRemovedMembersByUserId = new Map();
     let planningRows = dedupedUserIds.map((userId, index) => {
       const member = usersById.get(userId);
       const budgetRow = budgetByUserId.get(userId);
@@ -538,6 +591,11 @@
         userId: userId || null,
         memberName: member?.displayName || "Unassigned",
         role: roleLabel,
+        removeAction: managerAssignment ? "manager" : memberAssignment ? "member" : null,
+        canDelete:
+          Boolean(userId) &&
+          String(userId || "").trim() !== String(leadUserId || "").trim() &&
+          Boolean(managerAssignment || memberAssignment),
         costRate: costRate ?? baseRate ?? 0,
         chargeRate: budgetRateOverride ?? chargeRateOverride ?? baseRate ?? 0,
         hours: toNullableNumber(budgetRow?.budgetHours) ?? 0,
@@ -613,7 +671,10 @@
         <div class="project-planning-layout project-planning-body">
           <main>
             <section class="project-planning-block project-planning-table-card">
-              <h3>Team Budgeting</h3>
+              <div class="project-planning-table-head">
+                <h3>Team Budgeting</h3>
+                <button type="button" class="button button-ghost" data-project-planning-add-member>Add Member</button>
+              </div>
               <div class="project-planning-table-wrap">
                 <table class="project-planning-table">
                   <thead>
@@ -625,8 +686,7 @@
                       <th>Hours</th>
                       <th>Cost</th>
                       <th>Revenue</th>
-                      <th>Margin</th>
-                      <th>Margin %</th>
+                      <th class="table-actions"></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -635,23 +695,28 @@
                         ? planningRows
                             .map((row) => {
                               return `
-                                <tr>
+                                <tr class="table-row-surface" data-row-id="${escapeHtml(row.id)}">
                                   <td>${escapeHtml(row.memberName)}</td>
                                   <td>${escapeHtml(String(row.role).replace(/_/g, " "))}</td>
-                                  <td><input class="project-planning-input" type="number" min="0" step="0.01" data-row-input="costRate" data-row-id="${escapeHtml(row.id)}" value="${escapeHtml(row.costRate)}" /></td>
-                                  <td><input class="project-planning-input" type="number" min="0" step="0.01" data-row-input="chargeRate" data-row-id="${escapeHtml(row.id)}" value="${escapeHtml(row.chargeRate)}" /></td>
-                                  <td><input class="project-planning-input" type="number" min="0" step="0.25" data-row-input="hours" data-row-id="${escapeHtml(row.id)}" value="${escapeHtml(row.hours)}" /></td>
-                                  <td data-row-output="cost" data-row-id="${escapeHtml(row.id)}">${escapeHtml(fmtMoneyZero(row.plannedCost))}</td>
-                                  <td data-row-output="revenue" data-row-id="${escapeHtml(row.id)}">${escapeHtml(fmtMoneyZero(row.plannedRevenue))}</td>
-                                  <td data-row-output="margin" data-row-id="${escapeHtml(row.id)}">${escapeHtml(fmtMoneyZero(row.margin))}</td>
-                                  <td data-row-output="marginPct" data-row-id="${escapeHtml(row.id)}">${escapeHtml(fmtPercentZero(row.marginPercent))}</td>
+                                  <td class="table-numeric table-output" data-row-output="costRate" data-row-id="${escapeHtml(row.id)}">${escapeHtml(fmtMoneyZero(row.costRate))}</td>
+                                  <td class="table-numeric table-input-cell"><input class="project-planning-input table-input" type="number" min="0" step="0.01" data-row-input="chargeRate" data-row-id="${escapeHtml(row.id)}" value="${escapeHtml(row.chargeRate)}" /></td>
+                                  <td class="table-numeric table-input-cell"><input class="project-planning-input table-input" type="number" min="0" step="0.25" data-row-input="hours" data-row-id="${escapeHtml(row.id)}" value="${escapeHtml(row.hours)}" /></td>
+                                  <td class="table-numeric table-output" data-row-output="cost" data-row-id="${escapeHtml(row.id)}">${escapeHtml(fmtMoneyZero(row.plannedCost))}</td>
+                                  <td class="table-numeric table-output" data-row-output="revenue" data-row-id="${escapeHtml(row.id)}">${escapeHtml(fmtMoneyZero(row.plannedRevenue))}</td>
+                                  <td class="table-actions">
+                                    ${
+                                      row.canDelete
+                                        ? `<button type="button" class="project-planning-row-delete" data-row-delete="${escapeHtml(row.id)}" aria-label="Delete member">${PROJECT_PLANNING_DELETE_ICON}</button>`
+                                        : `<button type="button" class="project-planning-row-delete" aria-hidden="true" disabled>${PROJECT_PLANNING_DELETE_ICON}</button>`
+                                    }
+                                  </td>
                                 </tr>
                               `;
                             })
                             .join("")
                         : `
                           <tr>
-                            <td colspan="9" class="project-planning-placeholder">No team budgeting rows yet.</td>
+                            <td colspan="8" class="project-planning-placeholder">No team budgeting rows yet.</td>
                           </tr>
                         `
                     }
@@ -748,11 +813,13 @@
           rateOverride,
         };
       }).filter((row) => row.userId);
+      const removedMembers = Array.from(pendingRemovedMembersByUserId.values());
       saveButton.disabled = true;
       try {
         await onSave({
           projectId: String(project?.id || "").trim(),
           members,
+          removedMembers,
         });
       } finally {
         saveButton.disabled = false;
@@ -843,12 +910,8 @@
         const rowId = String(row.id);
         const costNode = container.querySelector(`[data-row-output="cost"][data-row-id="${rowId}"]`);
         const revenueNode = container.querySelector(`[data-row-output="revenue"][data-row-id="${rowId}"]`);
-        const marginNode = container.querySelector(`[data-row-output="margin"][data-row-id="${rowId}"]`);
-        const marginPctNode = container.querySelector(`[data-row-output="marginPct"][data-row-id="${rowId}"]`);
         if (costNode) costNode.textContent = fmtMoneyZero(row.plannedCost);
         if (revenueNode) revenueNode.textContent = fmtMoneyZero(row.plannedRevenue);
-        if (marginNode) marginNode.textContent = fmtMoneyZero(row.margin);
-        if (marginPctNode) marginPctNode.textContent = fmtPercentZero(row.marginPercent);
       });
 
       if (kpiContractNode && !isEditingContractAmount) kpiContractNode.textContent = fmtMoneyZero(contractAmountValue);
@@ -929,6 +992,44 @@
         if (!row) return;
         const raw = String(target.value || "").trim();
         row[field] = raw === "" ? null : toNumberOrZero(raw);
+        renderComputed();
+      });
+    });
+
+    const addMemberButton = container.querySelector("[data-project-planning-add-member]");
+    addMemberButton?.addEventListener("click", () => {
+      if (typeof onAddMember === "function") {
+        onAddMember({
+          projectId: String(project?.id || "").trim(),
+          projectName: String(project?.name || "").trim(),
+          clientName: String(project?.client || "").trim(),
+        });
+      }
+    });
+
+    container.querySelectorAll("[data-row-delete]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const rowId = String(button.dataset.rowDelete || "").trim();
+        if (!rowId) return;
+        const row = planningRows.find((item) => String(item.id) === rowId);
+        if (!row || !row.canDelete) return;
+        const confirmed = window.confirm(`Remove ${row.memberName} from this project?`);
+        if (!confirmed) return;
+        if (row.userId && row.removeAction) {
+          pendingRemovedMembersByUserId.set(row.userId, {
+            userId: row.userId,
+            action: row.removeAction,
+          });
+        }
+        planningRows = planningRows.filter((item) => String(item.id) !== rowId);
+        const rowEl = button.closest("tr");
+        rowEl?.remove();
+        if (!planningRows.length) {
+          const tbody = container.querySelector(".project-planning-table tbody");
+          if (tbody) {
+            tbody.innerHTML = `<tr><td colspan="8" class="project-planning-placeholder">No team budgeting rows yet.</td></tr>`;
+          }
+        }
         renderComputed();
       });
     });
