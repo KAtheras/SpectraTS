@@ -31,8 +31,8 @@
       }
       .project-planning-layout {
         display: grid;
-        grid-template-columns: 300px minmax(0, 1fr) 280px;
-        gap: 16px;
+        grid-template-columns: 260px minmax(0, 1fr) 312px;
+        gap: 12px;
         align-items: start;
       }
       .project-planning-block {
@@ -47,14 +47,20 @@
       .project-planning-kpis {
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 10px;
+        gap: 9px;
         margin-bottom: 12px;
       }
       .project-planning-kpi {
         border: 1px solid var(--line);
         border-radius: 10px;
-        padding: 10px;
+        padding: 8px 10px;
         background: var(--surface);
+      }
+      .project-planning-kpi.is-primary {
+        padding: 14px 14px;
+      }
+      .project-planning-kpi.is-secondary {
+        padding: 8px 10px;
       }
       .project-planning-kpi-label {
         color: var(--muted);
@@ -64,8 +70,11 @@
       }
       .project-planning-kpi-value {
         margin-top: 6px;
-        font-size: 1.12rem;
+        font-size: 1.02rem;
         font-weight: 700;
+      }
+      .project-planning-kpi.is-primary .project-planning-kpi-value {
+        font-size: 1.32rem;
       }
       .project-planning-sidebar {
         display: grid;
@@ -97,6 +106,7 @@
         border-bottom: 1px solid var(--line);
         text-align: left;
         white-space: nowrap;
+        font-variant-numeric: tabular-nums;
       }
       .project-planning-table th {
         color: var(--muted);
@@ -104,15 +114,26 @@
         text-transform: uppercase;
         letter-spacing: .04em;
       }
+      .project-planning-table th:nth-child(6),
+      .project-planning-table th:nth-child(7),
+      .project-planning-table th:nth-child(8),
+      .project-planning-table th:nth-child(9),
+      .project-planning-table td:nth-child(6),
+      .project-planning-table td:nth-child(7),
+      .project-planning-table td:nth-child(8),
+      .project-planning-table td:nth-child(9) {
+        text-align: right;
+      }
       .project-planning-right {
         display: grid;
-        gap: 10px;
+        gap: 6px;
       }
       .project-planning-chart {
-        min-height: 108px;
+        min-height: 42px;
         display: grid;
         align-content: start;
-        gap: 6px;
+        gap: 2px;
+        padding: 8px 10px;
       }
       .project-planning-chart h4 {
         margin: 0;
@@ -123,7 +144,12 @@
       }
       .project-planning-input {
         width: 100%;
-        min-width: 88px;
+        min-width: 74px;
+      }
+      .project-planning-table input[data-row-input="costRate"],
+      .project-planning-table input[data-row-input="chargeRate"],
+      .project-planning-table input[data-row-input="hours"] {
+        max-width: 96px;
       }
       .project-planning-consumption {
         border: 1px solid var(--line);
@@ -150,6 +176,13 @@
       .project-planning-consumption-label {
         color: var(--muted);
         font-size: 0.84rem;
+      }
+      .project-planning-consumption.is-over .project-planning-consumption-fill {
+        background: var(--danger);
+      }
+      .project-planning-consumption.is-over .project-planning-consumption-label {
+        color: var(--danger);
+        font-weight: 700;
       }
       @media (max-width: 1200px) {
         .project-planning-layout {
@@ -390,45 +423,30 @@
                 <span class="project-planning-field-value">${escapeHtml(fmtProjectType(typeValue))}</span>
               </div>
             </section>
-            <section class="project-planning-block">
-              <h3>Pricing Inputs</h3>
-              <div class="project-planning-field">
-                <span class="project-planning-field-label">Contract Amount</span>
-                <span class="project-planning-field-value">${escapeHtml(fmtMoneyZero(contractAmount))}</span>
-              </div>
-              <div class="project-planning-field">
-                <span class="project-planning-field-label">Budget</span>
-                <span class="project-planning-field-value">${escapeHtml(fmtMoneyZero(budgetAmount))}</span>
-              </div>
-              <div class="project-planning-field">
-                <span class="project-planning-field-label">Overhead %</span>
-                <span class="project-planning-field-value">${escapeHtml(fmtPercentZero(overheadValue))}</span>
-              </div>
-            </section>
           </aside>
           <main>
             <section class="project-planning-kpis">
-              <article class="project-planning-kpi">
+              <article class="project-planning-kpi is-primary">
                 <div class="project-planning-kpi-label">Contract Amount</div>
                 <div class="project-planning-kpi-value" data-kpi="contract">${escapeHtml(fmtMoneyZero(contractAmount))}</div>
               </article>
-              <article class="project-planning-kpi">
-                <div class="project-planning-kpi-label">Budget</div>
-                <div class="project-planning-kpi-value" data-kpi="budget">${escapeHtml(fmtMoneyZero(budgetAmount))}</div>
-              </article>
-              <article class="project-planning-kpi">
+              <article class="project-planning-kpi is-primary">
                 <div class="project-planning-kpi-label">Planned Cost</div>
                 <div class="project-planning-kpi-value" data-kpi="plannedCost">${escapeHtml(fmtMoneyZero(initialTotals.totalCost))}</div>
               </article>
-              <article class="project-planning-kpi">
+              <article class="project-planning-kpi is-primary">
                 <div class="project-planning-kpi-label">Gross Margin</div>
                 <div class="project-planning-kpi-value" data-kpi="grossMargin">${escapeHtml(initialTotals.hasContract ? fmtMoneyZero(initialTotals.grossMargin) : "—")}</div>
               </article>
-              <article class="project-planning-kpi">
+              <article class="project-planning-kpi is-secondary">
+                <div class="project-planning-kpi-label">Budget</div>
+                <div class="project-planning-kpi-value" data-kpi="budget">${escapeHtml(fmtMoneyZero(budgetAmount))}</div>
+              </article>
+              <article class="project-planning-kpi is-secondary">
                 <div class="project-planning-kpi-label">Margin %</div>
                 <div class="project-planning-kpi-value" data-kpi="marginPct">${escapeHtml(initialTotals.hasContract ? fmtPercent(initialTotals.marginPercent) : "—")}</div>
               </article>
-              <article class="project-planning-kpi">
+              <article class="project-planning-kpi is-secondary">
                 <div class="project-planning-kpi-label">Planned Hours</div>
                 <div class="project-planning-kpi-value" data-kpi="hours">${escapeHtml(initialTotals.totalHours.toFixed(2))}</div>
               </article>
@@ -586,6 +604,7 @@
         const safePct = Math.max(0, rawPct);
         consumptionFill.style.width = `${Math.min(safePct, 100).toFixed(2)}%`;
         consumptionLabel.textContent = `${safePct.toFixed(2)}% of contract consumed`;
+        consumptionWrap.classList.toggle("is-over", safePct > 100);
       }
     }
 
