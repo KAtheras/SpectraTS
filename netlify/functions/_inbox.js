@@ -348,11 +348,25 @@ async function dispatchNotificationEvent(sql, payload = {}) {
   const recipientUserIds = await resolveRecipientsByScope(sql, payload, rule);
   if (!recipientUserIds.length) return;
 
+  const suppressInboxRecipientSet = new Set(
+    (Array.isArray(payload.suppressInboxRecipientUserIds)
+      ? payload.suppressInboxRecipientUserIds
+      : []
+    )
+      .map((id) => `${id || ""}`.trim())
+      .filter(Boolean)
+  );
+  const inboxRecipientUserIds = suppressInboxRecipientSet.size
+    ? recipientUserIds.filter((id) => !suppressInboxRecipientSet.has(`${id || ""}`.trim()))
+    : recipientUserIds;
+
   if (deliverInbox) {
-    await createSystemInboxItems(sql, {
-      ...payload,
-      recipientUserIds,
-    });
+    if (inboxRecipientUserIds.length) {
+      await createSystemInboxItems(sql, {
+        ...payload,
+        recipientUserIds: inboxRecipientUserIds,
+      });
+    }
   }
   if (deliverEmail) {
     await deliverNotificationEmails(sql, payload, recipientUserIds);

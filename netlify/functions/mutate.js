@@ -2757,11 +2757,16 @@ async function updateExpense(sql, payload, currentUser, accountId) {
   });
 
   if (previousBillable !== nextBillable) {
+    const actorUserId = normalizeText(currentUser?.id);
+    const expenseOwnerUserId = normalizeText(targetUser?.id);
+    const isSelfExpenseEdit =
+      !!actorUserId && !!expenseOwnerUserId && actorUserId === expenseOwnerUserId;
     await dispatchNotificationEvent(sql, {
       accountId,
       type: "expense_billing_status_updated",
-      actorUserId: currentUser?.id || null,
-      expenseOwnerUserId: targetUser?.id || null,
+      actorUserId: actorUserId || null,
+      expenseOwnerUserId: expenseOwnerUserId || null,
+      suppressInboxRecipientUserIds: isSelfExpenseEdit ? [actorUserId] : [],
       clientId: project?.client_id || null,
       projectId: project?.id || null,
       subjectType: "expense",
@@ -3709,11 +3714,16 @@ async function saveEntry(sql, payload, currentUser, accountId) {
         existing.user_name,
         accountId
       );
+      const actorUserId = normalizeText(currentUser?.id);
+      const entryOwnerUserId = normalizeText(persistedOwnerUser?.id || targetUser?.id);
+      const isSelfTimeEntryEdit =
+        !!actorUserId && !!entryOwnerUserId && actorUserId === entryOwnerUserId;
       await dispatchNotificationEvent(sql, {
         accountId,
         type: "entry_billing_status_updated",
-        actorUserId: currentUser?.id || null,
-        entryOwnerUserId: persistedOwnerUser?.id || targetUser?.id || null,
+        actorUserId: actorUserId || null,
+        entryOwnerUserId: entryOwnerUserId || null,
+        suppressInboxRecipientUserIds: isSelfTimeEntryEdit ? [actorUserId] : [],
         clientId: project?.client_id || null,
         projectId: project?.id || null,
         subjectType: "time",
