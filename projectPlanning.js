@@ -124,15 +124,46 @@
         display: grid;
         gap: 6px;
       }
-      .project-planning-chart {
-        min-height: 42px;
-        display: grid;
-        align-content: start;
-        gap: 2px;
-        padding: 8px 10px;
-      }
-      .project-planning-chart h4 {
+      .project-planning-economics h4 {
         margin: 0;
+      }
+      .project-planning-economics {
+        display: grid;
+        gap: 12px;
+      }
+      .project-planning-econ-section {
+        display: grid;
+        gap: 6px;
+      }
+      .project-planning-econ-section + .project-planning-econ-section {
+        margin-top: 2px;
+      }
+      .project-planning-econ-title {
+        color: var(--muted);
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: .04em;
+        font-weight: 700;
+      }
+      .project-planning-econ-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 8px;
+      }
+      .project-planning-econ-label {
+        color: var(--text);
+      }
+      .project-planning-econ-value {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+        font-weight: 600;
+      }
+      .project-planning-econ-value.is-negative {
+        color: var(--danger);
+      }
+      .project-planning-econ-value.is-positive {
+        color: var(--success);
       }
       .project-planning-placeholder {
         color: var(--muted);
@@ -555,21 +586,62 @@
             </section>
           </main>
           <aside class="project-planning-right">
-            <section class="project-planning-block project-planning-chart">
-              <h4>Cost by Member</h4>
-              <p class="project-planning-placeholder">Chart placeholder</p>
-            </section>
-            <section class="project-planning-block project-planning-chart">
-              <h4>Revenue vs Cost</h4>
-              <p class="project-planning-placeholder">Chart placeholder</p>
-            </section>
-            <section class="project-planning-block project-planning-chart">
-              <h4>Staffing Mix</h4>
-              <p class="project-planning-placeholder">Chart placeholder</p>
-            </section>
-            <section class="project-planning-block project-planning-chart">
-              <h4>Margin Summary</h4>
-              <p class="project-planning-placeholder">Chart placeholder</p>
+            <section class="project-planning-block project-planning-economics">
+              <h4>Project Economics</h4>
+              <section class="project-planning-econ-section">
+                <div class="project-planning-econ-title">Revenue</div>
+                <div class="project-planning-econ-row">
+                  <span class="project-planning-econ-label">Contract Amount</span>
+                  <span class="project-planning-econ-value" data-econ="contractAmount">${escapeHtml(fmtMoneyZero(contractAmount))}</span>
+                </div>
+                <div class="project-planning-econ-row">
+                  <span class="project-planning-econ-label">Planned Revenue</span>
+                  <span class="project-planning-econ-value" data-econ="plannedRevenue">${escapeHtml(fmtMoneyZero(initialTotals.plannedRevenueTotal))}</span>
+                </div>
+                <div class="project-planning-econ-row">
+                  <span class="project-planning-econ-label" data-econ-label="discountPremium">
+                    ${initialTotals.hasContract && contractAmount - initialTotals.plannedRevenueTotal >= 0
+                      ? "Premium to Standard Rates"
+                      : "Discount to Standard Rates"}
+                  </span>
+                  <span class="project-planning-econ-value" data-econ="discountPremium">
+                    ${escapeHtml(initialTotals.hasContract ? fmtMoney(contractAmount - initialTotals.plannedRevenueTotal) : "—")}
+                  </span>
+                </div>
+              </section>
+              <section class="project-planning-econ-section">
+                <div class="project-planning-econ-title">Costs</div>
+                <div class="project-planning-econ-row">
+                  <span class="project-planning-econ-label">Direct Labor Cost</span>
+                  <span class="project-planning-econ-value" data-econ="directCost">${escapeHtml(fmtMoneyZero(initialTotals.directCost))}</span>
+                </div>
+                <div class="project-planning-econ-row">
+                  <span class="project-planning-econ-label">Overhead</span>
+                  <span class="project-planning-econ-value" data-econ="overheadCost">${escapeHtml(fmtMoneyZero(initialTotals.overheadCost))}</span>
+                </div>
+                <div class="project-planning-econ-row">
+                  <span class="project-planning-econ-label">Total Cost</span>
+                  <span class="project-planning-econ-value" data-econ="totalCost">${escapeHtml(fmtMoneyZero(initialTotals.totalCost))}</span>
+                </div>
+              </section>
+              <section class="project-planning-econ-section">
+                <div class="project-planning-econ-title">Profitability</div>
+                <div class="project-planning-econ-row">
+                  <span class="project-planning-econ-label">Gross Margin</span>
+                  <span class="project-planning-econ-value" data-econ="grossMargin">${escapeHtml(initialTotals.hasContract ? fmtMoney(initialTotals.grossMargin) : "—")}</span>
+                </div>
+                <div class="project-planning-econ-row">
+                  <span class="project-planning-econ-label">Gross Margin %</span>
+                  <span class="project-planning-econ-value" data-econ="grossMarginPct">${escapeHtml(initialTotals.hasContract ? fmtPercent(initialTotals.marginPercent) : "—")}</span>
+                </div>
+              </section>
+              <section class="project-planning-econ-section">
+                <div class="project-planning-econ-title">Implied Metrics</div>
+                <div class="project-planning-econ-row">
+                  <span class="project-planning-econ-label">Implied Rate</span>
+                  <span class="project-planning-econ-value" data-econ="impliedRate">${escapeHtml(initialTotals.hasContract && initialTotals.totalHours > 0 ? fmtMoney(contractAmount / initialTotals.totalHours) : "—")}</span>
+                </div>
+              </section>
             </section>
           </aside>
         </div>
@@ -620,9 +692,27 @@
     const kpiHoursNode = container.querySelector('[data-kpi="hours"]');
     const kpiOverheadPctNode = container.querySelector('[data-kpi="overheadPct"]');
     const kpiOverheadCostNode = container.querySelector('[data-kpi="overheadCost"]');
+    const econContractNode = container.querySelector('[data-econ="contractAmount"]');
+    const econPlannedRevenueNode = container.querySelector('[data-econ="plannedRevenue"]');
+    const econDiscountPremiumNode = container.querySelector('[data-econ="discountPremium"]');
+    const econDiscountPremiumLabelNode = container.querySelector('[data-econ-label="discountPremium"]');
+    const econDirectCostNode = container.querySelector('[data-econ="directCost"]');
+    const econOverheadCostNode = container.querySelector('[data-econ="overheadCost"]');
+    const econTotalCostNode = container.querySelector('[data-econ="totalCost"]');
+    const econGrossMarginNode = container.querySelector('[data-econ="grossMargin"]');
+    const econGrossMarginPctNode = container.querySelector('[data-econ="grossMarginPct"]');
+    const econImpliedRateNode = container.querySelector('[data-econ="impliedRate"]');
     const consumptionWrap = container.querySelector("[data-consumption-wrap]");
     const consumptionFill = container.querySelector("[data-consumption-fill]");
     const consumptionLabel = container.querySelector("[data-consumption-label]");
+
+    function setEconomicSignal(node, value, options = {}) {
+      if (!node) return;
+      node.classList.remove("is-negative", "is-positive");
+      if (typeof value !== "number" || !Number.isFinite(value)) return;
+      if (options.negativeIsDanger && value < 0) node.classList.add("is-negative");
+      if (options.positiveIsSuccess && value > 0) node.classList.add("is-positive");
+    }
 
     function renderComputed() {
       planningRows = computeRows(planningRows);
@@ -648,6 +738,43 @@
       if (kpiHoursNode) kpiHoursNode.textContent = fmtHours(totals.totalHours);
       if (kpiOverheadPctNode) kpiOverheadPctNode.textContent = fmtPercentZero(overheadValue);
       if (kpiOverheadCostNode) kpiOverheadCostNode.textContent = fmtMoneyZero(totals.overheadCost);
+      const discountPremiumValue = totals.hasContract ? contractAmount - totals.plannedRevenueTotal : null;
+      if (econContractNode) econContractNode.textContent = fmtMoneyZero(contractAmount);
+      if (econPlannedRevenueNode) econPlannedRevenueNode.textContent = fmtMoneyZero(totals.plannedRevenueTotal);
+      if (econDiscountPremiumLabelNode) {
+        econDiscountPremiumLabelNode.textContent =
+          totals.hasContract && Number.isFinite(discountPremiumValue) && discountPremiumValue >= 0
+            ? "Premium to Standard Rates"
+            : "Discount to Standard Rates";
+      }
+      if (econDiscountPremiumNode) {
+        econDiscountPremiumNode.textContent = totals.hasContract ? fmtMoney(discountPremiumValue) : "—";
+        setEconomicSignal(econDiscountPremiumNode, discountPremiumValue, {
+          negativeIsDanger: true,
+          positiveIsSuccess: true,
+        });
+      }
+      if (econDirectCostNode) econDirectCostNode.textContent = fmtMoneyZero(totals.directCost);
+      if (econOverheadCostNode) econOverheadCostNode.textContent = fmtMoneyZero(totals.overheadCost);
+      if (econTotalCostNode) econTotalCostNode.textContent = fmtMoneyZero(totals.totalCost);
+      if (econGrossMarginNode) {
+        econGrossMarginNode.textContent = totals.hasContract ? fmtMoney(totals.grossMargin) : "—";
+        setEconomicSignal(econGrossMarginNode, totals.grossMargin, {
+          negativeIsDanger: true,
+          positiveIsSuccess: true,
+        });
+      }
+      if (econGrossMarginPctNode) {
+        econGrossMarginPctNode.textContent = totals.hasContract ? fmtPercent(totals.marginPercent) : "—";
+        setEconomicSignal(econGrossMarginPctNode, totals.marginPercent, {
+          negativeIsDanger: true,
+          positiveIsSuccess: true,
+        });
+      }
+      if (econImpliedRateNode) {
+        const impliedRate = totals.hasContract && totals.totalHours > 0 ? contractAmount / totals.totalHours : null;
+        econImpliedRateNode.textContent = impliedRate === null ? "—" : fmtMoney(impliedRate);
+      }
 
       if (consumptionWrap) {
         consumptionWrap.hidden = !totals.hasContract;
