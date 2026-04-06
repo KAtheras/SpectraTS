@@ -769,7 +769,7 @@
             grid-template-columns:1fr auto;
             align-items:center;
             padding:10px 0;
-            border-bottom:1px solid #ececec;
+            border-bottom:1px solid color-mix(in srgb, var(--group-border) 70%, transparent);
           }
           #settings-page .settings-section-content .settings-structured-row-no-label{
             grid-template-columns:minmax(0,1fr) minmax(96px,max-content);
@@ -827,7 +827,7 @@
           body[data-theme="dark"] #settings-page input.settings-field,
           body[data-theme="dark"] #settings-page select.settings-field,
           body[data-theme="dark"] #settings-page textarea.settings-field{
-            background:#1d222c;
+            background-color:#1d222c;
             color:#e8eef7;
             border-color:#384150;
           }
@@ -839,7 +839,7 @@
             border-color:#4a5567;
           }
           body[data-theme="dark"] #settings-page .settings-field:focus{
-            background:#1f2631;
+            background-color:#1f2631;
             border-color:#6b8ecf;
             outline:none;
           }
@@ -905,7 +905,7 @@
             align-items:center;
             column-gap:16px;
             padding:10px 0;
-            border-bottom:1px solid #ececec;
+            border-bottom:1px solid color-mix(in srgb, var(--group-border) 70%, transparent);
           }
           #settings-page [data-settings-tab="levels"] .settings-row-main{
             display:contents;

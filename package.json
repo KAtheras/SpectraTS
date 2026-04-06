@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "node server.js",
     "dev:netlify": "netlify dev",
+    "dev:offline": "HOME=/tmp XDG_CONFIG_HOME=/tmp netlify dev --offline",
     "start": "node server.js",
     "version:assets": "node scripts/update-asset-version.js",
     "build": "npm run version:assets"
