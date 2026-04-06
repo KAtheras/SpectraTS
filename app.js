@@ -6009,7 +6009,28 @@
     return inputsTimeComboOptions();
   }
 
-  function inputsExpenseCategoryOptions() {
+  function isRealClientProjectSelection(selection) {
+    const type = `${selection?.type || ""}`.trim();
+    if (type !== "project") return false;
+    const clientName = `${selection?.client || ""}`.trim();
+    const projectName = `${selection?.project || ""}`.trim();
+    if (!clientName || !projectName) return false;
+    if (clientName.toLowerCase() === "internal") return false;
+    if (isNonBillableDefault(projectName)) return false;
+    return true;
+  }
+
+  function inputsExpenseCategoryOptions(selection) {
+    const useProjectCategories = isRealClientProjectSelection(selection);
+    if (useProjectCategories) {
+      return (Array.isArray(state.projectExpenseCategories) ? state.projectExpenseCategories : [])
+        .map((item) => {
+          const name = `${item?.name || ""}`.trim();
+          return name ? { label: name, value: name } : null;
+        })
+        .filter(Boolean)
+        .sort((a, b) => a.label.localeCompare(b.label));
+    }
     const categories = typeof activeExpenseCategories === "function" ? activeExpenseCategories() : [];
     return categories
       .map((item) => ({ label: item.name, value: item.name }))
@@ -6047,16 +6068,23 @@
     );
     fields.clientProject.disabled = comboOptions.length === 0;
 
+    const selection = readInputsComboSelectionMeta(fields.clientProject);
+    const scopedCategoryOptions = inputsExpenseCategoryOptions(selection);
     const selectedCategory = fields.category?.value || "";
     if (fields.category) {
+      const hasSelectedCategory = scopedCategoryOptions.some((item) => item?.value === selectedCategory);
+      const nextSelectedCategory = hasSelectedCategory ? selectedCategory : "";
+      if (!hasSelectedCategory && selectedCategory) {
+        fields.category.value = "";
+      }
       setSelectOptionsWithPlaceholder(
         { escapeHtml },
         fields.category,
-        categoryOptions,
-        selectedCategory,
+        scopedCategoryOptions,
+        nextSelectedCategory,
         "Category"
       );
-      fields.category.disabled = categoryOptions.length === 0;
+      fields.category.disabled = scopedCategoryOptions.length === 0;
     }
 
     if (fields.billable && row.dataset.lastCombo !== fields.clientProject.value) {
@@ -6160,6 +6188,7 @@
         state.inputsExpenseSelectedCorporateCategoryId = "";
         applyInputsExpenseBillableDefaultForRow(row);
       }
+      syncInputsExpenseFormRow(row, inputsExpenseComboOptions(), inputsExpenseCategoryOptions());
       row.dataset.lastCombo = fields.clientProject.value || "";
     });
 
