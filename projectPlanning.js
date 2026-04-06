@@ -38,6 +38,36 @@
         width: 100%;
         margin-bottom: 14px;
       }
+      .project-planning-contract-type-row {
+        width: 100%;
+        margin-bottom: 10px;
+      }
+      .project-planning-contract-type-toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: 0;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        overflow: hidden;
+        background: var(--surface);
+      }
+      .project-planning-contract-type-option {
+        border: 0;
+        border-right: 1px solid var(--line);
+        background: transparent;
+        color: var(--muted);
+        padding: 7px 12px;
+        font-size: 0.84rem;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      .project-planning-contract-type-option:last-child {
+        border-right: 0;
+      }
+      .project-planning-contract-type-option.is-active {
+        background: var(--surface-strong);
+        color: var(--text);
+      }
       .project-planning-layout {
         display: grid;
         grid-template-columns: minmax(0, 73%) minmax(0, 27%);
@@ -533,6 +563,7 @@
     );
     const overheadValue = toNullableNumber(project?.overheadPercent ?? project?.overhead_percent);
     let contractAmountValue = toNullableNumber(project?.contractAmount ?? project?.contract_amount);
+    let contractType = "fixed";
     const memberBudgets = Array.isArray(state?.projectMemberBudgets)
       ? state.projectMemberBudgets.filter(
           (row) => String(row?.projectId || "").trim() === String(project?.id || "").trim()
@@ -616,6 +647,28 @@
             <button type="button" class="button button-ghost" data-project-planning-back>Back</button>
           </div>
         </header>
+        <section class="project-planning-contract-type-row">
+          <div class="project-planning-contract-type-toggle" role="tablist" aria-label="Contract type">
+            <button
+              type="button"
+              class="project-planning-contract-type-option is-active"
+              data-contract-type-value="fixed"
+              role="tab"
+              aria-selected="true"
+            >
+              Fixed Fee
+            </button>
+            <button
+              type="button"
+              class="project-planning-contract-type-option"
+              data-contract-type-value="tm"
+              role="tab"
+              aria-selected="false"
+            >
+              Time &amp; Materials
+            </button>
+          </div>
+        </section>
         <section class="project-planning-kpi-row">
             <section class="project-planning-kpis">
               <article class="project-planning-kpi" data-kpi-card="contract">
@@ -1006,6 +1059,27 @@
         });
       }
     });
+
+    const contractTypeButtons = Array.from(
+      container.querySelectorAll("[data-contract-type-value]")
+    );
+    const syncContractTypeToggle = () => {
+      contractTypeButtons.forEach((button) => {
+        const value = String(button.dataset.contractTypeValue || "").trim();
+        const isActive = value === contractType;
+        button.classList.toggle("is-active", isActive);
+        button.setAttribute("aria-selected", isActive ? "true" : "false");
+      });
+    };
+    contractTypeButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        const next = String(button.dataset.contractTypeValue || "").trim();
+        if (next !== "fixed" && next !== "tm") return;
+        contractType = next;
+        syncContractTypeToggle();
+      });
+    });
+    syncContractTypeToggle();
 
     container.querySelectorAll("[data-row-delete]").forEach((button) => {
       button.addEventListener("click", () => {
