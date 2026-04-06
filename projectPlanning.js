@@ -121,6 +121,36 @@
         color: var(--muted);
         font-size: .9rem;
       }
+      .project-planning-input {
+        width: 100%;
+        min-width: 88px;
+      }
+      .project-planning-consumption {
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 10px;
+        background: var(--surface);
+        margin-bottom: 12px;
+        display: grid;
+        gap: 8px;
+      }
+      .project-planning-consumption-track {
+        width: 100%;
+        height: 8px;
+        border-radius: 999px;
+        background: rgba(120, 120, 120, 0.18);
+        overflow: hidden;
+      }
+      .project-planning-consumption-fill {
+        height: 100%;
+        width: 0%;
+        background: var(--accent);
+        transition: width 0.15s ease;
+      }
+      .project-planning-consumption-label {
+        color: var(--muted);
+        font-size: 0.84rem;
+      }
       @media (max-width: 1200px) {
         .project-planning-layout {
           grid-template-columns: 1fr;
@@ -145,13 +175,85 @@
   function fmtMoney(value) {
     const num = Number(value);
     if (!Number.isFinite(num)) return "—";
-    return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(num);
+    return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(num);
+  }
+
+  function fmtMoneyZero(value) {
+    const num = Number(value);
+    const safe = Number.isFinite(num) ? num : 0;
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(safe);
   }
 
   function fmtPercent(value) {
     const num = Number(value);
     if (!Number.isFinite(num)) return "—";
-    return `${num}%`;
+    return `${num.toFixed(2)}%`;
+  }
+
+  function fmtPercentZero(value) {
+    const num = Number(value);
+    const safe = Number.isFinite(num) ? num : 0;
+    return `${safe.toFixed(2)}%`;
+  }
+
+  function toNullableNumber(value) {
+    if (value === null || value === undefined || value === "") return null;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  function toNumberOrZero(value) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  function computeRows(rows) {
+    return rows.map((row) => {
+      const hours = toNumberOrZero(row.hours);
+      const costRate = toNumberOrZero(row.costRate);
+      const chargeRate = toNumberOrZero(row.chargeRate);
+      const plannedCost = costRate * hours;
+      const plannedRevenue = chargeRate * hours;
+      const margin = plannedRevenue - plannedCost;
+      const marginPercent = plannedRevenue > 0 ? (margin / plannedRevenue) * 100 : 0;
+      return {
+        ...row,
+        hours,
+        costRate,
+        chargeRate,
+        plannedCost,
+        plannedRevenue,
+        margin,
+        marginPercent,
+      };
+    });
+  }
+
+  function computeTotals(rows, contractAmount, overheadPercent) {
+    const totalHours = rows.reduce((sum, row) => sum + toNumberOrZero(row.hours), 0);
+    const directCost = rows.reduce((sum, row) => sum + toNumberOrZero(row.plannedCost), 0);
+    const plannedRevenueTotal = rows.reduce((sum, row) => sum + toNumberOrZero(row.plannedRevenue), 0);
+    const overheadRate = toNumberOrZero(overheadPercent) / 100;
+    const overheadCost = directCost * overheadRate;
+    const totalCost = directCost + overheadCost;
+    const hasContract = Number.isFinite(contractAmount);
+    const grossMargin = hasContract ? contractAmount - totalCost : null;
+    const marginPercent = hasContract && contractAmount > 0 ? (grossMargin / contractAmount) * 100 : null;
+    return {
+      totalHours,
+      directCost,
+      plannedRevenueTotal,
+      overheadCost,
+      totalCost,
+      grossMargin,
+      marginPercent,
+      hasContract,
+    };
   }
 
   function fmtProjectType(value) {
@@ -185,15 +287,36 @@
         "Unassigned"
     );
     const typeValue = project?.pricingModel ?? project?.pricing_model ?? null;
-    const overheadValue = project?.overheadPercent ?? project?.overhead_percent ?? null;
-    const kpiCards = [
-      ["Contract Amount", fmtMoney(project?.contractAmount ?? project?.contract_amount)],
-      ["Budget", fmtMoney(project?.budget)],
-      ["Planned Cost", "—"],
-      ["Gross Margin", "—"],
-      ["Margin %", "—"],
-      ["Planned Hours", "—"],
-    ];
+    const overheadValue = toNullableNumber(project?.overheadPercent ?? project?.overhead_percent);
+    const contractAmount = toNullableNumber(project?.contractAmount ?? project?.contract_amount);
+    const budgetAmount = toNullableNumber(project?.budget);
+    const memberBudgets = Array.isArray(state?.projectMemberBudgets)
+      ? state.projectMemberBudgets.filter(
+          (row) => String(row?.projectId || "").trim() === String(project?.id || "").trim()
+        )
+      : [];
+    const budgetByUserId = new Map(
+      memberBudgets.map((row) => [String(row?.userId || "").trim(), row])
+    );
+    let planningRows = projectMembers.map((row, index) => {
+      const userId = String(row?.userId || "").trim();
+      const member = usersById.get(userId);
+      const budgetRow = budgetByUserId.get(userId);
+      const baseRate = toNullableNumber(member?.baseRate ?? member?.base_rate);
+      const costRate = toNullableNumber(member?.costRate ?? member?.cost_rate);
+      const chargeRateOverride = toNullableNumber(row?.chargeRateOverride ?? row?.charge_rate_override);
+      const budgetRateOverride = toNullableNumber(budgetRow?.rateOverride);
+      return {
+        id: userId || `row-${index}`,
+        memberName: member?.displayName || "Unassigned",
+        role: member?.permissionGroup || member?.permission_group || "—",
+        costRate: costRate ?? baseRate ?? 0,
+        chargeRate: budgetRateOverride ?? chargeRateOverride ?? baseRate ?? 0,
+        hours: toNullableNumber(budgetRow?.budgetHours) ?? 0,
+      };
+    });
+    planningRows = computeRows(planningRows);
+    const initialTotals = computeTotals(planningRows, contractAmount, overheadValue);
 
     container.innerHTML = `
       <section class="page-view project-planning-page" aria-labelledby="project-planning-title">
@@ -232,30 +355,50 @@
               <h3>Pricing Inputs</h3>
               <div class="project-planning-field">
                 <span class="project-planning-field-label">Contract Amount</span>
-                <span class="project-planning-field-value">${escapeHtml(fmtMoney(project?.contractAmount ?? project?.contract_amount))}</span>
+                <span class="project-planning-field-value">${escapeHtml(fmtMoneyZero(contractAmount))}</span>
               </div>
               <div class="project-planning-field">
                 <span class="project-planning-field-label">Budget</span>
-                <span class="project-planning-field-value">${escapeHtml(fmtMoney(project?.budget))}</span>
+                <span class="project-planning-field-value">${escapeHtml(fmtMoneyZero(budgetAmount))}</span>
               </div>
               <div class="project-planning-field">
                 <span class="project-planning-field-label">Overhead %</span>
-                <span class="project-planning-field-value">${escapeHtml(fmtPercent(overheadValue))}</span>
+                <span class="project-planning-field-value">${escapeHtml(fmtPercentZero(overheadValue))}</span>
               </div>
             </section>
           </aside>
           <main>
             <section class="project-planning-kpis">
-              ${kpiCards
-                .map(
-                  ([label, value]) => `
-                <article class="project-planning-kpi">
-                  <div class="project-planning-kpi-label">${escapeHtml(label)}</div>
-                  <div class="project-planning-kpi-value">${escapeHtml(value)}</div>
-                </article>
-              `
-                )
-                .join("")}
+              <article class="project-planning-kpi">
+                <div class="project-planning-kpi-label">Contract Amount</div>
+                <div class="project-planning-kpi-value" data-kpi="contract">${escapeHtml(fmtMoneyZero(contractAmount))}</div>
+              </article>
+              <article class="project-planning-kpi">
+                <div class="project-planning-kpi-label">Budget</div>
+                <div class="project-planning-kpi-value" data-kpi="budget">${escapeHtml(fmtMoneyZero(budgetAmount))}</div>
+              </article>
+              <article class="project-planning-kpi">
+                <div class="project-planning-kpi-label">Planned Cost</div>
+                <div class="project-planning-kpi-value" data-kpi="plannedCost">${escapeHtml(fmtMoneyZero(initialTotals.totalCost))}</div>
+              </article>
+              <article class="project-planning-kpi">
+                <div class="project-planning-kpi-label">Gross Margin</div>
+                <div class="project-planning-kpi-value" data-kpi="grossMargin">${escapeHtml(initialTotals.hasContract ? fmtMoneyZero(initialTotals.grossMargin) : "—")}</div>
+              </article>
+              <article class="project-planning-kpi">
+                <div class="project-planning-kpi-label">Margin %</div>
+                <div class="project-planning-kpi-value" data-kpi="marginPct">${escapeHtml(initialTotals.hasContract ? fmtPercent(initialTotals.marginPercent) : "—")}</div>
+              </article>
+              <article class="project-planning-kpi">
+                <div class="project-planning-kpi-label">Planned Hours</div>
+                <div class="project-planning-kpi-value" data-kpi="hours">${escapeHtml(initialTotals.totalHours.toFixed(2))}</div>
+              </article>
+            </section>
+            <section class="project-planning-consumption" data-consumption-wrap ${initialTotals.hasContract ? "" : "hidden"}>
+              <div class="project-planning-consumption-track">
+                <div class="project-planning-consumption-fill" data-consumption-fill></div>
+              </div>
+              <div class="project-planning-consumption-label" data-consumption-label></div>
             </section>
             <section class="project-planning-block">
               <h3>Team Budgeting</h3>
@@ -271,36 +414,32 @@
                       <th>Cost</th>
                       <th>Revenue</th>
                       <th>Margin</th>
+                      <th>Margin %</th>
                     </tr>
                   </thead>
                   <tbody>
                     ${
-                      projectMembers.length
-                        ? projectMembers
-                            .slice(0, 8)
+                      planningRows.length
+                        ? planningRows
                             .map((row) => {
-                              const member = usersById.get(String(row?.userId || "").trim());
-                              const memberName = member?.displayName || "Unassigned";
-                              const role = member?.permissionGroup || member?.permission_group || "—";
-                              const costRate = Number(member?.costRate ?? member?.cost_rate);
-                              const chargeRate = Number(row?.chargeRateOverride ?? row?.charge_rate_override);
                               return `
                                 <tr>
-                                  <td>${escapeHtml(memberName)}</td>
-                                  <td>${escapeHtml(String(role).replace(/_/g, " "))}</td>
-                                  <td>${escapeHtml(Number.isFinite(costRate) ? fmtMoney(costRate) : "—")}</td>
-                                  <td>${escapeHtml(Number.isFinite(chargeRate) ? fmtMoney(chargeRate) : "—")}</td>
-                                  <td>—</td>
-                                  <td>—</td>
-                                  <td>—</td>
-                                  <td>—</td>
+                                  <td>${escapeHtml(row.memberName)}</td>
+                                  <td>${escapeHtml(String(row.role).replace(/_/g, " "))}</td>
+                                  <td><input class="project-planning-input" type="number" min="0" step="0.01" data-row-input="costRate" data-row-id="${escapeHtml(row.id)}" value="${escapeHtml(row.costRate)}" /></td>
+                                  <td><input class="project-planning-input" type="number" min="0" step="0.01" data-row-input="chargeRate" data-row-id="${escapeHtml(row.id)}" value="${escapeHtml(row.chargeRate)}" /></td>
+                                  <td><input class="project-planning-input" type="number" min="0" step="0.25" data-row-input="hours" data-row-id="${escapeHtml(row.id)}" value="${escapeHtml(row.hours)}" /></td>
+                                  <td data-row-output="cost" data-row-id="${escapeHtml(row.id)}">${escapeHtml(fmtMoneyZero(row.plannedCost))}</td>
+                                  <td data-row-output="revenue" data-row-id="${escapeHtml(row.id)}">${escapeHtml(fmtMoneyZero(row.plannedRevenue))}</td>
+                                  <td data-row-output="margin" data-row-id="${escapeHtml(row.id)}">${escapeHtml(fmtMoneyZero(row.margin))}</td>
+                                  <td data-row-output="marginPct" data-row-id="${escapeHtml(row.id)}">${escapeHtml(fmtPercentZero(row.marginPercent))}</td>
                                 </tr>
                               `;
                             })
                             .join("")
                         : `
                           <tr>
-                            <td colspan="8" class="project-planning-placeholder">No team budgeting rows yet.</td>
+                            <td colspan="9" class="project-planning-placeholder">No team budgeting rows yet.</td>
                           </tr>
                         `
                     }
@@ -337,10 +476,68 @@
     container.querySelector("[data-project-planning-save]")?.addEventListener("click", () => {
       if (typeof onSave === "function") onSave();
     });
+
+    const kpiContractNode = container.querySelector('[data-kpi="contract"]');
+    const kpiBudgetNode = container.querySelector('[data-kpi="budget"]');
+    const kpiPlannedCostNode = container.querySelector('[data-kpi="plannedCost"]');
+    const kpiGrossMarginNode = container.querySelector('[data-kpi="grossMargin"]');
+    const kpiMarginPctNode = container.querySelector('[data-kpi="marginPct"]');
+    const kpiHoursNode = container.querySelector('[data-kpi="hours"]');
+    const consumptionWrap = container.querySelector("[data-consumption-wrap]");
+    const consumptionFill = container.querySelector("[data-consumption-fill]");
+    const consumptionLabel = container.querySelector("[data-consumption-label]");
+
+    function renderComputed() {
+      planningRows = computeRows(planningRows);
+      const totals = computeTotals(planningRows, contractAmount, overheadValue);
+
+      planningRows.forEach((row) => {
+        const rowId = String(row.id);
+        const costNode = container.querySelector(`[data-row-output="cost"][data-row-id="${rowId}"]`);
+        const revenueNode = container.querySelector(`[data-row-output="revenue"][data-row-id="${rowId}"]`);
+        const marginNode = container.querySelector(`[data-row-output="margin"][data-row-id="${rowId}"]`);
+        const marginPctNode = container.querySelector(`[data-row-output="marginPct"][data-row-id="${rowId}"]`);
+        if (costNode) costNode.textContent = fmtMoneyZero(row.plannedCost);
+        if (revenueNode) revenueNode.textContent = fmtMoneyZero(row.plannedRevenue);
+        if (marginNode) marginNode.textContent = fmtMoneyZero(row.margin);
+        if (marginPctNode) marginPctNode.textContent = fmtPercentZero(row.marginPercent);
+      });
+
+      if (kpiContractNode) kpiContractNode.textContent = fmtMoneyZero(contractAmount);
+      if (kpiBudgetNode) kpiBudgetNode.textContent = fmtMoneyZero(budgetAmount);
+      if (kpiPlannedCostNode) kpiPlannedCostNode.textContent = fmtMoneyZero(totals.totalCost);
+      if (kpiGrossMarginNode) kpiGrossMarginNode.textContent = totals.hasContract ? fmtMoneyZero(totals.grossMargin) : "—";
+      if (kpiMarginPctNode) kpiMarginPctNode.textContent = totals.hasContract ? fmtPercent(totals.marginPercent) : "—";
+      if (kpiHoursNode) kpiHoursNode.textContent = totals.totalHours.toFixed(2);
+
+      if (consumptionWrap) {
+        consumptionWrap.hidden = !totals.hasContract;
+      }
+      if (totals.hasContract && consumptionFill && consumptionLabel) {
+        const rawPct = contractAmount > 0 ? (totals.totalCost / contractAmount) * 100 : 0;
+        const safePct = Math.max(0, rawPct);
+        consumptionFill.style.width = `${Math.min(safePct, 100).toFixed(2)}%`;
+        consumptionLabel.textContent = `${safePct.toFixed(2)}% of contract consumed`;
+      }
+    }
+
+    container.querySelectorAll("[data-row-input]").forEach((input) => {
+      input.addEventListener("input", (event) => {
+        const target = event.target;
+        const rowId = String(target?.dataset?.rowId || "");
+        const field = String(target?.dataset?.rowInput || "");
+        if (!rowId || !field) return;
+        const row = planningRows.find((item) => String(item.id) === rowId);
+        if (!row) return;
+        row[field] = toNumberOrZero(target.value);
+        renderComputed();
+      });
+    });
+
+    renderComputed();
   }
 
   window.projectPlanning = {
     renderProjectPlanningPage,
   };
 })();
-
