@@ -58,15 +58,15 @@
         border: 1px solid var(--line);
         border-radius: 9px;
         overflow: hidden;
-        background: var(--surface);
+        background: transparent;
       }
       .project-planning-contract-type-option {
         height: 36px;
         min-height: 36px;
         border: 0;
         border-right: 1px solid var(--line);
-        background: var(--surface);
-        color: var(--text);
+        background: transparent;
+        color: var(--muted);
         padding: 0 14px;
         font-size: 0.86rem;
         font-weight: 600;
@@ -77,10 +77,11 @@
         border-right: 0;
       }
       .project-planning-contract-type-option.is-active {
-        background: var(--accent);
+        background: color-mix(in srgb, var(--accent) 86%, white 14%);
         color: #fff;
-        border-right-color: var(--accent);
+        border-right-color: color-mix(in srgb, var(--accent) 86%, white 14%);
         font-weight: 600;
+        box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.18), 0 1px 2px rgba(0, 0, 0, 0.14);
       }
       .project-planning-page .button {
         min-height: 36px;

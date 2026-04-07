@@ -62,3 +62,7 @@ Use an iframe block or HTML block with your deployed Netlify URL:
 - Users, clients, and projects are tenant-specific and should come from your database or initial configuration.
 - No client/project catalog is hardcoded by default; seed data should be supplied per tenant or left empty.
 - New clients/projects added in the UI are stored via the configured backend APIs.
+
+## Session handoff
+
+- Latest handoff notes: [`SESSION_HANDOFF.md`](/Users/kaprelozsolak/Timesheet/SESSION_HANDOFF.md)

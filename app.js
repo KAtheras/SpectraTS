@@ -11228,17 +11228,7 @@
           const effectiveLevel = normalizeLevel(nextLevel || user.level);
           const effectiveUser = { ...user, level: effectiveLevel };
 
-          if (mode === "project-add") {
-            if (!isStaff(effectiveUser)) {
-              skippedNonStaff += 1;
-              continue;
-            }
-            await mutatePersistentState("add_project_member", {
-              userId: user.id,
-              clientName: client,
-              projectName: project,
-            });
-          } else if (mode === "project-remove") {
+          if (mode === "project-remove") {
             await mutatePersistentState("remove_project_member", {
               userId: user.id,
               clientName: client,

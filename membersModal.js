@@ -31,7 +31,6 @@
     const gatingModes = new Set([
       "project-members-edit",
       "project-managers-edit",
-      "project-add",
       "project-remove",
       "project-add-member",
       "project-remove-member",
@@ -174,7 +173,7 @@
 
     let title = "Manage Members";
     let subtext = "";
-    if (mode === "project-add" || mode === "project-members-edit") {
+    if (mode === "project-members-edit") {
       title = `Add Members to ${projectLabel}`;
       subtext = "Select staff to add to this project.";
     } else if (mode === "project-remove") {
@@ -220,7 +219,7 @@
         ? state.users.filter((user) => user.id === userId)
         : state.users;
     const officeNameById = new Map(
-      (state.officeLocations || []).map((loc) => [loc.id || "", loc.name || ""])
+      (state.officeLocations || []).map((loc) => [String(loc?.id || "").trim(), loc?.name || ""])
     );
 
     const grouped = new Map();
@@ -273,15 +272,7 @@
       const matchesSearch =
         !searchTerm || String(user.displayName || "").toLowerCase().includes(searchTerm);
 
-      if (mode === "project-add") {
-        if (isAssignedToProject) {
-          checkboxDisabled = true;
-          checkboxTitle = "Already assigned.";
-        } else if (!isStaff(user) && !canChangeRole) {
-          checkboxDisabled = true;
-          checkboxTitle = "Managers can only assign staff.";
-        }
-      } else if (mode === "project-remove") {
+      if (mode === "project-remove") {
         show = isAssignedToProject && isStaff(user);
         checkboxChecked = show;
       } else if (mode === "project-add-member") {
@@ -402,12 +393,15 @@
             `
           : "";
 
-      const officeId = user.officeId || "";
+      const officeId = String(user.officeId || user.office_id || "").trim();
       const groupByLevel = mode === "project-add-member";
       const groupKey = groupByLevel
         ? `level:${String(currentLevelLabel).toLowerCase()}`
         : officeId || "__no_office";
-      const resolvedOfficeName = officeId ? officeNameById.get(officeId) || "" : "";
+      const fallbackOfficeName = String(user.officeName || user.office_name || "").trim();
+      const resolvedOfficeName = officeId
+        ? officeNameById.get(officeId) || fallbackOfficeName
+        : fallbackOfficeName;
       const safeOfficeLabel =
         resolvedOfficeName && !String(resolvedOfficeName).startsWith("temp-office-")
           ? resolvedOfficeName
@@ -416,16 +410,17 @@
         ? currentLevelLabel
         : safeOfficeLabel;
       const showRoleSecondary = new Set([
-        "project-add",
         "project-add-member",
         "project-remove-member",
         "project-remove",
         "project-assign-manager",
         "project-unassign-manager",
       ]).has(mode);
-      const secondaryLabel = showRoleSecondary
-        ? currentLevelLabel
-        : user.username;
+      const secondaryLabel = mode === "project-add-member"
+        ? safeOfficeLabel
+        : showRoleSecondary
+          ? currentLevelLabel
+          : user.username;
 
       const rowHtml = `
         <article class="catalog-item member-item">
@@ -454,7 +449,8 @@
           levelLabel: currentLevelLabel,
         });
       }
-      grouped.get(groupKey).rows.push(rowHtml);
+      const group = grouped.get(groupKey);
+      group.rows.push(rowHtml);
     });
 
     const sortedGroups = Array.from(grouped.values()).sort((a, b) => {
