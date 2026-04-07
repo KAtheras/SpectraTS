@@ -318,8 +318,8 @@
       .sort((a, b) => a.level - b.level);
 
     await mutatePersistentState("update_level_labels", { levels }, settingsSaveFastOptions());
-    await refreshSettingsTab("levels");
     feedback("Levels updated.", false);
+    refreshSettingsTabInBackground("levels");
   });
 
   const DEFAULT_CLIENT_PROJECTS = {};
@@ -992,19 +992,43 @@
         contractAmount: projectDialog.contractAmount,
         overheadPercent: projectDialog.overheadPercent,
         project_lead_id: projectDialog.projectLeadId,
-      });
+      }, { skipHydrate: true, refreshState: false, returnState: false });
       if (state.filters.client === normalizedClient && state.filters.project === normalizedProject) {
         state.filters.project = nextName.trim();
+      }
+      state.projects = (state.projects || []).map((item) => {
+        if (!item) return item;
+        const itemClient = String(item.client || "").trim();
+        const itemName = String(item.name || "").trim().toLowerCase();
+        if (itemClient !== normalizedClient || itemName !== normalizedProject.toLowerCase()) {
+          return item;
+        }
+        return {
+          ...item,
+          name: nextName,
+          project: nextName,
+          contractAmount: projectDialog.contractAmount,
+          contract_amount: projectDialog.contractAmount,
+          overheadPercent: projectDialog.overheadPercent,
+          overhead_percent: projectDialog.overheadPercent,
+          projectLeadId: projectDialog.projectLeadId,
+          project_lead_id: projectDialog.projectLeadId,
+        };
+      });
+      if (state.catalog?.[normalizedClient]) {
+        state.catalog[normalizedClient] = state.catalog[normalizedClient].map((name) =>
+          String(name || "").trim().toLowerCase() === normalizedProject.toLowerCase() ? nextName : name
+        );
       }
     } catch (error) {
       feedback(error.message || "Unable to update project.", true);
       return;
     }
 
-    await loadPersistentState();
     syncFilterCatalogsUI(state.filters);
     feedback("Project updated.", false);
     render();
+    loadPersistentStateInBackground();
   }
 
   async function openProjectDialog(options) {
@@ -1852,10 +1876,6 @@
   async function submitMemberEditorModal(event) {
     event.preventDefault();
     const submitLabel = memberEditorMode === "create" ? "Add member" : "Save changes";
-    if (memberEditorSubmit) {
-      memberEditorSubmit.disabled = true;
-      memberEditorSubmit.textContent = "Saving...";
-    }
     const canEditProfile = Boolean(state.permissions?.edit_user_profile);
     const canEditRates = Boolean(state.permissions?.edit_user_rates);
     const canCreate = Boolean(state.permissions?.create_user);
@@ -1879,6 +1899,11 @@
     if (!email || !email.includes("@")) {
       feedback("Email must include @.", true);
       return;
+    }
+
+    if (memberEditorSubmit) {
+      memberEditorSubmit.disabled = true;
+      memberEditorSubmit.textContent = "Saving...";
     }
 
     try {
@@ -1911,6 +1936,10 @@
             settingsSaveFastOptions()
           );
         }
+        closeMemberEditorModal();
+        feedback("Member added.", false);
+        render();
+        refreshSettingsTabInBackground("rates");
       } else {
         const userId = memberEditorUserId;
         const currentUser = (state.users || []).find((u) => u.id === userId);
@@ -1918,49 +1947,114 @@
           feedback("Team member not found.", true);
           return;
         }
-        if (canEditProfile) {
-          await mutatePersistentState(
-            "update_user",
-            {
-              userId,
-              displayName,
-              username,
-              email,
-              employeeId,
-              level,
-              officeId,
-              certifications,
-              memberProfile,
-            },
-            settingsSaveFastOptions()
+        const normalizeText = (value) => String(value || "").trim();
+        const normalizeNumber = (value) => {
+          if (value === null || value === undefined || `${value}`.trim() === "") {
+            return null;
+          }
+          const numeric = Number(value);
+          return Number.isFinite(numeric) ? numeric : null;
+        };
+        const profileChanged =
+          canEditProfile &&
+          (
+            normalizeText(currentUser.displayName) !== displayName ||
+            normalizeText(currentUser.username) !== username ||
+            normalizeText(currentUser.email) !== email ||
+            normalizeText(currentUser.employeeId) !== employeeId ||
+            normalizeLevel(currentUser.level || "1") !== level ||
+            normalizeText(currentUser.officeId) !== normalizeText(officeId) ||
+            normalizeText(currentUser.certifications) !== certifications ||
+            normalizeText(currentUser.memberProfile) !== memberProfile
           );
-        }
-        const followUpMutations = [];
-        if (canEditProfile) {
-          followUpMutations.push(
-            mutatePersistentState(
-              "set_user_department",
-              { userId, departmentId },
-              settingsSaveFastOptions()
-            )
+        const departmentChanged =
+          canEditProfile &&
+          normalizeText(currentUser.departmentId) !== normalizeText(departmentId);
+        const ratesChanged =
+          canEditRates &&
+          (
+            normalizeNumber(currentUser.baseRate) !== normalizeNumber(baseRate) ||
+            normalizeNumber(currentUser.costRate) !== normalizeNumber(costRate)
           );
+        if (!profileChanged && !departmentChanged && !ratesChanged) {
+          closeMemberEditorModal();
+          return;
         }
-        if (canEditRates) {
-          followUpMutations.push(
-            mutatePersistentState(
-              "update_user_rates",
-              { userId, baseRate, costRate },
-              settingsSaveFastOptions()
-            )
+
+        const previousUserSnapshot = { ...currentUser };
+        const nextUsers = (state.users || []).map((item) => {
+          if (!item || item.id !== userId) return item;
+          return {
+            ...item,
+            displayName: profileChanged ? displayName : item.displayName,
+            username: profileChanged ? username : item.username,
+            email: profileChanged ? email : item.email,
+            employeeId: profileChanged ? employeeId : item.employeeId,
+            level: profileChanged ? level : item.level,
+            officeId: profileChanged ? officeId : item.officeId,
+            certifications: profileChanged ? certifications : item.certifications,
+            memberProfile: profileChanged ? memberProfile : item.memberProfile,
+            departmentId: departmentChanged ? departmentId : item.departmentId,
+            baseRate: ratesChanged ? baseRate : item.baseRate,
+            costRate: ratesChanged ? costRate : item.costRate,
+          };
+        });
+        state.users = nextUsers;
+        closeMemberEditorModal();
+        render();
+
+        try {
+          if (canEditProfile) {
+            if (profileChanged) {
+              await mutatePersistentState(
+                "update_user",
+                {
+                  userId,
+                  displayName,
+                  username,
+                  email,
+                  employeeId,
+                  level,
+                  officeId,
+                  certifications,
+                  memberProfile,
+                },
+                settingsSaveFastOptions()
+              );
+            }
+          }
+          const followUpMutations = [];
+          if (departmentChanged) {
+            followUpMutations.push(
+              mutatePersistentState(
+                "set_user_department",
+                { userId, departmentId },
+                settingsSaveFastOptions()
+              )
+            );
+          }
+          if (ratesChanged) {
+            followUpMutations.push(
+              mutatePersistentState(
+                "update_user_rates",
+                { userId, baseRate, costRate },
+                settingsSaveFastOptions()
+              )
+            );
+          }
+          if (followUpMutations.length) {
+            await Promise.all(followUpMutations);
+          }
+          feedback("Member updated.", false);
+          refreshSettingsTabInBackground("rates");
+        } catch (innerError) {
+          state.users = (state.users || []).map((item) =>
+            !item || item.id !== userId ? item : previousUserSnapshot
           );
-        }
-        if (followUpMutations.length) {
-          await Promise.all(followUpMutations);
+          render();
+          throw innerError;
         }
       }
-      closeMemberEditorModal();
-      await refreshSettingsTab("rates");
-      feedback(memberEditorMode === "create" ? "Member added." : "Member updated.", false);
     } catch (error) {
       feedback(error.message || "Unable to save member.", true);
     } finally {
@@ -5305,7 +5399,8 @@
       try {
         await mutatePersistentState(
           "save_entry",
-          wasEditingSavedRow ? { entry: nextEntry } : { entry: nextEntry, actingAsUserId }
+          wasEditingSavedRow ? { entry: nextEntry } : { entry: nextEntry, actingAsUserId },
+          { skipHydrate: true, refreshState: false, returnState: false }
         );
       } catch (error) {
         row.dataset.saving = "false";
@@ -5318,6 +5413,14 @@
       }
 
       feedback("Entry saved.", false);
+      const nextEntryId = String(nextEntry.id || "").trim();
+      if (nextEntryId) {
+        const existingEntries = Array.isArray(state.entries) ? state.entries : [];
+        const preservedEntries = existingEntries.filter(
+          (item) => String(item?.id || "").trim() !== nextEntryId
+        );
+        state.entries = preservedEntries.concat({ ...nextEntry });
+      }
       row.dataset.entryId = nextEntry.id;
       row.dataset.createdAt = nextEntry.createdAt;
       setInputsTimeRowSaved(row);
@@ -5825,7 +5928,8 @@
           wasEditingSavedRow ? "update_expense" : "create_expense",
           wasEditingSavedRow
             ? { expense: nextExpense }
-            : { expense: nextExpense, actingAsUserId }
+            : { expense: nextExpense, actingAsUserId },
+          { skipHydrate: true, refreshState: false, returnState: false }
         );
       } catch (error) {
         row.dataset.saving = "false";
@@ -5838,6 +5942,14 @@
       }
 
       feedback("Expense saved.", false);
+      const nextExpenseId = String(nextExpense.id || "").trim();
+      if (nextExpenseId) {
+        const existingExpenses = Array.isArray(state.expenses) ? state.expenses : [];
+        const preservedExpenses = existingExpenses.filter(
+          (item) => String(item?.id || "").trim() !== nextExpenseId
+        );
+        state.expenses = preservedExpenses.concat({ ...nextExpense });
+      }
       row.dataset.entryId = nextExpense.id;
       row.dataset.createdAt = nextExpense.createdAt;
       setInputsExpenseRowSaved(row);
@@ -7208,7 +7320,7 @@
           skipSettingsMetadataReload: true,
         });
         if (state.currentView === "settings") {
-          await refreshSettingsTab("rates");
+          refreshSettingsTabInBackground("rates");
           setUserFeedback(`${user.displayName} was deactivated.`, false);
           return;
         }
@@ -7465,13 +7577,25 @@
                         : Number(member.rateOverride),
                   })),
                 },
-                { refreshState: false, returnState: false }
+                { skipHydrate: true, refreshState: false, returnState: false }
               );
-              await loadPersistentState();
+              const preserved = (state.projectMemberBudgets || []).filter(
+                (row) => String(row?.projectId || "").trim() !== saveProjectId
+              );
+              state.projectMemberBudgets = preserved.concat(
+                members.map((member) => ({
+                  projectId: saveProjectId,
+                  userId: member.userId,
+                  budgetHours: member.budgetHours,
+                  budgetAmount: member.budgetAmount,
+                  rateOverride: member.rateOverride,
+                }))
+              );
+              feedback("Project plan saved.", false);
               if (state.currentView === "project_planning") {
                 render();
               }
-              feedback("Project plan saved.", false);
+              loadPersistentStateInBackground();
             },
             onPersistField: async function (payload) {
               const persistProjectId = String(payload?.projectId || targetProjectId || "").trim();
@@ -9391,10 +9515,10 @@
         .sort((a, b) => a.level - b.level);
       try {
         await mutatePersistentState("update_level_labels", { levels }, settingsSaveFastOptions());
-        await refreshSettingsTab("levels");
+        refreshSettingsTabInBackground("levels");
         feedback("Level added.", false);
       } catch (error) {
-        await refreshSettingsTab("levels");
+        refreshSettingsTabInBackground("levels");
         feedback(error.message || "Unable to add level.", true);
       }
     });
@@ -9412,6 +9536,22 @@
     if (btn) {
       btn.click();
     }
+  }
+
+  function refreshSettingsTabInBackground(tabKey) {
+    refreshSettingsTab(tabKey).catch((error) => {
+      feedback(error?.message || "Unable to refresh settings.", true);
+    });
+  }
+
+  function loadPersistentStateInBackground() {
+    loadPersistentState()
+      .then(() => {
+        render();
+      })
+      .catch((error) => {
+        feedback(error?.message || "Unable to refresh data.", true);
+      });
   }
 
   function nextCorporateFunctionGroupSortOrder() {
@@ -9537,7 +9677,7 @@
       }
       try {
         await mutatePersistentState("update_expense_categories", { categories }, settingsSaveFastOptions());
-        await refreshSettingsTab("categories");
+        refreshSettingsTabInBackground("categories");
         feedback("Expense categories updated.", false);
       } catch (error) {
         feedback(error.message || "Unable to update expense categories.", true);
@@ -9556,7 +9696,7 @@
       } catch (e) {}
       await mutatePersistentState("update_office_locations", { locations }, settingsSaveFastOptions());
       feedback("Office locations updated.", false);
-      await refreshSettingsTab("locations");
+      refreshSettingsTabInBackground("locations");
     } catch (error) {
       try {
         window.localStorage.setItem("timesheet.offices", JSON.stringify(locations));
@@ -9710,7 +9850,7 @@
       renderExpenseCategories();
       try {
         await mutatePersistentState("update_expense_categories", { categories }, settingsSaveFastOptions());
-        await refreshSettingsTab("categories");
+        refreshSettingsTabInBackground("categories");
         feedback("Category deleted.", false);
       } catch (error) {
         state.expenseCategories = previous;
@@ -9895,11 +10035,11 @@
             { groups },
             settingsSaveFastOptions()
           );
-          await loadPersistentState();
           if (state.currentView === "settings") {
             renderCorporateFunctionCategories?.();
           }
           feedback("Corporate functions updated.", false);
+          loadPersistentStateInBackground();
         } catch (error) {
           feedback(error.message || "Unable to update corporate functions.", true);
         }
@@ -9973,7 +10113,7 @@
         for (const op of deleteOps) {
           await mutatePersistentState("delete_department", { id: op.id }, settingsSaveFastOptions());
         }
-        await refreshSettingsTab("departments");
+        refreshSettingsTabInBackground("departments");
         feedback("Departments updated.", false);
       } catch (error) {
         feedback(error.message || "Unable to update departments.", true);
@@ -10042,10 +10182,10 @@
 
       try {
         await mutatePersistentState("update_level_labels", { levels }, settingsSaveFastOptions());
-        await refreshSettingsTab("levels");
+        refreshSettingsTabInBackground("levels");
         feedback("Level deleted.", false);
       } catch (error) {
-        await refreshSettingsTab("levels");
+        refreshSettingsTabInBackground("levels");
         feedback(error.message || "Unable to delete level.", true);
       }
     });
@@ -10288,7 +10428,11 @@
           return;
         }
         try {
-          await mutatePersistentState("deactivate_client", { clientName });
+          await mutatePersistentState(
+            "deactivate_client",
+            { clientName },
+            { skipHydrate: true, refreshState: false, returnState: false }
+          );
         } catch (error) {
           const message = error.message || "Unable to deactivate client.";
           if (message.includes("Cannot Deactivate Client")) {
@@ -10306,25 +10450,39 @@
           feedback(message, true);
           return;
         }
-        await loadPersistentState();
+        state.clients = (state.clients || []).map((client) =>
+          String(client?.name || "").trim() === String(clientName || "").trim()
+            ? { ...client, isActive: false, is_active: false }
+            : client
+        );
         ensureCatalogSelection();
         syncFilterCatalogsUI(state.filters);
         feedback("Client deactivated.", false);
         render();
+        loadPersistentStateInBackground();
         return;
       }
 
       try {
-        await mutatePersistentState("reactivate_client", { clientName });
+        await mutatePersistentState(
+          "reactivate_client",
+          { clientName },
+          { skipHydrate: true, refreshState: false, returnState: false }
+        );
       } catch (error) {
         feedback(error.message || "Unable to reactivate client.", true);
         return;
       }
-      await loadPersistentState();
+      state.clients = (state.clients || []).map((client) =>
+        String(client?.name || "").trim() === String(clientName || "").trim()
+          ? { ...client, isActive: true, is_active: true }
+          : client
+      );
       ensureCatalogSelection();
       syncFilterCatalogsUI(state.filters);
       feedback("Client reactivated.", false);
       render();
+      loadPersistentStateInBackground();
       return;
     }
 
@@ -10361,8 +10519,15 @@
       try {
         const result = await mutatePersistentState("remove_client", {
           clientName,
-        });
+        }, { skipHydrate: true, refreshState: false, returnState: false });
         message = result?.message || "";
+        delete state.catalog[clientName];
+        state.clients = (state.clients || []).filter(
+          (client) => String(client?.name || "").trim() !== String(clientName || "").trim()
+        );
+        state.projects = (state.projects || []).filter(
+          (project) => String(project?.client || "").trim() !== String(clientName || "").trim()
+        );
         if (state.selectedCatalogClient === clientName) {
           state.selectedCatalogClient = "";
         }
@@ -10400,10 +10565,10 @@
         return;
       }
 
-      await loadPersistentState();
       syncFilterCatalogsUI(state.filters);
       feedback(message || "Client removed from active catalog.", false);
       render();
+      loadPersistentStateInBackground();
       return;
     }
 
@@ -10549,7 +10714,7 @@
           await mutatePersistentState("deactivate_project", {
             clientName: state.selectedCatalogClient,
             projectName,
-          });
+          }, { skipHydrate: true, refreshState: false, returnState: false });
         } catch (error) {
           const message = error.message || "Unable to deactivate project.";
           if (message.includes("Cannot Deactivate Project")) {
@@ -10567,10 +10732,18 @@
           feedback(message, true);
           return;
         }
-        await loadPersistentState();
+        state.projects = (state.projects || []).map((project) => {
+          const matchesClient =
+            String(project?.client || "").trim() === String(state.selectedCatalogClient || "").trim();
+          const matchesProject =
+            String(project?.name || "").trim() === String(projectName || "").trim();
+          if (!matchesClient || !matchesProject) return project;
+          return { ...project, isActive: false, is_active: false };
+        });
         syncFilterCatalogsUI(state.filters);
         feedback("Project deactivated.", false);
         render();
+        loadPersistentStateInBackground();
         return;
       }
 
@@ -10593,7 +10766,7 @@
         await mutatePersistentState("reactivate_project", {
           clientName: state.selectedCatalogClient,
           projectName,
-        });
+        }, { skipHydrate: true, refreshState: false, returnState: false });
       } catch (error) {
         const message = error.message || "Unable to reactivate project.";
         if (message.includes("Cannot Reactivate Project")) {
@@ -10611,10 +10784,18 @@
         feedback(message, true);
         return;
       }
-      await loadPersistentState();
+      state.projects = (state.projects || []).map((project) => {
+        const matchesClient =
+          String(project?.client || "").trim() === String(state.selectedCatalogClient || "").trim();
+        const matchesProject =
+          String(project?.name || "").trim() === String(projectName || "").trim();
+        if (!matchesClient || !matchesProject) return project;
+        return { ...project, isActive: true, is_active: true };
+      });
       syncFilterCatalogsUI(state.filters);
       feedback("Project reactivated.", false);
       render();
+      loadPersistentStateInBackground();
       return;
     }
 
@@ -10661,7 +10842,7 @@
         const result = await mutatePersistentState("remove_project", {
           clientName: state.selectedCatalogClient,
           projectName,
-        });
+        }, { skipHydrate: true, refreshState: false, returnState: false });
         message = result?.message || "";
         // Defensive local cleanup in case state remains stale
         state.projects = state.projects.filter(
@@ -10717,10 +10898,10 @@
         return;
       }
 
-      await loadPersistentState();
       syncFilterCatalogsUI(state.filters);
       feedback(message || "Project removed from active catalog.", false);
       render();
+      loadPersistentStateInBackground();
       return;
     }
 

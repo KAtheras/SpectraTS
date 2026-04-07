@@ -2724,9 +2724,14 @@
             { rolePermissions: next },
             { skipHydrate: true }
           );
-          await deps().loadPersistentState();
-          renderSettingsTabs();
           deps().feedback("Access updated.", false);
+          if (typeof deps().loadPersistentState === "function") {
+            deps().loadPersistentState()
+              .then(() => {
+                renderSettingsTabs();
+              })
+              .catch(() => {});
+          }
         } catch (error) {
           deps().feedback(error.message || "Unable to save access.", true);
         } finally {
@@ -3397,22 +3402,23 @@
               skipSettingsMetadataReload: true,
             }
           );
-          if (typeof deps().loadPersistentState === "function") {
-            await deps().loadPersistentState();
-          }
-          const latestRows = Array.isArray(state.projectExpenseCategories)
-            ? state.projectExpenseCategories
-            : [];
-          const latestIdByName = new Map(
-            latestRows.map((item) => [`${item?.name || ""}`.trim().toLowerCase(), `${item?.id || ""}`.trim()])
-          );
-          projectExpenseCategoriesDraft = normalizedRows.map((item) => {
-            const id = latestIdByName.get(item.name.toLowerCase()) || item.id;
-            return { id, name: item.name };
-          });
+          projectExpenseCategoriesDraft = normalizedRows.map((item) => ({
+            id: item.id,
+            name: item.name,
+          }));
           projectExpenseCategoriesDraftDirty = false;
           renderExpenseCategories();
           feedback("Expense categories updated.", false);
+          if (typeof deps().loadPersistentState === "function") {
+            deps().loadPersistentState()
+              .then(() => {
+                renderSettingsTabs();
+                if (typeof setActiveSettingsTab === "function") {
+                  setActiveSettingsTab("categories");
+                }
+              })
+              .catch(() => {});
+          }
         } catch (error) {
           feedback(error.message || "Unable to update expense categories.", true);
         }
