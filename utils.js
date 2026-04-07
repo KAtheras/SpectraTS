@@ -173,6 +173,25 @@
             : project.office_id !== undefined && project.office_id !== null
               ? project.office_id
               : "";
+        const projectDepartmentIdRaw =
+          project.projectDepartmentId !== undefined && project.projectDepartmentId !== null
+            ? project.projectDepartmentId
+            : project.project_department_id !== undefined && project.project_department_id !== null
+              ? project.project_department_id
+              : "";
+        const projectDepartmentId = projectDepartmentIdRaw ? String(projectDepartmentIdRaw).trim() : "";
+        const projectDepartmentName =
+          typeof project.projectDepartmentName === "string" && project.projectDepartmentName.trim()
+            ? project.projectDepartmentName.trim()
+            : typeof project.project_department_name === "string" && project.project_department_name.trim()
+              ? project.project_department_name.trim()
+              : "";
+        const targetRealizationRaw =
+          project.targetRealizationPct !== undefined && project.targetRealizationPct !== null
+            ? Number(project.targetRealizationPct)
+            : project.target_realization_pct !== undefined && project.target_realization_pct !== null
+              ? Number(project.target_realization_pct)
+              : null;
         const projectLeadIdRaw =
           project.projectLeadId !== undefined && project.projectLeadId !== null
             ? project.projectLeadId
@@ -201,6 +220,12 @@
           isActive: project?.isActive ?? project?.is_active ?? true,
           is_active: project?.isActive ?? project?.is_active ?? true,
           officeId: officeId ? String(officeId) : "",
+          office_id: officeId ? String(officeId) : "",
+          projectDepartmentId: projectDepartmentId || null,
+          project_department_id: projectDepartmentId || null,
+          projectDepartmentName: projectDepartmentName || null,
+          targetRealizationPct: Number.isFinite(targetRealizationRaw) ? targetRealizationRaw : null,
+          target_realization_pct: Number.isFinite(targetRealizationRaw) ? targetRealizationRaw : null,
           projectLeadId: projectLeadId || null,
           project_lead_id: projectLeadId || null,
           projectLeadName,

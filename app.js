@@ -445,6 +445,9 @@
     departmentRows: document.getElementById("department-rows"),
     addDepartment: document.getElementById("add-department"),
     saveDepartments: document.getElementById("save-departments"),
+    targetRealizationsForm: document.getElementById("target-realizations-form"),
+    targetRealizationsMatrix: document.getElementById("target-realizations-matrix"),
+    saveTargetRealizations: document.getElementById("save-target-realizations"),
     dialog: document.getElementById("app-dialog"),
     dialogTitle: document.getElementById("dialog-title"),
     dialogMessage: document.getElementById("dialog-message"),
@@ -909,6 +912,19 @@
     }
   }
 
+  async function ensureProjectEditorMetadataLoaded() {
+    const hasDepartments = Array.isArray(state.departments) && state.departments.length;
+    const hasOfficeLocations = Array.isArray(state.officeLocations) && state.officeLocations.length;
+    if (hasDepartments && hasOfficeLocations) {
+      return;
+    }
+    try {
+      await loadSettingsMetadata(true);
+    } catch (error) {
+      // Keep existing behavior: editor can still open even if metadata load fails.
+    }
+  }
+
   function parseProjectBudgetAmount(rawValue) {
     const trimmed = String(rawValue || "").trim();
     if (!trimmed) {
@@ -938,6 +954,7 @@
   }
 
   async function openProjectEditDialogFlow(clientName, projectName) {
+    await ensureProjectEditorMetadataLoaded();
     const normalizedClient = String(clientName || "").trim();
     const normalizedProject = String(projectName || "").trim();
     if (!normalizedClient || !normalizedProject) {
@@ -963,7 +980,34 @@
     )
       ? Number(projectRow.overheadPercent ?? projectRow.overhead_percent)
       : null;
+    const projectTargetRaw = projectRow.targetRealizationPct ?? projectRow.target_realization_pct;
+    const currentTargetRealizationPct =
+      projectTargetRaw === null || projectTargetRaw === undefined || `${projectTargetRaw}`.trim() === ""
+        ? null
+        : Number.isFinite(Number(projectTargetRaw))
+          ? Number(projectTargetRaw)
+          : null;
     const projectLeadId = String(projectRow?.projectLeadId || projectRow?.project_lead_id || "").trim() || null;
+    const projectDepartmentId =
+      String(projectRow?.projectDepartmentId || projectRow?.project_department_id || "").trim() || null;
+    const clientRow =
+      (state.clients || []).find((client) => String(client?.name || "").trim() === normalizedClient) || null;
+    const clientOfficeId = String(clientRow?.officeId || clientRow?.office_id || "").trim() || null;
+    const projectOfficeId =
+      String(projectRow?.officeId || projectRow?.office_id || "").trim() || clientOfficeId || null;
+    const defaultTargetRealizationPct = (() => {
+      const officeId = String(projectOfficeId || "").trim();
+      const departmentId = String(projectDepartmentId || "").trim();
+      if (!officeId || !departmentId) return null;
+      const match = (state.targetRealizations || []).find(
+        (item) =>
+          String(item?.officeId || item?.office_id || "").trim() === officeId &&
+          String(item?.departmentId || item?.department_id || "").trim() === departmentId
+      );
+      const raw = match?.targetRealizationPct ?? match?.target_realization_pct;
+      if (raw === null || raw === undefined || `${raw}`.trim() === "") return null;
+      return Number.isFinite(Number(raw)) ? Number(raw) : null;
+    })();
     const managerNames = userNamesForIds(managerIdsForProject(normalizedClient, normalizedProject));
     const staffNames = userNamesForIds(staffIdsForProject(normalizedClient, normalizedProject));
     const projectDialog = await openProjectDialog({
@@ -973,7 +1017,12 @@
       projectName: normalizedProject,
       contractAmount: currentContractAmount,
       overheadPercent: currentOverheadPercent,
+      targetRealizationPct: currentTargetRealizationPct,
+      defaultTargetRealizationPct,
       projectLeadId,
+      projectDepartmentId,
+      projectOfficeId,
+      clientOfficeId,
       managerNames,
       staffNames,
     });
@@ -991,7 +1040,10 @@
         nextName,
         contractAmount: projectDialog.contractAmount,
         overheadPercent: projectDialog.overheadPercent,
+        targetRealizationPct: projectDialog.targetRealizationPct,
         project_lead_id: projectDialog.projectLeadId,
+        project_department_id: projectDialog.projectDepartmentId,
+        office_id: projectDialog.projectOfficeId,
       }, { skipHydrate: true, refreshState: false, returnState: false });
       if (state.filters.client === normalizedClient && state.filters.project === normalizedProject) {
         state.filters.project = nextName.trim();
@@ -1011,8 +1063,14 @@
           contract_amount: projectDialog.contractAmount,
           overheadPercent: projectDialog.overheadPercent,
           overhead_percent: projectDialog.overheadPercent,
+          targetRealizationPct: projectDialog.targetRealizationPct,
+          target_realization_pct: projectDialog.targetRealizationPct,
           projectLeadId: projectDialog.projectLeadId,
           project_lead_id: projectDialog.projectLeadId,
+          projectDepartmentId: projectDialog.projectDepartmentId,
+          project_department_id: projectDialog.projectDepartmentId,
+          officeId: projectDialog.projectOfficeId,
+          office_id: projectDialog.projectOfficeId,
         };
       });
       if (state.catalog?.[normalizedClient]) {
@@ -1042,12 +1100,33 @@
         ? Number(options.contractAmount)
         : null;
       const currentLeadId = String(options?.projectLeadId || "").trim();
+      const currentProjectDepartmentId = String(options?.projectDepartmentId || "").trim();
+      const currentProjectOfficeId =
+        String(options?.projectOfficeId || "").trim() || String(options?.clientOfficeId || "").trim();
       const currentPricingModelRaw = String(options?.pricingModel || "").trim();
       const currentPricingModel =
         currentPricingModelRaw === "time_and_materials" ? "time_and_materials" : "fixed_fee";
       const currentOverheadPercent = Number.isFinite(Number(options?.overheadPercent))
         ? Number(options.overheadPercent)
         : null;
+      const currentTargetRealizationPctRaw = options?.targetRealizationPct;
+      const currentTargetRealizationPct =
+        currentTargetRealizationPctRaw === null ||
+        currentTargetRealizationPctRaw === undefined ||
+        `${currentTargetRealizationPctRaw}`.trim() === ""
+          ? null
+          : Number.isFinite(Number(currentTargetRealizationPctRaw))
+            ? Number(currentTargetRealizationPctRaw)
+            : null;
+      const defaultTargetRealizationPctRaw = options?.defaultTargetRealizationPct;
+      const defaultTargetRealizationPct =
+        defaultTargetRealizationPctRaw === null ||
+        defaultTargetRealizationPctRaw === undefined ||
+        `${defaultTargetRealizationPctRaw}`.trim() === ""
+          ? null
+          : Number.isFinite(Number(defaultTargetRealizationPctRaw))
+            ? Number(defaultTargetRealizationPctRaw)
+            : null;
       const managerNames = Array.isArray(options?.managerNames) ? options.managerNames.filter(Boolean) : [];
       const staffNames = Array.isArray(options?.staffNames) ? options.staffNames.filter(Boolean) : [];
       const title = mode === "edit" ? "Edit project" : "Add project";
@@ -1080,6 +1159,34 @@
                 )}</option>`,
               ]
             : []
+        )
+        .join("");
+      const departmentOptions = ['<option value="">No practice department</option>']
+        .concat(
+          (Array.isArray(state.departments) ? state.departments : [])
+            .filter((department) => String(department?.id || "").trim() && String(department?.name || "").trim())
+            .slice()
+            .sort((a, b) => String(a?.name || "").localeCompare(String(b?.name || ""), undefined, { sensitivity: "base" }))
+            .map(
+              (department) =>
+                `<option value="${escapeHtml(String(department?.id || ""))}">${escapeHtml(
+                  String(department?.name || "")
+                )}</option>`
+            )
+        )
+        .join("");
+      const officeOptions = ['<option value="">No office</option>']
+        .concat(
+          (Array.isArray(state.officeLocations) ? state.officeLocations : [])
+            .filter((office) => String(office?.id || "").trim() && String(office?.name || "").trim())
+            .slice()
+            .sort((a, b) => String(a?.name || "").localeCompare(String(b?.name || ""), undefined, { sensitivity: "base" }))
+            .map(
+              (office) =>
+                `<option value="${escapeHtml(String(office?.id || ""))}">${escapeHtml(
+                  String(office?.name || "")
+                )}</option>`
+            )
         )
         .join("");
       const showTeamSection = isProjectEditDialog;
@@ -1125,6 +1232,29 @@
             `
             }
           </div>
+          <div class="project-dialog-core-row" style="grid-template-columns: repeat(2, minmax(0, 1fr));">
+            <label class="project-dialog-field">
+              <span>Practice Department</span>
+              <select name="project_department_id">${departmentOptions}</select>
+            </label>
+            <label class="project-dialog-field">
+              <span>Office Location</span>
+              <select name="project_office_id">${officeOptions}</select>
+            </label>
+          </div>
+          ${
+            isProjectEditDialog
+              ? `
+          <div class="project-dialog-core-row" style="grid-template-columns: repeat(2, minmax(0, 1fr));">
+            <label class="project-dialog-field">
+              <span>Target Realization %</span>
+              <input type="text" name="target_realization_pct" inputmode="decimal" placeholder="e.g. 72.5" />
+            </label>
+            <div aria-hidden="true"></div>
+          </div>
+          `
+              : ""
+          }
           ${
             isProjectEditDialog
               ? ""
@@ -1190,13 +1320,34 @@
       const budgetInput = form.querySelector('input[name="budget_amount"]');
       const contractAmountInput = form.querySelector('input[name="contract_amount"]');
       const leadSelect = form.querySelector('select[name="project_lead_id"]');
+      const departmentSelect = form.querySelector('select[name="project_department_id"]');
+      const officeSelect = form.querySelector('select[name="project_office_id"]');
       const pricingModelSelect = form.querySelector('select[name="pricing_model"]');
       const overheadPercentInput = form.querySelector('input[name="overhead_percent"]');
+      const targetRealizationInput = form.querySelector('input[name="target_realization_pct"]');
       const teamLeadDisplay = form.querySelector("[data-project-team-lead-display]");
       const openPlanningButton = form.querySelector("[data-project-open-planning]");
       const projectCancelButton = form.querySelector("[data-project-cancel]");
       const errorNode = form.querySelector("[data-project-dialog-error]");
       const dialogCard = refs.dialog?.querySelector(".dialog-card");
+      const resolveTargetRealizationForSelection = () => {
+        const selectedOfficeId = String(officeSelect?.value || "").trim();
+        const selectedDepartmentId = String(departmentSelect?.value || "").trim();
+        if (!selectedOfficeId || !selectedDepartmentId) return null;
+        const match = (state.targetRealizations || []).find(
+          (item) =>
+            String(item?.officeId || item?.office_id || "").trim() === selectedOfficeId &&
+            String(item?.departmentId || item?.department_id || "").trim() === selectedDepartmentId
+        );
+        const raw = match?.targetRealizationPct ?? match?.target_realization_pct;
+        if (raw === null || raw === undefined || `${raw}`.trim() === "") return null;
+        return Number.isFinite(Number(raw)) ? Number(raw) : null;
+      };
+      const syncTargetRealizationDefault = () => {
+        if (!targetRealizationInput) return;
+        const resolved = resolveTargetRealizationForSelection();
+        targetRealizationInput.value = resolved === null ? "" : String(resolved);
+      };
       if (nameInput) {
         nameInput.value = currentName;
       }
@@ -1214,8 +1365,18 @@
         overheadPercentInput.value =
           currentOverheadPercent !== null ? String(currentOverheadPercent) : "";
       }
+      if (targetRealizationInput) {
+        const seedTarget = currentTargetRealizationPct !== null ? currentTargetRealizationPct : defaultTargetRealizationPct;
+        targetRealizationInput.value = seedTarget !== null ? String(seedTarget) : "";
+      }
       if (leadSelect) {
         leadSelect.value = currentLeadId;
+      }
+      if (departmentSelect) {
+        departmentSelect.value = currentProjectDepartmentId;
+      }
+      if (officeSelect) {
+        officeSelect.value = currentProjectOfficeId;
       }
       const syncTeamLeadDisplay = () => {
         if (!teamLeadDisplay) return;
@@ -1225,6 +1386,10 @@
       };
       syncTeamLeadDisplay();
       leadSelect?.addEventListener("change", syncTeamLeadDisplay);
+      if (isProjectEditDialog) {
+        departmentSelect?.addEventListener("change", syncTargetRealizationDefault);
+        officeSelect?.addEventListener("change", syncTargetRealizationDefault);
+      }
 
       refs.dialogTitle.textContent = title;
       refs.dialogMessage.textContent = "";
@@ -1234,6 +1399,7 @@
       if (refs.dialogTextarea) {
         refs.dialogTextarea.hidden = true;
       }
+      refs.dialogInputRow.innerHTML = "";
       refs.dialogInputRow.appendChild(form);
       dialogCard?.classList.add("dialog-card--project");
       refs.dialog.hidden = false;
@@ -1250,10 +1416,13 @@
         refs.dialog.hidden = true;
         form.removeEventListener("submit", onSubmit);
         leadSelect?.removeEventListener("change", syncTeamLeadDisplay);
+        departmentSelect?.removeEventListener("change", syncTargetRealizationDefault);
+        officeSelect?.removeEventListener("change", syncTargetRealizationDefault);
         openPlanningButton?.removeEventListener("click", onOpenProjectPlanning);
         projectCancelButton?.removeEventListener("click", onCancel);
         form.remove();
         dialogCard?.classList.remove("dialog-card--project");
+        refs.dialogInputRow.innerHTML = "";
         refs.dialogMessage.hidden = false;
         refs.dialogInputRow.hidden = true;
         refs.dialogInput.hidden = false;
@@ -1279,6 +1448,12 @@
           overheadPercentInput?.focus();
           return null;
         }
+        const parsedTargetRealization = parseProjectBudgetAmount(targetRealizationInput?.value || "");
+        if (!parsedTargetRealization.ok) {
+          setError("Target realization % must be a non-negative number.");
+          targetRealizationInput?.focus();
+          return null;
+        }
         const parsedBudget = parseProjectBudgetAmount(budgetInput?.value || "");
         if (!isProjectEditDialog && !parsedBudget.ok) {
           setError("Budget must be a non-negative number.");
@@ -1291,7 +1466,10 @@
           contractAmount: parsedContractAmount.value,
           pricingModel: String(pricingModelSelect?.value || "fixed_fee").trim() || "fixed_fee",
           overheadPercent: parsedOverheadPercent.value,
+          targetRealizationPct: parsedTargetRealization.value,
           projectLeadId: String(leadSelect?.value || "").trim() || null,
+          projectDepartmentId: String(departmentSelect?.value || "").trim() || null,
+          projectOfficeId: String(officeSelect?.value || "").trim() || null,
         };
       };
 
@@ -1311,6 +1489,8 @@
           pricingModel: payload.pricingModel,
           overheadPercent: payload.overheadPercent,
           projectLeadId: payload.projectLeadId,
+          projectDepartmentId: payload.projectDepartmentId,
+          projectOfficeId: payload.projectOfficeId,
         });
       };
 
@@ -1342,7 +1522,10 @@
             nextName: payload.projectName,
             contractAmount: payload.contractAmount,
             overheadPercent: payload.overheadPercent,
+            targetRealizationPct: payload.targetRealizationPct,
             project_lead_id: payload.projectLeadId,
+            project_department_id: payload.projectDepartmentId,
+            office_id: payload.projectOfficeId,
           },
           { skipHydrate: true, refreshState: false, returnState: false }
         )
@@ -1372,6 +1555,7 @@
   }
 
   async function openAddProjectDialog() {
+    await ensureProjectEditorMetadataLoaded();
     const canCreateProject = isAdmin(state.currentUser) || isExecutive(state.currentUser);
     if (!canCreateProject) {
       feedback("Only Executives or Admins can create projects.", true);
@@ -1394,6 +1578,7 @@
       pricingModel: "fixed_fee",
       overheadPercent: null,
       projectLeadId: null,
+      clientOfficeId: String(selectedClientRow?.officeId || selectedClientRow?.office_id || "").trim() || null,
     });
     if (!projectDialog) {
       return;
@@ -1411,6 +1596,8 @@
         pricingModel: projectDialog.pricingModel,
         overheadPercent: projectDialog.overheadPercent,
         project_lead_id: projectDialog.projectLeadId,
+        project_department_id: projectDialog.projectDepartmentId,
+        office_id: projectDialog.projectOfficeId,
       });
     } catch (error) {
       feedback(error.message || "Unable to add project.", true);
@@ -1487,6 +1674,40 @@
   }
 
   function syncProjectCardsUx() {
+    function dedupeOfficeLines(copy) {
+      if (!copy) return;
+      copy
+        .querySelectorAll("[data-client-office-line], [data-project-office-line]")
+        .forEach((node) => node.remove());
+      const officeLines = Array.from(copy.querySelectorAll("small")).filter((node) =>
+        /^office\s*:/i.test(String(node.textContent || "").trim())
+      );
+      officeLines.slice(1).forEach((node) => node.remove());
+    }
+
+    function upsertMetaLine(copy, selector, attrName, text, beforeNode) {
+      const existing = copy.querySelector(selector);
+      if (!text) {
+        existing?.remove();
+        return;
+      }
+      if (existing) {
+        existing.textContent = text;
+        if (beforeNode && existing !== beforeNode.previousElementSibling) {
+          copy.insertBefore(existing, beforeNode);
+        }
+        return;
+      }
+      const node = document.createElement("small");
+      node.setAttribute(attrName, "1");
+      node.textContent = text;
+      if (beforeNode) {
+        copy.insertBefore(node, beforeNode);
+      } else {
+        copy.appendChild(node);
+      }
+    }
+
     if (!refs.projectList) return;
     refs.projectList
       .querySelectorAll("[data-add-member], [data-remove-member]")
@@ -1502,32 +1723,50 @@
           getUserById(project?.projectLeadId || project?.project_lead_id || "")?.displayName ||
           ""
       ).trim();
+      const projectDepartmentName = String(
+        project?.projectDepartmentName ||
+          (
+            (state.departments || []).find(
+              (item) =>
+                String(item?.id || "").trim() ===
+                String(project?.projectDepartmentId || project?.project_department_id || "").trim()
+            )?.name || ""
+          )
+      ).trim();
       const copy = card.querySelector(".catalog-item-copy");
       if (!copy) return;
+      dedupeOfficeLines(copy);
       const existing = copy.querySelector("[data-project-lead-line]");
-      if (!leadName) {
-        existing?.remove();
-        return;
-      }
       const meta = copy.querySelector(".catalog-item-meta");
-      const leadMarkup = `<strong>Project Lead:</strong> <span>${escapeHtml(leadName)}</span>`;
-      if (existing) {
+      const leadMarkup = leadName
+        ? `<strong>Project Lead:</strong> <span>${escapeHtml(leadName)}</span>`
+        : "";
+      if (!leadMarkup) {
+        existing?.remove();
+      } else if (existing) {
         existing.classList.add("catalog-project-lead-line");
         existing.innerHTML = leadMarkup;
         if (meta && existing !== meta.previousElementSibling) {
           copy.insertBefore(existing, meta);
         }
-        return;
-      }
-      const node = document.createElement("div");
-      node.setAttribute("data-project-lead-line", "1");
-      node.className = "catalog-project-lead-line";
-      node.innerHTML = leadMarkup;
-      if (meta) {
-        copy.insertBefore(node, meta);
       } else {
-        copy.appendChild(node);
+        const node = document.createElement("div");
+        node.setAttribute("data-project-lead-line", "1");
+        node.className = "catalog-project-lead-line";
+        node.innerHTML = leadMarkup;
+        if (meta) {
+          copy.insertBefore(node, meta);
+        } else {
+          copy.appendChild(node);
+        }
       }
+      upsertMetaLine(
+        copy,
+        "[data-project-department-line]",
+        "data-project-department-line",
+        projectDepartmentName ? `Practice Department: ${projectDepartmentName}` : "",
+        meta
+      );
     });
     if (!refs.clientList) return;
     refs.clientList.querySelectorAll(".catalog-item[data-client]").forEach((card) => {
@@ -1543,19 +1782,18 @@
       ).trim();
       const copy = card.querySelector(".catalog-item-copy");
       if (!copy) return;
+      dedupeOfficeLines(copy);
       const existing = copy.querySelector("[data-client-lead-line]");
       if (!leadName) {
         existing?.remove();
-        return;
-      }
-      if (existing) {
+      } else if (existing) {
         existing.textContent = `Client Lead: ${leadName}`;
-        return;
+      } else {
+        const node = document.createElement("small");
+        node.setAttribute("data-client-lead-line", "1");
+        node.textContent = `Client Lead: ${leadName}`;
+        copy.appendChild(node);
       }
-      const node = document.createElement("small");
-      node.setAttribute("data-client-lead-line", "1");
-      node.textContent = `Client Lead: ${leadName}`;
-      copy.appendChild(node);
     });
   }
 
@@ -2107,6 +2345,41 @@
     refs.departmentRows = document.getElementById("department-rows");
     refs.addDepartment = document.getElementById("add-department");
     refs.saveDepartments = document.getElementById("save-departments");
+
+    let targetButton = settingsTabs.querySelector('[data-settings-tab-button="target_realizations"]');
+    if (!targetButton) {
+      targetButton = document.createElement("button");
+      targetButton.type = "button";
+      targetButton.className = "settings-tab";
+      targetButton.dataset.settingsTabButton = "target_realizations";
+      targetButton.setAttribute("role", "tab");
+      targetButton.setAttribute("aria-selected", "false");
+      targetButton.textContent = "Target realizations";
+      settingsTabs.appendChild(targetButton);
+    }
+
+    let targetForm = document.querySelector('[data-settings-tab="target_realizations"]');
+    if (!targetForm) {
+      targetForm = document.createElement("form");
+      targetForm.id = "target-realizations-form";
+      targetForm.className = "level-labels-form";
+      targetForm.dataset.settingsTab = "target_realizations";
+      targetForm.hidden = true;
+      targetForm.innerHTML = `
+        <div class="level-labels-inner">
+          <h3>Target realizations</h3>
+          <div id="target-realizations-matrix"></div>
+          <div class="level-labels-actions">
+            <button class="button" type="submit" id="save-target-realizations">Save targets</button>
+          </div>
+        </div>
+      `;
+      (settingsPanels || settingsBody).appendChild(targetForm);
+    }
+
+    refs.targetRealizationsForm = document.getElementById("target-realizations-form");
+    refs.targetRealizationsMatrix = document.getElementById("target-realizations-matrix");
+    refs.saveTargetRealizations = document.getElementById("save-target-realizations");
   }
 
   ensureDepartmentSettingsUI();
@@ -2180,6 +2453,7 @@
     corporateFunctionCategories: [],
     departments: [],
     departmentsSnapshot: [],
+    targetRealizations: [],
     account: null,
     settingsAccess: {},
     notificationRules: [],
@@ -2709,6 +2983,19 @@
       state.departments = data.departments.slice();
       state.departmentsSnapshot = data.departments.slice();
     }
+    if (Array.isArray(data?.targetRealizations)) {
+      state.targetRealizations = data.targetRealizations
+        .map((item) => ({
+          id: String(item?.id || "").trim(),
+          officeId: String(item?.officeId || item?.office_id || "").trim(),
+          departmentId: String(item?.departmentId || item?.department_id || "").trim(),
+          targetRealizationPct:
+            item?.targetRealizationPct === null || item?.targetRealizationPct === undefined || item?.targetRealizationPct === ""
+              ? null
+              : Number(item.targetRealizationPct),
+        }))
+        .filter((item) => item.officeId && item.departmentId);
+    }
     state.bootstrapRequired = Boolean(data?.bootstrapRequired);
     state.catalog = normalizeCatalog(data?.catalog || {}, false);
     state.clients = Array.isArray(data?.clients)
@@ -2863,7 +3150,8 @@
       hasOfficeLocations ||
       Array.isArray(data?.notificationRules) ||
       Array.isArray(data?.myDelegations) ||
-      Array.isArray(data?.delegationCandidates)
+      Array.isArray(data?.delegationCandidates) ||
+      Array.isArray(data?.targetRealizations)
     ) {
       state.settingsMetadataLoaded = true;
       state.settingsMetadataLoading = false;
@@ -2897,6 +3185,7 @@
     state.expenseCategories = [];
     state.projectExpenseCategories = [];
     state.projectPlannedExpenses = [];
+    state.targetRealizations = [];
     state.account = null;
     state.notificationRules = [];
     state.assignments = {
@@ -3156,6 +3445,9 @@
         projectPlannedExpenses: Array.isArray(payload?.projectPlannedExpenses)
           ? payload.projectPlannedExpenses
           : state.projectPlannedExpenses,
+        targetRealizations: Array.isArray(payload?.targetRealizations)
+          ? payload.targetRealizations
+          : state.targetRealizations,
         corporateFunctionGroups: Array.isArray(payload?.corporateFunctionGroups)
           ? payload.corporateFunctionGroups
           : state.corporateFunctionGroups,
@@ -8161,6 +8453,9 @@
       if (window.settingsAdmin?.renderDepartments) {
         window.settingsAdmin.renderDepartments();
       }
+      if (window.settingsAdmin?.renderTargetRealizations) {
+        window.settingsAdmin.renderTargetRealizations();
+      }
       renderSettingsTabs?.();
       postHeight();
       postHeight();
@@ -9823,6 +10118,7 @@
       state.officeLocations = locations;
       await saveOfficeLocations(locations);
       renderOfficeLocations();
+      window.settingsAdmin?.renderTargetRealizations?.();
     });
   }
 
@@ -9839,6 +10135,7 @@
       };
       state.officeLocations = [...state.officeLocations, newItem];
       renderOfficeLocations();
+      window.settingsAdmin?.renderTargetRealizations?.();
       if (refs.officeAddName) refs.officeAddName.value = "";
       if (refs.officeAddLead) refs.officeAddLead.value = "";
     });
@@ -9889,6 +10186,7 @@
         }
         state.officeLocations = state.officeLocations.filter((item) => item.id !== id);
         renderOfficeLocations();
+        window.settingsAdmin?.renderTargetRealizations?.();
         await saveOfficeLocations(state.officeLocations);
       }
     });
@@ -10062,6 +10360,7 @@
           },
         ];
         window.settingsAdmin?.renderDepartments();
+        window.settingsAdmin?.renderTargetRealizations?.();
         return;
       }
 
@@ -10093,6 +10392,7 @@
         }
         state.departments = (state.departments || []).filter((d) => String(d.id || "") !== String(id));
         window.settingsAdmin?.renderDepartments();
+        window.settingsAdmin?.renderTargetRealizations?.();
         return;
       }
 
@@ -10128,102 +10428,150 @@
       }
 
       const departmentsForm = event.target.closest("#departments-form");
-      if (!departmentsForm) {
-        return;
-      }
-      event.preventDefault();
-      if (!state.permissions?.manage_departments) {
-        feedback("Access denied.", true);
-        return;
-      }
-
-      const rows = Array.from(departmentsForm.querySelectorAll(".department-row"));
-      if (!rows.length) {
-        feedback("Add at least one department.", true);
-        return;
-      }
-      const existingMap = new Map(
-        (state.departmentsSnapshot || []).map((d) => [String(d.id || ""), d])
-      );
-      const seen = new Set();
-      const createOps = [];
-      const renameOps = [];
-      const deleteOps = [];
-      const remainingIds = new Set();
-
-      for (const row of rows) {
-        const id = String((row.dataset.departmentId || "").trim());
-        const nameInput = row.querySelector("[data-department-name]");
-        const name = (nameInput?.value || "").trim();
-
-        if (!name) {
-          feedback("Department name is required.", true);
+      if (departmentsForm) {
+        event.preventDefault();
+        if (!state.permissions?.manage_departments) {
+          feedback("Access denied.", true);
           return;
         }
-        const key = name.toLowerCase();
-        if (seen.has(key)) {
-          feedback("Department names must be unique.", true);
+
+        const rows = Array.from(departmentsForm.querySelectorAll(".department-row"));
+        if (!rows.length) {
+          feedback("Add at least one department.", true);
           return;
         }
-        seen.add(key);
+        const existingMap = new Map(
+          (state.departmentsSnapshot || []).map((d) => [String(d.id || ""), d])
+        );
+        const seen = new Set();
+        const createOps = [];
+        const renameOps = [];
+        const deleteOps = [];
+        const remainingIds = new Set();
 
-        if (!id || id.startsWith("temp-dept-")) {
-          createOps.push({ tempId: id, name });
-          continue;
-        }
-        remainingIds.add(id);
-        const prev = existingMap.get(id) || {};
-        if (prev.name !== name) {
-          renameOps.push({ id, name });
-        }
-      }
+        for (const row of rows) {
+          const id = String((row.dataset.departmentId || "").trim());
+          const nameInput = row.querySelector("[data-department-name]");
+          const name = (nameInput?.value || "").trim();
 
-      for (const [id] of existingMap.entries()) {
-        if (!id || !remainingIds.has(id)) {
-          deleteOps.push({ id });
-        }
-      }
+          if (!name) {
+            feedback("Department name is required.", true);
+            return;
+          }
+          const key = name.toLowerCase();
+          if (seen.has(key)) {
+            feedback("Department names must be unique.", true);
+            return;
+          }
+          seen.add(key);
 
-      try {
-        const createdByTempId = new Map();
-        for (const op of createOps) {
-          const created = await mutatePersistentState(
-            "create_department",
-            { name: op.name },
-            settingsSaveFastOptions()
-          );
-          const createdId = `${created?.id || ""}`.trim();
-          if (op.tempId && createdId) {
-            createdByTempId.set(op.tempId, createdId);
+          if (!id || id.startsWith("temp-dept-")) {
+            createOps.push({ tempId: id, name });
+            continue;
+          }
+          remainingIds.add(id);
+          const prev = existingMap.get(id) || {};
+          if (prev.name !== name) {
+            renameOps.push({ id, name });
           }
         }
-        for (const op of renameOps) {
-          await mutatePersistentState("rename_department", { id: op.id, name: op.name }, settingsSaveFastOptions());
+
+        for (const [id] of existingMap.entries()) {
+          if (!id || !remainingIds.has(id)) {
+            deleteOps.push({ id });
+          }
         }
-        for (const op of deleteOps) {
-          await mutatePersistentState("delete_department", { id: op.id }, settingsSaveFastOptions());
+
+        try {
+          const createdByTempId = new Map();
+          for (const op of createOps) {
+            const created = await mutatePersistentState(
+              "create_department",
+              { name: op.name },
+              settingsSaveFastOptions()
+            );
+            const createdId = `${created?.id || ""}`.trim();
+            if (op.tempId && createdId) {
+              createdByTempId.set(op.tempId, createdId);
+            }
+          }
+          for (const op of renameOps) {
+            await mutatePersistentState(
+              "rename_department",
+              { id: op.id, name: op.name },
+              settingsSaveFastOptions()
+            );
+          }
+          for (const op of deleteOps) {
+            await mutatePersistentState("delete_department", { id: op.id }, settingsSaveFastOptions());
+          }
+          const nextDepartments = rows
+            .map((row) => {
+              const rawId = String((row.dataset.departmentId || "").trim());
+              const resolvedId =
+                createdByTempId.get(rawId) ||
+                (rawId && !rawId.startsWith("temp-dept-") ? rawId : "");
+              const nameInput = row.querySelector("[data-department-name]");
+              const name = (nameInput?.value || "").trim();
+              if (!name) return null;
+              return {
+                id: resolvedId || `temp-dept-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+                name,
+              };
+            })
+            .filter(Boolean);
+          state.departments = nextDepartments;
+          state.departmentsSnapshot = nextDepartments.slice();
+          window.settingsAdmin?.renderTargetRealizations?.();
+          refreshSettingsTabInBackground("departments");
+          feedback("Departments updated.", false);
+        } catch (error) {
+          feedback(error.message || "Unable to update departments.", true);
         }
-        const nextDepartments = rows
-          .map((row) => {
-            const rawId = String((row.dataset.departmentId || "").trim());
-            const resolvedId =
-              createdByTempId.get(rawId) ||
-              (rawId && !rawId.startsWith("temp-dept-") ? rawId : "");
-            const nameInput = row.querySelector("[data-department-name]");
-            const name = (nameInput?.value || "").trim();
-            if (!name) return null;
-            return {
-              id: resolvedId || `temp-dept-${Date.now()}-${Math.random().toString(16).slice(2)}`,
-              name,
-            };
-          })
-          .filter(Boolean);
-        state.departments = nextDepartments;
-        state.departmentsSnapshot = nextDepartments.slice();
-        refreshSettingsTabInBackground("departments");
-        feedback("Departments updated.", false);
-      } catch (error) {
-        feedback(error.message || "Unable to update departments.", true);
+        return;
+      }
+
+      const targetRealizationsForm = event.target.closest("#target-realizations-form");
+      if (targetRealizationsForm) {
+        event.preventDefault();
+        if (!state.permissions?.manage_departments) {
+          feedback("Access denied.", true);
+          return;
+        }
+        const inputs = Array.from(
+          targetRealizationsForm.querySelectorAll("[data-target-realization-input][data-target-office-id][data-target-department-id]")
+        );
+        const payloadRows = [];
+        for (const input of inputs) {
+          const officeId = String(input.dataset.targetOfficeId || "").trim();
+          const departmentId = String(input.dataset.targetDepartmentId || "").trim();
+          if (!officeId || !departmentId) continue;
+          const raw = String(input.value || "").trim();
+          if (!raw) continue;
+          const targetRealizationPct = Number(raw);
+          if (!Number.isFinite(targetRealizationPct) || targetRealizationPct < 0) {
+            feedback("Target realization % must be a non-negative number.", true);
+            return;
+          }
+          payloadRows.push({ officeId, departmentId, targetRealizationPct });
+        }
+        try {
+          await mutatePersistentState(
+            "update_target_realizations",
+            { targetRealizations: payloadRows },
+            settingsSaveFastOptions()
+          );
+          state.targetRealizations = payloadRows.map((item) => ({
+            id: `${item.officeId}::${item.departmentId}`,
+            officeId: item.officeId,
+            departmentId: item.departmentId,
+            targetRealizationPct: item.targetRealizationPct,
+          }));
+          refreshSettingsTabInBackground("target_realizations");
+          feedback("Target realizations updated.", false);
+        } catch (error) {
+          feedback(error.message || "Unable to update target realizations.", true);
+        }
       }
     });
   }

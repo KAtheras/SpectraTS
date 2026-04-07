@@ -68,6 +68,9 @@ exports.handler = async function handler(event) {
         projectLeadId: project?.projectLeadId ?? project?.project_lead_id ?? null,
         project_lead_id: project?.projectLeadId ?? project?.project_lead_id ?? null,
         projectLeadName: project?.projectLeadName ?? null,
+        projectDepartmentId: project?.projectDepartmentId ?? project?.project_department_id ?? null,
+        project_department_id: project?.projectDepartmentId ?? project?.project_department_id ?? null,
+        projectDepartmentName: project?.projectDepartmentName ?? null,
       }));
     }
     const currentUser = state.currentUser;

@@ -8,6 +8,7 @@
     "rates",
     "messaging_rules",
     "departments",
+    "target_realizations",
     "delegations",
     "bulk_upload",
     "permissions",
@@ -84,6 +85,7 @@
     }
     if (state.permissions?.manage_settings_access && !isMobileLayout) tabs.push("messaging_rules");
     if (state.permissions?.manage_departments) tabs.push("departments");
+    if (state.permissions?.manage_departments) tabs.push("target_realizations");
     if (state.permissions?.can_delegate) tabs.push("delegations");
     if (state.permissions?.can_upload_data && !isMobileLayout) tabs.push("bulk_upload");
     if (state.permissions?.manage_settings_access && !isMobileLayout) tabs.push("permissions");
@@ -182,7 +184,7 @@
     if (!settingsPage) return;
     const sectionPanels = Array.from(
       settingsPage.querySelectorAll(
-        '[data-settings-tab="levels"], [data-settings-tab="categories"], [data-settings-tab="corporate_functions"], [data-settings-tab="locations"], [data-settings-tab="rates"], [data-settings-tab="messaging_rules"], [data-settings-tab="departments"], [data-settings-tab="delegations"], [data-settings-tab="bulk_upload"], [data-settings-tab="permissions"]'
+        '[data-settings-tab="levels"], [data-settings-tab="categories"], [data-settings-tab="corporate_functions"], [data-settings-tab="locations"], [data-settings-tab="rates"], [data-settings-tab="messaging_rules"], [data-settings-tab="departments"], [data-settings-tab="target_realizations"], [data-settings-tab="delegations"], [data-settings-tab="bulk_upload"], [data-settings-tab="permissions"]'
       )
     );
 
@@ -277,13 +279,14 @@
       rates: "Member information",
       messaging_rules: "Messaging Rules",
       departments: "Practice departments",
+      target_realizations: "Target realizations",
       delegations: "Delegations",
       bulk_upload: "Bulk Upload",
       permissions: "Member access levels",
     };
     const settingsTabGroups = [
       { key: "people", label: "PEOPLE", tabs: ["rates", "levels", "permissions", "delegations"] },
-      { key: "organization", label: "ORGANIZATION", tabs: ["departments", "locations"] },
+      { key: "organization", label: "ORGANIZATION", tabs: ["departments", "target_realizations", "locations"] },
       { key: "configuration", label: "CONFIGURATION", tabs: ["categories", "corporate_functions", "messaging_rules"] },
       { key: "tools", label: "TOOLS", tabs: ["bulk_upload"] },
     ];
@@ -2776,7 +2779,7 @@
       .map(
         (item) => `
           <div class="level-row settings-structured-row settings-structured-row-no-label department-row" data-department-id="${escapeHtml(item.id || "")}">
-            <div class="settings-row-main">
+            <div class="settings-row-main settings-row-main-split">
               <input class="settings-field" type="text" value="${escapeHtml(item.name || "")}" data-department-name placeholder="Department name" ${editable ? "" : "disabled"} />
             </div>
             <div class="settings-row-actions expense-actions">
@@ -2790,6 +2793,122 @@
         `
       )
       .join("");
+  }
+
+  function renderTargetRealizations() {
+    const { refs, state, escapeHtml } = deps();
+    if (!refs.targetRealizationsMatrix) return;
+    if (!document.getElementById("target-realizations-input-style")) {
+      const style = document.createElement("style");
+      style.id = "target-realizations-input-style";
+      style.textContent = `
+        [data-target-realization-input]::-webkit-outer-spin-button,
+        [data-target-realization-input]::-webkit-inner-spin-button {
+          -webkit-appearance: none;
+          margin: 0;
+        }
+        [data-target-realization-input] {
+          -moz-appearance: textfield;
+          appearance: textfield;
+        }
+      `;
+      document.head.appendChild(style);
+    }
+
+    const departments = Array.isArray(state.departments)
+      ? state.departments
+          .map((item) => ({
+            id: `${item?.id || ""}`.trim(),
+            name: `${item?.name || ""}`.trim(),
+          }))
+          .filter((item) => item.id && item.name)
+      : [];
+    const offices = Array.isArray(state.officeLocations)
+      ? state.officeLocations
+          .map((item) => ({
+            id: `${item?.id || ""}`.trim(),
+            name: `${item?.name || ""}`.trim(),
+          }))
+          .filter((item) => item.id && item.name)
+      : [];
+    const editable = Boolean(state.permissions?.manage_departments);
+    const valueByKey = new Map();
+    if (Array.isArray(state.targetRealizations)) {
+      state.targetRealizations.forEach((item) => {
+        const officeId = `${item?.officeId || item?.office_id || ""}`.trim();
+        const departmentId = `${item?.departmentId || item?.department_id || ""}`.trim();
+        if (!officeId || !departmentId) return;
+        const raw = item?.targetRealizationPct ?? item?.target_realization_pct;
+        valueByKey.set(`${officeId}::${departmentId}`, raw === null || raw === undefined ? "" : String(raw));
+      });
+    }
+
+    if (!departments.length || !offices.length) {
+      refs.targetRealizationsMatrix.innerHTML = `
+        <div class="level-empty-note">
+          ${!departments.length ? "Add at least one department to define targets." : "Add at least one office location to define targets."}
+        </div>
+      `;
+      return;
+    }
+
+    const headCells = departments
+      .map(
+        (dept) =>
+          `<th scope="col"><span>${escapeHtml(dept.name)}</span></th>`
+      )
+      .join("");
+    const bodyRows = offices
+      .map((office) => {
+        const cells = departments
+          .map((dept) => {
+            const key = `${office.id}::${dept.id}`;
+            const value = valueByKey.get(key) || "";
+            return `
+              <td>
+                <div style="position:relative;display:flex;align-items:center;">
+                  <input
+                    class="settings-field"
+                    style="min-width:98px;padding-right:24px;text-align:right;"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value="${escapeHtml(value)}"
+                    data-target-realization-input
+                    data-target-office-id="${escapeHtml(office.id)}"
+                    data-target-department-id="${escapeHtml(dept.id)}"
+                    ${editable ? "" : "disabled"}
+                  />
+                  <span aria-hidden="true" style="position:absolute;right:10px;color:var(--muted);font-weight:600;pointer-events:none;">%</span>
+                </div>
+              </td>
+            `;
+          })
+          .join("");
+        return `
+          <tr>
+            <th scope="row"><span>${escapeHtml(office.name)}</span></th>
+            ${cells}
+          </tr>
+        `;
+      })
+      .join("");
+
+    refs.targetRealizationsMatrix.innerHTML = `
+      <div style="overflow-x:auto;">
+        <table class="data-table" style="width:100%;min-width:max-content;">
+          <thead>
+            <tr>
+              <th scope="col"><span>Office \\ Department</span></th>
+              ${headCells}
+            </tr>
+          </thead>
+          <tbody>
+            ${bodyRows}
+          </tbody>
+        </table>
+      </div>
+    `;
   }
 
   function renderUsersList() {
@@ -3655,6 +3774,7 @@
     renderCorporateFunctionCategories,
     renderOfficeLocations,
     renderDepartments,
+    renderTargetRealizations,
     renderSettingsTabs,
     sortedLevels,
     getLevelDefinitions,

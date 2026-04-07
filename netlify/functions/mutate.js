@@ -21,10 +21,12 @@ const {
   loadState,
   listLevelLabels,
   listProjectExpenseCategories,
+  listTargetRealizations,
   createProjectExpenseCategory,
   createProjectPlannedExpense,
   updateProjectPlannedExpense,
   deleteProjectPlannedExpense,
+  updateTargetRealizations,
   listAuditLogs,
   getProjectMemberBudgets,
   upsertProjectMemberBudget,
@@ -261,7 +263,8 @@ async function renameDepartment(sql, payload, accountId) {
   const now = new Date().toISOString();
   const result = await sql`
     UPDATE departments
-    SET name = ${name}, updated_at = ${now}
+    SET name = ${name},
+        updated_at = ${now}
     WHERE id = ${id}
       AND account_id = ${accountId}::uuid
     RETURNING id, name
@@ -1092,8 +1095,13 @@ async function snapshotProjectById(sql, projectId, accountId) {
       p.name,
       p.client_id,
       p.office_id,
+      p.project_department_id,
       p.project_lead_id,
       p.budget_amount,
+      p.contract_amount,
+      p.pricing_model,
+      p.overhead_percent,
+      p.target_realization_pct,
       p.is_active,
       c.name AS client_name
     FROM projects p
@@ -1110,8 +1118,18 @@ async function snapshotProjectById(sql, projectId, accountId) {
     client_id: row.client_id || null,
     client_name: normalizeText(row.client_name),
     office_id: normalizeText(row.office_id),
+    project_department_id: normalizeText(row.project_department_id),
     project_lead_id: normalizeText(row.project_lead_id),
     budget_amount: row.budget_amount !== null && row.budget_amount !== undefined ? Number(row.budget_amount) : null,
+    contract_amount:
+      row.contract_amount !== null && row.contract_amount !== undefined ? Number(row.contract_amount) : null,
+    pricing_model: normalizeText(row.pricing_model),
+    overhead_percent:
+      row.overhead_percent !== null && row.overhead_percent !== undefined ? Number(row.overhead_percent) : null,
+    target_realization_pct:
+      row.target_realization_pct !== null && row.target_realization_pct !== undefined
+        ? Number(row.target_realization_pct)
+        : null,
     is_active: row.is_active !== false,
   };
 }
@@ -2054,8 +2072,12 @@ async function addProject(sql, payload, currentUser, accountId) {
   const pricingModel = pricingModelRaw || null;
   const allowedPricingModels = new Set(["fixed_fee", "time_and_materials"]);
   const overheadRaw = payload.overheadPercent ?? payload.overhead_percent;
+  const targetRealizationRaw = payload.targetRealizationPct ?? payload.target_realization_pct;
   const hasOverhead = overheadRaw !== undefined && overheadRaw !== null && overheadRaw !== "";
+  const hasTargetRealization =
+    targetRealizationRaw !== undefined && targetRealizationRaw !== null && targetRealizationRaw !== "";
   const overheadPercent = hasOverhead ? Number(overheadRaw) : null;
+  const targetRealizationPct = hasTargetRealization ? Number(targetRealizationRaw) : null;
   const contractRaw = payload.contractAmount;
   const hasContract = contractRaw !== undefined && contractRaw !== null && contractRaw !== "";
   const contractAmount = hasContract ? Number(contractRaw) : null;
@@ -2074,6 +2096,9 @@ async function addProject(sql, payload, currentUser, accountId) {
   if (hasOverhead && Number.isNaN(overheadPercent)) {
     return errorResponse(400, "Overhead percent must be a number.");
   }
+  if (hasTargetRealization && (Number.isNaN(targetRealizationPct) || targetRealizationPct < 0)) {
+    return errorResponse(400, "Target realization must be a non-negative number.");
+  }
 
   const client = await findClient(sql, clientName, accountId);
   if (!client) {
@@ -2084,10 +2109,37 @@ async function addProject(sql, payload, currentUser, accountId) {
     return errorResponse(409, "That project already exists for this client.");
   }
   const projectLeadId = normalizeText(payload.projectLeadId ?? payload.project_lead_id) || null;
+  const projectDepartmentId =
+    normalizeText(payload.projectDepartmentId ?? payload.project_department_id) || null;
+  const projectOfficeId = normalizeText(payload.officeId ?? payload.office_id) || null;
   if (projectLeadId) {
     const lead = await findUserById(sql, projectLeadId, accountId);
     if (!lead) {
       return errorResponse(400, "Project lead not found.");
+    }
+  }
+  if (projectDepartmentId) {
+    const departmentRows = await sql`
+      SELECT id
+      FROM departments
+      WHERE id = ${projectDepartmentId}
+        AND account_id = ${accountId}::uuid
+      LIMIT 1
+    `;
+    if (!departmentRows[0]) {
+      return errorResponse(400, "Practice department not found.");
+    }
+  }
+  if (projectOfficeId) {
+    const officeRows = await sql`
+      SELECT id
+      FROM office_locations
+      WHERE id = ${projectOfficeId}
+        AND account_id = ${accountId}::uuid
+      LIMIT 1
+    `;
+    if (!officeRows[0]) {
+      return errorResponse(400, "Office location not found.");
     }
   }
 
@@ -2096,23 +2148,29 @@ async function addProject(sql, payload, currentUser, accountId) {
       client_id,
       account_id,
       office_id,
+      project_department_id,
       project_lead_id,
       name,
       created_by,
       contract_amount,
       pricing_model,
-      overhead_percent
+      overhead_percent,
+      target_realization_pct
     )
     VALUES (
       ${client.id},
       ${accountId}::uuid,
-      ${client.office_id || null},
+      ${projectOfficeId || client.office_id || null},
+      ${projectDepartmentId},
       ${projectLeadId},
       ${projectName},
       ${currentUser?.id || null},
       ${hasContract && !Number.isNaN(contractAmount) && contractAmount >= 0 ? contractAmount : null},
       ${pricingModel},
-      ${hasOverhead && !Number.isNaN(overheadPercent) ? overheadPercent : null}
+      ${hasOverhead && !Number.isNaN(overheadPercent) ? overheadPercent : null},
+      ${hasTargetRealization && !Number.isNaN(targetRealizationPct) && targetRealizationPct >= 0
+        ? targetRealizationPct
+        : null}
     )
   `;
 
@@ -3161,19 +3219,32 @@ async function updateProject(sql, payload, currentUser, accountId) {
     Object.prototype.hasOwnProperty.call(payload || {}, "pricing_model");
   const allowedPricingModels = new Set(["fixed_fee", "time_and_materials"]);
   const overheadRaw = payload.overheadPercent ?? payload.overhead_percent;
+  const targetRealizationRaw = payload.targetRealizationPct ?? payload.target_realization_pct;
   const hasOverheadField =
     Object.prototype.hasOwnProperty.call(payload || {}, "overheadPercent") ||
     Object.prototype.hasOwnProperty.call(payload || {}, "overhead_percent");
+  const hasTargetRealizationField =
+    Object.prototype.hasOwnProperty.call(payload || {}, "targetRealizationPct") ||
+    Object.prototype.hasOwnProperty.call(payload || {}, "target_realization_pct");
   const contractRaw = payload.contractAmount;
   const hasBudget = budgetRaw !== undefined && budgetRaw !== null && budgetRaw !== "";
   const hasContract = contractRaw !== undefined && contractRaw !== null && contractRaw !== "";
   const hasOverhead = overheadRaw !== undefined && overheadRaw !== null && overheadRaw !== "";
+  const hasTargetRealization =
+    targetRealizationRaw !== undefined && targetRealizationRaw !== null && targetRealizationRaw !== "";
   const budgetAmount = hasBudget ? Number(budgetRaw) : null;
   const contractAmount = hasContract ? Number(contractRaw) : null;
   const overheadPercent = hasOverhead ? Number(overheadRaw) : null;
+  const targetRealizationPct = hasTargetRealization ? Number(targetRealizationRaw) : null;
   const hasProjectLeadField =
     Object.prototype.hasOwnProperty.call(payload || {}, "projectLeadId") ||
     Object.prototype.hasOwnProperty.call(payload || {}, "project_lead_id");
+  const hasProjectDepartmentField =
+    Object.prototype.hasOwnProperty.call(payload || {}, "projectDepartmentId") ||
+    Object.prototype.hasOwnProperty.call(payload || {}, "project_department_id");
+  const hasProjectOfficeField =
+    Object.prototype.hasOwnProperty.call(payload || {}, "officeId") ||
+    Object.prototype.hasOwnProperty.call(payload || {}, "office_id");
 
   if (!clientName || !projectName) {
     return errorResponse(404, "Project not found.");
@@ -3192,6 +3263,13 @@ async function updateProject(sql, payload, currentUser, accountId) {
   }
   if (hasOverheadField && hasOverhead && Number.isNaN(overheadPercent)) {
     return errorResponse(400, "Overhead percent must be a number.");
+  }
+  if (
+    hasTargetRealizationField &&
+    hasTargetRealization &&
+    (Number.isNaN(targetRealizationPct) || targetRealizationPct < 0)
+  ) {
+    return errorResponse(400, "Target realization must be a non-negative number.");
   }
 
   const project = await findProject(sql, clientName, projectName, accountId);
@@ -3215,6 +3293,12 @@ async function updateProject(sql, payload, currentUser, accountId) {
   const nextProjectLeadId = hasProjectLeadField
     ? normalizeText(payload.projectLeadId ?? payload.project_lead_id) || null
     : project.project_lead_id || null;
+  const nextProjectDepartmentId = hasProjectDepartmentField
+    ? normalizeText(payload.projectDepartmentId ?? payload.project_department_id) || null
+    : project.project_department_id || null;
+  const nextProjectOfficeId = hasProjectOfficeField
+    ? normalizeText(payload.officeId ?? payload.office_id) || null
+    : project.office_id || null;
   const nextPricingModel = hasPricingModelField
     ? pricingModelRaw || null
     : project.pricingModel !== undefined
@@ -3231,10 +3315,43 @@ async function updateProject(sql, payload, currentUser, accountId) {
       : project.overhead_percent !== undefined
         ? project.overhead_percent
         : null;
+  const nextTargetRealizationPct = hasTargetRealizationField
+    ? hasTargetRealization && !Number.isNaN(targetRealizationPct) && targetRealizationPct >= 0
+      ? targetRealizationPct
+      : null
+    : project.targetRealizationPct !== undefined
+      ? project.targetRealizationPct
+      : project.target_realization_pct !== undefined
+        ? project.target_realization_pct
+        : null;
   if (nextProjectLeadId) {
     const lead = await findUserById(sql, nextProjectLeadId, accountId);
     if (!lead) {
       return errorResponse(400, "Project lead not found.");
+    }
+  }
+  if (nextProjectDepartmentId) {
+    const departmentRows = await sql`
+      SELECT id
+      FROM departments
+      WHERE id = ${nextProjectDepartmentId}
+        AND account_id = ${accountId}::uuid
+      LIMIT 1
+    `;
+    if (!departmentRows[0]) {
+      return errorResponse(400, "Practice department not found.");
+    }
+  }
+  if (nextProjectOfficeId) {
+    const officeRows = await sql`
+      SELECT id
+      FROM office_locations
+      WHERE id = ${nextProjectOfficeId}
+        AND account_id = ${accountId}::uuid
+      LIMIT 1
+    `;
+    if (!officeRows[0]) {
+      return errorResponse(400, "Office location not found.");
     }
   }
 
@@ -3257,6 +3374,9 @@ async function updateProject(sql, payload, currentUser, accountId) {
         contract_amount = ${nextContractAmount},
         pricing_model = ${nextPricingModel},
         overhead_percent = ${nextOverheadPercent},
+        target_realization_pct = ${nextTargetRealizationPct},
+        office_id = ${nextProjectOfficeId},
+        project_department_id = ${nextProjectDepartmentId},
         project_lead_id = ${nextProjectLeadId},
         updated_at = NOW()
     WHERE id = ${project.id}
@@ -4457,12 +4577,18 @@ exports.handler = async function handler(event) {
           LIMIT 1
         `;
         const beforeSnapshot = beforeRows[0]
-          ? { id: normalizeText(beforeRows[0].id), name: normalizeText(beforeRows[0].name) }
+          ? {
+              id: normalizeText(beforeRows[0].id),
+              name: normalizeText(beforeRows[0].name),
+            }
           : null;
         mutationResult = await renameDepartment(sql, request.payload || {}, accountId);
         if (mutationResult?.statusCode) return mutationResult;
         const afterSnapshot = mutationResult
-          ? { id: normalizeText(mutationResult.id), name: normalizeText(mutationResult.name) }
+          ? {
+              id: normalizeText(mutationResult.id),
+              name: normalizeText(mutationResult.name),
+            }
           : null;
         await logEntityAudit(sql, {
           accountId,
@@ -4488,7 +4614,10 @@ exports.handler = async function handler(event) {
           LIMIT 1
         `;
         const beforeSnapshot = beforeRows[0]
-          ? { id: normalizeText(beforeRows[0].id), name: normalizeText(beforeRows[0].name) }
+          ? {
+              id: normalizeText(beforeRows[0].id),
+              name: normalizeText(beforeRows[0].name),
+            }
           : null;
         mutationResult = await deleteDepartment(sql, request.payload || {}, accountId);
         if (mutationResult?.statusCode) return mutationResult;
@@ -5613,6 +5742,24 @@ exports.handler = async function handler(event) {
           action: "update",
           runMutation: () => updateOfficeLocations(sql, request.payload || {}, accountId),
           getSnapshot: async () => ({ offices: await snapshotOfficeLocations(sql, accountId) }),
+        });
+        break;
+      }
+      case "update_target_realizations": {
+        if (!can("manage_departments", { resourceOfficeId: context.currentUser?.officeId || null })) {
+          return errorResponse(403, "Access denied.");
+        }
+        mutationResult = await runMutationWithAudit({
+          sql,
+          accountId,
+          context,
+          entityType: "target_realization",
+          entityId: "all",
+          action: "update",
+          runMutation: () => updateTargetRealizations(sql, request.payload || {}, accountId),
+          getSnapshot: async () => ({
+            targetRealizations: await listTargetRealizations(sql, accountId),
+          }),
         });
         break;
       }

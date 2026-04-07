@@ -138,6 +138,50 @@
         letter-spacing: .06em;
         font-weight: 600;
       }
+      .project-planning-kpi-head {
+        position: relative;
+        display: block;
+        min-height: 0;
+      }
+      .project-planning-kpi-target {
+        position: absolute;
+        top: 0;
+        right: 0;
+        display: grid;
+        justify-items: end;
+        text-align: right;
+        gap: 3px;
+        line-height: 1.1;
+        margin-top: 0;
+      }
+      .project-planning-kpi-target-line {
+        display: inline-flex;
+        align-items: baseline;
+        gap: 6px;
+      }
+      .project-planning-kpi-target-line-label {
+        color: var(--muted);
+        font-size: 0.6rem;
+        text-transform: uppercase;
+        letter-spacing: .06em;
+        font-weight: 700;
+      }
+      .project-planning-kpi-target-line-value {
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: var(--text);
+      }
+      .project-planning-kpi-target-line-value.is-variance {
+        font-size: 0.71rem;
+        color: var(--muted);
+        font-weight: 600;
+      }
+      .project-planning-kpi-target-line-value.is-variance.is-positive {
+        color: #2f9d57;
+      }
+      .project-planning-kpi-target-line-value.is-variance.is-negative {
+        color: #b3261e;
+      }
       .project-planning-kpi-value {
         margin-top: 6px;
         font-size: 1.62rem;
@@ -795,6 +839,9 @@
     let contractAmountValue = toNullableNumber(project?.contractAmount ?? project?.contract_amount);
     const pricingModel = String(project?.pricingModel ?? project?.pricing_model ?? "").trim().toLowerCase();
     let contractType = pricingModel === "time_and_materials" ? "tm" : "fixed";
+    const targetRealizationPctValue = toNullableNumber(
+      project?.targetRealizationPct ?? project?.target_realization_pct
+    );
     let activePlanningTab = "time";
     let planningExpenseRows = [];
     const memberBudgets = Array.isArray(state?.projectMemberBudgets)
@@ -974,7 +1021,19 @@
                 </div>
               </article>
               <article class="project-planning-kpi is-emphasis">
-                <div class="project-planning-kpi-label" data-kpi-label="realizationPrimary">Realization</div>
+                <div class="project-planning-kpi-head">
+                  <div class="project-planning-kpi-label" data-kpi-label="realizationPrimary">Realization</div>
+                  <div class="project-planning-kpi-target">
+                    <span class="project-planning-kpi-target-line">
+                      <span class="project-planning-kpi-target-line-label">TARGET</span>
+                      <strong class="project-planning-kpi-target-line-value" data-kpi="targetRealization">${escapeHtml(targetRealizationPctValue === null ? "—" : fmtPercent(targetRealizationPctValue))}</strong>
+                    </span>
+                    <span class="project-planning-kpi-target-line">
+                      <span class="project-planning-kpi-target-line-label">VARIANCE</span>
+                      <strong class="project-planning-kpi-target-line-value is-variance" data-kpi="targetVariance">—</strong>
+                    </span>
+                  </div>
+                </div>
                 <div class="project-planning-kpi-value" data-kpi="realizationPct">${escapeHtml(initialTotals.standardRevenueTotal > 0 && Number.isFinite(initialRealizationNumerator) ? fmtPercent((initialRealizationNumerator / initialTotals.standardRevenueTotal) * 100) : "—")}</div>
                 <div class="project-planning-kpi-sub" data-kpi="realizationSub">
                   <div class="project-planning-kpi-subline">
@@ -1232,6 +1291,8 @@
     const kpiStandardRevenueNode = container.querySelector('[data-kpi="standardRevenue"]');
     const kpiPremiumDiscountNode = container.querySelector('[data-kpi="premiumDiscount"]');
     const kpiPremiumDiscountLabelNode = container.querySelector('[data-kpi-label="premiumDiscount"]');
+    const kpiTargetRealizationNode = container.querySelector('[data-kpi="targetRealization"]');
+    const kpiTargetVarianceNode = container.querySelector('[data-kpi="targetVariance"]');
     const econRevenuePrimaryNode = container.querySelector('[data-econ="revenuePrimary"]');
     const econRevenueSecondaryNode = container.querySelector('[data-econ="revenueSecondary"]');
     const econRevenueTertiaryNode = container.querySelector('[data-econ="revenueTertiary"]');
@@ -1377,6 +1438,35 @@
       }
       if (kpiRealizationPctNode) {
         kpiRealizationPctNode.textContent = realizationPct === null ? "—" : fmtPercent(realizationPct);
+      }
+      if (kpiTargetRealizationNode) {
+        kpiTargetRealizationNode.textContent =
+          targetRealizationPctValue === null ? "—" : fmtPercent(targetRealizationPctValue);
+      }
+      const targetVarianceValue =
+        targetRealizationPctValue !== null && Number.isFinite(realizationPct)
+          ? realizationPct - targetRealizationPctValue
+          : null;
+      if (kpiTargetVarianceNode) {
+        if (targetVarianceValue === null || !Number.isFinite(targetVarianceValue)) {
+          kpiTargetVarianceNode.textContent = "—";
+          kpiTargetVarianceNode.classList.remove("is-positive", "is-negative");
+          kpiTargetVarianceNode.style.color = "";
+        } else {
+          const absText = fmtPercent(Math.abs(targetVarianceValue));
+          kpiTargetVarianceNode.textContent =
+            targetVarianceValue > 0 ? `+${absText}` : targetVarianceValue < 0 ? `-${absText}` : fmtPercent(0);
+          kpiTargetVarianceNode.classList.remove("is-positive", "is-negative");
+          if (targetVarianceValue > 0) {
+            kpiTargetVarianceNode.classList.add("is-positive");
+            kpiTargetVarianceNode.style.color = "#2f9d57";
+          } else if (targetVarianceValue < 0) {
+            kpiTargetVarianceNode.classList.add("is-negative");
+            kpiTargetVarianceNode.style.color = "#b3261e";
+          } else {
+            kpiTargetVarianceNode.style.color = "";
+          }
+        }
       }
       if (kpiStandardRevenueNode) kpiStandardRevenueNode.textContent = fmtMoneyZero(totals.standardRevenueTotal);
       const discountPremiumValue = Number.isFinite(realizationNumerator)
