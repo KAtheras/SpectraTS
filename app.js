@@ -4091,15 +4091,18 @@
       if (!entry || !dateSet.has(entry.date)) return;
       const hours = Number(entry.hours);
       if (!Number.isFinite(hours) || hours <= 0) return;
-      const client = `${entry.client || ""}`.trim();
-      const project = `${entry.project || ""}`.trim();
-      if (!client || !project) return;
-      const projectKeyValue = `${client}|||${project}`;
       const chargeCenterId = `${entry.chargeCenterId || entry.charge_center_id || ""}`.trim();
       const projectId = `${entry.projectId || entry.project_id || ""}`.trim();
       const isCorporateEntry =
         (Boolean(chargeCenterId) && !projectId) ||
-        (client.toLowerCase() === "internal" && !projectId);
+        (`${entry.client || ""}`.trim().toLowerCase() === "internal" && !projectId);
+      const client = `${entry.client || ""}`.trim() || (isCorporateEntry ? "Internal" : "");
+      const project = `${entry.project || ""}`.trim()
+        || (isCorporateEntry ? corporateFunctionCategoryDisplayLabelById(chargeCenterId) || "Internal" : "");
+      if (!client || !project) return;
+      const projectKeyValue = isCorporateEntry
+        ? `corporate|||${chargeCenterId || project}`
+        : `${client}|||${project}`;
       if (!perProject.has(projectKeyValue)) {
         perProject.set(projectKeyValue, {
           client,
@@ -4409,10 +4412,18 @@
 
       const amount = Number(expense.amount);
       if (!Number.isFinite(amount) || amount <= 0) return;
-      const client = `${expense.clientName || expense.client || ""}`.trim();
-      const project = `${expense.projectName || expense.project || ""}`.trim();
+      const chargeCenterId = `${expense.chargeCenterId || expense.charge_center_id || ""}`.trim();
+      const projectId = `${expense.projectId || expense.project_id || ""}`.trim();
+      const isCorporateExpense =
+        (Boolean(chargeCenterId) && !projectId) ||
+        (`${expense.clientName || expense.client || ""}`.trim().toLowerCase() === "internal" && !projectId);
+      const client = `${expense.clientName || expense.client || ""}`.trim() || (isCorporateExpense ? "Internal" : "");
+      const project = `${expense.projectName || expense.project || ""}`.trim()
+        || (isCorporateExpense ? corporateFunctionCategoryDisplayLabelById(chargeCenterId) || "Internal" : "");
       if (!client || !project) return;
-      const projectKeyValue = `${client}|||${project}`;
+      const projectKeyValue = isCorporateExpense
+        ? `corporate|||${chargeCenterId || project}`
+        : `${client}|||${project}`;
       if (!perProject.has(projectKeyValue)) {
         perProject.set(projectKeyValue, {
           client,
@@ -4648,6 +4659,25 @@
     `;
   }
 
+  function refreshInputsDrilldownAfterLocalMutation(kind) {
+    if (state.currentView !== "inputs") return;
+    if (kind === "time") {
+      const previousHidden = refs.inputsTimeCalendarView ? refs.inputsTimeCalendarView.hidden : true;
+      renderInputsTimeCalendar();
+      if (refs.inputsTimeCalendarView) {
+        refs.inputsTimeCalendarView.hidden = previousHidden;
+      }
+      return;
+    }
+    if (kind === "expenses") {
+      const previousHidden = refs.inputsExpenseCalendarView ? refs.inputsExpenseCalendarView.hidden : true;
+      renderInputsExpenseCalendar();
+      if (refs.inputsExpenseCalendarView) {
+        refs.inputsExpenseCalendarView.hidden = previousHidden;
+      }
+    }
+  }
+
   function encodeInputsTimeCombo(clientName, projectName) {
     return `${encodeURIComponent(clientName || "")}::${encodeURIComponent(projectName || "")}`;
   }
@@ -4725,6 +4755,23 @@
         categories: categories.filter((item) => `${item?.groupId || ""}`.trim() === `${group?.id || ""}`.trim()),
       }))
       .filter((item) => item.groupId && item.groupName && item.categories.length);
+  }
+
+  function corporateFunctionCategoryDisplayLabelById(categoryId) {
+    const normalizedId = `${categoryId || ""}`.trim();
+    if (!normalizedId) return "";
+    const category = (state.corporateFunctionCategories || []).find(
+      (item) => `${item?.id || ""}`.trim() === normalizedId
+    );
+    if (!category) return "";
+    const categoryName = `${category?.name || ""}`.trim();
+    const groupId = `${category?.groupId || ""}`.trim();
+    const group = (state.corporateFunctionGroups || []).find(
+      (item) => `${item?.id || ""}`.trim() === groupId
+    );
+    const groupName = `${group?.name || ""}`.trim();
+    if (groupName && categoryName) return `${groupName} / ${categoryName}`;
+    return categoryName || groupName || "";
   }
 
   function readInputsComboSelectionMeta(selectEl) {
@@ -5396,34 +5443,23 @@
         return;
       }
 
-      try {
-        await mutatePersistentState(
-          "save_entry",
-          wasEditingSavedRow ? { entry: nextEntry } : { entry: nextEntry, actingAsUserId },
-          { skipHydrate: true, refreshState: false, returnState: false }
-        );
-      } catch (error) {
-        row.dataset.saving = "false";
-        setInputsTimeRowState(row, wasEditingSavedRow ? "editing-saved" : "new");
-        syncInputsTimeRowInteractivity(
-          Array.from(row.parentElement?.querySelectorAll("form.input-row.input-row-body") || [])
-        );
-        feedback(error.message || "Unable to save entry.", true);
-        return;
-      }
-
-      feedback("Entry saved.", false);
       const nextEntryId = String(nextEntry.id || "").trim();
+      const existingEntries = Array.isArray(state.entries) ? state.entries : [];
+      const previousEntry = nextEntryId
+        ? existingEntries.find((item) => String(item?.id || "").trim() === nextEntryId) || null
+        : null;
+      feedback("Entry saved.", false);
       if (nextEntryId) {
-        const existingEntries = Array.isArray(state.entries) ? state.entries : [];
         const preservedEntries = existingEntries.filter(
           (item) => String(item?.id || "").trim() !== nextEntryId
         );
         state.entries = preservedEntries.concat({ ...nextEntry });
       }
+      refreshInputsDrilldownAfterLocalMutation("time");
       row.dataset.entryId = nextEntry.id;
       row.dataset.createdAt = nextEntry.createdAt;
       setInputsTimeRowSaved(row);
+      row.dataset.saving = "false";
       const container = row.parentElement;
       const shouldAddNextRow = !hasTrailingBlankInputsTimeRow(container);
       if (shouldAddNextRow) {
@@ -5433,6 +5469,34 @@
           Array.from(container.querySelectorAll("form.input-row.input-row-body"))
         );
       }
+      mutatePersistentState(
+        "save_entry",
+        wasEditingSavedRow ? { entry: nextEntry } : { entry: nextEntry, actingAsUserId },
+        { skipHydrate: true, refreshState: false, returnState: false }
+      ).catch((error) => {
+        if (nextEntryId) {
+          const latestEntries = Array.isArray(state.entries) ? state.entries : [];
+          const withoutOptimistic = latestEntries.filter(
+            (item) => String(item?.id || "").trim() !== nextEntryId
+          );
+          state.entries = previousEntry ? withoutOptimistic.concat(previousEntry) : withoutOptimistic;
+        }
+        if (previousEntry?.id) {
+          row.dataset.entryId = String(previousEntry.id);
+          row.dataset.createdAt = String(previousEntry.createdAt || "");
+        } else {
+          delete row.dataset.entryId;
+          delete row.dataset.createdAt;
+        }
+        row.dataset.saving = "false";
+        setInputsTimeRowState(row, wasEditingSavedRow ? "editing-saved" : "new");
+        syncInputsTimeRowInteractivity(
+          Array.from(row.parentElement?.querySelectorAll("form.input-row.input-row-body") || [])
+        );
+        refreshInputsDrilldownAfterLocalMutation("time");
+        feedback(error.message || "Unable to save entry.", true);
+        postHeight();
+      });
       postHeight();
     });
 
@@ -5923,36 +5987,23 @@
         return;
       }
 
-      try {
-        await mutatePersistentState(
-          wasEditingSavedRow ? "update_expense" : "create_expense",
-          wasEditingSavedRow
-            ? { expense: nextExpense }
-            : { expense: nextExpense, actingAsUserId },
-          { skipHydrate: true, refreshState: false, returnState: false }
-        );
-      } catch (error) {
-        row.dataset.saving = "false";
-        setInputsExpenseRowState(row, wasEditingSavedRow ? "editing-saved" : "new");
-        syncInputsExpenseRowInteractivity(
-          Array.from(row.parentElement?.querySelectorAll("form.input-row.input-row-body") || [])
-        );
-        feedback(error.message || "Unable to save expense.", true);
-        return;
-      }
-
-      feedback("Expense saved.", false);
       const nextExpenseId = String(nextExpense.id || "").trim();
+      const existingExpenses = Array.isArray(state.expenses) ? state.expenses : [];
+      const previousExpense = nextExpenseId
+        ? existingExpenses.find((item) => String(item?.id || "").trim() === nextExpenseId) || null
+        : null;
+      feedback("Expense saved.", false);
       if (nextExpenseId) {
-        const existingExpenses = Array.isArray(state.expenses) ? state.expenses : [];
         const preservedExpenses = existingExpenses.filter(
           (item) => String(item?.id || "").trim() !== nextExpenseId
         );
         state.expenses = preservedExpenses.concat({ ...nextExpense });
       }
+      refreshInputsDrilldownAfterLocalMutation("expenses");
       row.dataset.entryId = nextExpense.id;
       row.dataset.createdAt = nextExpense.createdAt;
       setInputsExpenseRowSaved(row);
+      row.dataset.saving = "false";
       const container = row.parentElement;
       const shouldAddNextRow = !hasTrailingBlankInputsExpenseRow(container);
       if (shouldAddNextRow) {
@@ -5962,6 +6013,36 @@
           Array.from(container.querySelectorAll("form.input-row.input-row-body"))
         );
       }
+      mutatePersistentState(
+        wasEditingSavedRow ? "update_expense" : "create_expense",
+        wasEditingSavedRow
+          ? { expense: nextExpense }
+          : { expense: nextExpense, actingAsUserId },
+        { skipHydrate: true, refreshState: false, returnState: false }
+      ).catch((error) => {
+        if (nextExpenseId) {
+          const latestExpenses = Array.isArray(state.expenses) ? state.expenses : [];
+          const withoutOptimistic = latestExpenses.filter(
+            (item) => String(item?.id || "").trim() !== nextExpenseId
+          );
+          state.expenses = previousExpense ? withoutOptimistic.concat(previousExpense) : withoutOptimistic;
+        }
+        if (previousExpense?.id) {
+          row.dataset.entryId = String(previousExpense.id);
+          row.dataset.createdAt = String(previousExpense.createdAt || "");
+        } else {
+          delete row.dataset.entryId;
+          delete row.dataset.createdAt;
+        }
+        row.dataset.saving = "false";
+        setInputsExpenseRowState(row, wasEditingSavedRow ? "editing-saved" : "new");
+        syncInputsExpenseRowInteractivity(
+          Array.from(row.parentElement?.querySelectorAll("form.input-row.input-row-body") || [])
+        );
+        refreshInputsDrilldownAfterLocalMutation("expenses");
+        feedback(error.message || "Unable to save expense.", true);
+        postHeight();
+      });
       postHeight();
     });
 
