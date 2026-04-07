@@ -422,6 +422,7 @@ async function ensureSchema(sql) {
       client_id BIGINT NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
       account_id UUID REFERENCES accounts(id),
       office_id TEXT NULL REFERENCES office_locations(id) ON DELETE SET NULL,
+      project_department_id TEXT NULL REFERENCES departments(id) ON DELETE SET NULL,
       project_lead_id TEXT NULL REFERENCES users(id) ON DELETE SET NULL,
       name TEXT NOT NULL,
       created_by TEXT REFERENCES users(id),
@@ -444,6 +445,10 @@ async function ensureSchema(sql) {
   `;
   await sql`
     ALTER TABLE projects
+    ADD COLUMN IF NOT EXISTS project_department_id TEXT NULL REFERENCES departments(id) ON DELETE SET NULL
+  `;
+  await sql`
+    ALTER TABLE projects
     ADD COLUMN IF NOT EXISTS project_lead_id TEXT NULL REFERENCES users(id) ON DELETE SET NULL
   `;
   await sql`UPDATE projects SET account_id = ${accountUuid}::uuid WHERE account_id IS NULL`;
@@ -462,6 +467,10 @@ async function ensureSchema(sql) {
   await sql`
     ALTER TABLE projects
     ADD COLUMN IF NOT EXISTS overhead_percent NUMERIC
+  `;
+  await sql`
+    ALTER TABLE projects
+    ADD COLUMN IF NOT EXISTS target_realization_pct NUMERIC
   `;
   await sql`
     ALTER TABLE projects
@@ -681,6 +690,7 @@ async function ensureSchema(sql) {
   `;
   await sql`ALTER TABLE corporate_function_categories DROP COLUMN IF EXISTS is_active`;
   await sql`ALTER TABLE departments DROP COLUMN IF EXISTS is_active`;
+  await sql`ALTER TABLE departments DROP COLUMN IF EXISTS target_realization_pct`;
   await sql`ALTER TABLE expense_categories DROP COLUMN IF EXISTS is_active`;
 
   await sql`
@@ -690,6 +700,18 @@ async function ensureSchema(sql) {
       name TEXT NOT NULL,
       office_lead_user_id TEXT NULL REFERENCES users(id) ON DELETE SET NULL,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS department_office_target_realizations (
+      id TEXT PRIMARY KEY,
+      account_id UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      department_id TEXT NOT NULL REFERENCES departments(id) ON DELETE CASCADE,
+      office_id TEXT NOT NULL REFERENCES office_locations(id) ON DELETE CASCADE,
+      target_realization_pct NUMERIC(6,2) NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (account_id, department_id, office_id)
     )
   `;
 
@@ -722,6 +744,10 @@ async function ensureSchema(sql) {
   await sql`
     CREATE INDEX IF NOT EXISTS project_planned_expenses_account_project_idx
       ON project_planned_expenses(account_id, project_id, sort_order, created_at)
+  `;
+  await sql`
+    CREATE INDEX IF NOT EXISTS dept_office_targets_account_idx
+      ON department_office_target_realizations(account_id, office_id, department_id)
   `;
   await sql`
     CREATE UNIQUE INDEX IF NOT EXISTS project_expense_categories_account_name_ci_idx
@@ -2301,6 +2327,12 @@ async function findProject(sql, clientName, projectName, accountId) {
       projects.pricing_model AS pricing_model,
       projects.overhead_percent AS "overheadPercent",
       projects.overhead_percent AS overhead_percent,
+      projects.target_realization_pct AS "targetRealizationPct",
+      projects.target_realization_pct AS target_realization_pct,
+      projects.office_id AS "officeId",
+      projects.office_id AS office_id,
+      projects.project_department_id AS "projectDepartmentId",
+      projects.project_department_id AS project_department_id,
       projects.project_lead_id AS project_lead_id,
       projects.is_active AS "isActive"
     FROM projects
@@ -2328,12 +2360,20 @@ async function listProjects(sql, accountId) {
       projects.pricing_model AS pricing_model,
       projects.overhead_percent AS "overheadPercent",
       projects.overhead_percent AS overhead_percent,
+      projects.target_realization_pct AS "targetRealizationPct",
+      projects.target_realization_pct AS target_realization_pct,
       projects.office_id AS "officeId",
+      projects.project_department_id AS "projectDepartmentId",
+      projects.project_department_id AS project_department_id,
+      dept.name AS "projectDepartmentName",
       projects.project_lead_id AS "projectLeadId",
       projects.is_active AS "isActive",
       lead.display_name AS "projectLeadName"
     FROM projects
     JOIN clients ON clients.id = projects.client_id
+    LEFT JOIN departments dept
+      ON dept.id = projects.project_department_id
+     AND dept.account_id = projects.account_id
     LEFT JOIN users lead
       ON lead.id = projects.project_lead_id
      AND lead.account_id = projects.account_id
@@ -2467,6 +2507,108 @@ async function listDepartments(sql, accountId) {
     WHERE account_id = ${accountId}::uuid
     ORDER BY LOWER(name)
   `;
+}
+
+async function listTargetRealizations(sql, accountId) {
+  return sql`
+    SELECT
+      id,
+      office_id AS "officeId",
+      department_id AS "departmentId",
+      target_realization_pct AS "targetRealizationPct"
+    FROM department_office_target_realizations
+    WHERE account_id = ${accountId}::uuid
+    ORDER BY office_id, department_id
+  `;
+}
+
+async function updateTargetRealizations(sql, payload, accountId) {
+  const rawRows = Array.isArray(payload?.targetRealizations) ? payload.targetRealizations : [];
+  const normalizedRows = [];
+  const seen = new Set();
+  for (const item of rawRows) {
+    const officeId = normalizeText(item?.officeId || item?.office_id);
+    const departmentId = normalizeText(item?.departmentId || item?.department_id);
+    const rawTarget = item?.targetRealizationPct ?? item?.target_realization_pct;
+    const targetRealizationPct =
+      rawTarget === null || rawTarget === undefined || rawTarget === ""
+        ? null
+        : Number(rawTarget);
+    if (!officeId || !departmentId || targetRealizationPct === null) continue;
+    if (!Number.isFinite(targetRealizationPct) || targetRealizationPct < 0) {
+      throw new Error("Target realization % must be a non-negative number.");
+    }
+    const key = `${officeId}::${departmentId}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    normalizedRows.push({
+      officeId,
+      departmentId,
+      targetRealizationPct,
+    });
+  }
+
+  const officeIds = Array.from(new Set(normalizedRows.map((item) => item.officeId)));
+  const departmentIds = Array.from(new Set(normalizedRows.map((item) => item.departmentId)));
+
+  if (officeIds.length) {
+    const officeRows = await sql`
+      SELECT id
+      FROM office_locations
+      WHERE account_id = ${accountId}::uuid
+        AND id = ANY(${officeIds})
+    `;
+    const validOfficeIds = new Set(officeRows.map((row) => `${row.id || ""}`.trim()));
+    const hasInvalidOffice = officeIds.some((id) => !validOfficeIds.has(id));
+    if (hasInvalidOffice) {
+      throw new Error("One or more office locations are invalid.");
+    }
+  }
+
+  if (departmentIds.length) {
+    const departmentRows = await sql`
+      SELECT id
+      FROM departments
+      WHERE account_id = ${accountId}::uuid
+        AND id = ANY(${departmentIds})
+    `;
+    const validDepartmentIds = new Set(departmentRows.map((row) => `${row.id || ""}`.trim()));
+    const hasInvalidDepartment = departmentIds.some((id) => !validDepartmentIds.has(id));
+    if (hasInvalidDepartment) {
+      throw new Error("One or more departments are invalid.");
+    }
+  }
+
+  await sql`
+    DELETE FROM department_office_target_realizations
+    WHERE account_id = ${accountId}::uuid
+  `;
+
+  for (const item of normalizedRows) {
+    await sql`
+      INSERT INTO department_office_target_realizations (
+        id,
+        account_id,
+        department_id,
+        office_id,
+        target_realization_pct,
+        created_at,
+        updated_at
+      )
+      VALUES (
+        ${randomId()},
+        ${accountId}::uuid,
+        ${item.departmentId},
+        ${item.officeId},
+        ${item.targetRealizationPct},
+        NOW(),
+        NOW()
+      )
+    `;
+  }
+
+  const targetRealizations = await listTargetRealizations(sql, accountId);
+  return { targetRealizations };
 }
 
 async function listOfficeLocations(sql, accountId) {
@@ -3217,6 +3359,14 @@ async function loadSettingsMetadata(sql, currentUser) {
     canCap("view_members", {
       resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
       actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+    }) ||
+    canCap("create_project", {
+      resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+      actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+    }) ||
+    canCap("view_projects", {
+      resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+      actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
     });
   const departments = canUseDepartmentsForMembers
     ? await listDepartments(sql, accountUuid)
@@ -3238,6 +3388,20 @@ async function loadSettingsMetadata(sql, currentUser) {
   const officeLocations = canUseOfficeLocationsForMembers
     ? await listOfficeLocations(sql, accountUuid)
     : [];
+  let targetRealizations = [];
+  if (
+    canCap("manage_departments", {
+      resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+      actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+    }) &&
+    canUseOfficeLocationsForMembers
+  ) {
+    try {
+      targetRealizations = await listTargetRealizations(sql, accountUuid);
+    } catch (error) {
+      targetRealizations = [];
+    }
+  }
 
   const notificationRules = await listNotificationRules(sql, accountUuid);
   const myDelegations = normalizedUser
@@ -3250,6 +3414,7 @@ async function loadSettingsMetadata(sql, currentUser) {
   return {
     departments,
     officeLocations,
+    targetRealizations,
     notificationRules,
     myDelegations,
     delegationCandidates,
@@ -3319,6 +3484,44 @@ async function loadState(sql, currentUser) {
     resourceOfficeId: normalizedUser?.officeId ?? null,
     actorOfficeId: normalizedUser?.officeId ?? null,
   });
+  const manageDepartments = canCap("manage_departments", {
+    resourceOfficeId: normalizedUser?.officeId ?? null,
+    actorOfficeId: normalizedUser?.officeId ?? null,
+  });
+  const canUseDepartmentsForMembers =
+    manageDepartments ||
+    canCap("edit_member_profile", {
+      resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+      actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+    }) ||
+    canCap("view_members", {
+      resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+      actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+    }) ||
+    canCap("create_project", {
+      resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+      actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+    }) ||
+    canCap("view_projects", {
+      resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+      actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+    });
+  const canUseOfficeLocationsForMembers =
+    manageLocations ||
+    canCap("edit_member_profile", {
+      resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+      actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+    }) ||
+    canCap("create_member", {
+      resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+      actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+    });
+  const departments = canUseDepartmentsForMembers
+    ? await listDepartments(sql, accountUuid)
+    : [];
+  const officeLocations = canUseOfficeLocationsForMembers
+    ? await listOfficeLocations(sql, accountUuid)
+    : [];
   const viewMemberRatesCap = canCap("view_member_rates", {
     resourceOfficeId: normalizedUser?.officeId ?? null,
     actorOfficeId: normalizedUser?.officeId ?? null,
@@ -3336,10 +3539,7 @@ async function loadState(sql, currentUser) {
       resourceOfficeId: normalizedUser?.officeId ?? null,
       actorOfficeId: normalizedUser?.officeId ?? null,
     }) ||
-    canCap("manage_departments", {
-      resourceOfficeId: normalizedUser?.officeId ?? null,
-      actorOfficeId: normalizedUser?.officeId ?? null,
-    }) ||
+    manageDepartments ||
     manageCategories ||
     manageLocations ||
     editPermissionMatrix ||
@@ -4014,6 +4214,14 @@ async function loadState(sql, currentUser) {
   const expenseCategories = await listExpenseCategories(sql, accountUuid);
   const projectExpenseCategories = await listProjectExpenseCategories(sql, accountUuid);
   const projectPlannedExpenses = await listProjectPlannedExpenses(sql, accountUuid);
+  let targetRealizations = [];
+  if (manageDepartments && canUseOfficeLocationsForMembers) {
+    try {
+      targetRealizations = await listTargetRealizations(sql, accountUuid);
+    } catch (error) {
+      targetRealizations = [];
+    }
+  }
   const corporateFunctionGroups = await listCorporateFunctionGroups(sql, accountUuid);
   const corporateFunctionCategories = await listCorporateFunctionCategories(sql, accountUuid);
   const assignments = {
@@ -4121,6 +4329,8 @@ async function loadState(sql, currentUser) {
     },
     account: { id: accountUuid, name: accountRow?.name || null },
     users,
+    departments,
+    officeLocations,
     clients,
     catalog,
     entries,
@@ -4130,6 +4340,7 @@ async function loadState(sql, currentUser) {
     expenseCategories,
     projectExpenseCategories,
     projectPlannedExpenses,
+    targetRealizations,
     corporateFunctionCategories,
     assignments,
     levelLabels,
@@ -4296,6 +4507,7 @@ module.exports = {
   listCorporateFunctionCategories,
   listDepartments,
   listOfficeLocations,
+  listTargetRealizations,
   listInboxItems,
   listNotificationRules,
   listLevelLabels,
@@ -4310,6 +4522,7 @@ module.exports = {
   requireAdmin,
   requireSuperAdmin,
   requireAuth,
+  updateTargetRealizations,
   upsertProjectMemberBudget,
   deleteProjectMemberBudget,
   updateUserPassword,
