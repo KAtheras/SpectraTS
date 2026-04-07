@@ -10168,7 +10168,7 @@
         seen.add(key);
 
         if (!id || id.startsWith("temp-dept-")) {
-          createOps.push({ name });
+          createOps.push({ tempId: id, name });
           continue;
         }
         remainingIds.add(id);
@@ -10185,8 +10185,17 @@
       }
 
       try {
+        const createdByTempId = new Map();
         for (const op of createOps) {
-          await mutatePersistentState("create_department", { name: op.name }, settingsSaveFastOptions());
+          const created = await mutatePersistentState(
+            "create_department",
+            { name: op.name },
+            settingsSaveFastOptions()
+          );
+          const createdId = `${created?.id || ""}`.trim();
+          if (op.tempId && createdId) {
+            createdByTempId.set(op.tempId, createdId);
+          }
         }
         for (const op of renameOps) {
           await mutatePersistentState("rename_department", { id: op.id, name: op.name }, settingsSaveFastOptions());
@@ -10194,6 +10203,23 @@
         for (const op of deleteOps) {
           await mutatePersistentState("delete_department", { id: op.id }, settingsSaveFastOptions());
         }
+        const nextDepartments = rows
+          .map((row) => {
+            const rawId = String((row.dataset.departmentId || "").trim());
+            const resolvedId =
+              createdByTempId.get(rawId) ||
+              (rawId && !rawId.startsWith("temp-dept-") ? rawId : "");
+            const nameInput = row.querySelector("[data-department-name]");
+            const name = (nameInput?.value || "").trim();
+            if (!name) return null;
+            return {
+              id: resolvedId || `temp-dept-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+              name,
+            };
+          })
+          .filter(Boolean);
+        state.departments = nextDepartments;
+        state.departmentsSnapshot = nextDepartments.slice();
         refreshSettingsTabInBackground("departments");
         feedback("Departments updated.", false);
       } catch (error) {
