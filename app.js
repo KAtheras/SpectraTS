@@ -981,10 +981,6 @@
       return;
     }
     if (projectDialog.openProjectPlanning) {
-      state.currentProjectPlanningId =
-        String(projectDialog.projectId || projectRow?.id || "").trim() || "";
-      persistProjectPlanningId(state.currentProjectPlanningId);
-      setView("project_planning");
       return;
     }
     const nextName = projectDialog.projectName;
@@ -1220,20 +1216,6 @@
       refs.dialogConfirm.hidden = true;
       refs.dialogCancel.hidden = true;
 
-      const onOpenProjectPlanning = () => {
-        const projectIdForPlanning = currentProjectId;
-        if (!projectIdForPlanning) {
-          setError("Save project first to open Project Planning.");
-          return;
-        }
-        cleanup();
-        resolve({
-          openProjectPlanning: true,
-          projectId: projectIdForPlanning,
-        });
-      };
-      openPlanningButton?.addEventListener("click", onOpenProjectPlanning);
-
       const setError = (message) => {
         if (!errorNode) return;
         errorNode.textContent = message || "";
@@ -1254,50 +1236,100 @@
         refs.dialogMessage.textContent = "";
       };
 
-      const finalize = () => {
+      const buildProjectDialogPayload = () => {
         const nextName = String(nameInput?.value || "").trim();
         if (!nextName) {
           setError("Project name cannot be empty.");
           nameInput?.focus();
-          return;
+          return null;
         }
         const parsedContractAmount = parseProjectBudgetAmount(contractAmountInput?.value || "");
         if (!parsedContractAmount.ok) {
           setError("Contract amount must be a non-negative number.");
           contractAmountInput?.focus();
-          return;
+          return null;
         }
         const parsedOverheadPercent = parseProjectBudgetAmount(overheadPercentInput?.value || "");
         if (!parsedOverheadPercent.ok) {
           setError("Overhead % must be a non-negative number.");
           overheadPercentInput?.focus();
-          return;
+          return null;
         }
         const parsedBudget = parseProjectBudgetAmount(budgetInput?.value || "");
         if (!isProjectEditDialog && !parsedBudget.ok) {
           setError("Budget must be a non-negative number.");
           budgetInput?.focus();
-          return;
+          return null;
         }
-        cleanup();
-        if (isProjectEditDialog) {
-          resolve({
-            projectName: nextName,
-            contractAmount: parsedContractAmount.value,
-            overheadPercent: parsedOverheadPercent.value,
-            projectLeadId: String(leadSelect?.value || "").trim() || null,
-          });
-          return;
-        }
-        resolve({
+        return {
           projectName: nextName,
           budgetAmount: parsedBudget.value,
           contractAmount: parsedContractAmount.value,
           pricingModel: String(pricingModelSelect?.value || "fixed_fee").trim() || "fixed_fee",
           overheadPercent: parsedOverheadPercent.value,
           projectLeadId: String(leadSelect?.value || "").trim() || null,
+        };
+      };
+
+      const finalize = () => {
+        const payload = buildProjectDialogPayload();
+        if (!payload) return;
+        if (isProjectEditDialog) {
+          cleanup();
+          resolve(payload);
+          return;
+        }
+        cleanup();
+        resolve({
+          projectName: payload.projectName,
+          budgetAmount: payload.budgetAmount,
+          contractAmount: payload.contractAmount,
+          pricingModel: payload.pricingModel,
+          overheadPercent: payload.overheadPercent,
+          projectLeadId: payload.projectLeadId,
         });
       };
+
+      const onOpenProjectPlanning = (event) => {
+        event?.preventDefault?.();
+        event?.stopPropagation?.();
+        event?.stopImmediatePropagation?.();
+        const projectIdForPlanning = currentProjectId;
+        if (!projectIdForPlanning) {
+          setError("Save project first to open Project Planning.");
+          return;
+        }
+        const payload = buildProjectDialogPayload();
+        if (!payload) return;
+        setError("");
+        state.currentProjectPlanningId = projectIdForPlanning;
+        persistProjectPlanningId(projectIdForPlanning);
+        cleanup();
+        resolve({
+          openProjectPlanning: true,
+          projectId: projectIdForPlanning,
+        });
+        setView("project_planning");
+        mutatePersistentState(
+          "update_project",
+          {
+            clientName: String(options?.clientName || "").trim(),
+            projectName: String(options?.projectName || "").trim(),
+            nextName: payload.projectName,
+            contractAmount: payload.contractAmount,
+            overheadPercent: payload.overheadPercent,
+            project_lead_id: payload.projectLeadId,
+          },
+          { skipHydrate: true, refreshState: false, returnState: false }
+        )
+          .then(function () {
+            feedback("Project updated.", false);
+          })
+          .catch(function (error) {
+            feedback(error?.message || "Unable to update project.", true);
+          });
+      };
+      openPlanningButton?.addEventListener("click", onOpenProjectPlanning);
 
       const onSubmit = (event) => {
         event.preventDefault();
@@ -7398,7 +7430,7 @@
             state,
             container: refs.mainFrame,
             onBack: function () {
-              setView(state.selectedCatalogClient ? "clients" : "entries");
+              setView("clients");
             },
             onSave: async function (payload) {
               const saveProjectId = String(payload?.projectId || targetProjectId || "").trim();
@@ -7819,7 +7851,7 @@
           refs.mainFrame
             .querySelector("[data-planning-fallback-back]")
             ?.addEventListener("click", function () {
-              setView(state.selectedCatalogClient ? "clients" : "entries");
+              setView("clients");
             });
         }
       }

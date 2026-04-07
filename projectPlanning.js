@@ -34,7 +34,9 @@
       }
       .project-planning-subtitle {
         margin: 0;
-        color: var(--muted);
+        color: var(--text);
+        font-size: 1.28rem;
+        font-weight: 700;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -54,26 +56,43 @@
         align-items: center;
         gap: 0;
         border: 1px solid var(--line);
-        border-radius: 10px;
+        border-radius: 9px;
         overflow: hidden;
         background: var(--surface);
       }
       .project-planning-contract-type-option {
+        height: 36px;
+        min-height: 36px;
         border: 0;
         border-right: 1px solid var(--line);
-        background: transparent;
-        color: var(--muted);
-        padding: 7px 12px;
-        font-size: 0.84rem;
+        background: var(--surface);
+        color: var(--text);
+        padding: 0 14px;
+        font-size: 0.86rem;
         font-weight: 600;
         cursor: pointer;
+        line-height: 1;
       }
       .project-planning-contract-type-option:last-child {
         border-right: 0;
       }
       .project-planning-contract-type-option.is-active {
-        background: var(--surface-strong);
-        color: var(--text);
+        background: var(--accent);
+        color: #fff;
+        border-right-color: var(--accent);
+        font-weight: 600;
+      }
+      .project-planning-page .button {
+        min-height: 36px;
+        height: 36px;
+        border-radius: 9px;
+        padding-top: 0;
+        padding-bottom: 0;
+      }
+      .project-planning-page .button.button-ghost {
+        min-height: 36px;
+        height: 36px;
+        border-radius: 9px;
       }
       .project-planning-layout {
         display: grid;
@@ -438,39 +457,66 @@
       .project-planning-expenses-panel .project-planning-table {
         table-layout: fixed;
       }
-      .project-planning-expenses-panel .project-planning-table th:nth-child(1),
-      .project-planning-expenses-panel .project-planning-table td:nth-child(1) {
-        width: 17%;
+      .project-planning-expenses-panel .project-planning-table col.exp-col-category { width: 15%; }
+      .project-planning-expenses-panel .project-planning-table col.exp-col-description { width: 31%; }
+      .project-planning-expenses-panel .project-planning-table col.exp-col-units { width: 8%; }
+      .project-planning-expenses-panel .project-planning-table col.exp-col-unit-cost { width: 10%; }
+      .project-planning-expenses-panel .project-planning-table col.exp-col-markup { width: 10%; }
+      .project-planning-expenses-panel .project-planning-table col.exp-col-total { width: 10%; }
+      .project-planning-expenses-panel .project-planning-table col.exp-col-billable { width: 11%; }
+      .project-planning-expenses-panel .project-planning-table col.exp-col-actions { width: 5%; }
+      .project-planning-expenses-panel .project-planning-table th,
+      .project-planning-expenses-panel .project-planning-table td {
+        padding: 6px 4px;
       }
-      .project-planning-expenses-panel .project-planning-table th:nth-child(2),
-      .project-planning-expenses-panel .project-planning-table td:nth-child(2) {
-        width: 35%;
+      .project-planning-table-panels [data-planning-tab-panel="time"] .project-planning-table th,
+      .project-planning-table-panels [data-planning-tab-panel="time"] .project-planning-table td {
+        padding: 6px 4px;
       }
-      .project-planning-expenses-panel .project-planning-table th:nth-child(3),
-      .project-planning-expenses-panel .project-planning-table td:nth-child(3) {
-        width: 9%;
+      .project-planning-table-panels [data-planning-tab-panel="time"] .project-planning-table {
+        table-layout: fixed;
       }
-      .project-planning-expenses-panel .project-planning-table th:nth-child(4),
-      .project-planning-expenses-panel .project-planning-table td:nth-child(4) {
-        width: 12%;
+      .project-planning-table-panels [data-planning-tab-panel="time"] .project-planning-table col.time-col-member { width: 19%; }
+      .project-planning-table-panels [data-planning-tab-panel="time"] .project-planning-table col.time-col-role { width: 17%; }
+      .project-planning-table-panels [data-planning-tab-panel="time"] .project-planning-table col.time-col-cost-rate { width: 12%; }
+      .project-planning-table-panels [data-planning-tab-panel="time"] .project-planning-table col.time-col-charge-rate { width: 15%; }
+      .project-planning-table-panels [data-planning-tab-panel="time"] .project-planning-table col.time-col-hours { width: 14%; }
+      .project-planning-table-panels [data-planning-tab-panel="time"] .project-planning-table col.time-col-cost { width: 10%; }
+      .project-planning-table-panels [data-planning-tab-panel="time"] .project-planning-table col.time-col-revenue { width: 10%; }
+      .project-planning-table-panels [data-planning-tab-panel="time"] .project-planning-table col.time-col-actions { width: 3%; }
+      .project-planning-table-panels [data-planning-tab-panel="time"] .project-planning-table th:nth-child(3),
+      .project-planning-table-panels [data-planning-tab-panel="time"] .project-planning-table th:nth-child(4),
+      .project-planning-table-panels [data-planning-tab-panel="time"] .project-planning-table th:nth-child(5),
+      .project-planning-table-panels [data-planning-tab-panel="time"] .project-planning-table th:nth-child(6),
+      .project-planning-table-panels [data-planning-tab-panel="time"] .project-planning-table th:nth-child(7) {
+        text-align: right;
       }
-      .project-planning-expenses-panel .project-planning-table th:nth-child(5),
-      .project-planning-expenses-panel .project-planning-table td:nth-child(5) {
-        width: 9%;
+      .project-planning-expenses-panel .project-planning-input {
+        min-width: 0;
+      }
+      .project-planning-expenses-panel .project-planning-table .table-input {
+        display: block;
+        width: 100%;
+        min-width: 0;
+        max-width: 100%;
+        padding: 6px 8px;
+      }
+      .project-planning-table-panels [data-planning-tab-panel="time"] .project-planning-table .table-input {
+        padding: 6px 8px;
+      }
+      .project-planning-expenses-panel .project-planning-table td {
+        overflow: hidden;
       }
       .project-planning-expenses-panel .project-planning-table th:nth-child(6),
       .project-planning-expenses-panel .project-planning-table td:nth-child(6) {
-        width: 11%;
         text-align: right;
       }
       .project-planning-expenses-panel .project-planning-table th:nth-child(7),
       .project-planning-expenses-panel .project-planning-table td:nth-child(7) {
-        width: 10%;
         text-align: center;
       }
       .project-planning-expenses-panel .project-planning-table th:nth-child(8),
       .project-planning-expenses-panel .project-planning-table td:nth-child(8) {
-        width: 6%;
         text-align: right;
       }
       .project-planning-table .perm-switch{
@@ -859,10 +905,9 @@
       : null;
 
     container.innerHTML = `
-      <section class="page-view project-planning-page" aria-labelledby="project-planning-title">
+      <section class="page-view project-planning-page" aria-label="Project Planning">
         <header class="project-planning-head">
           <div class="project-planning-head-main">
-            <h2 id="project-planning-title">Project Planning</h2>
             <p class="project-planning-subtitle">${escapeHtml(subtitle)}</p>
             <div class="project-planning-contract-type-toggle" role="tablist" aria-label="Contract type">
               <button
@@ -975,6 +1020,16 @@
               <div class="project-planning-table-panels">
                 <div class="project-planning-table-wrap" data-planning-tab-panel="time">
                   <table class="project-planning-table">
+                    <colgroup>
+                      <col class="time-col-member" />
+                      <col class="time-col-role" />
+                      <col class="time-col-cost-rate" />
+                      <col class="time-col-charge-rate" />
+                      <col class="time-col-hours" />
+                      <col class="time-col-cost" />
+                      <col class="time-col-revenue" />
+                      <col class="time-col-actions" />
+                    </colgroup>
                     <thead>
                       <tr>
                         <th>Member</th>
@@ -1024,6 +1079,16 @@
                 <div class="project-planning-expenses-panel" data-planning-tab-panel="expenses" hidden>
                   <div class="project-planning-table-wrap">
                     <table class="project-planning-table">
+                      <colgroup>
+                        <col class="exp-col-category" />
+                        <col class="exp-col-description" />
+                        <col class="exp-col-units" />
+                        <col class="exp-col-unit-cost" />
+                        <col class="exp-col-markup" />
+                        <col class="exp-col-total" />
+                        <col class="exp-col-billable" />
+                        <col class="exp-col-actions" />
+                      </colgroup>
                       <thead>
                         <tr>
                           <th>Category</th>
