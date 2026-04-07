@@ -710,8 +710,7 @@ async function ensureSchema(sql) {
       office_id TEXT NOT NULL REFERENCES office_locations(id) ON DELETE CASCADE,
       target_realization_pct NUMERIC(6,2) NOT NULL,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      UNIQUE (account_id, department_id, office_id)
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `;
 
@@ -747,6 +746,10 @@ async function ensureSchema(sql) {
   `;
   await sql`
     CREATE INDEX IF NOT EXISTS dept_office_targets_account_idx
+      ON department_office_target_realizations(account_id, office_id, department_id)
+  `;
+  await sql`
+    CREATE UNIQUE INDEX IF NOT EXISTS dept_office_targets_account_office_department_uidx
       ON department_office_target_realizations(account_id, office_id, department_id)
   `;
   await sql`
