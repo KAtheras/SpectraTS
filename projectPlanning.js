@@ -455,6 +455,9 @@
         -moz-appearance: textfield;
         appearance: textfield;
       }
+      .project-planning-expenses-panel .project-planning-table input[data-expense-input="description"] {
+        text-align: left;
+      }
       .project-planning-expenses-panel .project-planning-table {
         table-layout: fixed;
       }
