@@ -686,8 +686,6 @@
   let memberEditorReset = null;
   let memberEditorMode = "create";
   let memberEditorUserId = "";
-  let projectDialogReturnContext = null;
-  let advancedBudgetReturnContext = null;
 
   function ensureInboxBulkReadButton() {
     if (refs.inboxMarkSelectedRead) return;
@@ -939,33 +937,6 @@
     if (billingPhone && businessPhone) billingPhone.value = businessPhone.value || "";
   }
 
-  function openProjectMemberManagement(projectName, actionType) {
-    if (!projectName) {
-      return false;
-    }
-    if (
-      !isAdmin(state.currentUser) &&
-      !isExecutive(state.currentUser) &&
-      !(
-        isManager(state.currentUser) &&
-        canManagerAccessProject(state.currentUser, state.selectedCatalogClient, projectName)
-      )
-    ) {
-      feedback("Manager access required.", true);
-      return false;
-    }
-    const assignedStaff = staffIdsForProject(state.selectedCatalogClient, projectName);
-    const assignedManagers = directManagerIdsForProject(state.selectedCatalogClient, projectName);
-    memberModalState.mode = actionType === "remove" ? "project-remove-member" : "project-add-member";
-    memberModalState.client = state.selectedCatalogClient;
-    memberModalState.project = projectName;
-    memberModalState.assigned = [...new Set([...(assignedStaff || []), ...(assignedManagers || [])])];
-    memberModalState.overrides = {};
-    memberModalState.searchTerm = "";
-    openMembersModal();
-    return true;
-  }
-
   async function openProjectEditDialogFlow(clientName, projectName) {
     const normalizedClient = String(clientName || "").trim();
     const normalizedProject = String(projectName || "").trim();
@@ -982,17 +953,11 @@
       feedback("Project not found.", true);
       return;
     }
-    const currentBudget = Number.isFinite(projectRow.budget) ? projectRow.budget : null;
     const currentContractAmount = Number.isFinite(
       Number(projectRow.contractAmount ?? projectRow.contract_amount)
     )
       ? Number(projectRow.contractAmount ?? projectRow.contract_amount)
       : null;
-    const currentPricingModelRaw = String(
-      projectRow.pricingModel ?? projectRow.pricing_model ?? ""
-    ).trim();
-    const currentPricingModel =
-      currentPricingModelRaw === "time_and_materials" ? "time_and_materials" : "fixed_fee";
     const currentOverheadPercent = Number.isFinite(
       Number(projectRow.overheadPercent ?? projectRow.overhead_percent)
     )
@@ -1006,30 +971,13 @@
       projectId: String(projectRow?.id || "").trim() || null,
       clientName: normalizedClient,
       projectName: normalizedProject,
-      budgetAmount: currentBudget,
       contractAmount: currentContractAmount,
-      pricingModel: currentPricingModel,
       overheadPercent: currentOverheadPercent,
       projectLeadId,
       managerNames,
       staffNames,
     });
     if (!projectDialog) {
-      projectDialogReturnContext = null;
-      return;
-    }
-    if (projectDialog.memberAction === "add" || projectDialog.memberAction === "remove") {
-      projectDialogReturnContext = {
-        clientName: normalizedClient,
-        projectName: normalizedProject,
-      };
-      const opened = openProjectMemberManagement(normalizedProject, projectDialog.memberAction);
-      if (!opened) {
-        projectDialogReturnContext = null;
-      }
-      return;
-    }
-    if (projectDialog.openAdvancedBudget) {
       return;
     }
     if (projectDialog.openProjectPlanning) {
@@ -1045,9 +993,7 @@
         clientName: normalizedClient,
         projectName: normalizedProject,
         nextName,
-        budgetAmount: projectDialog.budgetAmount,
         contractAmount: projectDialog.contractAmount,
-        pricingModel: projectDialog.pricingModel,
         overheadPercent: projectDialog.overheadPercent,
         project_lead_id: projectDialog.projectLeadId,
       });
@@ -1063,372 +1009,6 @@
     syncFilterCatalogsUI(state.filters);
     feedback("Project updated.", false);
     render();
-  }
-
-  async function openAdvancedBudgetModal(projectId, options = {}) {
-    const normalizedProjectId = String(projectId || "").trim();
-    if (!normalizedProjectId) {
-      feedback("Project not found.", true);
-      return;
-    }
-    const projectRow =
-      (state.projects || []).find((item) => String(item?.id || "").trim() === normalizedProjectId) || null;
-    if (!projectRow) {
-      feedback("Project not found.", true);
-      return;
-    }
-    const normalizeId = (value) => String(value || "").trim().toLowerCase();
-    const toNullableNumber = (value) => {
-      if (value === null || value === undefined || value === "") return null;
-      const parsed = Number(value);
-      return Number.isFinite(parsed) ? parsed : null;
-    };
-    const usersById = new Map(
-      (state.users || [])
-        .map((user) => [normalizeId(user?.id), user])
-        .filter((item) => item[0])
-    );
-
-    const assignmentMembers = (state.assignments?.projectMembers || [])
-      .filter((assignment) => String(assignment?.projectId || "").trim() === normalizedProjectId)
-      .map((assignment) => ({
-        userId: String(assignment?.userId || "").trim(),
-        rateOverride: toNullableNumber(assignment?.chargeRateOverride),
-      }))
-      .filter((item) => item.userId);
-    const managerMembers = (state.assignments?.managerProjects || [])
-      .filter((assignment) => String(assignment?.projectId || "").trim() === normalizedProjectId)
-      .map((assignment) => ({
-        userId: String(assignment?.managerId || "").trim(),
-        rateOverride: toNullableNumber(assignment?.chargeRateOverride),
-      }))
-      .filter((item) => item.userId);
-    const baseRows = [...assignmentMembers, ...managerMembers];
-    const initiallyAssignedUserIds = new Set(baseRows.map((item) => String(item?.userId || "").trim()).filter(Boolean));
-    const initiallyAssignedManagerIds = new Set(
-      managerMembers.map((item) => String(item?.userId || "").trim()).filter(Boolean)
-    );
-    const existingBudgets = (state.projectMemberBudgets || [])
-      .filter((item) => String(item?.projectId || "").trim() === normalizedProjectId)
-      .map((item) => ({
-        userId: String(item?.userId || "").trim(),
-        budgetHours: toNullableNumber(item?.budgetHours),
-        budgetAmount: toNullableNumber(item?.budgetAmount),
-        rateOverride: toNullableNumber(item?.rateOverride),
-      }))
-      .filter((item) => item.userId);
-    const budgetsByUserId = new Map(existingBudgets.map((item) => [item.userId, item]));
-    const uniqueByUserId = new Map();
-    baseRows.forEach((row) => {
-      if (!row.userId || uniqueByUserId.has(row.userId)) return;
-      uniqueByUserId.set(row.userId, row);
-    });
-    existingBudgets.forEach((row) => {
-      if (!row.userId || uniqueByUserId.has(row.userId)) return;
-      uniqueByUserId.set(row.userId, { userId: row.userId, rateOverride: row.rateOverride });
-    });
-
-    let rows = Array.from(uniqueByUserId.values()).map((item) => {
-      const user = usersById.get(normalizeId(item.userId)) || getUserById(item.userId);
-      const budgetRow = budgetsByUserId.get(item.userId) || null;
-      const rateFromUser = toNullableNumber(user?.baseRate ?? user?.base_rate);
-      const rateValue = toNullableNumber(budgetRow?.rateOverride) ?? toNullableNumber(item.rateOverride) ?? rateFromUser;
-      const memberLevel = Number.isFinite(Number(user?.level)) ? Number(user.level) : null;
-      const memberTitle = memberLevel ? levelLabel(memberLevel) : String(user?.role || user?.permissionGroup || "").trim();
-      return {
-        userId: item.userId,
-        memberName: String(user?.displayName || user?.username || item.userId),
-        memberTitle,
-        memberLevel,
-        rateOverride: toNullableNumber(rateValue),
-        budgetHours: toNullableNumber(budgetRow?.budgetHours),
-        budgetAmount: toNullableNumber(budgetRow?.budgetAmount),
-      };
-    });
-    rows.sort((a, b) => {
-      const leftLevel = Number.isFinite(Number(a?.memberLevel)) ? Number(a.memberLevel) : 0;
-      const rightLevel = Number.isFinite(Number(b?.memberLevel)) ? Number(b.memberLevel) : 0;
-      if (leftLevel !== rightLevel) return leftLevel - rightLevel;
-      return String(a?.memberName || "").localeCompare(String(b?.memberName || ""));
-    });
-
-    const modalTitle = `Advanced Budget${projectRow?.name ? ` · ${projectRow.name}` : ""}`;
-    const form = document.createElement("form");
-    form.className = "project-dialog-form";
-    form.innerHTML = `
-      <section class="project-dialog-section">
-        <div style="overflow:auto;">
-          <table class="entries-table" style="min-width:640px;">
-            <thead>
-              <tr>
-                <th>Member</th>
-                <th>Rate</th>
-                <th>Budget Hours</th>
-                <th>Budget $</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody data-advanced-budget-rows></tbody>
-          </table>
-        </div>
-      </section>
-      <section class="project-dialog-section" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
-        <button type="button" class="button button-ghost" data-advanced-budget-add> Add Members </button>
-        <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
-          <strong data-advanced-budget-total-hours>Total Hours: 0.00</strong>
-          <strong data-advanced-budget-total-amount>Total $: $0.00</strong>
-        </div>
-      </section>
-      <p class="project-dialog-error" data-advanced-budget-error hidden></p>
-      <section class="project-dialog-section" style="display:flex;justify-content:flex-end;gap:10px;">
-        <button type="button" class="button button-ghost" data-advanced-budget-cancel>Cancel</button>
-        <button type="submit" class="button" data-advanced-budget-save>Save</button>
-      </section>
-    `;
-
-    const rowsBody = form.querySelector("[data-advanced-budget-rows]");
-    const totalHoursNode = form.querySelector("[data-advanced-budget-total-hours]");
-    const totalAmountNode = form.querySelector("[data-advanced-budget-total-amount]");
-    const addMembersButton = form.querySelector("[data-advanced-budget-add]");
-    const cancelButton = form.querySelector("[data-advanced-budget-cancel]");
-    const saveButton = form.querySelector("[data-advanced-budget-save]");
-    const errorNode = form.querySelector("[data-advanced-budget-error]");
-    const dialogCard = refs.dialog?.querySelector(".dialog-card");
-
-    const parseNullableNumber = (value) => {
-      const trimmed = String(value ?? "").trim();
-      if (!trimmed) return null;
-      const parsed = Number(trimmed.replace(/[$,\s]/g, ""));
-      return Number.isFinite(parsed) ? parsed : null;
-    };
-    const recalcRowBudgetAmount = (row) => {
-      const rate = parseNullableNumber(row?.rateOverride);
-      const hours = parseNullableNumber(row?.budgetHours);
-      if (rate === null || hours === null) return null;
-      return Number((rate * hours).toFixed(2));
-    };
-
-    rows = rows.map((row) => {
-      if (parseNullableNumber(row?.budgetAmount) !== null) return row;
-      const autoAmount = recalcRowBudgetAmount(row);
-      return {
-        ...row,
-        budgetAmount: autoAmount,
-      };
-    });
-
-    const renderRows = () => {
-      if (!rowsBody) return;
-      rowsBody.innerHTML = rows
-        .map((row, index) => {
-          return `
-            <tr data-row-index="${index}">
-              <td>
-                <div>${escapeHtml(row.memberName || row.userId || "Unknown")}</div>
-                ${
-                  String(row.memberTitle || "").trim()
-                    ? `<div style="font-size:12px;opacity:.7;">${escapeHtml(String(row.memberTitle || ""))}</div>`
-                    : ""
-                }
-              </td>
-              <td><input type="text" data-field="rateOverride" value="${row.rateOverride ?? ""}" inputmode="decimal" /></td>
-              <td><input type="text" data-field="budgetHours" value="${row.budgetHours ?? ""}" inputmode="decimal" /></td>
-              <td><input type="text" data-field="budgetAmount" value="${row.budgetAmount ?? ""}" inputmode="decimal" /></td>
-              <td style="text-align:right;"><button type="button" class="button button-ghost" data-remove-row="${index}" aria-label="Remove member">🗑</button></td>
-            </tr>
-          `;
-        })
-        .join("");
-      syncTotals();
-    };
-
-    const syncTotals = () => {
-      const totalHours = rows.reduce((sum, row) => sum + (Number.isFinite(Number(row.budgetHours)) ? Number(row.budgetHours) : 0), 0);
-      const totalAmount = rows.reduce((sum, row) => sum + (Number.isFinite(Number(row.budgetAmount)) ? Number(row.budgetAmount) : 0), 0);
-      if (totalHoursNode) totalHoursNode.textContent = `Total Hours: ${totalHours.toFixed(2)}`;
-      if (totalAmountNode) totalAmountNode.textContent = `Total $: $${totalAmount.toFixed(2)}`;
-    };
-
-    const cleanup = () => {
-      refs.dialog.hidden = true;
-      form.removeEventListener("submit", onSubmit);
-      addMembersButton?.removeEventListener("click", onAddMembers);
-      cancelButton?.removeEventListener("click", onCancel);
-      rowsBody?.removeEventListener("input", onRowsInput);
-      rowsBody?.removeEventListener("click", onRowsClick);
-      form.remove();
-      dialogCard?.classList.remove("dialog-card--project");
-      refs.dialogMessage.hidden = false;
-      refs.dialogInputRow.hidden = true;
-      refs.dialogInput.hidden = false;
-      refs.dialogMessage.textContent = "";
-      refs.dialogConfirm.hidden = false;
-      refs.dialogCancel.disabled = false;
-      refs.dialogCancel.hidden = false;
-    };
-    const setError = (message) => {
-      if (!errorNode) return;
-      errorNode.textContent = message || "";
-      errorNode.hidden = !message;
-    };
-
-    const onRowsInput = (event) => {
-      const target = event.target;
-      if (!(target instanceof HTMLInputElement)) return;
-      const rowEl = target.closest("tr[data-row-index]");
-      if (!rowEl) return;
-      const rowIndex = Number(rowEl.dataset.rowIndex);
-      if (!Number.isInteger(rowIndex) || !rows[rowIndex]) return;
-      const fieldKey = String(target.dataset.field || "");
-      if (!fieldKey) return;
-      rows[rowIndex][fieldKey] = parseNullableNumber(target.value);
-      if (fieldKey === "rateOverride" || fieldKey === "budgetHours") {
-        const nextAmount = recalcRowBudgetAmount(rows[rowIndex]);
-        rows[rowIndex].budgetAmount = nextAmount;
-        const budgetAmountInput = rowEl.querySelector('input[data-field="budgetAmount"]');
-        if (budgetAmountInput instanceof HTMLInputElement) {
-          budgetAmountInput.value = nextAmount === null ? "" : String(nextAmount);
-        }
-      }
-      syncTotals();
-    };
-
-    const onRowsClick = (event) => {
-      const button = event.target?.closest?.("button[data-remove-row]");
-      if (!button) return;
-      const rowIndex = Number(button.dataset.removeRow);
-      if (!Number.isInteger(rowIndex)) return;
-      rows = rows.filter((_, index) => index !== rowIndex);
-      renderRows();
-    };
-
-    const onAddMembers = () => {
-      const clientName = String(projectRow?.client || "").trim();
-      const projectName = String(projectRow?.name || "").trim();
-      if (!clientName || !projectName) {
-        feedback("Project context is unavailable.", true);
-        return;
-      }
-      advancedBudgetReturnContext = {
-        projectId: normalizedProjectId,
-      };
-      memberModalState.mode = "project-add-member";
-      memberModalState.client = clientName;
-      memberModalState.project = projectName;
-      memberModalState.assigned = [...new Set([...(staffIdsForProject(clientName, projectName) || []), ...(directManagerIdsForProject(clientName, projectName) || [])])];
-      memberModalState.overrides = {};
-      memberModalState.searchTerm = "";
-      cleanup();
-      openMembersModal();
-    };
-
-    const onCancel = () => {
-      cleanup();
-      if (options?.returnToProjectDialog && options?.clientName && options?.projectName) {
-        window.setTimeout(function () {
-          openProjectEditDialogFlow(options.clientName, options.projectName).catch(function () {});
-        }, 0);
-      }
-    };
-
-    const onSubmit = async (event) => {
-      event.preventDefault();
-      if (!saveButton) return;
-      setError("");
-      saveButton.disabled = true;
-      saveButton.textContent = "Saving...";
-      try {
-        const outgoingMembers = rows
-          .map((row) => ({
-            userId: String(row?.userId || "").trim(),
-            budgetHours: row?.budgetHours ?? null,
-            budgetAmount: row?.budgetAmount ?? null,
-            rateOverride: row?.rateOverride ?? null,
-          }))
-          .filter((row) => row.userId);
-        const outgoingUserIds = new Set(outgoingMembers.map((row) => row.userId));
-        const removedAssignedUserIds = Array.from(initiallyAssignedUserIds).filter(
-          (userId) => !outgoingUserIds.has(userId)
-        );
-        const clientName = String(projectRow?.client || "").trim();
-        const projectName = String(projectRow?.name || "").trim();
-        for (const removedUserId of removedAssignedUserIds) {
-          if (!clientName || !projectName) break;
-          if (initiallyAssignedManagerIds.has(removedUserId)) {
-            await mutatePersistentState(
-              "unassign_manager_project",
-              {
-                managerId: removedUserId,
-                clientName,
-                projectName,
-              },
-              { skipHydrate: true, returnState: false }
-            );
-          } else {
-            await mutatePersistentState(
-              "remove_project_member",
-              {
-                userId: removedUserId,
-                clientName,
-                projectName,
-              },
-              { skipHydrate: true, returnState: false }
-            );
-          }
-        }
-        await mutatePersistentState(
-          "save_project_advanced_budget",
-          {
-            projectId: normalizedProjectId,
-            members: outgoingMembers,
-          },
-          { refreshState: true }
-        );
-        const preserved = (state.projectMemberBudgets || []).filter(
-          (item) => String(item?.projectId || "").trim() !== normalizedProjectId
-        );
-        state.projectMemberBudgets = preserved.concat(
-          outgoingMembers.map((item) => ({
-            projectId: normalizedProjectId,
-            userId: item.userId,
-            budgetHours: item.budgetHours,
-            budgetAmount: item.budgetAmount,
-            rateOverride: item.rateOverride,
-          }))
-        );
-        cleanup();
-        feedback("Advanced budget saved.", false);
-        if (options?.returnToProjectDialog && options?.clientName && options?.projectName) {
-          window.setTimeout(function () {
-            openProjectEditDialogFlow(options.clientName, options.projectName).catch(function () {});
-          }, 0);
-        }
-      } catch (error) {
-        saveButton.disabled = false;
-        saveButton.textContent = "Save";
-        setError(error.message || "Unable to save advanced budget.");
-        feedback(error.message || "Unable to save advanced budget.", true);
-      }
-    };
-
-    refs.dialogTitle.textContent = modalTitle;
-    refs.dialogMessage.textContent = "";
-    refs.dialogMessage.hidden = true;
-    refs.dialogInputRow.hidden = false;
-    refs.dialogInput.hidden = true;
-    if (refs.dialogTextarea) refs.dialogTextarea.hidden = true;
-    refs.dialogInputRow.appendChild(form);
-    dialogCard?.classList.add("dialog-card--project");
-    refs.dialog.hidden = false;
-    refs.dialogConfirm.hidden = true;
-    refs.dialogCancel.hidden = true;
-
-    renderRows();
-    rowsBody?.addEventListener("input", onRowsInput);
-    rowsBody?.addEventListener("click", onRowsClick);
-    addMembersButton?.addEventListener("click", onAddMembers);
-    cancelButton?.addEventListener("click", onCancel);
-    form.addEventListener("submit", onSubmit);
   }
 
   async function openProjectDialog(options) {
@@ -1448,12 +1028,6 @@
       const currentOverheadPercent = Number.isFinite(Number(options?.overheadPercent))
         ? Number(options.overheadPercent)
         : null;
-      const hasAdvancedBudgetSource =
-        isProjectEditDialog &&
-        Boolean(currentProjectId) &&
-        (state.projectMemberBudgets || []).some(
-          (row) => String(row?.projectId || "").trim() === currentProjectId
-        );
       const managerNames = Array.isArray(options?.managerNames) ? options.managerNames.filter(Boolean) : [];
       const staffNames = Array.isArray(options?.staffNames) ? options.staffNames.filter(Boolean) : [];
       const title = mode === "edit" ? "Edit project" : "Add project";
@@ -1488,8 +1062,7 @@
             : []
         )
         .join("");
-      const hasAssignedProjectMembers = managerNames.length > 0 || staffNames.length > 0;
-      const showTeamSection = true;
+      const showTeamSection = isProjectEditDialog;
       const renderNameList = (items) =>
         items.length
           ? `<ul class="project-dialog-team-list">${items
@@ -1501,7 +1074,7 @@
       form.innerHTML = `
         <section class="project-dialog-section">
           <h3 class="panel-subheading">Core</h3>
-          <div class="project-dialog-core-row" style="grid-template-columns: repeat(3, minmax(0, 1fr));">
+          <div class="project-dialog-core-row" style="grid-template-columns: repeat(2, minmax(0, 1fr));">
             <label class="project-dialog-field">
               <span>Project name</span>
               <input type="text" name="project_name" required />
@@ -1510,26 +1083,33 @@
               <span>Project Lead</span>
               <select name="project_lead_id">${leadOptions}</select>
             </label>
-            <div></div>
           </div>
-          <div class="project-dialog-core-row" style="grid-template-columns: repeat(3, minmax(0, 1fr));">
+          <div class="project-dialog-core-row" style="grid-template-columns: repeat(2, minmax(0, 1fr));">
             <label class="project-dialog-field">
               <span>Contract Amount (optional)</span>
               <input type="text" name="contract_amount" inputmode="decimal" placeholder="25000 or $25,000" />
             </label>
+            ${
+              isProjectEditDialog
+                ? `
+            <label class="project-dialog-field">
+              <span>Overhead %</span>
+              <input type="text" name="overhead_percent" inputmode="decimal" placeholder="e.g. 12.5" />
+            </label>
+            `
+                : `
             <label class="project-dialog-field">
               <span>Budget (optional)</span>
               <input type="text" name="budget_amount" inputmode="decimal" placeholder="15000 or $15,000" />
             </label>
-            <div class="project-dialog-field">
-              <span style="visibility:hidden;">Advanced Budget</span>
-              <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                <button type="button" class="button button-ghost" data-project-advanced-budget>Advanced Budget</button>
-                <button type="button" class="button button-ghost" data-project-open-planning>Open Project Planning</button>
-              </div>
-            </div>
+            `
+            }
           </div>
-          <div class="project-dialog-core-row" style="grid-template-columns: repeat(3, minmax(0, 1fr));">
+          ${
+            isProjectEditDialog
+              ? ""
+              : `
+          <div class="project-dialog-core-row" style="grid-template-columns: repeat(2, minmax(0, 1fr));">
             <label class="project-dialog-field">
               <span>Project Type</span>
               <select name="pricing_model">
@@ -1541,17 +1121,15 @@
               <span>Overhead %</span>
               <input type="text" name="overhead_percent" inputmode="decimal" placeholder="e.g. 12.5" />
             </label>
-            <div></div>
           </div>
+          `
+          }
         </section>
         ${
           showTeamSection
             ? `
         <section class="project-dialog-section">
           <h3 class="panel-subheading">Team</h3>
-          ${
-            hasAssignedProjectMembers
-              ? `
           <div class="project-dialog-team-grid">
             <div class="project-dialog-team-col">
               <h4>Project Lead</h4>
@@ -1565,21 +1143,17 @@
               <h4>Staff</h4>
               ${renderNameList(staffNames)}
             </div>
-              </div>
-          `
-              : ""
-          }
+          </div>
         </section>
         `
             : ""
         }
         <section class="project-dialog-section">
           <div class="project-dialog-actions" style="justify-content:space-between;align-items:center;">
-            <div style="display:flex;gap:12px;flex-wrap:wrap;">
-              <button type="button" class="button button-ghost" data-project-team-action="add">Add Member</button>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
               ${
-                hasAssignedProjectMembers
-                  ? '<button type="button" class="button button-ghost" data-project-team-action="remove">Remove Member</button>'
+                isProjectEditDialog
+                  ? '<button type="button" class="button button-ghost" data-project-open-planning>Open Project Planning</button>'
                   : ""
               }
             </div>
@@ -1599,7 +1173,6 @@
       const pricingModelSelect = form.querySelector('select[name="pricing_model"]');
       const overheadPercentInput = form.querySelector('input[name="overhead_percent"]');
       const teamLeadDisplay = form.querySelector("[data-project-team-lead-display]");
-      const advancedBudgetButton = form.querySelector("[data-project-advanced-budget]");
       const openPlanningButton = form.querySelector("[data-project-open-planning]");
       const projectCancelButton = form.querySelector("[data-project-cancel]");
       const errorNode = form.querySelector("[data-project-dialog-error]");
@@ -1609,17 +1182,6 @@
       }
       if (budgetInput) {
         budgetInput.value = currentBudget !== null ? String(currentBudget) : "";
-      }
-      const onBudgetLockedAttempt = () => {
-        setError("The amount must edited in the advanced budget screen.");
-      };
-      if (budgetInput && hasAdvancedBudgetSource) {
-        budgetInput.readOnly = true;
-        budgetInput.setAttribute("aria-readonly", "true");
-        budgetInput.title = "Budget is managed in Advanced Budget.";
-        budgetInput.addEventListener("focus", onBudgetLockedAttempt);
-        budgetInput.addEventListener("click", onBudgetLockedAttempt);
-        budgetInput.addEventListener("keydown", onBudgetLockedAttempt);
       }
       if (contractAmountInput) {
         contractAmountInput.value =
@@ -1658,36 +1220,6 @@
       refs.dialogConfirm.hidden = true;
       refs.dialogCancel.hidden = true;
 
-      const onOpenAdvancedBudget = () => {
-        const projectIdForAdvanced = currentProjectId;
-        if (!projectIdForAdvanced) {
-          setError("Save project first to use Advanced Budget.");
-          return;
-        }
-        const projectNameForAdvanced = currentName;
-        const clientNameForAdvanced = String(options?.clientName || "").trim();
-        cleanup();
-        resolve({ openAdvancedBudget: true });
-        if (typeof openAdvancedBudgetModal === "function") {
-          openAdvancedBudgetModal(projectIdForAdvanced, {
-            returnToProjectDialog: true,
-            clientName: clientNameForAdvanced,
-            projectName: projectNameForAdvanced,
-          });
-          return;
-        }
-        if (typeof window.openAdvancedBudgetModal === "function") {
-          window.openAdvancedBudgetModal(projectIdForAdvanced, {
-            returnToProjectDialog: true,
-            clientName: clientNameForAdvanced,
-            projectName: projectNameForAdvanced,
-          });
-          return;
-        }
-        feedback("Advanced budget modal is not available yet.", true);
-      };
-      advancedBudgetButton?.addEventListener("click", onOpenAdvancedBudget);
-
       const onOpenProjectPlanning = () => {
         const projectIdForPlanning = currentProjectId;
         if (!projectIdForPlanning) {
@@ -1712,12 +1244,8 @@
         refs.dialog.hidden = true;
         form.removeEventListener("submit", onSubmit);
         leadSelect?.removeEventListener("change", syncTeamLeadDisplay);
-        advancedBudgetButton?.removeEventListener("click", onOpenAdvancedBudget);
         openPlanningButton?.removeEventListener("click", onOpenProjectPlanning);
         projectCancelButton?.removeEventListener("click", onCancel);
-        budgetInput?.removeEventListener("focus", onBudgetLockedAttempt);
-        budgetInput?.removeEventListener("click", onBudgetLockedAttempt);
-        budgetInput?.removeEventListener("keydown", onBudgetLockedAttempt);
         form.remove();
         dialogCard?.classList.remove("dialog-card--project");
         refs.dialogMessage.hidden = false;
@@ -1733,12 +1261,6 @@
           nameInput?.focus();
           return;
         }
-        const parsedBudget = parseProjectBudgetAmount(budgetInput?.value || "");
-        if (!parsedBudget.ok) {
-          setError("Budget must be a non-negative number.");
-          budgetInput?.focus();
-          return;
-        }
         const parsedContractAmount = parseProjectBudgetAmount(contractAmountInput?.value || "");
         if (!parsedContractAmount.ok) {
           setError("Contract amount must be a non-negative number.");
@@ -1751,7 +1273,22 @@
           overheadPercentInput?.focus();
           return;
         }
+        const parsedBudget = parseProjectBudgetAmount(budgetInput?.value || "");
+        if (!isProjectEditDialog && !parsedBudget.ok) {
+          setError("Budget must be a non-negative number.");
+          budgetInput?.focus();
+          return;
+        }
         cleanup();
+        if (isProjectEditDialog) {
+          resolve({
+            projectName: nextName,
+            contractAmount: parsedContractAmount.value,
+            overheadPercent: parsedOverheadPercent.value,
+            projectLeadId: String(leadSelect?.value || "").trim() || null,
+          });
+          return;
+        }
         resolve({
           projectName: nextName,
           budgetAmount: parsedBudget.value,
@@ -1773,19 +1310,6 @@
 
       projectCancelButton?.addEventListener("click", onCancel);
       form.addEventListener("submit", onSubmit);
-      form.querySelectorAll("[data-project-team-action]").forEach((button) => {
-        button.addEventListener("click", function () {
-          if (!isProjectEditDialog || !currentProjectId) {
-            setError("Save project first to manage project members.");
-            return;
-          }
-          cleanup();
-          resolve({
-            memberAction: String(button.dataset.projectTeamAction || "").trim(),
-            projectName: currentName,
-          });
-        });
-      });
       nameInput?.focus();
       nameInput?.select();
     });
@@ -3959,32 +3483,12 @@
   }
 
   function closeMembersModal() {
-    const returnContext =
-      projectDialogReturnContext &&
-      (memberModalState.mode === "project-add-member" || memberModalState.mode === "project-remove-member")
-        ? { ...projectDialogReturnContext }
-        : null;
-    const advancedBudgetContext =
-      advancedBudgetReturnContext && memberModalState.mode === "project-add-member"
-        ? { ...advancedBudgetReturnContext }
-        : null;
     membersCloseMembersModal?.({
       refs,
       body,
       memberModalState,
       postHeight,
     });
-    if (returnContext) {
-      projectDialogReturnContext = null;
-      window.setTimeout(function () {
-        openProjectEditDialogFlow(returnContext.clientName, returnContext.projectName).catch(function () {});
-      }, 0);
-    } else if (advancedBudgetContext) {
-      advancedBudgetReturnContext = null;
-      window.setTimeout(function () {
-        openAdvancedBudgetModal(advancedBudgetContext.projectId).catch(function () {});
-      }, 0);
-    }
   }
 
   function appDialog(options) {

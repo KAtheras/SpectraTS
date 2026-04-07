@@ -153,37 +153,6 @@
       .project-planning-kpi-subline.is-negative strong {
         color: var(--danger);
       }
-      .project-planning-kpi[data-kpi-card="contract"] .project-planning-kpi-value {
-        cursor: pointer;
-      }
-      .project-planning-kpi[data-kpi-card="contract"] {
-        position: relative;
-        cursor: pointer;
-        transition: border-color 0.15s ease, background-color 0.15s ease;
-      }
-      .project-planning-kpi[data-kpi-card="contract"]:hover {
-        border-color: color-mix(in srgb, var(--accent), var(--line) 62%);
-        background: color-mix(in srgb, var(--surface), var(--accent) 4%);
-      }
-      .project-planning-kpi-edit-icon {
-        position: absolute;
-        top: 11px;
-        right: 12px;
-        color: var(--muted);
-        font-size: 0.86rem;
-        line-height: 1;
-        pointer-events: none;
-        transition: color 0.15s ease;
-      }
-      .project-planning-kpi[data-kpi-card="contract"]:hover .project-planning-kpi-edit-icon {
-        color: var(--text);
-      }
-      .project-planning-kpi-edit-hint {
-        margin-top: 5px;
-        color: color-mix(in srgb, var(--muted) 90%, transparent);
-        font-size: 0.72rem;
-        line-height: 1.2;
-      }
       .project-planning-kpi-edit-input {
         width: 100%;
         margin-top: 6px;
@@ -196,6 +165,44 @@
         font-size: 1.58rem;
         font-weight: 700;
         line-height: 1.2;
+      }
+      .project-planning-econ-edit-input {
+        width: 128px;
+        min-width: 128px;
+        max-width: 128px;
+        margin-top: 0;
+        padding: 4px 8px;
+        border: 1px solid color-mix(in srgb, var(--line) 88%, transparent);
+        border-radius: 6px;
+        background: color-mix(in srgb, var(--surface-strong) 88%, var(--surface));
+        font-size: 0.95rem;
+        font-weight: 600;
+        text-align: right;
+      }
+      .project-planning-econ-edit-display {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .project-planning-econ-edit-display .project-planning-econ-edit-trigger {
+        color: #2ea86a;
+        font-size: 13px;
+        line-height: 1;
+      }
+      .project-planning-econ-edit-display .project-planning-econ-edit-value {
+        font-variant-numeric: tabular-nums;
+      }
+      [data-econ="revenuePrimary"] {
+        justify-self: end;
+        display: inline-flex;
+        justify-content: flex-end;
+        align-items: center;
+      }
+      [data-econ-label="revenuePrimary"] {
+        white-space: nowrap;
+      }
+      .project-planning-econ-value.is-editable {
+        cursor: text;
       }
       .project-planning-field {
         display: grid;
@@ -887,9 +894,7 @@
             <section class="project-planning-kpis">
               <article class="project-planning-kpi" data-kpi-card="contract">
                 <div class="project-planning-kpi-label" data-kpi-label="contractPrimary">Planned Revenue</div>
-                <span class="project-planning-kpi-edit-icon" data-kpi="contractEditIcon" aria-hidden="true">✎</span>
                 <div class="project-planning-kpi-value" data-kpi="contract">${escapeHtml(fmtMoneyZero(initialTotalRevenue))}</div>
-                <div class="project-planning-kpi-edit-hint" data-kpi="contractEditHint">Click to edit</div>
               </article>
               <article class="project-planning-kpi">
                 <div class="project-planning-kpi-label">Planned Cost</div>
@@ -1158,9 +1163,6 @@
     const kpiStandardRevenueNode = container.querySelector('[data-kpi="standardRevenue"]');
     const kpiPremiumDiscountNode = container.querySelector('[data-kpi="premiumDiscount"]');
     const kpiPremiumDiscountLabelNode = container.querySelector('[data-kpi-label="premiumDiscount"]');
-    const kpiContractEditIconNode = container.querySelector('[data-kpi="contractEditIcon"]');
-    const kpiContractEditHintNode = container.querySelector('[data-kpi="contractEditHint"]');
-    const contractCardNode = container.querySelector('[data-kpi-card="contract"]');
     const econRevenuePrimaryNode = container.querySelector('[data-econ="revenuePrimary"]');
     const econRevenueSecondaryNode = container.querySelector('[data-econ="revenueSecondary"]');
     const econRevenueTertiaryNode = container.querySelector('[data-econ="revenueTertiary"]');
@@ -1209,16 +1211,23 @@
     }
 
     function enterContractAmountEditMode() {
-      if (!kpiContractNode || isEditingContractAmount) return;
+      if (!econRevenuePrimaryNode || contractType === "tm" || isEditingContractAmount) return;
       isEditingContractAmount = true;
       const currentRaw = contractAmountValue === null || contractAmountValue === undefined
         ? ""
         : String(Number(contractAmountValue));
-      kpiContractNode.innerHTML = `<input class="project-planning-kpi-edit-input" type="text" inputmode="decimal" value="${escapeHtml(currentRaw)}" data-contract-edit-input />`;
-      const editInput = kpiContractNode.querySelector("[data-contract-edit-input]");
+      econRevenuePrimaryNode.innerHTML = `<input class="project-planning-input project-planning-econ-edit-input" type="text" inputmode="decimal" value="${escapeHtml(currentRaw)}" data-contract-edit-input />`;
+      const editInput = econRevenuePrimaryNode.querySelector("[data-contract-edit-input]");
+      bindContractAmountInput(editInput);
+      editInput?.focus();
+      editInput?.select();
+    }
+
+    function bindContractAmountInput(editInput) {
       if (!editInput) return;
-      editInput.focus();
-      editInput.select();
+      editInput.addEventListener("focus", () => {
+        isEditingContractAmount = true;
+      });
       editInput.addEventListener("keydown", (event) => {
         if (event.key === "Enter") {
           event.preventDefault();
@@ -1226,8 +1235,10 @@
         }
         if (event.key === "Escape") {
           event.preventDefault();
-          isEditingContractAmount = false;
-          renderComputed();
+          editInput.value = contractAmountValue === null || contractAmountValue === undefined
+            ? ""
+            : String(Number(contractAmountValue));
+          editInput.blur();
         }
       });
       editInput.addEventListener("blur", () => {
@@ -1275,13 +1286,7 @@
       if (kpiContractLabelNode) {
         kpiContractLabelNode.textContent = "Planned Revenue";
       }
-      if (kpiContractEditIconNode) {
-        kpiContractEditIconNode.hidden = isTmContract;
-      }
-      if (kpiContractEditHintNode) {
-        kpiContractEditHintNode.hidden = isTmContract;
-      }
-      if (kpiContractNode && !isEditingContractAmount) {
+      if (kpiContractNode) {
         kpiContractNode.textContent = fmtMoneyZero(totalRevenueValue);
       }
       if (kpiPlannedCostNode) kpiPlannedCostNode.textContent = fmtMoneyZero(totalCostValue);
@@ -1327,7 +1332,24 @@
       if (econRevenueSecondaryLabelNode) econRevenueSecondaryLabelNode.textContent = "Expense Revenue";
       if (econRevenueTertiaryLabelNode) econRevenueTertiaryLabelNode.textContent = "Total Revenue";
       if (econRevenuePrimaryNode) {
-        econRevenuePrimaryNode.textContent = isTmContract ? fmtMoneyZero(totals.plannedRevenueTotal) : fmtMoneyZero(contractAmountValue);
+        if (isTmContract) {
+          isEditingContractAmount = false;
+          econRevenuePrimaryNode.classList.remove("is-editable");
+          econRevenuePrimaryNode.textContent = fmtMoneyZero(totals.plannedRevenueTotal);
+        } else {
+          econRevenuePrimaryNode.classList.add("is-editable");
+          if (!isEditingContractAmount) {
+            const currentDisplay = contractAmountValue === null || contractAmountValue === undefined
+              ? ""
+              : fmtMoneyZero(contractAmountValue);
+            econRevenuePrimaryNode.innerHTML = `
+              <span class="project-planning-econ-edit-display">
+                <span class="project-planning-econ-edit-trigger" data-contract-edit-trigger aria-hidden="true">✎</span>
+                <span class="project-planning-econ-edit-value">${escapeHtml(currentDisplay)}</span>
+              </span>
+            `;
+          }
+        }
       }
       if (econRevenueSecondaryNode) {
         econRevenueSecondaryNode.textContent = fmtMoneyZero(expenseRevenueTotal);
@@ -1357,7 +1379,7 @@
       }
     }
 
-    contractCardNode?.addEventListener("click", (event) => {
+    econRevenuePrimaryNode?.addEventListener("click", (event) => {
       if (contractType === "tm") return;
       if (event.target && event.target.closest("[data-contract-edit-input]")) return;
       enterContractAmountEditMode();
