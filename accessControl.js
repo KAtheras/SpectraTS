@@ -1,6 +1,7 @@
 (function () {
   function createAccessControl(deps) {
     const { state, normalizeLevel, projectKey, uniqueValues, catalogProjectNames } = deps;
+    const normalizeText = (value) => String(value ?? "").trim();
 
     const DEFAULT_LEVEL_LABELS = {
       1: "Staff",
@@ -76,7 +77,10 @@
     }
 
     function getUserById(userId) {
-      return state.users.find((user) => user.id === userId) || null;
+      const normalizedUserId = normalizeText(userId);
+      return (
+        state.users.find((user) => normalizeText(user?.id) === normalizedUserId) || null
+      );
     }
 
     function getUserByDisplayName(name) {
@@ -85,39 +89,89 @@
     }
 
     function managerClientAssignments(userId) {
-      return state.assignments.managerClients.filter((item) => item.managerId === userId);
+      const normalizedUserId = normalizeText(userId);
+      return (state.assignments?.managerClients || []).filter(
+        (item) => normalizeText(item?.managerId || item?.manager_id) === normalizedUserId
+      );
     }
 
     function managerProjectAssignments(userId) {
-      return state.assignments.managerProjects.filter((item) => item.managerId === userId);
+      const normalizedUserId = normalizeText(userId);
+      return (state.assignments?.managerProjects || []).filter(
+        (item) => normalizeText(item?.managerId || item?.manager_id) === normalizedUserId
+      );
     }
 
     function projectMembersForUser(userId) {
-      return state.assignments.projectMembers.filter((item) => item.userId === userId);
+      const normalizedUserId = normalizeText(userId);
+      return (state.assignments?.projectMembers || []).filter(
+        (item) => normalizeText(item?.userId || item?.user_id) === normalizedUserId
+      );
+    }
+
+    function findProjectById(projectId) {
+      const normalizedProjectId = normalizeText(projectId);
+      if (!normalizedProjectId) return null;
+      return (
+        (state.projects || []).find(
+          (project) => normalizeText(project?.id) === normalizedProjectId
+        ) || null
+      );
+    }
+
+    function resolveAssignmentProjectTuple(item) {
+      let client = normalizeText(item?.client || item?.client_name);
+      let project = normalizeText(item?.project || item?.project_name);
+      const projectId = normalizeText(item?.projectId || item?.project_id);
+      if ((!client || !project) && projectId) {
+        const matched = findProjectById(projectId);
+        if (matched) {
+          client = normalizeText(matched?.client);
+          project = normalizeText(matched?.name || matched?.project);
+        }
+      }
+      return { client, project, projectId };
     }
 
     function managerIdsForClient(client) {
+      const normalizedClient = normalizeText(client);
       return uniqueValues(
-        state.assignments.managerClients
-          .filter((item) => item.client === client)
-          .map((item) => item.managerId)
+        (state.assignments?.managerClients || [])
+          .filter((item) => normalizeText(item?.client || item?.client_name) === normalizedClient)
+          .map((item) => normalizeText(item?.managerId || item?.manager_id))
       );
     }
 
     function managerIdsForClientScope(client) {
+      const normalizedClient = normalizeText(client);
       return uniqueValues([
         ...managerIdsForClient(client),
-        ...state.assignments.managerProjects
-          .filter((item) => item.client === client)
-          .map((item) => item.managerId),
+        ...(state.assignments?.managerProjects || [])
+          .filter((item) => resolveAssignmentProjectTuple(item).client === normalizedClient)
+          .map((item) => normalizeText(item?.managerId || item?.manager_id)),
       ]);
     }
 
     function directManagerIdsForProject(client, project) {
+      const normalizedClient = normalizeText(client);
+      const normalizedProject = normalizeText(project);
+      const targetProjectId = normalizeText(
+        (state.projects || []).find(
+          (item) =>
+            normalizeText(item?.client) === normalizedClient &&
+            normalizeText(item?.name || item?.project) === normalizedProject
+        )?.id
+      );
       return uniqueValues(
-        state.assignments.managerProjects
-          .filter((item) => item.client === client && item.project === project)
-          .map((item) => item.managerId)
+        (state.assignments?.managerProjects || [])
+          .filter((item) => {
+            const tuple = resolveAssignmentProjectTuple(item);
+            if (tuple.client === normalizedClient && tuple.project === normalizedProject) {
+              return true;
+            }
+            return !!targetProjectId && tuple.projectId === targetProjectId;
+          })
+          .map((item) => normalizeText(item?.managerId || item?.manager_id))
       );
     }
 
@@ -129,10 +183,25 @@
     }
 
     function staffIdsForProject(client, project) {
+      const normalizedClient = normalizeText(client);
+      const normalizedProject = normalizeText(project);
+      const targetProjectId = normalizeText(
+        (state.projects || []).find(
+          (item) =>
+            normalizeText(item?.client) === normalizedClient &&
+            normalizeText(item?.name || item?.project) === normalizedProject
+        )?.id
+      );
       return uniqueValues(
-        state.assignments.projectMembers
-          .filter((item) => item.client === client && item.project === project)
-          .map((item) => item.userId)
+        (state.assignments?.projectMembers || [])
+          .filter((item) => {
+            const tuple = resolveAssignmentProjectTuple(item);
+            if (tuple.client === normalizedClient && tuple.project === normalizedProject) {
+              return true;
+            }
+            return !!targetProjectId && tuple.projectId === targetProjectId;
+          })
+          .map((item) => normalizeText(item?.userId || item?.user_id))
           .filter((userId) => {
             const user = getUserById(userId);
             return user ? isStaff(user) : false;
@@ -141,11 +210,12 @@
     }
 
     function staffIdsForClient(client) {
+      const normalizedClient = normalizeText(client);
       const managerIds = new Set(managerIdsForClientScope(client));
       return uniqueValues(
-        state.assignments.projectMembers
-          .filter((item) => item.client === client)
-          .map((item) => item.userId)
+        (state.assignments?.projectMembers || [])
+          .filter((item) => resolveAssignmentProjectTuple(item).client === normalizedClient)
+          .map((item) => normalizeText(item?.userId || item?.user_id))
           .filter((userId) => {
             if (managerIds.has(userId)) {
               return false;
@@ -192,26 +262,39 @@
       }
 
       if (role === "manager") {
-        const clientAssignments = managerClientAssignments(user.id).map((item) => item.client);
-        const projectAssignments = managerProjectAssignments(user.id).map((item) => ({
-          client: item.client,
-          project: item.project,
-        }));
+        const clientAssignments = managerClientAssignments(user.id)
+          .map((item) => normalizeText(item?.client || item?.client_name))
+          .filter(Boolean);
+        const projectAssignments = managerProjectAssignments(user.id)
+          .map((item) => resolveAssignmentProjectTuple(item))
+          .filter((item) => item.client && item.project);
+        const memberAssignments = projectMembersForUser(user.id)
+          .map((item) => resolveAssignmentProjectTuple(item))
+          .filter((item) => item.client && item.project);
         const clientProjects = projects
-          .filter((p) => clientAssignments.includes(p.client))
-          .map((p) => ({ client: p.client, project: p.name }));
+          .filter((p) => clientAssignments.includes(normalizeText(p?.client)))
+          .map((p) => ({
+            client: normalizeText(p?.client),
+            project: normalizeText(p?.name || p?.project),
+          }))
+          .filter((item) => item.client && item.project);
         return uniqueValues(
-          [...clientProjects, ...projectAssignments].map((item) => projectKey(item.client, item.project))
+          [...clientProjects, ...projectAssignments, ...memberAssignments].map((item) =>
+            projectKey(item.client, item.project)
+          )
         ).map((key) => {
           const [client, project] = key.split("::");
           return { client, project };
         });
       }
 
-      return projectMembersForUser(user.id).map((item) => ({
-        client: item.client,
-        project: item.project,
-      }));
+      return projectMembersForUser(user.id)
+        .map((item) => resolveAssignmentProjectTuple(item))
+        .filter((item) => item.client && item.project)
+        .map((item) => ({
+          client: item.client,
+          project: item.project,
+        }));
     }
 
     function allowedClientsForUser(user) {
@@ -240,7 +323,10 @@
       if (!isManager(user)) {
         return false;
       }
-      return managerClientAssignments(user.id).some((item) => item.client === client);
+      const normalizedClient = normalizeText(client);
+      return managerClientAssignments(user.id).some(
+        (item) => normalizeText(item?.client || item?.client_name) === normalizedClient
+      );
     }
 
     function canManagerAccessProject(user, client, project) {
@@ -250,21 +336,51 @@
       if (canManagerAccessClient(user, client)) {
         return true;
       }
+      if (isUserAssignedToProject(user.id, client, project)) {
+        return true;
+      }
+      const normalizedClient = normalizeText(client);
+      const normalizedProject = normalizeText(project);
       return managerProjectAssignments(user.id).some(
-        (item) => item.client === client && item.project === project
+        (item) => {
+          const tuple = resolveAssignmentProjectTuple(item);
+          return tuple.client === normalizedClient && tuple.project === normalizedProject;
+        }
       );
     }
 
     function projectCreatedBy(client, project) {
+      const normalizedClient = normalizeText(client);
+      const normalizedProject = normalizeText(project);
       return (
-        state.projects.find((item) => item.client === client && item.name === project)?.createdBy || ""
+        (state.projects || []).find(
+          (item) =>
+            normalizeText(item?.client) === normalizedClient &&
+            normalizeText(item?.name || item?.project) === normalizedProject
+        )?.createdBy || ""
       );
     }
 
     function isUserAssignedToProject(userId, client, project) {
-      return state.assignments.projectMembers.some(
-        (item) => item.userId === userId && item.client === client && item.project === project
+      const normalizedUserId = normalizeText(userId);
+      const normalizedClient = normalizeText(client);
+      const normalizedProject = normalizeText(project);
+      const targetProjectId = normalizeText(
+        (state.projects || []).find(
+          (item) =>
+            normalizeText(item?.client) === normalizedClient &&
+            normalizeText(item?.name || item?.project) === normalizedProject
+        )?.id
       );
+      return (state.assignments?.projectMembers || []).some((item) => {
+        const itemUserId = normalizeText(item?.userId || item?.user_id);
+        if (itemUserId !== normalizedUserId) return false;
+        const tuple = resolveAssignmentProjectTuple(item);
+        if (tuple.client === normalizedClient && tuple.project === normalizedProject) {
+          return true;
+        }
+        return !!targetProjectId && tuple.projectId === targetProjectId;
+      });
     }
 
     function canViewUserByRole(viewer, target) {

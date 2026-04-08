@@ -273,7 +273,7 @@
         !searchTerm || String(user.displayName || "").toLowerCase().includes(searchTerm);
 
       if (mode === "project-remove") {
-        show = isAssignedToProject && isStaff(user);
+        show = isAssignedToProject;
         checkboxChecked = show;
       } else if (mode === "project-add-member") {
         show = !assignedSet.has(user.id);
@@ -281,7 +281,7 @@
         show = assignedSet.has(user.id);
         checkboxChecked = show;
       } else if (mode === "project-members-edit") {
-        show = isStaff(user);
+        show = true;
         checkboxChecked = assignedSet.has(user.id);
       } else if (mode === "client-assign") {
         const isEligible = isManagerEligible;

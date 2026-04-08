@@ -1736,37 +1736,14 @@
       const copy = card.querySelector(".catalog-item-copy");
       if (!copy) return;
       dedupeOfficeLines(copy);
-      const existing = copy.querySelector("[data-project-lead-line]");
-      const meta = copy.querySelector(".catalog-item-meta");
-      const leadMarkup = leadName
-        ? `<strong>Project Lead:</strong> <span>${escapeHtml(leadName)}</span>`
-        : "";
-      if (!leadMarkup) {
-        existing?.remove();
-      } else if (existing) {
-        existing.classList.add("catalog-project-lead-line");
-        existing.innerHTML = leadMarkup;
-        if (meta && existing !== meta.previousElementSibling) {
-          copy.insertBefore(existing, meta);
-        }
-      } else {
-        const node = document.createElement("div");
-        node.setAttribute("data-project-lead-line", "1");
-        node.className = "catalog-project-lead-line";
-        node.innerHTML = leadMarkup;
-        if (meta) {
-          copy.insertBefore(node, meta);
-        } else {
-          copy.appendChild(node);
-        }
+      const leadLine = copy.querySelector("[data-project-lead-line]");
+      if (leadLine) {
+        leadLine.textContent = `Project Lead: ${leadName || "—"}`;
       }
-      upsertMetaLine(
-        copy,
-        "[data-project-department-line]",
-        "data-project-department-line",
-        projectDepartmentName ? `Practice Department: ${projectDepartmentName}` : "",
-        meta
-      );
+      const departmentLine = copy.querySelector("[data-project-department-line]");
+      if (departmentLine) {
+        departmentLine.textContent = `Practice Department: ${projectDepartmentName || "—"}`;
+      }
     });
     if (!refs.clientList) return;
     refs.clientList.querySelectorAll(".catalog-item[data-client]").forEach((card) => {
@@ -1784,14 +1761,12 @@
       if (!copy) return;
       dedupeOfficeLines(copy);
       const existing = copy.querySelector("[data-client-lead-line]");
-      if (!leadName) {
-        existing?.remove();
-      } else if (existing) {
-        existing.textContent = `Client Lead: ${leadName}`;
+      if (existing) {
+        existing.textContent = `Client Lead: ${leadName || "—"}`;
       } else {
         const node = document.createElement("small");
         node.setAttribute("data-client-lead-line", "1");
-        node.textContent = `Client Lead: ${leadName}`;
+        node.textContent = `Client Lead: ${leadName || "—"}`;
         copy.appendChild(node);
       }
     });
@@ -6717,7 +6692,7 @@
     }
     const allowed = new Set(
       allowedProjectsForClient(user, client, {
-        projects: (state.projects || []).filter((project) => isProjectActive(project)),
+        projects: state.projects || [],
       })
     );
     return candidateProjects.filter((name) => allowed.has(name));
@@ -8165,6 +8140,19 @@
                 );
               }
             },
+            onConfirmDialog: async function (payload) {
+              const title = String(payload?.title || "Confirm");
+              const message = String(payload?.message || "");
+              const confirmText = String(payload?.confirmText || "Confirm");
+              const cancelText = String(payload?.cancelText || "Cancel");
+              const result = await appDialog({
+                title,
+                message,
+                confirmText,
+                cancelText,
+              });
+              return result?.confirmed === true;
+            },
             onDeleteMember: async function (payload) {
               const deleteProjectId = String(payload?.projectId || targetProjectId || "").trim();
               const deleteUserId = String(payload?.userId || "").trim();
@@ -8317,9 +8305,17 @@
               memberModalState.mode = "project-add-member";
               memberModalState.client = clientName;
               memberModalState.project = projectName;
+              const assignedProjectMemberIds = (state.assignments?.projectMembers || [])
+                .filter(
+                  (row) =>
+                    String(row?.client || "").trim() === clientName &&
+                    String(row?.project || "").trim() === projectName
+                )
+                .map((row) => String(row?.userId || "").trim())
+                .filter(Boolean);
               memberModalState.assigned = [
                 ...new Set([
-                  ...(staffIdsForProject(clientName, projectName) || []),
+                  ...assignedProjectMemberIds,
                   ...(directManagerIdsForProject(clientName, projectName) || []),
                 ]),
               ];
@@ -11033,6 +11029,15 @@
     }
 
     state.selectedCatalogClient = button.dataset.client;
+    if (state.catalogProjectLifecycleView === "inactive") {
+      const nextClient = String(state.selectedCatalogClient || "").trim();
+      const inactiveProjectsForClient = nextClient
+        ? visibleCatalogProjectNames(nextClient, state.currentUser, { forCatalogView: true })
+        : [];
+      if (!inactiveProjectsForClient.length) {
+        state.catalogProjectLifecycleView = "active";
+      }
+    }
     renderCatalogAside();
     syncClientLifecycleToggleUi();
     syncProjectLifecycleToggleUi();
@@ -11509,10 +11514,16 @@
         }
       }
 
-  let skippedNonStaff = 0;
   let success = false;
   let mutationsRun = 0;
   let memberMutationsRun = 0;
+  let didOptimisticClose = false;
+  const memberMutationOptions = {
+    skipHydrate: true,
+    refreshState: false,
+    returnState: false,
+    skipSettingsMetadataReload: true,
+  };
     try {
     const currentAssigned = new Set(memberModalState.assigned || []);
     const desiredAssigned = new Set(selected);
@@ -11548,93 +11559,123 @@
     const processIds = mode === "project-managers-edit" || mode === "project-members-edit"
       ? [...new Set([...currentAssigned, ...desiredAssigned, ...Object.keys(overrideInputMap)])]
       : selected;
+    const shouldOptimisticClose =
+      mode === "project-add-member" ||
+      mode === "project-remove-member" ||
+      mode === "project-remove";
 
-    for (const userId of processIds) {
-      const user = getUserById(userId);
-      if (!user) {
-        continue;
+    if (shouldOptimisticClose && client && project) {
+      if (!state.assignments || typeof state.assignments !== "object") {
+        state.assignments = {};
       }
-      const nextLevel = normalizeLevel(
-        levelSelections[userId] ?? user.level
-      );
-          if (isGlobalAdmin(state.currentUser) && nextLevel !== normalizeLevel(user.level)) {
-            if (
-              isGlobalAdmin(user) &&
-              nextLevel < 6 &&
-              state.users.filter((candidate) => isGlobalAdmin(candidate)).length <= 1
-            ) {
-              throw new Error("At least one Admin account is required.");
-            }
-            await mutatePersistentState("update_user", {
-              userId: user.id,
-              displayName: user.displayName,
-              username: user.username,
-              level: nextLevel,
-            });
-          }
+      if (!Array.isArray(state.assignments.projectMembers)) {
+        state.assignments.projectMembers = [];
+      }
+      const projectId = findProjectIdByClientProject(client, project);
+      if (mode === "project-add-member") {
+        for (const userId of processIds) {
+          const alreadyAssigned = state.assignments.projectMembers.some(
+            (row) =>
+              String(row?.userId || "").trim() === String(userId || "").trim() &&
+              String(row?.client || "").trim() === String(client || "").trim() &&
+              String(row?.project || "").trim() === String(project || "").trim()
+          );
+          if (alreadyAssigned) continue;
+          state.assignments.projectMembers.push({
+            userId: String(userId || "").trim(),
+            client: String(client || "").trim(),
+            project: String(project || "").trim(),
+            projectId: projectId || undefined,
+            project_id: projectId || undefined,
+          });
+        }
+      } else {
+        const removeIds = new Set(processIds.map((id) => String(id || "").trim()));
+        state.assignments.projectMembers = state.assignments.projectMembers.filter((row) => {
+          const rowUserId = String(row?.userId || "").trim();
+          const rowClient = String(row?.client || "").trim();
+          const rowProject = String(row?.project || "").trim();
+          if (rowClient !== String(client || "").trim()) return true;
+          if (rowProject !== String(project || "").trim()) return true;
+          return !removeIds.has(rowUserId);
+        });
+      }
+      closeMembersModal();
+      render();
+      didOptimisticClose = true;
+    }
 
-          const effectiveLevel = normalizeLevel(nextLevel || user.level);
-          const effectiveUser = { ...user, level: effectiveLevel };
-
-          if (mode === "project-remove") {
-            await mutatePersistentState("remove_project_member", {
-              userId: user.id,
-              clientName: client,
-              projectName: project,
-            });
-          } else if (mode === "project-add-member") {
+    if (
+      mode === "project-add-member" ||
+      mode === "project-remove-member" ||
+      mode === "project-remove"
+    ) {
+      const tasks = processIds
+        .map((userId) => getUserById(userId))
+        .filter(Boolean)
+        .map((user) => {
+          if (mode === "project-add-member") {
             const override = overrideInputMap.hasOwnProperty(user.id)
               ? overrideInputMap[user.id]
               : null;
-            if (isStaff(effectiveUser)) {
-              await mutatePersistentState("add_project_member", {
+            return mutatePersistentState("add_project_member", {
+              userId: user.id,
+              clientName: client,
+              projectName: project,
+              chargeRateOverride: override,
+            }, memberMutationOptions);
+          }
+          return mutatePersistentState("remove_project_member", {
+            userId: user.id,
+            clientName: client,
+            projectName: project,
+          }, memberMutationOptions);
+        });
+      await Promise.all(tasks);
+    } else {
+      for (const userId of processIds) {
+        const user = getUserById(userId);
+        if (!user) {
+          continue;
+        }
+        const nextLevel = normalizeLevel(
+          levelSelections[userId] ?? user.level
+        );
+            if (isGlobalAdmin(state.currentUser) && nextLevel !== normalizeLevel(user.level)) {
+              if (
+                isGlobalAdmin(user) &&
+                nextLevel < 6 &&
+                state.users.filter((candidate) => isGlobalAdmin(candidate)).length <= 1
+              ) {
+                throw new Error("At least one Admin account is required.");
+              }
+              await mutatePersistentState("update_user", {
                 userId: user.id,
-                clientName: client,
-                projectName: project,
-                chargeRateOverride: override,
+                displayName: user.displayName,
+                username: user.username,
+                level: nextLevel,
               });
-            } else if (isManager(effectiveUser)) {
+            }
+
+            const effectiveLevel = normalizeLevel(nextLevel || user.level);
+            const effectiveUser = { ...user, level: effectiveLevel };
+
+            if (mode === "project-assign-manager") {
+              if (!isManager(effectiveUser)) {
+                continue;
+              }
               await mutatePersistentState("assign_manager_project", {
                 managerId: user.id,
                 clientName: client,
                 projectName: project,
-                chargeRateOverride: override,
-              });
-            } else {
-              continue;
-            }
-          } else if (mode === "project-remove-member") {
-            if (isStaff(effectiveUser)) {
-              await mutatePersistentState("remove_project_member", {
-                userId: user.id,
-                clientName: client,
-                projectName: project,
-              });
-            } else if (isManager(effectiveUser)) {
+              }, memberMutationOptions);
+            } else if (mode === "project-unassign-manager") {
               await mutatePersistentState("unassign_manager_project", {
                 managerId: user.id,
                 clientName: client,
                 projectName: project,
-              });
-            } else {
-              continue;
-            }
-          } else if (mode === "project-assign-manager") {
-            if (!isManager(effectiveUser)) {
-              continue;
-            }
-            await mutatePersistentState("assign_manager_project", {
-              managerId: user.id,
-              clientName: client,
-              projectName: project,
-            });
-          } else if (mode === "project-unassign-manager") {
-            await mutatePersistentState("unassign_manager_project", {
-              managerId: user.id,
-              clientName: client,
-              projectName: project,
-            });
-        } else if (mode === "project-managers-edit") {
+              }, memberMutationOptions);
+          } else if (mode === "project-managers-edit") {
           const wasAssigned = currentAssigned.has(user.id);
           const isChecked = desiredAssigned.has(user.id);
           const prevOverride = currentOverrides[user.id] ?? null;
@@ -11650,14 +11691,14 @@
               clientName: client,
               projectName: project,
               chargeRateOverride: newOverride,
-            });
+            }, memberMutationOptions);
             mutationsRun += 1;
           } else if (wasAssigned && !isChecked) {
             await mutatePersistentState("unassign_manager_project", {
               managerId: user.id,
               clientName: client,
               projectName: project,
-            });
+            }, memberMutationOptions);
             mutationsRun += 1;
           } else if (wasAssigned && isChecked && hasInput && newOverride !== prevOverride) {
             await mutatePersistentState("update_manager_project_rate", {
@@ -11665,28 +11706,24 @@
               clientName: client,
               projectName: project,
               chargeRateOverride: newOverride,
-            });
+            }, memberMutationOptions);
             mutationsRun += 1;
           }
-        } else if (mode === "project-members-edit") {
+          } else if (mode === "project-members-edit") {
             if (toAdd.includes(user.id)) {
-            if (!isStaff(effectiveUser)) {
-              skippedNonStaff += 1;
-              continue;
-            }
             await mutatePersistentState("add_project_member", {
               userId: user.id,
               clientName: client,
               projectName: project,
               chargeRateOverride: overrideInputMap[user.id],
-            });
+            }, memberMutationOptions);
             memberMutationsRun += 1;
           } else if (toRemove.includes(user.id)) {
             await mutatePersistentState("remove_project_member", {
               userId: user.id,
               clientName: client,
               projectName: project,
-            });
+            }, memberMutationOptions);
             memberMutationsRun += 1;
           } else {
             if (overrideInputMap.hasOwnProperty(user.id)) {
@@ -11698,10 +11735,11 @@
                   clientName: client,
                   projectName: project,
                   chargeRateOverride: newOverride,
-                });
+                }, memberMutationOptions);
                 memberMutationsRun += 1;
               }
             }
+          }
           }
         }
       }
@@ -11723,7 +11761,7 @@
             clientName: client,
             projectName: project,
             chargeRateOverride: newOverride,
-          });
+          }, memberMutationOptions);
           memberMutationsRun += 1;
         }
       }
@@ -11745,19 +11783,21 @@
       success = true;
     }
   } catch (error) {
+      if (didOptimisticClose) {
+        feedback(error.message || "Unable to update members.", true);
+        loadPersistentStateInBackground();
+        return;
+      }
       setMembersFeedback(error.message || "Unable to update members.", true);
       return;
     }
 
-    const postMessage = skippedNonStaff
-      ? "Only Levels 1-2 can be added to projects; higher levels were skipped."
-      : "";
     if (success) {
-      closeMembersModal();
-      render();
-    }
-    if (postMessage) {
-      feedback(postMessage, true);
+      if (!didOptimisticClose) {
+        closeMembersModal();
+        render();
+      }
+      loadPersistentStateInBackground();
     }
   });
 }

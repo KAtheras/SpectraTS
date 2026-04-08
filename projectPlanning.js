@@ -783,6 +783,7 @@
     onCreateExpenseRow,
     onPersistExpenseField,
     onDeleteExpenseRow,
+    onConfirmDialog,
   }) {
     ensurePlanningStyles();
     if (!container) return;
@@ -920,6 +921,19 @@
         hours: toNullableNumber(budgetRow?.budgetHours) ?? 0,
       };
     });
+
+    async function confirmAction(message, options = {}) {
+      if (typeof onConfirmDialog === "function") {
+        const confirmed = await onConfirmDialog({
+          title: String(options.title || "Confirm"),
+          message: String(message || ""),
+          confirmText: String(options.confirmText || "Confirm"),
+          cancelText: String(options.cancelText || "Cancel"),
+        });
+        return confirmed === true;
+      }
+      return window.confirm(String(message || "Are you sure?"));
+    }
     planningRows = computeRows(planningRows);
     const plannedExpensesSource = Array.isArray(state?.projectPlannedExpenses)
       ? state.projectPlannedExpenses
@@ -2124,7 +2138,11 @@
       const rowIndex = planningExpenseRows.findIndex((item) => String(item.id) === rowId);
       const row = rowIndex >= 0 ? planningExpenseRows[rowIndex] : null;
       if (!row) return;
-      const confirmed = window.confirm("Remove this expense?");
+      const confirmed = await confirmAction("Remove this expense?", {
+        title: "Remove Expense",
+        confirmText: "Remove",
+        cancelText: "Cancel",
+      });
       if (!confirmed) return;
       const removedRow = { ...row };
       planningExpenseRows = planningExpenseRows.filter((item) => String(item.id) !== rowId);
@@ -2222,7 +2240,11 @@
         const rowIndex = planningRows.findIndex((item) => String(item.id) === rowId);
         const row = rowIndex >= 0 ? planningRows[rowIndex] : null;
         if (!row || !row.canDelete) return;
-        const confirmed = window.confirm("Remove this member?");
+        const confirmed = await confirmAction("Remove this member?", {
+          title: "Remove Member",
+          confirmText: "Remove",
+          cancelText: "Cancel",
+        });
         if (!confirmed) return;
         const tbody = container.querySelector(".project-planning-table tbody");
         const rowEl = button.closest("tr");

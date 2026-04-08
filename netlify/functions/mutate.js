@@ -2342,8 +2342,8 @@ async function addProjectMember(sql, payload, currentUser, accountId) {
   }
 
   const user = await findUserById(sql, userId, accountId);
-  if (!user || permissionGroupForUser(user.level) !== "staff") {
-    return errorResponse(404, "Staff member not found.");
+  if (!user) {
+    return errorResponse(404, "Member not found.");
   }
 
   const project = await findProject(sql, clientName, projectName, accountId);
@@ -2351,15 +2351,7 @@ async function addProjectMember(sql, payload, currentUser, accountId) {
     return errorResponse(404, "Project not found.");
   }
 
-  const targetUser = await findUserById(sql, userId, accountId);
-  if (!targetUser) {
-    return errorResponse(404, "Member not found.");
-  }
-
   if (isManager(currentUser) && !isAdmin(currentUser)) {
-    if (permissionGroupForUser(targetUser.level) !== "staff") {
-      return errorResponse(403, "Managers can only remove staff.");
-    }
     const hasAccess = await managerHasProjectAccess(
       sql,
       currentUser.id,
@@ -2501,10 +2493,6 @@ async function updateProjectMemberRate(sql, payload, currentUser, accountId) {
   const targetUser = await findUserById(sql, userId, accountId);
   if (!targetUser) {
     return errorResponse(404, "Member not found.");
-  }
-
-  if (permissionGroupForUser(targetUser.level) !== "staff") {
-    return errorResponse(403, "Only staff entries can be updated.");
   }
 
   if (isManager(currentUser) && !isAdmin(currentUser)) {
@@ -5239,7 +5227,11 @@ exports.handler = async function handler(event) {
         break;
       }
       case "add_project_member": {
-        if (!isAdmin(context.currentUser) && !isManager(context.currentUser)) {
+        if (
+          !isAdmin(context.currentUser) &&
+          !isExecutive(context.currentUser) &&
+          !isManager(context.currentUser)
+        ) {
           return errorResponse(403, "Manager access required.");
         }
         mutationResult = await addProjectMember(
