@@ -35,9 +35,6 @@
       formatNameList,
       userNamesForIds,
       managerIdsForProject,
-      staffIdsForProject,
-      managerIdsForClientScope,
-      staffIdsForClient,
       disabledButtonAttrs,
       escapeHtml,
       field,
@@ -53,7 +50,7 @@
       return acc;
     }, {});
 
-    const clients = visibleCatalogClientNames(state.currentUser, { forCatalogView: true });
+    const clients = visibleCatalogClientNames({ forCatalogView: true });
     const canManageClients = isAdmin(state.currentUser) || isExecutive(state.currentUser);
 
     if (!clients.length) {
@@ -66,14 +63,7 @@
 
     ensureCatalogSelection();
     const selectedClient = state.selectedCatalogClient;
-    const projects = visibleCatalogProjectNames(selectedClient, state.currentUser, { forCatalogView: true });
-
-    const projectBudgetMap = (state.projects || []).reduce((acc, project) => {
-      if (project && project.client === selectedClient) {
-        acc[project.name] = Number.isFinite(project.budget) ? Number(project.budget) : null;
-      }
-      return acc;
-    }, {});
+    const projects = visibleCatalogProjectNames(selectedClient, { forCatalogView: true });
 
     refs.clientList.innerHTML = clients
       .map(
@@ -87,7 +77,7 @@
           ).trim();
           const clientIsActive = isClientActive(clientRow);
           const canEditClientCard = canManageClients && clientIsActive;
-          const visibleProjectCount = visibleCatalogProjectNames(client, state.currentUser, { forCatalogView: true }).length;
+          const visibleProjectCount = visibleCatalogProjectNames(client, { forCatalogView: true }).length;
           const secondaryBits = [
             `${visibleProjectCount} ${visibleProjectCount === 1 ? "project" : "projects"}`,
             clientOffice ? `Office: ${clientOffice}` : "",

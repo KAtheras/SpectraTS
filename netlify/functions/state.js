@@ -155,6 +155,8 @@ exports.handler = async function handler(event) {
 
     return json(200, {
       ...state,
+      visibleClientIds: Array.isArray(state?.visibleClientIds) ? state.visibleClientIds : [],
+      visibleProjectIds: Array.isArray(state?.visibleProjectIds) ? state.visibleProjectIds : [],
       projectMemberBudgets: Array.isArray(projectMemberBudgets) ? projectMemberBudgets : [],
       permissions,
       permissionRoles,

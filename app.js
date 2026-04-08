@@ -714,18 +714,14 @@
   function syncClientLifecycleToggleUi() {
     if (!clientLifecycleToggleActive || !clientLifecycleToggleInactive) return;
     const activeSelected = state.catalogClientLifecycleView !== "inactive";
-    const scopedUser = effectiveScopeUser();
-    const inactiveClientCount = (() => {
-      const inactiveClients = (state.clients || []).filter((client) => !isClientActive(client));
-      const candidateNames = new Set(
-        inactiveClients.map((client) => String(client?.name || "").trim()).filter(Boolean)
-      );
-      if (!scopedUser || isAdmin(scopedUser) || isExecutive(scopedUser)) {
-        return candidateNames.size;
-      }
-      const allowed = new Set(allowedClientsForUser(scopedUser));
-      return Array.from(candidateNames).filter((name) => allowed.has(name)).length;
-    })();
+    const visibleClientIdSet = state.visibilitySnapshotReady
+      ? new Set((state.visibleClientIds || []).map((id) => String(id || "").trim()))
+      : null;
+    const sourceClients = (state.clients || []).filter((client) => {
+      if (!visibleClientIdSet) return true;
+      return visibleClientIdSet.has(String(client?.id || "").trim());
+    });
+    const inactiveClientCount = sourceClients.filter((client) => !isClientActive(client)).length;
     clientLifecycleToggleActive.className = activeSelected ? "button" : "button button-ghost";
     clientLifecycleToggleInactive.className = activeSelected ? "button button-ghost" : "button";
     clientLifecycleToggleActive.setAttribute("aria-pressed", activeSelected ? "true" : "false");
@@ -737,24 +733,18 @@
   function syncProjectLifecycleToggleUi() {
     if (!projectLifecycleToggleActive || !projectLifecycleToggleInactive) return;
     const activeSelected = state.catalogProjectLifecycleView !== "inactive";
-    const scopedUser = effectiveScopeUser();
     const selectedClient = String(state.selectedCatalogClient || "").trim();
+    const visibleProjectIdSet = state.visibilitySnapshotReady
+      ? new Set((state.visibleProjectIds || []).map((id) => String(id || "").trim()))
+      : null;
     const countVisibleProjectsForLifecycle = (view) => {
       if (!selectedClient) return 0;
       const matchingProjects = (state.projects || []).filter((project) => {
         if (!project || String(project.client || "").trim() !== selectedClient) return false;
+        if (visibleProjectIdSet && !visibleProjectIdSet.has(String(project?.id || "").trim())) return false;
         return view === "inactive" ? !isProjectActive(project) : isProjectActive(project);
       });
-      const candidateNames = uniqueValues(
-        matchingProjects.map((project) => String(project?.name || "").trim()).filter(Boolean)
-      );
-      if (!scopedUser || isAdmin(scopedUser) || isExecutive(scopedUser)) {
-        return candidateNames.length;
-      }
-      const allowed = new Set(
-        allowedProjectsForClient(scopedUser, selectedClient, { projects: matchingProjects })
-      );
-      return candidateNames.filter((name) => allowed.has(name)).length;
+      return uniqueValues(matchingProjects.map((project) => String(project?.name || "").trim()).filter(Boolean)).length;
     };
     const activeProjectCount = countVisibleProjectsForLifecycle("active");
     const inactiveProjectCount = countVisibleProjectsForLifecycle("inactive");
@@ -2415,6 +2405,9 @@
     selectedCatalogClient: "",
     catalogClientLifecycleView: "active",
     catalogProjectLifecycleView: "active",
+    visibleClientIds: [],
+    visibleProjectIds: [],
+    visibilitySnapshotReady: false,
     sessionToken: loadSessionToken(),
     currentUser: null,
     users: [],
@@ -2981,6 +2974,15 @@
       ? data.expenses.map(normalizeExpense).filter(Boolean)
       : [];
     state.assignments = normalizeAssignments(data?.assignments);
+    const hasVisibilitySnapshot =
+      Array.isArray(data?.visibleClientIds) && Array.isArray(data?.visibleProjectIds);
+    state.visibleClientIds = hasVisibilitySnapshot
+      ? data.visibleClientIds.map((id) => `${id || ""}`.trim()).filter(Boolean)
+      : [];
+    state.visibleProjectIds = hasVisibilitySnapshot
+      ? data.visibleProjectIds.map((id) => `${id || ""}`.trim()).filter(Boolean)
+      : [];
+    state.visibilitySnapshotReady = hasVisibilitySnapshot;
     if (Array.isArray(data?.projectMemberBudgets)) {
       state.projectMemberBudgets = data.projectMemberBudgets
         .map((item) => ({
@@ -3162,6 +3164,9 @@
     state.projectPlannedExpenses = [];
     state.targetRealizations = [];
     state.account = null;
+    state.visibleClientIds = [];
+    state.visibleProjectIds = [];
+    state.visibilitySnapshotReady = false;
     state.notificationRules = [];
     state.assignments = {
       managerClients: [],
@@ -6647,17 +6652,19 @@
       .sort((a, b) => a.localeCompare(b));
   }
 
-  function visibleCatalogClientNames(targetUser, options = {}) {
-    const user = targetUser || effectiveScopeUser();
+  function visibleCatalogClientNames(options = {}) {
     const candidateClients = catalogClientNames(options);
-    if (!user) {
+    if (!(options?.forCatalogView && state.currentView === "clients" && state.visibilitySnapshotReady)) {
       return candidateClients;
     }
-    if (isAdmin(user) || isExecutive(user)) {
-      return candidateClients;
-    }
-    const allowed = new Set(allowedClientsForUser(user));
-    return candidateClients.filter((name) => allowed.has(name));
+    const visibleClientIdSet = new Set((state.visibleClientIds || []).map((id) => `${id || ""}`.trim()));
+    const visibleClientNames = new Set(
+      (state.clients || [])
+        .filter((client) => visibleClientIdSet.has(`${client?.id || ""}`.trim()))
+        .map((client) => `${client?.name || ""}`.trim())
+        .filter(Boolean)
+    );
+    return candidateClients.filter((name) => visibleClientNames.has(`${name || ""}`.trim()));
   }
 
   function historicalClientNames() {
@@ -6681,21 +6688,23 @@
     return uniqueValues(filtered.map((p) => p.name)).sort((a, b) => a.localeCompare(b));
   }
 
-  function visibleCatalogProjectNames(client, targetUser, options = {}) {
-    const user = targetUser || effectiveScopeUser();
+  function visibleCatalogProjectNames(client, options = {}) {
     const candidateProjects = catalogProjectNames(client, options);
-    if (!user) {
+    if (!(options?.forCatalogView && state.currentView === "clients" && state.visibilitySnapshotReady)) {
       return candidateProjects;
     }
-    if (isAdmin(user) || isExecutive(user)) {
-      return candidateProjects;
-    }
-    const allowed = new Set(
-      allowedProjectsForClient(user, client, {
-        projects: state.projects || [],
-      })
+    const selectedClient = `${client || ""}`.trim();
+    const visibleProjectIdSet = new Set((state.visibleProjectIds || []).map((id) => `${id || ""}`.trim()));
+    const visibleProjectNames = new Set(
+      (state.projects || [])
+        .filter((project) => {
+          if (`${project?.client || ""}`.trim() !== selectedClient) return false;
+          return visibleProjectIdSet.has(`${project?.id || ""}`.trim());
+        })
+        .map((project) => `${project?.name || project?.project || ""}`.trim())
+        .filter(Boolean)
     );
-    return candidateProjects.filter((name) => allowed.has(name));
+    return candidateProjects.filter((name) => visibleProjectNames.has(`${name || ""}`.trim()));
   }
 
   function projectNames(client) {
@@ -8406,6 +8415,7 @@
         isClientActive,
         isProjectActive,
         isAdmin,
+        isExecutive,
         isManager,
         canManagerAccessClient,
         projectCreatedBy,
@@ -8414,9 +8424,6 @@
         formatNameList,
         userNamesForIds,
         managerIdsForProject,
-        staffIdsForProject,
-        managerIdsForClientScope,
-        staffIdsForClient,
         disabledButtonAttrs,
         escapeHtml,
         field,
@@ -11032,7 +11039,7 @@
     if (state.catalogProjectLifecycleView === "inactive") {
       const nextClient = String(state.selectedCatalogClient || "").trim();
       const inactiveProjectsForClient = nextClient
-        ? visibleCatalogProjectNames(nextClient, state.currentUser, { forCatalogView: true })
+        ? visibleCatalogProjectNames(nextClient, { forCatalogView: true })
         : [];
       if (!inactiveProjectsForClient.length) {
         state.catalogProjectLifecycleView = "active";
