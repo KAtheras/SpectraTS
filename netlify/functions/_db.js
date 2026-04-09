@@ -1587,7 +1587,7 @@ function permissionGroupForUser(user, levelLabels) {
 
   const raw =
     (typeof user === "object" && user !== null
-      ? user.role || user.permissionGroup || user.permission_group
+      ? user.permissionGroup || user.permission_group || user.role
       : user) || "";
   const normalized = normalizeText(raw).toLowerCase();
   if (!normalized) {

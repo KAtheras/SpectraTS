@@ -203,15 +203,15 @@ test("can() grants global_admin same superuser access for member deactivation", 
   assert.strictEqual(allowed, true);
 });
 
-test("roleKeyFromUser uses explicit role, not permission_group or level", () => {
+test("roleKeyFromUser prefers normalized permission group over raw role", () => {
   const userWithGroup = { role: "staff", permission_group: "admin", level: 6 };
-  assert.strictEqual(perms.roleKeyFromUser(userWithGroup), "staff");
+  assert.strictEqual(perms.roleKeyFromUser(userWithGroup), "admin");
   const userWithOnlyGroup = { permission_group: "admin" };
-  assert.strictEqual(perms.roleKeyFromUser(userWithOnlyGroup), null);
+  assert.strictEqual(perms.roleKeyFromUser(userWithOnlyGroup), "admin");
 });
 
-test("can() relies on explicit role from currentUser session payload", () => {
-  const currentUser = { role: "admin", office_id: "A" };
+test("can() uses normalized permission group from currentUser session payload", () => {
+  const currentUser = { role: "staff", permission_group: "admin", office_id: "A" };
   const allowed = perms.can(currentUser, "view_clients", ctx({ resourceOfficeId: "A", actorOfficeId: "A" }));
   assert.strictEqual(allowed, true);
   const denied = perms.can(currentUser, "view_clients", ctx({ resourceOfficeId: "B", actorOfficeId: "A" }));
