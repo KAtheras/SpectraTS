@@ -11884,21 +11884,33 @@
         const nextLevel = normalizeLevel(
           levelSelections[userId] ?? user.level
         );
-            if (isGlobalAdmin(state.currentUser) && nextLevel !== normalizeLevel(user.level)) {
-              if (
-                isGlobalAdmin(user) &&
-                nextLevel < 6 &&
-                state.users.filter((candidate) => isGlobalAdmin(candidate)).length <= 1
-              ) {
-                throw new Error("At least one Admin account is required.");
-              }
-              await mutatePersistentState("update_user", {
-                userId: user.id,
-                displayName: user.displayName,
-                username: user.username,
-                level: nextLevel,
-              });
-            }
+        const resolveGroupForLevel = (value) => {
+          const normalized = normalizeLevel(value);
+          const levelDef = state.levelLabels?.[normalized];
+          const groupRaw =
+            (typeof levelDef === "object"
+              ? levelDef?.permissionGroup || levelDef?.permission_group
+              : "") || "staff";
+          return String(groupRaw).trim().toLowerCase();
+        };
+        const nextGroup = resolveGroupForLevel(nextLevel);
+        const currentGroup = resolveGroupForLevel(user.level);
+        if (isGlobalAdmin(state.currentUser) && nextGroup !== currentGroup) {
+          if (
+            (currentGroup === "admin" || currentGroup === "superuser") &&
+            nextGroup !== "admin" &&
+            nextGroup !== "superuser" &&
+            state.users.filter((candidate) => isGlobalAdmin(candidate)).length <= 1
+          ) {
+            throw new Error("At least one Admin account is required.");
+          }
+          await mutatePersistentState("update_user", {
+            userId: user.id,
+            displayName: user.displayName,
+            username: user.username,
+            level: nextLevel,
+          });
+        }
 
             const effectiveLevel = normalizeLevel(nextLevel || user.level);
             const effectiveUser = { ...user, level: effectiveLevel };

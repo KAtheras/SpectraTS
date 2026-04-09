@@ -1033,7 +1033,7 @@ async function ensureSchema(sql) {
       const levelInt = Number(level);
       await sql`
         INSERT INTO level_labels (account_id, level, label, permission_group)
-        VALUES (${accountUuid}::uuid, ${levelInt}, ${label}, ${defaultPermissionGroup(levelInt)})
+        VALUES (${accountUuid}::uuid, ${levelInt}, ${label}, ${defaultPermissionGroup(label)})
         ON CONFLICT (account_id, level) DO NOTHING
       `;
     }
@@ -1042,10 +1042,15 @@ async function ensureSchema(sql) {
   await sql`
     UPDATE level_labels
     SET permission_group = CASE
-      WHEN level >= 5 THEN 'admin'
-      WHEN level >= 3 THEN 'manager'
-      WHEN level >= 1 THEN 'staff'
-      ELSE permission_group
+      WHEN LOWER(COALESCE(label, '')) LIKE '%superuser%' THEN 'superuser'
+      WHEN LOWER(COALESCE(label, '')) LIKE '%admin%' THEN 'admin'
+      WHEN LOWER(COALESCE(label, '')) LIKE '%partner%' THEN 'admin'
+      WHEN LOWER(COALESCE(label, '')) LIKE '%principal%' THEN 'admin'
+      WHEN LOWER(COALESCE(label, '')) LIKE '%executive%' THEN 'executive'
+      WHEN LOWER(COALESCE(label, '')) LIKE '%director%' THEN 'manager'
+      WHEN LOWER(COALESCE(label, '')) LIKE '%manager%' THEN 'manager'
+      WHEN LOWER(COALESCE(label, '')) LIKE '%lead%' THEN 'manager'
+      ELSE 'staff'
     END
     WHERE (permission_group IS NULL OR permission_group = '')
       AND account_id = ${accountUuid}::uuid
@@ -1378,30 +1383,24 @@ function normalizeLevel(value) {
   return 1;
 }
 
-function isSuperAdminLevel(level) {
-  return normalizeLevel(level) >= 6;
-}
-
-function isAdminLevel(level) {
-  return normalizeLevel(level) >= 5;
-}
-
-function isManagerLevel(level) {
-  const normalized = normalizeLevel(level);
-  return normalized >= 3;
-}
-
-function defaultPermissionGroup(level) {
-  const normalized = normalizeLevel(level);
-  if (normalized >= 5) return "admin";
-  if (normalized >= 3) return "manager";
-  return "staff";
-}
-
-function permissionGroupForLevel(level) {
-  const normalized = normalizeLevel(level);
-  if (normalized >= 5) return "admin";
-  if (normalized >= 3) return "manager";
+function defaultPermissionGroup(label) {
+  const normalized = normalizeText(label).toLowerCase();
+  if (
+    normalized.includes("superuser") ||
+    normalized.includes("admin") ||
+    normalized.includes("partner") ||
+    normalized.includes("principal")
+  ) {
+    return "admin";
+  }
+  if (
+    normalized.includes("executive") ||
+    normalized.includes("director") ||
+    normalized.includes("manager") ||
+    normalized.includes("lead")
+  ) {
+    return "manager";
+  }
   return "staff";
 }
 
@@ -1745,13 +1744,12 @@ async function adminCount(sql, accountId) {
      AND level_labels.level = users.level
     WHERE users.is_active = TRUE
       AND users.account_id = ${accountId}::uuid
-      AND COALESCE(
-            level_labels.permission_group,
-            CASE
-              WHEN users.level >= 5 THEN 'admin'
-              WHEN users.level >= 3 THEN 'manager'
-              ELSE 'staff'
-            END
+      AND LOWER(
+            COALESCE(
+              NULLIF(TRIM(level_labels.permission_group), ''),
+              NULLIF(TRIM(users.role), ''),
+              'staff'
+            )
           ) IN ('admin', 'superuser')
   `;
   return rows[0]?.count || 0;
@@ -2145,8 +2143,18 @@ async function updateUserRecord(sql, payload, actingUser) {
     throw new Error("At least one Admin account is required.");
   }
 
-  const wasManager = isManagerLevel(existingUser.level);
-  const willBeManager = isManagerLevel(level);
+  const previousGroup = normalizeText(permissionGroupForUser(existingUser, levelLabelMap)).toLowerCase();
+  const nextGroup = normalizeText(mappedRole).toLowerCase();
+  const wasManager =
+    previousGroup === "manager" ||
+    previousGroup === "executive" ||
+    previousGroup === "admin" ||
+    previousGroup === "superuser";
+  const willBeManager =
+    nextGroup === "manager" ||
+    nextGroup === "executive" ||
+    nextGroup === "admin" ||
+    nextGroup === "superuser";
 
   const updatedAt = new Date().toISOString();
   await sql`
@@ -2210,7 +2218,10 @@ async function updateUserRecord(sql, payload, actingUser) {
   }
 
   if (wasManager !== willBeManager) {
-    await migrateAssignmentsOnLevelChange(sql, existingUser, level);
+    await migrateAssignmentsOnLevelChange(sql, existingUser, {
+      wasManager,
+      willBeManager,
+    });
   }
 
   const refreshed = await findUserById(sql, existingUser.id, actingUser?.accountId);
@@ -2232,11 +2243,11 @@ async function updateUserRecord(sql, payload, actingUser) {
   return null;
 }
 
-async function migrateAssignmentsOnLevelChange(sql, existingUser, newLevel) {
+async function migrateAssignmentsOnLevelChange(sql, existingUser, transition) {
   const accountId = existingUser.account_id;
   const userId = existingUser.id;
-  const wasManager = isManagerLevel(existingUser.level);
-  const willBeManager = isManagerLevel(newLevel);
+  const wasManager = Boolean(transition?.wasManager);
+  const willBeManager = Boolean(transition?.willBeManager);
 
   if (wasManager && !willBeManager) {
     // Move manager assignments to staff assignments
