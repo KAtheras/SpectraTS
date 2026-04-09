@@ -2841,16 +2841,14 @@
           await deps().mutatePersistentState(
             "update_role_permissions",
             { rolePermissions: next },
-            { skipHydrate: true }
+            {
+              skipHydrate: false,
+              skipSettingsMetadataReload: true,
+              refreshState: false,
+            }
           );
           deps().feedback("Access updated.", false);
-          if (typeof deps().loadPersistentState === "function") {
-            deps().loadPersistentState()
-              .then(() => {
-                renderSettingsTabs();
-              })
-              .catch(() => {});
-          }
+          renderSettingsTabs();
         } catch (error) {
           deps().feedback(error.message || "Unable to save access.", true);
         } finally {
