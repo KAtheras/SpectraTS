@@ -63,51 +63,9 @@ const DELEGATION_CAPABILITIES = new Set([
   "print_reports_on_behalf",
 ]);
 
-const ACCESS_MATRIX_CAPABILITIES = [
-  { key: "view_members", label: "View member information", category: "people" },
-  { key: "view_member_rates", label: "View base rates", category: "people" },
-  { key: "edit_member_rates", label: "Edit base rates", category: "people" },
-  { key: "view_cost_rates", label: "View cost rates", category: "people" },
-  { key: "edit_member_profile", label: "Edit member profile", category: "people" },
-  { key: "manage_levels", label: "Manage member levels", category: "settings" },
-  { key: "manage_settings_access", label: "Manage access settings", category: "settings" },
-  { key: "can_delegate", label: "Can delegate access", category: "settings" },
-  { key: "manage_departments", label: "Manage practice departments", category: "settings" },
-  { key: "manage_target_realizations", label: "Manage target realizations", category: "settings" },
-  { key: "manage_office_locations", label: "Manage office locations", category: "settings" },
-  { key: "manage_expense_categories", label: "Manage expense categories", category: "settings" },
-  { key: "manage_corporate_functions", label: "Manage corporate functions", category: "settings" },
-  { key: "manage_messaging_rules", label: "Manage messaging rules", category: "settings" },
-  { key: "can_upload_data", label: "Access data upload tab", category: "settings" },
-  { key: "see_all_clients_projects", label: "Can see all clients/projects", category: "clients" },
-  { key: "see_assigned_clients_projects", label: "Can see assigned clients/projects", category: "clients" },
-  { key: "manage_clients_lifecycle", label: "Can add/remove/activate/deactivate clients", category: "clients" },
-  { key: "manage_projects_lifecycle", label: "Can add/remove/activate/deactivate projects", category: "clients" },
-  { key: "edit_clients", label: "Can edit clients", category: "clients" },
-  { key: "edit_projects_all_modal", label: "Can edit all projects (modal only)", category: "clients" },
-  { key: "edit_project_planning_all", label: "Can edit all project planning page", category: "clients" },
-  { key: "edit_projects_if_project_lead", label: "Can edit projects (modal + planning page) if project lead", category: "clients" },
-];
-const ACCESS_MATRIX_CAPABILITY_KEYS = new Set(
-  ACCESS_MATRIX_CAPABILITIES.map((item) => item.key)
-);
-
 function normalizeDelegationCapability(value) {
   const capability = normalizeText(value);
   return DELEGATION_CAPABILITIES.has(capability) ? capability : "";
-}
-
-async function ensureAccessMatrixCapabilities(sql) {
-  for (const capability of ACCESS_MATRIX_CAPABILITIES) {
-    await sql`
-      INSERT INTO permission_capabilities (key, label, category, is_active)
-      VALUES (${capability.key}, ${capability.label}, ${capability.category}, TRUE)
-      ON CONFLICT (key) DO UPDATE SET
-        label = EXCLUDED.label,
-        category = EXCLUDED.category,
-        is_active = EXCLUDED.is_active
-    `;
-  }
 }
 
 async function hasDelegationCapability(
@@ -4899,7 +4857,6 @@ exports.handler = async function handler(event) {
         if (!can("manage_settings_access", { resourceOfficeId: context.currentUser?.officeId || null })) {
           return errorResponse(403, "Access denied.");
         }
-        await ensureAccessMatrixCapabilities(sql);
         const beforeSnapshot = {
           permissions: await snapshotRolePermissions(sql, accountId),
         };
@@ -4949,13 +4906,6 @@ exports.handler = async function handler(event) {
         }
         const roleIdByKey = new Map(roles.map((r) => [r.key, r.id]));
         const capIdByKey = new Map(caps.map((c) => [c.key, c.id]));
-        const missingRoles = roleKeysAll.filter((key) => !roleIdByKey.has(key));
-        const missingCaps = capKeysAll.filter((key) => !capIdByKey.has(key));
-        if (missingRoles.length || missingCaps.length) {
-          const roleText = missingRoles.length ? ` Unknown roles: ${missingRoles.join(",")}.` : "";
-          const capText = missingCaps.length ? ` Unknown capabilities: ${missingCaps.join(",")}.` : "";
-          return errorResponse(400, `Invalid role permissions payload.${roleText}${capText}`);
-        }
 
         // Upsert allowed pairs
         for (const { role, capability } of allowedPairs) {
