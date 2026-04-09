@@ -35,6 +35,7 @@
       formatNameList,
       userNamesForIds,
       managerIdsForProject,
+      staffIdsForProject,
       disabledButtonAttrs,
       escapeHtml,
       field,
@@ -222,29 +223,13 @@
                 const showAddMemberAction = canManageMembers && Boolean(state.permissions?.assign_project_members);
                 const showRemoveMemberAction = canManageMembers && Boolean(state.permissions?.assign_project_members);
               const hasManagers = managerIdsForProject(selectedClient, project).length > 0;
-              const projectId = String(projectRow?.id || "").trim();
-              const projectMemberIds = Array.from(
-                new Set(
-                  (state.assignments?.projectMembers || [])
-                    .filter((item) => {
-                      const itemProjectId = String(item?.projectId || item?.project_id || "").trim();
-                      const itemClient = String(item?.client || "").trim();
-                      const itemProject = String(item?.project || "").trim();
-                      if (projectId && itemProjectId === projectId) {
-                        return true;
-                      }
-                      return itemClient === selectedClient && itemProject === project;
-                    })
-                    .map((item) => String(item?.userId || "").trim())
-                    .filter(Boolean)
-                )
-              );
-              const hasStaff = projectMemberIds.length > 0;
+              const projectStaffIds = staffIdsForProject(selectedClient, project);
+              const hasStaff = projectStaffIds.length > 0;
               const managerNames = formatNameList(
                 userNamesForIds(managerIdsForProject(selectedClient, project))
               );
               const staffNames = formatNameList(
-                userNamesForIds(projectMemberIds)
+                userNamesForIds(projectStaffIds)
               );
               const projectSecondaryBits = [
                 projectOffice ? `Office: ${projectOffice}` : "",

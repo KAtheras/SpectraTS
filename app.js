@@ -8631,6 +8631,7 @@
         formatNameList,
         userNamesForIds,
         managerIdsForProject,
+        staffIdsForProject,
         disabledButtonAttrs,
         escapeHtml,
         field,
