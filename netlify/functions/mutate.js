@@ -1148,6 +1148,7 @@ function buildPermissionsPayload(currentUser, permissionIndex) {
     view_settings_tab: false,
     view_members_page: can("view_members"),
     view_member_rates: can("view_member_rates"),
+    view_cost_rate: can("view_cost_rate"),
     edit_user_rates: can("edit_member_rates"),
     manage_levels: can("manage_levels"),
     manage_departments: can("manage_departments"),
@@ -5564,6 +5565,35 @@ exports.handler = async function handler(event) {
         const maybeCurrentUser = await updateUserRecord(
           sql,
           { ...(request.payload || {}), level: nextLevel },
+          context.currentUser
+        );
+        if (maybeCurrentUser) {
+          context.currentUser = maybeCurrentUser;
+        }
+        break;
+      }
+      case "update_own_profile": {
+        const currentUserId = normalizeText(context.currentUser?.id);
+        if (!currentUserId) {
+          return errorResponse(401, "Authentication required.");
+        }
+        const target = await findUserById(sql, currentUserId, accountId);
+        if (!target || !target.is_active) {
+          return errorResponse(404, "User not found.");
+        }
+        const maybeCurrentUser = await updateUserRecord(
+          sql,
+          {
+            userId: currentUserId,
+            displayName: target.display_name,
+            username: target.username,
+            email: target.email || "",
+            employeeId: target.employee_id || "",
+            level: target.level,
+            officeId: target.office_id || null,
+            certifications: request.payload?.certifications,
+            memberProfile: request.payload?.memberProfile ?? request.payload?.member_profile,
+          },
           context.currentUser
         );
         if (maybeCurrentUser) {

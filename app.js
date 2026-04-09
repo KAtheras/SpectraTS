@@ -689,6 +689,7 @@
   let memberEditorReset = null;
   let memberEditorMode = "create";
   let memberEditorUserId = "";
+  let memberEditorScope = "full";
 
   function ensureInboxBulkReadButton() {
     if (refs.inboxMarkSelectedRead) return;
@@ -1899,29 +1900,29 @@
             <button class="button button-ghost member-editor-head-cancel" type="button" data-member-editor-cancel>Cancel</button>
           </div>
           <form class="member-editor-form" data-member-editor-form>
-            <div class="member-editor-row">
+            <div class="member-editor-row" data-member-editor-section="identity">
               <label><span>Member name</span><input type="text" name="display_name" required /></label>
               <label><span>User ID</span><input type="text" name="username" required /></label>
               <label><span>Employee ID</span><input type="text" name="employee_id" /></label>
             </div>
-            <div class="member-editor-row">
+            <div class="member-editor-row" data-member-editor-section="org">
               <label><span>Title</span><select name="level"></select></label>
               <label><span>Department</span><select name="department_id"><option value="">No department</option></select></label>
               <label><span>Office</span><select name="office_id" required><option value="">Select office</option></select></label>
             </div>
-            <div class="member-editor-row">
+            <div class="member-editor-row" data-member-editor-section="rates">
               <label><span>Base rate</span><input type="number" step="0.01" min="0" name="base_rate" /></label>
               <label><span>Cost rate</span><input type="number" step="0.01" min="0" name="cost_rate" /></label>
               <label><span>Email</span><input type="email" name="email" required /></label>
             </div>
-            <div class="member-editor-textarea">
+            <div class="member-editor-textarea" data-member-editor-section="profile">
               <label>
                 <span>Member Profile</span>
                 <textarea name="member_profile" placeholder="Enter member profile"></textarea>
               </label>
             </div>
             <div class="member-editor-footer">
-              <div class="member-editor-footer-left">
+              <div class="member-editor-footer-left" data-member-editor-section="certifications">
                 <label>
                   <span>Certifications</span>
                   <input type="text" name="certifications" placeholder="Enter certifications" />
@@ -1978,24 +1979,35 @@
     memberEditorModal.hidden = true;
     memberEditorModal.setAttribute("aria-hidden", "true");
     body.classList.remove("modal-open");
+    memberEditorScope = "full";
   }
 
-  function openMemberEditorModal(mode, userId, focusFieldName) {
+  function openMemberEditorModal(mode, userId, focusFieldName, options) {
     ensureMemberEditorModal();
     const canCreate = Boolean(state.permissions?.create_user);
     const canEditProfile = Boolean(state.permissions?.edit_user_profile);
     const canEditRates = Boolean(state.permissions?.edit_user_rates);
+    const requestedScope = String(options?.scope || "").trim().toLowerCase();
+    const isSelfProfileMode = mode === "edit" && requestedScope === "self_profile";
+    memberEditorScope = isSelfProfileMode ? "self_profile" : "full";
     if (mode === "create" && !canCreate) {
       feedback("Access denied.", true);
       return;
     }
-    if (mode === "edit" && !canEditProfile && !canEditRates) {
+    if (!isSelfProfileMode && mode === "edit" && !canEditProfile && !canEditRates) {
       feedback("Access denied.", true);
       return;
     }
 
     memberEditorMode = mode;
     memberEditorUserId = userId || "";
+    if (isSelfProfileMode) {
+      const currentUserId = `${state.currentUser?.id || ""}`.trim();
+      if (!currentUserId || currentUserId !== `${memberEditorUserId || ""}`.trim()) {
+        feedback("Access denied.", true);
+        return;
+      }
+    }
     const user = mode === "edit" ? state.users.find((u) => u.id === memberEditorUserId) : null;
     if (mode === "edit" && !user) {
       feedback("Team member not found.", true);
@@ -2032,21 +2044,32 @@
     field(memberEditorForm, "certifications").value = user?.certifications || "";
     field(memberEditorForm, "member_profile").value = user?.memberProfile || "";
 
-    const profileEditable = mode === "create" ? canCreate : canEditProfile;
+    const profileEditable = mode === "create" ? canCreate : (isSelfProfileMode ? true : canEditProfile);
     ["display_name", "username", "email", "employee_id", "level", "department_id", "office_id", "certifications", "member_profile"].forEach((name) => {
       const el = field(memberEditorForm, name);
       if (el) el.disabled = !profileEditable;
     });
     ["base_rate", "cost_rate"].forEach((name) => {
       const el = field(memberEditorForm, name);
-      if (el) el.disabled = !canEditRates;
+      if (el) el.disabled = isSelfProfileMode ? true : !canEditRates;
     });
 
-    memberEditorTitle.textContent = mode === "create" ? "Add member" : "Edit member";
-    memberEditorSubmit.textContent = mode === "create" ? "Add member" : "Save changes";
+    memberEditorTitle.textContent = mode === "create" ? "Add member" : (isSelfProfileMode ? "Edit profile" : "Edit member");
+    memberEditorSubmit.textContent = mode === "create" ? "Add member" : (isSelfProfileMode ? "Save profile" : "Save changes");
+    const identitySection = memberEditorForm.querySelector('[data-member-editor-section="identity"]');
+    const orgSection = memberEditorForm.querySelector('[data-member-editor-section="org"]');
+    const ratesSection = memberEditorForm.querySelector('[data-member-editor-section="rates"]');
+    const profileSection = memberEditorForm.querySelector('[data-member-editor-section="profile"]');
+    const certificationsSection = memberEditorForm.querySelector('[data-member-editor-section="certifications"]');
+    if (identitySection) identitySection.hidden = isSelfProfileMode;
+    if (orgSection) orgSection.hidden = isSelfProfileMode;
+    if (ratesSection) ratesSection.hidden = isSelfProfileMode;
+    if (profileSection) profileSection.hidden = false;
+    if (certificationsSection) certificationsSection.hidden = false;
     if (memberEditorReset) {
-      memberEditorReset.hidden = !(mode === "edit" && Boolean(state.permissions?.reset_user_password));
-      memberEditorReset.disabled = mode !== "edit" || !Boolean(state.permissions?.reset_user_password);
+      memberEditorReset.hidden = isSelfProfileMode || !(mode === "edit" && Boolean(state.permissions?.reset_user_password));
+      memberEditorReset.disabled =
+        isSelfProfileMode || mode !== "edit" || !Boolean(state.permissions?.reset_user_password);
     }
     const passwordField = field(memberEditorForm, "password");
     const passwordRow = memberEditorForm.querySelector("[data-member-editor-password-row]");
@@ -2078,7 +2101,12 @@
 
   async function submitMemberEditorModal(event) {
     event.preventDefault();
-    const submitLabel = memberEditorMode === "create" ? "Add member" : "Save changes";
+    const submitLabel =
+      memberEditorMode === "create"
+        ? "Add member"
+        : memberEditorScope === "self_profile"
+          ? "Save profile"
+          : "Save changes";
     const canEditProfile = Boolean(state.permissions?.edit_user_profile);
     const canEditRates = Boolean(state.permissions?.edit_user_rates);
     const canCreate = Boolean(state.permissions?.create_user);
@@ -2148,6 +2176,66 @@
         const currentUser = (state.users || []).find((u) => u.id === userId);
         if (!currentUser) {
           feedback("Team member not found.", true);
+          return;
+        }
+        const isSelfProfileMode = memberEditorScope === "self_profile";
+        if (isSelfProfileMode) {
+          const currentUserId = `${state.currentUser?.id || ""}`.trim();
+          if (!currentUserId || currentUserId !== `${userId || ""}`.trim()) {
+            feedback("Access denied.", true);
+            return;
+          }
+          const normalizeText = (value) => String(value || "").trim();
+          const profileChanged =
+            normalizeText(currentUser.certifications) !== certifications ||
+            normalizeText(currentUser.memberProfile) !== memberProfile;
+          if (!profileChanged) {
+            closeMemberEditorModal();
+            return;
+          }
+          const previousUserSnapshot = { ...currentUser };
+          state.users = (state.users || []).map((item) =>
+            !item || item.id !== userId
+              ? item
+              : {
+                  ...item,
+                  certifications,
+                  memberProfile,
+                }
+          );
+          if (`${state.currentUser?.id || ""}`.trim() === userId) {
+            state.currentUser = {
+              ...state.currentUser,
+              certifications,
+              memberProfile,
+            };
+          }
+          closeMemberEditorModal();
+          render();
+          try {
+            await mutatePersistentState(
+              "update_own_profile",
+              {
+                certifications,
+                memberProfile,
+              },
+              settingsSaveFastOptions()
+            );
+            feedback("Profile updated.", false);
+          } catch (innerError) {
+            state.users = (state.users || []).map((item) =>
+              !item || item.id !== userId ? item : previousUserSnapshot
+            );
+            if (`${state.currentUser?.id || ""}`.trim() === userId) {
+              state.currentUser = {
+                ...state.currentUser,
+                certifications: previousUserSnapshot.certifications || "",
+                memberProfile: previousUserSnapshot.memberProfile || "",
+              };
+            }
+            render();
+            throw innerError;
+          }
           return;
         }
         const normalizeText = (value) => String(value || "").trim();
@@ -3911,6 +3999,8 @@
       refs.dialogCancel.textContent = cancelText;
       refs.dialog.hidden = false;
       refs.dialogConfirm.hidden = hideConfirm;
+      refs.dialogCancel.hidden = false;
+      refs.dialogConfirm.disabled = false;
       refs.dialogCancel.disabled = false;
 
       const cleanup = () => {
@@ -7583,7 +7673,7 @@
           feedback("Access denied.", true);
           return;
         }
-        openMemberEditorModal("edit", user.id, "member_profile");
+        openMemberEditorModal("edit", user.id, "member_profile", { scope: "self_profile" });
         return;
       }
       if (button.dataset.userEdit) {

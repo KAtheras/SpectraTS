@@ -150,12 +150,38 @@ async function ensureSchema(sql) {
       is_active = EXCLUDED.is_active
   `;
   await sql`
+    INSERT INTO permission_capabilities (key, label, category, is_active)
+    VALUES ('view_cost_rate', 'View cost rate', 'settings', TRUE)
+    ON CONFLICT (key) DO UPDATE SET
+      label = EXCLUDED.label,
+      category = EXCLUDED.category,
+      is_active = EXCLUDED.is_active
+  `;
+  await sql`
     INSERT INTO role_permissions (role_id, capability_id, scope_id, allowed)
     SELECT pr.id, pc.id, ps.id, TRUE
     FROM permission_roles pr
     JOIN permission_capabilities pc ON pc.key = 'can_delegate'
     JOIN permission_scopes ps ON ps.key = 'own_office'
     WHERE pr.key IN ('manager', 'executive', 'admin', 'superuser')
+    ON CONFLICT (role_id, capability_id, scope_id) DO NOTHING
+  `;
+  await sql`
+    INSERT INTO role_permissions (role_id, capability_id, scope_id, allowed)
+    SELECT pr.id, pc.id, ps.id, TRUE
+    FROM permission_roles pr
+    JOIN permission_capabilities pc ON pc.key = 'view_cost_rate'
+    JOIN permission_scopes ps ON ps.key = 'all_offices'
+    WHERE pr.key = 'superuser'
+    ON CONFLICT (role_id, capability_id, scope_id) DO NOTHING
+  `;
+  await sql`
+    INSERT INTO role_permissions (role_id, capability_id, scope_id, allowed)
+    SELECT pr.id, pc.id, ps.id, TRUE
+    FROM permission_roles pr
+    JOIN permission_capabilities pc ON pc.key = 'view_cost_rate'
+    JOIN permission_scopes ps ON ps.key = 'own_office'
+    WHERE pr.key = 'admin'
     ON CONFLICT (role_id, capability_id, scope_id) DO NOTHING
   `;
   await sql`
@@ -4314,7 +4340,11 @@ async function loadState(sql, currentUser) {
   let users = [];
   if (normalizedUser) {
     users = allUsers.map((user) => {
-      const canViewRates = canCap("view_member_rates", {
+      const canViewBaseRate = canCap("view_member_rates", {
+        resourceOfficeId: user.officeId ?? user.office_id ?? null,
+        actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+      });
+      const canViewCostRate = canCap("view_cost_rate", {
         resourceOfficeId: user.officeId ?? user.office_id ?? null,
         actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
       });
@@ -4322,11 +4352,12 @@ async function loadState(sql, currentUser) {
         resourceOfficeId: user.officeId ?? user.office_id ?? null,
         actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
       });
-      const allowRates = canViewRates || canEditRates;
+      const allowBaseRate = canViewBaseRate || canEditRates;
+      const allowCostRate = canViewCostRate || canEditRates;
       return {
         ...user,
-        baseRate: allowRates ? user.baseRate : null,
-        costRate: allowRates ? user.costRate : null,
+        baseRate: allowBaseRate ? user.baseRate : null,
+        costRate: allowCostRate ? user.costRate : null,
       };
     });
     if (delegatorUserIds.length) {

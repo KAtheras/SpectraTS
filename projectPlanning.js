@@ -147,10 +147,11 @@
         position: absolute;
         top: 0;
         right: 0;
-        display: grid;
-        justify-items: end;
+        display: inline-flex;
+        align-items: baseline;
+        justify-content: flex-end;
         text-align: right;
-        gap: 3px;
+        gap: 4px;
         line-height: 1.1;
         margin-top: 0;
       }
@@ -161,18 +162,18 @@
       }
       .project-planning-kpi-target-line-label {
         color: var(--muted);
-        font-size: 0.6rem;
+        font-size: 0.62rem;
         text-transform: uppercase;
         letter-spacing: .06em;
         font-weight: 700;
       }
       .project-planning-kpi-target-line-value {
-        font-size: 0.78rem;
+        font-size: 0.76rem;
         font-weight: 700;
         color: var(--text);
       }
       .project-planning-kpi-target-line-value.is-variance {
-        font-size: 0.71rem;
+        font-size: 0.76rem;
         color: var(--muted);
         font-weight: 600;
       }
@@ -1039,12 +1040,11 @@
                   <div class="project-planning-kpi-label" data-kpi-label="realizationPrimary">Realization</div>
                   <div class="project-planning-kpi-target">
                     <span class="project-planning-kpi-target-line">
-                      <span class="project-planning-kpi-target-line-label">TARGET</span>
+                      <span class="project-planning-kpi-target-line-label">TARGET:</span>
                       <strong class="project-planning-kpi-target-line-value" data-kpi="targetRealization">${escapeHtml(targetRealizationPctValue === null ? "—" : fmtPercent(targetRealizationPctValue))}</strong>
-                    </span>
-                    <span class="project-planning-kpi-target-line">
-                      <span class="project-planning-kpi-target-line-label">VARIANCE</span>
+                      <span class="project-planning-kpi-target-line-value is-variance">(</span>
                       <strong class="project-planning-kpi-target-line-value is-variance" data-kpi="targetVariance">—</strong>
+                      <span class="project-planning-kpi-target-line-value is-variance">)</span>
                     </span>
                   </div>
                 </div>
