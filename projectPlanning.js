@@ -730,20 +730,17 @@
     return rows
       .slice()
       .sort((left, right) => {
-        const leftLevel = Number(left?.seniorityLevel);
-        const rightLevel = Number(right?.seniorityLevel);
-        const leftHasLevel = Number.isFinite(leftLevel);
-        const rightHasLevel = Number.isFinite(rightLevel);
-        if (leftHasLevel && rightHasLevel && leftLevel !== rightLevel) {
-          return leftLevel - rightLevel;
-        }
-        if (leftHasLevel !== rightHasLevel) {
-          return leftHasLevel ? -1 : 1;
-        }
         const leftGroupRank = seniorityRankForPermissionGroup(left?.seniorityPermissionGroup);
         const rightGroupRank = seniorityRankForPermissionGroup(right?.seniorityPermissionGroup);
         if (leftGroupRank !== rightGroupRank) {
           return rightGroupRank - leftGroupRank;
+        }
+        const leftTitle = String(left?.role || "").trim();
+        const rightTitle = String(right?.role || "").trim();
+        if (leftTitle !== rightTitle) {
+          return leftTitle.localeCompare(rightTitle, undefined, {
+            sensitivity: "base",
+          });
         }
         return String(left?.memberName || "").localeCompare(String(right?.memberName || ""), undefined, {
           sensitivity: "base",

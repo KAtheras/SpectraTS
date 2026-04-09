@@ -3966,6 +3966,9 @@ async function loadState(sql, currentUser) {
   } else if (isManagerFlag) {
     const scope = await getManagerScope(sql, normalizedUser.id, accountUuid);
     const scopedProjectIds = scope.projectIds.length ? scope.projectIds : [0];
+    const managerVisibleGroups = currentGroup === "executive"
+      ? ["staff", "manager", "executive"]
+      : ["staff", "manager"];
     entries = await sql`
         SELECT DISTINCT ON (entries.id)
           entries.id,
@@ -4008,6 +4011,9 @@ async function loadState(sql, currentUser) {
           ON cfg.id = cfc.group_id
          AND cfg.account_id = ${accountUuid}::uuid
         JOIN users ON LOWER(users.display_name) = LOWER(entries.user_name)
+        LEFT JOIN level_labels manager_entry_levels
+          ON manager_entry_levels.account_id = users.account_id
+         AND manager_entry_levels.level = users.level
         WHERE (
           projects.id = ANY(${scopedProjectIds})
           OR (
@@ -4016,7 +4022,16 @@ async function loadState(sql, currentUser) {
             AND users.id = ${normalizedUser.id}
           )
         )
-          AND (users.level <= 2 OR users.id = ${normalizedUser.id})
+          AND (
+            LOWER(
+              COALESCE(
+                NULLIF(TRIM(manager_entry_levels.permission_group), ''),
+                NULLIF(TRIM(users.role), ''),
+                'staff'
+              )
+            ) = ANY(${managerVisibleGroups})
+            OR users.id = ${normalizedUser.id}
+          )
           AND entries.account_id = ${accountUuid}::uuid
         ORDER BY entries.id, entries.entry_date DESC, entries.created_at DESC
       `;
@@ -4254,6 +4269,9 @@ async function loadState(sql, currentUser) {
               ON cfg.id = cfc.group_id
              AND cfg.account_id = ${accountUuid}::uuid
             JOIN users ON LOWER(users.display_name) = LOWER(entries.user_name)
+            LEFT JOIN level_labels delegated_entry_levels
+              ON delegated_entry_levels.account_id = users.account_id
+             AND delegated_entry_levels.level = users.level
             WHERE entries.account_id = ${accountUuid}::uuid
               AND (
                 projects.id = ANY(${scopedDelegatorProjectIds})
@@ -4264,7 +4282,13 @@ async function loadState(sql, currentUser) {
                 )
               )
               AND (
-                users.level <= 2
+                LOWER(
+                  COALESCE(
+                    NULLIF(TRIM(delegated_entry_levels.permission_group), ''),
+                    NULLIF(TRIM(users.role), ''),
+                    'staff'
+                  )
+                ) = 'staff'
                 OR users.id = ANY(${delegatorManagerLikeIds})
               )
             ORDER BY entries.id, entries.entry_date DESC, entries.created_at DESC
