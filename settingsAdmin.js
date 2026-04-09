@@ -1023,6 +1023,38 @@
             font-size:.84rem;
             line-height:1;
           }
+          #settings-page [data-settings-tab="permissions"] .permissions-group + .permissions-group{
+            margin-top:12px;
+          }
+          #settings-page [data-settings-tab="permissions"] .permissions-group-toggle{
+            width:100%;
+            display:flex;
+            align-items:center;
+            justify-content:space-between;
+            gap:8px;
+            border:1px solid var(--panel-border);
+            background:var(--panel);
+            border-radius:10px;
+            min-height:40px;
+            padding:0 12px;
+            font:inherit;
+            font-weight:600;
+            color:var(--text);
+            cursor:pointer;
+          }
+          #settings-page [data-settings-tab="permissions"] .permissions-group-toggle:hover,
+          #settings-page [data-settings-tab="permissions"] .permissions-group-toggle:focus-visible{
+            border-color:color-mix(in srgb, var(--accent) 48%, var(--panel-border));
+            outline:none;
+          }
+          #settings-page [data-settings-tab="permissions"] .permissions-group-chevron{
+            color:var(--muted);
+            font-size:.95rem;
+            line-height:1;
+          }
+          #settings-page [data-settings-tab="permissions"] [data-perm-group-body]{
+            margin-top:8px;
+          }
           #settings-page .perm-switch{
             position:relative;
             display:inline-flex;
@@ -2614,36 +2646,42 @@
     if (!panel) return;
     const roles = Array.isArray(state.permissionRoles) ? state.permissionRoles : [];
     const rolePerms = Array.isArray(state.rolePermissions) ? state.rolePermissions : [];
-    const capabilityRows = [
-      // PEOPLE: Member information
-      { cap: "view_members", label: "View member information", indent: false },
-      { cap: "view_member_rates", label: "View base rates", indent: true },
-      { cap: "edit_member_rates", label: "Edit base rates", indent: true },
-      { cap: "view_cost_rates", label: "View cost rates", indent: true },
-      { cap: "edit_member_profile", label: "Edit member profile", indent: true },
-      // PEOPLE: Member levels, Member access levels, Delegations
-      { cap: "manage_levels", label: "Manage member levels", indent: false },
-      { cap: "manage_settings_access", label: "Manage access settings", indent: false },
-      { cap: "can_delegate", label: "Can delegate access", indent: false },
-      // ORGANIZATION
-      { cap: "manage_departments", label: "Manage practice departments", indent: false },
-      { cap: "manage_target_realizations", label: "Manage target realizations", indent: false },
-      { cap: "manage_office_locations", label: "Manage office locations", indent: false },
-      // CONFIGURATION
-      { cap: "manage_expense_categories", label: "Manage expense categories", indent: false },
-      { cap: "manage_corporate_functions", label: "Manage corporate functions", indent: false },
-      { cap: "manage_messaging_rules", label: "Manage messaging rules", indent: false },
-      // TOOLS
-      { cap: "can_upload_data", label: "Access data upload tab", indent: false },
-      // CLIENTS / PROJECTS
-      { cap: "see_all_clients_projects", label: "Can see all clients/projects", indent: false },
-      { cap: "see_assigned_clients_projects", label: "Can see assigned clients/projects", indent: false },
-      { cap: "manage_clients_lifecycle", label: "Can add/remove/activate/deactivate clients", indent: false },
-      { cap: "manage_projects_lifecycle", label: "Can add/remove/activate/deactivate projects", indent: false },
-      { cap: "edit_clients", label: "Can edit clients", indent: false },
-      { cap: "edit_projects_all_modal", label: "Can edit all projects (modal only)", indent: false },
-      { cap: "edit_project_planning_all", label: "Can edit all project planning page", indent: false },
-      { cap: "edit_projects_if_project_lead", label: "Can edit projects (modal + planning page) if project lead", indent: false },
+    const capabilityGroups = [
+      {
+        key: "Settings",
+        label: "Settings Controls",
+        rows: [
+          { cap: "view_members", label: "View member information", indent: false },
+          { cap: "view_member_rates", label: "View base rates", indent: true },
+          { cap: "edit_member_rates", label: "Edit base rates", indent: true },
+          { cap: "view_cost_rates", label: "View cost rates", indent: true },
+          { cap: "edit_member_profile", label: "Edit member profile", indent: true },
+          { cap: "manage_levels", label: "Manage member levels", indent: false },
+          { cap: "manage_settings_access", label: "Manage access settings", indent: false },
+          { cap: "can_delegate", label: "Can delegate access", indent: false },
+          { cap: "manage_departments", label: "Manage practice departments", indent: false },
+          { cap: "manage_target_realizations", label: "Manage target realizations", indent: false },
+          { cap: "manage_office_locations", label: "Manage office locations", indent: false },
+          { cap: "manage_expense_categories", label: "Manage expense categories", indent: false },
+          { cap: "manage_corporate_functions", label: "Manage corporate functions", indent: false },
+          { cap: "manage_messaging_rules", label: "Manage messaging rules", indent: false },
+          { cap: "can_upload_data", label: "Access data upload tab", indent: false },
+        ],
+      },
+      {
+        key: "ClientProject",
+        label: "Client / Project controls",
+        rows: [
+          { cap: "see_all_clients_projects", label: "Can see all clients/projects", indent: false },
+          { cap: "see_assigned_clients_projects", label: "Can see assigned clients/projects", indent: false },
+          { cap: "manage_clients_lifecycle", label: "Can add/remove/activate/deactivate clients", indent: false },
+          { cap: "manage_projects_lifecycle", label: "Can add/remove/activate/deactivate projects", indent: false },
+          { cap: "edit_clients", label: "Can edit clients", indent: false },
+          { cap: "edit_projects_all_modal", label: "Can edit all projects (modal only)", indent: false },
+          { cap: "edit_project_planning_all", label: "Can edit all project planning page", indent: false },
+          { cap: "edit_projects_if_project_lead", label: "Can edit projects (modal + planning page) if project lead", indent: false },
+        ],
+      },
     ];
 
     const allowedSet = new Set(
@@ -2657,7 +2695,8 @@
         .map((p) => `${p.role_key}|${p.capability_key}`)
     );
 
-    const rowsHtml = capabilityRows
+    const buildRowsHtml = (rows) =>
+      rows
       .map((rowDef) => {
         const cap = rowDef.cap;
         const cells = roles
@@ -2684,6 +2723,38 @@
         return `<tr><th scope="row" class="${labelClass}">${labelPrefix}<span>${escapeHtml(rowDef.label || cap)}</span></th>${cells}</tr>`;
       })
       .join("");
+    const collapsedKeyForGroup = (groupKey) => `permGroup${groupKey}Collapsed`;
+    const groupsHtml = capabilityGroups
+      .map((group) => {
+        const isCollapsed = panel.dataset[collapsedKeyForGroup(group.key)] === "true";
+        return `
+          <section class="permissions-group" data-perm-group="${escapeHtml(group.key)}">
+            <button
+              type="button"
+              class="permissions-group-toggle"
+              data-perm-group-toggle="${escapeHtml(group.key)}"
+              aria-expanded="${isCollapsed ? "false" : "true"}"
+            >
+              <span>${escapeHtml(group.label)}</span>
+              <span class="permissions-group-chevron" data-perm-group-chevron="${escapeHtml(group.key)}" aria-hidden="true">${isCollapsed ? "▸" : "▾"}</span>
+            </button>
+            <div class="table-wrapper" data-perm-group-body="${escapeHtml(group.key)}" ${isCollapsed ? "hidden" : ""}>
+              <table class="table perms-matrix">
+                <thead>
+                  <tr>
+                    <th scope="col">Capability</th>
+                    ${roles.map((r) => `<th scope="col">${escapeHtml(String(r.key || r.label || "").toUpperCase())}</th>`).join("")}
+                  </tr>
+                </thead>
+                <tbody>
+                  ${buildRowsHtml(group.rows)}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        `;
+      })
+      .join("");
 
     panel.innerHTML = `
       <div class="settings-section-header">
@@ -2695,19 +2766,7 @@
         </div>
       </div>
       <div class="settings-section-content">
-        <div class="table-wrapper">
-          <table class="table perms-matrix">
-            <thead>
-              <tr>
-                <th scope="col">Capability</th>
-                ${roles.map((r) => `<th scope="col">${escapeHtml(String(r.key || r.label || "").toUpperCase())}</th>`).join("")}
-              </tr>
-            </thead>
-            <tbody>
-              ${rowsHtml}
-            </tbody>
-          </table>
-        </div>
+        ${groupsHtml}
       </div>
     `;
 
@@ -2715,6 +2774,23 @@
     if (!panel.dataset.permissionsHandlersBound) {
       panel.dataset.permissionsHandlersBound = "true";
       panel.addEventListener("click", async function (event) {
+        const toggleGroupButton = event.target.closest("[data-perm-group-toggle]");
+        if (toggleGroupButton) {
+          event.preventDefault();
+          const groupKey = String(toggleGroupButton.dataset.permGroupToggle || "").trim();
+          if (!groupKey) return;
+          const body = panel.querySelector(`[data-perm-group-body="${groupKey}"]`);
+          const chevron = panel.querySelector(`[data-perm-group-chevron="${groupKey}"]`);
+          if (!body) return;
+          const nextCollapsed = !body.hidden;
+          body.hidden = nextCollapsed;
+          toggleGroupButton.setAttribute("aria-expanded", nextCollapsed ? "false" : "true");
+          if (chevron) {
+            chevron.textContent = nextCollapsed ? "▸" : "▾";
+          }
+          panel.dataset[collapsedKeyForGroup(groupKey)] = nextCollapsed ? "true" : "false";
+          return;
+        }
         const lockedInput = event.target.closest('[data-perm-locked="true"]');
         if (lockedInput) {
           event.preventDefault();
