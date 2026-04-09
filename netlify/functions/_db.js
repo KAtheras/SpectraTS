@@ -4042,17 +4042,17 @@ async function loadState(sql, currentUser) {
     actorProjectIds = [...new Set(actorProjectIds)];
   }
   const actorClientIdsFromProjects = new Set();
+  const allClients = await listClients(sql, accountUuid);
   if (actorProjectIds.length) {
     allProjects.forEach((project) => {
       const projectId = normalizeText(project?.id);
       if (!projectId || !actorProjectIds.includes(projectId)) return;
-      const clientId = Number(project?.clientId ?? project?.client_id);
-      if (Number.isFinite(clientId)) {
+      const clientId = normalizeText(project?.clientId ?? project?.client_id);
+      if (clientId) {
         actorClientIdsFromProjects.add(clientId);
       }
     });
   }
-  const allClients = await listClients(sql, accountUuid);
   let clients = allClients.filter((client) => {
     if (!normalizedUser || !canAccessClientsShell) return false;
     if (hasGlobalClientsProjectsScope) {
@@ -4067,9 +4067,9 @@ async function loadState(sql, currentUser) {
       );
     }
     if (!hasAssignedClientsProjectsScope) return false;
-    const clientIdNumber = Number(client?.id);
-    if (!Number.isFinite(clientIdNumber)) return false;
-    return actorClientIdsFromProjects.has(clientIdNumber);
+    const clientId = normalizeText(client?.id);
+    if (!clientId) return false;
+    return actorClientIdsFromProjects.has(clientId);
   });
   const allUsers = normalizedUser ? await listUsers(sql, accountUuid) : [];
   const canViewInternalRecords = isAdminFlag;

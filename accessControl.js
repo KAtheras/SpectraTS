@@ -23,6 +23,8 @@
 
     function roleKey(user) {
       const raw =
+        user?.permission_group ||
+        user?.permissionGroup ||
         user?.permission_role_key ||
         user?.permissionRoleKey ||
         user?.role ||
