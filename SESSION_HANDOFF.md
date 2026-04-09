@@ -118,3 +118,59 @@
 3. Log in as admin/executive and confirm full catalog visibility.
 4. Log in as unassigned staff and confirm no visible clients/projects.
 5. If any case fails, capture `/state` payload `visibleClientIds` and `visibleProjectIds` for that user/session and compare to DB assignment rows.
+
+---
+
+# Session Handoff (2026-04-08 - Permissions Matrix + Planner UX)
+
+## Completed this session
+
+- Continued permissions/access refactor and aligned key UI areas to matrix-driven controls:
+  - Access matrix now includes Data Upload (`can_upload_data`) and Clients tab visibility (`view_clients`).
+  - Member information capability rows organized and indented under `view_members`:
+    - view/edit base rates
+    - view cost rates
+    - edit member profile.
+- Cost-rate separation work progressed:
+  - `view_cost_rates` treated distinctly from base-rate capabilities.
+  - superuser default lock behavior for permissions matrix corrected (locked but enabled where intended).
+- Department-level Tech/Admin fee feature added end-to-end:
+  - new `departments.tech_admin_fee_pct`
+  - department settings input + save + validation + persistence
+  - department audit snapshots include fee value.
+- Project-level Tech/Admin fee override added:
+  - new `projects.tech_admin_fee_pct_override`
+  - edit-project modal field
+  - persistence on project create/update paths.
+- Project Planning updates:
+  - realization logic clarified by contract type:
+    - Fixed Fee: contract amount / standard labor revenue
+    - T&M: labor revenue / standard labor revenue (expenses + tech/admin excluded from realization numerator)
+  - Project Economics now includes Tech/Admin Fee Revenue line.
+  - economics labels now display percentages for Overhead and Tech/Admin lines.
+  - Team Budgeting list now sorts by seniority.
+  - Cost Rate column hidden from Team Budgeting table UI while preserving underlying cost math.
+- Edit Project modal UX improvements:
+  - Department + Office moved to second row.
+  - Team section no longer duplicates Project Lead.
+  - `Open Project Planner` renamed/moved and now saves edits optimistically before navigating.
+  - standard `Save` flow also made optimistic to avoid stale values on quick reopen/planner navigation.
+
+## Permissioning Refactor Status
+
+- Largely matrix-driven now for:
+  - member information/rates/profile access
+  - clients tab visibility
+  - settings tab access rows (including data upload/corporate functions/target realizations/messaging).
+- Office/assignment scope logic remains enforced in backend policy checks and visibility snapshots.
+
+## What's left to do
+
+- Move Project Planning page access/edit controls fully into explicit matrix capabilities (currently partly policy/hardcoded by role context).
+- Decide whether Clients office/assignment gating should remain policy-only or be partially matrix-parameterized.
+- Run full role smoke tests (staff/manager/executive/admin/superuser) against:
+  - member info visibility/edit
+  - base vs cost rate visibility/edit boundaries
+  - clients tab visibility + assignment filtering
+  - settings left-nav section labels hidden when no tabs in a group are accessible.
+- Add/expand regression tests for new capabilities and matrix row ordering/labeling.

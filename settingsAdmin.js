@@ -834,6 +834,15 @@
           #settings-page .settings-field:hover{
             border-color:#c2c2c2;
           }
+          #settings-page input.settings-field[type="number"]{
+            appearance:textfield;
+            -moz-appearance:textfield;
+          }
+          #settings-page input.settings-field[type="number"]::-webkit-outer-spin-button,
+          #settings-page input.settings-field[type="number"]::-webkit-inner-spin-button{
+            -webkit-appearance:none;
+            margin:0;
+          }
           #settings-page select.settings-field{
             appearance:none;
             -webkit-appearance:none;
@@ -2799,12 +2808,18 @@
     const departments = Array.isArray(state.departments) ? state.departments.slice() : [];
     const editable = Boolean(state.permissions?.manage_departments);
 
-    refs.departmentRows.innerHTML = departments
-      .map(
-        (item) => `
+    const rowsHtml = departments
+      .map((item) => {
+        const techAdminFeePctRaw = item?.techAdminFeePct ?? item?.tech_admin_fee_pct;
+        const techAdminFeePct =
+          techAdminFeePctRaw === null || techAdminFeePctRaw === undefined || `${techAdminFeePctRaw}`.trim() === ""
+            ? ""
+            : String(techAdminFeePctRaw);
+        return `
           <div class="level-row settings-structured-row settings-structured-row-no-label department-row" data-department-id="${escapeHtml(item.id || "")}">
             <div class="settings-row-main settings-row-main-split">
               <input class="settings-field" type="text" value="${escapeHtml(item.name || "")}" data-department-name placeholder="Department name" ${editable ? "" : "disabled"} />
+              <input class="settings-field" style="text-align:right;" type="number" min="0" step="0.01" value="${escapeHtml(techAdminFeePct)}" data-department-tech-admin-fee-pct placeholder="0.00" ${editable ? "" : "disabled"} />
             </div>
             <div class="settings-row-actions expense-actions">
               ${
@@ -2814,9 +2829,20 @@
               }
             </div>
           </div>
-        `
-      )
+        `;
+      })
       .join("");
+
+    refs.departmentRows.innerHTML = `
+      <div class="level-row settings-structured-row settings-structured-row-no-label settings-structured-row-header" aria-hidden="true">
+        <div class="settings-row-main settings-row-main-split">
+          <span>Department</span>
+          <span>Tech/Admin Fee %</span>
+        </div>
+        <div class="settings-row-actions"></div>
+      </div>
+      ${rowsHtml}
+    `;
   }
 
   function renderTargetRealizations() {

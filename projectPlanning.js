@@ -702,6 +702,55 @@
     return Number.isFinite(parsed) ? parsed : 0;
   }
 
+  function resolveEffectiveTechAdminFeePct(project, departments) {
+    const overrideRaw = project?.techAdminFeePctOverride ?? project?.tech_admin_fee_pct_override;
+    const overrideValue = toNullableNumber(overrideRaw);
+    if (overrideValue !== null) return Math.max(0, overrideValue);
+    const departmentId = String(project?.projectDepartmentId ?? project?.project_department_id ?? "").trim();
+    if (!departmentId) return 0;
+    const match = (Array.isArray(departments) ? departments : []).find(
+      (item) => String(item?.id || "").trim() === departmentId
+    );
+    const departmentRaw = match?.techAdminFeePct ?? match?.tech_admin_fee_pct;
+    const departmentValue = toNullableNumber(departmentRaw);
+    return departmentValue === null ? 0 : Math.max(0, departmentValue);
+  }
+
+  function seniorityRankForPermissionGroup(value) {
+    const normalized = String(value || "").trim().toLowerCase();
+    if (normalized === "superuser") return 5;
+    if (normalized === "admin") return 4;
+    if (normalized === "executive") return 3;
+    if (normalized === "manager") return 2;
+    if (normalized === "staff") return 1;
+    return 0;
+  }
+
+  function sortPlanningRowsBySeniority(rows) {
+    return rows
+      .slice()
+      .sort((left, right) => {
+        const leftLevel = Number(left?.seniorityLevel);
+        const rightLevel = Number(right?.seniorityLevel);
+        const leftHasLevel = Number.isFinite(leftLevel);
+        const rightHasLevel = Number.isFinite(rightLevel);
+        if (leftHasLevel && rightHasLevel && leftLevel !== rightLevel) {
+          return leftLevel - rightLevel;
+        }
+        if (leftHasLevel !== rightHasLevel) {
+          return leftHasLevel ? -1 : 1;
+        }
+        const leftGroupRank = seniorityRankForPermissionGroup(left?.seniorityPermissionGroup);
+        const rightGroupRank = seniorityRankForPermissionGroup(right?.seniorityPermissionGroup);
+        if (leftGroupRank !== rightGroupRank) {
+          return rightGroupRank - leftGroupRank;
+        }
+        return String(left?.memberName || "").localeCompare(String(right?.memberName || ""), undefined, {
+          sensitivity: "base",
+        });
+      });
+  }
+
   function computeRows(rows) {
     return rows.map((row) => {
       const hours = toNumberOrZero(row.hours);
@@ -906,11 +955,22 @@
           ? levelDef.label.trim()
           : "";
       const roleLabel = titleFromLevel || String(member?.role || member?.permissionGroup || member?.permission_group || "—");
+      const seniorityPermissionGroup = String(
+        levelDef?.permissionGroup ||
+          levelDef?.permission_group ||
+          member?.permissionGroup ||
+          member?.permission_group ||
+          ""
+      )
+        .trim()
+        .toLowerCase();
       return {
         id: userId || `row-${index}`,
         userId: userId || null,
         memberName: member?.displayName || "Unassigned",
         role: roleLabel,
+        seniorityLevel: memberLevel,
+        seniorityPermissionGroup,
         removeAction: managerAssignment ? "manager" : memberAssignment ? "member" : null,
         canDelete:
           Boolean(userId) &&
@@ -935,6 +995,7 @@
       }
       return window.confirm(String(message || "Are you sure?"));
     }
+    planningRows = sortPlanningRowsBySeniority(planningRows);
     planningRows = computeRows(planningRows);
     const plannedExpensesSource = Array.isArray(state?.projectPlannedExpenses)
       ? state.projectPlannedExpenses
@@ -954,10 +1015,12 @@
     const initialTotals = computeTotals(planningRows, contractAmountValue, overheadValue);
     const initialExpenseTotals = computeExpenseTotals(planningExpenseRows);
     const initialIsTmContract = contractType === "tm";
+    const effectiveTechAdminFeePct = resolveEffectiveTechAdminFeePct(project, state?.departments);
     const initialBaseRevenue = initialIsTmContract
       ? initialTotals.plannedRevenueTotal
       : (Number.isFinite(contractAmountValue) ? contractAmountValue : 0);
-    const initialTotalRevenue = initialBaseRevenue + initialExpenseTotals.expenseRevenue;
+    const initialTechAdminFeeRevenue = initialBaseRevenue * (effectiveTechAdminFeePct / 100);
+    const initialTotalRevenue = initialBaseRevenue + initialExpenseTotals.expenseRevenue + initialTechAdminFeeRevenue;
     const initialTotalCost = initialTotals.directCost + initialExpenseTotals.expenseCost + initialTotals.overheadCost;
     const initialGrossMarginValue = initialTotalRevenue - initialTotalCost;
     const initialGrossMarginPct = initialTotalRevenue > 0
@@ -1100,7 +1163,6 @@
                     <colgroup>
                       <col class="time-col-member" />
                       <col class="time-col-role" />
-                      <col class="time-col-cost-rate" />
                       <col class="time-col-charge-rate" />
                       <col class="time-col-hours" />
                       <col class="time-col-cost" />
@@ -1111,7 +1173,6 @@
                       <tr>
                         <th>Member</th>
                         <th>Role</th>
-                        <th>Cost Rate</th>
                         <th>Charge Rate</th>
                         <th>Hours</th>
                         <th>Cost</th>
@@ -1128,7 +1189,6 @@
                                   <tr class="table-row-surface" data-row-id="${escapeHtml(row.id)}">
                                     <td>${escapeHtml(row.memberName)}</td>
                                     <td>${escapeHtml(String(row.role).replace(/_/g, " "))}</td>
-                                    <td class="table-numeric table-output" data-row-output="costRate" data-row-id="${escapeHtml(row.id)}">${escapeHtml(fmtMoneyZero(row.costRate))}</td>
                                     <td class="table-numeric table-input-cell"><input class="project-planning-input table-input" type="number" min="0" step="0.01" data-row-input="chargeRate" data-row-id="${escapeHtml(row.id)}" value="${escapeHtml(row.chargeRate)}" /></td>
                                     <td class="table-numeric table-input-cell"><input class="project-planning-input table-input" type="number" min="0" step="0.25" data-row-input="hours" data-row-id="${escapeHtml(row.id)}" value="${escapeHtml(row.hours)}" /></td>
                                     <td class="table-numeric table-output" data-row-output="cost" data-row-id="${escapeHtml(row.id)}">${escapeHtml(fmtMoneyZero(row.plannedCost))}</td>
@@ -1146,7 +1206,7 @@
                               .join("")
                           : `
                             <tr>
-                              <td colspan="8" class="project-planning-placeholder">No team budgeting rows yet.</td>
+                              <td colspan="7" class="project-planning-placeholder">No team budgeting rows yet.</td>
                             </tr>
                           `
                       }
@@ -1203,6 +1263,10 @@
                   <span class="project-planning-econ-value" data-econ="revenueSecondary">${escapeHtml(fmtMoneyZero(initialExpenseTotals.expenseRevenue))}</span>
                 </div>
                 <div class="project-planning-econ-row">
+                  <span class="project-planning-econ-label" data-econ-label="revenueTechAdmin">Tech/Admin Fee Revenue</span>
+                  <span class="project-planning-econ-value" data-econ="revenueTechAdmin">${escapeHtml(fmtMoneyZero(initialTechAdminFeeRevenue))}</span>
+                </div>
+                <div class="project-planning-econ-row">
                   <span class="project-planning-econ-label" data-econ-label="revenueTertiary">Total Revenue</span>
                   <span class="project-planning-econ-value" data-econ="revenueTertiary">
                     ${escapeHtml(fmtMoneyZero(initialTotalRevenue))}
@@ -1220,7 +1284,7 @@
                   <span class="project-planning-econ-value" data-econ="expenseCost">${escapeHtml(fmtMoneyZero(initialExpenseTotals.expenseCost))}</span>
                 </div>
                 <div class="project-planning-econ-row">
-                  <span class="project-planning-econ-label">Overhead</span>
+                  <span class="project-planning-econ-label" data-econ-label="overheadCost">Overhead</span>
                   <span class="project-planning-econ-value" data-econ="overheadCost">${escapeHtml(fmtMoneyZero(initialTotals.overheadCost))}</span>
                 </div>
                 <div class="project-planning-econ-row">
@@ -1312,7 +1376,10 @@
     const econRevenueTertiaryNode = container.querySelector('[data-econ="revenueTertiary"]');
     const econRevenuePrimaryLabelNode = container.querySelector('[data-econ-label="revenuePrimary"]');
     const econRevenueSecondaryLabelNode = container.querySelector('[data-econ-label="revenueSecondary"]');
+    const econRevenueTechAdminLabelNode = container.querySelector('[data-econ-label="revenueTechAdmin"]');
     const econRevenueTertiaryLabelNode = container.querySelector('[data-econ-label="revenueTertiary"]');
+    const econRevenueTechAdminNode = container.querySelector('[data-econ="revenueTechAdmin"]');
+    const econOverheadCostLabelNode = container.querySelector('[data-econ-label="overheadCost"]');
     const econDirectCostNode = container.querySelector('[data-econ="directCost"]');
     const econExpenseCostNode = container.querySelector('[data-econ="expenseCost"]');
     const econExpenseCostRowNode = container.querySelector('[data-econ-row="expenseCost"]');
@@ -1402,12 +1469,14 @@
       const totals = computeTotals(planningRows, contractAmountValue, overheadValue);
       const expenseTotals = computeExpenseTotals(planningExpenseRows);
       const isTmContract = contractType === "tm";
+      const techAdminFeePct = resolveEffectiveTechAdminFeePct(project, state?.departments);
       const baseRevenueValue = isTmContract
         ? totals.plannedRevenueTotal
         : (Number.isFinite(contractAmountValue) ? contractAmountValue : 0);
+      const techAdminFeeRevenue = baseRevenueValue * (techAdminFeePct / 100);
       const expenseRevenueTotal = expenseTotals.expenseRevenue;
       const expenseCostTotal = expenseTotals.expenseCost;
-      const totalRevenueValue = baseRevenueValue + expenseRevenueTotal;
+      const totalRevenueValue = baseRevenueValue + expenseRevenueTotal + techAdminFeeRevenue;
       const totalCostValue = totals.directCost + expenseCostTotal + totals.overheadCost;
       const grossMarginValue = totalRevenueValue - totalCostValue;
       const grossMarginPct = totalRevenueValue > 0
@@ -1503,7 +1572,12 @@
       }
       if (econRevenuePrimaryLabelNode) econRevenuePrimaryLabelNode.textContent = isTmContract ? "Time Revenue" : "Contract Amount";
       if (econRevenueSecondaryLabelNode) econRevenueSecondaryLabelNode.textContent = "Expense Revenue";
+      if (econRevenueTechAdminLabelNode) econRevenueTechAdminLabelNode.textContent = `Tech/Admin Fee Revenue (${fmtPercent(techAdminFeePct)})`;
       if (econRevenueTertiaryLabelNode) econRevenueTertiaryLabelNode.textContent = "Total Revenue";
+      if (econOverheadCostLabelNode) {
+        const overheadPctValue = Number.isFinite(overheadValue) ? overheadValue : 0;
+        econOverheadCostLabelNode.textContent = `Overhead (${fmtPercent(overheadPctValue)})`;
+      }
       if (econRevenuePrimaryNode) {
         if (isTmContract) {
           isEditingContractAmount = false;
@@ -1526,6 +1600,9 @@
       }
       if (econRevenueSecondaryNode) {
         econRevenueSecondaryNode.textContent = fmtMoneyZero(expenseRevenueTotal);
+      }
+      if (econRevenueTechAdminNode) {
+        econRevenueTechAdminNode.textContent = fmtMoneyZero(techAdminFeeRevenue);
       }
       if (econRevenueTertiaryNode) {
         econRevenueTertiaryNode.textContent = fmtMoneyZero(totalRevenueValue);
@@ -2254,7 +2331,7 @@
         planningRows = planningRows.filter((item) => String(item.id) !== rowId);
         rowEl?.remove();
         if (!planningRows.length && tbody) {
-          tbody.innerHTML = `<tr><td colspan="8" class="project-planning-placeholder">No team budgeting rows yet.</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="7" class="project-planning-placeholder">No team budgeting rows yet.</td></tr>`;
         }
         renderComputed();
         try {

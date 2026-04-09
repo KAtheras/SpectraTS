@@ -244,30 +244,49 @@ async function createDepartment(sql, payload, accountId) {
   if (!name) {
     return errorResponse(400, "Department name is required.");
   }
+  const rawTechAdminFeePct = payload.techAdminFeePct ?? payload.tech_admin_fee_pct;
+  const hasTechAdminFeePct =
+    rawTechAdminFeePct !== null &&
+    rawTechAdminFeePct !== undefined &&
+    `${rawTechAdminFeePct}`.trim() !== "";
+  const techAdminFeePct = hasTechAdminFeePct ? Number(rawTechAdminFeePct) : null;
+  if (hasTechAdminFeePct && (!Number.isFinite(techAdminFeePct) || techAdminFeePct < 0)) {
+    return errorResponse(400, "Tech/Admin fee % must be a non-negative number.");
+  }
   const id = normalizeText(payload.id) || randomId();
   const now = new Date().toISOString();
   await sql`
-    INSERT INTO departments (id, account_id, name, created_at, updated_at)
-    VALUES (${id}, ${accountId}::uuid, ${name}, ${now}, ${now})
+    INSERT INTO departments (id, account_id, name, tech_admin_fee_pct, created_at, updated_at)
+    VALUES (${id}, ${accountId}::uuid, ${name}, ${techAdminFeePct}, ${now}, ${now})
     ON CONFLICT (id) DO NOTHING
   `;
-  return { id, name };
+  return { id, name, techAdminFeePct };
 }
 
 async function renameDepartment(sql, payload, accountId) {
   const id = normalizeText(payload.id);
   const name = normalizeText(payload.name);
+  const rawTechAdminFeePct = payload.techAdminFeePct ?? payload.tech_admin_fee_pct;
+  const hasTechAdminFeePct =
+    rawTechAdminFeePct !== null &&
+    rawTechAdminFeePct !== undefined &&
+    `${rawTechAdminFeePct}`.trim() !== "";
+  const techAdminFeePct = hasTechAdminFeePct ? Number(rawTechAdminFeePct) : null;
   if (!id || !name) {
     return errorResponse(400, "Department id and name are required.");
+  }
+  if (hasTechAdminFeePct && (!Number.isFinite(techAdminFeePct) || techAdminFeePct < 0)) {
+    return errorResponse(400, "Tech/Admin fee % must be a non-negative number.");
   }
   const now = new Date().toISOString();
   const result = await sql`
     UPDATE departments
     SET name = ${name},
+        tech_admin_fee_pct = ${techAdminFeePct},
         updated_at = ${now}
     WHERE id = ${id}
       AND account_id = ${accountId}::uuid
-    RETURNING id, name
+    RETURNING id, name, tech_admin_fee_pct AS "techAdminFeePct"
   `;
   if (!result[0]) {
     return errorResponse(404, "Department not found.");
@@ -1122,6 +1141,7 @@ async function snapshotProjectById(sql, projectId, accountId) {
       p.contract_amount,
       p.pricing_model,
       p.overhead_percent,
+      p.tech_admin_fee_pct_override,
       p.target_realization_pct,
       p.is_active,
       c.name AS client_name
@@ -1147,6 +1167,10 @@ async function snapshotProjectById(sql, projectId, accountId) {
     pricing_model: normalizeText(row.pricing_model),
     overhead_percent:
       row.overhead_percent !== null && row.overhead_percent !== undefined ? Number(row.overhead_percent) : null,
+    tech_admin_fee_pct_override:
+      row.tech_admin_fee_pct_override !== null && row.tech_admin_fee_pct_override !== undefined
+        ? Number(row.tech_admin_fee_pct_override)
+        : null,
     target_realization_pct:
       row.target_realization_pct !== null && row.target_realization_pct !== undefined
         ? Number(row.target_realization_pct)
@@ -2104,11 +2128,18 @@ async function addProject(sql, payload, currentUser, accountId) {
   const pricingModel = pricingModelRaw || null;
   const allowedPricingModels = new Set(["fixed_fee", "time_and_materials"]);
   const overheadRaw = payload.overheadPercent ?? payload.overhead_percent;
+  const techAdminFeePctOverrideRaw =
+    payload.techAdminFeePctOverride ?? payload.tech_admin_fee_pct_override;
   const targetRealizationRaw = payload.targetRealizationPct ?? payload.target_realization_pct;
   const hasOverhead = overheadRaw !== undefined && overheadRaw !== null && overheadRaw !== "";
+  const hasTechAdminFeePctOverride =
+    techAdminFeePctOverrideRaw !== undefined &&
+    techAdminFeePctOverrideRaw !== null &&
+    techAdminFeePctOverrideRaw !== "";
   const hasTargetRealization =
     targetRealizationRaw !== undefined && targetRealizationRaw !== null && targetRealizationRaw !== "";
   const overheadPercent = hasOverhead ? Number(overheadRaw) : null;
+  const techAdminFeePctOverride = hasTechAdminFeePctOverride ? Number(techAdminFeePctOverrideRaw) : null;
   const targetRealizationPct = hasTargetRealization ? Number(targetRealizationRaw) : null;
   const contractRaw = payload.contractAmount;
   const hasContract = contractRaw !== undefined && contractRaw !== null && contractRaw !== "";
@@ -2127,6 +2158,12 @@ async function addProject(sql, payload, currentUser, accountId) {
   }
   if (hasOverhead && Number.isNaN(overheadPercent)) {
     return errorResponse(400, "Overhead percent must be a number.");
+  }
+  if (
+    hasTechAdminFeePctOverride &&
+    (Number.isNaN(techAdminFeePctOverride) || techAdminFeePctOverride < 0)
+  ) {
+    return errorResponse(400, "Tech/Admin fee override % must be a non-negative number.");
   }
   if (hasTargetRealization && (Number.isNaN(targetRealizationPct) || targetRealizationPct < 0)) {
     return errorResponse(400, "Target realization must be a non-negative number.");
@@ -2187,6 +2224,7 @@ async function addProject(sql, payload, currentUser, accountId) {
       contract_amount,
       pricing_model,
       overhead_percent,
+      tech_admin_fee_pct_override,
       target_realization_pct
     )
     VALUES (
@@ -2200,6 +2238,9 @@ async function addProject(sql, payload, currentUser, accountId) {
       ${hasContract && !Number.isNaN(contractAmount) && contractAmount >= 0 ? contractAmount : null},
       ${pricingModel},
       ${hasOverhead && !Number.isNaN(overheadPercent) ? overheadPercent : null},
+      ${hasTechAdminFeePctOverride && !Number.isNaN(techAdminFeePctOverride) && techAdminFeePctOverride >= 0
+        ? techAdminFeePctOverride
+        : null},
       ${hasTargetRealization && !Number.isNaN(targetRealizationPct) && targetRealizationPct >= 0
         ? targetRealizationPct
         : null}
@@ -3239,10 +3280,15 @@ async function updateProject(sql, payload, currentUser, accountId) {
     Object.prototype.hasOwnProperty.call(payload || {}, "pricing_model");
   const allowedPricingModels = new Set(["fixed_fee", "time_and_materials"]);
   const overheadRaw = payload.overheadPercent ?? payload.overhead_percent;
+  const techAdminFeePctOverrideRaw =
+    payload.techAdminFeePctOverride ?? payload.tech_admin_fee_pct_override;
   const targetRealizationRaw = payload.targetRealizationPct ?? payload.target_realization_pct;
   const hasOverheadField =
     Object.prototype.hasOwnProperty.call(payload || {}, "overheadPercent") ||
     Object.prototype.hasOwnProperty.call(payload || {}, "overhead_percent");
+  const hasTechAdminFeePctOverrideField =
+    Object.prototype.hasOwnProperty.call(payload || {}, "techAdminFeePctOverride") ||
+    Object.prototype.hasOwnProperty.call(payload || {}, "tech_admin_fee_pct_override");
   const hasTargetRealizationField =
     Object.prototype.hasOwnProperty.call(payload || {}, "targetRealizationPct") ||
     Object.prototype.hasOwnProperty.call(payload || {}, "target_realization_pct");
@@ -3250,11 +3296,16 @@ async function updateProject(sql, payload, currentUser, accountId) {
   const hasBudget = budgetRaw !== undefined && budgetRaw !== null && budgetRaw !== "";
   const hasContract = contractRaw !== undefined && contractRaw !== null && contractRaw !== "";
   const hasOverhead = overheadRaw !== undefined && overheadRaw !== null && overheadRaw !== "";
+  const hasTechAdminFeePctOverride =
+    techAdminFeePctOverrideRaw !== undefined &&
+    techAdminFeePctOverrideRaw !== null &&
+    techAdminFeePctOverrideRaw !== "";
   const hasTargetRealization =
     targetRealizationRaw !== undefined && targetRealizationRaw !== null && targetRealizationRaw !== "";
   const budgetAmount = hasBudget ? Number(budgetRaw) : null;
   const contractAmount = hasContract ? Number(contractRaw) : null;
   const overheadPercent = hasOverhead ? Number(overheadRaw) : null;
+  const techAdminFeePctOverride = hasTechAdminFeePctOverride ? Number(techAdminFeePctOverrideRaw) : null;
   const targetRealizationPct = hasTargetRealization ? Number(targetRealizationRaw) : null;
   const hasProjectLeadField =
     Object.prototype.hasOwnProperty.call(payload || {}, "projectLeadId") ||
@@ -3283,6 +3334,13 @@ async function updateProject(sql, payload, currentUser, accountId) {
   }
   if (hasOverheadField && hasOverhead && Number.isNaN(overheadPercent)) {
     return errorResponse(400, "Overhead percent must be a number.");
+  }
+  if (
+    hasTechAdminFeePctOverrideField &&
+    hasTechAdminFeePctOverride &&
+    (Number.isNaN(techAdminFeePctOverride) || techAdminFeePctOverride < 0)
+  ) {
+    return errorResponse(400, "Tech/Admin fee override % must be a non-negative number.");
   }
   if (
     hasTargetRealizationField &&
@@ -3334,6 +3392,15 @@ async function updateProject(sql, payload, currentUser, accountId) {
       ? project.overheadPercent
       : project.overhead_percent !== undefined
         ? project.overhead_percent
+        : null;
+  const nextTechAdminFeePctOverride = hasTechAdminFeePctOverrideField
+    ? hasTechAdminFeePctOverride && !Number.isNaN(techAdminFeePctOverride) && techAdminFeePctOverride >= 0
+      ? techAdminFeePctOverride
+      : null
+    : project.techAdminFeePctOverride !== undefined
+      ? project.techAdminFeePctOverride
+      : project.tech_admin_fee_pct_override !== undefined
+        ? project.tech_admin_fee_pct_override
         : null;
   const nextTargetRealizationPct = hasTargetRealizationField
     ? hasTargetRealization && !Number.isNaN(targetRealizationPct) && targetRealizationPct >= 0
@@ -3394,6 +3461,7 @@ async function updateProject(sql, payload, currentUser, accountId) {
         contract_amount = ${nextContractAmount},
         pricing_model = ${nextPricingModel},
         overhead_percent = ${nextOverheadPercent},
+        tech_admin_fee_pct_override = ${nextTechAdminFeePctOverride},
         target_realization_pct = ${nextTargetRealizationPct},
         office_id = ${nextProjectOfficeId},
         project_department_id = ${nextProjectDepartmentId},
@@ -4418,8 +4486,12 @@ exports.handler = async function handler(event) {
         break;
       }
       case "add_project": {
-        if (!isAdmin(context.currentUser) && !isExecutive(context.currentUser)) {
-          return errorResponse(403, "Executive or Admin access required.");
+        const targetOfficeId =
+          normalizeText(request.payload?.officeId) ||
+          normalizeText(request.payload?.office_id) ||
+          null;
+        if (!can("create_project", { resourceOfficeId: targetOfficeId })) {
+          return errorResponse(403, "Access denied.");
         }
         const clientName = normalizeText(request.payload?.clientName);
         const projectName = normalizeText(request.payload?.projectName);
@@ -4571,6 +4643,10 @@ exports.handler = async function handler(event) {
           ? {
               id: normalizeText(mutationResult.id),
               name: normalizeText(mutationResult.name),
+              tech_admin_fee_pct:
+                mutationResult.techAdminFeePct === null || mutationResult.techAdminFeePct === undefined
+                  ? null
+                  : Number(mutationResult.techAdminFeePct),
             }
           : null;
         await logEntityAudit(sql, {
@@ -4590,7 +4666,7 @@ exports.handler = async function handler(event) {
         }
         const departmentId = normalizeText(request.payload?.id);
         const beforeRows = await sql`
-          SELECT id, name
+          SELECT id, name, tech_admin_fee_pct
           FROM departments
           WHERE id = ${departmentId}
             AND account_id = ${accountId}::uuid
@@ -4600,6 +4676,10 @@ exports.handler = async function handler(event) {
           ? {
               id: normalizeText(beforeRows[0].id),
               name: normalizeText(beforeRows[0].name),
+              tech_admin_fee_pct:
+                beforeRows[0].tech_admin_fee_pct === null || beforeRows[0].tech_admin_fee_pct === undefined
+                  ? null
+                  : Number(beforeRows[0].tech_admin_fee_pct),
             }
           : null;
         mutationResult = await renameDepartment(sql, request.payload || {}, accountId);
@@ -4608,6 +4688,10 @@ exports.handler = async function handler(event) {
           ? {
               id: normalizeText(mutationResult.id),
               name: normalizeText(mutationResult.name),
+              tech_admin_fee_pct:
+                mutationResult.techAdminFeePct === null || mutationResult.techAdminFeePct === undefined
+                  ? null
+                  : Number(mutationResult.techAdminFeePct),
             }
           : null;
         await logEntityAudit(sql, {
@@ -4627,7 +4711,7 @@ exports.handler = async function handler(event) {
         }
         const departmentId = normalizeText(request.payload?.id);
         const beforeRows = await sql`
-          SELECT id, name
+          SELECT id, name, tech_admin_fee_pct
           FROM departments
           WHERE id = ${departmentId}
             AND account_id = ${accountId}::uuid
@@ -4637,6 +4721,10 @@ exports.handler = async function handler(event) {
           ? {
               id: normalizeText(beforeRows[0].id),
               name: normalizeText(beforeRows[0].name),
+              tech_admin_fee_pct:
+                beforeRows[0].tech_admin_fee_pct === null || beforeRows[0].tech_admin_fee_pct === undefined
+                  ? null
+                  : Number(beforeRows[0].tech_admin_fee_pct),
             }
           : null;
         mutationResult = await deleteDepartment(sql, request.payload || {}, accountId);
@@ -4942,112 +5030,94 @@ exports.handler = async function handler(event) {
         break;
       }
       case "remove_project": {
-        let targetProject = null;
-        if (isAdmin(context.currentUser)) {
-          targetProject = await findProject(
-            sql,
-            normalizeText(request.payload?.clientName),
-            normalizeText(request.payload?.projectName),
-            accountId
-          );
-          if (!targetProject) {
-            return errorResponse(404, "Project not found.");
-          }
-          mutationResult = await runMutationWithAudit({
-            sql,
-            accountId,
-            context,
-            entityType: "project",
-            entityId: targetProject.id,
-            action: "delete",
-            runMutation: () => removeProject(sql, request.payload || {}, accountId),
-            getBeforeSnapshot: () => snapshotProjectById(sql, targetProject.id, accountId),
-            contextClientId: targetProject.client_id || null,
-            contextProjectId: targetProject.id,
-          });
-          break;
-        }
-        if (!isManager(context.currentUser)) {
-          return errorResponse(403, "Manager access required.");
-        }
         const clientName = normalizeText(request.payload?.clientName);
         const projectName = normalizeText(request.payload?.projectName);
-        targetProject = await findProject(sql, clientName, projectName, accountId);
+        const targetProject = await findProject(sql, clientName, projectName, accountId);
         if (!targetProject) {
           return errorResponse(404, "Project not found.");
         }
-        const projectRow = await sql`
-          SELECT created_by
-          FROM projects
-          WHERE id = ${targetProject.id}
-            AND account_id = ${accountId}::uuid
-          LIMIT 1
-        `;
-        const createdBy = projectRow[0]?.created_by || "";
-        if (createdBy !== context.currentUser.id) {
-          return errorResponse(403, "You can only remove projects you created.");
-      }
-      mutationResult = await runMutationWithAudit({
-        sql,
-        accountId,
-        context,
-        entityType: "project",
-        entityId: targetProject.id,
-        action: "delete",
-        runMutation: () => removeProject(sql, request.payload || {}, accountId),
-        getBeforeSnapshot: () => snapshotProjectById(sql, targetProject.id, accountId),
-        contextClientId: targetProject.client_id || null,
-        contextProjectId: targetProject.id,
-      });
-      break;
-    }
-      case "deactivate_project": {
-        let targetProject = null;
-        if (isAdmin(context.currentUser)) {
-          targetProject = await findProject(
-            sql,
-            normalizeText(request.payload?.clientName),
-            normalizeText(request.payload?.projectName),
-            accountId
-          );
-          if (!targetProject) {
-            return errorResponse(404, "Project not found.");
-          }
-          mutationResult = await runMutationWithAudit({
-            sql,
-            accountId,
-            context,
-            entityType: "project",
-            entityId: targetProject.id,
-            action: "update",
-            runMutation: () => deactivateProject(sql, request.payload || {}, accountId),
-            getSnapshot: () => snapshotProjectById(sql, targetProject.id, accountId),
-            contextClientId: targetProject.client_id || null,
-            contextProjectId: targetProject.id,
-          });
-          break;
+        const actorProjectIds = await collectUserProjectIdsForClient(
+          sql,
+          context.currentUser,
+          targetProject.client_id,
+          accountId
+        );
+        const canArchiveProject = can("archive_project", {
+          resourceOfficeId: targetProject.office_id || null,
+          projectId: targetProject.id ? String(targetProject.id) : null,
+          actorProjectIds,
+        });
+        if (!canArchiveProject) {
+          return errorResponse(403, "Access denied.");
         }
         const managerUser = isManager(context.currentUser);
-        const executiveUser = isExecutive(context.currentUser);
-        if (!managerUser && !executiveUser) {
-          return errorResponse(403, "Manager or Executive access required.");
+        if (!isAdmin(context.currentUser) && !managerUser) {
+          return errorResponse(403, "Manager access required.");
         }
+        if (!isAdmin(context.currentUser)) {
+          const projectRow = await sql`
+            SELECT created_by
+            FROM projects
+            WHERE id = ${targetProject.id}
+              AND account_id = ${accountId}::uuid
+            LIMIT 1
+          `;
+          const createdBy = projectRow[0]?.created_by || "";
+          if (createdBy !== context.currentUser.id) {
+            return errorResponse(403, "You can only remove projects you created.");
+          }
+        }
+        mutationResult = await runMutationWithAudit({
+          sql,
+          accountId,
+          context,
+          entityType: "project",
+          entityId: targetProject.id,
+          action: "delete",
+          runMutation: () => removeProject(sql, request.payload || {}, accountId),
+          getBeforeSnapshot: () => snapshotProjectById(sql, targetProject.id, accountId),
+          contextClientId: targetProject.client_id || null,
+          contextProjectId: targetProject.id,
+        });
+        break;
+      }
+      case "deactivate_project": {
         const clientName = normalizeText(request.payload?.clientName);
         const projectName = normalizeText(request.payload?.projectName);
-        targetProject = await findProject(sql, clientName, projectName, accountId);
+        const targetProject = await findProject(sql, clientName, projectName, accountId);
         if (!targetProject) {
           return errorResponse(404, "Project not found.");
         }
-        const projectRow = await sql`
-          SELECT created_by
-          FROM projects
-          WHERE id = ${targetProject.id}
-            AND account_id = ${accountId}::uuid
-          LIMIT 1
-        `;
-        const createdBy = projectRow[0]?.created_by || "";
-        if (managerUser && !executiveUser && createdBy !== context.currentUser.id) {
-          return errorResponse(403, "You can only deactivate projects you created.");
+        const actorProjectIds = await collectUserProjectIdsForClient(
+          sql,
+          context.currentUser,
+          targetProject.client_id,
+          accountId
+        );
+        const canArchiveProject = can("archive_project", {
+          resourceOfficeId: targetProject.office_id || null,
+          projectId: targetProject.id ? String(targetProject.id) : null,
+          actorProjectIds,
+        });
+        if (!canArchiveProject) {
+          return errorResponse(403, "Access denied.");
+        }
+        const executiveUser = isExecutive(context.currentUser);
+        if (!isAdmin(context.currentUser) && !managerUser && !executiveUser) {
+          return errorResponse(403, "Manager or Executive access required.");
+        }
+        if (!isAdmin(context.currentUser)) {
+          const projectRow = await sql`
+            SELECT created_by
+            FROM projects
+            WHERE id = ${targetProject.id}
+              AND account_id = ${accountId}::uuid
+            LIMIT 1
+          `;
+          const createdBy = projectRow[0]?.created_by || "";
+          if (managerUser && !executiveUser && createdBy !== context.currentUser.id) {
+            return errorResponse(403, "You can only deactivate projects you created.");
+          }
         }
         mutationResult = await runMutationWithAudit({
           sql,
@@ -5064,52 +5134,42 @@ exports.handler = async function handler(event) {
         break;
       }
       case "reactivate_project": {
-        let targetProject = null;
-        if (isAdmin(context.currentUser)) {
-          targetProject = await findProject(
-            sql,
-            normalizeText(request.payload?.clientName),
-            normalizeText(request.payload?.projectName),
-            accountId
-          );
-          if (!targetProject) {
-            return errorResponse(404, "Project not found.");
-          }
-          mutationResult = await runMutationWithAudit({
-            sql,
-            accountId,
-            context,
-            entityType: "project",
-            entityId: targetProject.id,
-            action: "update",
-            runMutation: () => reactivateProject(sql, request.payload || {}, accountId),
-            getSnapshot: () => snapshotProjectById(sql, targetProject.id, accountId),
-            contextClientId: targetProject.client_id || null,
-            contextProjectId: targetProject.id,
-          });
-          break;
-        }
-        const managerUser = isManager(context.currentUser);
-        const executiveUser = isExecutive(context.currentUser);
-        if (!managerUser && !executiveUser) {
-          return errorResponse(403, "Manager or Executive access required.");
-        }
         const clientName = normalizeText(request.payload?.clientName);
         const projectName = normalizeText(request.payload?.projectName);
-        targetProject = await findProject(sql, clientName, projectName, accountId);
+        const targetProject = await findProject(sql, clientName, projectName, accountId);
         if (!targetProject) {
           return errorResponse(404, "Project not found.");
         }
-        const projectRow = await sql`
-          SELECT created_by
-          FROM projects
-          WHERE id = ${targetProject.id}
-            AND account_id = ${accountId}::uuid
-          LIMIT 1
-        `;
-        const createdBy = projectRow[0]?.created_by || "";
-        if (managerUser && !executiveUser && createdBy !== context.currentUser.id) {
-          return errorResponse(403, "You can only reactivate projects you created.");
+        const actorProjectIds = await collectUserProjectIdsForClient(
+          sql,
+          context.currentUser,
+          targetProject.client_id,
+          accountId
+        );
+        const canArchiveProject = can("archive_project", {
+          resourceOfficeId: targetProject.office_id || null,
+          projectId: targetProject.id ? String(targetProject.id) : null,
+          actorProjectIds,
+        });
+        if (!canArchiveProject) {
+          return errorResponse(403, "Access denied.");
+        }
+        const executiveUser = isExecutive(context.currentUser);
+        if (!isAdmin(context.currentUser) && !managerUser && !executiveUser) {
+          return errorResponse(403, "Manager or Executive access required.");
+        }
+        if (!isAdmin(context.currentUser)) {
+          const projectRow = await sql`
+            SELECT created_by
+            FROM projects
+            WHERE id = ${targetProject.id}
+              AND account_id = ${accountId}::uuid
+            LIMIT 1
+          `;
+          const createdBy = projectRow[0]?.created_by || "";
+          if (managerUser && !executiveUser && createdBy !== context.currentUser.id) {
+            return errorResponse(403, "You can only reactivate projects you created.");
+          }
         }
         mutationResult = await runMutationWithAudit({
           sql,
@@ -5232,8 +5292,13 @@ exports.handler = async function handler(event) {
         );
         break;
       case "assign_manager_client": {
-        if (!isAdmin(context.currentUser) && !isExecutive(context.currentUser)) {
-          return errorResponse(403, "Executive or Admin access required.");
+        const clientName = normalizeText(request.payload?.clientName);
+        const targetClient = clientName ? await findClient(sql, clientName, accountId) : null;
+        const canAssignManagers = can("assign_project_managers", {
+          resourceOfficeId: targetClient?.office_id || null,
+        });
+        if (!canAssignManagers) {
+          return errorResponse(403, "Access denied.");
         }
         mutationResult = await assignManagerToClient(
           sql,
@@ -5244,8 +5309,13 @@ exports.handler = async function handler(event) {
         break;
       }
       case "unassign_manager_client": {
-        if (!isAdmin(context.currentUser) && !isExecutive(context.currentUser)) {
-          return errorResponse(403, "Executive or Admin access required.");
+        const clientName = normalizeText(request.payload?.clientName);
+        const targetClient = clientName ? await findClient(sql, clientName, accountId) : null;
+        const canAssignManagers = can("assign_project_managers", {
+          resourceOfficeId: targetClient?.office_id || null,
+        });
+        if (!canAssignManagers) {
+          return errorResponse(403, "Access denied.");
         }
         mutationResult = await unassignManagerFromClient(
           sql,
@@ -5255,8 +5325,16 @@ exports.handler = async function handler(event) {
         break;
       }
       case "assign_manager_project": {
-        if (!isAdmin(context.currentUser) && !isExecutive(context.currentUser)) {
-          return errorResponse(403, "Executive or Admin access required.");
+        const clientName = normalizeText(request.payload?.clientName);
+        const projectName = normalizeText(request.payload?.projectName);
+        const targetProject =
+          clientName && projectName ? await findProject(sql, clientName, projectName, accountId) : null;
+        const canAssignManagers = can("assign_project_managers", {
+          resourceOfficeId: targetProject?.office_id || null,
+          projectId: targetProject?.id ? String(targetProject.id) : null,
+        });
+        if (!canAssignManagers) {
+          return errorResponse(403, "Access denied.");
         }
         mutationResult = await assignManagerToProject(
           sql,
@@ -5267,8 +5345,16 @@ exports.handler = async function handler(event) {
         break;
       }
       case "unassign_manager_project": {
-        if (!isAdmin(context.currentUser) && !isExecutive(context.currentUser)) {
-          return errorResponse(403, "Executive or Admin access required.");
+        const clientName = normalizeText(request.payload?.clientName);
+        const projectName = normalizeText(request.payload?.projectName);
+        const targetProject =
+          clientName && projectName ? await findProject(sql, clientName, projectName, accountId) : null;
+        const canAssignManagers = can("assign_project_managers", {
+          resourceOfficeId: targetProject?.office_id || null,
+          projectId: targetProject?.id ? String(targetProject.id) : null,
+        });
+        if (!canAssignManagers) {
+          return errorResponse(403, "Access denied.");
         }
         mutationResult = await unassignManagerFromProject(
           sql,
@@ -5287,12 +5373,16 @@ exports.handler = async function handler(event) {
         break;
       }
       case "add_project_member": {
-        if (
-          !isAdmin(context.currentUser) &&
-          !isExecutive(context.currentUser) &&
-          !isManager(context.currentUser)
-        ) {
-          return errorResponse(403, "Manager access required.");
+        const clientName = normalizeText(request.payload?.clientName);
+        const projectName = normalizeText(request.payload?.projectName);
+        const targetProject =
+          clientName && projectName ? await findProject(sql, clientName, projectName, accountId) : null;
+        const canAssignMembers = can("assign_project_staff", {
+          resourceOfficeId: targetProject?.office_id || null,
+          projectId: targetProject?.id ? String(targetProject.id) : null,
+        });
+        if (!canAssignMembers) {
+          return errorResponse(403, "Access denied.");
         }
         mutationResult = await addProjectMember(
           sql,
@@ -5303,8 +5393,16 @@ exports.handler = async function handler(event) {
         break;
       }
       case "remove_project_member": {
-        if (!isAdmin(context.currentUser) && !isManager(context.currentUser)) {
-          return errorResponse(403, "Manager access required.");
+        const clientName = normalizeText(request.payload?.clientName);
+        const projectName = normalizeText(request.payload?.projectName);
+        const targetProject =
+          clientName && projectName ? await findProject(sql, clientName, projectName, accountId) : null;
+        const canAssignMembers = can("assign_project_staff", {
+          resourceOfficeId: targetProject?.office_id || null,
+          projectId: targetProject?.id ? String(targetProject.id) : null,
+        });
+        if (!canAssignMembers) {
+          return errorResponse(403, "Access denied.");
         }
         mutationResult = await removeProjectMember(
           sql,

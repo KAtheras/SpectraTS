@@ -14,7 +14,10 @@ Full-stack (Netlify Functions + Postgres) timesheet and expenses app, still embe
 - Access control: permission groups (admin/executive/manager/staff) drive visibility and actions; members tab hidden for level 2 and below.
 - Clients page visibility uses backend snapshot IDs (`visibleClientIds`, `visibleProjectIds`) as source of truth for rendered client/project lists.
 - Organization settings: practice departments, office locations, and office-by-department target realization matrix are DB-backed.
-- Project edit flow includes practice department, office location, and target realization fields.
+- Access matrix now includes clients-tab visibility and data-upload-tab visibility controls.
+- Project edit flow includes practice department, office location, target realization, and Tech/Admin fee override fields.
+- Departments include configurable Tech/Admin fee % defaults.
+- Project Planning economics includes Tech/Admin fee revenue; cost-rate column is hidden in Team Budgeting UI while cost math remains active.
 
 ## Local preview
 

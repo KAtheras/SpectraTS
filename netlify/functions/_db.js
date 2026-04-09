@@ -293,9 +293,14 @@ async function ensureSchema(sql) {
       id TEXT PRIMARY KEY,
       account_id UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
       name TEXT NOT NULL,
+      tech_admin_fee_pct NUMERIC(7,2),
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
+  `;
+  await sql`
+    ALTER TABLE departments
+    ADD COLUMN IF NOT EXISTS tech_admin_fee_pct NUMERIC(7,2)
   `;
 
   await sql`
@@ -587,6 +592,10 @@ async function ensureSchema(sql) {
   await sql`
     ALTER TABLE projects
     ADD COLUMN IF NOT EXISTS overhead_percent NUMERIC
+  `;
+  await sql`
+    ALTER TABLE projects
+    ADD COLUMN IF NOT EXISTS tech_admin_fee_pct_override NUMERIC(7,2)
   `;
   await sql`
     ALTER TABLE projects
@@ -2561,6 +2570,8 @@ async function findProject(sql, clientName, projectName, accountId) {
       projects.pricing_model AS pricing_model,
       projects.overhead_percent AS "overheadPercent",
       projects.overhead_percent AS overhead_percent,
+      projects.tech_admin_fee_pct_override AS "techAdminFeePctOverride",
+      projects.tech_admin_fee_pct_override AS tech_admin_fee_pct_override,
       projects.target_realization_pct AS "targetRealizationPct",
       projects.target_realization_pct AS target_realization_pct,
       projects.office_id AS "officeId",
@@ -2594,6 +2605,8 @@ async function listProjects(sql, accountId) {
       projects.pricing_model AS pricing_model,
       projects.overhead_percent AS "overheadPercent",
       projects.overhead_percent AS overhead_percent,
+      projects.tech_admin_fee_pct_override AS "techAdminFeePctOverride",
+      projects.tech_admin_fee_pct_override AS tech_admin_fee_pct_override,
       projects.target_realization_pct AS "targetRealizationPct",
       projects.target_realization_pct AS target_realization_pct,
       projects.office_id AS "officeId",
@@ -2736,7 +2749,8 @@ async function listDepartments(sql, accountId) {
   return sql`
     SELECT
       id,
-      name
+      name,
+      tech_admin_fee_pct AS "techAdminFeePct"
     FROM departments
     WHERE account_id = ${accountId}::uuid
     ORDER BY LOWER(name)

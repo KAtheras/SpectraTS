@@ -979,6 +979,16 @@
         : Number.isFinite(Number(projectTargetRaw))
           ? Number(projectTargetRaw)
           : null;
+    const projectTechAdminFeeRaw =
+      projectRow.techAdminFeePctOverride ?? projectRow.tech_admin_fee_pct_override;
+    const currentTechAdminFeePctOverride =
+      projectTechAdminFeeRaw === null ||
+      projectTechAdminFeeRaw === undefined ||
+      `${projectTechAdminFeeRaw}`.trim() === ""
+        ? null
+        : Number.isFinite(Number(projectTechAdminFeeRaw))
+          ? Number(projectTechAdminFeeRaw)
+          : null;
     const projectLeadId = String(projectRow?.projectLeadId || projectRow?.project_lead_id || "").trim() || null;
     const projectDepartmentId =
       String(projectRow?.projectDepartmentId || projectRow?.project_department_id || "").trim() || null;
@@ -1010,6 +1020,7 @@
       contractAmount: currentContractAmount,
       overheadPercent: currentOverheadPercent,
       targetRealizationPct: currentTargetRealizationPct,
+      techAdminFeePctOverride: currentTechAdminFeePctOverride,
       defaultTargetRealizationPct,
       projectLeadId,
       projectDepartmentId,
@@ -1025,60 +1036,64 @@
       return;
     }
     const nextName = projectDialog.projectName;
-    try {
-      await mutatePersistentState("update_project", {
-        clientName: normalizedClient,
-        projectName: normalizedProject,
-        nextName,
-        contractAmount: projectDialog.contractAmount,
-        overheadPercent: projectDialog.overheadPercent,
-        targetRealizationPct: projectDialog.targetRealizationPct,
-        project_lead_id: projectDialog.projectLeadId,
-        project_department_id: projectDialog.projectDepartmentId,
-        office_id: projectDialog.projectOfficeId,
-      }, { skipHydrate: true, refreshState: false, returnState: false });
-      if (state.filters.client === normalizedClient && state.filters.project === normalizedProject) {
-        state.filters.project = nextName.trim();
-      }
-      state.projects = (state.projects || []).map((item) => {
-        if (!item) return item;
-        const itemClient = String(item.client || "").trim();
-        const itemName = String(item.name || "").trim().toLowerCase();
-        if (itemClient !== normalizedClient || itemName !== normalizedProject.toLowerCase()) {
-          return item;
-        }
-        return {
-          ...item,
-          name: nextName,
-          project: nextName,
-          contractAmount: projectDialog.contractAmount,
-          contract_amount: projectDialog.contractAmount,
-          overheadPercent: projectDialog.overheadPercent,
-          overhead_percent: projectDialog.overheadPercent,
-          targetRealizationPct: projectDialog.targetRealizationPct,
-          target_realization_pct: projectDialog.targetRealizationPct,
-          projectLeadId: projectDialog.projectLeadId,
-          project_lead_id: projectDialog.projectLeadId,
-          projectDepartmentId: projectDialog.projectDepartmentId,
-          project_department_id: projectDialog.projectDepartmentId,
-          officeId: projectDialog.projectOfficeId,
-          office_id: projectDialog.projectOfficeId,
-        };
-      });
-      if (state.catalog?.[normalizedClient]) {
-        state.catalog[normalizedClient] = state.catalog[normalizedClient].map((name) =>
-          String(name || "").trim().toLowerCase() === normalizedProject.toLowerCase() ? nextName : name
-        );
-      }
-    } catch (error) {
-      feedback(error.message || "Unable to update project.", true);
-      return;
+    if (state.filters.client === normalizedClient && state.filters.project === normalizedProject) {
+      state.filters.project = nextName.trim();
     }
+    state.projects = (state.projects || []).map((item) => {
+      if (!item) return item;
+      const itemClient = String(item.client || "").trim();
+      const itemName = String(item.name || "").trim().toLowerCase();
+      if (itemClient !== normalizedClient || itemName !== normalizedProject.toLowerCase()) {
+        return item;
+      }
+      return {
+        ...item,
+        name: nextName,
+        project: nextName,
+        contractAmount: projectDialog.contractAmount,
+        contract_amount: projectDialog.contractAmount,
+        overheadPercent: projectDialog.overheadPercent,
+        overhead_percent: projectDialog.overheadPercent,
+        targetRealizationPct: projectDialog.targetRealizationPct,
+        target_realization_pct: projectDialog.targetRealizationPct,
+        techAdminFeePctOverride: projectDialog.techAdminFeePctOverride,
+        tech_admin_fee_pct_override: projectDialog.techAdminFeePctOverride,
+        projectLeadId: projectDialog.projectLeadId,
+        project_lead_id: projectDialog.projectLeadId,
+        projectDepartmentId: projectDialog.projectDepartmentId,
+        project_department_id: projectDialog.projectDepartmentId,
+        officeId: projectDialog.projectOfficeId,
+        office_id: projectDialog.projectOfficeId,
+      };
+    });
+    if (state.catalog?.[normalizedClient]) {
+      state.catalog[normalizedClient] = state.catalog[normalizedClient].map((name) =>
+        String(name || "").trim().toLowerCase() === normalizedProject.toLowerCase() ? nextName : name
+      );
+    }
+
+    mutatePersistentState("update_project", {
+      clientName: normalizedClient,
+      projectName: normalizedProject,
+      nextName,
+      contractAmount: projectDialog.contractAmount,
+      overheadPercent: projectDialog.overheadPercent,
+      targetRealizationPct: projectDialog.targetRealizationPct,
+      techAdminFeePctOverride: projectDialog.techAdminFeePctOverride,
+      project_lead_id: projectDialog.projectLeadId,
+      project_department_id: projectDialog.projectDepartmentId,
+      office_id: projectDialog.projectOfficeId,
+    }, { skipHydrate: true, refreshState: false, returnState: false })
+      .catch((error) => {
+        feedback(error?.message || "Unable to update project.", true);
+      })
+      .finally(() => {
+        loadPersistentStateInBackground();
+      });
 
     syncFilterCatalogsUI(state.filters);
     feedback("Project updated.", false);
     render();
-    loadPersistentStateInBackground();
   }
 
   async function openProjectDialog(options) {
@@ -1109,6 +1124,15 @@
           ? null
           : Number.isFinite(Number(currentTargetRealizationPctRaw))
             ? Number(currentTargetRealizationPctRaw)
+            : null;
+      const currentTechAdminFeePctOverrideRaw = options?.techAdminFeePctOverride;
+      const currentTechAdminFeePctOverride =
+        currentTechAdminFeePctOverrideRaw === null ||
+        currentTechAdminFeePctOverrideRaw === undefined ||
+        `${currentTechAdminFeePctOverrideRaw}`.trim() === ""
+          ? null
+          : Number.isFinite(Number(currentTechAdminFeePctOverrideRaw))
+            ? Number(currentTechAdminFeePctOverrideRaw)
             : null;
       const defaultTargetRealizationPctRaw = options?.defaultTargetRealizationPct;
       const defaultTargetRealizationPct =
@@ -1205,6 +1229,16 @@
           </div>
           <div class="project-dialog-core-row" style="grid-template-columns: repeat(2, minmax(0, 1fr));">
             <label class="project-dialog-field">
+              <span>Practice Department</span>
+              <select name="project_department_id">${departmentOptions}</select>
+            </label>
+            <label class="project-dialog-field">
+              <span>Office Location</span>
+              <select name="project_office_id">${officeOptions}</select>
+            </label>
+          </div>
+          <div class="project-dialog-core-row" style="grid-template-columns: repeat(2, minmax(0, 1fr));">
+            <label class="project-dialog-field">
               <span>Contract Amount (optional)</span>
               <input type="text" name="contract_amount" inputmode="decimal" placeholder="25000 or $25,000" />
             </label>
@@ -1224,16 +1258,6 @@
             `
             }
           </div>
-          <div class="project-dialog-core-row" style="grid-template-columns: repeat(2, minmax(0, 1fr));">
-            <label class="project-dialog-field">
-              <span>Practice Department</span>
-              <select name="project_department_id">${departmentOptions}</select>
-            </label>
-            <label class="project-dialog-field">
-              <span>Office Location</span>
-              <select name="project_office_id">${officeOptions}</select>
-            </label>
-          </div>
           ${
             isProjectEditDialog
               ? `
@@ -1242,7 +1266,10 @@
               <span>Target Realization %</span>
               <input type="text" name="target_realization_pct" inputmode="decimal" placeholder="e.g. 72.5" />
             </label>
-            <div aria-hidden="true"></div>
+            <label class="project-dialog-field">
+              <span>Tech/Admin Fee Override %</span>
+              <input type="text" name="tech_admin_fee_pct_override" inputmode="decimal" placeholder="Optional (uses department default when blank)" />
+            </label>
           </div>
           `
               : ""
@@ -1274,10 +1301,6 @@
           <h3 class="panel-subheading">Team</h3>
           <div class="project-dialog-team-grid">
             <div class="project-dialog-team-col">
-              <h4>Project Lead</h4>
-              <p class="project-dialog-team-empty" data-project-team-lead-display>Unassigned</p>
-            </div>
-            <div class="project-dialog-team-col">
               <h4>Managers</h4>
               ${renderNameList(managerNames)}
             </div>
@@ -1292,16 +1315,15 @@
         }
         <section class="project-dialog-section">
           <div class="project-dialog-actions" style="justify-content:space-between;align-items:center;">
-            <div style="display:flex;gap:8px;flex-wrap:wrap;">
-              ${
-                isProjectEditDialog
-                  ? '<button type="button" class="button button-ghost" data-project-open-planning>Open Project Planning</button>'
-                  : ""
-              }
-            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;"></div>
             <div style="display:flex;gap:10px;align-items:center;">
               <button type="button" class="button button-ghost" data-project-cancel>Cancel</button>
               <button type="submit" class="button" data-project-save>${escapeHtml(finalConfirmText)}</button>
+              ${
+                isProjectEditDialog
+                  ? '<button type="button" class="button button-ghost" data-project-open-planning>Open Project Planner</button>'
+                  : ""
+              }
             </div>
           </div>
         </section>
@@ -1317,11 +1339,16 @@
       const pricingModelSelect = form.querySelector('select[name="pricing_model"]');
       const overheadPercentInput = form.querySelector('input[name="overhead_percent"]');
       const targetRealizationInput = form.querySelector('input[name="target_realization_pct"]');
-      const teamLeadDisplay = form.querySelector("[data-project-team-lead-display]");
+      const techAdminFeeOverrideInput = form.querySelector('input[name="tech_admin_fee_pct_override"]');
       const openPlanningButton = form.querySelector("[data-project-open-planning]");
       const projectCancelButton = form.querySelector("[data-project-cancel]");
       const errorNode = form.querySelector("[data-project-dialog-error]");
       const dialogCard = refs.dialog?.querySelector(".dialog-card");
+      const projectHasExplicitTechAdminOverride = currentTechAdminFeePctOverride !== null;
+      let techAdminFeeTouched = false;
+      const onTechAdminFeeInput = () => {
+        techAdminFeeTouched = true;
+      };
       const resolveTargetRealizationForSelection = () => {
         const selectedOfficeId = String(officeSelect?.value || "").trim();
         const selectedDepartmentId = String(departmentSelect?.value || "").trim();
@@ -1335,10 +1362,28 @@
         if (raw === null || raw === undefined || `${raw}`.trim() === "") return null;
         return Number.isFinite(Number(raw)) ? Number(raw) : null;
       };
+      const resolveTechAdminFeeDefaultForSelection = () => {
+        const selectedDepartmentId = String(departmentSelect?.value || "").trim();
+        if (!selectedDepartmentId) return null;
+        const match = (state.departments || []).find(
+          (item) => String(item?.id || "").trim() === selectedDepartmentId
+        );
+        const raw = match?.techAdminFeePct ?? match?.tech_admin_fee_pct;
+        if (raw === null || raw === undefined || `${raw}`.trim() === "") return null;
+        return Number.isFinite(Number(raw)) ? Number(raw) : null;
+      };
       const syncTargetRealizationDefault = () => {
         if (!targetRealizationInput) return;
         const resolved = resolveTargetRealizationForSelection();
         targetRealizationInput.value = resolved === null ? "" : String(resolved);
+      };
+      const syncTechAdminFeeOverrideDefault = () => {
+        if (!techAdminFeeOverrideInput) return;
+        const resolved = resolveTechAdminFeeDefaultForSelection();
+        if (!projectHasExplicitTechAdminOverride && !techAdminFeeTouched) {
+          techAdminFeeOverrideInput.value = resolved === null ? "" : String(resolved);
+        }
+        techAdminFeeOverrideInput.placeholder = "Override % (optional)";
       };
       if (nameInput) {
         nameInput.value = currentName;
@@ -1361,6 +1406,10 @@
         const seedTarget = currentTargetRealizationPct !== null ? currentTargetRealizationPct : defaultTargetRealizationPct;
         targetRealizationInput.value = seedTarget !== null ? String(seedTarget) : "";
       }
+      if (techAdminFeeOverrideInput) {
+        techAdminFeeOverrideInput.value =
+          currentTechAdminFeePctOverride !== null ? String(currentTechAdminFeePctOverride) : "";
+      }
       if (leadSelect) {
         leadSelect.value = currentLeadId;
       }
@@ -1370,18 +1419,13 @@
       if (officeSelect) {
         officeSelect.value = currentProjectOfficeId;
       }
-      const syncTeamLeadDisplay = () => {
-        if (!teamLeadDisplay) return;
-        const selectedLeadId = String(leadSelect?.value || "").trim();
-        const leadName = selectedLeadId ? leadNameById.get(selectedLeadId) || "" : "";
-        teamLeadDisplay.textContent = leadName || "Unassigned";
-      };
-      syncTeamLeadDisplay();
-      leadSelect?.addEventListener("change", syncTeamLeadDisplay);
       if (isProjectEditDialog) {
         departmentSelect?.addEventListener("change", syncTargetRealizationDefault);
         officeSelect?.addEventListener("change", syncTargetRealizationDefault);
+        departmentSelect?.addEventListener("change", syncTechAdminFeeOverrideDefault);
+        techAdminFeeOverrideInput?.addEventListener("input", onTechAdminFeeInput);
       }
+      syncTechAdminFeeOverrideDefault();
 
       refs.dialogTitle.textContent = title;
       refs.dialogMessage.textContent = "";
@@ -1407,9 +1451,10 @@
       const cleanup = () => {
         refs.dialog.hidden = true;
         form.removeEventListener("submit", onSubmit);
-        leadSelect?.removeEventListener("change", syncTeamLeadDisplay);
         departmentSelect?.removeEventListener("change", syncTargetRealizationDefault);
         officeSelect?.removeEventListener("change", syncTargetRealizationDefault);
+        departmentSelect?.removeEventListener("change", syncTechAdminFeeOverrideDefault);
+        techAdminFeeOverrideInput?.removeEventListener("input", onTechAdminFeeInput);
         openPlanningButton?.removeEventListener("click", onOpenProjectPlanning);
         projectCancelButton?.removeEventListener("click", onCancel);
         form.remove();
@@ -1446,6 +1491,12 @@
           targetRealizationInput?.focus();
           return null;
         }
+        const parsedTechAdminFeeOverride = parseProjectBudgetAmount(techAdminFeeOverrideInput?.value || "");
+        if (!parsedTechAdminFeeOverride.ok) {
+          setError("Tech/Admin fee override % must be a non-negative number.");
+          techAdminFeeOverrideInput?.focus();
+          return null;
+        }
         const parsedBudget = parseProjectBudgetAmount(budgetInput?.value || "");
         if (!isProjectEditDialog && !parsedBudget.ok) {
           setError("Budget must be a non-negative number.");
@@ -1459,6 +1510,10 @@
           pricingModel: String(pricingModelSelect?.value || "fixed_fee").trim() || "fixed_fee",
           overheadPercent: parsedOverheadPercent.value,
           targetRealizationPct: parsedTargetRealization.value,
+          techAdminFeePctOverride:
+            !projectHasExplicitTechAdminOverride && !techAdminFeeTouched
+              ? null
+              : parsedTechAdminFeeOverride.value,
           projectLeadId: String(leadSelect?.value || "").trim() || null,
           projectDepartmentId: String(departmentSelect?.value || "").trim() || null,
           projectOfficeId: String(officeSelect?.value || "").trim() || null,
@@ -1498,6 +1553,51 @@
         const payload = buildProjectDialogPayload();
         if (!payload) return;
         setError("");
+        const originalClientName = String(options?.clientName || "").trim();
+        const originalProjectName = String(options?.projectName || "").trim();
+        const nextProjectName = String(payload.projectName || "").trim();
+        if (originalClientName && originalProjectName && nextProjectName) {
+          if (state.filters.client === originalClientName && state.filters.project === originalProjectName) {
+            state.filters.project = nextProjectName;
+          }
+          state.projects = (state.projects || []).map((item) => {
+            if (!item) return item;
+            const itemClient = String(item.client || "").trim();
+            const itemName = String(item.name || "").trim().toLowerCase();
+            if (itemClient !== originalClientName || itemName !== originalProjectName.toLowerCase()) {
+              return item;
+            }
+            const nextLeadId = payload.projectLeadId || null;
+            const nextLeadName = nextLeadId ? leadNameById.get(nextLeadId) || "" : "";
+            return {
+              ...item,
+              name: nextProjectName,
+              project: nextProjectName,
+              contractAmount: payload.contractAmount,
+              contract_amount: payload.contractAmount,
+              overheadPercent: payload.overheadPercent,
+              overhead_percent: payload.overheadPercent,
+              targetRealizationPct: payload.targetRealizationPct,
+              target_realization_pct: payload.targetRealizationPct,
+              techAdminFeePctOverride: payload.techAdminFeePctOverride,
+              tech_admin_fee_pct_override: payload.techAdminFeePctOverride,
+              projectLeadId: nextLeadId,
+              project_lead_id: nextLeadId,
+              projectLeadName: nextLeadName,
+              projectDepartmentId: payload.projectDepartmentId,
+              project_department_id: payload.projectDepartmentId,
+              officeId: payload.projectOfficeId,
+              office_id: payload.projectOfficeId,
+            };
+          });
+          if (state.catalog?.[originalClientName]) {
+            state.catalog[originalClientName] = state.catalog[originalClientName].map((name) =>
+              String(name || "").trim().toLowerCase() === originalProjectName.toLowerCase()
+                ? nextProjectName
+                : name
+            );
+          }
+        }
         state.currentProjectPlanningId = projectIdForPlanning;
         persistProjectPlanningId(projectIdForPlanning);
         cleanup();
@@ -1515,6 +1615,7 @@
             contractAmount: payload.contractAmount,
             overheadPercent: payload.overheadPercent,
             targetRealizationPct: payload.targetRealizationPct,
+            techAdminFeePctOverride: payload.techAdminFeePctOverride,
             project_lead_id: payload.projectLeadId,
             project_department_id: payload.projectDepartmentId,
             office_id: payload.projectOfficeId,
@@ -1523,9 +1624,11 @@
         )
           .then(function () {
             feedback("Project updated.", false);
+            loadPersistentStateInBackground();
           })
           .catch(function (error) {
             feedback(error?.message || "Unable to update project.", true);
+            loadPersistentStateInBackground();
           });
       };
       openPlanningButton?.addEventListener("click", onOpenProjectPlanning);
@@ -1548,9 +1651,9 @@
 
   async function openAddProjectDialog() {
     await ensureProjectEditorMetadataLoaded();
-    const canCreateProject = isAdmin(state.currentUser) || isExecutive(state.currentUser);
+    const canCreateProject = Boolean(state.permissions?.create_project);
     if (!canCreateProject) {
-      feedback("Only Executives or Admins can create projects.", true);
+      feedback("Access denied.", true);
       return;
     }
 
@@ -7856,7 +7959,6 @@
         refs.settingsMenuHeader.textContent = "";
       }
     }
-    const currentGroup = permissionGroupForUser(state.currentUser);
     if (refs.navSettings) {
       refs.navSettings.hidden = true;
       refs.navSettings.classList.toggle("is-active", false);
@@ -10465,6 +10567,7 @@
           {
             id: `temp-dept-${Date.now()}-${Math.random().toString(16).slice(2)}`,
             name: "",
+            techAdminFeePct: null,
           },
         ];
         window.settingsAdmin?.renderDepartments();
@@ -10560,10 +10663,20 @@
         for (const row of rows) {
           const id = String((row.dataset.departmentId || "").trim());
           const nameInput = row.querySelector("[data-department-name]");
+          const techAdminFeeInput = row.querySelector("[data-department-tech-admin-fee-pct]");
           const name = (nameInput?.value || "").trim();
+          const rawTechAdminFeePct = `${techAdminFeeInput?.value || ""}`.trim();
+          const techAdminFeePct =
+            rawTechAdminFeePct === ""
+              ? null
+              : Number(rawTechAdminFeePct);
 
           if (!name) {
             feedback("Department name is required.", true);
+            return;
+          }
+          if (rawTechAdminFeePct !== "" && (!Number.isFinite(techAdminFeePct) || techAdminFeePct < 0)) {
+            feedback("Tech/Admin fee % must be a non-negative number.", true);
             return;
           }
           const key = name.toLowerCase();
@@ -10574,13 +10687,18 @@
           seen.add(key);
 
           if (!id || id.startsWith("temp-dept-")) {
-            createOps.push({ tempId: id, name });
+            createOps.push({ tempId: id, name, techAdminFeePct });
             continue;
           }
           remainingIds.add(id);
           const prev = existingMap.get(id) || {};
-          if (prev.name !== name) {
-            renameOps.push({ id, name });
+          const prevTechAdminFeePctRaw = prev.techAdminFeePct ?? prev.tech_admin_fee_pct;
+          const prevTechAdminFeePct =
+            prevTechAdminFeePctRaw === null || prevTechAdminFeePctRaw === undefined || `${prevTechAdminFeePctRaw}`.trim() === ""
+              ? null
+              : Number(prevTechAdminFeePctRaw);
+          if (prev.name !== name || prevTechAdminFeePct !== techAdminFeePct) {
+            renameOps.push({ id, name, techAdminFeePct });
           }
         }
 
@@ -10595,7 +10713,7 @@
           for (const op of createOps) {
             const created = await mutatePersistentState(
               "create_department",
-              { name: op.name },
+              { name: op.name, techAdminFeePct: op.techAdminFeePct },
               settingsSaveFastOptions()
             );
             const createdId = `${created?.id || ""}`.trim();
@@ -10606,7 +10724,7 @@
           for (const op of renameOps) {
             await mutatePersistentState(
               "rename_department",
-              { id: op.id, name: op.name },
+              { id: op.id, name: op.name, techAdminFeePct: op.techAdminFeePct },
               settingsSaveFastOptions()
             );
           }
@@ -10620,11 +10738,18 @@
                 createdByTempId.get(rawId) ||
                 (rawId && !rawId.startsWith("temp-dept-") ? rawId : "");
               const nameInput = row.querySelector("[data-department-name]");
+              const techAdminFeeInput = row.querySelector("[data-department-tech-admin-fee-pct]");
               const name = (nameInput?.value || "").trim();
+              const rawTechAdminFeePct = `${techAdminFeeInput?.value || ""}`.trim();
+              const techAdminFeePct =
+                rawTechAdminFeePct === ""
+                  ? null
+                  : Number(rawTechAdminFeePct);
               if (!name) return null;
               return {
                 id: resolvedId || `temp-dept-${Date.now()}-${Math.random().toString(16).slice(2)}`,
                 name,
+                techAdminFeePct,
               };
             })
             .filter(Boolean);
@@ -10774,8 +10899,8 @@
   if (refs.addClientForm && refs.addClientForm.isConnected) {
     refs.addClientForm.addEventListener("submit", async function (event) {
       event.preventDefault();
-      if (!isAdmin(state.currentUser)) {
-        feedback("Only Admins can add clients.", true);
+      if (!state.permissions?.create_client) {
+        feedback("Access denied.", true);
         return;
       }
       const clientNameField = field(refs.addClientForm, "client_name");
@@ -10822,11 +10947,15 @@
       const form = event.target.closest("[data-client-editor-form]");
       if (!form) return;
       event.preventDefault();
-      if (!isAdmin(state.currentUser)) {
-        feedback("Only Admins can save clients.", true);
+      const editor = state.clientEditor;
+      const canSaveClient =
+        editor?.mode === "edit"
+          ? Boolean(state.permissions?.edit_client)
+          : Boolean(state.permissions?.create_client);
+      if (!canSaveClient) {
+        feedback("Access denied.", true);
         return;
       }
-      const editor = state.clientEditor;
       if (!editor) return;
       const values = readClientEditorForm(form);
       values.clientLeadId = String(field(form, "client_lead_id")?.value || "").trim() || null;
@@ -10942,8 +11071,8 @@
   refs.clientList.addEventListener("click", async function (event) {
     const editButton = event.target.closest("[data-edit-client]");
     if (editButton) {
-      if (!isAdmin(state.currentUser)) {
-        feedback("Only Admins can edit clients.", true);
+      if (!state.permissions?.edit_client) {
+        feedback("Access denied.", true);
         return;
       }
       const clientName = editButton.dataset.editClient;
@@ -11050,8 +11179,8 @@
     }
 
     if (deleteButton) {
-      if (!isAdmin(state.currentUser)) {
-        feedback("Only Admins can remove clients.", true);
+      if (!state.permissions?.archive_client) {
+        feedback("Access denied.", true);
         return;
       }
       const clientName = deleteButton.dataset.deleteClient;
@@ -11206,8 +11335,8 @@
 
     const assignManagersProject = event.target.closest("[data-assign-managers-project]");
     if (assignManagersProject) {
-      if (!isAdmin(state.currentUser)) {
-        feedback("Only Admins can assign managers.", true);
+      if (!state.permissions?.assign_project_managers) {
+        feedback("Access denied.", true);
         return;
       }
       memberModalState.mode = "project-assign-manager";
@@ -11219,8 +11348,8 @@
 
     const unassignManagersProject = event.target.closest("[data-unassign-managers-project]");
     if (unassignManagersProject) {
-      if (!isAdmin(state.currentUser)) {
-        feedback("Only Admins can unassign managers.", true);
+      if (!state.permissions?.assign_project_managers) {
+        feedback("Access denied.", true);
         return;
       }
       memberModalState.mode = "project-unassign-manager";
@@ -11246,10 +11375,11 @@
     if (deactivateButton || reactivateButton) {
       const projectName = deactivateButton?.dataset.deactivateProject || reactivateButton?.dataset.reactivateProject;
       const canManageProjectLifecycle =
-        isAdmin(state.currentUser) ||
-        isExecutive(state.currentUser) ||
-        (isManager(state.currentUser) &&
-          projectCreatedBy(state.selectedCatalogClient, projectName) === state.currentUser?.id);
+        Boolean(state.permissions?.remove_project) &&
+        (isAdmin(state.currentUser) ||
+          isExecutive(state.currentUser) ||
+          (isManager(state.currentUser) &&
+            projectCreatedBy(state.selectedCatalogClient, projectName) === state.currentUser?.id));
       if (!canManageProjectLifecycle) {
         feedback("Managers can only manage projects they created.", true);
         return;
@@ -11375,10 +11505,11 @@
     if (deleteButton) {
       const projectName = deleteButton.dataset.deleteProject;
       const canDeleteProject =
-        isAdmin(state.currentUser) ||
-        (isManager(state.currentUser) &&
-          projectCreatedBy(state.selectedCatalogClient, projectName) ===
-            state.currentUser?.id);
+        Boolean(state.permissions?.remove_project) &&
+        (isAdmin(state.currentUser) ||
+          (isManager(state.currentUser) &&
+            projectCreatedBy(state.selectedCatalogClient, projectName) ===
+              state.currentUser?.id));
       if (!canDeleteProject) {
         feedback("Managers can only remove projects they created.", true);
         return;
