@@ -2497,7 +2497,7 @@ async function getSessionContext(sql, event, request) {
     currentUser: rows[0]
       ? {
           ...rows[0],
-          role: rows[0].role,
+          role: normalizeText(rows[0].permissionGroup || rows[0].role).toLowerCase() || rows[0].role,
           level: normalizeLevel(rows[0].level),
           permissionGroup: rows[0].permissionGroup,
           officeId: rows[0].officeId,
@@ -3706,6 +3706,12 @@ async function loadSettingsMetadata(sql, currentUser) {
   const normalizedUser = currentUser
     ? {
         ...currentUser,
+        role:
+          currentUser.role ||
+          currentUser.permissionGroup ||
+          currentUser.permission_group ||
+          currentUser.permissiongroup ||
+          null,
         permissionGroup:
           currentUser.permissionGroup || currentUser.permission_group || currentUser.permissiongroup,
         level: normalizeLevel(currentUser.level),
@@ -3808,6 +3814,12 @@ async function loadState(sql, currentUser) {
   const normalizedUser = currentUser
     ? {
         ...currentUser,
+        role:
+          currentUser.role ||
+          currentUser.permissionGroup ||
+          currentUser.permission_group ||
+          currentUser.permissiongroup ||
+          null,
         permissionGroup:
           currentUser.permissionGroup || currentUser.permission_group || currentUser.permissiongroup,
         level: normalizeLevel(currentUser.level),
@@ -3841,6 +3853,7 @@ async function loadState(sql, currentUser) {
   const isManagerFlag = currentGroup === "manager" || isExecFlag || isAdminFlag;
   const isStaffFlag = currentGroup === "staff";
   if (normalizedUser) {
+    normalizedUser.role = currentGroup;
     normalizedUser.permissionGroup = currentGroup;
     normalizedUser.permission_group = currentGroup;
   }
