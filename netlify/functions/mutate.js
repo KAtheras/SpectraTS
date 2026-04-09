@@ -4913,7 +4913,7 @@ exports.handler = async function handler(event) {
             capability: normalizeText(item?.capability || item?.capability_key),
             allowed: !!item?.allowed,
           }))
-          .filter((item) => item.role && item.capability && ACCESS_MATRIX_CAPABILITY_KEYS.has(item.capability));
+          .filter((item) => item.role && item.capability);
 
         // Do not allow superuser permissions to be modified through this matrix.
         const filtered = normalized.filter((item) => item.role !== "superuser");
@@ -4949,6 +4949,13 @@ exports.handler = async function handler(event) {
         }
         const roleIdByKey = new Map(roles.map((r) => [r.key, r.id]));
         const capIdByKey = new Map(caps.map((c) => [c.key, c.id]));
+        const missingRoles = roleKeysAll.filter((key) => !roleIdByKey.has(key));
+        const missingCaps = capKeysAll.filter((key) => !capIdByKey.has(key));
+        if (missingRoles.length || missingCaps.length) {
+          const roleText = missingRoles.length ? ` Unknown roles: ${missingRoles.join(",")}.` : "";
+          const capText = missingCaps.length ? ` Unknown capabilities: ${missingCaps.join(",")}.` : "";
+          return errorResponse(400, `Invalid role permissions payload.${roleText}${capText}`);
+        }
 
         // Upsert allowed pairs
         for (const { role, capability } of allowedPairs) {
