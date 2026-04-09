@@ -233,17 +233,21 @@
       if (actions) {
         const buttons = Array.from(actions.querySelectorAll("button"));
         buttons.forEach((btn) => {
+          const btnText = `${btn.textContent || ""}`.trim().toLowerCase();
+          const isAddAction =
+            btn.id.startsWith("add-") ||
+            btn.hasAttribute("data-settings-add") ||
+            btnText.startsWith("add ");
           if (btn.type === "submit" || btn.id.startsWith("save-")) {
             btn.remove();
             return;
           }
-          const isAdd =
-            btn.id.startsWith("add-") ||
-            btn.classList.contains("button-ghost");
-          if (isAdd) {
-            if (btn.parentElement !== left) left.appendChild(btn);
-          } else if (btn.type === "submit" || btn.id.startsWith("save-")) {
+          if (isAddAction) {
+            btn.classList.remove("button-ghost");
+            btn.classList.add("settings-add-action");
             if (btn.parentElement !== right) right.appendChild(btn);
+          } else {
+            if (btn.parentElement !== left) left.appendChild(btn);
           }
         });
         if (!actions.querySelector("button")) {
@@ -482,6 +486,17 @@
           #settings-page .settings-section-right .button,
           #settings-page .settings-section-left .button{
             margin:0;
+          }
+          #settings-page .button.settings-add-action,
+          #settings-page .button.settings-add-action.button-ghost{
+            background:var(--accent);
+            border-color:color-mix(in srgb, var(--accent) 60%, transparent);
+            color:var(--selected-ink);
+          }
+          #settings-page .button.settings-add-action:hover,
+          #settings-page .button.settings-add-action.button-ghost:hover{
+            background:var(--accent-deep);
+            border-color:color-mix(in srgb, var(--accent-deep) 60%, transparent);
           }
           #settings-page .settings-section-content{
             display:grid;
@@ -1482,13 +1497,13 @@
             ${rows || ""}
           </div>
           <div class="corporate-group-actions" ${isCollapsed ? "hidden" : ""}>
-            <button
-              class="button button-ghost"
-              type="button"
-              data-corporate-add-category="${escapeHtml(groupId)}"
-              ${editable ? "" : "disabled"}
-            >
-              Add category
+              <button
+                class="button settings-add-action"
+                type="button"
+                data-corporate-add-category="${escapeHtml(groupId)}"
+                ${editable ? "" : "disabled"}
+              >
+                Add category
             </button>
           </div>
         </section>
@@ -1504,7 +1519,7 @@
               <p class="settings-section-subtitle">Internal / non-client work</p>
             </div>
             <div class="settings-section-right corporate-toolbar">
-              <button class="button button-ghost corporate-pill" type="button" data-corporate-add-group ${editable ? "" : "disabled"}>Add group</button>
+              <button class="button corporate-pill settings-add-action" type="button" data-corporate-add-group ${editable ? "" : "disabled"}>Add group</button>
             </div>
           </div>
           <div class="settings-section-content">
@@ -3553,7 +3568,7 @@
       projectColumn.innerHTML = `
         <div class="expense-categories-column-header">
           <h4>Project Expense Categories</h4>
-          <button type="button" class="button button-ghost" data-project-expense-add>Add category</button>
+          <button type="button" class="button settings-add-action" data-project-expense-add>Add category</button>
         </div>
         <div class="level-rows" data-project-expense-rows></div>
       `;

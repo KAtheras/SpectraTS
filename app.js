@@ -2530,7 +2530,7 @@
           <h3>Departments</h3>
           <div class="level-rows" id="department-rows"></div>
           <div class="level-labels-actions">
-            <button class="button button-ghost" type="button" id="add-department">Add department</button>
+            <button class="button settings-add-action" type="button" id="add-department">Add department</button>
           </div>
         </div>
       `;
