@@ -4028,7 +4028,7 @@ async function loadState(sql, currentUser) {
         }
       });
     }
-    if (canEditProjectsIfProjectLead) {
+    if (canSeeAssignedClientsProjects || canEditProjectsIfProjectLead) {
       allProjects.forEach((project) => {
         const projectLeadId = normalizeText(project?.projectLeadId || project?.project_lead_id);
         if (projectLeadId && projectLeadId === normalizeText(normalizedUser?.id)) {
@@ -4056,14 +4056,13 @@ async function loadState(sql, currentUser) {
   let clients = allClients.filter((client) => {
     if (!normalizedUser || !canAccessClientsShell) return false;
     if (hasGlobalClientsProjectsScope) {
-      const officeId = client.officeId ?? client.office_id ?? null;
       return Boolean(
-        canCap("see_all_clients_projects", { resourceOfficeId: officeId }) ||
-          canCap("manage_clients_lifecycle", { resourceOfficeId: officeId }) ||
-          canCap("manage_projects_lifecycle", { resourceOfficeId: officeId }) ||
-          canCap("edit_clients", { resourceOfficeId: officeId }) ||
-          canCap("edit_projects_all_modal", { resourceOfficeId: officeId }) ||
-          canCap("edit_project_planning_all", { resourceOfficeId: officeId })
+        canSeeAllClientsProjects ||
+          canManageClientsLifecycle ||
+          canManageProjectsLifecycle ||
+          canEditClients ||
+          canEditProjectsAllModal ||
+          canEditProjectPlanningAll
       );
     }
     if (!hasAssignedClientsProjectsScope) return false;
@@ -4748,13 +4747,12 @@ async function loadState(sql, currentUser) {
   const projects = allProjects.filter((project) => {
     if (!normalizedUser || !canAccessClientsShell) return false;
     const projectId = normalizeText(project.id);
-    const officeId = project.officeId ?? project.office_id ?? null;
     if (hasGlobalClientsProjectsScope) {
       return Boolean(
-        canCap("see_all_clients_projects", { resourceOfficeId: officeId, projectId, actorProjectIds }) ||
-          canCap("manage_projects_lifecycle", { resourceOfficeId: officeId, projectId, actorProjectIds }) ||
-          canCap("edit_projects_all_modal", { resourceOfficeId: officeId, projectId, actorProjectIds }) ||
-          canCap("edit_project_planning_all", { resourceOfficeId: officeId, projectId, actorProjectIds })
+        canSeeAllClientsProjects ||
+          canManageProjectsLifecycle ||
+          canEditProjectsAllModal ||
+          canEditProjectPlanningAll
       );
     }
     if (!hasAssignedClientsProjectsScope) return false;
