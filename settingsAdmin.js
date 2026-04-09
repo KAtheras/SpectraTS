@@ -43,6 +43,7 @@
   let delegationsSaveQueued = false;
   let permissionsSaveInFlight = false;
   let permissionsSaveQueued = false;
+  let permissionsQueuedSnapshot = null;
   let expenseCategoriesSaveInFlight = false;
   let expenseCategoriesSaveQueued = false;
   let projectExpenseCategoriesDraft = [];
@@ -301,6 +302,37 @@
       { key: "tools", label: "TOOLS", tabs: ["bulk_upload"] },
     ];
     const allowedSet = new Set(allowedTabs());
+    const regroupSettingsTabButtons = function () {
+      const tabsContainer = document.querySelector("#settings-page .settings-tabs");
+      if (!tabsContainer) return;
+      const buttonByTab = new Map(
+        Array.from(tabsContainer.querySelectorAll("[data-settings-tab-button]"))
+          .map((btn) => [String(btn.dataset.settingsTabButton || "").trim(), btn])
+          .filter(([key]) => Boolean(key))
+      );
+      Array.from(tabsContainer.querySelectorAll("[data-settings-group]")).forEach((groupNode) => {
+        groupNode.remove();
+      });
+      settingsTabGroups.forEach((group) => {
+        const section = document.createElement("div");
+        section.className = "settings-tab-group";
+        section.dataset.settingsGroup = group.key;
+        const label = document.createElement("div");
+        label.className = "settings-tab-group-label";
+        label.textContent = group.label;
+        section.appendChild(label);
+        let hasVisibleButton = false;
+        group.tabs.forEach((tabKey) => {
+          if (!allowedSet.has(tabKey)) return;
+          const btn = buttonByTab.get(tabKey);
+          if (!btn) return;
+          section.appendChild(btn);
+          hasVisibleButton = true;
+        });
+        section.hidden = !hasVisibleButton;
+        tabsContainer.appendChild(section);
+      });
+    };
     const { tabButtons } = settingsTabElements();
     tabButtons.forEach(function (btn) {
       const key = btn.dataset.settingsTabButton;
@@ -352,30 +384,6 @@
         if (tabsContainer.parentElement !== navShell) {
           navShell.appendChild(tabsContainer);
         }
-        settingsTabGroups.forEach((group) => {
-          let section = tabsContainer.querySelector(`[data-settings-group="${group.key}"]`);
-          if (!section) {
-            section = document.createElement("div");
-            section.className = "settings-tab-group";
-            section.dataset.settingsGroup = group.key;
-            const label = document.createElement("div");
-            label.className = "settings-tab-group-label";
-            label.textContent = group.label;
-            section.appendChild(label);
-            tabsContainer.appendChild(section);
-          }
-
-          let hasVisibleButton = false;
-          group.tabs.forEach((tabKey) => {
-            if (!allowedSet.has(tabKey)) return;
-            const btn = tabsContainer.querySelector(`[data-settings-tab-button="${tabKey}"]`);
-            if (!btn) return;
-            section.appendChild(btn);
-            hasVisibleButton = true;
-          });
-
-          section.hidden = !hasVisibleButton;
-        });
         if (panelsContainer.parentElement !== contentShell) {
           contentShell.appendChild(panelsContainer);
         }
@@ -1387,6 +1395,7 @@
         }
       }
     }
+    regroupSettingsTabButtons();
     arrangeSettingsSectionHeaders();
     if (!isMobileSettingsLayout()) {
       mobileSettingsMode = "list";
@@ -2638,7 +2647,12 @@
           const result = await deps().mutatePersistentState(
             "save_delegate_capabilities",
             { delegateUserId, capabilities: selectedCaps },
-            { skipHydrate: true }
+            {
+              skipHydrate: true,
+              returnState: false,
+              refreshState: false,
+              skipSettingsMetadataReload: true,
+            }
           );
           if (Array.isArray(result?.myDelegations)) {
             state.myDelegations = result.myDelegations
@@ -2648,6 +2662,18 @@
                 capability: `${item?.capability || ""}`.trim(),
               }))
               .filter((item) => item.delegateUserId && item.delegateName && item.capability);
+          } else {
+            const delegateName =
+              delegates.find((item) => `${item.id || ""}`.trim() === delegateUserId)?.name || "";
+            const retained = (state.myDelegations || []).filter(
+              (item) => `${item?.delegateUserId || ""}`.trim() !== delegateUserId
+            );
+            const appended = selectedCaps.map((capability) => ({
+              delegateUserId,
+              delegateName,
+              capability,
+            }));
+            state.myDelegations = [...retained, ...appended];
           }
           delegationsDraftCapabilitiesByDelegateId.delete(delegateUserId);
           deps().feedback(selectedCaps.length ? "Delegation saved." : "Delegation removed.", false);
@@ -2806,7 +2832,19 @@
         clearTimeout(existing);
       }
       const timer = setTimeout(async () => {
+        const collectSnapshot = () => {
+          const inputs = Array.from(livePanel.querySelectorAll("[data-perm-role][data-perm-cap]"));
+          return inputs
+            .filter((input) => input.dataset.permRole !== "superuser" && input.dataset.permLocked !== "true")
+            .map((input) => ({
+              role: input.dataset.permRole,
+              capability: input.dataset.permCap,
+              allowed: Boolean(input.checked),
+            }));
+        };
+        const next = collectSnapshot();
         if (permissionsSaveInFlight) {
+          permissionsQueuedSnapshot = next;
           permissionsSaveQueued = true;
           return;
         }
@@ -2818,20 +2856,12 @@
             .filter((p) => p.allowed && p.scope_key === "own_office")
             .map((p) => `${p.role_key}|${p.capability_key}`)
         );
-        const inputs = Array.from(livePanel.querySelectorAll("[data-perm-role][data-perm-cap]"));
-        const next = [];
         let changedCount = 0;
-        inputs.forEach((input) => {
-          const roleKey = input.dataset.permRole;
-          if (roleKey === "superuser" || input.dataset.permLocked === "true") {
-            return;
-          }
-          const capKey = input.dataset.permCap;
-          const allowed = input.checked;
-          if (allowed !== currentAllowedSet.has(`${roleKey}|${capKey}`)) {
+        next.forEach((item) => {
+          if (!item.role || !item.capability) return;
+          if (item.allowed !== currentAllowedSet.has(`${item.role}|${item.capability}`)) {
             changedCount += 1;
           }
-          next.push({ role: roleKey, capability: capKey, allowed });
         });
         if (!changedCount) {
           return;
@@ -2842,18 +2872,52 @@
             "update_role_permissions",
             { rolePermissions: next },
             {
-              skipHydrate: false,
+              skipHydrate: true,
+              returnState: false,
               skipSettingsMetadataReload: true,
               refreshState: false,
             }
           );
+          const stateRolePerms = Array.isArray(deps().state?.rolePermissions)
+            ? deps().state.rolePermissions
+            : [];
+          const preservedRows = stateRolePerms.filter(
+            (row) => `${row?.scope_key || ""}`.trim() !== "own_office"
+          );
+          const ownOfficeAllowedRows = next
+            .filter((row) => row.allowed)
+            .map((row) => ({
+              role_key: `${row.role || ""}`.trim(),
+              capability_key: `${row.capability || ""}`.trim(),
+              scope_key: "own_office",
+              allowed: true,
+            }))
+            .filter((row) => row.role_key && row.capability_key);
+          deps().state.rolePermissions = [...preservedRows, ...ownOfficeAllowedRows];
           deps().feedback("Access updated.", false);
         } catch (error) {
           deps().feedback(error.message || "Unable to save access.", true);
+          permissionsQueuedSnapshot = null;
         } finally {
           permissionsSaveInFlight = false;
           if (permissionsSaveQueued) {
             permissionsSaveQueued = false;
+            const queuedSnapshot = Array.isArray(permissionsQueuedSnapshot)
+              ? permissionsQueuedSnapshot
+              : null;
+            permissionsQueuedSnapshot = null;
+            if (queuedSnapshot) {
+              const livePanelNow = document.querySelector('[data-settings-tab="permissions"]');
+              if (livePanelNow) {
+                queuedSnapshot.forEach((row) => {
+                  const selector = `[data-perm-role="${row.role}"][data-perm-cap="${row.capability}"]`;
+                  const input = livePanelNow.querySelector(selector);
+                  if (input && input.dataset.permLocked !== "true") {
+                    input.checked = Boolean(row.allowed);
+                  }
+                });
+              }
+            }
             schedulePermissionsSave();
           }
         }
