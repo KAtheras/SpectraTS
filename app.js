@@ -6950,9 +6950,10 @@
 
   function visibleCatalogClientNames(options = {}) {
     const candidateClients = catalogClientNames(options);
-    if (!(options?.forCatalogView && state.currentView === "clients" && state.visibilitySnapshotReady)) {
+    if (!(options?.forCatalogView && state.currentView === "clients")) {
       return candidateClients;
     }
+    if (!state.visibilitySnapshotReady) return [];
     const visibleClientIdSet = new Set((state.visibleClientIds || []).map((id) => `${id || ""}`.trim()));
     const visibleClientNames = new Set(
       (state.clients || [])
@@ -6986,9 +6987,10 @@
 
   function visibleCatalogProjectNames(client, options = {}) {
     const candidateProjects = catalogProjectNames(client, options);
-    if (!(options?.forCatalogView && state.currentView === "clients" && state.visibilitySnapshotReady)) {
+    if (!(options?.forCatalogView && state.currentView === "clients")) {
       return candidateProjects;
     }
+    if (!state.visibilitySnapshotReady) return [];
     const selectedClient = `${client || ""}`.trim();
     const visibleProjectIdSet = new Set((state.visibleProjectIds || []).map((id) => `${id || ""}`.trim()));
     const visibleProjectNames = new Set(
@@ -8740,12 +8742,6 @@
         visibleCatalogProjectNames,
         isClientActive,
         isProjectActive,
-        isAdmin,
-        isExecutive,
-        isManager,
-        canManagerAccessClient,
-        projectCreatedBy,
-        canManagerAccessProject,
         projectHours,
         formatNameList,
         userNamesForIds,

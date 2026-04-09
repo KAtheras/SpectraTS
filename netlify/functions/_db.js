@@ -4010,9 +4010,31 @@ async function loadState(sql, currentUser) {
   const hasAssignedClientsProjectsScope = Boolean(
     canSeeAssignedClientsProjects || canEditProjectsIfProjectLead
   );
+  const clientsProjectsScopeMode =
+    !normalizedUser || !canAccessClientsShell
+      ? "none"
+      : hasGlobalClientsProjectsScope
+        ? "global"
+        : hasAssignedClientsProjectsScope
+          ? "assigned"
+          : "none";
+  const allClients = await listClients(sql, accountUuid);
   const allProjects = await listProjects(sql, accountUuid);
   let actorProjectIds = [];
-  if (normalizedUser) {
+  if (clientsProjectsScopeMode === "assigned") {
+    const actorUserId = normalizeText(normalizedUser?.id);
+    const actorClientLeadIds = [];
+    if (actorUserId) {
+      allClients.forEach((client) => {
+        const clientLeadId = normalizeText(client?.clientLeadId || client?.client_lead_id);
+        if (clientLeadId && clientLeadId === actorUserId) {
+          const clientId = normalizeText(client?.id);
+          if (clientId) {
+            actorClientLeadIds.push(clientId);
+          }
+        }
+      });
+    }
     actorProjectIds = [
       ...new Set([
         ...actorMemberProjectAssignments.map((row) => normalizeText(row?.projectId)),
@@ -4028,21 +4050,35 @@ async function loadState(sql, currentUser) {
         }
       });
     }
-    if (canSeeAssignedClientsProjects || canEditProjectsIfProjectLead) {
+    allProjects.forEach((project) => {
+      const projectLeadId = normalizeText(project?.projectLeadId || project?.project_lead_id);
+      if (projectLeadId && projectLeadId === actorUserId) {
+        const projectId = normalizeText(project?.id);
+        if (projectId) {
+          actorProjectIds.push(projectId);
+        }
+      }
+    });
+    if (actorClientLeadIds.length) {
+      const actorClientLeadIdSet = new Set(actorClientLeadIds);
       allProjects.forEach((project) => {
-        const projectLeadId = normalizeText(project?.projectLeadId || project?.project_lead_id);
-        if (projectLeadId && projectLeadId === normalizeText(normalizedUser?.id)) {
-          const projectId = normalizeText(project?.id);
-          if (projectId) {
-            actorProjectIds.push(projectId);
-          }
+        const projectClientId = normalizeText(project?.clientId ?? project?.client_id);
+        if (!projectClientId || !actorClientLeadIdSet.has(projectClientId)) return;
+        const projectId = normalizeText(project?.id);
+        if (projectId) {
+          actorProjectIds.push(projectId);
         }
       });
     }
     actorProjectIds = [...new Set(actorProjectIds)];
   }
   const actorClientIdsFromProjects = new Set();
-  const allClients = await listClients(sql, accountUuid);
+  actorManagerClientAssignments.forEach((row) => {
+    const clientId = normalizeText(row?.clientId || row?.client_id);
+    if (clientId) {
+      actorClientIdsFromProjects.add(clientId);
+    }
+  });
   if (actorProjectIds.length) {
     allProjects.forEach((project) => {
       const projectId = normalizeText(project?.id);
@@ -4053,23 +4089,38 @@ async function loadState(sql, currentUser) {
       }
     });
   }
-  let clients = allClients.filter((client) => {
-    if (!normalizedUser || !canAccessClientsShell) return false;
-    if (hasGlobalClientsProjectsScope) {
-      return Boolean(
-        canSeeAllClientsProjects ||
-          canManageClientsLifecycle ||
-          canManageProjectsLifecycle ||
-          canEditClients ||
-          canEditProjectsAllModal ||
-          canEditProjectPlanningAll
-      );
-    }
-    if (!hasAssignedClientsProjectsScope) return false;
-    const clientId = normalizeText(client?.id);
-    if (!clientId) return false;
-    return actorClientIdsFromProjects.has(clientId);
-  });
+  const visibleProjects =
+    clientsProjectsScopeMode === "global"
+      ? allProjects
+      : clientsProjectsScopeMode === "assigned"
+        ? allProjects.filter((project) => {
+            const projectId = normalizeText(project?.id);
+            return Boolean(projectId) && actorProjectIds.includes(projectId);
+          })
+        : [];
+  const visibleClientIdSet = new Set(
+    visibleProjects
+      .map((project) => normalizeText(project?.clientId ?? project?.client_id))
+      .filter(Boolean)
+  );
+  if (clientsProjectsScopeMode === "assigned") {
+    actorClientIdsFromProjects.forEach((clientId) => {
+      const normalizedClientId = normalizeText(clientId);
+      if (normalizedClientId) {
+        visibleClientIdSet.add(normalizedClientId);
+      }
+    });
+  }
+  const clients =
+    clientsProjectsScopeMode === "global"
+      ? allClients
+      : clientsProjectsScopeMode === "assigned"
+        ? allClients.filter((client) => {
+            const clientId = normalizeText(client?.id);
+            if (!clientId) return false;
+            return visibleClientIdSet.has(clientId);
+          })
+        : [];
   const allUsers = normalizedUser ? await listUsers(sql, accountUuid) : [];
   const canViewInternalRecords = isAdminFlag;
   const currentUserId = normalizeText(normalizedUser?.id || "");
@@ -4744,20 +4795,7 @@ async function loadState(sql, currentUser) {
     }
   }
 
-  const projects = allProjects.filter((project) => {
-    if (!normalizedUser || !canAccessClientsShell) return false;
-    const projectId = normalizeText(project.id);
-    if (hasGlobalClientsProjectsScope) {
-      return Boolean(
-        canSeeAllClientsProjects ||
-          canManageProjectsLifecycle ||
-          canEditProjectsAllModal ||
-          canEditProjectPlanningAll
-      );
-    }
-    if (!hasAssignedClientsProjectsScope) return false;
-    return Boolean(projectId) && actorProjectIds.includes(projectId);
-  });
+  const projects = visibleProjects;
   const visibilitySnapshot = {
     visibleClientIds: clients
       .map((client) => normalizeText(client?.id))
@@ -4766,6 +4804,12 @@ async function loadState(sql, currentUser) {
       .map((project) => normalizeText(project?.id))
       .filter(Boolean),
   };
+  const visibleClientIds = visibilitySnapshot.visibleClientIds
+    .map((id) => Number(id))
+    .filter((id) => Number.isFinite(id));
+  const visibleProjectIds = visibilitySnapshot.visibleProjectIds
+    .map((id) => Number(id))
+    .filter((id) => Number.isFinite(id));
   // Expense categories are needed for expense entry even if the user cannot
   // manage categories in Settings. Always return active categories; the
   // Settings UI is still gated by settingsAccess.manageCategories.
@@ -4787,30 +4831,23 @@ async function loadState(sql, currentUser) {
     managerProjects: [],
     projectMembers: [],
   };
-  const scopedClientIds = Array.from(actorClientIdsFromProjects)
-    .map((id) => Number(id))
-    .filter((id) => Number.isFinite(id));
+  const scopedClientIds = visibleClientIds;
+  const scopedProjectIds = visibleProjectIds;
 
   if (isAdminFlag) {
     assignments.managerClients = await listManagerClientAssignments(sql, accountUuid);
     assignments.managerProjects = await listManagerProjectAssignments(sql, accountUuid);
     assignments.projectMembers = await listProjectMembers(sql, accountUuid);
   } else if (isManagerFlag && normalizedUser) {
-    const scope = await getManagerScope(sql, normalizedUser.id, accountUuid);
-    const { clientRows, projectRows } = await listManagerAssignmentsForUser(
-      sql,
-      normalizedUser.id,
-      accountUuid
-    );
     assignments.managerClients = scopedClientIds.length
       ? await listManagerClientAssignmentsForClients(sql, scopedClientIds, accountUuid)
-      : clientRows;
-    assignments.managerProjects = scope.projectIds.length
-      ? await listManagerProjectAssignmentsForProjects(sql, scope.projectIds, accountUuid)
-      : projectRows;
+      : [];
+    assignments.managerProjects = scopedProjectIds.length
+      ? await listManagerProjectAssignmentsForProjects(sql, scopedProjectIds, accountUuid)
+      : [];
     assignments.projectMembers = await listProjectMembersForProjects(
       sql,
-      scope.projectIds,
+      scopedProjectIds,
       accountUuid
     );
   } else if (normalizedUser) {
@@ -4819,12 +4856,12 @@ async function loadState(sql, currentUser) {
       : [];
     assignments.managerProjects = await listManagerProjectAssignmentsForProjects(
       sql,
-      actorProjectIds,
+      scopedProjectIds,
       accountUuid
     );
     assignments.projectMembers = await listProjectMembersForProjects(
       sql,
-      actorProjectIds,
+      scopedProjectIds,
       accountUuid
     );
   }
