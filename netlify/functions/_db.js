@@ -143,7 +143,7 @@ async function ensureSchema(sql) {
   `;
   await sql`
     INSERT INTO permission_capabilities (key, label, category, is_active)
-    VALUES ('can_upload_data', 'Can upload data', 'settings', TRUE)
+    VALUES ('can_upload_data', 'Access bulk upload tab', 'settings', TRUE)
     ON CONFLICT (key) DO UPDATE SET
       label = EXCLUDED.label,
       category = EXCLUDED.category,

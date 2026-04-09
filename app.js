@@ -2141,7 +2141,8 @@
       feedback("Rates must be non-negative numbers.", true);
       return;
     }
-    if (!email || !email.includes("@")) {
+    const needsProfileValidation = memberEditorMode === "create" || canEditProfile;
+    if (needsProfileValidation && (!email || !email.includes("@"))) {
       feedback("Email must include @.", true);
       return;
     }

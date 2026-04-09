@@ -988,17 +988,31 @@
             padding-top:14px;
           }
           #settings-page .perms-matrix th[scope="row"]{
-            white-space:normal;
+            white-space:nowrap;
             line-height:1.35;
             text-align:right;
           }
           #settings-page [data-settings-tab="permissions"] .perms-matrix thead th:first-child{
             text-align:left;
             padding-left:14px;
+            width:38%;
           }
           #settings-page [data-settings-tab="permissions"] .perms-matrix th[scope="row"]{
             text-align:left;
             padding-left:14px;
+          }
+          #settings-page [data-settings-tab="permissions"] .perms-matrix .perm-capability-label{
+            display:flex;
+            align-items:center;
+            gap:8px;
+          }
+          #settings-page [data-settings-tab="permissions"] .perms-matrix .perm-capability-label--child{
+            padding-left:28px;
+          }
+          #settings-page [data-settings-tab="permissions"] .perms-matrix .perm-capability-prefix{
+            color:var(--muted);
+            font-size:.84rem;
+            line-height:1;
           }
           #settings-page .perm-switch{
             position:relative;
@@ -2591,34 +2605,25 @@
     if (!panel) return;
     const roles = Array.isArray(state.permissionRoles) ? state.permissionRoles : [];
     const rolePerms = Array.isArray(state.rolePermissions) ? state.rolePermissions : [];
-    const caps = [
-      "view_members",
-      "view_member_rates",
-      "view_cost_rates",
-      "edit_member_rates",
-      "edit_member_profile",
-      "manage_departments",
-      "manage_levels",
-      "manage_expense_categories",
-      "manage_office_locations",
-      "can_upload_data",
-      "can_delegate",
-      "manage_settings_access",
+    const capabilityRows = [
+      // PEOPLE: Member information
+      { cap: "view_members", label: "View member information", indent: false },
+      { cap: "view_member_rates", label: "View base rates", indent: true },
+      { cap: "edit_member_rates", label: "Edit base rates", indent: true },
+      { cap: "view_cost_rates", label: "View cost rates", indent: true },
+      { cap: "edit_member_profile", label: "Edit member profile", indent: true },
+      // PEOPLE: Member levels, Member access levels, Delegations
+      { cap: "manage_levels", label: "Manage member levels", indent: false },
+      { cap: "manage_settings_access", label: "Manage access settings", indent: false },
+      { cap: "can_delegate", label: "Can delegate access", indent: false },
+      // ORGANIZATION
+      { cap: "manage_departments", label: "Manage practice departments", indent: false },
+      { cap: "manage_office_locations", label: "Manage office locations", indent: false },
+      // CONFIGURATION
+      { cap: "manage_expense_categories", label: "Manage expense categories", indent: false },
+      // TOOLS
+      { cap: "can_upload_data", label: "Access bulk upload tab", indent: false },
     ];
-    const capLabels = {
-      view_members: "View member information",
-      view_member_rates: "View base rates",
-      view_cost_rates: "View cost rates",
-      edit_member_rates: "Edit base rates",
-      edit_member_profile: "Edit member profile",
-      manage_departments: "Manage practice departments",
-      manage_levels: "Manage member levels",
-      manage_expense_categories: "Manage expense categories",
-      manage_office_locations: "Manage office locations",
-      can_upload_data: "Can upload data",
-      can_delegate: "Can delegate access",
-      manage_settings_access: "Manage access settings",
-    };
 
     const allowedSet = new Set(
       rolePerms
@@ -2631,8 +2636,9 @@
         .map((p) => `${p.role_key}|${p.capability_key}`)
     );
 
-    const rowsHtml = caps
-      .map((cap) => {
+    const rowsHtml = capabilityRows
+      .map((rowDef) => {
+        const cap = rowDef.cap;
         const cells = roles
           .map((role) => {
             const isSuperuserRole = role.key === "superuser";
@@ -2650,7 +2656,11 @@
             </td>`;
           })
           .join("");
-        return `<tr><th scope="row">${escapeHtml(capLabels[cap] || cap)}</th>${cells}</tr>`;
+        const labelClass = rowDef.indent
+          ? "perm-capability-label perm-capability-label--child"
+          : "perm-capability-label";
+        const labelPrefix = rowDef.indent ? `<span class="perm-capability-prefix" aria-hidden="true">↳</span>` : "";
+        return `<tr><th scope="row" class="${labelClass}">${labelPrefix}<span>${escapeHtml(rowDef.label || cap)}</span></th>${cells}</tr>`;
       })
       .join("");
 
