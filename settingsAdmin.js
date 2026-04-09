@@ -83,9 +83,9 @@
     if (state.permissions?.view_members_page) {
       tabs.push("rates");
     }
-    if (state.permissions?.manage_settings_access && !isMobileLayout) tabs.push("messaging_rules");
+    if (state.permissions?.manage_messaging_rules && !isMobileLayout) tabs.push("messaging_rules");
     if (state.permissions?.manage_departments) tabs.push("departments");
-    if (state.permissions?.manage_departments) tabs.push("target_realizations");
+    if (state.permissions?.manage_target_realizations) tabs.push("target_realizations");
     if (state.permissions?.can_delegate) tabs.push("delegations");
     if (state.permissions?.can_upload_data && !isMobileLayout) tabs.push("bulk_upload");
     if (state.permissions?.manage_settings_access && !isMobileLayout) tabs.push("permissions");
@@ -281,7 +281,7 @@
       departments: "Practice departments",
       target_realizations: "Target realizations",
       delegations: "Delegations",
-      bulk_upload: "Bulk Upload",
+      bulk_upload: "Data Upload",
       permissions: "Member access levels",
     };
     const settingsTabGroups = [
@@ -290,6 +290,7 @@
       { key: "configuration", label: "CONFIGURATION", tabs: ["categories", "corporate_functions", "messaging_rules"] },
       { key: "tools", label: "TOOLS", tabs: ["bulk_upload"] },
     ];
+    const allowedSet = new Set(allowedTabs());
     const { tabButtons } = settingsTabElements();
     tabButtons.forEach(function (btn) {
       const key = btn.dataset.settingsTabButton;
@@ -356,12 +357,11 @@
 
           let hasVisibleButton = false;
           group.tabs.forEach((tabKey) => {
+            if (!allowedSet.has(tabKey)) return;
             const btn = tabsContainer.querySelector(`[data-settings-tab-button="${tabKey}"]`);
             if (!btn) return;
             section.appendChild(btn);
-            if (!btn.hidden) {
-              hasVisibleButton = true;
-            }
+            hasVisibleButton = true;
           });
 
           section.hidden = !hasVisibleButton;
@@ -1252,7 +1252,7 @@
           bulkBtn.className = "settings-tab catalog-item";
           bulkBtn.type = "button";
           bulkBtn.dataset.settingsTabButton = "bulk_upload";
-          bulkBtn.textContent = "Bulk Upload";
+          bulkBtn.textContent = "Data Upload";
           tabsContainer.appendChild(bulkBtn);
           bulkBtn.addEventListener("click", function (event) {
             event.preventDefault();
@@ -1489,7 +1489,7 @@
     panel.innerHTML = `
       <div class="settings-section-header">
         <div class="settings-section-left">
-          <h3>Bulk Upload</h3>
+          <h3>Data Upload</h3>
         </div>
         <div class="settings-section-right" id="bulk-upload-header-actions">
           <button type="button" class="button" id="bulk-upload-time-open">Upload Time</button>
@@ -2618,11 +2618,16 @@
       { cap: "can_delegate", label: "Can delegate access", indent: false },
       // ORGANIZATION
       { cap: "manage_departments", label: "Manage practice departments", indent: false },
+      { cap: "manage_target_realizations", label: "Manage target realizations", indent: false },
       { cap: "manage_office_locations", label: "Manage office locations", indent: false },
       // CONFIGURATION
       { cap: "manage_expense_categories", label: "Manage expense categories", indent: false },
+      { cap: "manage_corporate_functions", label: "Manage corporate functions", indent: false },
+      { cap: "manage_messaging_rules", label: "Manage messaging rules", indent: false },
       // TOOLS
-      { cap: "can_upload_data", label: "Access bulk upload tab", indent: false },
+      { cap: "can_upload_data", label: "Access data upload tab", indent: false },
+      // NAVIGATION
+      { cap: "view_clients", label: "View clients tab", indent: false },
     ];
 
     const allowedSet = new Set(
@@ -3109,7 +3114,9 @@
               </div>
               <div class="member-info-action member-info-action-enhanced">
                 ${
-                  canEditAny
+                  canEditAny &&
+                  (typeof deps().canViewUserByRole !== "function" ||
+                    deps().canViewUserByRole(state.currentUser, user))
                     ? `<button type="button" class="button button-ghost member-info-edit" data-member-edit="${escapeHtml(user.id)}">Edit</button>`
                     : ""
                 }

@@ -12,6 +12,9 @@ Full-stack (Netlify Functions + Postgres) timesheet and expenses app, still embe
 - Audit Log (admin-only): read-only table with Actor, Entity, Action, Date filters; inline with header; row expansion shows before/after.
 - Mobile: bottom tab bar; opaque in light/dark modes; audit access via user dropdown (admins).
 - Access control: permission groups (admin/executive/manager/staff) drive visibility and actions; members tab hidden for level 2 and below.
+- Clients page visibility uses backend snapshot IDs (`visibleClientIds`, `visibleProjectIds`) as source of truth for rendered client/project lists.
+- Organization settings: practice departments, office locations, and office-by-department target realization matrix are DB-backed.
+- Project edit flow includes practice department, office location, and target realization fields.
 
 ## Local preview
 

@@ -143,7 +143,31 @@ async function ensureSchema(sql) {
   `;
   await sql`
     INSERT INTO permission_capabilities (key, label, category, is_active)
-    VALUES ('can_upload_data', 'Access bulk upload tab', 'settings', TRUE)
+    VALUES ('can_upload_data', 'Access data upload tab', 'settings', TRUE)
+    ON CONFLICT (key) DO UPDATE SET
+      label = EXCLUDED.label,
+      category = EXCLUDED.category,
+      is_active = EXCLUDED.is_active
+  `;
+  await sql`
+    INSERT INTO permission_capabilities (key, label, category, is_active)
+    VALUES ('manage_corporate_functions', 'Manage corporate functions', 'settings', TRUE)
+    ON CONFLICT (key) DO UPDATE SET
+      label = EXCLUDED.label,
+      category = EXCLUDED.category,
+      is_active = EXCLUDED.is_active
+  `;
+  await sql`
+    INSERT INTO permission_capabilities (key, label, category, is_active)
+    VALUES ('manage_target_realizations', 'Manage target realizations', 'settings', TRUE)
+    ON CONFLICT (key) DO UPDATE SET
+      label = EXCLUDED.label,
+      category = EXCLUDED.category,
+      is_active = EXCLUDED.is_active
+  `;
+  await sql`
+    INSERT INTO permission_capabilities (key, label, category, is_active)
+    VALUES ('manage_messaging_rules', 'Manage messaging rules', 'settings', TRUE)
     ON CONFLICT (key) DO UPDATE SET
       label = EXCLUDED.label,
       category = EXCLUDED.category,
@@ -164,6 +188,54 @@ async function ensureSchema(sql) {
     JOIN permission_capabilities pc ON pc.key = 'can_delegate'
     JOIN permission_scopes ps ON ps.key = 'own_office'
     WHERE pr.key IN ('manager', 'executive', 'admin', 'superuser')
+    ON CONFLICT (role_id, capability_id, scope_id) DO NOTHING
+  `;
+  await sql`
+    INSERT INTO role_permissions (role_id, capability_id, scope_id, allowed)
+    SELECT rp.role_id, new_cap.id, rp.scope_id, rp.allowed
+    FROM role_permissions rp
+    JOIN permission_capabilities old_cap ON old_cap.id = rp.capability_id
+    JOIN permission_capabilities new_cap ON new_cap.key = 'manage_corporate_functions'
+    WHERE old_cap.key = 'manage_expense_categories'
+      AND rp.allowed = TRUE
+      AND NOT EXISTS (
+        SELECT 1
+        FROM role_permissions existing_rp
+        JOIN permission_capabilities existing_cap ON existing_cap.id = existing_rp.capability_id
+        WHERE existing_cap.key = 'manage_corporate_functions'
+      )
+    ON CONFLICT (role_id, capability_id, scope_id) DO NOTHING
+  `;
+  await sql`
+    INSERT INTO role_permissions (role_id, capability_id, scope_id, allowed)
+    SELECT rp.role_id, new_cap.id, rp.scope_id, rp.allowed
+    FROM role_permissions rp
+    JOIN permission_capabilities old_cap ON old_cap.id = rp.capability_id
+    JOIN permission_capabilities new_cap ON new_cap.key = 'manage_target_realizations'
+    WHERE old_cap.key = 'manage_departments'
+      AND rp.allowed = TRUE
+      AND NOT EXISTS (
+        SELECT 1
+        FROM role_permissions existing_rp
+        JOIN permission_capabilities existing_cap ON existing_cap.id = existing_rp.capability_id
+        WHERE existing_cap.key = 'manage_target_realizations'
+      )
+    ON CONFLICT (role_id, capability_id, scope_id) DO NOTHING
+  `;
+  await sql`
+    INSERT INTO role_permissions (role_id, capability_id, scope_id, allowed)
+    SELECT rp.role_id, new_cap.id, rp.scope_id, rp.allowed
+    FROM role_permissions rp
+    JOIN permission_capabilities old_cap ON old_cap.id = rp.capability_id
+    JOIN permission_capabilities new_cap ON new_cap.key = 'manage_messaging_rules'
+    WHERE old_cap.key = 'manage_settings_access'
+      AND rp.allowed = TRUE
+      AND NOT EXISTS (
+        SELECT 1
+        FROM role_permissions existing_rp
+        JOIN permission_capabilities existing_cap ON existing_cap.id = existing_rp.capability_id
+        WHERE existing_cap.key = 'manage_messaging_rules'
+      )
     ON CONFLICT (role_id, capability_id, scope_id) DO NOTHING
   `;
   await sql`
@@ -192,7 +264,19 @@ async function ensureSchema(sql) {
     JOIN permission_capabilities new_cap ON new_cap.key = 'view_cost_rates'
     WHERE old_cap.key = 'view_cost_rate'
       AND rp.allowed = TRUE
+      AND NOT EXISTS (
+        SELECT 1
+        FROM role_permissions existing_rp
+        JOIN permission_capabilities existing_cap ON existing_cap.id = existing_rp.capability_id
+        WHERE existing_cap.key = 'view_cost_rates'
+      )
     ON CONFLICT (role_id, capability_id, scope_id) DO NOTHING
+  `;
+  await sql`
+    DELETE FROM role_permissions rp
+    USING permission_capabilities old_cap
+    WHERE rp.capability_id = old_cap.id
+      AND old_cap.key = 'view_cost_rate'
   `;
   await sql`
     INSERT INTO role_permissions (role_id, capability_id, scope_id, allowed)
@@ -1338,6 +1422,27 @@ function permissionGroupForUser(user, levelLabels) {
   }
 
   return "staff";
+}
+
+function roleRankForGroup(group) {
+  const normalized = normalizeText(group).toLowerCase();
+  if (normalized === "staff") return 1;
+  if (normalized === "manager") return 2;
+  if (normalized === "executive") return 3;
+  if (normalized === "admin") return 4;
+  if (normalized === "superuser") return 5;
+  return 0;
+}
+
+function canViewRatesForTarget(actorUser, targetUser, levelLabels) {
+  const actorRole = permissionGroupForUser(actorUser, levelLabels);
+  const targetRole = permissionGroupForUser(targetUser, levelLabels);
+  const actorId = normalizeText(actorUser?.id);
+  const targetId = normalizeText(targetUser?.id);
+  if (actorId && targetId && actorId === targetId) return true;
+  if (actorRole === "superuser") return true;
+  if (actorRole === "admin" && targetRole !== "superuser") return true;
+  return roleRankForGroup(actorRole) >= roleRankForGroup(targetRole);
 }
 
 function isAdmin(user, levelLabels) {
@@ -3330,6 +3435,25 @@ async function listManagerProjectAssignmentsForManagers(sql, managerIds, account
   `;
 }
 
+async function listManagerProjectAssignmentsForProjects(sql, projectIds, accountId) {
+  if (!projectIds || !projectIds.length) {
+    return [];
+  }
+  return sql`
+    SELECT
+      manager_projects.manager_id AS "managerId",
+      projects.id AS "projectId",
+      projects.name AS project,
+      clients.name AS client,
+      manager_projects.charge_rate_override AS "chargeRateOverride"
+    FROM manager_projects
+    JOIN projects ON projects.id = manager_projects.project_id
+    JOIN clients ON clients.id = projects.client_id
+    WHERE manager_projects.project_id = ANY(${projectIds})
+      AND manager_projects.account_id = ${accountId}::uuid
+  `;
+}
+
 async function getManagerScope(sql, managerId, accountId) {
   const clientRows = await sql`
     SELECT client_id
@@ -3723,7 +3847,7 @@ async function loadState(sql, currentUser) {
     ? actorManagerAssignments.projectRows
     : [];
   let actorProjectIds = [];
-  const actorClientIds = new Set();
+  const actorClientIdsFromProjects = new Set();
   if (normalizedUser) {
     actorProjectIds = [
       ...new Set([
@@ -3731,24 +3855,12 @@ async function loadState(sql, currentUser) {
         ...actorManagerProjectAssignments.map((row) => normalizeText(row?.projectId)),
       ]),
     ].filter(Boolean);
-    actorManagerClientAssignments.forEach((row) => {
-      const clientId = Number(row?.clientId);
-      if (Number.isFinite(clientId)) {
-        actorClientIds.add(clientId);
-      }
-    });
     if (isManagerFlag) {
       const managerScope = await getManagerScope(sql, normalizedUser.id, accountUuid);
       (managerScope?.projectIds || []).forEach((projectId) => {
         const normalizedProjectId = normalizeText(projectId);
         if (normalizedProjectId) {
           actorProjectIds.push(normalizedProjectId);
-        }
-      });
-      (managerScope?.clientIds || []).forEach((clientId) => {
-        const clientIdNumber = Number(clientId);
-        if (Number.isFinite(clientIdNumber)) {
-          actorClientIds.add(clientIdNumber);
         }
       });
       actorProjectIds = [...new Set(actorProjectIds)];
@@ -3765,20 +3877,26 @@ async function loadState(sql, currentUser) {
     ).forEach((row) => {
       const clientId = Number(row?.client_id);
       if (Number.isFinite(clientId)) {
-        actorClientIds.add(clientId);
+        actorClientIdsFromProjects.add(clientId);
       }
     });
   }
+  const canViewClientsShell = canCap("view_clients", {
+    resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+    actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+  });
   const allClients = await listClients(sql, accountUuid);
   let clients = allClients.filter((client) => {
-    const officeAllowed = canCap("view_clients", {
-      resourceOfficeId: client.officeId ?? client.office_id ?? null,
-      actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
-    });
-    if (officeAllowed) return true;
-    if (!normalizedUser) return false;
+    if (!normalizedUser || !canViewClientsShell) return false;
+    if (isAdminFlag) {
+      return canCap("view_clients", {
+        resourceOfficeId: client.officeId ?? client.office_id ?? null,
+        actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+      });
+    }
     const clientIdNumber = Number(client?.id);
-    return Number.isFinite(clientIdNumber) && actorClientIds.has(clientIdNumber);
+    if (!Number.isFinite(clientIdNumber)) return false;
+    return actorClientIdsFromProjects.has(clientIdNumber);
   });
   const allUsers = normalizedUser ? await listUsers(sql, accountUuid) : [];
 
@@ -4359,6 +4477,7 @@ async function loadState(sql, currentUser) {
   let users = [];
   if (normalizedUser) {
     users = allUsers.map((user) => {
+      const roleAllowed = canViewRatesForTarget(normalizedUser, user, levelLabels);
       const canViewBaseRate = canCap("view_member_rates", {
         resourceOfficeId: user.officeId ?? user.office_id ?? null,
         actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
@@ -4376,8 +4495,8 @@ async function loadState(sql, currentUser) {
         resourceOfficeId: user.officeId ?? user.office_id ?? null,
         actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
       });
-      const allowBaseRate = canViewBaseRate || canEditRates;
-      const allowCostRate = canViewCostRates;
+      const allowBaseRate = roleAllowed && (canViewBaseRate || canEditRates);
+      const allowCostRate = roleAllowed && canViewCostRates;
       return {
         ...user,
         baseRate: allowBaseRate ? user.baseRate : null,
@@ -4399,23 +4518,35 @@ async function loadState(sql, currentUser) {
     }
   }
 
-  const allProjects = await listProjects(sql, accountUuid);
-  const projects = allProjects.filter((project) =>
-    canCap("view_projects", {
-      resourceOfficeId: project.officeId ?? project.office_id ?? null,
-      actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
-      projectId: normalizeText(project.id),
-      actorProjectIds,
-    })
-  );
-  const visibilitySnapshot = getEffectiveEntityVisibility({
-    actorRole: roleKey,
-    clients: allClients,
-    projects: allProjects,
-    managerClientAssignments: actorManagerClientAssignments,
-    managerProjectAssignments: actorManagerProjectAssignments,
-    projectMemberAssignments: actorMemberProjectAssignments,
+  const canViewProjectsShell = canCap("view_projects", {
+    resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+    actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
   });
+  const canViewAssignedProjectsViaClients =
+    !isAdminFlag &&
+    canViewClientsShell;
+  const allProjects = await listProjects(sql, accountUuid);
+  const projects = allProjects.filter((project) => {
+    if (!normalizedUser || (!canViewProjectsShell && !canViewAssignedProjectsViaClients)) return false;
+    const projectId = normalizeText(project.id);
+    if (isAdminFlag) {
+      return canCap("view_projects", {
+        resourceOfficeId: project.officeId ?? project.office_id ?? null,
+        actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+        projectId,
+        actorProjectIds,
+      });
+    }
+    return Boolean(projectId) && actorProjectIds.includes(projectId);
+  });
+  const visibilitySnapshot = {
+    visibleClientIds: clients
+      .map((client) => normalizeText(client?.id))
+      .filter(Boolean),
+    visibleProjectIds: projects
+      .map((project) => normalizeText(project?.id))
+      .filter(Boolean),
+  };
   // Expense categories are needed for expense entry even if the user cannot
   // manage categories in Settings. Always return active categories; the
   // Settings UI is still gated by settingsAccess.manageCategories.
@@ -4457,9 +4588,14 @@ async function loadState(sql, currentUser) {
       accountUuid
     );
   } else if (normalizedUser) {
-    assignments.projectMembers = await listProjectMembersForUser(
+    assignments.managerProjects = await listManagerProjectAssignmentsForProjects(
       sql,
-      normalizedUser.id,
+      actorProjectIds,
+      accountUuid
+    );
+    assignments.projectMembers = await listProjectMembersForProjects(
+      sql,
+      actorProjectIds,
       accountUuid
     );
   }

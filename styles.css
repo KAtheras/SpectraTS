@@ -4846,7 +4846,7 @@ body[data-theme="dark"] .entry-approved td {
 
 #settings-page .settings-rates-cards .member-info-card.member-info-card--enhanced .member-info-layout {
   display: grid;
-  grid-template-columns: minmax(180px, 0.95fr) minmax(0, 2.05fr) auto;
+  grid-template-columns: minmax(180px, 0.95fr) minmax(0, 2.05fr) 124px;
   gap: 14px 12px;
   align-items: center;
 }
@@ -4891,7 +4891,8 @@ body[data-theme="dark"] .entry-approved td {
   align-items: center;
   justify-content: flex-end;
   gap: 10px;
-  min-width: 0;
+  width: 124px;
+  min-width: 124px;
   flex-wrap: nowrap;
   align-self: center;
 }
@@ -4912,7 +4913,7 @@ body[data-theme="dark"] .entry-approved td {
 
 @media (max-width: 1100px) {
   #settings-page .settings-rates-cards .member-info-card.member-info-card--enhanced .member-info-layout {
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr) 124px;
     grid-template-areas:
       "identity actions"
       "grid actions";

@@ -254,14 +254,7 @@
         return projects.map((project) => ({ client: project.client, project: project.name }));
       }
 
-      if (role === "executive") {
-        if (!user.officeId) return [];
-        return projects
-          .filter((project) => (project.officeId || null) === user.officeId)
-          .map((project) => ({ client: project.client, project: project.name }));
-      }
-
-      if (role === "manager") {
+      if (role === "manager" || role === "executive") {
         const clientAssignments = managerClientAssignments(user.id)
           .map((item) => normalizeText(item?.client || item?.client_name))
           .filter(Boolean);
@@ -298,13 +291,6 @@
     }
 
     function allowedClientsForUser(user) {
-      const group = permissionGroupForUser(user);
-      if (group === "executive" && user?.officeId) {
-        return state.clients
-          .filter((client) => (client.officeId || null) === user.officeId)
-          .map((client) => client.name)
-          .sort((a, b) => a.localeCompare(b));
-      }
       return uniqueValues(allowedProjectTuples(user).map((item) => item.client)).sort((a, b) =>
         a.localeCompare(b)
       );

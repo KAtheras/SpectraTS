@@ -775,8 +775,8 @@
       addClientHeaderButton.textContent = "Add client";
       addClientHeaderButton.style.marginLeft = "0";
       addClientHeaderButton.addEventListener("click", async function () {
-        if (!isAdmin(state.currentUser)) {
-          feedback("Only Admins can add clients.", true);
+        if (!state.permissions?.create_client) {
+          feedback("Access denied.", true);
           return;
         }
         await ensureOfficeLocationsLoadedForClientEditor();
@@ -819,6 +819,7 @@
     if (!addClientHeaderButton.isConnected) {
       header.appendChild(addClientHeaderButton);
     }
+    addClientHeaderButton.hidden = !state.permissions?.create_client;
     if (!clientLifecycleToggleWrap.isConnected) {
       header.appendChild(clientLifecycleToggleWrap);
     }
@@ -2018,6 +2019,10 @@
       feedback("Team member not found.", true);
       return;
     }
+    const targetRoleAllowed =
+      mode !== "edit" ||
+      typeof canViewUserByRole !== "function" ||
+      canViewUserByRole(state.currentUser, user);
 
     const levelField = field(memberEditorForm, "level");
     const deptField = field(memberEditorForm, "department_id");
@@ -2056,11 +2061,11 @@
     });
     const baseRateField = field(memberEditorForm, "base_rate");
     if (baseRateField) {
-      baseRateField.disabled = isSelfProfileMode ? true : !canEditBaseRates;
+      baseRateField.disabled = isSelfProfileMode ? true : !canEditBaseRates || !targetRoleAllowed;
     }
     const costRateField = field(memberEditorForm, "cost_rate");
     if (costRateField) {
-      costRateField.disabled = isSelfProfileMode ? true : !canEditCostRates;
+      costRateField.disabled = isSelfProfileMode ? true : !canEditCostRates || !targetRoleAllowed;
     }
 
     memberEditorTitle.textContent = mode === "create" ? "Add member" : (isSelfProfileMode ? "Edit profile" : "Edit member");
@@ -2193,6 +2198,9 @@
           feedback("Team member not found.", true);
           return;
         }
+        const targetRoleAllowed =
+          typeof canViewUserByRole !== "function" ||
+          canViewUserByRole(state.currentUser, currentUser);
         const isSelfProfileMode = memberEditorScope === "self_profile";
         if (isSelfProfileMode) {
           const currentUserId = `${state.currentUser?.id || ""}`.trim();
@@ -2278,9 +2286,11 @@
           normalizeText(currentUser.departmentId) !== normalizeText(departmentId);
         const baseRateChanged =
           canEditBaseRates &&
+          targetRoleAllowed &&
           normalizeNumber(currentUser.baseRate) !== normalizeNumber(baseRate);
         const costRateChanged =
           canEditCostRates &&
+          targetRoleAllowed &&
           normalizeNumber(currentUser.costRate) !== normalizeNumber(costRate);
         const ratesChanged = baseRateChanged || costRateChanged;
         if (!profileChanged && !departmentChanged && !ratesChanged) {
@@ -2808,13 +2818,7 @@
       );
     }
     if (nextView === "clients") {
-      const group = permissionGroupForUser(state.currentUser);
-      return (
-        group === "manager" ||
-        group === "executive" ||
-        group === "admin" ||
-        group === "superuser"
-      );
+      return !!state.permissions?.view_clients;
     }
     if (nextView === "members") {
       return true;
@@ -7878,21 +7882,12 @@
       refs.navMembersMobile.setAttribute("aria-current", view === "members" ? "page" : "false");
     }
     if (refs.openCatalog) {
-      refs.openCatalog.hidden = !(
-        currentGroup === "manager" ||
-        currentGroup === "executive" ||
-        currentGroup === "admin" ||
-        currentGroup === "superuser"
-      );
+      refs.openCatalog.hidden = !state.permissions?.view_clients;
       refs.openCatalog.classList.toggle("is-active", view === "clients");
       refs.openCatalog.setAttribute("aria-current", view === "clients" ? "page" : "false");
     }
     if (refs.navClientsMobile) {
-      const showClients =
-        currentGroup === "manager" ||
-        currentGroup === "executive" ||
-        currentGroup === "admin" ||
-        currentGroup === "superuser";
+      const showClients = !!state.permissions?.view_clients;
       refs.navClientsMobile.hidden = !showClients;
       refs.navClientsMobile.classList.toggle("is-active", view === "clients");
       refs.navClientsMobile.setAttribute("aria-current", view === "clients" ? "page" : "false");
@@ -11940,6 +11935,7 @@
     disabledButtonAttrs,
     roleKey,
     permissionGroupForUser,
+    canViewUserByRole,
     DEFAULT_LEVEL_DEFS,
     usersSyncUserManagementControls,
     isMobileDrilldown: isMobileDrilldownViewport,

@@ -51,7 +51,10 @@
     }, {});
 
     const clients = visibleCatalogClientNames({ forCatalogView: true });
-    const canManageClients = isAdmin(state.currentUser) || isExecutive(state.currentUser);
+    const canCreateClient = Boolean(state.permissions?.create_client);
+    const canEditClient = Boolean(state.permissions?.edit_client);
+    const canArchiveClient = Boolean(state.permissions?.archive_client);
+    const canRemoveClient = isAdmin(state.currentUser);
 
     if (!clients.length) {
       refs.clientList.innerHTML = '<p class="empty-state">No clients yet.</p>';
@@ -76,7 +79,9 @@
               ""
           ).trim();
           const clientIsActive = isClientActive(clientRow);
-          const canEditClientCard = canManageClients && clientIsActive;
+          const canEditClientCard = canEditClient && clientIsActive;
+          const showClientLifecycleAction = canArchiveClient;
+          const showClientRemoveAction = canRemoveClient;
           const visibleProjectCount = visibleCatalogProjectNames(client, { forCatalogView: true }).length;
           const secondaryBits = [
             `${visibleProjectCount} ${visibleProjectCount === 1 ? "project" : "projects"}`,
@@ -91,18 +96,18 @@
           >
             <span class="catalog-card-head">
               <span class="catalog-item-title">${escapeHtml(client)}</span>
-              <button
-                type="button"
-                class="catalog-edit catalog-edit-inline"
-                aria-label="Edit ${escapeHtml(client)}"
-                data-edit-client="${escapeHtml(client)}"
-                ${disabledButtonAttrs(
-                  canEditClientCard,
-                  clientIsActive ? "Admin only." : "Reactivate client to edit."
-                )}
-              >
-                Edit
-              </button>
+	              ${
+                  canEditClientCard
+                    ? `<button
+	                type="button"
+	                class="catalog-edit catalog-edit-inline"
+	                aria-label="Edit ${escapeHtml(client)}"
+	                data-edit-client="${escapeHtml(client)}"
+	              >
+	                Edit
+	              </button>`
+                    : ""
+                }
             </span>
             <span class="catalog-item-copy">
               <small class="catalog-item-secondary">${escapeHtml(secondaryBits.join(" · "))}</small>
@@ -110,24 +115,30 @@
                 <small class="catalog-item-secondary" data-client-lead-line="1">Client Lead: ${escapeHtml(clientLeadName || "—")}</small>
                 <span class="catalog-item-actions catalog-item-actions-bottom">
                   <span class="catalog-item-secondary-actions">
-                    <button
-                      type="button"
-                      class="catalog-edit"
-                      aria-label="${clientIsActive ? "Deactivate" : "Reactivate"} ${escapeHtml(client)}"
-                      data-${clientIsActive ? "deactivate-client" : "reactivate-client"}="${escapeHtml(client)}"
-                      ${disabledButtonAttrs(canManageClients, "Admin only.")}
-                    >
-                      ${clientIsActive ? "Deactivate" : "Reactivate"}
-                    </button>
-                    <button
-                      type="button"
-                      class="catalog-delete"
-                      aria-label="Delete ${escapeHtml(client)}"
-                      data-delete-client="${escapeHtml(client)}"
-                      ${disabledButtonAttrs(canManageClients, "Admin only.")}
-                    >
-                      Remove
-                    </button>
+	                    ${
+                        showClientLifecycleAction
+                          ? `<button
+	                      type="button"
+	                      class="catalog-edit"
+	                      aria-label="${clientIsActive ? "Deactivate" : "Reactivate"} ${escapeHtml(client)}"
+	                      data-${clientIsActive ? "deactivate-client" : "reactivate-client"}="${escapeHtml(client)}"
+	                    >
+	                      ${clientIsActive ? "Deactivate" : "Reactivate"}
+	                    </button>`
+                          : ""
+                      }
+	                    ${
+                        showClientRemoveAction
+                          ? `<button
+	                      type="button"
+	                      class="catalog-delete"
+	                      aria-label="Delete ${escapeHtml(client)}"
+	                      data-delete-client="${escapeHtml(client)}"
+	                    >
+	                      Remove
+	                    </button>`
+                          : ""
+                      }
                   </span>
                 </span>
               </span>
@@ -141,32 +152,30 @@
     refs.projectColumnLabel.textContent = selectedClient
       ? `Projects for ${selectedClient}`
       : "Projects";
-    const canAddClient = isAdmin(state.currentUser) || isExecutive(state.currentUser);
+	    const canAddClient = canCreateClient;
     const clientNameField = field(refs.addClientForm, "client_name");
     const addClientButton = refs.addClientForm?.querySelector("button");
     if (clientNameField && addClientButton) {
       clientNameField.disabled = !canAddClient;
       addClientButton.disabled = !canAddClient;
-      const reason = "Admin only.";
-      clientNameField.title = canAddClient ? "" : reason;
-      addClientButton.title = canAddClient ? "" : reason;
-    }
-    const canCreateProject =
-      Boolean(selectedClient) &&
-      isClientActive(state.clients.find((c) => c.name === selectedClient)) &&
-      (isAdmin(state.currentUser) ||
-        isExecutive(state.currentUser) ||
-        (isManager(state.currentUser) &&
-          canManagerAccessClient(state.currentUser, selectedClient)));
-    const projectButton = document.getElementById("add-project-header-button");
-    if (projectButton) {
-      projectButton.disabled = !canCreateProject;
-      projectButton.title = canCreateProject
-        ? ""
-        : selectedClient
-          ? "Manager must be assigned to this client."
-          : "Choose client first.";
-    }
+	      const reason = "Access denied.";
+	      clientNameField.title = canAddClient ? "" : reason;
+	      addClientButton.title = canAddClient ? "" : reason;
+	    }
+	    const canCreateProject =
+	      Boolean(selectedClient) &&
+	      isClientActive(state.clients.find((c) => c.name === selectedClient)) &&
+	      Boolean(state.permissions?.create_project) &&
+	      (isAdmin(state.currentUser) ||
+	        isExecutive(state.currentUser) ||
+	        (isManager(state.currentUser) &&
+	          canManagerAccessClient(state.currentUser, selectedClient)));
+	    const projectButton = document.getElementById("add-project-header-button");
+	    if (projectButton) {
+	      projectButton.hidden = !canCreateProject;
+	      projectButton.disabled = false;
+	      projectButton.title = "";
+	    }
 
     refs.projectList.innerHTML = projects.length
       ? projects
@@ -178,12 +187,13 @@
                 )?.officeId ||
                   (state.clients.find((c) => c.name === selectedClient) || {}).officeId
               );
-              const canEditProject = isAdmin(state.currentUser) || isExecutive(state.currentUser);
-              const canDeleteProject =
-                isAdmin(state.currentUser) ||
-                isExecutive(state.currentUser) ||
-                (isManager(state.currentUser) &&
-                  projectCreatedBy(selectedClient, project) === state.currentUser?.id);
+	              const canEditProject = isAdmin(state.currentUser) || isExecutive(state.currentUser);
+	              const canDeleteProject =
+	                Boolean(state.permissions?.remove_project) &&
+	                (isAdmin(state.currentUser) ||
+	                isExecutive(state.currentUser) ||
+	                (isManager(state.currentUser) &&
+	                  projectCreatedBy(selectedClient, project) === state.currentUser?.id));
               const projectRow = (state.projects || []).find(
                 (p) => p.client === selectedClient && p.name === project
               );
@@ -199,12 +209,18 @@
               ).trim();
               const projectIsActive = isProjectActive(projectRow);
               const canEditProjectCard = canEditProject && projectIsActive;
-              const canManageMembers =
-                projectIsActive &&
-                (isAdmin(state.currentUser) ||
-                  isExecutive(state.currentUser) ||
-                  (isManager(state.currentUser) &&
-                    canManagerAccessProject(state.currentUser, selectedClient, project)));
+	              const canManageMembers =
+	                projectIsActive &&
+	                (Boolean(state.permissions?.assign_project_members) ||
+	                  Boolean(state.permissions?.assign_project_managers)) &&
+	                (isAdmin(state.currentUser) ||
+	                  isExecutive(state.currentUser) ||
+	                  (isManager(state.currentUser) &&
+	                    canManagerAccessProject(state.currentUser, selectedClient, project)));
+                const showEditProjectAction = canEditProjectCard;
+                const showProjectLifecycleActions = canDeleteProject;
+                const showAddMemberAction = canManageMembers && Boolean(state.permissions?.assign_project_members);
+                const showRemoveMemberAction = canManageMembers && Boolean(state.permissions?.assign_project_members);
               const hasManagers = managerIdsForProject(selectedClient, project).length > 0;
               const projectId = String(projectRow?.id || "").trim();
               const projectMemberIds = Array.from(
@@ -250,18 +266,18 @@
                     ${escapeHtml(project)}
                     <small class="catalog-item-title-meta">${escapeHtml(`${projectHours(selectedClient, project).toFixed(2)}h logged`)}</small>
                   </span>
-                  <button
-                    type="button"
-                    class="catalog-edit catalog-edit-inline"
-                    aria-label="Edit ${escapeHtml(project)}"
-                    data-edit-project="${escapeHtml(project)}"
-                    ${disabledButtonAttrs(
-                      canEditProjectCard,
-                      projectIsActive ? "Admin only." : "Reactivate project to edit."
-                    )}
-                  >
-                    Edit
-                  </button>
+	                  ${
+                      showEditProjectAction
+                        ? `<button
+	                    type="button"
+	                    class="catalog-edit catalog-edit-inline"
+	                    aria-label="Edit ${escapeHtml(project)}"
+	                    data-edit-project="${escapeHtml(project)}"
+	                  >
+	                    Edit
+	                  </button>`
+                        : ""
+                    }
                 </span>
                 <span class="catalog-item-copy">
                   ${
@@ -293,48 +309,50 @@
                         >
                           View Expenses
                         </button>
-                        <button
-                          type="button"
-                          class="catalog-edit"
-                          aria-label="${projectIsActive ? "Deactivate" : "Reactivate"} ${escapeHtml(project)}"
-                          data-${projectIsActive ? "deactivate-project" : "reactivate-project"}="${escapeHtml(project)}"
-                          ${disabledButtonAttrs(
-                            canDeleteProject,
-                            "Managers can only manage projects they created."
-                          )}
-                        >
-                          ${projectIsActive ? "Deactivate" : "Reactivate"}
-                        </button>
-                        <button
-                          type="button"
-                          class="catalog-delete"
-                          aria-label="Delete ${escapeHtml(project)}"
-                          data-delete-project="${escapeHtml(project)}"
-                          ${disabledButtonAttrs(
-                            canDeleteProject,
-                            "Managers can only remove projects they created."
-                          )}
-                        >
-                          Remove
-                        </button>
-                        <button
-                          type="button"
-                          class="catalog-edit"
-                          aria-label="Add member to ${escapeHtml(project)}"
-                          data-add-member="${escapeHtml(project)}"
-                          ${disabledButtonAttrs(canManageMembers, "Manager access required.")}
-                        >
-                          Add Member
-                        </button>
-                        <button
-                          type="button"
-                          class="catalog-edit"
-                          aria-label="Remove member from ${escapeHtml(project)}"
-                          data-remove-member="${escapeHtml(project)}"
-                          ${disabledButtonAttrs(canManageMembers, "Manager access required.")}
-                        >
-                          Remove Member
-                        </button>
+	                        ${
+                            showProjectLifecycleActions
+                              ? `<button
+	                          type="button"
+	                          class="catalog-edit"
+	                          aria-label="${projectIsActive ? "Deactivate" : "Reactivate"} ${escapeHtml(project)}"
+	                          data-${projectIsActive ? "deactivate-project" : "reactivate-project"}="${escapeHtml(project)}"
+	                        >
+	                          ${projectIsActive ? "Deactivate" : "Reactivate"}
+	                        </button>
+	                        <button
+	                          type="button"
+	                          class="catalog-delete"
+	                          aria-label="Delete ${escapeHtml(project)}"
+	                          data-delete-project="${escapeHtml(project)}"
+	                        >
+	                          Remove
+	                        </button>`
+                              : ""
+                          }
+	                        ${
+                            showAddMemberAction
+                              ? `<button
+	                          type="button"
+	                          class="catalog-edit"
+	                          aria-label="Add member to ${escapeHtml(project)}"
+	                          data-add-member="${escapeHtml(project)}"
+	                        >
+	                          Add Member
+	                        </button>`
+                              : ""
+                          }
+	                        ${
+                            showRemoveMemberAction
+                              ? `<button
+	                          type="button"
+	                          class="catalog-edit"
+	                          aria-label="Remove member from ${escapeHtml(project)}"
+	                          data-remove-member="${escapeHtml(project)}"
+	                        >
+	                          Remove Member
+	                        </button>`
+                              : ""
+                          }
                       </span>
                     </span>
                   </span>

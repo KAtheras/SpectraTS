@@ -631,6 +631,27 @@ function permissionGroupForUser(user) {
   return "staff";
 }
 
+function roleRankForGroup(group) {
+  const normalized = normalizeText(group).toLowerCase();
+  if (normalized === "staff") return 1;
+  if (normalized === "manager") return 2;
+  if (normalized === "executive") return 3;
+  if (normalized === "admin") return 4;
+  if (normalized === "superuser") return 5;
+  return 0;
+}
+
+function canAccessRatesForTarget(actorUser, targetUser) {
+  const actorRole = permissionGroupForUser(actorUser);
+  const targetRole = permissionGroupForUser(targetUser);
+  const actorId = normalizeText(actorUser?.id);
+  const targetId = normalizeText(targetUser?.id);
+  if (actorId && targetId && actorId === targetId) return true;
+  if (actorRole === "superuser") return true;
+  if (actorRole === "admin" && targetRole !== "superuser") return true;
+  return roleRankForGroup(actorRole) >= roleRankForGroup(targetRole);
+}
+
 function isStaff(user) {
   return permissionGroupForUser(user) === "staff";
 }
@@ -1144,6 +1165,9 @@ function buildPermissionsPayload(currentUser, permissionIndex) {
     });
   const canManageSettingsAccess = can("manage_settings_access");
   const canViewCostRates = can("view_cost_rates") || can("view_cost_rate");
+  const canManageCorporateFunctions = can("manage_corporate_functions") || can("manage_expense_categories");
+  const canManageTargetRealizations = can("manage_target_realizations") || can("manage_departments");
+  const canManageMessagingRules = can("manage_messaging_rules") || can("manage_settings_access");
   const permissionsPayload = {
     edit_user_department: can("edit_user_department"),
     view_settings_tab: false,
@@ -1156,8 +1180,10 @@ function buildPermissionsPayload(currentUser, permissionIndex) {
     manage_levels: can("manage_levels"),
     manage_departments: can("manage_departments"),
     manage_expense_categories: can("manage_expense_categories"),
-    manage_corporate_functions: can("manage_expense_categories"),
+    manage_corporate_functions: canManageCorporateFunctions,
     manage_office_locations: can("manage_office_locations"),
+    manage_target_realizations: canManageTargetRealizations,
+    manage_messaging_rules: canManageMessagingRules,
     can_upload_data: can("can_upload_data"),
     manage_settings_access: canManageSettingsAccess,
     can_delegate: can("can_delegate"),
@@ -1192,6 +1218,8 @@ function buildPermissionsPayload(currentUser, permissionIndex) {
     permissionsPayload.manage_expense_categories ||
     permissionsPayload.manage_corporate_functions ||
     permissionsPayload.manage_office_locations ||
+    permissionsPayload.manage_target_realizations ||
+    permissionsPayload.manage_messaging_rules ||
     permissionsPayload.can_upload_data ||
     permissionsPayload.manage_settings_access ||
     permissionsPayload.can_delegate
@@ -5108,6 +5136,9 @@ exports.handler = async function handler(event) {
         if (!targetUser) {
           return errorResponse(404, "User not found.");
         }
+        if (!canAccessRatesForTarget(context.currentUser, targetUser)) {
+          return errorResponse(403, "Access denied.");
+        }
         const canEditBaseRates = can("edit_member_rates", {
           targetUserId: userId,
           targetOfficeId: targetUser.office_id || targetUser.officeId || null,
@@ -5486,7 +5517,7 @@ exports.handler = async function handler(event) {
         break;
       }
       case "update_notification_rule": {
-        if (!can("manage_settings_access")) {
+        if (!can("manage_messaging_rules") && !can("manage_settings_access")) {
           return errorResponse(403, "Access denied.");
         }
         const eventType = normalizeText(request.payload?.eventType);
@@ -5567,6 +5598,14 @@ exports.handler = async function handler(event) {
         const target = await findUserById(sql, request.payload?.userId, accountId);
         if (!target || !target.is_active) {
           return errorResponse(404, "User not found.");
+        }
+        const hasAnyRateChange =
+          request.payload?.baseRate !== undefined ||
+          request.payload?.costRate !== undefined ||
+          request.payload?.base_rate !== undefined ||
+          request.payload?.cost_rate !== undefined;
+        if (hasAnyRateChange && !canAccessRatesForTarget(context.currentUser, target)) {
+          return errorResponse(403, "Access denied.");
         }
         const desiredLevel = normalizeLevel(request.payload?.level ?? request.payload?.role);
         if (!requestLevelLabels?.[desiredLevel]) {
@@ -5770,7 +5809,10 @@ exports.handler = async function handler(event) {
         break;
       }
       case "update_corporate_function_categories": {
-        if (!can("manage_expense_categories", { resourceOfficeId: context.currentUser?.officeId || null })) {
+        if (
+          !can("manage_corporate_functions", { resourceOfficeId: context.currentUser?.officeId || null }) &&
+          !can("manage_expense_categories", { resourceOfficeId: context.currentUser?.officeId || null })
+        ) {
           return errorResponse(403, "Access denied.");
         }
         mutationResult = await runMutationWithAudit({
@@ -5803,7 +5845,10 @@ exports.handler = async function handler(event) {
         break;
       }
       case "update_target_realizations": {
-        if (!can("manage_departments", { resourceOfficeId: context.currentUser?.officeId || null })) {
+        if (
+          !can("manage_target_realizations", { resourceOfficeId: context.currentUser?.officeId || null }) &&
+          !can("manage_departments", { resourceOfficeId: context.currentUser?.officeId || null })
+        ) {
           return errorResponse(403, "Access denied.");
         }
         mutationResult = await runMutationWithAudit({

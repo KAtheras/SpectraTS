@@ -78,6 +78,15 @@ exports.handler = async function handler(event) {
     const canViewCostRates =
       can(currentUser, "view_cost_rates", {}, permissionIndex) ||
       can(currentUser, "view_cost_rate", {}, permissionIndex);
+    const canManageCorporateFunctions =
+      can(currentUser, "manage_corporate_functions", {}, permissionIndex) ||
+      can(currentUser, "manage_expense_categories", {}, permissionIndex);
+    const canManageTargetRealizations =
+      can(currentUser, "manage_target_realizations", {}, permissionIndex) ||
+      can(currentUser, "manage_departments", {}, permissionIndex);
+    const canManageMessagingRules =
+      can(currentUser, "manage_messaging_rules", {}, permissionIndex) ||
+      can(currentUser, "manage_settings_access", {}, permissionIndex);
     const permissions = {
       // existing keys
       edit_user_department: can(currentUser, "edit_user_department", {}, permissionIndex),
@@ -93,8 +102,10 @@ exports.handler = async function handler(event) {
       manage_levels: can(currentUser, "manage_levels", {}, permissionIndex),
       manage_departments: can(currentUser, "manage_departments", {}, permissionIndex),
       manage_expense_categories: can(currentUser, "manage_expense_categories", {}, permissionIndex),
-      manage_corporate_functions: can(currentUser, "manage_expense_categories", {}, permissionIndex),
+      manage_corporate_functions: canManageCorporateFunctions,
       manage_office_locations: can(currentUser, "manage_office_locations", {}, permissionIndex),
+      manage_target_realizations: canManageTargetRealizations,
+      manage_messaging_rules: canManageMessagingRules,
       can_upload_data: can(currentUser, "can_upload_data", {}, permissionIndex),
       manage_settings_access: canManageSettingsAccess,
       can_delegate: can(currentUser, "can_delegate", {}, permissionIndex),
@@ -145,6 +156,8 @@ exports.handler = async function handler(event) {
       permissions.manage_expense_categories ||
       permissions.manage_corporate_functions ||
       permissions.manage_office_locations ||
+      permissions.manage_target_realizations ||
+      permissions.manage_messaging_rules ||
       permissions.can_upload_data ||
       permissions.manage_settings_access ||
       permissions.can_delegate
