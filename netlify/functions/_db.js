@@ -3769,6 +3769,10 @@ async function loadSettingsMetadata(sql, currentUser) {
       resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
       actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
     }) ||
+    canCap("view_members", {
+      resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+      actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+    }) ||
     canCap("edit_member_profile", {
       resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
       actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
@@ -3922,6 +3926,10 @@ async function loadState(sql, currentUser) {
     });
   const canUseOfficeLocationsForMembers =
     manageLocations ||
+    canCap("view_members", {
+      resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+      actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+    }) ||
     canCap("edit_member_profile", {
       resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
       actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
