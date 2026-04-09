@@ -3939,14 +3939,28 @@ async function loadState(sql, currentUser) {
   });
   const allUsers = normalizedUser ? await listUsers(sql, accountUuid) : [];
   const canViewInternalRecords = isAdminFlag;
+  const currentUserId = normalizeText(normalizedUser?.id || "");
+  const currentUserDisplayName = normalizeText(normalizedUser?.displayName || "").toLowerCase();
   const isInternalEntryRecord = (entry) => {
     const chargeCenterId = normalizeText(entry?.chargeCenterId || entry?.charge_center_id || "");
     const clientName = normalizeText(entry?.client || "");
     return Boolean(chargeCenterId) || clientName.toLowerCase() === "internal";
   };
+  const isOwnEntryRecord = (entry) => {
+    const entryUserId = normalizeText(entry?.userId || entry?.user_id || "");
+    if (entryUserId && currentUserId && entryUserId === currentUserId) {
+      return true;
+    }
+    const entryUserName = normalizeText(entry?.user || "").toLowerCase();
+    return Boolean(entryUserName) && Boolean(currentUserDisplayName) && entryUserName === currentUserDisplayName;
+  };
   const isInternalExpenseRecord = (expense) => {
     const clientName = normalizeText(expense?.clientName || expense?.client_name || "");
     return clientName.toLowerCase() === "internal";
+  };
+  const isOwnExpenseRecord = (expense) => {
+    const expenseUserId = normalizeText(expense?.userId || expense?.user_id || "");
+    return Boolean(expenseUserId) && Boolean(currentUserId) && expenseUserId === currentUserId;
   };
 
   let entries = [];
@@ -4349,7 +4363,7 @@ async function loadState(sql, currentUser) {
     });
   }
   if (!canViewInternalRecords) {
-    entries = entries.filter((entry) => !isInternalEntryRecord(entry));
+    entries = entries.filter((entry) => !isInternalEntryRecord(entry) || isOwnEntryRecord(entry));
   }
 
   let expenses = [];
@@ -4550,7 +4564,7 @@ async function loadState(sql, currentUser) {
     });
   }
   if (!canViewInternalRecords) {
-    expenses = expenses.filter((expense) => !isInternalExpenseRecord(expense));
+    expenses = expenses.filter((expense) => !isInternalExpenseRecord(expense) || isOwnExpenseRecord(expense));
   }
 
   let users = [];
