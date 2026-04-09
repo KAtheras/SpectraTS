@@ -75,13 +75,18 @@ exports.handler = async function handler(event) {
     }
     const currentUser = state.currentUser;
     const canManageSettingsAccess = can(currentUser, "manage_settings_access", {}, permissionIndex);
+    const canViewCostRates =
+      can(currentUser, "view_cost_rates", {}, permissionIndex) ||
+      can(currentUser, "view_cost_rate", {}, permissionIndex);
     const permissions = {
       // existing keys
       edit_user_department: can(currentUser, "edit_user_department", {}, permissionIndex),
       view_settings_tab: false,
       view_members_page: can(currentUser, "view_members", {}, permissionIndex),
       view_member_rates: can(currentUser, "view_member_rates", {}, permissionIndex),
-      view_cost_rate: can(currentUser, "view_cost_rate", {}, permissionIndex),
+      view_cost_rates: canViewCostRates,
+      view_cost_rate: canViewCostRates,
+      edit_cost_rates: canViewCostRates,
       edit_user_rates: can(currentUser, "edit_member_rates", {}, permissionIndex),
 
       // settings management

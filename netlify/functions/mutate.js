@@ -1143,12 +1143,15 @@ function buildPermissionsPayload(currentUser, permissionIndex) {
       ...ctx,
     });
   const canManageSettingsAccess = can("manage_settings_access");
+  const canViewCostRates = can("view_cost_rates") || can("view_cost_rate");
   const permissionsPayload = {
     edit_user_department: can("edit_user_department"),
     view_settings_tab: false,
     view_members_page: can("view_members"),
     view_member_rates: can("view_member_rates"),
-    view_cost_rate: can("view_cost_rate"),
+    view_cost_rates: canViewCostRates,
+    view_cost_rate: canViewCostRates,
+    edit_cost_rates: canViewCostRates,
     edit_user_rates: can("edit_member_rates"),
     manage_levels: can("manage_levels"),
     manage_departments: can("manage_departments"),
@@ -5105,13 +5108,19 @@ exports.handler = async function handler(event) {
         if (!targetUser) {
           return errorResponse(404, "User not found.");
         }
-        const canEditRates = can("edit_member_rates", {
+        const canEditBaseRates = can("edit_member_rates", {
           targetUserId: userId,
           targetOfficeId: targetUser.office_id || targetUser.officeId || null,
         });
-        if (!canEditRates) {
-          return errorResponse(403, "Access denied.");
-        }
+        const canEditCostRates =
+          can("view_cost_rates", {
+            targetUserId: userId,
+            targetOfficeId: targetUser.office_id || targetUser.officeId || null,
+          }) ||
+          can("view_cost_rate", {
+            targetUserId: userId,
+            targetOfficeId: targetUser.office_id || targetUser.officeId || null,
+          });
         const baseRate =
           baseRateRaw === null || baseRateRaw === undefined || baseRateRaw === ""
             ? null
@@ -5125,6 +5134,25 @@ exports.handler = async function handler(event) {
           (costRate !== null && (!Number.isFinite(costRate) || costRate < 0))
         ) {
           return errorResponse(400, "Rates must be non-negative numbers.");
+        }
+        const normalizeNumber = (value) => {
+          if (value === null || value === undefined || `${value}`.trim() === "") return null;
+          const numeric = Number(value);
+          return Number.isFinite(numeric) ? numeric : null;
+        };
+        const existingBaseRate = normalizeNumber(targetUser.base_rate ?? targetUser.baseRate);
+        const existingCostRate = normalizeNumber(targetUser.cost_rate ?? targetUser.costRate);
+        const baseRateChanged = normalizeNumber(baseRate) !== existingBaseRate;
+        const costRateChanged = normalizeNumber(costRate) !== existingCostRate;
+        if (baseRateChanged && !canEditBaseRates) {
+          return errorResponse(403, "Access denied.");
+        }
+        if (costRateChanged && !canEditCostRates) {
+          return errorResponse(403, "Access denied.");
+        }
+        if (!baseRateChanged && !costRateChanged) {
+          mutationResult = await loadState(sql, context.currentUser);
+          break;
         }
         const now = new Date().toISOString();
         const result = await sql`
@@ -5554,12 +5582,19 @@ exports.handler = async function handler(event) {
         if (!can("edit_member_profile", { resourceOfficeId: nextOfficeId })) {
           return errorResponse(403, "Access denied.");
         }
-        const hasRateChange =
+        const hasBaseRateChange =
           request.payload?.baseRate !== undefined ||
+          request.payload?.base_rate !== undefined;
+        const hasCostRateChange =
           request.payload?.costRate !== undefined ||
-          request.payload?.base_rate !== undefined ||
           request.payload?.cost_rate !== undefined;
-        if (hasRateChange && !can("edit_member_rates", { resourceOfficeId: nextOfficeId })) {
+        if (hasBaseRateChange && !can("edit_member_rates", { resourceOfficeId: nextOfficeId })) {
+          return errorResponse(403, "Access denied.");
+        }
+        const canEditCostRates =
+          can("view_cost_rates", { resourceOfficeId: nextOfficeId }) ||
+          can("view_cost_rate", { resourceOfficeId: nextOfficeId });
+        if (hasCostRateChange && !canEditCostRates) {
           return errorResponse(403, "Access denied.");
         }
         const maybeCurrentUser = await updateUserRecord(

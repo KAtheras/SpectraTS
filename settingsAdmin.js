@@ -2594,7 +2594,7 @@
     const caps = [
       "view_members",
       "view_member_rates",
-      "view_cost_rate",
+      "view_cost_rates",
       "edit_member_rates",
       "edit_member_profile",
       "manage_departments",
@@ -2607,9 +2607,9 @@
     ];
     const capLabels = {
       view_members: "View member information",
-      view_member_rates: "View member rates",
-      view_cost_rate: "View cost rate",
-      edit_member_rates: "Edit member rates",
+      view_member_rates: "View base rates",
+      view_cost_rates: "View cost rates",
+      edit_member_rates: "Edit base rates",
       edit_member_profile: "Edit member profile",
       manage_departments: "Manage practice departments",
       manage_levels: "Manage member levels",
@@ -3020,8 +3020,13 @@
     }
 
     const canEditRates = Boolean(state.permissions?.edit_user_rates);
+    const canEditCostRates = Boolean(
+      state.permissions?.edit_cost_rates ||
+      state.permissions?.view_cost_rates ||
+      state.permissions?.view_cost_rate
+    );
     const canEditProfile = Boolean(state.permissions?.edit_user_profile);
-    const canEditAny = canEditRates || canEditProfile;
+    const canEditAny = canEditRates || canEditCostRates || canEditProfile;
     const users = (state.users || []).filter((u) => u.isActive !== false);
     const departments = state.departments || [];
     const titleOptions = Object.entries(state.levelLabels || {})

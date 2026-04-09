@@ -1986,7 +1986,12 @@
     ensureMemberEditorModal();
     const canCreate = Boolean(state.permissions?.create_user);
     const canEditProfile = Boolean(state.permissions?.edit_user_profile);
-    const canEditRates = Boolean(state.permissions?.edit_user_rates);
+    const canEditBaseRates = Boolean(state.permissions?.edit_user_rates);
+    const canEditCostRates = Boolean(
+      state.permissions?.edit_cost_rates ||
+      state.permissions?.view_cost_rates ||
+      state.permissions?.view_cost_rate
+    );
     const requestedScope = String(options?.scope || "").trim().toLowerCase();
     const isSelfProfileMode = mode === "edit" && requestedScope === "self_profile";
     memberEditorScope = isSelfProfileMode ? "self_profile" : "full";
@@ -1994,7 +1999,7 @@
       feedback("Access denied.", true);
       return;
     }
-    if (!isSelfProfileMode && mode === "edit" && !canEditProfile && !canEditRates) {
+    if (!isSelfProfileMode && mode === "edit" && !canEditProfile && !canEditBaseRates && !canEditCostRates) {
       feedback("Access denied.", true);
       return;
     }
@@ -2049,10 +2054,14 @@
       const el = field(memberEditorForm, name);
       if (el) el.disabled = !profileEditable;
     });
-    ["base_rate", "cost_rate"].forEach((name) => {
-      const el = field(memberEditorForm, name);
-      if (el) el.disabled = isSelfProfileMode ? true : !canEditRates;
-    });
+    const baseRateField = field(memberEditorForm, "base_rate");
+    if (baseRateField) {
+      baseRateField.disabled = isSelfProfileMode ? true : !canEditBaseRates;
+    }
+    const costRateField = field(memberEditorForm, "cost_rate");
+    if (costRateField) {
+      costRateField.disabled = isSelfProfileMode ? true : !canEditCostRates;
+    }
 
     memberEditorTitle.textContent = mode === "create" ? "Add member" : (isSelfProfileMode ? "Edit profile" : "Edit member");
     memberEditorSubmit.textContent = mode === "create" ? "Add member" : (isSelfProfileMode ? "Save profile" : "Save changes");
@@ -2108,7 +2117,12 @@
           ? "Save profile"
           : "Save changes";
     const canEditProfile = Boolean(state.permissions?.edit_user_profile);
-    const canEditRates = Boolean(state.permissions?.edit_user_rates);
+    const canEditBaseRates = Boolean(state.permissions?.edit_user_rates);
+    const canEditCostRates = Boolean(
+      state.permissions?.edit_cost_rates ||
+      state.permissions?.view_cost_rates ||
+      state.permissions?.view_cost_rate
+    );
     const canCreate = Boolean(state.permissions?.create_user);
     const displayName = field(memberEditorForm, "display_name").value.trim();
     const username = field(memberEditorForm, "username").value.trim();
@@ -2261,12 +2275,13 @@
         const departmentChanged =
           canEditProfile &&
           normalizeText(currentUser.departmentId) !== normalizeText(departmentId);
-        const ratesChanged =
-          canEditRates &&
-          (
-            normalizeNumber(currentUser.baseRate) !== normalizeNumber(baseRate) ||
-            normalizeNumber(currentUser.costRate) !== normalizeNumber(costRate)
-          );
+        const baseRateChanged =
+          canEditBaseRates &&
+          normalizeNumber(currentUser.baseRate) !== normalizeNumber(baseRate);
+        const costRateChanged =
+          canEditCostRates &&
+          normalizeNumber(currentUser.costRate) !== normalizeNumber(costRate);
+        const ratesChanged = baseRateChanged || costRateChanged;
         if (!profileChanged && !departmentChanged && !ratesChanged) {
           closeMemberEditorModal();
           return;
@@ -2286,8 +2301,8 @@
             certifications: profileChanged ? certifications : item.certifications,
             memberProfile: profileChanged ? memberProfile : item.memberProfile,
             departmentId: departmentChanged ? departmentId : item.departmentId,
-            baseRate: ratesChanged ? baseRate : item.baseRate,
-            costRate: ratesChanged ? costRate : item.costRate,
+            baseRate: baseRateChanged ? baseRate : item.baseRate,
+            costRate: costRateChanged ? costRate : item.costRate,
           };
         });
         state.users = nextUsers;
@@ -2328,7 +2343,11 @@
             followUpMutations.push(
               mutatePersistentState(
                 "update_user_rates",
-                { userId, baseRate, costRate },
+                {
+                  userId,
+                  baseRate: baseRateChanged ? baseRate : currentUser.baseRate,
+                  costRate: costRateChanged ? costRate : currentUser.costRate,
+                },
                 settingsSaveFastOptions()
               )
             );

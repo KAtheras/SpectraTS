@@ -151,7 +151,7 @@ async function ensureSchema(sql) {
   `;
   await sql`
     INSERT INTO permission_capabilities (key, label, category, is_active)
-    VALUES ('view_cost_rate', 'View cost rate', 'settings', TRUE)
+    VALUES ('view_cost_rates', 'View cost rates', 'settings', TRUE)
     ON CONFLICT (key) DO UPDATE SET
       label = EXCLUDED.label,
       category = EXCLUDED.category,
@@ -170,7 +170,7 @@ async function ensureSchema(sql) {
     INSERT INTO role_permissions (role_id, capability_id, scope_id, allowed)
     SELECT pr.id, pc.id, ps.id, TRUE
     FROM permission_roles pr
-    JOIN permission_capabilities pc ON pc.key = 'view_cost_rate'
+    JOIN permission_capabilities pc ON pc.key = 'view_cost_rates'
     JOIN permission_scopes ps ON ps.key = 'all_offices'
     WHERE pr.key = 'superuser'
     ON CONFLICT (role_id, capability_id, scope_id) DO NOTHING
@@ -179,9 +179,19 @@ async function ensureSchema(sql) {
     INSERT INTO role_permissions (role_id, capability_id, scope_id, allowed)
     SELECT pr.id, pc.id, ps.id, TRUE
     FROM permission_roles pr
-    JOIN permission_capabilities pc ON pc.key = 'view_cost_rate'
+    JOIN permission_capabilities pc ON pc.key = 'view_cost_rates'
     JOIN permission_scopes ps ON ps.key = 'own_office'
     WHERE pr.key = 'admin'
+    ON CONFLICT (role_id, capability_id, scope_id) DO NOTHING
+  `;
+  await sql`
+    INSERT INTO role_permissions (role_id, capability_id, scope_id, allowed)
+    SELECT rp.role_id, new_cap.id, rp.scope_id, rp.allowed
+    FROM role_permissions rp
+    JOIN permission_capabilities old_cap ON old_cap.id = rp.capability_id
+    JOIN permission_capabilities new_cap ON new_cap.key = 'view_cost_rates'
+    WHERE old_cap.key = 'view_cost_rate'
+      AND rp.allowed = TRUE
     ON CONFLICT (role_id, capability_id, scope_id) DO NOTHING
   `;
   await sql`
@@ -3645,6 +3655,15 @@ async function loadState(sql, currentUser) {
     resourceOfficeId: normalizedUser?.officeId ?? null,
     actorOfficeId: normalizedUser?.officeId ?? null,
   });
+  const viewCostRatesCap =
+    canCap("view_cost_rates", {
+      resourceOfficeId: normalizedUser?.officeId ?? null,
+      actorOfficeId: normalizedUser?.officeId ?? null,
+    }) ||
+    canCap("view_cost_rate", {
+      resourceOfficeId: normalizedUser?.officeId ?? null,
+      actorOfficeId: normalizedUser?.officeId ?? null,
+    });
   const editMemberRatesCap = canCap("edit_member_rates", {
     resourceOfficeId: normalizedUser?.officeId ?? null,
     actorOfficeId: normalizedUser?.officeId ?? null,
@@ -4344,16 +4363,21 @@ async function loadState(sql, currentUser) {
         resourceOfficeId: user.officeId ?? user.office_id ?? null,
         actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
       });
-      const canViewCostRate = canCap("view_cost_rate", {
-        resourceOfficeId: user.officeId ?? user.office_id ?? null,
-        actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
-      });
+      const canViewCostRates =
+        canCap("view_cost_rates", {
+          resourceOfficeId: user.officeId ?? user.office_id ?? null,
+          actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+        }) ||
+        canCap("view_cost_rate", {
+          resourceOfficeId: user.officeId ?? user.office_id ?? null,
+          actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+        });
       const canEditRates = canCap("edit_member_rates", {
         resourceOfficeId: user.officeId ?? user.office_id ?? null,
         actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
       });
       const allowBaseRate = canViewBaseRate || canEditRates;
-      const allowCostRate = canViewCostRate || canEditRates;
+      const allowCostRate = canViewCostRates;
       return {
         ...user,
         baseRate: allowBaseRate ? user.baseRate : null,
@@ -4506,6 +4530,7 @@ async function loadState(sql, currentUser) {
     settingsAccess: {
       settingsShell,
       viewMemberRates: viewMemberRatesCap,
+      viewCostRates: viewCostRatesCap,
       editMemberRates: editMemberRatesCap,
       manageCategories,
       manageLocations,
