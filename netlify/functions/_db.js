@@ -1065,7 +1065,10 @@ async function ensureSchema(sql) {
       users.id,
       NOW()
     FROM entries
-    JOIN users ON LOWER(users.display_name) = LOWER(entries.user_name)
+    JOIN users ON (
+      users.id = entries.user_id
+      OR LOWER(users.display_name) = LOWER(entries.user_name)
+    )
     JOIN clients ON LOWER(clients.name) = LOWER(entries.client_name)
     JOIN projects ON projects.client_id = clients.id
       AND LOWER(projects.name) = LOWER(entries.project_name)
@@ -4021,7 +4024,10 @@ async function loadState(sql, currentUser) {
         LEFT JOIN corporate_function_groups cfg
           ON cfg.id = cfc.group_id
          AND cfg.account_id = ${accountUuid}::uuid
-        JOIN users ON LOWER(users.display_name) = LOWER(entries.user_name)
+        JOIN users ON (
+          users.id = entries.user_id
+          OR LOWER(users.display_name) = LOWER(entries.user_name)
+        )
         LEFT JOIN level_labels manager_entry_levels
           ON manager_entry_levels.account_id = users.account_id
          AND manager_entry_levels.level = users.level
@@ -4279,7 +4285,10 @@ async function loadState(sql, currentUser) {
             LEFT JOIN corporate_function_groups cfg
               ON cfg.id = cfc.group_id
              AND cfg.account_id = ${accountUuid}::uuid
-            JOIN users ON LOWER(users.display_name) = LOWER(entries.user_name)
+            JOIN users ON (
+              users.id = entries.user_id
+              OR LOWER(users.display_name) = LOWER(entries.user_name)
+            )
             LEFT JOIN level_labels delegated_entry_levels
               ON delegated_entry_levels.account_id = users.account_id
              AND delegated_entry_levels.level = users.level
