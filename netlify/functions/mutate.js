@@ -628,26 +628,28 @@ function validateExpense(expense) {
 }
 
 let requestLevelLabels = {};
+const ALLOWED_PERMISSION_GROUPS = new Set([
+  "staff",
+  "manager",
+  "executive",
+  "admin",
+  "superuser",
+]);
 
 function permissionGroupForUser(user) {
   if (!user) return "staff";
-  if (typeof user === "number") {
-    const normalized = normalizeLevel(user);
-    const value = requestLevelLabels?.[normalized];
-    if (value && typeof value === "object") {
-      if (value.permissionGroup) return String(value.permissionGroup).toLowerCase();
-      if (value.permission_group) return String(value.permission_group).toLowerCase();
-    }
-    return "staff";
+  const raw =
+    typeof user === "object" && user !== null
+      ? user.permissionGroup || user.permission_group || user.role
+      : user;
+  const normalized = normalizeText(raw).toLowerCase();
+  if (!normalized) {
+    throw new Error("Missing permission group for user.");
   }
-  if (user.permissionGroup) return String(user.permissionGroup).toLowerCase();
-  const normalized = normalizeLevel(user.level);
-  const value = requestLevelLabels?.[normalized];
-  if (value && typeof value === "object") {
-    if (value.permissionGroup) return String(value.permissionGroup).toLowerCase();
-    if (value.permission_group) return String(value.permission_group).toLowerCase();
+  if (!ALLOWED_PERMISSION_GROUPS.has(normalized)) {
+    throw new Error(`Invalid permission group "${normalized}".`);
   }
-  return "staff";
+  return normalized;
 }
 
 function roleRankForGroup(group) {
@@ -2685,7 +2687,7 @@ async function createExpense(sql, payload, currentUser, accountId) {
   if (!targetUser) {
     return errorResponse(404, "Team member not found.");
   }
-  const targetGroup = permissionGroupForUser(targetUser.level);
+  const targetGroup = permissionGroupForUser(targetUser);
 
   if (isAdmin(currentUser)) {
     // full access
@@ -2889,7 +2891,7 @@ async function updateExpense(sql, payload, currentUser, accountId) {
   if (!targetUser) {
     return errorResponse(404, "Team member not found.");
   }
-  const targetGroup = permissionGroupForUser(targetUser.level);
+  const targetGroup = permissionGroupForUser(targetUser);
 
   if (isAdmin(currentUser)) {
     // full access
@@ -3120,7 +3122,7 @@ async function toggleExpenseStatus(sql, payload, currentUser, accountId) {
   if (!id) {
     return errorResponse(400, "Expense id is required.");
   }
-  if (!currentUser || permissionGroupForUser(currentUser.level) === "staff") {
+  if (!currentUser || permissionGroupForUser(currentUser) === "staff") {
     return errorResponse(403, "Manager access required.");
   }
 
@@ -3141,8 +3143,8 @@ async function toggleExpenseStatus(sql, payload, currentUser, accountId) {
     return errorResponse(404, "Expense user not found.");
   }
 
-  const currentGroup = permissionGroupForUser(currentUser.level);
-  const targetGroup = permissionGroupForUser(targetUser.level);
+  const currentGroup = permissionGroupForUser(currentUser);
+  const targetGroup = permissionGroupForUser(targetUser);
   const isCurrentAdmin = isAdmin(currentUser);
 
   if (!isCurrentAdmin) {
@@ -3773,7 +3775,7 @@ async function saveEntry(sql, payload, currentUser, accountId) {
     normalizeText(targetUser.display_name) ||
     normalizeText(targetUser.displayName) ||
     normalizeText(entry.user);
-  const targetGroup = permissionGroupForUser(targetUser.level);
+  const targetGroup = permissionGroupForUser(targetUser);
 
   if (isAdmin(currentUser)) {
     // Full access.
@@ -4075,7 +4077,7 @@ async function approveEntry(sql, payload, currentUser, accountId) {
   if (!id) {
     return errorResponse(400, "Entry id is required.");
   }
-  if (!currentUser || permissionGroupForUser(currentUser.level) === "staff") {
+  if (!currentUser || permissionGroupForUser(currentUser) === "staff") {
     return errorResponse(403, "Manager access required.");
   }
 
@@ -4108,8 +4110,8 @@ async function approveEntry(sql, payload, currentUser, accountId) {
     return errorResponse(404, "Entry user not found.");
   }
 
-  const currentGroup = permissionGroupForUser(currentUser.level);
-  const targetGroup = permissionGroupForUser(targetUser.level);
+  const currentGroup = permissionGroupForUser(currentUser);
+  const targetGroup = permissionGroupForUser(targetUser);
   const isCurrentAdmin = isAdmin(currentUser);
 
   if (!isCurrentAdmin) {
@@ -4207,7 +4209,7 @@ async function unapproveEntry(sql, payload, currentUser, accountId) {
   if (!id) {
     return errorResponse(400, "Entry id is required.");
   }
-  if (!currentUser || permissionGroupForUser(currentUser.level) === "staff") {
+  if (!currentUser || permissionGroupForUser(currentUser) === "staff") {
     return errorResponse(403, "Manager access required.");
   }
 
@@ -4240,8 +4242,8 @@ async function unapproveEntry(sql, payload, currentUser, accountId) {
     return errorResponse(404, "Entry user not found.");
   }
 
-  const currentGroup = permissionGroupForUser(currentUser.level);
-  const targetGroup = permissionGroupForUser(targetUser.level);
+  const currentGroup = permissionGroupForUser(currentUser);
+  const targetGroup = permissionGroupForUser(targetUser);
   const isCurrentAdmin = isAdmin(currentUser);
 
   if (!isCurrentAdmin) {

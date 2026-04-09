@@ -49,6 +49,13 @@ const ACTING_AS_CAPABILITIES = new Set([
 ]);
 const ENSURE_SCHEMA_LOCK_KEY_A = 921104;
 const ENSURE_SCHEMA_LOCK_KEY_B = 1;
+const ALLOWED_PERMISSION_GROUPS = new Set([
+  "staff",
+  "manager",
+  "executive",
+  "admin",
+  "superuser",
+]);
 
 async function getSql() {
   return neon();
@@ -398,6 +405,13 @@ async function ensureSchema(sql) {
   await sql`ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check`;
   await sql`UPDATE users SET role = 'superuser' WHERE role = 'global_admin'`;
   await sql`UPDATE users SET role = 'staff' WHERE role = 'member'`;
+  await sql`UPDATE users SET role = LOWER(TRIM(COALESCE(role, '')))`;
+  await sql`
+    UPDATE users
+    SET role = 'staff'
+    WHERE role NOT IN ('staff', 'manager', 'executive', 'admin', 'superuser')
+      OR role = ''
+  `;
   await sql`
     UPDATE users
     SET level = CASE
@@ -414,6 +428,11 @@ async function ensureSchema(sql) {
     ALTER TABLE users
     ADD CONSTRAINT users_level_check
     CHECK (level >= 1)
+  `;
+  await sql`
+    ALTER TABLE users
+    ADD CONSTRAINT users_role_check
+    CHECK (LOWER(TRIM(role)) IN ('staff', 'manager', 'executive', 'admin', 'superuser'))
   `;
 
   await sql`
@@ -1411,25 +1430,20 @@ function permissionGroupForUser(user, levelLabels) {
     (typeof user === "object" && user !== null
       ? user.permissionGroup || user.permission_group || user.role
       : user) || "";
-  const normalized = normalizeText(raw);
-  if (normalized) return normalized;
-
-  const levelValue =
-    typeof user === "number"
-      ? user
-      : typeof user === "object" && user !== null
-        ? user.level
-        : null;
-  if (levelLabels && levelValue !== null && levelValue !== undefined) {
-    const levelKey = normalizeLevel(levelValue);
-    const mapped =
-      levelLabels?.[levelKey]?.permissionGroup ||
-      levelLabels?.[levelKey]?.permission_group;
-    const mappedNormalized = normalizeText(mapped || "");
-    if (mappedNormalized) return mappedNormalized;
+  const normalized = normalizeText(raw).toLowerCase();
+  if (!normalized) {
+    const userId = normalizeText(user?.id || "");
+    throw new Error(
+      `Missing permission group for user ${userId || "unknown"}`
+    );
   }
-
-  return "staff";
+  if (!ALLOWED_PERMISSION_GROUPS.has(normalized)) {
+    const userId = normalizeText(user?.id || "");
+    throw new Error(
+      `Invalid permission group "${normalized}" for user ${userId || "unknown"}`
+    );
+  }
+  return normalized;
 }
 
 function roleRankForGroup(group) {
