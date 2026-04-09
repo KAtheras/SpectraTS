@@ -3938,6 +3938,16 @@ async function loadState(sql, currentUser) {
     return actorClientIdsFromProjects.has(clientIdNumber);
   });
   const allUsers = normalizedUser ? await listUsers(sql, accountUuid) : [];
+  const canViewInternalRecords = isAdminFlag;
+  const isInternalEntryRecord = (entry) => {
+    const chargeCenterId = normalizeText(entry?.chargeCenterId || entry?.charge_center_id || "");
+    const clientName = normalizeText(entry?.client || "");
+    return Boolean(chargeCenterId) || clientName.toLowerCase() === "internal";
+  };
+  const isInternalExpenseRecord = (expense) => {
+    const clientName = normalizeText(expense?.clientName || expense?.client_name || "");
+    return clientName.toLowerCase() === "internal";
+  };
 
   let entries = [];
   if (isAdminFlag) {
@@ -4338,6 +4348,9 @@ async function loadState(sql, currentUser) {
       return rightDate.localeCompare(leftDate);
     });
   }
+  if (!canViewInternalRecords) {
+    entries = entries.filter((entry) => !isInternalEntryRecord(entry));
+  }
 
   let expenses = [];
   if (isAdminFlag || isExecFlag) {
@@ -4535,6 +4548,9 @@ async function loadState(sql, currentUser) {
       }
       return rightDate.localeCompare(leftDate);
     });
+  }
+  if (!canViewInternalRecords) {
+    expenses = expenses.filter((expense) => !isInternalExpenseRecord(expense));
   }
 
   let users = [];
