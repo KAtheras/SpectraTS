@@ -39,7 +39,12 @@
   let memberInfoMobileMode = "list";
   let memberInfoMobileSelectedUserId = "";
   let delegationsSelectedDelegateId = "";
+  let delegationsSaveInFlight = false;
+  let delegationsSaveQueued = false;
   let permissionsSaveInFlight = false;
+  let permissionsSaveQueued = false;
+  let expenseCategoriesSaveInFlight = false;
+  let expenseCategoriesSaveQueued = false;
   let projectExpenseCategoriesDraft = [];
   let projectExpenseCategoriesDraftDirty = false;
   let expenseCategoriesEnhancementsWired = false;
@@ -2592,6 +2597,10 @@
     if (form) {
       form.onsubmit = async function (event) {
         event.preventDefault();
+        if (delegationsSaveInFlight) {
+          delegationsSaveQueued = true;
+          return;
+        }
         let delegateUserId = `${selectedDelegateIdInput?.value || ""}`.trim();
         if (!delegateUserId && searchInput) {
           const typed = `${searchInput.value || ""}`.trim().toLowerCase();
@@ -2609,6 +2618,7 @@
         const selectedCaps = Array.from(
           panel.querySelectorAll('input[data-delegation-capability]:checked')
         ).map((input) => `${input.value || ""}`.trim());
+        delegationsSaveInFlight = true;
         try {
           const result = await deps().mutatePersistentState(
             "save_delegate_capabilities",
@@ -2625,11 +2635,18 @@
               .filter((item) => item.delegateUserId && item.delegateName && item.capability);
           }
           delegationsDraftCapabilitiesByDelegateId.delete(delegateUserId);
-          renderDelegationsTab();
-          setActiveSettingsTab("delegations");
           deps().feedback(selectedCaps.length ? "Delegation saved." : "Delegation removed.", false);
         } catch (error) {
           deps().feedback(error.message || "Unable to save delegation.", true);
+        } finally {
+          delegationsSaveInFlight = false;
+          if (delegationsSaveQueued) {
+            delegationsSaveQueued = false;
+            scheduleSettingsFormSubmit("delegations-form", 0);
+          } else {
+            renderDelegationsTab();
+            setActiveSettingsTab("delegations");
+          }
         }
       };
     }
@@ -2775,7 +2792,7 @@
       }
       const timer = setTimeout(async () => {
         if (permissionsSaveInFlight) {
-          schedulePermissionsSave();
+          permissionsSaveQueued = true;
           return;
         }
         const liveRolePerms = Array.isArray(deps().state?.rolePermissions)
@@ -2816,11 +2833,14 @@
             }
           );
           deps().feedback("Access updated.", false);
-          renderSettingsTabs();
         } catch (error) {
           deps().feedback(error.message || "Unable to save access.", true);
         } finally {
           permissionsSaveInFlight = false;
+          if (permissionsSaveQueued) {
+            permissionsSaveQueued = false;
+            schedulePermissionsSave();
+          }
         }
       }, 450);
       settingsAutoSubmitTimers.set(timerKey, timer);
@@ -2948,6 +2968,44 @@
           -moz-appearance: textfield;
           appearance: textfield;
         }
+        .target-realizations-table-wrap {
+          overflow-x: auto;
+        }
+        .target-realizations-table {
+          width: max-content;
+          min-width: auto;
+          table-layout: fixed;
+        }
+        .target-realizations-table th,
+        .target-realizations-table td {
+          white-space: nowrap;
+        }
+        .target-realizations-table th:first-child,
+        .target-realizations-table td:first-child {
+          min-width: 240px;
+        }
+        .target-realizations-table td {
+          width: 136px;
+        }
+        .target-realizations-input-wrap {
+          position: relative;
+          display: flex;
+          align-items: center;
+        }
+        .target-realizations-input-wrap [data-target-realization-input] {
+          min-width: 0;
+          width: 100%;
+          max-width: 132px;
+          padding-right: 22px;
+          text-align: right;
+        }
+        .target-realizations-input-suffix {
+          position: absolute;
+          right: 10px;
+          color: var(--muted);
+          font-weight: 600;
+          pointer-events: none;
+        }
       `;
       document.head.appendChild(style);
     }
@@ -3003,10 +3061,9 @@
             const value = valueByKey.get(key) || "";
             return `
               <td>
-                <div style="position:relative;display:flex;align-items:center;">
+                <div class="target-realizations-input-wrap">
                   <input
                     class="settings-field"
-                    style="min-width:98px;padding-right:24px;text-align:right;"
                     type="number"
                     min="0"
                     step="0.01"
@@ -3016,7 +3073,7 @@
                     data-target-department-id="${escapeHtml(dept.id)}"
                     ${editable ? "" : "disabled"}
                   />
-                  <span aria-hidden="true" style="position:absolute;right:10px;color:var(--muted);font-weight:600;pointer-events:none;">%</span>
+                  <span class="target-realizations-input-suffix" aria-hidden="true">%</span>
                 </div>
               </td>
             `;
@@ -3032,8 +3089,8 @@
       .join("");
 
     refs.targetRealizationsMatrix.innerHTML = `
-      <div style="overflow-x:auto;">
-        <table class="data-table" style="width:100%;min-width:max-content;">
+      <div class="target-realizations-table-wrap">
+        <table class="data-table target-realizations-table">
           <thead>
             <tr>
               <th scope="col"><span>Office \\ Department</span></th>
@@ -3596,8 +3653,14 @@
       async function (event) {
         event.preventDefault();
         event.stopImmediatePropagation();
+        if (expenseCategoriesSaveInFlight) {
+          expenseCategoriesSaveQueued = true;
+          return;
+        }
+        expenseCategoriesSaveInFlight = true;
         if (!state.permissions?.manage_expense_categories) {
           feedback("Access denied.", true);
+          expenseCategoriesSaveInFlight = false;
           return;
         }
 
@@ -3672,18 +3735,14 @@
           projectExpenseCategoriesDraftDirty = false;
           renderExpenseCategories();
           feedback("Expense categories updated.", false);
-          if (typeof deps().loadPersistentState === "function") {
-            deps().loadPersistentState()
-              .then(() => {
-                renderSettingsTabs();
-                if (typeof setActiveSettingsTab === "function") {
-                  setActiveSettingsTab("categories");
-                }
-              })
-              .catch(() => {});
-          }
         } catch (error) {
           feedback(error.message || "Unable to update expense categories.", true);
+        } finally {
+          expenseCategoriesSaveInFlight = false;
+          if (expenseCategoriesSaveQueued) {
+            expenseCategoriesSaveQueued = false;
+            scheduleSettingsFormSubmit("expense-categories-form", 0);
+          }
         }
       },
       true

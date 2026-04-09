@@ -296,30 +296,34 @@
     if (!event.target || event.target.id !== "level-labels-form") return;
 
     event.preventDefault();
+    if (!beginSettingsAutoSave("level-labels-form")) return;
 
-    const { feedback } = deps();
-    if (!state.permissions?.manage_levels) {
-      feedback("Access denied.", true);
-      return;
+    try {
+      const { feedback } = deps();
+      if (!state.permissions?.manage_levels) {
+        feedback("Access denied.", true);
+        return;
+      }
+      const rows = Array.from(
+        document.querySelectorAll("#level-labels-form .level-row[data-level]")
+      );
+
+      const levels = rows
+        .map((row) => {
+          const level = Number(row.dataset.level);
+          const labelInput = row.querySelector("[data-level-label]");
+          const groupSelect = row.querySelector("[data-level-permission]");
+          const label = (labelInput?.value || "").trim();
+          const permissionGroup = (groupSelect?.value || "staff").trim();
+          return { level, label, permissionGroup };
+        })
+        .sort((a, b) => a.level - b.level);
+
+      await mutatePersistentState("update_level_labels", { levels }, settingsSaveFastOptions());
+      feedback("Levels updated.", false);
+    } finally {
+      finishSettingsAutoSave("level-labels-form");
     }
-    const rows = Array.from(
-      document.querySelectorAll("#level-labels-form .level-row[data-level]")
-    );
-
-    const levels = rows
-      .map((row) => {
-        const level = Number(row.dataset.level);
-        const labelInput = row.querySelector("[data-level-label]");
-        const groupSelect = row.querySelector("[data-level-permission]");
-        const label = (labelInput?.value || "").trim();
-        const permissionGroup = (groupSelect?.value || "staff").trim();
-        return { level, label, permissionGroup };
-      })
-      .sort((a, b) => a.level - b.level);
-
-    await mutatePersistentState("update_level_labels", { levels }, settingsSaveFastOptions());
-    feedback("Levels updated.", false);
-    refreshSettingsTabInBackground("levels");
   });
 
   const DEFAULT_CLIENT_PROJECTS = {};
@@ -10257,9 +10261,43 @@
   }
 
   const settingsAutoSubmitTimers = new Map();
+  const settingsAutoSaveStateByFormId = new Map();
+  function getSettingsAutoSaveState(formId) {
+    const key = String(formId || "").trim();
+    if (!key) return null;
+    if (!settingsAutoSaveStateByFormId.has(key)) {
+      settingsAutoSaveStateByFormId.set(key, { inFlight: false, queued: false });
+    }
+    return settingsAutoSaveStateByFormId.get(key);
+  }
+  function beginSettingsAutoSave(formId) {
+    const entry = getSettingsAutoSaveState(formId);
+    if (!entry) return true;
+    if (entry.inFlight) {
+      entry.queued = true;
+      return false;
+    }
+    entry.inFlight = true;
+    entry.queued = false;
+    return true;
+  }
+  function finishSettingsAutoSave(formId) {
+    const entry = getSettingsAutoSaveState(formId);
+    if (!entry) return;
+    entry.inFlight = false;
+    if (entry.queued) {
+      entry.queued = false;
+      scheduleSettingsFormAutoSubmit(formId, 0);
+    }
+  }
   function scheduleSettingsFormAutoSubmit(formId, delayMs = 700) {
     const key = String(formId || "").trim();
     if (!key) return;
+    const saveState = getSettingsAutoSaveState(key);
+    if (saveState?.inFlight) {
+      saveState.queued = true;
+      return;
+    }
     const existing = settingsAutoSubmitTimers.get(key);
     if (existing) {
       clearTimeout(existing);
@@ -10366,39 +10404,43 @@
   if (refs.expenseCategoriesForm) {
     refs.expenseCategoriesForm.addEventListener("submit", async function (event) {
       event.preventDefault();
-      if (!state.permissions?.manage_expense_categories) {
-        feedback("Access denied.", true);
-        return;
-      }
-      const rows = Array.from(refs.expenseRows?.querySelectorAll(".level-row") || []);
-      if (!rows.length) {
-        feedback("Add at least one category.", true);
-        return;
-      }
-      const seen = new Set();
-      const categories = [];
-      for (const row of rows) {
-        const id = (row.dataset.expenseId || "").trim();
-        const nameInput = row.querySelector("[data-expense-name]");
-        const name = (nameInput?.value || "").trim();
-        if (!name) {
-          feedback("Category name cannot be blank.", true);
-          return;
-        }
-        const key = name.toLowerCase();
-        if (seen.has(key)) {
-          feedback("Category names must be unique.", true);
-          return;
-        }
-        seen.add(key);
-        categories.push({ id: id || null, name });
-      }
+      if (!beginSettingsAutoSave("expense-categories-form")) return;
       try {
-        await mutatePersistentState("update_expense_categories", { categories }, settingsSaveFastOptions());
-        refreshSettingsTabInBackground("categories");
-        feedback("Expense categories updated.", false);
-      } catch (error) {
-        feedback(error.message || "Unable to update expense categories.", true);
+        if (!state.permissions?.manage_expense_categories) {
+          feedback("Access denied.", true);
+          return;
+        }
+        const rows = Array.from(refs.expenseRows?.querySelectorAll(".level-row") || []);
+        if (!rows.length) {
+          feedback("Add at least one category.", true);
+          return;
+        }
+        const seen = new Set();
+        const categories = [];
+        for (const row of rows) {
+          const id = (row.dataset.expenseId || "").trim();
+          const nameInput = row.querySelector("[data-expense-name]");
+          const name = (nameInput?.value || "").trim();
+          if (!name) {
+            feedback("Category name cannot be blank.", true);
+            return;
+          }
+          const key = name.toLowerCase();
+          if (seen.has(key)) {
+            feedback("Category names must be unique.", true);
+            return;
+          }
+          seen.add(key);
+          categories.push({ id: id || null, name });
+        }
+        try {
+          await mutatePersistentState("update_expense_categories", { categories }, settingsSaveFastOptions());
+          feedback("Expense categories updated.", false);
+        } catch (error) {
+          feedback(error.message || "Unable to update expense categories.", true);
+        }
+      } finally {
+        finishSettingsAutoSave("expense-categories-form");
       }
     });
   }
@@ -10414,7 +10456,6 @@
       } catch (e) {}
       await mutatePersistentState("update_office_locations", { locations }, settingsSaveFastOptions());
       feedback("Office locations updated.", false);
-      refreshSettingsTabInBackground("locations");
     } catch (error) {
       try {
         window.localStorage.setItem("timesheet.offices", JSON.stringify(locations));
@@ -10436,31 +10477,36 @@
   if (refs.officeLocationsForm) {
     refs.officeLocationsForm.addEventListener("submit", async function (event) {
       event.preventDefault();
-      const rows = Array.from(refs.officeRows?.querySelectorAll(".office-row") || []);
-      const seen = new Set();
-      const locations = [];
-      for (const row of rows) {
-        const id = (row.dataset.officeId || "").trim();
-        const nameInput = row.querySelector("[data-office-name]");
-        const leadSelect = row.querySelector("[data-office-lead]");
-        const name = (nameInput?.value || "").trim();
-        const officeLeadUserId = (leadSelect?.value || "").trim();
-        if (!name) {
-          feedback("Location name is required.", true);
-          return;
+      if (!beginSettingsAutoSave("office-locations-form")) return;
+      try {
+        const rows = Array.from(refs.officeRows?.querySelectorAll(".office-row") || []);
+        const seen = new Set();
+        const locations = [];
+        for (const row of rows) {
+          const id = (row.dataset.officeId || "").trim();
+          const nameInput = row.querySelector("[data-office-name]");
+          const leadSelect = row.querySelector("[data-office-lead]");
+          const name = (nameInput?.value || "").trim();
+          const officeLeadUserId = (leadSelect?.value || "").trim();
+          if (!name) {
+            feedback("Location name is required.", true);
+            return;
+          }
+          const key = name.toLowerCase();
+          if (seen.has(key)) {
+            feedback("Location names must be unique.", true);
+            return;
+          }
+          seen.add(key);
+          locations.push({ id: id || null, name, officeLeadUserId });
         }
-        const key = name.toLowerCase();
-        if (seen.has(key)) {
-          feedback("Location names must be unique.", true);
-          return;
-        }
-        seen.add(key);
-        locations.push({ id: id || null, name, officeLeadUserId });
+        state.officeLocations = locations;
+        await saveOfficeLocations(locations);
+        renderOfficeLocations();
+        window.settingsAdmin?.renderTargetRealizations?.();
+      } finally {
+        finishSettingsAutoSave("office-locations-form");
       }
-      state.officeLocations = locations;
-      await saveOfficeLocations(locations);
-      renderOfficeLocations();
-      window.settingsAdmin?.renderTargetRealizations?.();
     });
   }
 
@@ -10748,27 +10794,28 @@
       const corporateFunctionsForm = event.target.closest("#corporate-functions-form");
       if (corporateFunctionsForm) {
         event.preventDefault();
-        if (!state.permissions?.manage_corporate_functions) {
-          feedback("Access denied.", true);
-          return;
-        }
-        const groups = collectCorporateFunctionGroupsFromForm(corporateFunctionsForm);
-        if (!groups) {
-          return;
-        }
+        if (!beginSettingsAutoSave("corporate-functions-form")) return;
         try {
-          await mutatePersistentState(
-            "update_corporate_function_categories",
-            { groups },
-            settingsSaveFastOptions()
-          );
-          if (state.currentView === "settings") {
-            renderCorporateFunctionCategories?.();
+          if (!state.permissions?.manage_corporate_functions) {
+            feedback("Access denied.", true);
+            return;
           }
-          feedback("Corporate functions updated.", false);
-          loadPersistentStateInBackground();
-        } catch (error) {
-          feedback(error.message || "Unable to update corporate functions.", true);
+          const groups = collectCorporateFunctionGroupsFromForm(corporateFunctionsForm);
+          if (!groups) {
+            return;
+          }
+          try {
+            await mutatePersistentState(
+              "update_corporate_function_categories",
+              { groups },
+              settingsSaveFastOptions()
+            );
+            feedback("Corporate functions updated.", false);
+          } catch (error) {
+            feedback(error.message || "Unable to update corporate functions.", true);
+          }
+        } finally {
+          finishSettingsAutoSave("corporate-functions-form");
         }
         return;
       }
@@ -10776,125 +10823,129 @@
       const departmentsForm = event.target.closest("#departments-form");
       if (departmentsForm) {
         event.preventDefault();
-        if (!state.permissions?.manage_departments) {
-          feedback("Access denied.", true);
-          return;
-        }
-
-        const rows = Array.from(departmentsForm.querySelectorAll(".department-row"));
-        if (!rows.length) {
-          feedback("Add at least one department.", true);
-          return;
-        }
-        const existingMap = new Map(
-          (state.departmentsSnapshot || []).map((d) => [String(d.id || ""), d])
-        );
-        const seen = new Set();
-        const createOps = [];
-        const renameOps = [];
-        const deleteOps = [];
-        const remainingIds = new Set();
-
-        for (const row of rows) {
-          const id = String((row.dataset.departmentId || "").trim());
-          const nameInput = row.querySelector("[data-department-name]");
-          const techAdminFeeInput = row.querySelector("[data-department-tech-admin-fee-pct]");
-          const name = (nameInput?.value || "").trim();
-          const rawTechAdminFeePct = `${techAdminFeeInput?.value || ""}`.trim();
-          const techAdminFeePct =
-            rawTechAdminFeePct === ""
-              ? null
-              : Number(rawTechAdminFeePct);
-
-          if (!name) {
-            feedback("Department name is required.", true);
-            return;
-          }
-          if (rawTechAdminFeePct !== "" && (!Number.isFinite(techAdminFeePct) || techAdminFeePct < 0)) {
-            feedback("Tech/Admin fee % must be a non-negative number.", true);
-            return;
-          }
-          const key = name.toLowerCase();
-          if (seen.has(key)) {
-            feedback("Department names must be unique.", true);
-            return;
-          }
-          seen.add(key);
-
-          if (!id || id.startsWith("temp-dept-")) {
-            createOps.push({ tempId: id, name, techAdminFeePct });
-            continue;
-          }
-          remainingIds.add(id);
-          const prev = existingMap.get(id) || {};
-          const prevTechAdminFeePctRaw = prev.techAdminFeePct ?? prev.tech_admin_fee_pct;
-          const prevTechAdminFeePct =
-            prevTechAdminFeePctRaw === null || prevTechAdminFeePctRaw === undefined || `${prevTechAdminFeePctRaw}`.trim() === ""
-              ? null
-              : Number(prevTechAdminFeePctRaw);
-          if (prev.name !== name || prevTechAdminFeePct !== techAdminFeePct) {
-            renameOps.push({ id, name, techAdminFeePct });
-          }
-        }
-
-        for (const [id] of existingMap.entries()) {
-          if (!id || !remainingIds.has(id)) {
-            deleteOps.push({ id });
-          }
-        }
-
+        if (!beginSettingsAutoSave("departments-form")) return;
         try {
-          const createdByTempId = new Map();
-          for (const op of createOps) {
-            const created = await mutatePersistentState(
-              "create_department",
-              { name: op.name, techAdminFeePct: op.techAdminFeePct },
-              settingsSaveFastOptions()
-            );
-            const createdId = `${created?.id || ""}`.trim();
-            if (op.tempId && createdId) {
-              createdByTempId.set(op.tempId, createdId);
+          if (!state.permissions?.manage_departments) {
+            feedback("Access denied.", true);
+            return;
+          }
+
+          const rows = Array.from(departmentsForm.querySelectorAll(".department-row"));
+          if (!rows.length) {
+            feedback("Add at least one department.", true);
+            return;
+          }
+          const existingMap = new Map(
+            (state.departmentsSnapshot || []).map((d) => [String(d.id || ""), d])
+          );
+          const seen = new Set();
+          const createOps = [];
+          const renameOps = [];
+          const deleteOps = [];
+          const remainingIds = new Set();
+
+          for (const row of rows) {
+            const id = String((row.dataset.departmentId || "").trim());
+            const nameInput = row.querySelector("[data-department-name]");
+            const techAdminFeeInput = row.querySelector("[data-department-tech-admin-fee-pct]");
+            const name = (nameInput?.value || "").trim();
+            const rawTechAdminFeePct = `${techAdminFeeInput?.value || ""}`.trim();
+            const techAdminFeePct =
+              rawTechAdminFeePct === ""
+                ? null
+                : Number(rawTechAdminFeePct);
+
+            if (!name) {
+              feedback("Department name is required.", true);
+              return;
+            }
+            if (rawTechAdminFeePct !== "" && (!Number.isFinite(techAdminFeePct) || techAdminFeePct < 0)) {
+              feedback("Tech/Admin fee % must be a non-negative number.", true);
+              return;
+            }
+            const key = name.toLowerCase();
+            if (seen.has(key)) {
+              feedback("Department names must be unique.", true);
+              return;
+            }
+            seen.add(key);
+
+            if (!id || id.startsWith("temp-dept-")) {
+              createOps.push({ tempId: id, name, techAdminFeePct });
+              continue;
+            }
+            remainingIds.add(id);
+            const prev = existingMap.get(id) || {};
+            const prevTechAdminFeePctRaw = prev.techAdminFeePct ?? prev.tech_admin_fee_pct;
+            const prevTechAdminFeePct =
+              prevTechAdminFeePctRaw === null || prevTechAdminFeePctRaw === undefined || `${prevTechAdminFeePctRaw}`.trim() === ""
+                ? null
+                : Number(prevTechAdminFeePctRaw);
+            if (prev.name !== name || prevTechAdminFeePct !== techAdminFeePct) {
+              renameOps.push({ id, name, techAdminFeePct });
             }
           }
-          for (const op of renameOps) {
-            await mutatePersistentState(
-              "rename_department",
-              { id: op.id, name: op.name, techAdminFeePct: op.techAdminFeePct },
-              settingsSaveFastOptions()
-            );
+
+          for (const [id] of existingMap.entries()) {
+            if (!id || !remainingIds.has(id)) {
+              deleteOps.push({ id });
+            }
           }
-          for (const op of deleteOps) {
-            await mutatePersistentState("delete_department", { id: op.id }, settingsSaveFastOptions());
+
+          try {
+            const createdByTempId = new Map();
+            for (const op of createOps) {
+              const created = await mutatePersistentState(
+                "create_department",
+                { name: op.name, techAdminFeePct: op.techAdminFeePct },
+                settingsSaveFastOptions()
+              );
+              const createdId = `${created?.id || ""}`.trim();
+              if (op.tempId && createdId) {
+                createdByTempId.set(op.tempId, createdId);
+              }
+            }
+            for (const op of renameOps) {
+              await mutatePersistentState(
+                "rename_department",
+                { id: op.id, name: op.name, techAdminFeePct: op.techAdminFeePct },
+                settingsSaveFastOptions()
+              );
+            }
+            for (const op of deleteOps) {
+              await mutatePersistentState("delete_department", { id: op.id }, settingsSaveFastOptions());
+            }
+            const nextDepartments = rows
+              .map((row) => {
+                const rawId = String((row.dataset.departmentId || "").trim());
+                const resolvedId =
+                  createdByTempId.get(rawId) ||
+                  (rawId && !rawId.startsWith("temp-dept-") ? rawId : "");
+                const nameInput = row.querySelector("[data-department-name]");
+                const techAdminFeeInput = row.querySelector("[data-department-tech-admin-fee-pct]");
+                const name = (nameInput?.value || "").trim();
+                const rawTechAdminFeePct = `${techAdminFeeInput?.value || ""}`.trim();
+                const techAdminFeePct =
+                  rawTechAdminFeePct === ""
+                    ? null
+                    : Number(rawTechAdminFeePct);
+                if (!name) return null;
+                return {
+                  id: resolvedId || `temp-dept-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+                  name,
+                  techAdminFeePct,
+                };
+              })
+              .filter(Boolean);
+            state.departments = nextDepartments;
+            state.departmentsSnapshot = nextDepartments.slice();
+            window.settingsAdmin?.renderTargetRealizations?.();
+            feedback("Departments updated.", false);
+          } catch (error) {
+            feedback(error.message || "Unable to update departments.", true);
           }
-          const nextDepartments = rows
-            .map((row) => {
-              const rawId = String((row.dataset.departmentId || "").trim());
-              const resolvedId =
-                createdByTempId.get(rawId) ||
-                (rawId && !rawId.startsWith("temp-dept-") ? rawId : "");
-              const nameInput = row.querySelector("[data-department-name]");
-              const techAdminFeeInput = row.querySelector("[data-department-tech-admin-fee-pct]");
-              const name = (nameInput?.value || "").trim();
-              const rawTechAdminFeePct = `${techAdminFeeInput?.value || ""}`.trim();
-              const techAdminFeePct =
-                rawTechAdminFeePct === ""
-                  ? null
-                  : Number(rawTechAdminFeePct);
-              if (!name) return null;
-              return {
-                id: resolvedId || `temp-dept-${Date.now()}-${Math.random().toString(16).slice(2)}`,
-                name,
-                techAdminFeePct,
-              };
-            })
-            .filter(Boolean);
-          state.departments = nextDepartments;
-          state.departmentsSnapshot = nextDepartments.slice();
-          window.settingsAdmin?.renderTargetRealizations?.();
-          refreshSettingsTabInBackground("departments");
-          feedback("Departments updated.", false);
-        } catch (error) {
-          feedback(error.message || "Unable to update departments.", true);
+        } finally {
+          finishSettingsAutoSave("departments-form");
         }
         return;
       }
@@ -10902,43 +10953,47 @@
       const targetRealizationsForm = event.target.closest("#target-realizations-form");
       if (targetRealizationsForm) {
         event.preventDefault();
-        if (!state.permissions?.manage_departments) {
-          feedback("Access denied.", true);
-          return;
-        }
-        const inputs = Array.from(
-          targetRealizationsForm.querySelectorAll("[data-target-realization-input][data-target-office-id][data-target-department-id]")
-        );
-        const payloadRows = [];
-        for (const input of inputs) {
-          const officeId = String(input.dataset.targetOfficeId || "").trim();
-          const departmentId = String(input.dataset.targetDepartmentId || "").trim();
-          if (!officeId || !departmentId) continue;
-          const raw = String(input.value || "").trim();
-          if (!raw) continue;
-          const targetRealizationPct = Number(raw);
-          if (!Number.isFinite(targetRealizationPct) || targetRealizationPct < 0) {
-            feedback("Target realization % must be a non-negative number.", true);
+        if (!beginSettingsAutoSave("target-realizations-form")) return;
+        try {
+          if (!state.permissions?.manage_departments) {
+            feedback("Access denied.", true);
             return;
           }
-          payloadRows.push({ officeId, departmentId, targetRealizationPct });
-        }
-        try {
-          await mutatePersistentState(
-            "update_target_realizations",
-            { targetRealizations: payloadRows },
-            settingsSaveFastOptions()
+          const inputs = Array.from(
+            targetRealizationsForm.querySelectorAll("[data-target-realization-input][data-target-office-id][data-target-department-id]")
           );
-          state.targetRealizations = payloadRows.map((item) => ({
-            id: `${item.officeId}::${item.departmentId}`,
-            officeId: item.officeId,
-            departmentId: item.departmentId,
-            targetRealizationPct: item.targetRealizationPct,
-          }));
-          refreshSettingsTabInBackground("target_realizations");
-          feedback("Target realizations updated.", false);
-        } catch (error) {
-          feedback(error.message || "Unable to update target realizations.", true);
+          const payloadRows = [];
+          for (const input of inputs) {
+            const officeId = String(input.dataset.targetOfficeId || "").trim();
+            const departmentId = String(input.dataset.targetDepartmentId || "").trim();
+            if (!officeId || !departmentId) continue;
+            const raw = String(input.value || "").trim();
+            if (!raw) continue;
+            const targetRealizationPct = Number(raw);
+            if (!Number.isFinite(targetRealizationPct) || targetRealizationPct < 0) {
+              feedback("Target realization % must be a non-negative number.", true);
+              return;
+            }
+            payloadRows.push({ officeId, departmentId, targetRealizationPct });
+          }
+          try {
+            await mutatePersistentState(
+              "update_target_realizations",
+              { targetRealizations: payloadRows },
+              settingsSaveFastOptions()
+            );
+            state.targetRealizations = payloadRows.map((item) => ({
+              id: `${item.officeId}::${item.departmentId}`,
+              officeId: item.officeId,
+              departmentId: item.departmentId,
+              targetRealizationPct: item.targetRealizationPct,
+            }));
+            feedback("Target realizations updated.", false);
+          } catch (error) {
+            feedback(error.message || "Unable to update target realizations.", true);
+          }
+        } finally {
+          finishSettingsAutoSave("target-realizations-form");
         }
       }
     });
