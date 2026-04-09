@@ -94,7 +94,7 @@
   }
 
   function renderClientEditor() {
-    const { refs, state, escapeHtml, isAdmin } = deps();
+    const { refs, state, escapeHtml } = deps();
     if (!refs.clientEditor) return;
     const editor = state.clientEditor;
     if (!editor) {
@@ -105,7 +105,7 @@
 
     refs.clientEditor.hidden = false;
     const values = editor.values || {};
-    const isEditable = isAdmin(state.currentUser);
+    const isEditable = Boolean(state.permissions?.edit_clients);
     const saveLabel = editor.mode === "edit" ? "Save client" : "Create client";
     const title = editor.mode === "edit" ? "Edit client" : "New client";
     const disabledAttr = isEditable ? "" : "disabled";
