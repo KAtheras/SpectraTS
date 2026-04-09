@@ -4026,8 +4026,10 @@ async function loadState(sql, currentUser) {
       canEditProjectsAllModal ||
       canEditProjectPlanningAll
   );
+  const hasAssignedVisibilityScope = Boolean(canSeeAssignedClientsProjects);
+  const hasProjectLeadEditScope = Boolean(canEditProjectsIfProjectLead);
   const hasAssignedClientsProjectsScope = Boolean(
-    canSeeAssignedClientsProjects || canEditProjectsIfProjectLead
+    hasAssignedVisibilityScope || hasProjectLeadEditScope
   );
   const clientsProjectsScopeMode =
     !normalizedUser || !canAccessClientsShell
@@ -4043,7 +4045,7 @@ async function loadState(sql, currentUser) {
   if (clientsProjectsScopeMode === "assigned") {
     const actorUserId = normalizeText(normalizedUser?.id);
     const actorClientLeadIds = [];
-    if (actorUserId) {
+    if (hasAssignedVisibilityScope && actorUserId) {
       allClients.forEach((client) => {
         const clientLeadId = normalizeText(client?.clientLeadId || client?.client_lead_id);
         if (clientLeadId && clientLeadId === actorUserId) {
@@ -4054,13 +4056,15 @@ async function loadState(sql, currentUser) {
         }
       });
     }
-    actorProjectIds = [
-      ...new Set([
-        ...actorMemberProjectAssignments.map((row) => normalizeText(row?.projectId)),
-        ...actorManagerProjectAssignments.map((row) => normalizeText(row?.projectId)),
-      ]),
-    ].filter(Boolean);
-    if (isManagerFlag) {
+    actorProjectIds = hasAssignedVisibilityScope
+      ? [
+          ...new Set([
+            ...actorMemberProjectAssignments.map((row) => normalizeText(row?.projectId)),
+            ...actorManagerProjectAssignments.map((row) => normalizeText(row?.projectId)),
+          ]),
+        ].filter(Boolean)
+      : [];
+    if (hasAssignedVisibilityScope && isManagerFlag) {
       const managerScope = await getManagerScope(sql, normalizedUser.id, accountUuid);
       (managerScope?.projectIds || []).forEach((projectId) => {
         const normalizedProjectId = normalizeText(projectId);
@@ -4069,16 +4073,18 @@ async function loadState(sql, currentUser) {
         }
       });
     }
-    allProjects.forEach((project) => {
-      const projectLeadId = normalizeText(project?.projectLeadId || project?.project_lead_id);
-      if (projectLeadId && projectLeadId === actorUserId) {
-        const projectId = normalizeText(project?.id);
-        if (projectId) {
-          actorProjectIds.push(projectId);
+    if (hasProjectLeadEditScope) {
+      allProjects.forEach((project) => {
+        const projectLeadId = normalizeText(project?.projectLeadId || project?.project_lead_id);
+        if (projectLeadId && projectLeadId === actorUserId) {
+          const projectId = normalizeText(project?.id);
+          if (projectId) {
+            actorProjectIds.push(projectId);
+          }
         }
-      }
-    });
-    if (actorClientLeadIds.length) {
+      });
+    }
+    if (hasAssignedVisibilityScope && actorClientLeadIds.length) {
       const actorClientLeadIdSet = new Set(actorClientLeadIds);
       allProjects.forEach((project) => {
         const projectClientId = normalizeText(project?.clientId ?? project?.client_id);
@@ -4092,12 +4098,14 @@ async function loadState(sql, currentUser) {
     actorProjectIds = [...new Set(actorProjectIds)];
   }
   const actorClientIdsFromProjects = new Set();
-  actorManagerClientAssignments.forEach((row) => {
-    const clientId = normalizeText(row?.clientId || row?.client_id);
-    if (clientId) {
-      actorClientIdsFromProjects.add(clientId);
-    }
-  });
+  if (hasAssignedVisibilityScope) {
+    actorManagerClientAssignments.forEach((row) => {
+      const clientId = normalizeText(row?.clientId || row?.client_id);
+      if (clientId) {
+        actorClientIdsFromProjects.add(clientId);
+      }
+    });
+  }
   if (actorProjectIds.length) {
     allProjects.forEach((project) => {
       const projectId = normalizeText(project?.id);
@@ -4122,7 +4130,7 @@ async function loadState(sql, currentUser) {
       .map((project) => normalizeText(project?.clientId ?? project?.client_id))
       .filter(Boolean)
   );
-  if (clientsProjectsScopeMode === "assigned") {
+  if (clientsProjectsScopeMode === "assigned" && hasAssignedVisibilityScope) {
     actorClientIdsFromProjects.forEach((clientId) => {
       const normalizedClientId = normalizeText(clientId);
       if (normalizedClientId) {
