@@ -2741,11 +2741,6 @@
 
     const allowedSet = new Set(
       rolePerms
-        .filter((p) => p.allowed && p.scope_key === "own_office")
-        .map((p) => `${p.role_key}|${p.capability_key}`)
-    );
-    const globalAllowedSet = new Set(
-      rolePerms
         .filter((p) => p.allowed)
         .map((p) => `${p.role_key}|${p.capability_key}`)
     );
@@ -2757,9 +2752,7 @@
         const cells = roles
           .map((role) => {
             const isSuperuserRole = role.key === "superuser";
-            const checked = isSuperuserRole
-              ? globalAllowedSet.has(`${role.key}|${cap}`)
-              : allowedSet.has(`${role.key}|${cap}`);
+            const checked = allowedSet.has(`${role.key}|${cap}`);
             const lockedAttrs = isSuperuserRole
               ? `disabled aria-disabled="true" class="locked-perm" title="Superuser permissions are fixed" data-perm-locked="true" data-locked-value="${checked ? "true" : "false"}"`
               : "";

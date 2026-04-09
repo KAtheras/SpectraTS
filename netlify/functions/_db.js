@@ -278,6 +278,25 @@ async function ensureSchema(sql) {
     ON CONFLICT (role_id, capability_id, scope_id) DO NOTHING
   `;
   await sql`
+    DELETE FROM role_permissions rp
+    USING permission_roles pr, permission_capabilities pc, permission_scopes ps
+    WHERE rp.role_id = pr.id
+      AND rp.capability_id = pc.id
+      AND rp.scope_id = ps.id
+      AND pr.key <> 'superuser'
+      AND pc.key = ANY(${[
+        "see_all_clients_projects",
+        "see_assigned_clients_projects",
+        "manage_clients_lifecycle",
+        "manage_projects_lifecycle",
+        "edit_clients",
+        "edit_projects_all_modal",
+        "edit_project_planning_all",
+        "edit_projects_if_project_lead",
+      ]})
+      AND ps.key <> 'own_office'
+  `;
+  await sql`
     INSERT INTO role_permissions (role_id, capability_id, scope_id, allowed)
     SELECT rp.role_id, new_cap.id, rp.scope_id, TRUE
     FROM role_permissions rp

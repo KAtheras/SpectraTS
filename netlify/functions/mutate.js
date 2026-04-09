@@ -4907,7 +4907,20 @@ exports.handler = async function handler(event) {
         const roleIdByKey = new Map(roles.map((r) => [r.key, r.id]));
         const capIdByKey = new Map(caps.map((c) => [c.key, c.id]));
 
-        // Upsert allowed pairs
+        // Normalize matrix-managed capabilities to own_office scope only.
+        // This prevents stale all_offices rows from silently granting access.
+        if (roleKeysAll.length && capKeysAll.length) {
+          await sql`
+            DELETE FROM role_permissions rp
+            USING permission_roles pr, permission_capabilities pc
+            WHERE rp.role_id = pr.id
+              AND rp.capability_id = pc.id
+              AND pr.key = ANY(${roleKeysAll})
+              AND pc.key = ANY(${capKeysAll})
+          `;
+        }
+
+        // Insert allowed pairs in own_office scope.
         for (const { role, capability } of allowedPairs) {
           const roleId = roleIdByKey.get(role);
           const capId = capIdByKey.get(capability);
@@ -4917,26 +4930,6 @@ exports.handler = async function handler(event) {
             VALUES (${roleId}, ${capId}, ${scopeId}, TRUE)
             ON CONFLICT (role_id, capability_id, scope_id) DO UPDATE SET allowed = EXCLUDED.allowed
           `;
-        }
-
-        // Remove disallowed pairs in this matrix (own_office scope only)
-        if (roleKeysAll.length && capKeysAll.length) {
-          const keepPairs = new Set(allowedPairs.map((p) => `${p.role}|${p.capability}`));
-          const rows = await sql`
-            SELECT rp.id, pr.key AS role_key, pc.key AS capability_key
-            FROM role_permissions rp
-            JOIN permission_roles pr ON pr.id = rp.role_id
-            JOIN permission_capabilities pc ON pc.id = rp.capability_id
-            WHERE rp.scope_id = ${scopeId}
-              AND pr.key = ANY(${roleKeysAll})
-              AND pc.key = ANY(${capKeysAll})
-          `;
-          for (const row of rows) {
-            const key = `${row.role_key}|${row.capability_key}`;
-            if (!keepPairs.has(key)) {
-              await sql`DELETE FROM role_permissions WHERE id = ${row.id}`;
-            }
-          }
         }
 
         mutationResult = await loadState(sql, context.currentUser);
