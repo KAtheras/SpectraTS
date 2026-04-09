@@ -43,6 +43,7 @@
   let projectExpenseCategoriesDraft = [];
   let projectExpenseCategoriesDraftDirty = false;
   let expenseCategoriesEnhancementsWired = false;
+  const settingsAutoSubmitTimers = new Map();
   const delegationsDraftCapabilitiesByDelegateId = new Map();
   const SETTINGS_DELETE_ICON = `
     <svg viewBox="0 -960 960 960" aria-hidden="true">
@@ -227,7 +228,7 @@
       if (actions) {
         const buttons = Array.from(actions.querySelectorAll("button"));
         buttons.forEach((btn) => {
-          if (panel.dataset.settingsTab === "rates" && btn.id === "save-rates") {
+          if (btn.type === "submit" || btn.id.startsWith("save-")) {
             btn.remove();
             return;
           }
@@ -1499,7 +1500,6 @@
             </div>
             <div class="settings-section-right corporate-toolbar">
               <button class="button button-ghost corporate-pill" type="button" data-corporate-add-group ${editable ? "" : "disabled"}>Add group</button>
-              <button class="button corporate-pill" type="submit" id="save-corporate-functions" ${editable ? "" : "disabled"}>Save</button>
             </div>
           </div>
           <div class="settings-section-content">
@@ -2424,9 +2424,7 @@
         <div class="settings-section-left">
           <h3>Delegations</h3>
         </div>
-        <div class="settings-section-right">
-          <button id="delegations-save" type="submit" form="delegations-form" class="button" ${delegates.length ? "" : "disabled"}>Add delegation</button>
-        </div>
+        <div class="settings-section-right"></div>
       </div>
       <div class="delegations-shell">
         <form id="delegations-form" class="delegations-form">
@@ -2458,7 +2456,6 @@
     const delegateResults = panel.querySelector("#delegations-delegate-results");
     const memberPills = panel.querySelector(".delegations-member-pills");
     const selectionHint = panel.querySelector("#delegations-selection-hint");
-    const saveButton = panel.querySelector("#delegations-save");
     const capabilityInputs = Array.from(
       panel.querySelectorAll('input[data-delegation-capability]')
     );
@@ -2488,9 +2485,6 @@
       capabilityInputs.forEach((input) => {
         input.disabled = !enabled;
       });
-      if (saveButton) {
-        saveButton.disabled = !enabled;
-      }
       if (selectionHint) {
         selectionHint.hidden = enabled;
       }
@@ -2574,6 +2568,9 @@
     capabilityInputs.forEach((input) => {
       input.onchange = function () {
         persistDraftForSelectedDelegate();
+        const delegateUserId = `${selectedDelegateIdInput?.value || ""}`.trim();
+        if (!delegateUserId) return;
+        scheduleSettingsFormSubmit("delegations-form", 350);
       };
     });
 
@@ -2761,16 +2758,74 @@
         <div class="settings-section-left">
           <h3>Member access levels</h3>
         </div>
-        <div class="settings-section-right">
-          <button type="button" id="permissions-save" class="button">Save Access</button>
-        </div>
+        <div class="settings-section-right"></div>
       </div>
       <div class="settings-section-content">
         ${groupsHtml}
       </div>
     `;
 
-    const saveBtn = panel.querySelector("#permissions-save");
+    const schedulePermissionsSave = function () {
+      const livePanel = document.querySelector('[data-settings-tab="permissions"]');
+      if (!livePanel) return;
+      const timerKey = "permissions";
+      const existing = settingsAutoSubmitTimers.get(timerKey);
+      if (existing) {
+        clearTimeout(existing);
+      }
+      const timer = setTimeout(async () => {
+        if (permissionsSaveInFlight) {
+          schedulePermissionsSave();
+          return;
+        }
+        const liveRolePerms = Array.isArray(deps().state?.rolePermissions)
+          ? deps().state.rolePermissions
+          : [];
+        const currentAllowedSet = new Set(
+          liveRolePerms
+            .filter((p) => p.allowed && p.scope_key === "own_office")
+            .map((p) => `${p.role_key}|${p.capability_key}`)
+        );
+        const inputs = Array.from(livePanel.querySelectorAll("[data-perm-role][data-perm-cap]"));
+        const next = [];
+        let changedCount = 0;
+        inputs.forEach((input) => {
+          const roleKey = input.dataset.permRole;
+          if (roleKey === "superuser" || input.dataset.permLocked === "true") {
+            return;
+          }
+          const capKey = input.dataset.permCap;
+          const allowed = input.checked;
+          if (allowed !== currentAllowedSet.has(`${roleKey}|${capKey}`)) {
+            changedCount += 1;
+          }
+          next.push({ role: roleKey, capability: capKey, allowed });
+        });
+        if (!changedCount) {
+          return;
+        }
+        permissionsSaveInFlight = true;
+        try {
+          await deps().mutatePersistentState(
+            "update_role_permissions",
+            { rolePermissions: next },
+            {
+              skipHydrate: false,
+              skipSettingsMetadataReload: true,
+              refreshState: false,
+            }
+          );
+          deps().feedback("Access updated.", false);
+          renderSettingsTabs();
+        } catch (error) {
+          deps().feedback(error.message || "Unable to save access.", true);
+        } finally {
+          permissionsSaveInFlight = false;
+        }
+      }, 450);
+      settingsAutoSubmitTimers.set(timerKey, timer);
+    };
+
     if (!panel.dataset.permissionsHandlersBound) {
       panel.dataset.permissionsHandlersBound = "true";
       panel.addEventListener("click", async function (event) {
@@ -2798,66 +2853,6 @@
           lockedInput.checked = lockedInput.dataset.lockedValue === "true";
           return;
         }
-        const clickedSave = event.target.closest("#permissions-save");
-        if (!clickedSave) return;
-        event.preventDefault();
-        if (permissionsSaveInFlight) return;
-        const livePanel = document.querySelector('[data-settings-tab="permissions"]');
-        if (!livePanel) return;
-        const liveSaveBtn = livePanel.querySelector("#permissions-save");
-        const liveRolePerms = Array.isArray(deps().state?.rolePermissions)
-          ? deps().state.rolePermissions
-          : [];
-        const currentAllowedSet = new Set(
-          liveRolePerms
-            .filter((p) => p.allowed && p.scope_key === "own_office")
-            .map((p) => `${p.role_key}|${p.capability_key}`)
-        );
-        const inputs = Array.from(livePanel.querySelectorAll("[data-perm-role][data-perm-cap]"));
-        const next = [];
-        let changedCount = 0;
-        inputs.forEach((input) => {
-          const roleKey = input.dataset.permRole;
-          if (roleKey === "superuser" || input.dataset.permLocked === "true") {
-            return;
-          }
-          const capKey = input.dataset.permCap;
-          const allowed = input.checked;
-          if (allowed !== currentAllowedSet.has(`${roleKey}|${capKey}`)) {
-            changedCount += 1;
-          }
-          next.push({ role: roleKey, capability: capKey, allowed });
-        });
-        if (!changedCount) {
-          deps().feedback("No access changes to save.", false);
-          return;
-        }
-        permissionsSaveInFlight = true;
-        if (liveSaveBtn) {
-          liveSaveBtn.disabled = true;
-          liveSaveBtn.dataset.loading = "true";
-        }
-        try {
-          await deps().mutatePersistentState(
-            "update_role_permissions",
-            { rolePermissions: next },
-            {
-              skipHydrate: false,
-              skipSettingsMetadataReload: true,
-              refreshState: false,
-            }
-          );
-          deps().feedback("Access updated.", false);
-          renderSettingsTabs();
-        } catch (error) {
-          deps().feedback(error.message || "Unable to save access.", true);
-        } finally {
-          permissionsSaveInFlight = false;
-          if (liveSaveBtn && liveSaveBtn.isConnected) {
-            liveSaveBtn.disabled = false;
-            delete liveSaveBtn.dataset.loading;
-          }
-        }
       });
       panel.addEventListener("keydown", function (event) {
         const input = event.target.closest('[data-perm-locked="true"]');
@@ -2866,20 +2861,31 @@
         event.stopPropagation();
       });
       panel.addEventListener("change", function (event) {
+        const toggle = event.target.closest("[data-perm-role][data-perm-cap]");
+        if (toggle && toggle.dataset.permLocked !== "true") {
+          schedulePermissionsSave();
+        }
         const input = event.target.closest('[data-perm-locked="true"]');
         if (!input) return;
         input.checked = input.dataset.lockedValue === "true";
       });
     }
-    if (saveBtn) {
-      saveBtn.disabled = permissionsSaveInFlight;
-      if (permissionsSaveInFlight) {
-        saveBtn.dataset.loading = "true";
-      } else {
-        delete saveBtn.dataset.loading;
-      }
-    }
     arrangeSettingsSectionHeaders();
+  }
+
+  function scheduleSettingsFormSubmit(formId, delayMs = 700) {
+    const timerKey = String(formId || "").trim();
+    if (!timerKey) return;
+    const existing = settingsAutoSubmitTimers.get(timerKey);
+    if (existing) {
+      clearTimeout(existing);
+    }
+    const timer = setTimeout(() => {
+      const form = document.getElementById(timerKey);
+      if (!form || typeof form.requestSubmit !== "function") return;
+      form.requestSubmit();
+    }, delayMs);
+    settingsAutoSubmitTimers.set(timerKey, timer);
   }
 
   function renderDepartments() {
@@ -3366,8 +3372,6 @@
         sectionRight = right;
       }
     }
-    const straySaveButtons = Array.from(refs.ratesForm?.querySelectorAll("#save-rates") || []);
-    straySaveButtons.forEach((btn) => btn.remove());
     if (sectionRight) {
       const sectionTitle = refs.ratesForm?.querySelector(".settings-section-left h3, .level-labels-inner > h3");
       if (sectionTitle) {
@@ -3567,6 +3571,7 @@
       );
       projectExpenseCategoriesDraftDirty = true;
       renderExpenseCategories();
+      scheduleSettingsFormSubmit("expense-categories-form");
     });
 
     refs.expenseCategoriesForm.addEventListener("input", function (event) {
@@ -3583,6 +3588,7 @@
         projectExpenseCategoriesDraft.push({ id: rowId, name: nextName });
       }
       projectExpenseCategoriesDraftDirty = true;
+      scheduleSettingsFormSubmit("expense-categories-form");
     });
 
     refs.expenseCategoriesForm.addEventListener(

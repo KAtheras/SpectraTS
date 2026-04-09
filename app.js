@@ -437,17 +437,14 @@
     inboxDeleteRead: document.getElementById("inbox-delete-read"),
     expenseRows: document.getElementById("expense-rows"),
     addCategory: document.getElementById("add-category"),
-    saveCategories: document.getElementById("save-categories"),
     expenseCategoriesForm: document.getElementById("expense-categories-form"),
     corporateFunctionsForm: document.getElementById("corporate-functions-form"),
     corporateFunctionRows: document.getElementById("corporate-function-rows"),
     departmentsForm: document.getElementById("departments-form"),
     departmentRows: document.getElementById("department-rows"),
     addDepartment: document.getElementById("add-department"),
-    saveDepartments: document.getElementById("save-departments"),
     targetRealizationsForm: document.getElementById("target-realizations-form"),
     targetRealizationsMatrix: document.getElementById("target-realizations-matrix"),
-    saveTargetRealizations: document.getElementById("save-target-realizations"),
     dialog: document.getElementById("app-dialog"),
     dialogTitle: document.getElementById("dialog-title"),
     dialogMessage: document.getElementById("dialog-message"),
@@ -2530,7 +2527,6 @@
           <div class="level-rows" id="department-rows"></div>
           <div class="level-labels-actions">
             <button class="button button-ghost" type="button" id="add-department">Add department</button>
-            <button class="button" type="submit" id="save-departments">Save departments</button>
           </div>
         </div>
       `;
@@ -2540,7 +2536,6 @@
     refs.departmentsForm = document.getElementById("departments-form");
     refs.departmentRows = document.getElementById("department-rows");
     refs.addDepartment = document.getElementById("add-department");
-    refs.saveDepartments = document.getElementById("save-departments");
 
     let targetButton = settingsTabs.querySelector('[data-settings-tab-button="target_realizations"]');
     if (!targetButton) {
@@ -2566,7 +2561,6 @@
           <h3>Target realizations</h3>
           <div id="target-realizations-matrix"></div>
           <div class="level-labels-actions">
-            <button class="button" type="submit" id="save-target-realizations">Save targets</button>
           </div>
         </div>
       `;
@@ -2575,7 +2569,6 @@
 
     refs.targetRealizationsForm = document.getElementById("target-realizations-form");
     refs.targetRealizationsMatrix = document.getElementById("target-realizations-matrix");
-    refs.saveTargetRealizations = document.getElementById("save-target-realizations");
   }
 
   ensureDepartmentSettingsUI();
@@ -10263,6 +10256,22 @@
       });
   }
 
+  const settingsAutoSubmitTimers = new Map();
+  function scheduleSettingsFormAutoSubmit(formId, delayMs = 700) {
+    const key = String(formId || "").trim();
+    if (!key) return;
+    const existing = settingsAutoSubmitTimers.get(key);
+    if (existing) {
+      clearTimeout(existing);
+    }
+    const timer = setTimeout(() => {
+      const form = document.getElementById(key);
+      if (!form || typeof form.requestSubmit !== "function") return;
+      form.requestSubmit();
+    }, delayMs);
+    settingsAutoSubmitTimers.set(key, timer);
+  }
+
   function nextCorporateFunctionGroupSortOrder() {
     const existing = (state.corporateFunctionGroups || []).map((item) => Number(item?.sortOrder) || 0);
     const maxSort = existing.length ? Math.max(...existing) : 0;
@@ -10642,6 +10651,7 @@
           (item) => `${item?.id || ""}`.trim() !== categoryId
         );
         renderCorporateFunctionCategories?.();
+        scheduleSettingsFormAutoSubmit("corporate-functions-form");
         return;
       }
 
@@ -10676,6 +10686,7 @@
           (item) => `${item?.groupId || ""}`.trim() !== groupId
         );
         renderCorporateFunctionCategories?.();
+        scheduleSettingsFormAutoSubmit("corporate-functions-form");
         return;
       }
 
@@ -10727,6 +10738,7 @@
         state.departments = (state.departments || []).filter((d) => String(d.id || "") !== String(id));
         window.settingsAdmin?.renderDepartments();
         window.settingsAdmin?.renderTargetRealizations?.();
+        scheduleSettingsFormAutoSubmit("departments-form");
         return;
       }
 
@@ -10933,6 +10945,19 @@
   }
 
   if (refs.levelRows) {
+    const scheduleLevelsAutoSave = function () {
+      scheduleSettingsFormAutoSubmit("level-labels-form");
+    };
+    refs.levelRows.addEventListener("input", function (event) {
+      const input = event.target.closest("[data-level-label]");
+      if (!input) return;
+      scheduleLevelsAutoSave();
+    });
+    refs.levelRows.addEventListener("change", function (event) {
+      const input = event.target.closest("[data-level-permission]");
+      if (!input) return;
+      scheduleLevelsAutoSave();
+    });
     refs.levelRows.addEventListener("click", async function (event) {
       const deleteBtn = event.target.closest("[data-level-delete]");
       if (!deleteBtn) return;
@@ -11016,6 +11041,50 @@
         },
       ];
       renderExpenseCategories();
+    });
+  }
+
+  if (refs.expenseRows) {
+    refs.expenseRows.addEventListener("input", function (event) {
+      const input = event.target.closest("[data-expense-name]");
+      if (!input) return;
+      const trimmed = `${input.value || ""}`.trim();
+      if (!trimmed) return;
+      scheduleSettingsFormAutoSubmit("expense-categories-form");
+    });
+  }
+
+  if (refs.officeRows) {
+    const scheduleOfficeAutoSave = function () {
+      scheduleSettingsFormAutoSubmit("office-locations-form");
+    };
+    refs.officeRows.addEventListener("input", function (event) {
+      const input = event.target.closest("[data-office-name]");
+      if (!input) return;
+      scheduleOfficeAutoSave();
+    });
+    refs.officeRows.addEventListener("change", function (event) {
+      const input = event.target.closest("[data-office-lead]");
+      if (!input) return;
+      scheduleOfficeAutoSave();
+    });
+  }
+
+  if (refs.settingsPage) {
+    refs.settingsPage.addEventListener("input", function (event) {
+      if (event.target.closest("[data-corporate-group-name], [data-corporate-function-name]")) {
+        scheduleSettingsFormAutoSubmit("corporate-functions-form");
+        return;
+      }
+      if (event.target.closest("[data-department-name], [data-department-tech-admin-fee-pct]")) {
+        const value = String(event.target.value || "").trim();
+        if (!value) return;
+        scheduleSettingsFormAutoSubmit("departments-form");
+        return;
+      }
+      if (event.target.closest("[data-target-realization-input]")) {
+        scheduleSettingsFormAutoSubmit("target-realizations-form");
+      }
     });
   }
 
