@@ -105,16 +105,7 @@ exports.handler = async function handler(event) {
       {},
       permissionIndex
     );
-    const canAccessClientsTab = Boolean(
-      canSeeAllClientsProjects ||
-        canSeeAssignedClientsProjects ||
-        canManageClientsLifecycle ||
-        canManageProjectsLifecycle ||
-        canEditClients ||
-        canEditProjectsAllModal ||
-        canEditProjectPlanningAll ||
-        canEditProjectsIfProjectLead
-    );
+    const canAccessClientsTab = Boolean(canSeeAllClientsProjects || canSeeAssignedClientsProjects);
     const permissions = {
       // existing keys
       edit_user_department: can(currentUser, "edit_user_department", {}, permissionIndex),

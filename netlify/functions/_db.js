@@ -4047,29 +4047,11 @@ async function loadState(sql, currentUser) {
     resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
     actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
   });
-  const canAccessClientsShell = Boolean(
-    canSeeAllClientsProjects ||
-      canSeeAssignedClientsProjects ||
-      canManageClientsLifecycle ||
-      canManageProjectsLifecycle ||
-      canEditClients ||
-      canEditProjectsAllModal ||
-      canEditProjectPlanningAll ||
-      canEditProjectsIfProjectLead
-  );
-  const hasGlobalClientsProjectsScope = Boolean(
-    canSeeAllClientsProjects ||
-      canManageClientsLifecycle ||
-      canManageProjectsLifecycle ||
-      canEditClients ||
-      canEditProjectsAllModal ||
-      canEditProjectPlanningAll
-  );
+  const canAccessClientsShell = Boolean(canSeeAllClientsProjects || canSeeAssignedClientsProjects);
+  const hasGlobalClientsProjectsScope = Boolean(canSeeAllClientsProjects);
   const hasAssignedVisibilityScope = Boolean(canSeeAssignedClientsProjects);
   const hasProjectLeadEditScope = Boolean(canEditProjectsIfProjectLead);
-  const hasAssignedClientsProjectsScope = Boolean(
-    hasAssignedVisibilityScope || hasProjectLeadEditScope
-  );
+  const hasAssignedClientsProjectsScope = Boolean(hasAssignedVisibilityScope);
   const clientsProjectsScopeMode =
     !normalizedUser || !canAccessClientsShell
       ? "none"

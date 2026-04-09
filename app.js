@@ -2940,14 +2940,7 @@
 
   function hasClientsTabAccess() {
     return Boolean(
-      canSeeAllClientsProjects() ||
-        canSeeAssignedClientsProjects() ||
-        canManageClientsLifecycle() ||
-        canManageProjectsLifecycle() ||
-        canEditClientsGlobal() ||
-        canEditProjectsAllModal() ||
-        canEditProjectPlanningAll() ||
-        canEditProjectsIfProjectLead()
+      canSeeAllClientsProjects() || canSeeAssignedClientsProjects()
     );
   }
 

@@ -1202,16 +1202,7 @@ function buildPermissionsPayload(currentUser, permissionIndex) {
   const canEditProjectsAllModal = can("edit_projects_all_modal");
   const canEditProjectPlanningAll = can("edit_project_planning_all");
   const canEditProjectsIfProjectLead = can("edit_projects_if_project_lead");
-  const canAccessClientsTab = Boolean(
-    canSeeAllClientsProjects ||
-      canSeeAssignedClientsProjects ||
-      canManageClientsLifecycle ||
-      canManageProjectsLifecycle ||
-      canEditClients ||
-      canEditProjectsAllModal ||
-      canEditProjectPlanningAll ||
-      canEditProjectsIfProjectLead
-  );
+  const canAccessClientsTab = Boolean(canSeeAllClientsProjects || canSeeAssignedClientsProjects);
   const permissionsPayload = {
     edit_user_department: can("edit_user_department"),
     view_settings_tab: false,
