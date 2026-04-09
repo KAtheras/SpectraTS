@@ -23,11 +23,9 @@
 
     function roleKey(user) {
       const raw =
-        user?.permission_group ||
-        user?.permissionGroup ||
+        user?.role ||
         user?.permission_role_key ||
         user?.permissionRoleKey ||
-        user?.role ||
         null;
       if (!raw) return null;
       const val = String(raw).toLowerCase();

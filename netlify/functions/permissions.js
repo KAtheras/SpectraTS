@@ -168,11 +168,9 @@ function buildIndex(structs) {
 function roleKeyFromUser(user) {
   if (!user) return null;
   const rawRole =
-    user.permission_group ||
-    user.permissionGroup ||
+    user.role ||
     user.permission_role_key ||
     user.permissionRoleKey ||
-    user.role ||
     null;
   const raw = rawRole;
   if (!raw) return null;
