@@ -6119,8 +6119,10 @@ exports.handler = async function handler(event) {
     }
 
     const state = await loadState(sql, context.currentUser);
+    const freshPermissionRows = await permissions.loadPermissionsFromDb(sql);
+    const freshPermissionIndex = permissions.buildIndex({ permissions: freshPermissionRows });
     const { permissions: permissionsPayload, canManageSettingsAccess } =
-      buildPermissionsPayload(state.currentUser, permissionIndex);
+      buildPermissionsPayload(state.currentUser, freshPermissionIndex);
     const permissionRoles = canManageSettingsAccess
       ? await sql`
           SELECT key, label, is_active AS "isActive"
@@ -6133,7 +6135,7 @@ exports.handler = async function handler(event) {
       ...state,
       permissions: permissionsPayload,
       permissionRoles,
-      rolePermissions: canManageSettingsAccess ? permissionRows : [],
+      rolePermissions: canManageSettingsAccess ? freshPermissionRows : [],
       message: mutationResult?.message || "",
     });
   } catch (error) {
