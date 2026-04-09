@@ -175,14 +175,7 @@
       );
     }
 
-    function managerIdsForProject(client, project) {
-      return uniqueValues([
-        ...managerIdsForClient(client),
-        ...directManagerIdsForProject(client, project),
-      ]);
-    }
-
-    function staffIdsForProject(client, project) {
+    function projectMemberIdsForProject(client, project) {
       const normalizedClient = normalizeText(client);
       const normalizedProject = normalizeText(project);
       const targetProjectId = normalizeText(
@@ -202,11 +195,27 @@
             return !!targetProjectId && tuple.projectId === targetProjectId;
           })
           .map((item) => normalizeText(item?.userId || item?.user_id))
-          .filter((userId) => {
-            const user = getUserById(userId);
-            return user ? isStaff(user) : false;
-          })
+          .filter(Boolean)
       );
+    }
+
+    function managerIdsForProject(client, project) {
+      const memberManagerIds = projectMemberIdsForProject(client, project).filter((userId) => {
+        const user = getUserById(userId);
+        return user ? !isStaff(user) : false;
+      });
+      return uniqueValues([
+        ...managerIdsForClient(client),
+        ...directManagerIdsForProject(client, project),
+        ...memberManagerIds,
+      ]);
+    }
+
+    function staffIdsForProject(client, project) {
+      return projectMemberIdsForProject(client, project).filter((userId) => {
+        const user = getUserById(userId);
+        return user ? isStaff(user) : false;
+      });
     }
 
     function staffIdsForClient(client) {

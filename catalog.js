@@ -218,15 +218,16 @@
 	                  isExecutive(state.currentUser) ||
 	                  (isManager(state.currentUser) &&
 	                    canManagerAccessProject(state.currentUser, selectedClient, project)));
-                const showEditProjectAction = canEditProjectCard;
-                const showProjectLifecycleActions = canDeleteProject;
-                const showAddMemberAction = canManageMembers && Boolean(state.permissions?.assign_project_members);
-                const showRemoveMemberAction = canManageMembers && Boolean(state.permissions?.assign_project_members);
-              const hasManagers = managerIdsForProject(selectedClient, project).length > 0;
+              const showEditProjectAction = canEditProjectCard;
+              const showProjectLifecycleActions = canDeleteProject;
+              const showAddMemberAction = canManageMembers && Boolean(state.permissions?.assign_project_members);
+              const showRemoveMemberAction = canManageMembers && Boolean(state.permissions?.assign_project_members);
+              const managerIds = managerIdsForProject(selectedClient, project);
               const projectStaffIds = staffIdsForProject(selectedClient, project);
+              const hasManagers = managerIds.length > 0;
               const hasStaff = projectStaffIds.length > 0;
               const managerNames = formatNameList(
-                userNamesForIds(managerIdsForProject(selectedClient, project))
+                userNamesForIds(managerIds)
               );
               const staffNames = formatNameList(
                 userNamesForIds(projectStaffIds)
