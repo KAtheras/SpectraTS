@@ -189,6 +189,70 @@ async function ensureSchema(sql) {
       is_active = EXCLUDED.is_active
   `;
   await sql`
+    INSERT INTO permission_capabilities (key, label, category, is_active)
+    VALUES ('see_all_clients_projects', 'Can see all clients/projects', 'clients', TRUE)
+    ON CONFLICT (key) DO UPDATE SET
+      label = EXCLUDED.label,
+      category = EXCLUDED.category,
+      is_active = EXCLUDED.is_active
+  `;
+  await sql`
+    INSERT INTO permission_capabilities (key, label, category, is_active)
+    VALUES ('see_assigned_clients_projects', 'Can see assigned clients/projects', 'clients', TRUE)
+    ON CONFLICT (key) DO UPDATE SET
+      label = EXCLUDED.label,
+      category = EXCLUDED.category,
+      is_active = EXCLUDED.is_active
+  `;
+  await sql`
+    INSERT INTO permission_capabilities (key, label, category, is_active)
+    VALUES ('manage_clients_lifecycle', 'Can add/remove/activate/deactivate clients', 'clients', TRUE)
+    ON CONFLICT (key) DO UPDATE SET
+      label = EXCLUDED.label,
+      category = EXCLUDED.category,
+      is_active = EXCLUDED.is_active
+  `;
+  await sql`
+    INSERT INTO permission_capabilities (key, label, category, is_active)
+    VALUES ('manage_projects_lifecycle', 'Can add/remove/activate/deactivate projects', 'clients', TRUE)
+    ON CONFLICT (key) DO UPDATE SET
+      label = EXCLUDED.label,
+      category = EXCLUDED.category,
+      is_active = EXCLUDED.is_active
+  `;
+  await sql`
+    INSERT INTO permission_capabilities (key, label, category, is_active)
+    VALUES ('edit_clients', 'Can edit clients', 'clients', TRUE)
+    ON CONFLICT (key) DO UPDATE SET
+      label = EXCLUDED.label,
+      category = EXCLUDED.category,
+      is_active = EXCLUDED.is_active
+  `;
+  await sql`
+    INSERT INTO permission_capabilities (key, label, category, is_active)
+    VALUES ('edit_projects_all_modal', 'Can edit all projects (modal only)', 'clients', TRUE)
+    ON CONFLICT (key) DO UPDATE SET
+      label = EXCLUDED.label,
+      category = EXCLUDED.category,
+      is_active = EXCLUDED.is_active
+  `;
+  await sql`
+    INSERT INTO permission_capabilities (key, label, category, is_active)
+    VALUES ('edit_project_planning_all', 'Can edit all project planning page', 'clients', TRUE)
+    ON CONFLICT (key) DO UPDATE SET
+      label = EXCLUDED.label,
+      category = EXCLUDED.category,
+      is_active = EXCLUDED.is_active
+  `;
+  await sql`
+    INSERT INTO permission_capabilities (key, label, category, is_active)
+    VALUES ('edit_projects_if_project_lead', 'Can edit projects (modal + planning page) if project lead', 'clients', TRUE)
+    ON CONFLICT (key) DO UPDATE SET
+      label = EXCLUDED.label,
+      category = EXCLUDED.category,
+      is_active = EXCLUDED.is_active
+  `;
+  await sql`
     INSERT INTO role_permissions (role_id, capability_id, scope_id, allowed)
     SELECT pr.id, pc.id, ps.id, TRUE
     FROM permission_roles pr
@@ -211,6 +275,82 @@ async function ensureSchema(sql) {
         JOIN permission_capabilities existing_cap ON existing_cap.id = existing_rp.capability_id
         WHERE existing_cap.key = 'manage_corporate_functions'
       )
+    ON CONFLICT (role_id, capability_id, scope_id) DO NOTHING
+  `;
+  await sql`
+    INSERT INTO role_permissions (role_id, capability_id, scope_id, allowed)
+    SELECT rp.role_id, new_cap.id, rp.scope_id, TRUE
+    FROM role_permissions rp
+    JOIN permission_capabilities old_cap ON old_cap.id = rp.capability_id
+    JOIN permission_capabilities new_cap ON new_cap.key = 'see_assigned_clients_projects'
+    WHERE old_cap.key IN ('view_clients', 'view_projects')
+      AND rp.allowed = TRUE
+    ON CONFLICT (role_id, capability_id, scope_id) DO NOTHING
+  `;
+  await sql`
+    INSERT INTO role_permissions (role_id, capability_id, scope_id, allowed)
+    SELECT rp.role_id, new_cap.id, rp.scope_id, TRUE
+    FROM role_permissions rp
+    JOIN permission_capabilities old_cap ON old_cap.id = rp.capability_id
+    JOIN permission_capabilities new_cap ON new_cap.key = 'manage_clients_lifecycle'
+    WHERE old_cap.key IN ('create_client', 'archive_client')
+      AND rp.allowed = TRUE
+    ON CONFLICT (role_id, capability_id, scope_id) DO NOTHING
+  `;
+  await sql`
+    INSERT INTO role_permissions (role_id, capability_id, scope_id, allowed)
+    SELECT rp.role_id, new_cap.id, rp.scope_id, TRUE
+    FROM role_permissions rp
+    JOIN permission_capabilities old_cap ON old_cap.id = rp.capability_id
+    JOIN permission_capabilities new_cap ON new_cap.key = 'manage_projects_lifecycle'
+    WHERE old_cap.key IN ('create_project', 'archive_project')
+      AND rp.allowed = TRUE
+    ON CONFLICT (role_id, capability_id, scope_id) DO NOTHING
+  `;
+  await sql`
+    INSERT INTO role_permissions (role_id, capability_id, scope_id, allowed)
+    SELECT rp.role_id, new_cap.id, rp.scope_id, TRUE
+    FROM role_permissions rp
+    JOIN permission_capabilities old_cap ON old_cap.id = rp.capability_id
+    JOIN permission_capabilities new_cap ON new_cap.key = 'edit_clients'
+    WHERE old_cap.key = 'edit_client'
+      AND rp.allowed = TRUE
+    ON CONFLICT (role_id, capability_id, scope_id) DO NOTHING
+  `;
+  await sql`
+    INSERT INTO role_permissions (role_id, capability_id, scope_id, allowed)
+    SELECT pr.id, pc.id, ps.id, TRUE
+    FROM permission_roles pr
+    JOIN permission_capabilities pc ON pc.key = 'see_all_clients_projects'
+    JOIN permission_scopes ps ON ps.key = 'own_office'
+    WHERE pr.key IN ('executive', 'admin', 'superuser')
+    ON CONFLICT (role_id, capability_id, scope_id) DO NOTHING
+  `;
+  await sql`
+    INSERT INTO role_permissions (role_id, capability_id, scope_id, allowed)
+    SELECT pr.id, pc.id, ps.id, TRUE
+    FROM permission_roles pr
+    JOIN permission_capabilities pc ON pc.key = 'edit_projects_all_modal'
+    JOIN permission_scopes ps ON ps.key = 'own_office'
+    WHERE pr.key IN ('executive', 'admin', 'superuser')
+    ON CONFLICT (role_id, capability_id, scope_id) DO NOTHING
+  `;
+  await sql`
+    INSERT INTO role_permissions (role_id, capability_id, scope_id, allowed)
+    SELECT pr.id, pc.id, ps.id, TRUE
+    FROM permission_roles pr
+    JOIN permission_capabilities pc ON pc.key = 'edit_project_planning_all'
+    JOIN permission_scopes ps ON ps.key = 'own_office'
+    WHERE pr.key IN ('executive', 'admin', 'superuser')
+    ON CONFLICT (role_id, capability_id, scope_id) DO NOTHING
+  `;
+  await sql`
+    INSERT INTO role_permissions (role_id, capability_id, scope_id, allowed)
+    SELECT pr.id, pc.id, ps.id, TRUE
+    FROM permission_roles pr
+    JOIN permission_capabilities pc ON pc.key = 'edit_projects_if_project_lead'
+    JOIN permission_scopes ps ON ps.key = 'own_office'
+    WHERE pr.key IN ('manager', 'executive', 'admin', 'superuser')
     ON CONFLICT (role_id, capability_id, scope_id) DO NOTHING
   `;
   await sql`
@@ -1491,96 +1631,6 @@ function isStaff(user, levelLabels) {
   return permissionGroupForUser(user, levelLabels) === "staff";
 }
 
-function getVisibilityPolicyForRole(role) {
-  const normalizedRole = normalizeText(role).toLowerCase();
-  if (normalizedRole === "superuser") {
-    return {
-      clientScope: "all",
-      projectScope: "all",
-    };
-  }
-  const byRole = {
-    admin: { clientScope: "all", projectScope: "all" },
-    executive: { clientScope: "all", projectScope: "all" },
-    manager: { clientScope: "assigned", projectScope: "assigned" },
-    staff: { clientScope: "assigned", projectScope: "assigned" },
-  };
-  return byRole[normalizedRole] || { clientScope: "assigned", projectScope: "assigned" };
-}
-
-function getEffectiveEntityVisibility({
-  actorRole,
-  clients,
-  projects,
-  managerClientAssignments,
-  managerProjectAssignments,
-  projectMemberAssignments,
-}) {
-  const normalizedRole = normalizeText(actorRole).toLowerCase();
-  const policy = getVisibilityPolicyForRole(normalizedRole);
-  const normalizedClients = Array.isArray(clients) ? clients : [];
-  const normalizedProjects = Array.isArray(projects) ? projects : [];
-  const managerClientRows = Array.isArray(managerClientAssignments) ? managerClientAssignments : [];
-  const managerProjectRows = Array.isArray(managerProjectAssignments) ? managerProjectAssignments : [];
-  const projectMemberRows = Array.isArray(projectMemberAssignments) ? projectMemberAssignments : [];
-  const visibleClientIds = new Set();
-  const visibleProjectIds = new Set();
-
-  const clientIdByName = new Map();
-  normalizedClients.forEach((client) => {
-    const clientId = normalizeText(client?.id);
-    const clientName = normalizeText(client?.name);
-    if (!clientId || !clientName) return;
-    clientIdByName.set(clientName, clientId);
-  });
-
-  const projectToClientId = new Map();
-  normalizedProjects.forEach((project) => {
-    const projectId = normalizeText(project?.id);
-    const clientId =
-      normalizeText(project?.clientId || project?.client_id) ||
-      clientIdByName.get(normalizeText(project?.client)) ||
-      "";
-    if (!projectId || !clientId) return;
-    projectToClientId.set(projectId, clientId);
-  });
-
-  if (policy.clientScope === "all") {
-    normalizedClients.forEach((client) => {
-      const clientId = normalizeText(client?.id);
-      if (clientId) visibleClientIds.add(clientId);
-    });
-  } else {
-    managerClientRows.forEach((row) => {
-      const clientId = normalizeText(row?.clientId || row?.client_id);
-      if (clientId) visibleClientIds.add(clientId);
-    });
-    [...managerProjectRows, ...projectMemberRows].forEach((row) => {
-      const projectId = normalizeText(row?.projectId || row?.project_id);
-      if (!projectId) return;
-      const clientId = projectToClientId.get(projectId);
-      if (clientId) visibleClientIds.add(clientId);
-    });
-  }
-
-  if (policy.projectScope === "all") {
-    normalizedProjects.forEach((project) => {
-      const projectId = normalizeText(project?.id);
-      if (projectId) visibleProjectIds.add(projectId);
-    });
-  } else {
-    [...managerProjectRows, ...projectMemberRows].forEach((row) => {
-      const projectId = normalizeText(row?.projectId || row?.project_id);
-      if (projectId) visibleProjectIds.add(projectId);
-    });
-  }
-
-  return {
-    visibleClientIds: Array.from(visibleClientIds),
-    visibleProjectIds: Array.from(visibleProjectIds),
-  };
-}
-
 function randomId() {
   return crypto.randomUUID();
 }
@@ -2622,6 +2672,8 @@ async function listProjects(sql, accountId) {
       projects.id,
       projects.name,
       clients.name AS client,
+      projects.client_id AS "clientId",
+      projects.client_id AS client_id,
       projects.created_by AS "createdBy",
       projects.budget_amount AS budget,
       projects.contract_amount AS "contractAmount",
@@ -3455,6 +3507,22 @@ async function listManagerClientAssignmentsForManagers(sql, managerIds, accountI
   `;
 }
 
+async function listManagerClientAssignmentsForClients(sql, clientIds, accountId) {
+  if (!clientIds || !clientIds.length) {
+    return [];
+  }
+  return sql`
+    SELECT
+      manager_clients.manager_id AS "managerId",
+      clients.id AS "clientId",
+      clients.name AS client
+    FROM manager_clients
+    JOIN clients ON clients.id = manager_clients.client_id
+    WHERE manager_clients.client_id = ANY(${clientIds})
+      AND manager_clients.account_id = ${accountId}::uuid
+  `;
+}
+
 async function listManagerProjectAssignmentsForManagers(sql, managerIds, accountId) {
   if (!managerIds || !managerIds.length) {
     return [];
@@ -3652,11 +3720,15 @@ async function loadSettingsMetadata(sql, currentUser) {
       resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
       actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
     }) ||
-    canCap("create_project", {
+    canCap("manage_projects_lifecycle", {
       resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
       actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
     }) ||
-    canCap("view_projects", {
+    canCap("see_all_clients_projects", {
+      resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+      actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+    }) ||
+    canCap("see_assigned_clients_projects", {
       resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
       actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
     });
@@ -3885,8 +3957,61 @@ async function loadState(sql, currentUser) {
   const actorManagerProjectAssignments = Array.isArray(actorManagerAssignments?.projectRows)
     ? actorManagerAssignments.projectRows
     : [];
+  const canSeeAllClientsProjects = canCap("see_all_clients_projects", {
+    resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+    actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+  });
+  const canSeeAssignedClientsProjects = canCap("see_assigned_clients_projects", {
+    resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+    actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+  });
+  const canManageClientsLifecycle = canCap("manage_clients_lifecycle", {
+    resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+    actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+  });
+  const canManageProjectsLifecycle = canCap("manage_projects_lifecycle", {
+    resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+    actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+  });
+  const canEditClients = canCap("edit_clients", {
+    resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+    actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+  });
+  const canEditProjectsAllModal = canCap("edit_projects_all_modal", {
+    resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+    actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+  });
+  const canEditProjectPlanningAll = canCap("edit_project_planning_all", {
+    resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+    actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+  });
+  const canEditProjectsIfProjectLead = canCap("edit_projects_if_project_lead", {
+    resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+    actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+  });
+  const canAccessClientsShell = Boolean(
+    canSeeAllClientsProjects ||
+      canSeeAssignedClientsProjects ||
+      canManageClientsLifecycle ||
+      canManageProjectsLifecycle ||
+      canEditClients ||
+      canEditProjectsAllModal ||
+      canEditProjectPlanningAll ||
+      canEditProjectsIfProjectLead
+  );
+  const hasGlobalClientsProjectsScope = Boolean(
+    canSeeAllClientsProjects ||
+      canManageClientsLifecycle ||
+      canManageProjectsLifecycle ||
+      canEditClients ||
+      canEditProjectsAllModal ||
+      canEditProjectPlanningAll
+  );
+  const hasAssignedClientsProjectsScope = Boolean(
+    canSeeAssignedClientsProjects || canEditProjectsIfProjectLead
+  );
+  const allProjects = await listProjects(sql, accountUuid);
   let actorProjectIds = [];
-  const actorClientIdsFromProjects = new Set();
   if (normalizedUser) {
     actorProjectIds = [
       ...new Set([
@@ -3902,37 +4027,46 @@ async function loadState(sql, currentUser) {
           actorProjectIds.push(normalizedProjectId);
         }
       });
-      actorProjectIds = [...new Set(actorProjectIds)];
     }
+    if (canEditProjectsIfProjectLead) {
+      allProjects.forEach((project) => {
+        const projectLeadId = normalizeText(project?.projectLeadId || project?.project_lead_id);
+        if (projectLeadId && projectLeadId === normalizeText(normalizedUser?.id)) {
+          const projectId = normalizeText(project?.id);
+          if (projectId) {
+            actorProjectIds.push(projectId);
+          }
+        }
+      });
+    }
+    actorProjectIds = [...new Set(actorProjectIds)];
   }
+  const actorClientIdsFromProjects = new Set();
   if (actorProjectIds.length) {
-    (
-      await sql`
-        SELECT DISTINCT client_id
-        FROM projects
-        WHERE id = ANY(${actorProjectIds})
-          AND account_id = ${accountUuid}::uuid
-      `
-    ).forEach((row) => {
-      const clientId = Number(row?.client_id);
+    allProjects.forEach((project) => {
+      const projectId = normalizeText(project?.id);
+      if (!projectId || !actorProjectIds.includes(projectId)) return;
+      const clientId = Number(project?.clientId ?? project?.client_id);
       if (Number.isFinite(clientId)) {
         actorClientIdsFromProjects.add(clientId);
       }
     });
   }
-  const canViewClientsShell = canCap("view_clients", {
-    resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
-    actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
-  });
   const allClients = await listClients(sql, accountUuid);
   let clients = allClients.filter((client) => {
-    if (!normalizedUser || !canViewClientsShell) return false;
-    if (isAdminFlag) {
-      return canCap("view_clients", {
-        resourceOfficeId: client.officeId ?? client.office_id ?? null,
-        actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
-      });
+    if (!normalizedUser || !canAccessClientsShell) return false;
+    if (hasGlobalClientsProjectsScope) {
+      const officeId = client.officeId ?? client.office_id ?? null;
+      return Boolean(
+        canCap("see_all_clients_projects", { resourceOfficeId: officeId }) ||
+          canCap("manage_clients_lifecycle", { resourceOfficeId: officeId }) ||
+          canCap("manage_projects_lifecycle", { resourceOfficeId: officeId }) ||
+          canCap("edit_clients", { resourceOfficeId: officeId }) ||
+          canCap("edit_projects_all_modal", { resourceOfficeId: officeId }) ||
+          canCap("edit_project_planning_all", { resourceOfficeId: officeId })
+      );
     }
+    if (!hasAssignedClientsProjectsScope) return false;
     const clientIdNumber = Number(client?.id);
     if (!Number.isFinite(clientIdNumber)) return false;
     return actorClientIdsFromProjects.has(clientIdNumber);
@@ -4611,25 +4745,19 @@ async function loadState(sql, currentUser) {
     }
   }
 
-  const canViewProjectsShell = canCap("view_projects", {
-    resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
-    actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
-  });
-  const canViewAssignedProjectsViaClients =
-    !isAdminFlag &&
-    canViewClientsShell;
-  const allProjects = await listProjects(sql, accountUuid);
   const projects = allProjects.filter((project) => {
-    if (!normalizedUser || (!canViewProjectsShell && !canViewAssignedProjectsViaClients)) return false;
+    if (!normalizedUser || !canAccessClientsShell) return false;
     const projectId = normalizeText(project.id);
-    if (isAdminFlag) {
-      return canCap("view_projects", {
-        resourceOfficeId: project.officeId ?? project.office_id ?? null,
-        actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
-        projectId,
-        actorProjectIds,
-      });
+    const officeId = project.officeId ?? project.office_id ?? null;
+    if (hasGlobalClientsProjectsScope) {
+      return Boolean(
+        canCap("see_all_clients_projects", { resourceOfficeId: officeId, projectId, actorProjectIds }) ||
+          canCap("manage_projects_lifecycle", { resourceOfficeId: officeId, projectId, actorProjectIds }) ||
+          canCap("edit_projects_all_modal", { resourceOfficeId: officeId, projectId, actorProjectIds }) ||
+          canCap("edit_project_planning_all", { resourceOfficeId: officeId, projectId, actorProjectIds })
+      );
     }
+    if (!hasAssignedClientsProjectsScope) return false;
     return Boolean(projectId) && actorProjectIds.includes(projectId);
   });
   const visibilitySnapshot = {
@@ -4661,26 +4789,36 @@ async function loadState(sql, currentUser) {
     managerProjects: [],
     projectMembers: [],
   };
+  const scopedClientIds = Array.from(actorClientIdsFromProjects)
+    .map((id) => Number(id))
+    .filter((id) => Number.isFinite(id));
 
   if (isAdminFlag) {
     assignments.managerClients = await listManagerClientAssignments(sql, accountUuid);
     assignments.managerProjects = await listManagerProjectAssignments(sql, accountUuid);
     assignments.projectMembers = await listProjectMembers(sql, accountUuid);
   } else if (isManagerFlag && normalizedUser) {
+    const scope = await getManagerScope(sql, normalizedUser.id, accountUuid);
     const { clientRows, projectRows } = await listManagerAssignmentsForUser(
       sql,
       normalizedUser.id,
       accountUuid
     );
-    assignments.managerClients = clientRows;
-    assignments.managerProjects = projectRows;
-    const scope = await getManagerScope(sql, normalizedUser.id, accountUuid);
+    assignments.managerClients = scopedClientIds.length
+      ? await listManagerClientAssignmentsForClients(sql, scopedClientIds, accountUuid)
+      : clientRows;
+    assignments.managerProjects = scope.projectIds.length
+      ? await listManagerProjectAssignmentsForProjects(sql, scope.projectIds, accountUuid)
+      : projectRows;
     assignments.projectMembers = await listProjectMembersForProjects(
       sql,
       scope.projectIds,
       accountUuid
     );
   } else if (normalizedUser) {
+    assignments.managerClients = scopedClientIds.length
+      ? await listManagerClientAssignmentsForClients(sql, scopedClientIds, accountUuid)
+      : [];
     assignments.managerProjects = await listManagerProjectAssignmentsForProjects(
       sql,
       actorProjectIds,

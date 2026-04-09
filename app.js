@@ -775,7 +775,7 @@
       addClientHeaderButton.textContent = "Add client";
       addClientHeaderButton.style.marginLeft = "0";
       addClientHeaderButton.addEventListener("click", async function () {
-        if (!state.permissions?.create_client) {
+        if (!canManageClientsLifecycle()) {
           feedback("Access denied.", true);
           return;
         }
@@ -819,7 +819,7 @@
     if (!addClientHeaderButton.isConnected) {
       header.appendChild(addClientHeaderButton);
     }
-    addClientHeaderButton.hidden = !state.permissions?.create_client;
+    addClientHeaderButton.hidden = !canManageClientsLifecycle();
     if (!clientLifecycleToggleWrap.isConnected) {
       header.appendChild(clientLifecycleToggleWrap);
     }
@@ -952,6 +952,10 @@
     if (!normalizedClient || !normalizedProject) {
       return;
     }
+    if (!canEditProjectModal(normalizedClient, normalizedProject)) {
+      feedback("Access denied.", true);
+      return;
+    }
     const projectRow =
       (state.projects || []).find(
         (p) =>
@@ -1028,6 +1032,7 @@
       clientOfficeId,
       managerNames,
       staffNames,
+      allowOpenPlanning: canEditProjectPlanning(normalizedClient, normalizedProject),
     });
     if (!projectDialog) {
       return;
@@ -1100,6 +1105,7 @@
     return new Promise((resolve) => {
       const mode = options?.mode === "edit" ? "edit" : "add";
       const isProjectEditDialog = mode === "edit";
+      const canOpenPlanningFromDialog = isProjectEditDialog && options?.allowOpenPlanning !== false;
       const currentProjectId = String(options?.projectId || "").trim() || null;
       const currentName = String(options?.projectName || "");
       const currentBudget = Number.isFinite(options?.budgetAmount) ? Number(options.budgetAmount) : null;
@@ -1320,7 +1326,7 @@
               <button type="button" class="button button-ghost" data-project-cancel>Cancel</button>
               <button type="submit" class="button" data-project-save>${escapeHtml(finalConfirmText)}</button>
               ${
-                isProjectEditDialog
+                canOpenPlanningFromDialog
                   ? '<button type="button" class="button button-ghost" data-project-open-planning>Open Project Planner</button>'
                   : ""
               }
@@ -1542,6 +1548,10 @@
       };
 
       const onOpenProjectPlanning = (event) => {
+        if (!canOpenPlanningFromDialog) {
+          setError("Access denied.");
+          return;
+        }
         event?.preventDefault?.();
         event?.stopPropagation?.();
         event?.stopImmediatePropagation?.();
@@ -1651,7 +1661,7 @@
 
   async function openAddProjectDialog() {
     await ensureProjectEditorMetadataLoaded();
-    const canCreateProject = Boolean(state.permissions?.create_project);
+    const canCreateProject = canManageProjectsLifecycle();
     if (!canCreateProject) {
       feedback("Access denied.", true);
       return;
@@ -2899,6 +2909,84 @@
     }
   }
 
+  function canSeeAllClientsProjects() {
+    return Boolean(state.permissions?.see_all_clients_projects);
+  }
+
+  function canSeeAssignedClientsProjects() {
+    return Boolean(state.permissions?.see_assigned_clients_projects);
+  }
+
+  function canManageClientsLifecycle() {
+    return Boolean(state.permissions?.manage_clients_lifecycle);
+  }
+
+  function canManageProjectsLifecycle() {
+    return Boolean(state.permissions?.manage_projects_lifecycle);
+  }
+
+  function canEditClientsGlobal() {
+    return Boolean(state.permissions?.edit_clients);
+  }
+
+  function canEditProjectsAllModal() {
+    return Boolean(state.permissions?.edit_projects_all_modal);
+  }
+
+  function canEditProjectPlanningAll() {
+    return Boolean(state.permissions?.edit_project_planning_all);
+  }
+
+  function canEditProjectsIfProjectLead() {
+    return Boolean(state.permissions?.edit_projects_if_project_lead);
+  }
+
+  function hasClientsTabAccess() {
+    return Boolean(
+      canSeeAllClientsProjects() ||
+        canSeeAssignedClientsProjects() ||
+        canManageClientsLifecycle() ||
+        canManageProjectsLifecycle() ||
+        canEditClientsGlobal() ||
+        canEditProjectsAllModal() ||
+        canEditProjectPlanningAll() ||
+        canEditProjectsIfProjectLead()
+    );
+  }
+
+  function findProjectRow(clientName, projectName) {
+    const normalizedClient = String(clientName || "").trim();
+    const normalizedProject = String(projectName || "").trim().toLowerCase();
+    return (
+      (state.projects || []).find(
+        (item) =>
+          String(item?.client || "").trim() === normalizedClient &&
+          String(item?.name || item?.project || "").trim().toLowerCase() === normalizedProject
+      ) || null
+    );
+  }
+
+  function isCurrentUserProjectLead(project) {
+    if (!project) return false;
+    const projectLeadId = String(project?.projectLeadId || project?.project_lead_id || "").trim();
+    const currentUserId = String(state.currentUser?.id || "").trim();
+    return Boolean(projectLeadId && currentUserId && projectLeadId === currentUserId);
+  }
+
+  function canEditProjectModal(clientName, projectName) {
+    const project = findProjectRow(clientName, projectName);
+    if (!project) return false;
+    if (canEditProjectsAllModal()) return true;
+    return canEditProjectsIfProjectLead() && isCurrentUserProjectLead(project);
+  }
+
+  function canEditProjectPlanning(clientName, projectName) {
+    const project = findProjectRow(clientName, projectName);
+    if (!project) return false;
+    if (canEditProjectPlanningAll()) return true;
+    return canEditProjectsIfProjectLead() && isCurrentUserProjectLead(project);
+  }
+
   function isViewAllowed(view) {
     const nextView = `${view || ""}`.trim().toLowerCase();
     if (!state.currentUser) return false;
@@ -2912,16 +3000,10 @@
       return true;
     }
     if (nextView === "project_planning") {
-      const group = permissionGroupForUser(state.currentUser);
-      return (
-        group === "manager" ||
-        group === "executive" ||
-        group === "admin" ||
-        group === "superuser"
-      );
+      return hasClientsTabAccess();
     }
     if (nextView === "clients") {
-      return !!state.permissions?.view_clients;
+      return hasClientsTabAccess();
     }
     if (nextView === "members") {
       return true;
@@ -7984,12 +8066,12 @@
       refs.navMembersMobile.setAttribute("aria-current", view === "members" ? "page" : "false");
     }
     if (refs.openCatalog) {
-      refs.openCatalog.hidden = !state.permissions?.view_clients;
+      refs.openCatalog.hidden = !hasClientsTabAccess();
       refs.openCatalog.classList.toggle("is-active", view === "clients");
       refs.openCatalog.setAttribute("aria-current", view === "clients" ? "page" : "false");
     }
     if (refs.navClientsMobile) {
-      const showClients = !!state.permissions?.view_clients;
+      const showClients = hasClientsTabAccess();
       refs.navClientsMobile.hidden = !showClients;
       refs.navClientsMobile.classList.toggle("is-active", view === "clients");
       refs.navClientsMobile.setAttribute("aria-current", view === "clients" ? "page" : "false");
@@ -8101,14 +8183,29 @@
         refs.mainFrame.style.display = "";
         const planningRenderer = window.projectPlanning?.renderProjectPlanningPage;
         if (typeof planningRenderer === "function") {
+          const planningProject =
+            (state.projects || []).find(
+              (item) => String(item?.id || "").trim() === targetProjectId
+            ) || null;
+          const canEditPlanning =
+            planningProject &&
+            canEditProjectPlanning(
+              String(planningProject?.client || "").trim(),
+              String(planningProject?.name || "").trim()
+            );
           planningRenderer({
             projectId: targetProjectId,
             state,
             container: refs.mainFrame,
+            canEdit: Boolean(canEditPlanning),
             onBack: function () {
               setView("clients");
             },
             onSave: async function (payload) {
+              if (!canEditPlanning) {
+                feedback("Access denied.", true);
+                return;
+              }
               const saveProjectId = String(payload?.projectId || targetProjectId || "").trim();
               if (!saveProjectId) {
                 feedback("Project context is unavailable.", true);
@@ -8162,6 +8259,9 @@
               loadPersistentStateInBackground();
             },
             onPersistField: async function (payload) {
+              if (!canEditPlanning) {
+                throw new Error("Access denied.");
+              }
               const persistProjectId = String(payload?.projectId || targetProjectId || "").trim();
               const userId = String(payload?.userId || "").trim();
               const field = String(payload?.field || "").trim();
@@ -8252,6 +8352,9 @@
               );
             },
             onCreateExpenseRow: async function (payload) {
+              if (!canEditPlanning) {
+                throw new Error("Access denied.");
+              }
               const persistProjectId = String(payload?.projectId || targetProjectId || "").trim();
               if (!persistProjectId) {
                 throw new Error("Project context is unavailable.");
@@ -8297,6 +8400,9 @@
               return created;
             },
             onPersistExpenseField: async function (payload) {
+              if (!canEditPlanning) {
+                throw new Error("Access denied.");
+              }
               const persistProjectId = String(payload?.projectId || targetProjectId || "").trim();
               const expenseId = String(payload?.expenseId || "").trim();
               const field = String(payload?.field || "").trim();
@@ -8337,6 +8443,9 @@
               return updated;
             },
             onDeleteExpenseRow: async function (payload) {
+              if (!canEditPlanning) {
+                throw new Error("Access denied.");
+              }
               const persistProjectId = String(payload?.projectId || targetProjectId || "").trim();
               const expenseId = String(payload?.expenseId || "").trim();
               if (!persistProjectId || !expenseId) {
@@ -8370,6 +8479,9 @@
               return result?.confirmed === true;
             },
             onDeleteMember: async function (payload) {
+              if (!canEditPlanning) {
+                throw new Error("Access denied.");
+              }
               const deleteProjectId = String(payload?.projectId || targetProjectId || "").trim();
               const deleteUserId = String(payload?.userId || "").trim();
               const deleteAction = String(payload?.action || "").trim().toLowerCase();
@@ -8443,6 +8555,9 @@
               }
             },
             onPersistContractType: async function (payload) {
+              if (!canEditPlanning) {
+                throw new Error("Access denied.");
+              }
               const persistProjectId = String(payload?.projectId || targetProjectId || "").trim();
               const contractType = String(payload?.contractType || "").trim();
               if (!persistProjectId || (contractType !== "fixed" && contractType !== "tm")) {
@@ -8472,6 +8587,9 @@
               }
             },
             onPersistContractAmount: async function (payload) {
+              if (!canEditPlanning) {
+                throw new Error("Access denied.");
+              }
               const persistProjectId = String(payload?.projectId || targetProjectId || "").trim();
               const contractAmount =
                 payload?.contractAmount === null || payload?.contractAmount === undefined || payload?.contractAmount === ""
@@ -8507,6 +8625,10 @@
               }
             },
             onAddMember: function (payload) {
+              if (!canEditPlanning) {
+                feedback("Access denied.", true);
+                return;
+              }
               const addProjectId = String(payload?.projectId || targetProjectId || "").trim();
               const addProject =
                 (state.projects || []).find(
@@ -10900,7 +11022,7 @@
   if (refs.addClientForm && refs.addClientForm.isConnected) {
     refs.addClientForm.addEventListener("submit", async function (event) {
       event.preventDefault();
-      if (!state.permissions?.create_client) {
+      if (!canManageClientsLifecycle()) {
         feedback("Access denied.", true);
         return;
       }
@@ -10951,8 +11073,8 @@
       const editor = state.clientEditor;
       const canSaveClient =
         editor?.mode === "edit"
-          ? Boolean(state.permissions?.edit_client)
-          : Boolean(state.permissions?.create_client);
+          ? canEditClientsGlobal()
+          : canManageClientsLifecycle();
       if (!canSaveClient) {
         feedback("Access denied.", true);
         return;
@@ -11072,7 +11194,7 @@
   refs.clientList.addEventListener("click", async function (event) {
     const editButton = event.target.closest("[data-edit-client]");
     if (editButton) {
-      if (!state.permissions?.edit_client) {
+      if (!canEditClientsGlobal()) {
         feedback("Access denied.", true);
         return;
       }
@@ -11087,7 +11209,7 @@
     const deactivateButton = event.target.closest("[data-deactivate-client]");
     const reactivateButton = event.target.closest("[data-reactivate-client]");
     if (deactivateButton || reactivateButton) {
-      if (!state.permissions?.archive_client) {
+      if (!canManageClientsLifecycle()) {
         feedback("Access denied.", true);
         return;
       }
@@ -11180,7 +11302,7 @@
     }
 
     if (deleteButton) {
-      if (!state.permissions?.archive_client) {
+      if (!canManageClientsLifecycle()) {
         feedback("Access denied.", true);
         return;
       }
@@ -11362,11 +11484,11 @@
 
     const editButton = event.target.closest("[data-edit-project]");
     if (editButton) {
-      if (!isAdmin(state.currentUser) && !isExecutive(state.currentUser)) {
-        feedback("Only Executives or Admins can edit projects.", true);
+      const projectName = editButton.dataset.editProject;
+      if (!canEditProjectModal(state.selectedCatalogClient, projectName)) {
+        feedback("Access denied.", true);
         return;
       }
-      const projectName = editButton.dataset.editProject;
       await openProjectEditDialogFlow(state.selectedCatalogClient, projectName);
       return;
     }
@@ -11375,14 +11497,9 @@
     const reactivateButton = event.target.closest("[data-reactivate-project]");
     if (deactivateButton || reactivateButton) {
       const projectName = deactivateButton?.dataset.deactivateProject || reactivateButton?.dataset.reactivateProject;
-      const canManageProjectLifecycle =
-        Boolean(state.permissions?.remove_project) &&
-        (isAdmin(state.currentUser) ||
-          isExecutive(state.currentUser) ||
-          (isManager(state.currentUser) &&
-            projectCreatedBy(state.selectedCatalogClient, projectName) === state.currentUser?.id));
+      const canManageProjectLifecycle = canManageProjectsLifecycle();
       if (!canManageProjectLifecycle) {
-        feedback("Managers can only manage projects they created.", true);
+        feedback("Access denied.", true);
         return;
       }
 
@@ -11505,14 +11622,9 @@
     const deleteButton = event.target.closest("[data-delete-project]");
     if (deleteButton) {
       const projectName = deleteButton.dataset.deleteProject;
-      const canDeleteProject =
-        Boolean(state.permissions?.remove_project) &&
-        (isAdmin(state.currentUser) ||
-          (isManager(state.currentUser) &&
-            projectCreatedBy(state.selectedCatalogClient, projectName) ===
-              state.currentUser?.id));
+      const canDeleteProject = canManageProjectsLifecycle();
       if (!canDeleteProject) {
-        feedback("Managers can only remove projects they created.", true);
+        feedback("Access denied.", true);
         return;
       }
       const assignedActiveMembers = assignedActiveMembersCountForProject(

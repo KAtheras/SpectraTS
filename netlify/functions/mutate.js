@@ -1194,6 +1194,24 @@ function buildPermissionsPayload(currentUser, permissionIndex) {
   const canManageCorporateFunctions = can("manage_corporate_functions") || can("manage_expense_categories");
   const canManageTargetRealizations = can("manage_target_realizations") || can("manage_departments");
   const canManageMessagingRules = can("manage_messaging_rules") || can("manage_settings_access");
+  const canSeeAllClientsProjects = can("see_all_clients_projects");
+  const canSeeAssignedClientsProjects = can("see_assigned_clients_projects");
+  const canManageClientsLifecycle = can("manage_clients_lifecycle");
+  const canManageProjectsLifecycle = can("manage_projects_lifecycle");
+  const canEditClients = can("edit_clients");
+  const canEditProjectsAllModal = can("edit_projects_all_modal");
+  const canEditProjectPlanningAll = can("edit_project_planning_all");
+  const canEditProjectsIfProjectLead = can("edit_projects_if_project_lead");
+  const canAccessClientsTab = Boolean(
+    canSeeAllClientsProjects ||
+      canSeeAssignedClientsProjects ||
+      canManageClientsLifecycle ||
+      canManageProjectsLifecycle ||
+      canEditClients ||
+      canEditProjectsAllModal ||
+      canEditProjectPlanningAll ||
+      canEditProjectsIfProjectLead
+  );
   const permissionsPayload = {
     edit_user_department: can("edit_user_department"),
     view_settings_tab: false,
@@ -1221,9 +1239,17 @@ function buildPermissionsPayload(currentUser, permissionIndex) {
     view_audit_logs: can("view_audit_logs"),
     create_project: can("create_project"),
     remove_project: can("archive_project"),
+    manage_projects_lifecycle: canManageProjectsLifecycle,
+    edit_projects_all_modal: canEditProjectsAllModal,
+    edit_project_planning_all: canEditProjectPlanningAll,
+    edit_projects_if_project_lead: canEditProjectsIfProjectLead,
     create_client: can("create_client"),
     edit_client: can("edit_client"),
     archive_client: can("archive_client"),
+    see_all_clients_projects: canSeeAllClientsProjects,
+    see_assigned_clients_projects: canSeeAssignedClientsProjects,
+    manage_clients_lifecycle: canManageClientsLifecycle,
+    edit_clients: canEditClients,
     assign_project_members: can("assign_project_staff"),
     assign_project_managers: can("assign_project_managers"),
     create_entry: can("create_time_entry"),
@@ -1234,7 +1260,7 @@ function buildPermissionsPayload(currentUser, permissionIndex) {
     toggle_expense_status: can("approve_expense"),
     view_expenses: can("view_expenses"),
     view_users: can("view_users"),
-    view_clients: can("view_clients"),
+    view_clients: canAccessClientsTab,
     view_projects: can("view_projects"),
   };
   permissionsPayload.view_settings_tab = Boolean(
@@ -1254,6 +1280,40 @@ function buildPermissionsPayload(currentUser, permissionIndex) {
     permissions: permissionsPayload,
     canManageSettingsAccess,
   };
+}
+
+function isCurrentUserProjectLeadForProject(currentUser, project) {
+  const currentUserId = normalizeText(currentUser?.id);
+  const projectLeadId = normalizeText(project?.project_lead_id || project?.projectLeadId);
+  return Boolean(currentUserId && projectLeadId && currentUserId === projectLeadId);
+}
+
+function canEditProjectModalForTarget({ can, currentUser, targetProject, actorProjectIds = [] }) {
+  if (!targetProject) return false;
+  const projectId = targetProject.id ? String(targetProject.id) : null;
+  const context = {
+    resourceOfficeId: targetProject.office_id || targetProject.officeId || null,
+    projectId,
+    actorProjectIds,
+  };
+  if (can("edit_projects_all_modal", context)) {
+    return true;
+  }
+  return can("edit_projects_if_project_lead", context) && isCurrentUserProjectLeadForProject(currentUser, targetProject);
+}
+
+function canEditProjectPlanningForTarget({ can, currentUser, targetProject, actorProjectIds = [] }) {
+  if (!targetProject) return false;
+  const projectId = targetProject.id ? String(targetProject.id) : null;
+  const context = {
+    resourceOfficeId: targetProject.office_id || targetProject.officeId || null,
+    projectId,
+    actorProjectIds,
+  };
+  if (can("edit_project_planning_all", context)) {
+    return true;
+  }
+  return can("edit_projects_if_project_lead", context) && isCurrentUserProjectLeadForProject(currentUser, targetProject);
 }
 
 function entrySnapshot({
@@ -1381,6 +1441,8 @@ async function findProjectById(sql, projectId, accountId) {
       projects.id,
       projects.name,
       projects.client_id,
+      projects.office_id,
+      projects.project_lead_id,
       clients.name AS client
     FROM projects
     JOIN clients ON clients.id = projects.client_id
@@ -3444,11 +3506,6 @@ async function updateProject(sql, payload, currentUser, accountId) {
     }
   }
 
-  // Reuse admin requirement from rename_project
-  if (!isAdmin(currentUser)) {
-    return errorResponse(403, "Admin access required.");
-  }
-
   if (project.name.toLowerCase() !== nextName.toLowerCase()) {
     const conflict = await findProject(sql, clientName, nextName, accountId);
     if (conflict) {
@@ -4467,7 +4524,7 @@ exports.handler = async function handler(event) {
           normalizeText(request.payload?.officeId) ||
           normalizeText(request.payload?.office_id) ||
           null;
-        if (!can("create_client", { resourceOfficeId: targetOfficeId })) {
+        if (!can("manage_clients_lifecycle", { resourceOfficeId: targetOfficeId })) {
           return errorResponse(403, "Access denied.");
         }
         mutationResult = await addClient(sql, request.payload || {}, accountId);
@@ -4492,7 +4549,7 @@ exports.handler = async function handler(event) {
           normalizeText(request.payload?.officeId) ||
           normalizeText(request.payload?.office_id) ||
           null;
-        if (!can("create_project", { resourceOfficeId: targetOfficeId })) {
+        if (!can("manage_projects_lifecycle", { resourceOfficeId: targetOfficeId })) {
           return errorResponse(403, "Access denied.");
         }
         const clientName = normalizeText(request.payload?.clientName);
@@ -4524,16 +4581,8 @@ exports.handler = async function handler(event) {
         if (!targetClient) {
           return errorResponse(404, "Client not found.");
         }
-        const projectIds = await collectUserProjectIdsForClient(
-          sql,
-          context.currentUser,
-          targetClient.id,
-          accountId
-        );
-        const canRename = can("edit_client", {
+        const canRename = can("edit_clients", {
           resourceOfficeId: targetClient.office_id || null,
-          projectId: projectIds[0] || null,
-          actorProjectIds: projectIds,
         });
         if (!canRename) {
           return errorResponse(403, "Access denied.");
@@ -4559,16 +4608,8 @@ exports.handler = async function handler(event) {
         if (!targetClient) {
           return errorResponse(404, "Client not found.");
         }
-        const projectIds = await collectUserProjectIdsForClient(
-          sql,
-          context.currentUser,
-          targetClient.id,
-          accountId
-        );
-        const canEdit = can("edit_client", {
+        const canEdit = can("edit_clients", {
           resourceOfficeId: targetClient.office_id || null,
-          projectId: projectIds[0] || null,
-          actorProjectIds: projectIds,
         });
         if (!canEdit) {
           return errorResponse(403, "Access denied.");
@@ -4590,11 +4631,27 @@ exports.handler = async function handler(event) {
         break;
       }
       case "rename_project": {
-        const adminError = requireAdmin(context);
-        if (adminError) return adminError;
         const clientName = normalizeText(request.payload?.clientName);
         const projectName = normalizeText(request.payload?.projectName);
         const targetProject = await findProject(sql, clientName, projectName, accountId);
+        if (!targetProject) {
+          return errorResponse(404, "Project not found.");
+        }
+        const actorProjectIds = await collectUserProjectIdsForClient(
+          sql,
+          context.currentUser,
+          targetProject.client_id,
+          accountId
+        );
+        const canEditProject = canEditProjectModalForTarget({
+          can,
+          currentUser: context.currentUser,
+          targetProject,
+          actorProjectIds,
+        });
+        if (!canEditProject) {
+          return errorResponse(403, "Access denied.");
+        }
         const beforeSnapshot = await snapshotProjectById(sql, targetProject?.id || null, accountId);
         mutationResult = await renameProject(sql, request.payload || {}, accountId);
         if (mutationResult?.statusCode) return mutationResult;
@@ -4613,11 +4670,27 @@ exports.handler = async function handler(event) {
         break;
       }
       case "update_project": {
-        const adminError = requireAdmin(context);
-        if (adminError) return adminError;
         const clientName = normalizeText(request.payload?.clientName);
         const projectName = normalizeText(request.payload?.projectName);
         const existingProject = await findProject(sql, clientName, projectName, accountId);
+        if (!existingProject) {
+          return errorResponse(404, "Project not found.");
+        }
+        const actorProjectIds = await collectUserProjectIdsForClient(
+          sql,
+          context.currentUser,
+          existingProject.client_id,
+          accountId
+        );
+        const canEditProject = canEditProjectModalForTarget({
+          can,
+          currentUser: context.currentUser,
+          targetProject: existingProject,
+          actorProjectIds,
+        });
+        if (!canEditProject) {
+          return errorResponse(403, "Access denied.");
+        }
         const beforeSnapshot = await snapshotProjectById(sql, existingProject?.id || null, accountId);
         mutationResult = await updateProject(sql, request.payload || {}, context.currentUser, accountId);
         if (mutationResult?.statusCode) return mutationResult;
@@ -4962,7 +5035,7 @@ exports.handler = async function handler(event) {
           return errorResponse(404, "Client not found.");
         }
         if (
-          !can("archive_client", {
+          !can("manage_clients_lifecycle", {
             resourceOfficeId: targetClient.office_id || null,
           })
         ) {
@@ -4987,7 +5060,7 @@ exports.handler = async function handler(event) {
           return errorResponse(404, "Client not found.");
         }
         if (
-          !can("archive_client", {
+          !can("manage_clients_lifecycle", {
             resourceOfficeId: targetClient.office_id || null,
           })
         ) {
@@ -5012,7 +5085,7 @@ exports.handler = async function handler(event) {
           return errorResponse(404, "Client not found.");
         }
         if (
-          !can("archive_client", {
+          !can("manage_clients_lifecycle", {
             resourceOfficeId: targetClient.office_id || null,
           })
         ) {
@@ -5044,30 +5117,13 @@ exports.handler = async function handler(event) {
           targetProject.client_id,
           accountId
         );
-        const canArchiveProject = can("archive_project", {
+        const canArchiveProject = can("manage_projects_lifecycle", {
           resourceOfficeId: targetProject.office_id || null,
           projectId: targetProject.id ? String(targetProject.id) : null,
           actorProjectIds,
         });
         if (!canArchiveProject) {
           return errorResponse(403, "Access denied.");
-        }
-        const managerUser = isManager(context.currentUser);
-        if (!isAdmin(context.currentUser) && !managerUser) {
-          return errorResponse(403, "Manager access required.");
-        }
-        if (!isAdmin(context.currentUser)) {
-          const projectRow = await sql`
-            SELECT created_by
-            FROM projects
-            WHERE id = ${targetProject.id}
-              AND account_id = ${accountId}::uuid
-            LIMIT 1
-          `;
-          const createdBy = projectRow[0]?.created_by || "";
-          if (createdBy !== context.currentUser.id) {
-            return errorResponse(403, "You can only remove projects you created.");
-          }
         }
         mutationResult = await runMutationWithAudit({
           sql,
@@ -5096,30 +5152,13 @@ exports.handler = async function handler(event) {
           targetProject.client_id,
           accountId
         );
-        const canArchiveProject = can("archive_project", {
+        const canArchiveProject = can("manage_projects_lifecycle", {
           resourceOfficeId: targetProject.office_id || null,
           projectId: targetProject.id ? String(targetProject.id) : null,
           actorProjectIds,
         });
         if (!canArchiveProject) {
           return errorResponse(403, "Access denied.");
-        }
-        const executiveUser = isExecutive(context.currentUser);
-        if (!isAdmin(context.currentUser) && !managerUser && !executiveUser) {
-          return errorResponse(403, "Manager or Executive access required.");
-        }
-        if (!isAdmin(context.currentUser)) {
-          const projectRow = await sql`
-            SELECT created_by
-            FROM projects
-            WHERE id = ${targetProject.id}
-              AND account_id = ${accountId}::uuid
-            LIMIT 1
-          `;
-          const createdBy = projectRow[0]?.created_by || "";
-          if (managerUser && !executiveUser && createdBy !== context.currentUser.id) {
-            return errorResponse(403, "You can only deactivate projects you created.");
-          }
         }
         mutationResult = await runMutationWithAudit({
           sql,
@@ -5148,30 +5187,13 @@ exports.handler = async function handler(event) {
           targetProject.client_id,
           accountId
         );
-        const canArchiveProject = can("archive_project", {
+        const canArchiveProject = can("manage_projects_lifecycle", {
           resourceOfficeId: targetProject.office_id || null,
           projectId: targetProject.id ? String(targetProject.id) : null,
           actorProjectIds,
         });
         if (!canArchiveProject) {
           return errorResponse(403, "Access denied.");
-        }
-        const executiveUser = isExecutive(context.currentUser);
-        if (!isAdmin(context.currentUser) && !managerUser && !executiveUser) {
-          return errorResponse(403, "Manager or Executive access required.");
-        }
-        if (!isAdmin(context.currentUser)) {
-          const projectRow = await sql`
-            SELECT created_by
-            FROM projects
-            WHERE id = ${targetProject.id}
-              AND account_id = ${accountId}::uuid
-            LIMIT 1
-          `;
-          const createdBy = projectRow[0]?.created_by || "";
-          if (managerUser && !executiveUser && createdBy !== context.currentUser.id) {
-            return errorResponse(403, "You can only reactivate projects you created.");
-          }
         }
         mutationResult = await runMutationWithAudit({
           sql,
@@ -5424,13 +5446,23 @@ exports.handler = async function handler(event) {
         break;
       }
       case "save_project_advanced_budget": {
-        if (!isAdmin(context.currentUser) && !isManager(context.currentUser)) {
-          return errorResponse(403, "Manager access required.");
-        }
         const projectId = normalizeText(request.payload?.projectId);
         const members = Array.isArray(request.payload?.members) ? request.payload.members : [];
         if (!projectId) {
           return errorResponse(400, "Project id is required.");
+        }
+        const targetProject = await findProjectById(sql, projectId, accountId);
+        if (!targetProject) {
+          return errorResponse(404, "Project not found.");
+        }
+        const canEditPlanning = canEditProjectPlanningForTarget({
+          can,
+          currentUser: context.currentUser,
+          targetProject,
+          actorProjectIds: [String(targetProject.id)],
+        });
+        if (!canEditPlanning) {
+          return errorResponse(403, "Access denied.");
         }
         const existing = await getProjectMemberBudgets(sql, projectId, accountId);
         for (const row of existing) {
@@ -5478,20 +5510,41 @@ exports.handler = async function handler(event) {
         break;
       }
       case "delete_project_member_budget": {
-        if (!isAdmin(context.currentUser) && !isManager(context.currentUser)) {
-          return errorResponse(403, "Manager access required.");
-        }
         const projectId = normalizeText(request.payload?.projectId);
         const userId = normalizeText(request.payload?.userId);
         if (!projectId || !userId) {
           return errorResponse(400, "Project id and user id are required.");
+        }
+        const targetProject = await findProjectById(sql, projectId, accountId);
+        if (!targetProject) {
+          return errorResponse(404, "Project not found.");
+        }
+        const canEditPlanning = canEditProjectPlanningForTarget({
+          can,
+          currentUser: context.currentUser,
+          targetProject,
+          actorProjectIds: [String(targetProject.id)],
+        });
+        if (!canEditPlanning) {
+          return errorResponse(403, "Access denied.");
         }
         await deleteProjectMemberBudget(sql, projectId, userId, accountId);
         mutationResult = { ok: true };
         break;
       }
       case "create_project_planned_expense": {
-        if (!can("edit_expense") && !isAdmin(context.currentUser) && !isManager(context.currentUser)) {
+        const projectId = normalizeText(request.payload?.projectId);
+        const targetProject = await findProjectById(sql, projectId, accountId);
+        if (!targetProject) {
+          return errorResponse(404, "Project not found.");
+        }
+        const canEditPlanning = canEditProjectPlanningForTarget({
+          can,
+          currentUser: context.currentUser,
+          targetProject,
+          actorProjectIds: [String(targetProject.id)],
+        });
+        if (!canEditPlanning) {
           return errorResponse(403, "Access denied.");
         }
         const created = await createProjectPlannedExpense(
@@ -5506,7 +5559,18 @@ exports.handler = async function handler(event) {
         break;
       }
       case "update_project_planned_expense": {
-        if (!can("edit_expense") && !isAdmin(context.currentUser) && !isManager(context.currentUser)) {
+        const projectId = normalizeText(request.payload?.projectId);
+        const targetProject = await findProjectById(sql, projectId, accountId);
+        if (!targetProject) {
+          return errorResponse(404, "Project not found.");
+        }
+        const canEditPlanning = canEditProjectPlanningForTarget({
+          can,
+          currentUser: context.currentUser,
+          targetProject,
+          actorProjectIds: [String(targetProject.id)],
+        });
+        if (!canEditPlanning) {
           return errorResponse(403, "Access denied.");
         }
         const updated = await updateProjectPlannedExpense(
@@ -5521,7 +5585,18 @@ exports.handler = async function handler(event) {
         break;
       }
       case "delete_project_planned_expense": {
-        if (!can("edit_expense") && !isAdmin(context.currentUser) && !isManager(context.currentUser)) {
+        const projectId = normalizeText(request.payload?.projectId);
+        const targetProject = await findProjectById(sql, projectId, accountId);
+        if (!targetProject) {
+          return errorResponse(404, "Project not found.");
+        }
+        const canEditPlanning = canEditProjectPlanningForTarget({
+          can,
+          currentUser: context.currentUser,
+          targetProject,
+          actorProjectIds: [String(targetProject.id)],
+        });
+        if (!canEditPlanning) {
           return errorResponse(403, "Access denied.");
         }
         const deleted = await deleteProjectPlannedExpense(

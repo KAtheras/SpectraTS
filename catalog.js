@@ -52,10 +52,11 @@
     }, {});
 
     const clients = visibleCatalogClientNames({ forCatalogView: true });
-    const canCreateClient = Boolean(state.permissions?.create_client);
-    const canEditClient = Boolean(state.permissions?.edit_client);
-    const canArchiveClient = Boolean(state.permissions?.archive_client);
-    const canRemoveClient = isAdmin(state.currentUser);
+    const canManageClientsLifecycle = Boolean(state.permissions?.manage_clients_lifecycle);
+    const canEditClient = Boolean(state.permissions?.edit_clients);
+    const canManageProjectsLifecycle = Boolean(state.permissions?.manage_projects_lifecycle);
+    const canEditProjectsAllModal = Boolean(state.permissions?.edit_projects_all_modal);
+    const canEditProjectsIfLead = Boolean(state.permissions?.edit_projects_if_project_lead);
 
     if (!clients.length) {
       refs.clientList.innerHTML = '<p class="empty-state">No clients yet.</p>';
@@ -81,8 +82,8 @@
           ).trim();
           const clientIsActive = isClientActive(clientRow);
           const canEditClientCard = canEditClient && clientIsActive;
-          const showClientLifecycleAction = canArchiveClient;
-          const showClientRemoveAction = canRemoveClient;
+          const showClientLifecycleAction = canManageClientsLifecycle;
+          const showClientRemoveAction = canManageClientsLifecycle;
           const visibleProjectCount = visibleCatalogProjectNames(client, { forCatalogView: true }).length;
           const secondaryBits = [
             `${visibleProjectCount} ${visibleProjectCount === 1 ? "project" : "projects"}`,
@@ -153,7 +154,7 @@
     refs.projectColumnLabel.textContent = selectedClient
       ? `Projects for ${selectedClient}`
       : "Projects";
-	    const canAddClient = canCreateClient;
+	    const canAddClient = canManageClientsLifecycle;
     const clientNameField = field(refs.addClientForm, "client_name");
     const addClientButton = refs.addClientForm?.querySelector("button");
     if (clientNameField && addClientButton) {
@@ -166,11 +167,7 @@
 	    const canCreateProject =
 	      Boolean(selectedClient) &&
 	      isClientActive(state.clients.find((c) => c.name === selectedClient)) &&
-	      Boolean(state.permissions?.create_project) &&
-	      (isAdmin(state.currentUser) ||
-	        isExecutive(state.currentUser) ||
-	        (isManager(state.currentUser) &&
-	          canManagerAccessClient(state.currentUser, selectedClient)));
+	      canManageProjectsLifecycle;
 	    const projectButton = document.getElementById("add-project-header-button");
 	    if (projectButton) {
 	      projectButton.hidden = !canCreateProject;
@@ -188,16 +185,18 @@
                 )?.officeId ||
                   (state.clients.find((c) => c.name === selectedClient) || {}).officeId
               );
-	              const canEditProject = isAdmin(state.currentUser) || isExecutive(state.currentUser);
-	              const canDeleteProject =
-	                Boolean(state.permissions?.remove_project) &&
-	                (isAdmin(state.currentUser) ||
-	                isExecutive(state.currentUser) ||
-	                (isManager(state.currentUser) &&
-	                  projectCreatedBy(selectedClient, project) === state.currentUser?.id));
               const projectRow = (state.projects || []).find(
                 (p) => p.client === selectedClient && p.name === project
               );
+	              const isLeadForProject = (() => {
+                  const leadId = String(projectRow?.projectLeadId || projectRow?.project_lead_id || "").trim();
+                  const currentUserId = String(state.currentUser?.id || "").trim();
+                  return Boolean(leadId && currentUserId && leadId === currentUserId);
+                })();
+	              const canEditProject = Boolean(
+                  canEditProjectsAllModal || (canEditProjectsIfLead && isLeadForProject)
+                );
+	              const canDeleteProject = canManageProjectsLifecycle;
               const projectLeadName = String(
                 projectRow?.projectLeadName ||
                   userNamesForIds([projectRow?.projectLeadId || projectRow?.project_lead_id])[0] ||
@@ -213,11 +212,7 @@
 	              const canManageMembers =
 	                projectIsActive &&
 	                (Boolean(state.permissions?.assign_project_members) ||
-	                  Boolean(state.permissions?.assign_project_managers)) &&
-	                (isAdmin(state.currentUser) ||
-	                  isExecutive(state.currentUser) ||
-	                  (isManager(state.currentUser) &&
-	                    canManagerAccessProject(state.currentUser, selectedClient, project)));
+	                  Boolean(state.permissions?.assign_project_managers));
               const showEditProjectAction = canEditProjectCard;
               const showProjectLifecycleActions = canDeleteProject;
               const showAddMemberAction = canManageMembers && Boolean(state.permissions?.assign_project_members);

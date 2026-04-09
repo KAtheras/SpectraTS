@@ -2635,8 +2635,15 @@
       { cap: "manage_messaging_rules", label: "Manage messaging rules", indent: false },
       // TOOLS
       { cap: "can_upload_data", label: "Access data upload tab", indent: false },
-      // NAVIGATION
-      { cap: "view_clients", label: "View clients tab", indent: false },
+      // CLIENTS / PROJECTS
+      { cap: "see_all_clients_projects", label: "Can see all clients/projects", indent: false },
+      { cap: "see_assigned_clients_projects", label: "Can see assigned clients/projects", indent: false },
+      { cap: "manage_clients_lifecycle", label: "Can add/remove/activate/deactivate clients", indent: false },
+      { cap: "manage_projects_lifecycle", label: "Can add/remove/activate/deactivate projects", indent: false },
+      { cap: "edit_clients", label: "Can edit clients", indent: false },
+      { cap: "edit_projects_all_modal", label: "Can edit all projects (modal only)", indent: false },
+      { cap: "edit_project_planning_all", label: "Can edit all project planning page", indent: false },
+      { cap: "edit_projects_if_project_lead", label: "Can edit projects (modal + planning page) if project lead", indent: false },
     ];
 
     const allowedSet = new Set(

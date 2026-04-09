@@ -831,6 +831,7 @@
     onPersistExpenseField,
     onDeleteExpenseRow,
     onConfirmDialog,
+    canEdit = true,
   }) {
     ensurePlanningStyles();
     if (!container) return;
@@ -1058,7 +1059,7 @@
           </div>
           <div class="project-planning-actions">
             <button type="button" class="button button-ghost" data-project-planning-back>Back</button>
-            <button type="button" class="button" data-project-planning-save>Submit</button>
+            <button type="button" class="button" data-project-planning-save ${canEdit ? "" : "hidden disabled"}>Submit</button>
           </div>
         </header>
         <section class="project-planning-kpi-row">
@@ -1150,8 +1151,8 @@
                   </div>
                 </div>
                 <div class="project-planning-actions">
-                  <button type="button" class="button button-ghost" data-project-planning-add-member>Add Member</button>
-                  <button type="button" class="button button-ghost" data-project-planning-add-expense hidden>Add Expense</button>
+                  <button type="button" class="button button-ghost" data-project-planning-add-member ${canEdit ? "" : "hidden disabled"}>Add Member</button>
+                  <button type="button" class="button button-ghost" data-project-planning-add-expense hidden ${canEdit ? "" : "disabled"}>Add Expense</button>
                 </div>
               </div>
               <div class="project-planning-table-panels">
@@ -1186,13 +1187,13 @@
                                   <tr class="table-row-surface" data-row-id="${escapeHtml(row.id)}">
                                     <td>${escapeHtml(row.memberName)}</td>
                                     <td>${escapeHtml(String(row.role).replace(/_/g, " "))}</td>
-                                    <td class="table-numeric table-input-cell"><input class="project-planning-input table-input" type="number" min="0" step="0.01" data-row-input="chargeRate" data-row-id="${escapeHtml(row.id)}" value="${escapeHtml(row.chargeRate)}" /></td>
-                                    <td class="table-numeric table-input-cell"><input class="project-planning-input table-input" type="number" min="0" step="0.25" data-row-input="hours" data-row-id="${escapeHtml(row.id)}" value="${escapeHtml(row.hours)}" /></td>
+                                    <td class="table-numeric table-input-cell"><input class="project-planning-input table-input" type="number" min="0" step="0.01" data-row-input="chargeRate" data-row-id="${escapeHtml(row.id)}" value="${escapeHtml(row.chargeRate)}" ${canEdit ? "" : "disabled"} /></td>
+                                    <td class="table-numeric table-input-cell"><input class="project-planning-input table-input" type="number" min="0" step="0.25" data-row-input="hours" data-row-id="${escapeHtml(row.id)}" value="${escapeHtml(row.hours)}" ${canEdit ? "" : "disabled"} /></td>
                                     <td class="table-numeric table-output" data-row-output="cost" data-row-id="${escapeHtml(row.id)}">${escapeHtml(fmtMoneyZero(row.plannedCost))}</td>
                                     <td class="table-numeric table-output" data-row-output="revenue" data-row-id="${escapeHtml(row.id)}">${escapeHtml(fmtMoneyZero(row.plannedRevenue))}</td>
                                     <td class="table-actions">
                                       ${
-                                        row.canDelete
+                                        canEdit && row.canDelete
                                           ? `<button type="button" class="project-planning-row-delete" data-row-delete="${escapeHtml(row.id)}" aria-label="Delete member">${PROJECT_PLANNING_DELETE_ICON}</button>`
                                           : `<button type="button" class="project-planning-row-delete" aria-hidden="true" disabled>${PROJECT_PLANNING_DELETE_ICON}</button>`
                                       }
@@ -1311,6 +1312,7 @@
     });
     const saveButton = container.querySelector("[data-project-planning-save]");
     saveButton?.addEventListener("click", async () => {
+      if (!canEdit) return;
       if (typeof onSave !== "function") return;
       planningRows = computeRows(planningRows);
       const members = planningRows.map((row) => {
@@ -1581,7 +1583,11 @@
           econRevenuePrimaryNode.classList.remove("is-editable");
           econRevenuePrimaryNode.textContent = fmtMoneyZero(totals.plannedRevenueTotal);
         } else {
-          econRevenuePrimaryNode.classList.add("is-editable");
+          if (canEdit) {
+            econRevenuePrimaryNode.classList.add("is-editable");
+          } else {
+            econRevenuePrimaryNode.classList.remove("is-editable");
+          }
           if (!isEditingContractAmount) {
             const currentDisplay = contractAmountValue === null || contractAmountValue === undefined
               ? ""
@@ -1627,6 +1633,7 @@
     }
 
     econRevenuePrimaryNode?.addEventListener("click", (event) => {
+      if (!canEdit) return;
       if (contractType === "tm") return;
       if (event.target && event.target.closest("[data-contract-edit-input]")) return;
       enterContractAmountEditMode();
@@ -1652,6 +1659,7 @@
     }
     container.querySelectorAll("[data-row-input]").forEach((input) => {
       input.addEventListener("input", (event) => {
+        if (!canEdit) return;
         const target = event.target;
         const rowId = String(target?.dataset?.rowId || "");
         const field = String(target?.dataset?.rowInput || "");
@@ -1663,6 +1671,7 @@
         renderComputed();
       });
       input.addEventListener("blur", async (event) => {
+        if (!canEdit) return;
         const target = event.target;
         const rowId = String(target?.dataset?.rowId || "");
         const field = String(target?.dataset?.rowInput || "");
@@ -1795,31 +1804,31 @@
           return `
             <tr class="table-row-surface" data-expense-row-id="${rowId}">
               <td>
-                <select class="project-planning-input table-input" data-expense-input="categoryId" data-expense-row-id="${rowId}">
+                <select class="project-planning-input table-input" data-expense-input="categoryId" data-expense-row-id="${rowId}" ${canEdit ? "" : "disabled"}>
                   ${categorySelect}
                 </select>
               </td>
               <td>
-                <input class="project-planning-input table-input" type="text" data-expense-input="description" data-expense-row-id="${rowId}" value="${escapeHtml(row.description || "")}" />
+                <input class="project-planning-input table-input" type="text" data-expense-input="description" data-expense-row-id="${rowId}" value="${escapeHtml(row.description || "")}" ${canEdit ? "" : "disabled"} />
               </td>
               <td class="table-numeric">
-                <input class="project-planning-input table-input" type="number" min="0" step="1" data-expense-input="units" data-expense-row-id="${rowId}" value="${escapeHtml(toNumberOrZero(row.units))}" />
+                <input class="project-planning-input table-input" type="number" min="0" step="1" data-expense-input="units" data-expense-row-id="${rowId}" value="${escapeHtml(toNumberOrZero(row.units))}" ${canEdit ? "" : "disabled"} />
               </td>
               <td class="table-numeric">
-                <input class="project-planning-input table-input" type="number" min="0" step="0.01" data-expense-input="unitCost" data-expense-row-id="${rowId}" value="${escapeHtml(toNumberOrZero(row.unitCost))}" />
+                <input class="project-planning-input table-input" type="number" min="0" step="0.01" data-expense-input="unitCost" data-expense-row-id="${rowId}" value="${escapeHtml(toNumberOrZero(row.unitCost))}" ${canEdit ? "" : "disabled"} />
               </td>
               <td class="table-numeric">
-                <input class="project-planning-input table-input" type="number" min="0" step="0.01" data-expense-input="markupPct" data-expense-row-id="${rowId}" value="${escapeHtml(toNumberOrZero(row.markupPct))}" />
+                <input class="project-planning-input table-input" type="number" min="0" step="0.01" data-expense-input="markupPct" data-expense-row-id="${rowId}" value="${escapeHtml(toNumberOrZero(row.markupPct))}" ${canEdit ? "" : "disabled"} />
               </td>
               <td class="table-numeric table-output">${escapeHtml(fmtMoneyZero(computeExpenseRowTotal(row)))}</td>
               <td>
                 <label class="perm-switch" aria-label="Billable">
-                  <input type="checkbox" data-expense-input="billable" data-expense-row-id="${rowId}" ${row.billable ? "checked" : ""} />
+                  <input type="checkbox" data-expense-input="billable" data-expense-row-id="${rowId}" ${row.billable ? "checked" : ""} ${canEdit ? "" : "disabled"} />
                   <span class="perm-switch-track" aria-hidden="true"></span>
                 </label>
               </td>
               <td class="table-actions">
-                <button type="button" class="project-planning-row-delete" data-expense-delete="${rowId}" aria-label="Delete expense">${PROJECT_PLANNING_DELETE_ICON}</button>
+                <button type="button" class="project-planning-row-delete" data-expense-delete="${rowId}" aria-label="Delete expense" ${canEdit ? "" : "disabled"}>${PROJECT_PLANNING_DELETE_ICON}</button>
               </td>
             </tr>
           `;
@@ -1841,10 +1850,10 @@
         planningTabPanels.expenses.hidden = activePlanningTab !== "expenses";
       }
       if (addMemberButton) {
-        addMemberButton.hidden = activePlanningTab !== "time";
+        addMemberButton.hidden = !canEdit || activePlanningTab !== "time";
       }
       if (addExpenseButton) {
-        addExpenseButton.hidden = activePlanningTab !== "expenses";
+        addExpenseButton.hidden = !canEdit || activePlanningTab !== "expenses";
       }
     }
 
@@ -1859,6 +1868,7 @@
     });
 
     addExpenseButton?.addEventListener("click", async () => {
+      if (!canEdit) return;
       const projectIdValue = String(project?.id || "").trim();
       if (!projectIdValue) return;
       const defaultBillable = contractType === "tm";
@@ -1942,6 +1952,7 @@
     });
 
     expenseRowsBody?.addEventListener("input", (event) => {
+      if (!canEdit) return;
       const target = event.target;
       const inputKey = String(target?.dataset?.expenseInput || "").trim();
       const rowId = String(target?.dataset?.expenseRowId || "").trim();
@@ -1971,6 +1982,7 @@
     });
 
     expenseRowsBody?.addEventListener("change", async (event) => {
+      if (!canEdit) return;
       const target = event.target;
       const inputKey = String(target?.dataset?.expenseInput || "").trim();
       const rowId = String(target?.dataset?.expenseRowId || "").trim();
@@ -2147,6 +2159,7 @@
     });
 
     expenseRowsBody?.addEventListener("focusout", async (event) => {
+      if (!canEdit) return;
       const target = event.target;
       const inputKey = String(target?.dataset?.expenseInput || "").trim();
       const rowId = String(target?.dataset?.expenseRowId || "").trim();
@@ -2205,6 +2218,7 @@
     });
 
     expenseRowsBody?.addEventListener("click", async (event) => {
+      if (!canEdit) return;
       const deleteButton = event.target.closest("[data-expense-delete]");
       if (!deleteButton) return;
       const rowId = String(deleteButton.dataset.expenseDelete || "").trim();
@@ -2262,6 +2276,7 @@
     syncPlanningTab();
 
     addMemberButton?.addEventListener("click", () => {
+      if (!canEdit) return;
       if (typeof onAddMember === "function") {
         onAddMember({
           projectId: String(project?.id || "").trim(),
@@ -2284,6 +2299,7 @@
     };
     contractTypeButtons.forEach((button) => {
       button.addEventListener("click", async () => {
+        if (!canEdit) return;
         const next = String(button.dataset.contractTypeValue || "").trim();
         if (next !== "fixed" && next !== "tm") return;
         if (next === contractType) return;
@@ -2309,6 +2325,7 @@
 
     container.querySelectorAll("[data-row-delete]").forEach((button) => {
       button.addEventListener("click", async () => {
+        if (!canEdit) return;
         const rowId = String(button.dataset.rowDelete || "").trim();
         if (!rowId) return;
         const rowIndex = planningRows.findIndex((item) => String(item.id) === rowId);

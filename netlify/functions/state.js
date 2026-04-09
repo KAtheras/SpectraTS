@@ -87,6 +87,34 @@ exports.handler = async function handler(event) {
     const canManageMessagingRules =
       can(currentUser, "manage_messaging_rules", {}, permissionIndex) ||
       can(currentUser, "manage_settings_access", {}, permissionIndex);
+    const canSeeAllClientsProjects = can(currentUser, "see_all_clients_projects", {}, permissionIndex);
+    const canSeeAssignedClientsProjects = can(
+      currentUser,
+      "see_assigned_clients_projects",
+      {},
+      permissionIndex
+    );
+    const canManageClientsLifecycle = can(currentUser, "manage_clients_lifecycle", {}, permissionIndex);
+    const canManageProjectsLifecycle = can(currentUser, "manage_projects_lifecycle", {}, permissionIndex);
+    const canEditClients = can(currentUser, "edit_clients", {}, permissionIndex);
+    const canEditProjectsAllModal = can(currentUser, "edit_projects_all_modal", {}, permissionIndex);
+    const canEditProjectPlanningAll = can(currentUser, "edit_project_planning_all", {}, permissionIndex);
+    const canEditProjectsIfProjectLead = can(
+      currentUser,
+      "edit_projects_if_project_lead",
+      {},
+      permissionIndex
+    );
+    const canAccessClientsTab = Boolean(
+      canSeeAllClientsProjects ||
+        canSeeAssignedClientsProjects ||
+        canManageClientsLifecycle ||
+        canManageProjectsLifecycle ||
+        canEditClients ||
+        canEditProjectsAllModal ||
+        canEditProjectPlanningAll ||
+        canEditProjectsIfProjectLead
+    );
     const permissions = {
       // existing keys
       edit_user_department: can(currentUser, "edit_user_department", {}, permissionIndex),
@@ -123,11 +151,19 @@ exports.handler = async function handler(event) {
       // projects
       create_project: can(currentUser, "create_project", {}, permissionIndex),
       remove_project: can(currentUser, "archive_project", {}, permissionIndex),
+      manage_projects_lifecycle: canManageProjectsLifecycle,
+      edit_projects_all_modal: canEditProjectsAllModal,
+      edit_project_planning_all: canEditProjectPlanningAll,
+      edit_projects_if_project_lead: canEditProjectsIfProjectLead,
 
       // clients
       create_client: can(currentUser, "create_client", {}, permissionIndex),
       edit_client: can(currentUser, "edit_client", {}, permissionIndex),
       archive_client: can(currentUser, "archive_client", {}, permissionIndex),
+      see_all_clients_projects: canSeeAllClientsProjects,
+      see_assigned_clients_projects: canSeeAssignedClientsProjects,
+      manage_clients_lifecycle: canManageClientsLifecycle,
+      edit_clients: canEditClients,
 
       // assignments
       assign_project_members: can(currentUser, "assign_project_staff", {}, permissionIndex),
@@ -146,7 +182,7 @@ exports.handler = async function handler(event) {
 
       // visibility
       view_users: can(currentUser, "view_users", {}, permissionIndex),
-      view_clients: can(currentUser, "view_clients", {}, permissionIndex),
+      view_clients: canAccessClientsTab,
       view_projects: can(currentUser, "view_projects", {}, permissionIndex),
     };
     permissions.view_settings_tab = Boolean(
