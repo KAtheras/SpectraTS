@@ -2928,31 +2928,9 @@
     return Boolean(projectLeadId && currentUserId && projectLeadId === currentUserId);
   }
 
-  function projectMatchesCurrentUserOfficeScope(project) {
-    const currentUser = state.currentUser || {};
-    const currentRole = String(
-      currentUser.permissionGroup || currentUser.permission_group || currentUser.role || ""
-    )
-      .trim()
-      .toLowerCase();
-    if (currentRole === "superuser") {
-      return true;
-    }
-    const actorOfficeId = String(currentUser.officeId || currentUser.office_id || "").trim();
-    if (!actorOfficeId) {
-      return false;
-    }
-    const projectOfficeId = String(project?.officeId || project?.office_id || "").trim();
-    if (!projectOfficeId) {
-      return true;
-    }
-    return projectOfficeId === actorOfficeId;
-  }
-
   function canEditProjectModal(clientName, projectName) {
     const project = findProjectRow(clientName, projectName);
     if (!project) return false;
-    if (!projectMatchesCurrentUserOfficeScope(project)) return false;
     if (canEditProjectsAllModal()) return true;
     return canEditProjectsIfProjectLead() && isCurrentUserProjectLead(project);
   }
@@ -2960,7 +2938,6 @@
   function canEditProjectPlanning(clientName, projectName) {
     const project = findProjectRow(clientName, projectName);
     if (!project) return false;
-    if (!projectMatchesCurrentUserOfficeScope(project)) return false;
     if (canEditProjectPlanningAll()) return true;
     return canEditProjectsIfProjectLead() && isCurrentUserProjectLead(project);
   }
