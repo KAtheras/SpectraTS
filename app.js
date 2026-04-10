@@ -2895,10 +2895,6 @@
     return Boolean(state.permissions?.edit_projects_all_modal);
   }
 
-  function canEditProjectsIfProjectLead() {
-    return Boolean(state.permissions?.edit_projects_if_project_lead);
-  }
-
   function hasClientsTabAccess() {
     return Boolean(
       canSeeAllClientsProjects() || canSeeAssignedClientsProjects()
@@ -2928,13 +2924,13 @@
     const project = findProjectRow(clientName, projectName);
     if (!project) return false;
     if (canEditProjectsAllModal()) return true;
-    return canEditProjectsIfProjectLead() && isCurrentUserProjectLead(project);
+    return isCurrentUserProjectLead(project);
   }
 
   function canEditProjectPlanning(clientName, projectName) {
     const project = findProjectRow(clientName, projectName);
     if (!project) return false;
-    return canEditProjectsIfProjectLead() && isCurrentUserProjectLead(project);
+    return isCurrentUserProjectLead(project);
   }
 
   function isViewAllowed(view) {

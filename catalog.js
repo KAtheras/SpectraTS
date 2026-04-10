@@ -49,7 +49,6 @@
     const canEditClient = Boolean(state.permissions?.edit_clients);
     const canManageProjectsLifecycle = Boolean(state.permissions?.manage_projects_lifecycle);
     const canEditProjectsAllModal = Boolean(state.permissions?.edit_projects_all_modal);
-    const canEditProjectsIfLead = Boolean(state.permissions?.edit_projects_if_project_lead);
 
     if (!clients.length) {
       refs.clientList.innerHTML = '<p class="empty-state">No clients yet.</p>';
@@ -187,7 +186,7 @@
                   return Boolean(leadId && currentUserId && leadId === currentUserId);
                 })();
 	              const canEditProject = Boolean(
-                  canEditProjectsAllModal || (canEditProjectsIfLead && isLeadForProject)
+                  canEditProjectsAllModal || isLeadForProject
                 );
 	              const canDeleteProject = canManageProjectsLifecycle;
               const projectLeadName = String(

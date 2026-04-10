@@ -237,14 +237,6 @@ async function ensureSchema(sql) {
       is_active = EXCLUDED.is_active
   `;
   await sql`
-    INSERT INTO permission_capabilities (key, label, category, is_active)
-    VALUES ('edit_projects_if_project_lead', 'Can edit projects (modal + planning page) if project lead', 'clients', TRUE)
-    ON CONFLICT (key) DO UPDATE SET
-      label = EXCLUDED.label,
-      category = EXCLUDED.category,
-      is_active = EXCLUDED.is_active
-  `;
-  await sql`
     INSERT INTO role_permissions (role_id, capability_id, scope_id, allowed)
     SELECT pr.id, pc.id, ps.id, TRUE
     FROM permission_roles pr
@@ -283,9 +275,18 @@ async function ensureSchema(sql) {
         "manage_projects_lifecycle",
         "edit_clients",
         "edit_projects_all_modal",
-        "edit_projects_if_project_lead",
       ]})
       AND ps.key <> 'own_office'
+  `;
+  await sql`
+    DELETE FROM role_permissions rp
+    USING permission_capabilities pc
+    WHERE rp.capability_id = pc.id
+      AND pc.key = 'edit_projects_if_project_lead'
+  `;
+  await sql`
+    DELETE FROM permission_capabilities
+    WHERE key = 'edit_projects_if_project_lead'
   `;
   await sql`
     DELETE FROM role_permissions rp
@@ -3729,10 +3730,6 @@ async function loadSettingsMetadata(sql, currentUser) {
     canCap("edit_projects_all_modal", {
       resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
       actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
-    }) ||
-    canCap("edit_projects_if_project_lead", {
-      resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
-      actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
     });
   const officeLocations = canUseOfficeLocationsForMembers
     ? await listOfficeLocations(sql, accountUuid)
@@ -3868,10 +3865,6 @@ async function loadState(sql, currentUser) {
     canCap("edit_projects_all_modal", {
       resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
       actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
-    }) ||
-    canCap("edit_projects_if_project_lead", {
-      resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
-      actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
     });
   const canUseOfficeLocationsForMembers =
     manageLocations ||
@@ -3908,10 +3901,6 @@ async function loadState(sql, currentUser) {
       actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
     }) ||
     canCap("edit_projects_all_modal", {
-      resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
-      actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
-    }) ||
-    canCap("edit_projects_if_project_lead", {
       resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
       actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
     });
@@ -4016,14 +4005,9 @@ async function loadState(sql, currentUser) {
     resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
     actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
   });
-  const canEditProjectsIfProjectLead = canCap("edit_projects_if_project_lead", {
-    resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
-    actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
-  });
   const canAccessClientsShell = Boolean(canSeeAllClientsProjects || canSeeAssignedClientsProjects);
   const hasGlobalClientsProjectsScope = Boolean(canSeeAllClientsProjects);
   const hasAssignedVisibilityScope = Boolean(canSeeAssignedClientsProjects);
-  const hasProjectLeadEditScope = Boolean(canEditProjectsIfProjectLead);
   const hasAssignedClientsProjectsScope = Boolean(hasAssignedVisibilityScope);
   const clientsProjectsScopeMode =
     !normalizedUser || !canAccessClientsShell
@@ -4064,17 +4048,6 @@ async function loadState(sql, currentUser) {
         const normalizedProjectId = normalizeText(projectId);
         if (normalizedProjectId) {
           actorProjectIds.push(normalizedProjectId);
-        }
-      });
-    }
-    if (hasProjectLeadEditScope) {
-      allProjects.forEach((project) => {
-        const projectLeadId = normalizeText(project?.projectLeadId || project?.project_lead_id);
-        if (projectLeadId && projectLeadId === actorUserId) {
-          const projectId = normalizeText(project?.id);
-          if (projectId) {
-            actorProjectIds.push(projectId);
-          }
         }
       });
     }

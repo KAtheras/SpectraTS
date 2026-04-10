@@ -1200,7 +1200,6 @@ function buildPermissionsPayload(currentUser, permissionIndex) {
   const canManageProjectsLifecycle = can("manage_projects_lifecycle");
   const canEditClients = can("edit_clients");
   const canEditProjectsAllModal = can("edit_projects_all_modal");
-  const canEditProjectsIfProjectLead = can("edit_projects_if_project_lead");
   const canAccessClientsTab = Boolean(canSeeAllClientsProjects || canSeeAssignedClientsProjects);
   const permissionsPayload = {
     edit_user_department: can("edit_user_department"),
@@ -1231,7 +1230,6 @@ function buildPermissionsPayload(currentUser, permissionIndex) {
     remove_project: can("archive_project"),
     manage_projects_lifecycle: canManageProjectsLifecycle,
     edit_projects_all_modal: canEditProjectsAllModal,
-    edit_projects_if_project_lead: canEditProjectsIfProjectLead,
     create_client: can("create_client"),
     edit_client: can("edit_client"),
     archive_client: can("archive_client"),
@@ -1288,7 +1286,7 @@ function canEditProjectModalForTarget({ can, currentUser, targetProject, actorPr
   if (can("edit_projects_all_modal", context)) {
     return true;
   }
-  return can("edit_projects_if_project_lead", context) && isCurrentUserProjectLeadForProject(currentUser, targetProject);
+  return isCurrentUserProjectLeadForProject(currentUser, targetProject);
 }
 
 function canEditProjectPlanningForTarget({ can, currentUser, targetProject, actorProjectIds = [] }) {
@@ -1299,7 +1297,7 @@ function canEditProjectPlanningForTarget({ can, currentUser, targetProject, acto
     projectId,
     actorProjectIds,
   };
-  return can("edit_projects_if_project_lead", context) && isCurrentUserProjectLeadForProject(currentUser, targetProject);
+  return isCurrentUserProjectLeadForProject(currentUser, targetProject);
 }
 
 function entrySnapshot({
