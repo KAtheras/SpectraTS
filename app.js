@@ -2895,10 +2895,6 @@
     return Boolean(state.permissions?.edit_projects_all_modal);
   }
 
-  function canEditProjectPlanningAll() {
-    return Boolean(state.permissions?.edit_project_planning_all);
-  }
-
   function canEditProjectsIfProjectLead() {
     return Boolean(state.permissions?.edit_projects_if_project_lead);
   }
@@ -2938,7 +2934,6 @@
   function canEditProjectPlanning(clientName, projectName) {
     const project = findProjectRow(clientName, projectName);
     if (!project) return false;
-    if (canEditProjectPlanningAll()) return true;
     return canEditProjectsIfProjectLead() && isCurrentUserProjectLead(project);
   }
 

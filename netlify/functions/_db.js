@@ -238,14 +238,6 @@ async function ensureSchema(sql) {
   `;
   await sql`
     INSERT INTO permission_capabilities (key, label, category, is_active)
-    VALUES ('edit_project_planning_all', 'Can edit all project planning page', 'clients', TRUE)
-    ON CONFLICT (key) DO UPDATE SET
-      label = EXCLUDED.label,
-      category = EXCLUDED.category,
-      is_active = EXCLUDED.is_active
-  `;
-  await sql`
-    INSERT INTO permission_capabilities (key, label, category, is_active)
     VALUES ('edit_projects_if_project_lead', 'Can edit projects (modal + planning page) if project lead', 'clients', TRUE)
     ON CONFLICT (key) DO UPDATE SET
       label = EXCLUDED.label,
@@ -291,10 +283,19 @@ async function ensureSchema(sql) {
         "manage_projects_lifecycle",
         "edit_clients",
         "edit_projects_all_modal",
-        "edit_project_planning_all",
         "edit_projects_if_project_lead",
       ]})
       AND ps.key <> 'own_office'
+  `;
+  await sql`
+    DELETE FROM role_permissions rp
+    USING permission_capabilities pc
+    WHERE rp.capability_id = pc.id
+      AND pc.key = 'edit_project_planning_all'
+  `;
+  await sql`
+    DELETE FROM permission_capabilities
+    WHERE key = 'edit_project_planning_all'
   `;
   await sql`
     INSERT INTO role_permissions (role_id, capability_id, scope_id, allowed)
@@ -3729,10 +3730,6 @@ async function loadSettingsMetadata(sql, currentUser) {
       resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
       actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
     }) ||
-    canCap("edit_project_planning_all", {
-      resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
-      actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
-    }) ||
     canCap("edit_projects_if_project_lead", {
       resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
       actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
@@ -3872,10 +3869,6 @@ async function loadState(sql, currentUser) {
       resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
       actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
     }) ||
-    canCap("edit_project_planning_all", {
-      resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
-      actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
-    }) ||
     canCap("edit_projects_if_project_lead", {
       resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
       actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
@@ -3915,10 +3908,6 @@ async function loadState(sql, currentUser) {
       actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
     }) ||
     canCap("edit_projects_all_modal", {
-      resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
-      actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
-    }) ||
-    canCap("edit_project_planning_all", {
       resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
       actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
     }) ||
@@ -4024,10 +4013,6 @@ async function loadState(sql, currentUser) {
     actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
   });
   const canEditProjectsAllModal = canCap("edit_projects_all_modal", {
-    resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
-    actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
-  });
-  const canEditProjectPlanningAll = canCap("edit_project_planning_all", {
     resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
     actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
   });
