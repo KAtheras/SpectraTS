@@ -1042,62 +1042,27 @@
       return;
     }
     const nextName = projectDialog.projectName;
+    try {
+      await mutatePersistentState("update_project", {
+        clientName: normalizedClient,
+        projectName: normalizedProject,
+        nextName,
+        contractAmount: projectDialog.contractAmount,
+        overheadPercent: projectDialog.overheadPercent,
+        targetRealizationPct: projectDialog.targetRealizationPct,
+        techAdminFeePctOverride: projectDialog.techAdminFeePctOverride,
+        project_lead_id: projectDialog.projectLeadId,
+        project_department_id: projectDialog.projectDepartmentId,
+        office_id: projectDialog.projectOfficeId,
+      });
+    } catch (error) {
+      feedback(error?.message || "Unable to update project.", true);
+      return;
+    }
     if (state.filters.client === normalizedClient && state.filters.project === normalizedProject) {
       state.filters.project = nextName.trim();
+      syncFilterCatalogsUI(state.filters);
     }
-    state.projects = (state.projects || []).map((item) => {
-      if (!item) return item;
-      const itemClient = String(item.client || "").trim();
-      const itemName = String(item.name || "").trim().toLowerCase();
-      if (itemClient !== normalizedClient || itemName !== normalizedProject.toLowerCase()) {
-        return item;
-      }
-      return {
-        ...item,
-        name: nextName,
-        project: nextName,
-        contractAmount: projectDialog.contractAmount,
-        contract_amount: projectDialog.contractAmount,
-        overheadPercent: projectDialog.overheadPercent,
-        overhead_percent: projectDialog.overheadPercent,
-        targetRealizationPct: projectDialog.targetRealizationPct,
-        target_realization_pct: projectDialog.targetRealizationPct,
-        techAdminFeePctOverride: projectDialog.techAdminFeePctOverride,
-        tech_admin_fee_pct_override: projectDialog.techAdminFeePctOverride,
-        projectLeadId: projectDialog.projectLeadId,
-        project_lead_id: projectDialog.projectLeadId,
-        projectDepartmentId: projectDialog.projectDepartmentId,
-        project_department_id: projectDialog.projectDepartmentId,
-        officeId: projectDialog.projectOfficeId,
-        office_id: projectDialog.projectOfficeId,
-      };
-    });
-    if (state.catalog?.[normalizedClient]) {
-      state.catalog[normalizedClient] = state.catalog[normalizedClient].map((name) =>
-        String(name || "").trim().toLowerCase() === normalizedProject.toLowerCase() ? nextName : name
-      );
-    }
-
-    mutatePersistentState("update_project", {
-      clientName: normalizedClient,
-      projectName: normalizedProject,
-      nextName,
-      contractAmount: projectDialog.contractAmount,
-      overheadPercent: projectDialog.overheadPercent,
-      targetRealizationPct: projectDialog.targetRealizationPct,
-      techAdminFeePctOverride: projectDialog.techAdminFeePctOverride,
-      project_lead_id: projectDialog.projectLeadId,
-      project_department_id: projectDialog.projectDepartmentId,
-      office_id: projectDialog.projectOfficeId,
-    }, { skipHydrate: true, refreshState: false, returnState: false })
-      .catch((error) => {
-        feedback(error?.message || "Unable to update project.", true);
-      })
-      .finally(() => {
-        loadPersistentStateInBackground();
-      });
-
-    syncFilterCatalogsUI(state.filters);
     feedback("Project updated.", false);
     render();
   }
@@ -2963,9 +2928,31 @@
     return Boolean(projectLeadId && currentUserId && projectLeadId === currentUserId);
   }
 
+  function projectMatchesCurrentUserOfficeScope(project) {
+    const currentUser = state.currentUser || {};
+    const currentRole = String(
+      currentUser.permissionGroup || currentUser.permission_group || currentUser.role || ""
+    )
+      .trim()
+      .toLowerCase();
+    if (currentRole === "superuser") {
+      return true;
+    }
+    const actorOfficeId = String(currentUser.officeId || currentUser.office_id || "").trim();
+    if (!actorOfficeId) {
+      return false;
+    }
+    const projectOfficeId = String(project?.officeId || project?.office_id || "").trim();
+    if (!projectOfficeId) {
+      return true;
+    }
+    return projectOfficeId === actorOfficeId;
+  }
+
   function canEditProjectModal(clientName, projectName) {
     const project = findProjectRow(clientName, projectName);
     if (!project) return false;
+    if (!projectMatchesCurrentUserOfficeScope(project)) return false;
     if (canEditProjectsAllModal()) return true;
     return canEditProjectsIfProjectLead() && isCurrentUserProjectLead(project);
   }
@@ -2973,6 +2960,7 @@
   function canEditProjectPlanning(clientName, projectName) {
     const project = findProjectRow(clientName, projectName);
     if (!project) return false;
+    if (!projectMatchesCurrentUserOfficeScope(project)) return false;
     if (canEditProjectPlanningAll()) return true;
     return canEditProjectsIfProjectLead() && isCurrentUserProjectLead(project);
   }
@@ -3730,6 +3718,12 @@
         permissions: payload?.permissions ?? state.permissions,
         delegators: Array.isArray(payload?.delegators) ? payload.delegators : state.delegators,
         projects: Array.isArray(payload?.projects) ? payload.projects : state.projects,
+        visibleClientIds: Array.isArray(payload?.visibleClientIds)
+          ? payload.visibleClientIds
+          : state.visibleClientIds,
+        visibleProjectIds: Array.isArray(payload?.visibleProjectIds)
+          ? payload.visibleProjectIds
+          : state.visibleProjectIds,
       };
       applyLoadedState(mergedPayload);
       window.state = state;
