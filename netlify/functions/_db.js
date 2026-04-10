@@ -298,40 +298,44 @@ async function ensureSchema(sql) {
   `;
   await sql`
     INSERT INTO role_permissions (role_id, capability_id, scope_id, allowed)
-    SELECT rp.role_id, new_cap.id, rp.scope_id, TRUE
+    SELECT rp.role_id, new_cap.id, own_scope.id, TRUE
     FROM role_permissions rp
     JOIN permission_capabilities old_cap ON old_cap.id = rp.capability_id
     JOIN permission_capabilities new_cap ON new_cap.key = 'see_assigned_clients_projects'
+    JOIN permission_scopes own_scope ON own_scope.key = 'own_office'
     WHERE old_cap.key IN ('view_clients', 'view_projects')
       AND rp.allowed = TRUE
     ON CONFLICT (role_id, capability_id, scope_id) DO NOTHING
   `;
   await sql`
     INSERT INTO role_permissions (role_id, capability_id, scope_id, allowed)
-    SELECT rp.role_id, new_cap.id, rp.scope_id, TRUE
+    SELECT rp.role_id, new_cap.id, own_scope.id, TRUE
     FROM role_permissions rp
     JOIN permission_capabilities old_cap ON old_cap.id = rp.capability_id
     JOIN permission_capabilities new_cap ON new_cap.key = 'manage_clients_lifecycle'
+    JOIN permission_scopes own_scope ON own_scope.key = 'own_office'
     WHERE old_cap.key IN ('create_client', 'archive_client')
       AND rp.allowed = TRUE
     ON CONFLICT (role_id, capability_id, scope_id) DO NOTHING
   `;
   await sql`
     INSERT INTO role_permissions (role_id, capability_id, scope_id, allowed)
-    SELECT rp.role_id, new_cap.id, rp.scope_id, TRUE
+    SELECT rp.role_id, new_cap.id, own_scope.id, TRUE
     FROM role_permissions rp
     JOIN permission_capabilities old_cap ON old_cap.id = rp.capability_id
     JOIN permission_capabilities new_cap ON new_cap.key = 'manage_projects_lifecycle'
+    JOIN permission_scopes own_scope ON own_scope.key = 'own_office'
     WHERE old_cap.key IN ('create_project', 'archive_project')
       AND rp.allowed = TRUE
     ON CONFLICT (role_id, capability_id, scope_id) DO NOTHING
   `;
   await sql`
     INSERT INTO role_permissions (role_id, capability_id, scope_id, allowed)
-    SELECT rp.role_id, new_cap.id, rp.scope_id, TRUE
+    SELECT rp.role_id, new_cap.id, own_scope.id, TRUE
     FROM role_permissions rp
     JOIN permission_capabilities old_cap ON old_cap.id = rp.capability_id
     JOIN permission_capabilities new_cap ON new_cap.key = 'edit_clients'
+    JOIN permission_scopes own_scope ON own_scope.key = 'own_office'
     WHERE old_cap.key = 'edit_client'
       AND rp.allowed = TRUE
     ON CONFLICT (role_id, capability_id, scope_id) DO NOTHING
