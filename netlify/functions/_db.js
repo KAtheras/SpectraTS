@@ -3704,6 +3704,38 @@ async function loadSettingsMetadata(sql, currentUser) {
     canCap("create_member", {
       resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
       actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+    }) ||
+    canCap("see_all_clients_projects", {
+      resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+      actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+    }) ||
+    canCap("see_assigned_clients_projects", {
+      resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+      actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+    }) ||
+    canCap("manage_clients_lifecycle", {
+      resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+      actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+    }) ||
+    canCap("edit_clients", {
+      resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+      actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+    }) ||
+    canCap("manage_projects_lifecycle", {
+      resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+      actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+    }) ||
+    canCap("edit_projects_all_modal", {
+      resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+      actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+    }) ||
+    canCap("edit_project_planning_all", {
+      resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+      actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+    }) ||
+    canCap("edit_projects_if_project_lead", {
+      resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+      actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
     });
   const officeLocations = canUseOfficeLocationsForMembers
     ? await listOfficeLocations(sql, accountUuid)
@@ -3859,6 +3891,38 @@ async function loadState(sql, currentUser) {
       actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
     }) ||
     canCap("create_member", {
+      resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+      actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+    }) ||
+    canCap("see_all_clients_projects", {
+      resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+      actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+    }) ||
+    canCap("see_assigned_clients_projects", {
+      resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+      actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+    }) ||
+    canCap("manage_clients_lifecycle", {
+      resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+      actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+    }) ||
+    canCap("edit_clients", {
+      resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+      actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+    }) ||
+    canCap("manage_projects_lifecycle", {
+      resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+      actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+    }) ||
+    canCap("edit_projects_all_modal", {
+      resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+      actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+    }) ||
+    canCap("edit_project_planning_all", {
+      resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+      actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+    }) ||
+    canCap("edit_projects_if_project_lead", {
       resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
       actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
     });
