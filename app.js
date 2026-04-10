@@ -3251,13 +3251,15 @@
     state.assignments = normalizeAssignments(data?.assignments);
     const hasVisibilitySnapshot =
       Array.isArray(data?.visibleClientIds) && Array.isArray(data?.visibleProjectIds);
-    state.visibleClientIds = hasVisibilitySnapshot
-      ? data.visibleClientIds.map((id) => `${id || ""}`.trim()).filter(Boolean)
-      : [];
-    state.visibleProjectIds = hasVisibilitySnapshot
-      ? data.visibleProjectIds.map((id) => `${id || ""}`.trim()).filter(Boolean)
-      : [];
-    state.visibilitySnapshotReady = hasVisibilitySnapshot;
+    if (hasVisibilitySnapshot) {
+      state.visibleClientIds = data.visibleClientIds.map((id) => `${id || ""}`.trim()).filter(Boolean);
+      state.visibleProjectIds = data.visibleProjectIds.map((id) => `${id || ""}`.trim()).filter(Boolean);
+      state.visibilitySnapshotReady = true;
+    } else if (!Array.isArray(state.visibleClientIds) || !Array.isArray(state.visibleProjectIds)) {
+      state.visibleClientIds = [];
+      state.visibleProjectIds = [];
+      state.visibilitySnapshotReady = false;
+    }
     if (Array.isArray(data?.projectMemberBudgets)) {
       state.projectMemberBudgets = data.projectMemberBudgets
         .map((item) => ({
