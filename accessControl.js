@@ -23,8 +23,10 @@
 
     function roleKey(user) {
       const raw =
-        user?.role ||
         user?.permission_role_key ||
+        user?.permissionGroup ||
+        user?.permission_group ||
+        user?.role ||
         user?.permissionRoleKey ||
         null;
       if (!raw) return null;
@@ -256,47 +258,26 @@
       if (!user) {
         return [];
       }
+      const canSeeAll = Boolean(state.permissions?.see_all_clients_projects);
+      const canSeeAssigned = Boolean(state.permissions?.see_assigned_clients_projects);
+      if (!canSeeAll && !canSeeAssigned) {
+        return [];
+      }
       const projects = projectsArg || state.projects || [];
-      const role = roleKey(user) || "staff";
-
-      if (role === "superuser" || role === "admin") {
-        return projects.map((project) => ({ client: project.client, project: project.name }));
-      }
-
-      if (role === "manager" || role === "executive") {
-        const clientAssignments = managerClientAssignments(user.id)
-          .map((item) => normalizeText(item?.client || item?.client_name))
-          .filter(Boolean);
-        const projectAssignments = managerProjectAssignments(user.id)
-          .map((item) => resolveAssignmentProjectTuple(item))
-          .filter((item) => item.client && item.project);
-        const memberAssignments = projectMembersForUser(user.id)
-          .map((item) => resolveAssignmentProjectTuple(item))
-          .filter((item) => item.client && item.project);
-        const clientProjects = projects
-          .filter((p) => clientAssignments.includes(normalizeText(p?.client)))
-          .map((p) => ({
-            client: normalizeText(p?.client),
-            project: normalizeText(p?.name || p?.project),
-          }))
-          .filter((item) => item.client && item.project);
-        return uniqueValues(
-          [...clientProjects, ...projectAssignments, ...memberAssignments].map((item) =>
-            projectKey(item.client, item.project)
-          )
-        ).map((key) => {
-          const [client, project] = key.split("::");
-          return { client, project };
-        });
-      }
-
-      return projectMembersForUser(user.id)
-        .map((item) => resolveAssignmentProjectTuple(item))
-        .filter((item) => item.client && item.project)
-        .map((item) => ({
-          client: item.client,
-          project: item.project,
-        }));
+      const visibleProjectIds = new Set(
+        (state.visibleProjectIds || []).map((id) => normalizeText(id)).filter(Boolean)
+      );
+      const scopedProjects = projects.filter((project) => {
+        if (canSeeAll) return true;
+        const projectId = normalizeText(project?.id);
+        return projectId && visibleProjectIds.has(projectId);
+      });
+      return scopedProjects
+        .map((project) => ({
+          client: normalizeText(project?.client),
+          project: normalizeText(project?.name || project?.project),
+        }))
+        .filter((item) => item.client && item.project);
     }
 
     function allowedClientsForUser(user) {
@@ -394,13 +375,11 @@
       if (!user) {
         return false;
       }
-      if (isAdmin(user)) {
-        return true;
-      }
-      if (isManager(user)) {
-        return canManagerAccessProject(user, client, project);
-      }
-      return isUserAssignedToProject(user.id, client, project);
+      const normalizedClient = normalizeText(client);
+      const normalizedProject = normalizeText(project);
+      return allowedProjectTuples(user).some(
+        (item) => item.client === normalizedClient && item.project === normalizedProject
+      );
     }
 
     return {

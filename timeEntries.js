@@ -49,8 +49,6 @@
       getUserByDisplayName,
       canViewUserByRole,
       assignedProjectTuplesForCurrentUser,
-      isAdmin,
-      isExecutive,
       getUserById: injectedGetUserById,
     } = deps();
     const allowedTupleKeys = new Set(
@@ -82,13 +80,8 @@
         if (!canView) {
           return false;
         }
-        const canBypassProjectScope =
-          (typeof isAdmin === "function" && isAdmin(scopeUser)) ||
-          (typeof isExecutive === "function" && isExecutive(scopeUser));
         const isInternal = isInternalEntry(entry);
         if (
-          !canBypassProjectScope &&
-          allowedTupleKeys.size &&
           !isInternal &&
           !allowedTupleKeys.has(`${entry.client || ""}::${entry.project || ""}`)
         ) {

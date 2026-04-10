@@ -174,7 +174,7 @@ exports.handler = async function handler(event) {
       // visibility
       view_users: can(currentUser, "view_users", {}, permissionIndex),
       view_clients: canAccessClientsTab,
-      view_projects: can(currentUser, "view_projects", {}, permissionIndex),
+      view_projects: canAccessClientsTab,
     };
     permissions.view_settings_tab = Boolean(
       permissions.view_members_page ||

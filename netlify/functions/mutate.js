@@ -1252,7 +1252,7 @@ function buildPermissionsPayload(currentUser, permissionIndex) {
     view_expenses: can("view_expenses"),
     view_users: can("view_users"),
     view_clients: canAccessClientsTab,
-    view_projects: can("view_projects"),
+    view_projects: canAccessClientsTab,
   };
   permissionsPayload.view_settings_tab = Boolean(
     permissionsPayload.view_members_page ||

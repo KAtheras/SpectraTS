@@ -7014,44 +7014,30 @@
   }
 
   function assignedProjectTuplesForCurrentUser() {
-    const scopeUser = effectiveScopeUser();
-    const userId = scopeUser?.id || "";
-    if (!userId) {
+    const canSeeAll = canSeeAllClientsProjects();
+    const canSeeAssigned = canSeeAssignedClientsProjects();
+    if (!canSeeAll && !canSeeAssigned) {
       return [];
     }
-    const assignments = state.assignments || {};
-    const projects = state.projects || [];
-    const memberTuples = (assignments.projectMembers || [])
-      .filter((item) => item.userId === userId)
-      .map((item) => ({
-        client: item.client || "",
-        project: item.project || "",
-        projectId: `${item.projectId || item.project_id || ""}`.trim(),
-      }));
-    const managerProjectTuples = (assignments.managerProjects || [])
-      .filter((item) => item.managerId === userId)
-      .map((item) => ({
-        client: item.client || "",
-        project: item.project || "",
-        projectId: `${item.projectId || item.project_id || ""}`.trim(),
-      }));
-    const managerClients = new Set(
-      (assignments.managerClients || [])
-        .filter((item) => item.managerId === userId)
-        .map((item) => item.client || "")
-        .filter(Boolean)
+    const visibleProjectIds = new Set(
+      (state.visibleProjectIds || []).map((id) => `${id || ""}`.trim()).filter(Boolean)
     );
-    const managerClientTuples = projects
-      .filter((project) => managerClients.has(project.client))
-      .map((project) => ({
-        client: project.client || "",
-        project: project.name || "",
-        projectId: `${project.id || ""}`.trim(),
-      }));
+    const scopedProjects = (state.projects || []).filter((project) => {
+      if (canSeeAll) return true;
+      const projectId = `${project?.id || ""}`.trim();
+      return Boolean(projectId) && visibleProjectIds.has(projectId);
+    });
     const tupleMap = new Map();
-    [...memberTuples, ...managerProjectTuples, ...managerClientTuples].forEach((item) => {
-      if (!item.client || !item.project) return;
-      tupleMap.set(projectKey(item.client, item.project), item);
+    scopedProjects.forEach((project) => {
+      const client = `${project?.client || ""}`.trim();
+      const projectName = `${project?.name || project?.project || ""}`.trim();
+      const projectId = `${project?.id || ""}`.trim();
+      if (!client || !projectName) return;
+      tupleMap.set(projectKey(client, projectName), {
+        client,
+        project: projectName,
+        projectId,
+      });
     });
     return Array.from(tupleMap.values()).sort((a, b) => {
       if (a.client === b.client) {

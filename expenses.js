@@ -214,7 +214,7 @@
     };
     const search = String(filters.search || "").trim().toLowerCase();
 
-    const { getUserById, canViewUserByRole, assignedProjectTuplesForCurrentUser, isAdmin, isExecutive } = deps();
+    const { getUserById, canViewUserByRole, assignedProjectTuplesForCurrentUser } = deps();
     const allowedTupleKeys = new Set(
       (typeof assignedProjectTuplesForCurrentUser === "function"
         ? assignedProjectTuplesForCurrentUser()
@@ -231,13 +231,8 @@
         if (!canView) {
           return false;
         }
-        const canBypassProjectScope =
-          (typeof isAdmin === "function" && isAdmin(scopeUser)) ||
-          (typeof isExecutive === "function" && isExecutive(scopeUser));
         const isInternal = isInternalExpense(expense);
         if (
-          !canBypassProjectScope &&
-          allowedTupleKeys.size &&
           !isInternal &&
           !allowedTupleKeys.has(`${expense.clientName || ""}::${expense.projectName || ""}`)
         ) {
