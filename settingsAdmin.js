@@ -2627,7 +2627,7 @@
         failedCount > 0 ? `${baseMessage} ${failedCount} row(s) failed during import.` : baseMessage,
         failedCount > 0
       );
-      if (importedCount > 0 && typeof deps().loadPersistentState === "function") {
+      if (validRows.length > 0 && typeof deps().loadPersistentState === "function") {
         await deps().loadPersistentState();
         if (deps().state?.currentView === "members") {
           renderUsersList();
