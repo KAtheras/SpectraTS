@@ -6373,9 +6373,22 @@
       label: `${item.client} / ${item.project}`,
       value: encodeInputsTimeCombo(item.client, item.project),
     }));
+    const activeProjectItems = projectItems.filter((item) => {
+      const itemProjectId = `${item?.id || ""}`.trim();
+      const byId = itemProjectId
+        ? (state.projects || []).find((project) => `${project?.id || ""}`.trim() === itemProjectId)
+        : null;
+      const byName = (state.projects || []).find(
+        (project) =>
+          `${project?.client || ""}`.trim() === `${item?.client || ""}`.trim() &&
+          `${project?.name || project?.project || ""}`.trim() === `${item?.project || ""}`.trim()
+      );
+      const matchedProject = byId || byName || null;
+      return !matchedProject || isProjectActive(matchedProject);
+    });
     const corporateGroups = groupedCorporateFunctionCategoriesForInputs();
     if (!corporateGroups.length) {
-      return projectItems;
+      return activeProjectItems;
     }
     const corporateItems = corporateGroups.flatMap((group) => {
       const groupLabel = {
@@ -6400,8 +6413,8 @@
       disabled: true,
     };
     return [
-      ...projectItems,
-      ...(projectItems.length ? [divider] : []),
+      ...activeProjectItems,
+      ...(activeProjectItems.length ? [divider] : []),
       ...corporateItems,
     ];
   }
