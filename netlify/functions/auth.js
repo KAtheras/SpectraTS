@@ -111,11 +111,29 @@ exports.handler = async function handler(event) {
         });
       }
 
-      const username = request.payload?.username;
+      const username = normalizeText(request.payload?.username);
       const password = String(request.payload?.password || "");
       const user = await findUserByUsername(sql, username);
 
       if (!user || !user.is_active || !verifyPassword(password, user.password_hash)) {
+        if (username.includes("@")) {
+          const emailMatches = await sql`
+            SELECT username
+            FROM users
+            WHERE LOWER(email) = LOWER(${username})
+              AND is_active = TRUE
+            LIMIT 2
+          `;
+          if (emailMatches.length > 1) {
+            return errorResponse(401, "This email is shared by multiple members. Sign in with User ID.");
+          }
+          if (emailMatches.length === 1) {
+            return errorResponse(
+              401,
+              `Sign in with User ID (${emailMatches[0].username || "your user ID"}), not email.`
+            );
+          }
+        }
         return errorResponse(401, "Invalid username or password.", {
           bootstrapRequired: false,
         });

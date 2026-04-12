@@ -2040,6 +2040,10 @@
             rowStatus = "Invalid";
             rowErrors.push("Valid email is required.");
           }
+          if (matchedUserByUserId) {
+            rowStatus = "Invalid";
+            rowErrors.push("User ID already exists. Member uploads can only create new members.");
+          }
           if (!matchedUserByUserId && matchedUserByEmployeeId) {
             rowStatus = "Invalid";
             rowErrors.push("Member ID already exists under a different User ID.");
@@ -2564,8 +2568,6 @@
       const rejectedRows = objects.filter((row) => row.status !== "Valid");
       let importedCount = 0;
       let createdCount = 0;
-      let updatedCount = 0;
-      let skippedCount = 0;
       let failedCount = 0;
       if (openMembersBtn) openMembersBtn.disabled = true;
       const usersById = new Map(
@@ -2573,16 +2575,6 @@
           .map((user) => [String(user?.id || "").trim(), user])
           .filter(([id]) => Boolean(id))
       );
-      const normalizeNullableText = function (value) {
-        const text = `${value ?? ""}`.trim();
-        return text || null;
-      };
-      const normalizeNullableNumber = function (value) {
-        if (value === null || value === undefined || `${value}`.trim() === "") return null;
-        const numeric = Number(value);
-        return Number.isFinite(numeric) ? Number(numeric) : null;
-      };
-
       for (const row of validRows) {
         try {
           const displayName = `${row._resolvedDisplayName || ""}`.trim();
@@ -2604,78 +2596,7 @@
           const hasCostRate = costRateRaw !== null && Number.isFinite(costRateRaw);
           const existingUserId = `${row._resolvedUserId || ""}`.trim();
           if (existingUserId) {
-            const existingUser = usersById.get(existingUserId) || null;
-            const nextBaseRate = hasBaseRate ? Number(baseRateRaw) : null;
-            const nextCostRate = hasCostRate ? Number(costRateRaw) : null;
-            const hasProfileChanges = !(
-              normalizeNullableText(existingUser?.displayName) === normalizeNullableText(displayName) &&
-              normalizeNullableText(existingUser?.username) === normalizeNullableText(username) &&
-              normalizeNullableText(existingUser?.email) === normalizeNullableText(email) &&
-              normalizeNullableText(existingUser?.employeeId) === normalizeNullableText(employeeId) &&
-              normalizeNullableNumber(existingUser?.level) === normalizeNullableNumber(level) &&
-              normalizeNullableText(existingUser?.officeId) === normalizeNullableText(officeId) &&
-              normalizeNullableNumber(existingUser?.baseRate) === normalizeNullableNumber(nextBaseRate) &&
-              normalizeNullableNumber(existingUser?.costRate) === normalizeNullableNumber(nextCostRate)
-            );
-            const hasDepartmentChange =
-              normalizeNullableText(existingUser?.departmentId) !== normalizeNullableText(departmentId);
-            if (!hasProfileChanges && !hasDepartmentChange) {
-              skippedCount += 1;
-              continue;
-            }
-            const updatePayload = {
-              userId: existingUserId,
-              displayName,
-              username,
-              email,
-              employeeId,
-              level,
-              officeId,
-            };
-            if (hasBaseRate) {
-              updatePayload.baseRate = baseRateRaw;
-            }
-            if (hasCostRate) {
-              updatePayload.costRate = costRateRaw;
-            }
-            await deps().mutatePersistentState(
-              "update_user",
-              updatePayload,
-              {
-                skipHydrate: true,
-                skipSettingsMetadataReload: true,
-                refreshState: false,
-                returnState: false,
-              }
-            );
-            if (departmentId) {
-              await deps().mutatePersistentState(
-                "set_user_department",
-                { userId: existingUserId, departmentId },
-                {
-                  skipHydrate: true,
-                  skipSettingsMetadataReload: true,
-                  refreshState: false,
-                  returnState: false,
-                }
-              );
-            }
-            importedCount += 1;
-            updatedCount += 1;
-            usersById.set(existingUserId, {
-              ...(existingUser || {}),
-              id: existingUserId,
-              displayName,
-              username,
-              email,
-              employeeId,
-              level,
-              officeId: officeId || null,
-              departmentId: departmentId || null,
-              baseRate: hasBaseRate ? Number(baseRateRaw) : null,
-              costRate: hasCostRate ? Number(costRateRaw) : null,
-            });
-            continue;
+            throw new Error("User ID already exists. Member uploads can only create new members.");
           }
 
           const addResult = await deps().mutatePersistentState(
@@ -2763,7 +2684,7 @@
       };
       latestPreviewPayload = null;
       previewKind = "";
-      const baseMessage = `Created ${createdCount}, updated ${updatedCount}, skipped ${skippedCount} existing rows. ${invalidCount} invalid rows were not imported.`;
+      const baseMessage = `Created ${createdCount}. ${invalidCount} invalid rows were not imported.`;
       deps().feedback(
         failedCount > 0 ? `${baseMessage} ${failedCount} row(s) failed during import.` : baseMessage,
         failedCount > 0

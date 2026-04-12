@@ -2296,7 +2296,6 @@
     if (needsProfileValidation) {
       const normalizedUserId = memberEditorMode === "edit" ? String(memberEditorUserId || "").trim() : "";
       const normalizedUsername = String(username || "").trim().toLowerCase();
-      const normalizedEmail = String(email || "").trim().toLowerCase();
       const normalizedEmployeeId = String(employeeId || "").trim().toLowerCase();
       const users = Array.isArray(state.users) ? state.users : [];
       const conflictUserId = normalizedUsername
@@ -2309,18 +2308,6 @@
         : null;
       if (conflictUserId) {
         report("That user ID already exists.", true);
-        return;
-      }
-      const conflictEmail = normalizedEmail
-        ? users.find((u) =>
-            u &&
-            String(u.id || "").trim() !== normalizedUserId &&
-            String(u.email || "").trim().toLowerCase() === normalizedEmail &&
-            u.isActive !== false
-          )
-        : null;
-      if (conflictEmail) {
-        report("That email already exists.", true);
         return;
       }
       if (normalizedEmployeeId) {

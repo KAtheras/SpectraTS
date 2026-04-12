@@ -537,25 +537,13 @@ async function ensureSchema(sql) {
     WHERE is_active = TRUE
   `;
   await sql`
-    DO $$
-    BEGIN
-      IF NOT EXISTS (
-        SELECT 1
-        FROM (
-          SELECT account_id, LOWER(email) AS email_key
-          FROM users
-          WHERE is_active = TRUE
-            AND TRIM(COALESCE(email, '')) <> ''
-          GROUP BY account_id, LOWER(email)
-          HAVING COUNT(*) > 1
-        ) dup
-      ) THEN
-        CREATE UNIQUE INDEX IF NOT EXISTS users_email_ci_active_idx
-          ON users (account_id, LOWER(email))
-          WHERE is_active = TRUE
-            AND TRIM(COALESCE(email, '')) <> '';
-      END IF;
-    END $$;
+    DROP INDEX IF EXISTS users_email_ci_active_idx
+  `;
+  await sql`
+    CREATE INDEX IF NOT EXISTS users_email_ci_active_idx
+      ON users (account_id, LOWER(email))
+      WHERE is_active = TRUE
+        AND TRIM(COALESCE(email, '')) <> ''
   `;
   await sql`
     DO $$
@@ -1928,18 +1916,6 @@ async function createUserRecord(sql, payload) {
       throw new Error("That employee ID already exists.");
     }
   }
-  const existingEmail = await sql`
-    SELECT id
-    FROM users
-    WHERE LOWER(email) = LOWER(${email})
-      AND is_active = TRUE
-      AND account_id = ${accountUuid}::uuid
-    LIMIT 1
-  `;
-  if (existingEmail[0]) {
-    throw new Error("That email already exists.");
-  }
-
   const now = new Date().toISOString();
 
   const levelLabels = await listLevelLabels(sql, accountUuid);
@@ -2206,18 +2182,6 @@ async function updateUserRecord(sql, payload, actingUser) {
     if (duplicateEmployeeId[0]) {
       throw new Error("That employee ID already exists.");
     }
-  }
-  const duplicateEmail = await sql`
-    SELECT id
-    FROM users
-    WHERE LOWER(email) = LOWER(${email})
-      AND id <> ${existingUser.id}
-      AND is_active = TRUE
-      AND account_id = ${existingUser.account_id}::uuid
-    LIMIT 1
-  `;
-  if (duplicateEmail[0]) {
-    throw new Error("That email already exists.");
   }
   if (baseRate !== null && !(Number.isFinite(baseRate) && baseRate >= 0)) {
     throw new Error("Base rate must be a non-negative number.");
