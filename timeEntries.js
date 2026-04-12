@@ -291,6 +291,7 @@
           ? `<td>
               <input
                 type="checkbox"
+                class="entries-billable-toggle"
                 data-action="select-entry"
                 data-id="${escapeHtml(rowId)}"
                 aria-label="Select entry"
