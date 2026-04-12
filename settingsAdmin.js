@@ -1595,12 +1595,17 @@
         <div id="bulk-upload-preview" hidden>
           <div id="bulk-upload-preview-meta" class="panel-head-actions">
             <p id="bulk-upload-selected-file" style="margin:0;"></p>
-            <div id="bulk-upload-result-bar" class="panel-head-actions" hidden>
-              <p id="bulk-upload-result-text" class="feedback" style="margin:0;"></p>
+            <div id="bulk-upload-preview-actions" class="panel-head-actions" style="margin-left:auto;justify-content:flex-end;">
+              <button type="button" class="button" id="bulk-upload-import-valid" hidden>
+                Upload Valid Rows
+              </button>
               <button type="button" class="button button-ghost" id="bulk-upload-download-rejects" hidden>
                 Download Rejected Rows
               </button>
             </div>
+          </div>
+          <div id="bulk-upload-result-bar" hidden>
+            <p id="bulk-upload-result-text" class="feedback" style="margin:0;"></p>
           </div>
           <div id="bulk-upload-preview-table-wrap">Preview coming next</div>
         </div>
@@ -1622,6 +1627,8 @@
     const selectedFileLabel = panel.querySelector("#bulk-upload-selected-file");
     const errorEl = panel.querySelector("#bulk-upload-error");
     const previewTableWrap = panel.querySelector("#bulk-upload-preview-table-wrap");
+    const previewActions = panel.querySelector("#bulk-upload-preview-actions");
+    const importValidBtn = panel.querySelector("#bulk-upload-import-valid");
     const resultBar = panel.querySelector("#bulk-upload-result-bar");
     const resultText = panel.querySelector("#bulk-upload-result-text");
     const downloadRejectsBtn = panel.querySelector("#bulk-upload-download-rejects");
@@ -1677,16 +1684,27 @@
       }
       const setRowActionState = function (button, kind, noun) {
         if (!button) return;
-        const isPreviewKind = hasPreview && previewKind === kind;
-        const validCount = isPreviewKind ? previewValidRowCount() : 0;
-        const hasImportableRows = isPreviewKind && validCount > 0;
-        button.textContent = hasImportableRows ? `Import Valid ${noun} Rows` : "Upload File";
-        button.dataset.mode = hasImportableRows ? `import-${kind}` : `upload-${kind}`;
+        button.textContent = "Upload File";
+        button.dataset.mode = `upload-${kind}`;
         button.disabled = false;
       };
       setRowActionState(openTimeBtn, "time", "Time");
       setRowActionState(openExpensesBtn, "expenses", "Expense");
       setRowActionState(openMembersBtn, "members", "Member");
+      if (previewActions) {
+        previewActions.style.marginLeft = "auto";
+        previewActions.style.justifyContent = "flex-end";
+      }
+      if (importValidBtn) {
+        const isPreviewKind =
+          hasPreview &&
+          (previewKind === "time" || previewKind === "expenses" || previewKind === "members");
+        const validCount = isPreviewKind ? previewValidRowCount() : 0;
+        const noun = previewKind === "expenses" ? "Expense" : previewKind === "members" ? "Member" : "Time";
+        importValidBtn.textContent = `Upload Valid ${noun} Rows`;
+        importValidBtn.hidden = !isPreviewKind;
+        importValidBtn.disabled = !isPreviewKind || validCount <= 0;
+      }
       if (resultBar && resultText) {
         const hasRejectedRows = rejectedCount > 0;
         const showBar = hasImportSummary || hasRejectedRows;
@@ -2698,58 +2716,39 @@
     };
 
     openTimeBtn?.addEventListener("click", function () {
-      const mode = openTimeBtn.dataset.mode || "upload-time";
-      if (mode === "import-time") {
-        const rows = Array.isArray(latestPreviewPayload?.objects) ? latestPreviewPayload.objects : [];
-        const validCount = rows.filter((row) => row.status === "Valid").length;
-        if (validCount <= 0) {
-          updateBulkUploadUiState();
-          return;
-        }
-        importValidTimeRows().catch((error) => {
-          deps().feedback(error?.message || "Unable to import time rows.", true);
-          if (openTimeBtn) openTimeBtn.disabled = false;
-          updateBulkUploadUiState();
-        });
-        return;
-      }
       timeInput?.click();
     });
     openExpensesBtn?.addEventListener("click", function () {
-      const mode = openExpensesBtn.dataset.mode || "upload-expenses";
-      if (mode === "import-expenses") {
-        const rows = Array.isArray(latestPreviewPayload?.objects) ? latestPreviewPayload.objects : [];
-        const validCount = rows.filter((row) => row.status === "Valid").length;
-        if (validCount <= 0) {
-          updateBulkUploadUiState();
-          return;
-        }
-        importValidExpenseRows().catch((error) => {
-          deps().feedback(error?.message || "Unable to import expense rows.", true);
-          if (openExpensesBtn) openExpensesBtn.disabled = false;
-          updateBulkUploadUiState();
-        });
-        return;
-      }
       expensesInput?.click();
     });
     openMembersBtn?.addEventListener("click", function () {
-      const mode = openMembersBtn.dataset.mode || "upload-members";
-      if (mode === "import-members") {
-        const rows = Array.isArray(latestPreviewPayload?.objects) ? latestPreviewPayload.objects : [];
-        const validCount = rows.filter((row) => row.status === "Valid").length;
-        if (validCount <= 0) {
-          updateBulkUploadUiState();
-          return;
-        }
-        importValidMemberRows().catch((error) => {
-          deps().feedback(error?.message || "Unable to import member rows.", true);
-          if (openMembersBtn) openMembersBtn.disabled = false;
+      membersInput?.click();
+    });
+    importValidBtn?.addEventListener("click", function () {
+      const rows = Array.isArray(latestPreviewPayload?.objects) ? latestPreviewPayload.objects : [];
+      const validCount = rows.filter((row) => row.status === "Valid").length;
+      if (validCount <= 0) {
+        updateBulkUploadUiState();
+        return;
+      }
+      if (previewKind === "expenses") {
+        importValidExpenseRows().catch((error) => {
+          deps().feedback(error?.message || "Unable to import expense rows.", true);
           updateBulkUploadUiState();
         });
         return;
       }
-      membersInput?.click();
+      if (previewKind === "members") {
+        importValidMemberRows().catch((error) => {
+          deps().feedback(error?.message || "Unable to import member rows.", true);
+          updateBulkUploadUiState();
+        });
+        return;
+      }
+      importValidTimeRows().catch((error) => {
+        deps().feedback(error?.message || "Unable to import time rows.", true);
+        updateBulkUploadUiState();
+      });
     });
     downloadTimeTemplateBtn?.addEventListener("click", function () {
       window.location.assign("/templates/time-upload.xlsx");
