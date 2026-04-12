@@ -3193,6 +3193,15 @@
     const { state, escapeHtml } = deps();
     const panel = document.querySelector('[data-settings-tab="permissions"]');
     if (!panel) return;
+    const setInlinePermissionsFeedback = (message, isError = false) => {
+      const activePanel = document.querySelector('[data-settings-tab="permissions"]');
+      if (!activePanel) return;
+      const notice = activePanel.querySelector("[data-permissions-inline-feedback]");
+      if (!notice) return;
+      notice.textContent = message || "";
+      notice.dataset.error = isError ? "true" : "false";
+      notice.hidden = !message;
+    };
     const roles = Array.isArray(state.permissionRoles) ? state.permissionRoles : [];
     const rolePerms = Array.isArray(state.rolePermissions) ? state.rolePermissions : [];
     const capabilityGroups = [
@@ -3321,6 +3330,7 @@
         <div class="settings-section-right"></div>
       </div>
       <div class="settings-section-content">
+        <p class="feedback" data-permissions-inline-feedback hidden></p>
         ${groupsHtml}
       </div>
     `;
@@ -3370,6 +3380,7 @@
           }
         });
         if (!changedCount) {
+          setInlinePermissionsFeedback("", false);
           return;
         }
         permissionsSaveInFlight = true;
@@ -3434,14 +3445,15 @@
             })
             .map(([roleKey]) => roleKey);
           if (warningRoles.length) {
-            deps().feedback(
-              `Access updated. Warning: ${warningRoles.join(", ")} can edit project planning but has no client/project visibility.`,
-              false
-            );
+            const warningMessage = `${warningRoles.join(", ")} can edit project planning but has no client/project visibility.`;
+            setInlinePermissionsFeedback(`Warning: ${warningMessage}`, false);
+            deps().feedback(`Access updated. Warning: ${warningMessage}`, false);
           } else {
+            setInlinePermissionsFeedback("", false);
             deps().feedback("Access updated.", false);
           }
         } catch (error) {
+          setInlinePermissionsFeedback(error.message || "Unable to save access.", true);
           deps().feedback(error.message || "Unable to save access.", true);
           permissionsQueuedSnapshot = null;
         } finally {
