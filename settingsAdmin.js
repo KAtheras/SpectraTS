@@ -1594,13 +1594,13 @@
         <p id="bulk-upload-error" class="feedback" hidden></p>
         <div id="bulk-upload-preview" hidden>
           <p id="bulk-upload-selected-file"></p>
+          <div id="bulk-upload-result-bar" class="panel-head-actions" hidden>
+            <p id="bulk-upload-result-text" class="feedback" style="margin:0;"></p>
+            <button type="button" class="button button-ghost" id="bulk-upload-download-rejects" hidden>
+              Download Rejected Rows
+            </button>
+          </div>
           <div id="bulk-upload-preview-table-wrap">Preview coming next</div>
-        </div>
-        <div id="bulk-upload-rejects" class="panel-head-actions" hidden>
-          <p id="bulk-upload-rejects-text" class="feedback" style="margin:0;"></p>
-          <button type="button" class="button button-ghost" id="bulk-upload-download-rejects">
-            Download Rejected Rows
-          </button>
         </div>
       </div>
     `;
@@ -1619,8 +1619,8 @@
     const selectedFileLabel = panel.querySelector("#bulk-upload-selected-file");
     const errorEl = panel.querySelector("#bulk-upload-error");
     const previewTableWrap = panel.querySelector("#bulk-upload-preview-table-wrap");
-    const rejectsWrap = panel.querySelector("#bulk-upload-rejects");
-    const rejectsText = panel.querySelector("#bulk-upload-rejects-text");
+    const resultBar = panel.querySelector("#bulk-upload-result-bar");
+    const resultText = panel.querySelector("#bulk-upload-result-text");
     const downloadRejectsBtn = panel.querySelector("#bulk-upload-download-rejects");
     let xlsxLoader = null;
     let previewKind = "";
@@ -1628,10 +1628,18 @@
     let latestRejectedRows = [];
     let latestRejectedKind = "";
     let latestImportSummary = null;
+    let latestRenderedPreview = { headers: [], objects: [], kind: "" };
+    let expandedIssueRows = new Set();
 
     const formatRowCount = function (count, singular, plural) {
       const qty = Number(count) || 0;
       return `${qty} ${qty === 1 ? singular : plural}`;
+    };
+
+    const uploadTypeNouns = function (kind) {
+      if (kind === "expenses") return { singular: "expense", plural: "expenses" };
+      if (kind === "members") return { singular: "member", plural: "members" };
+      return { singular: "time entry", plural: "time entries" };
     };
 
     const previewValidRowCount = function () {
@@ -1663,29 +1671,35 @@
       setRowActionState(openTimeBtn, "time", "Time");
       setRowActionState(openExpensesBtn, "expenses", "Expense");
       setRowActionState(openMembersBtn, "members", "Member");
-      if (rejectsWrap) {
-        const showRejects = rejectedCount > 0 || hasImportSummary;
-        rejectsWrap.hidden = !showRejects;
-        if (rejectsText) {
-          if (!showRejects) {
-            rejectsText.textContent = "";
-          } else if (hasImportSummary) {
-            rejectsText.textContent = `${formatRowCount(
-              latestImportSummary.successCount,
-              "row uploaded successfully",
-              "rows uploaded successfully"
-            )} / ${formatRowCount(
-              latestImportSummary.rejectedCount,
-              "row was rejected",
-              "rows were rejected"
-            )}`;
+      if (resultBar && resultText) {
+        const hasRejectedRows = rejectedCount > 0;
+        const showBar = hasImportSummary || hasRejectedRows;
+        resultBar.hidden = !showBar;
+        if (!showBar) {
+          resultText.textContent = "";
+        } else {
+          const summaryKind = `${latestRejectedKind || previewKind || "time"}`.trim();
+          const nouns = uploadTypeNouns(summaryKind);
+          const uploadedCount = Number(latestImportSummary?.successCount || 0);
+          const rejected = Number(rejectedCount || 0);
+          if (hasImportSummary) {
+            const uploadedPart = `${uploadedCount} ${
+              uploadedCount === 1 ? nouns.singular : nouns.plural
+            } uploaded`;
+            if (rejected > 0) {
+              resultText.textContent = `${uploadedPart}, ${rejected} ${
+                rejected === 1 ? nouns.singular : nouns.plural
+              } rejected.`;
+            } else {
+              resultText.textContent = `${uploadedPart}.`;
+            }
           } else {
-            rejectsText.textContent = `${rejectedCount} row${rejectedCount === 1 ? "" : "s"} were rejected.`;
+            resultText.textContent = `${rejected} ${rejected === 1 ? nouns.singular : nouns.plural} rejected.`;
           }
         }
-        if (downloadRejectsBtn) {
-          downloadRejectsBtn.hidden = rejectedCount <= 0;
-        }
+      }
+      if (downloadRejectsBtn) {
+        downloadRejectsBtn.hidden = rejectedCount <= 0;
       }
     };
 
@@ -2021,12 +2035,25 @@
     const renderPreviewTable = function (headers, objects, kind) {
       if (!preview || !selectedFileLabel || !previewTableWrap) return;
       const rows = (Array.isArray(objects) ? objects : []).slice(0, 25);
-      const previewHeaders =
-        kind === "time" || kind === "expenses" ? [...headers, "status", "error"] : headers;
+      latestRenderedPreview = {
+        headers: Array.isArray(headers) ? headers.slice() : [],
+        objects: Array.isArray(objects) ? objects.slice() : [],
+        kind: `${kind || ""}`.trim(),
+      };
+      const previewHeaders = [...(Array.isArray(headers) ? headers : []), "status"];
       if (!previewHeaders.length) {
         previewTableWrap.innerHTML = `<div class="empty-state-panel">Preview coming next</div>`;
         return;
       }
+      const invalidRowIndexes = new Set();
+      rows.forEach((row, index) => {
+        if (`${row?.status || ""}`.trim().toLowerCase() === "invalid") {
+          invalidRowIndexes.add(index);
+        }
+      });
+      expandedIssueRows = new Set(
+        Array.from(expandedIssueRows).filter((index) => invalidRowIndexes.has(index))
+      );
       const headHtml = previewHeaders
         .map(
           (header) =>
@@ -2034,7 +2061,8 @@
               header
             )}</th>`
         )
-        .join("");
+        .join("") +
+        `<th style="padding:8px 6px;border:1px solid var(--group-border);text-align:center;width:40px;min-width:40px;">!</th>`;
       const formatPreviewValue = function (header, value) {
         if (header === "date") {
           return `${value || ""}`;
@@ -2059,26 +2087,65 @@
         if (header === "status") {
           return value === "Invalid" ? "Invalid" : "Valid";
         }
-        if (header === "error") {
-          return `${value || ""}`;
-        }
         return `${value ?? ""}`;
+      };
+      const splitErrorMessages = function (errorText) {
+        const raw = `${errorText || ""}`.trim();
+        if (!raw) return ["Row rejected."];
+        let pieces = raw
+          .split(/(?<=\.)\s+(?=[A-Z])/)
+          .map((part) => `${part || ""}`.trim())
+          .filter(Boolean);
+        if (pieces.length <= 1 && raw.includes(";")) {
+          pieces = raw
+            .split(";")
+            .map((part) => `${part || ""}`.trim())
+            .filter(Boolean);
+        }
+        return pieces.length ? pieces : [raw];
       };
       const bodyHtml = rows.length
         ? rows
             .map(
-              (row) =>
-                `<tr>${previewHeaders
+              (row, index) => {
+                const isInvalid = `${row?.status || ""}`.trim().toLowerCase() === "invalid";
+                const isExpanded = isInvalid && expandedIssueRows.has(index);
+                const issueCell = isInvalid
+                  ? `<button
+                      type="button"
+                      class="button button-ghost"
+                      data-preview-issue-toggle="${index}"
+                      aria-label="Show rejection details for row ${index + 2}"
+                      aria-expanded="${isExpanded ? "true" : "false"}"
+                      style="min-height:24px;height:24px;padding:0 6px;border-color:var(--danger);color:var(--danger);font-weight:700;line-height:1;"
+                    >!</button>`
+                  : "";
+                const baseRow = `<tr style="${isInvalid ? "background: color-mix(in srgb, var(--danger) 7%, transparent);" : ""}">${previewHeaders
                   .map(
                     (header) =>
                       `<td style="padding:8px 10px;border:1px solid var(--group-border);vertical-align:top;">${escapeHtml(
                         formatPreviewValue(header, row[header])
                       )}</td>`
                   )
-                  .join("")}</tr>`
+                  .join("")}<td style="padding:6px;border:1px solid var(--group-border);text-align:center;">${issueCell}</td></tr>`;
+                if (!isExpanded) {
+                  return baseRow;
+                }
+                const issues = splitErrorMessages(row?.error);
+                const detailsRow = `<tr>
+                    <td colspan="${previewHeaders.length + 1}" style="padding:10px;border:1px solid var(--group-border);border-top:0;background: color-mix(in srgb, var(--danger) 6%, var(--surface));">
+                      <ul style="margin:0;padding-left:18px;display:grid;gap:4px;">
+                        ${issues
+                          .map((message) => `<li style="color:var(--danger);">${escapeHtml(message)}</li>`)
+                          .join("")}
+                      </ul>
+                    </td>
+                  </tr>`;
+                return `${baseRow}${detailsRow}`;
+              }
             )
             .join("")
-        : `<tr><td colspan="${previewHeaders.length}" style="padding:8px 10px;border:1px solid var(--group-border);">No data rows found.</td></tr>`;
+        : `<tr><td colspan="${previewHeaders.length + 1}" style="padding:8px 10px;border:1px solid var(--group-border);">No data rows found.</td></tr>`;
       previewTableWrap.innerHTML = `
         <div class="table-wrapper">
           <table class="table" style="width:100%;border-collapse:collapse;table-layout:auto;">
@@ -2209,6 +2276,8 @@
       latestRejectedRows = [];
       latestRejectedKind = "";
       previewKind = "";
+      latestRenderedPreview = { headers: [], objects: [], kind: "" };
+      expandedIssueRows = new Set();
       if (preview) {
         preview.hidden = true;
       }
@@ -2671,6 +2740,21 @@
       if (hasPostImportState || hasOnlyRejectedPreview) {
         resetBulkUploadState();
       }
+    });
+    previewTableWrap?.addEventListener("click", function (event) {
+      const toggleBtn = event.target.closest("[data-preview-issue-toggle]");
+      if (!toggleBtn) return;
+      const index = Number(toggleBtn.dataset.previewIssueToggle);
+      if (!Number.isInteger(index) || index < 0) return;
+      if (expandedIssueRows.has(index)) {
+        expandedIssueRows.delete(index);
+      } else {
+        expandedIssueRows.add(index);
+      }
+      const headers = Array.isArray(latestRenderedPreview?.headers) ? latestRenderedPreview.headers : [];
+      const objects = Array.isArray(latestRenderedPreview?.objects) ? latestRenderedPreview.objects : [];
+      const kind = `${latestRenderedPreview?.kind || ""}`.trim();
+      renderPreviewTable(headers, objects, kind);
     });
     updateBulkUploadUiState();
   }
