@@ -3640,6 +3640,10 @@
           padding-bottom: 10px;
         }
         .target-realizations-table thead th span {
+          font-family: var(--font-head);
+          font-size: .9rem;
+          font-weight: 700;
+          color: var(--muted);
           text-transform: uppercase;
           letter-spacing: .04em;
         }
@@ -3671,6 +3675,14 @@
           color: var(--muted);
           font-weight: 600;
           pointer-events: none;
+        }
+        #settings-page [data-settings-tab="delegations"] .settings-row-label {
+          font-family: var(--font-head);
+          font-size: .9rem;
+          font-weight: 700;
+          color: var(--muted);
+          text-transform: uppercase;
+          letter-spacing: .04em;
         }
       `;
       document.head.appendChild(style);
