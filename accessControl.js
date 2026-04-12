@@ -279,8 +279,9 @@
         return [];
       }
       const canSeeAll = Boolean(state.permissions?.see_all_clients_projects);
+      const canSeeOffice = Boolean(state.permissions?.see_office_clients_projects);
       const canSeeAssigned = Boolean(state.permissions?.see_assigned_clients_projects);
-      if (!canSeeAll && !canSeeAssigned) {
+      if (!canSeeAll && !canSeeOffice && !canSeeAssigned) {
         return [];
       }
       const projects = projectsArg || state.projects || [];
@@ -289,6 +290,7 @@
       );
       const scopedProjects = projects.filter((project) => {
         if (canSeeAll) return true;
+        if (canSeeOffice) return true;
         const projectId = normalizeText(project?.id);
         return projectId && visibleProjectIds.has(projectId);
       });

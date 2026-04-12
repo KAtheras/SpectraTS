@@ -3278,7 +3278,8 @@
     const collapsedKeyForGroup = (groupKey) => `permGroup${groupKey}Collapsed`;
     const groupsHtml = capabilityGroups
       .map((group) => {
-        const isCollapsed = panel.dataset[collapsedKeyForGroup(group.key)] === "true";
+        const collapsedState = panel.dataset[collapsedKeyForGroup(group.key)];
+        const isCollapsed = collapsedState == null ? true : collapsedState === "true";
         return `
           <section class="permissions-group" data-perm-group="${escapeHtml(group.key)}">
             <button
