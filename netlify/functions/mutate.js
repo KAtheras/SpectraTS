@@ -1207,9 +1207,18 @@ function buildPermissionsPayload(currentUser, permissionIndex) {
     actorOfficeId,
   });
   const canSeeAssignedClientsProjects = can("see_assigned_clients_projects");
-  const canManageClientsLifecycle = can("manage_clients_lifecycle");
-  const canManageProjectsLifecycle = can("manage_projects_lifecycle");
-  const canEditClients = can("edit_clients");
+  const canManageClientsLifecycle = can("manage_clients_lifecycle", {
+    resourceOfficeId: actorOfficeId,
+    actorOfficeId,
+  });
+  const canManageProjectsLifecycle = can("manage_projects_lifecycle", {
+    resourceOfficeId: actorOfficeId,
+    actorOfficeId,
+  });
+  const canEditClients = can("edit_clients", {
+    resourceOfficeId: actorOfficeId,
+    actorOfficeId,
+  });
   const canEditProjectsAllModal = can("edit_projects_all_modal");
   const canEditProjectPlanning = can("edit_project_planning");
   const canAccessClientsTab = Boolean(
