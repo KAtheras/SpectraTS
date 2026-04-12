@@ -2951,7 +2951,7 @@
         <form id="delegations-form" class="delegations-form">
           <div class="delegations-columns">
             <section class="delegations-col delegations-col-search">
-              <label class="settings-row-label" for="delegations-delegate-search">Delegate</label>
+              <label class="settings-row-label" for="delegations-delegate-search">DELEGATE</label>
               <div class="delegations-picker">
                 <input id="delegations-delegate-search" type="search" placeholder="${delegates.length ? "Search member" : "No eligible members"}" ${delegates.length ? "" : "disabled"} autocomplete="off" />
                 <input id="delegations-delegate-id" type="hidden" value="" />
@@ -2959,12 +2959,12 @@
               </div>
             </section>
             <section class="delegations-col delegations-col-capabilities">
-              <div class="settings-row-label">Capabilities</div>
+              <div class="settings-row-label">CAPABILITIES</div>
               <div class="delegations-capabilities">${createCapsHtml}</div>
               <div id="delegations-selection-hint" class="delegations-hint">Select a member to configure delegations.</div>
             </section>
             <section class="delegations-col delegations-col-members">
-              <div class="settings-row-label">Delegated members</div>
+              <div class="settings-row-label">DELEGATED MEMBERS</div>
               <div class="delegations-member-pills">${pillsHtml}</div>
             </section>
           </div>
@@ -3638,6 +3638,10 @@
         }
         .target-realizations-table thead th {
           padding-bottom: 10px;
+        }
+        .target-realizations-table thead th span {
+          text-transform: uppercase;
+          letter-spacing: .04em;
         }
         .target-realizations-table tbody tr:first-child td {
           padding-top: 10px;
