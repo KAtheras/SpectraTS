@@ -1446,7 +1446,9 @@ async function findProjectById(sql, projectId, accountId) {
       projects.client_id,
       projects.office_id,
       projects.project_lead_id,
-      clients.name AS client
+      projects.is_active AS "isActive",
+      clients.name AS client,
+      clients.is_active AS "clientIsActive"
     FROM projects
     JOIN clients ON clients.id = projects.client_id
     WHERE projects.id = ${id}
@@ -1454,6 +1456,10 @@ async function findProjectById(sql, projectId, accountId) {
     LIMIT 1
   `;
   return rows[0] || null;
+}
+
+function deactivatedProjectRevisionMessage() {
+  return "You are attempting to revise time on a deactivated (or deleted) project. This change is not allowed.";
 }
 
 async function findCorporateFunctionCategoryById(sql, categoryId, accountId) {
@@ -3922,7 +3928,16 @@ async function saveEntry(sql, payload, currentUser, accountId) {
     ? await findCorporateFunctionCategoryById(sql, requestedChargeCenterId, accountId)
     : null;
   if (!project && !corporateCategory) {
-    return errorResponse(404, "Project or corporate function category not found.");
+    return errorResponse(400, deactivatedProjectRevisionMessage());
+  }
+  if (
+    project &&
+    (project.isActive === false ||
+      project.is_active === false ||
+      project.clientIsActive === false ||
+      project.client_is_active === false)
+  ) {
+    return errorResponse(400, deactivatedProjectRevisionMessage());
   }
   const isCorporateEntry = Boolean(corporateCategory) && !project;
   const normalizedClient = isCorporateEntry
@@ -4535,8 +4550,8 @@ async function deleteEntry(sql, payload, currentUser, accountId) {
   }
 
   const project = await findProject(sql, entry.client, entry.project, accountId);
-  if (!project && !isAdmin(currentUser)) {
-    return errorResponse(403, "You are not assigned to this project.");
+  if (!project || project.isActive === false || project.is_active === false) {
+    return errorResponse(400, deactivatedProjectRevisionMessage());
   }
 
   if (isAdmin(currentUser)) {

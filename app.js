@@ -6706,7 +6706,6 @@
       const previousEntry = nextEntryId
         ? existingEntries.find((item) => String(item?.id || "").trim() === nextEntryId) || null
         : null;
-      feedback("Entry saved.", false);
       if (nextEntryId) {
         const preservedEntries = existingEntries.filter(
           (item) => String(item?.id || "").trim() !== nextEntryId
@@ -6731,30 +6730,34 @@
         "save_entry",
         wasEditingSavedRow ? { entry: nextEntry } : { entry: nextEntry, actingAsUserId },
         { skipHydrate: true, refreshState: false, returnState: false }
-      ).catch((error) => {
-        if (nextEntryId) {
-          const latestEntries = Array.isArray(state.entries) ? state.entries : [];
-          const withoutOptimistic = latestEntries.filter(
-            (item) => String(item?.id || "").trim() !== nextEntryId
+      )
+        .then(() => {
+          feedback("Entry saved.", false);
+        })
+        .catch((error) => {
+          if (nextEntryId) {
+            const latestEntries = Array.isArray(state.entries) ? state.entries : [];
+            const withoutOptimistic = latestEntries.filter(
+              (item) => String(item?.id || "").trim() !== nextEntryId
+            );
+            state.entries = previousEntry ? withoutOptimistic.concat(previousEntry) : withoutOptimistic;
+          }
+          if (previousEntry?.id) {
+            row.dataset.entryId = String(previousEntry.id);
+            row.dataset.createdAt = String(previousEntry.createdAt || "");
+          } else {
+            delete row.dataset.entryId;
+            delete row.dataset.createdAt;
+          }
+          row.dataset.saving = "false";
+          setInputsTimeRowState(row, wasEditingSavedRow ? "editing-saved" : "new");
+          syncInputsTimeRowInteractivity(
+            Array.from(row.parentElement?.querySelectorAll("form.input-row.input-row-body") || [])
           );
-          state.entries = previousEntry ? withoutOptimistic.concat(previousEntry) : withoutOptimistic;
-        }
-        if (previousEntry?.id) {
-          row.dataset.entryId = String(previousEntry.id);
-          row.dataset.createdAt = String(previousEntry.createdAt || "");
-        } else {
-          delete row.dataset.entryId;
-          delete row.dataset.createdAt;
-        }
-        row.dataset.saving = "false";
-        setInputsTimeRowState(row, wasEditingSavedRow ? "editing-saved" : "new");
-        syncInputsTimeRowInteractivity(
-          Array.from(row.parentElement?.querySelectorAll("form.input-row.input-row-body") || [])
-        );
-        refreshInputsDrilldownAfterLocalMutation("time");
-        feedback(error.message || "Unable to save entry.", true);
-        postHeight();
-      });
+          refreshInputsDrilldownAfterLocalMutation("time");
+          feedback(error.message || "Unable to save entry.", true);
+          postHeight();
+        });
       postHeight();
     });
 

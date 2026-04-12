@@ -2708,7 +2708,8 @@ async function findProject(sql, clientName, projectName, accountId) {
       projects.project_department_id AS "projectDepartmentId",
       projects.project_department_id AS project_department_id,
       projects.project_lead_id AS project_lead_id,
-      projects.is_active AS "isActive"
+      projects.is_active AS "isActive",
+      clients.is_active AS "clientIsActive"
     FROM projects
     JOIN clients ON clients.id = projects.client_id
     WHERE projects.client_id = ${client.id}
