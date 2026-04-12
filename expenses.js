@@ -214,7 +214,7 @@
     };
     const search = String(filters.search || "").trim().toLowerCase();
 
-    const { canViewEntryByScope } = deps();
+    const { canViewEntryByScope, officeIdForEntryRecord } = deps();
 
     return [...state.expenses]
       .filter((expense) => {
@@ -226,6 +226,20 @@
             })
           : true;
         if (!canView) {
+          return false;
+        }
+        const expenseOfficeId =
+          typeof officeIdForEntryRecord === "function"
+            ? `${officeIdForEntryRecord(
+                {
+                  userId: expense.userId,
+                  client: expense.clientName,
+                  project: expense.projectName,
+                },
+                scopeUser
+              ) || ""}`.trim()
+            : "";
+        if (filters.office && expenseOfficeId !== filters.office) {
           return false;
         }
         if (filters.user && expense.userId !== filters.user) {
@@ -271,6 +285,12 @@
     if (!refs.expenseFilterTotal || !refs.expenseActiveFilters) return;
     const chips = [];
     const totalAmount = filteredExpenses.reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
+    if (state.expenseFilters.office) {
+      const officeLabel =
+        (state.officeLocations || []).find((item) => `${item?.id || ""}`.trim() === state.expenseFilters.office)
+          ?.name || state.expenseFilters.office;
+      chips.push(`Office: ${officeLabel}`);
+    }
     if (state.expenseFilters.user) {
       chips.push(`User: ${userNameById(state.expenseFilters.user) || state.expenseFilters.user}`);
     }
@@ -301,6 +321,7 @@
     const { field, refs, parseDisplayDate, feedback, state } = deps();
     const settings = options || {};
     const showErrors = settings.showErrors !== false;
+    const officeField = field(refs.expenseFilterForm, "office");
     const userField = field(refs.expenseFilterForm, "user");
     const clientField = field(refs.expenseFilterForm, "client");
     const projectField = field(refs.expenseFilterForm, "project");
@@ -330,6 +351,7 @@
     }
 
     state.expenseFilters = {
+      office: officeField?.value || "",
       user: userField?.value || "",
       client: clientField?.value || "",
       project: projectField?.value || "",

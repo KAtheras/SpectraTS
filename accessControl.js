@@ -530,6 +530,11 @@
       return normalizeText(client?.officeId ?? client?.office_id);
     }
 
+    function officeIdForEntryRecord(entry, scopeUser) {
+      const targetUser = entryTargetUser(entry, scopeUser || null);
+      return officeIdForEntry(entry, targetUser);
+    }
+
     function canViewEntryByScope(scopeUser, entry) {
       if (!scopeUser || !entry) return false;
       const scopeRole = roleKey(scopeUser) || "staff";
@@ -594,6 +599,7 @@
       canViewEntryByScope,
       officeIdForUser,
       isSameOffice,
+      officeIdForEntryRecord,
     };
   }
 
