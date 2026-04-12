@@ -4005,6 +4005,7 @@ async function saveEntry(sql, payload, currentUser, accountId) {
   const existingRows = await sql`
     SELECT
       status,
+      user_id,
       user_name,
       entry_date,
       client_name,
@@ -4074,6 +4075,7 @@ async function saveEntry(sql, payload, currentUser, accountId) {
   await sql`
     INSERT INTO entries (
       id,
+      user_id,
       user_name,
       entry_date,
       client_name,
@@ -4093,6 +4095,7 @@ async function saveEntry(sql, payload, currentUser, accountId) {
     )
     VALUES (
       ${normalizeText(entry.id)},
+      ${targetUser?.id || null},
       ${normalizeText(entry.user)},
       ${normalizeText(entry.date)},
       ${normalizeText(entry.client)},
@@ -4111,6 +4114,7 @@ async function saveEntry(sql, payload, currentUser, accountId) {
       ${updatedAt}
     )
     ON CONFLICT (id) DO UPDATE SET
+      user_id = EXCLUDED.user_id,
       user_name = EXCLUDED.user_name,
       entry_date = EXCLUDED.entry_date,
       client_name = EXCLUDED.client_name,
@@ -4206,8 +4210,11 @@ async function saveEntry(sql, payload, currentUser, accountId) {
         existing.user_name,
         accountId
       );
+      const persistedOwnerUserById =
+        existing?.user_id ? await findUserById(sql, existing.user_id, accountId) : null;
+      const persistedOwner = persistedOwnerUserById || persistedOwnerUser;
       const actorUserId = normalizeText(currentUser?.id);
-      const entryOwnerUserId = normalizeText(persistedOwnerUser?.id || targetUser?.id);
+      const entryOwnerUserId = normalizeText(persistedOwner?.id || targetUser?.id);
       const isSelfTimeEntryEdit =
         !!actorUserId && !!entryOwnerUserId && actorUserId === entryOwnerUserId;
       await dispatchNotificationEvent(sql, {
@@ -4245,6 +4252,7 @@ async function approveEntry(sql, payload, currentUser, accountId) {
   const rows = await sql`
     SELECT
       id,
+      user_id AS user_id,
       user_name AS user_name,
       client_name AS client_name,
       project_name AS project_name,
@@ -4267,7 +4275,9 @@ async function approveEntry(sql, payload, currentUser, accountId) {
     return { message: "Entry already approved." };
   }
 
-  const targetUser = await findUserByDisplayName(sql, entry.user_name, accountId);
+  const targetUser =
+    (entry.user_id && (await findUserById(sql, entry.user_id, accountId))) ||
+    (await findUserByDisplayName(sql, entry.user_name, accountId));
   if (!targetUser) {
     return errorResponse(404, "Entry user not found.");
   }
@@ -4378,6 +4388,7 @@ async function unapproveEntry(sql, payload, currentUser, accountId) {
   const rows = await sql`
     SELECT
       id,
+      user_id AS user_id,
       user_name AS user_name,
       client_name AS client_name,
       project_name AS project_name,
@@ -4399,7 +4410,9 @@ async function unapproveEntry(sql, payload, currentUser, accountId) {
     return { message: "Entry is already pending." };
   }
 
-  const targetUser = await findUserByDisplayName(sql, entry.user_name, accountId);
+  const targetUser =
+    (entry.user_id && (await findUserById(sql, entry.user_id, accountId))) ||
+    (await findUserByDisplayName(sql, entry.user_name, accountId));
   if (!targetUser) {
     return errorResponse(404, "Entry user not found.");
   }
@@ -4483,6 +4496,7 @@ async function deleteEntry(sql, payload, currentUser, accountId) {
   const rows = await sql`
     SELECT
       id,
+      user_id,
       user_name AS "user",
       client_name AS client,
       project_name AS project,
@@ -4520,13 +4534,15 @@ async function deleteEntry(sql, payload, currentUser, accountId) {
         return errorResponse(403, "You are not assigned to this project.");
       }
     }
-    const targetUser = await findUserByDisplayName(sql, entry.user, accountId);
+    const targetUser =
+      (entry.user_id && (await findUserById(sql, entry.user_id, accountId))) ||
+      (await findUserByDisplayName(sql, entry.user, accountId));
     const targetGroup = permissionGroupForUser(targetUser);
     if (targetUser && targetUser.id !== currentUser.id && targetGroup !== "staff") {
       return errorResponse(403, "Managers can only edit staff time.");
     }
   } else if (isStaff(currentUser)) {
-    if (entry.user !== currentUser.displayName) {
+    if ((entry.user_id && entry.user_id !== currentUser.id) || (!entry.user_id && entry.user !== currentUser.displayName)) {
       return errorResponse(403, "You can only delete your own entries.");
     }
     if (project) {
@@ -4544,7 +4560,9 @@ async function deleteEntry(sql, payload, currentUser, accountId) {
     }
   }
 
-  const entryUser = await findUserByDisplayName(sql, entry.user, accountId);
+  const entryUser =
+    (entry.user_id && (await findUserById(sql, entry.user_id, accountId))) ||
+    (await findUserByDisplayName(sql, entry.user, accountId));
   const beforeSnapshot = entrySnapshot({
     date: entry.entry_date || entry.date,
     userId: entryUser?.id || null,
@@ -4608,6 +4626,7 @@ async function canDeleteEntryRecord(sql, entry, currentUser, accountId) {
   const entryClient = normalizeText(entry.client_name) || normalizeText(entry.client);
   const entryProject = normalizeText(entry.project_name) || normalizeText(entry.project);
   const entryUserName = normalizeText(entry.user_name) || normalizeText(entry.user);
+  const entryUserId = normalizeText(entry.user_id || "");
   const project = await findProject(sql, entryClient, entryProject, accountId);
   if (!project && !isAdmin(currentUser)) {
     return false;
@@ -4629,7 +4648,9 @@ async function canDeleteEntryRecord(sql, entry, currentUser, accountId) {
         return false;
       }
     }
-    const targetUser = await findUserByDisplayName(sql, entryUserName, accountId);
+    const targetUser =
+      (entryUserId && (await findUserById(sql, entryUserId, accountId))) ||
+      (await findUserByDisplayName(sql, entryUserName, accountId));
     const targetGroup = permissionGroupForUser(targetUser);
     if (targetUser && targetUser.id !== currentUser.id && targetGroup !== "staff") {
       return false;
@@ -4638,7 +4659,7 @@ async function canDeleteEntryRecord(sql, entry, currentUser, accountId) {
   }
 
   if (isStaff(currentUser)) {
-    if (entryUserName !== currentUser.displayName) {
+    if ((entryUserId && entryUserId !== currentUser.id) || (!entryUserId && entryUserName !== currentUser.displayName)) {
       return false;
     }
     if (project) {

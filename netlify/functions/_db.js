@@ -536,6 +536,48 @@ async function ensureSchema(sql) {
     ON users (account_id, LOWER(display_name))
     WHERE is_active = TRUE
   `;
+  await sql`
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1
+        FROM (
+          SELECT account_id, LOWER(email) AS email_key
+          FROM users
+          WHERE is_active = TRUE
+            AND TRIM(COALESCE(email, '')) <> ''
+          GROUP BY account_id, LOWER(email)
+          HAVING COUNT(*) > 1
+        ) dup
+      ) THEN
+        CREATE UNIQUE INDEX IF NOT EXISTS users_email_ci_active_idx
+          ON users (account_id, LOWER(email))
+          WHERE is_active = TRUE
+            AND TRIM(COALESCE(email, '')) <> '';
+      END IF;
+    END $$;
+  `;
+  await sql`
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1
+        FROM (
+          SELECT account_id, LOWER(employee_id) AS employee_key
+          FROM users
+          WHERE is_active = TRUE
+            AND TRIM(COALESCE(employee_id, '')) <> ''
+          GROUP BY account_id, LOWER(employee_id)
+          HAVING COUNT(*) > 1
+        ) dup
+      ) THEN
+        CREATE UNIQUE INDEX IF NOT EXISTS users_employee_id_ci_active_idx
+          ON users (account_id, LOWER(employee_id))
+          WHERE is_active = TRUE
+            AND TRIM(COALESCE(employee_id, '')) <> '';
+      END IF;
+    END $$;
+  `;
 
   await sql`
     CREATE TABLE IF NOT EXISTS sessions (
@@ -844,10 +886,22 @@ async function ensureSchema(sql) {
   await sql`ALTER TABLE entries ADD COLUMN IF NOT EXISTS approved_by_user_id TEXT REFERENCES users(id)`;
   await sql`ALTER TABLE entries ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`;
   await sql`ALTER TABLE entries ADD COLUMN IF NOT EXISTS deleted_by_user_id TEXT REFERENCES users(id)`;
+  await sql`ALTER TABLE entries ADD COLUMN IF NOT EXISTS user_id TEXT REFERENCES users(id) ON DELETE SET NULL`;
   await sql`ALTER TABLE entries ADD COLUMN IF NOT EXISTS project_id BIGINT REFERENCES projects(id) ON DELETE SET NULL`;
   await sql`ALTER TABLE entries ADD COLUMN IF NOT EXISTS charge_center_id TEXT REFERENCES corporate_function_categories(id) ON DELETE SET NULL`;
+  await sql`CREATE INDEX IF NOT EXISTS entries_account_user_idx ON entries(account_id, user_id)`;
   await sql`CREATE INDEX IF NOT EXISTS entries_account_project_idx ON entries(account_id, project_id)`;
   await sql`CREATE INDEX IF NOT EXISTS entries_account_charge_center_idx ON entries(account_id, charge_center_id)`;
+  await sql`
+    UPDATE entries
+    SET user_id = users.id
+    FROM users
+    WHERE entries.account_id = ${accountUuid}::uuid
+      AND entries.user_id IS NULL
+      AND users.account_id = entries.account_id
+      AND users.is_active = TRUE
+      AND LOWER(users.display_name) = LOWER(entries.user_name)
+  `;
   await sql`
     UPDATE entries
     SET project_id = projects.id
@@ -1177,7 +1231,7 @@ async function ensureSchema(sql) {
       users.id,
       NOW()
     FROM entries
-    JOIN users ON LOWER(users.display_name) = LOWER(entries.user_name)
+    JOIN users ON (users.id = entries.user_id OR LOWER(users.display_name) = LOWER(entries.user_name))
     JOIN clients ON LOWER(clients.name) = LOWER(entries.client_name)
     JOIN projects ON projects.client_id = clients.id
       AND LOWER(projects.name) = LOWER(entries.project_name)
@@ -1872,6 +1926,30 @@ async function createUserRecord(sql, payload) {
   if (existingDisplayName[0]) {
     throw new Error("That team member name already exists.");
   }
+  if (employeeId) {
+    const existingEmployeeId = await sql`
+      SELECT id
+      FROM users
+      WHERE LOWER(employee_id) = LOWER(${employeeId})
+        AND is_active = TRUE
+        AND account_id = ${accountUuid}::uuid
+      LIMIT 1
+    `;
+    if (existingEmployeeId[0]) {
+      throw new Error("That employee ID already exists.");
+    }
+  }
+  const existingEmail = await sql`
+    SELECT id
+    FROM users
+    WHERE LOWER(email) = LOWER(${email})
+      AND is_active = TRUE
+      AND account_id = ${accountUuid}::uuid
+    LIMIT 1
+  `;
+  if (existingEmail[0]) {
+    throw new Error("That email already exists.");
+  }
 
   const now = new Date().toISOString();
 
@@ -2137,6 +2215,32 @@ async function updateUserRecord(sql, payload, actingUser) {
   `;
   if (duplicateDisplayName[0]) {
     throw new Error("That team member name already exists.");
+  }
+  if (employeeId) {
+    const duplicateEmployeeId = await sql`
+      SELECT id
+      FROM users
+      WHERE LOWER(employee_id) = LOWER(${employeeId})
+        AND id <> ${existingUser.id}
+        AND is_active = TRUE
+        AND account_id = ${existingUser.account_id}::uuid
+      LIMIT 1
+    `;
+    if (duplicateEmployeeId[0]) {
+      throw new Error("That employee ID already exists.");
+    }
+  }
+  const duplicateEmail = await sql`
+    SELECT id
+    FROM users
+    WHERE LOWER(email) = LOWER(${email})
+      AND id <> ${existingUser.id}
+      AND is_active = TRUE
+      AND account_id = ${existingUser.account_id}::uuid
+    LIMIT 1
+  `;
+  if (duplicateEmail[0]) {
+    throw new Error("That email already exists.");
   }
   if (baseRate !== null && !(Number.isFinite(baseRate) && baseRate >= 0)) {
     throw new Error("Base rate must be a non-negative number.");
@@ -4177,7 +4281,7 @@ async function loadState(sql, currentUser) {
         entries.updated_at AS "updatedAt"
       FROM entries
       LEFT JOIN users u
-        ON LOWER(u.display_name) = LOWER(entries.user_name)
+        ON (u.id = entries.user_id OR LOWER(u.display_name) = LOWER(entries.user_name))
        AND u.account_id = ${accountUuid}::uuid
       LEFT JOIN clients
         ON LOWER(clients.name) = LOWER(entries.client_name)
@@ -4246,7 +4350,7 @@ async function loadState(sql, currentUser) {
         LEFT JOIN corporate_function_groups cfg
           ON cfg.id = cfc.group_id
          AND cfg.account_id = ${accountUuid}::uuid
-        JOIN users ON LOWER(users.display_name) = LOWER(entries.user_name)
+        JOIN users ON (users.id = entries.user_id OR LOWER(users.display_name) = LOWER(entries.user_name))
         LEFT JOIN level_labels manager_entry_levels
           ON manager_entry_levels.account_id = users.account_id
          AND manager_entry_levels.level = users.level
@@ -4299,7 +4403,7 @@ async function loadState(sql, currentUser) {
         entries.updated_at AS "updatedAt"
       FROM entries
       LEFT JOIN users u
-        ON LOWER(u.display_name) = LOWER(entries.user_name)
+        ON (u.id = entries.user_id OR LOWER(u.display_name) = LOWER(entries.user_name))
        AND u.account_id = ${accountUuid}::uuid
       LEFT JOIN clients
         ON LOWER(clients.name) = LOWER(entries.client_name)
@@ -4317,7 +4421,7 @@ async function loadState(sql, currentUser) {
       LEFT JOIN corporate_function_groups cfg
         ON cfg.id = cfc.group_id
        AND cfg.account_id = ${accountUuid}::uuid
-      WHERE entries.user_name = ${normalizedUser.displayName}
+      WHERE (entries.user_id = ${normalizedUser.id} OR entries.user_name = ${normalizedUser.displayName})
         AND entries.account_id = ${accountUuid}::uuid
         AND entries.deleted_at IS NULL
       ORDER BY entries.entry_date DESC, entries.created_at DESC
@@ -4382,7 +4486,7 @@ async function loadState(sql, currentUser) {
           entries.updated_at AS "updatedAt"
         FROM entries
         LEFT JOIN users u
-          ON LOWER(u.display_name) = LOWER(entries.user_name)
+          ON (u.id = entries.user_id OR LOWER(u.display_name) = LOWER(entries.user_name))
          AND u.account_id = ${accountUuid}::uuid
         LEFT JOIN clients
           ON LOWER(clients.name) = LOWER(entries.client_name)
@@ -4432,7 +4536,7 @@ async function loadState(sql, currentUser) {
             entries.updated_at AS "updatedAt"
           FROM entries
           JOIN users u
-            ON LOWER(u.display_name) = LOWER(entries.user_name)
+            ON (u.id = entries.user_id OR LOWER(u.display_name) = LOWER(entries.user_name))
            AND u.account_id = ${accountUuid}::uuid
           LEFT JOIN clients
             ON LOWER(clients.name) = LOWER(entries.client_name)
@@ -4508,7 +4612,7 @@ async function loadState(sql, currentUser) {
             LEFT JOIN corporate_function_groups cfg
               ON cfg.id = cfc.group_id
              AND cfg.account_id = ${accountUuid}::uuid
-            JOIN users ON LOWER(users.display_name) = LOWER(entries.user_name)
+            JOIN users ON (users.id = entries.user_id OR LOWER(users.display_name) = LOWER(entries.user_name))
             LEFT JOIN level_labels delegated_entry_levels
               ON delegated_entry_levels.account_id = users.account_id
              AND delegated_entry_levels.level = users.level

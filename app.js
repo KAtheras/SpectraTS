@@ -2178,6 +2178,7 @@
 
     memberEditorTitle.textContent = mode === "create" ? "Add member" : (isSelfProfileMode ? "Edit profile" : "Edit member");
     memberEditorSubmit.textContent = mode === "create" ? "Add member" : (isSelfProfileMode ? "Save profile" : "Save changes");
+    memberEditorSubmit.disabled = false;
     const identitySection = memberEditorForm.querySelector('[data-member-editor-section="identity"]');
     const orgSection = memberEditorForm.querySelector('[data-member-editor-section="org"]');
     const ratesSection = memberEditorForm.querySelector('[data-member-editor-section="rates"]');

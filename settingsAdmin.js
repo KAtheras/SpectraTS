@@ -1999,6 +1999,7 @@
         }
         if (kind === "members") {
           const userId = `${item.user_id || ""}`.trim();
+          const employeeId = `${item.employee_id || ""}`.trim();
           const firstName = `${item.first_name || ""}`.trim();
           const lastName = `${item.last_name || ""}`.trim();
           const email = `${item.email || ""}`.trim();
@@ -2017,6 +2018,8 @@
             null;
           const matchedUserByUserId =
             users.find((user) => `${user?.username || ""}`.trim().toLowerCase() === userId.toLowerCase()) || null;
+          const matchedUserByEmployeeId =
+            users.find((user) => `${user?.employeeId || ""}`.trim().toLowerCase() === employeeId.toLowerCase()) || null;
           const matchedUserByEmail =
             users.find((user) => `${user?.email || ""}`.trim().toLowerCase() === email.toLowerCase()) || null;
           const matchedUser = matchedUserByUserId || null;
@@ -2025,6 +2028,10 @@
             rowStatus = "Invalid";
             rowErrors.push("User ID is required.");
           }
+          if (!employeeId) {
+            rowStatus = "Invalid";
+            rowErrors.push("Member ID is required.");
+          }
           if (!firstName || !lastName) {
             rowStatus = "Invalid";
             rowErrors.push("First name and last name are required.");
@@ -2032,6 +2039,18 @@
           if (!email || !email.includes("@")) {
             rowStatus = "Invalid";
             rowErrors.push("Valid email is required.");
+          }
+          if (!matchedUserByUserId && matchedUserByEmployeeId) {
+            rowStatus = "Invalid";
+            rowErrors.push("Member ID already exists under a different User ID.");
+          }
+          if (
+            matchedUserByUserId &&
+            matchedUserByEmployeeId &&
+            `${matchedUserByUserId.id || ""}`.trim() !== `${matchedUserByEmployeeId.id || ""}`.trim()
+          ) {
+            rowStatus = "Invalid";
+            rowErrors.push("User ID and Member ID resolve to different members.");
           }
           if (!matchedUserByUserId && matchedUserByEmail) {
             rowStatus = "Invalid";
@@ -2090,6 +2109,18 @@
           if (!key || (seen.get(key) || 0) <= 1) return;
           item.status = "Invalid";
           item.error = `${item.error ? `${item.error} ` : ""}Duplicate user_id in upload.`.trim();
+        });
+        const seenEmployee = new Map();
+        objects.forEach((item) => {
+          const key = `${item?.employee_id || ""}`.trim().toLowerCase();
+          if (!key) return;
+          seenEmployee.set(key, (seenEmployee.get(key) || 0) + 1);
+        });
+        objects.forEach((item) => {
+          const key = `${item?.employee_id || ""}`.trim().toLowerCase();
+          if (!key || (seenEmployee.get(key) || 0) <= 1) return;
+          item.status = "Invalid";
+          item.error = `${item.error ? `${item.error} ` : ""}Duplicate employee_id in upload.`.trim();
         });
       }
       return { headers, objects };
@@ -2556,7 +2587,7 @@
         try {
           const displayName = `${row._resolvedDisplayName || ""}`.trim();
           const username = `${row.user_id || ""}`.trim();
-          const employeeId = `${row.employee_id || ""}`.trim() || username;
+          const employeeId = `${row.employee_id || ""}`.trim();
           const email = `${row.email || ""}`.trim();
           const level = Number(row._resolvedLevel);
           const officeId = `${row._resolvedOfficeId || ""}`.trim() || null;
