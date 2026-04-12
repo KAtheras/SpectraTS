@@ -1616,6 +1616,7 @@
     const timeInput = panel.querySelector("#bulk-upload-time-file");
     const expensesInput = panel.querySelector("#bulk-upload-expenses-file");
     const membersInput = panel.querySelector("#bulk-upload-members-file");
+    const bulkUploadRows = panel.querySelector("#bulk-upload-rows");
     const preview = panel.querySelector("#bulk-upload-preview");
     const descriptionEl = panel.querySelector("#bulk-upload-description");
     const selectedFileLabel = panel.querySelector("#bulk-upload-selected-file");
@@ -1632,6 +1633,18 @@
     let latestImportSummary = null;
     let latestRenderedPreview = { headers: [], objects: [], kind: "" };
     let expandedIssueRows = new Set();
+
+    const placePreviewUnderKind = function (kind) {
+      if (!preview || !bulkUploadRows) return;
+      const targetRow = bulkUploadRows.querySelector(`[data-bulk-upload-kind="${kind}"]`);
+      if (!targetRow) return;
+      if (preview.parentElement !== bulkUploadRows) {
+        bulkUploadRows.appendChild(preview);
+      }
+      const nextSibling = targetRow.nextElementSibling;
+      if (nextSibling === preview) return;
+      bulkUploadRows.insertBefore(preview, nextSibling || null);
+    };
 
     const formatRowCount = function (count, singular, plural) {
       const qty = Number(count) || 0;
@@ -2646,6 +2659,7 @@
       if (!file || !preview || !selectedFileLabel) return;
       showError("");
       previewKind = kind;
+      placePreviewUnderKind(kind);
       latestPreviewPayload = null;
       latestImportSummary = null;
       setRejectedRows([], kind);
