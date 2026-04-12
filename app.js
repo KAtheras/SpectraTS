@@ -2683,6 +2683,7 @@
     lastExpenseDeleteUndo: null,
     deletedEntries: [],
     deletedExpenses: [],
+    deletedItemsView: "time", // "time" | "expense" | "all"
     deletedSelectionMode: false,
     selectedDeletedKeys: new Set(),
     deletedItemsLoading: false,
@@ -3450,6 +3451,7 @@
     state.lastExpenseDeleteUndo = null;
     state.deletedEntries = [];
     state.deletedExpenses = [];
+    state.deletedItemsView = "time";
     state.deletedSelectionMode = false;
     state.selectedDeletedKeys = new Set();
     state.deletedItemsLoading = false;
@@ -4019,6 +4021,7 @@
       if (row) merged.push({ ...row });
     }
     state.entries = merged;
+    removeDeletedRowsFromState("time", ids);
     state.lastTimeDeleteUndo = null;
     feedback("Time entries restored.", false);
     render();
@@ -4069,6 +4072,7 @@
       rows: deletedRows.map((row) => ({ ...row })),
       count,
     };
+    addDeletedRowsToState("time", deletedRows);
     syncEntriesUndoUi();
     feedback("", false);
     render();
@@ -4162,6 +4166,7 @@
       if (row) merged.push({ ...row });
     }
     state.expenses = merged;
+    removeDeletedRowsFromState("expense", ids);
     state.lastExpenseDeleteUndo = null;
     feedback("Expenses restored.", false);
     render();
@@ -4212,6 +4217,7 @@
       rows: deletedRows.map((row) => ({ ...row })),
       count,
     };
+    addDeletedRowsToState("expense", deletedRows);
     syncEntriesUndoUi();
     feedback("", false);
     render();
@@ -4224,6 +4230,12 @@
   }
 
   function combinedDeletedItems() {
+    const deletedItemsView =
+      state.deletedItemsView === "expense"
+        ? "expense"
+        : state.deletedItemsView === "all"
+        ? "all"
+        : "time";
     const timeItems = (state.deletedEntries || []).map((item) => ({
       ...item,
       itemType: "time",
@@ -4234,7 +4246,13 @@
       itemType: "expense",
       itemId: `${item?.id || ""}`.trim(),
     }));
-    return [...timeItems, ...expenseItems].sort((a, b) => {
+    const merged =
+      deletedItemsView === "expense"
+        ? expenseItems
+        : deletedItemsView === "all"
+        ? [...timeItems, ...expenseItems]
+        : timeItems;
+    return merged.sort((a, b) => {
       const left = `${a?.deletedAt || ""}`;
       const right = `${b?.deletedAt || ""}`;
       if (left === right) {
@@ -4242,6 +4260,69 @@
       }
       return right.localeCompare(left);
     });
+  }
+
+  function addDeletedRowsToState(itemType, rows) {
+    const list = Array.isArray(rows) ? rows.filter(Boolean) : [];
+    if (!list.length) return;
+    const nowIso = new Date().toISOString();
+    if (itemType === "time") {
+      const existing = Array.isArray(state.deletedEntries) ? state.deletedEntries : [];
+      const nextMap = new Map();
+      list.forEach((row) => {
+        const id = `${row?.id || ""}`.trim();
+        if (!id) return;
+        nextMap.set(id, {
+          ...row,
+          deletedAt: row?.deletedAt || row?.deleted_at || nowIso,
+        });
+      });
+      existing.forEach((row) => {
+        const id = `${row?.id || ""}`.trim();
+        if (!id || nextMap.has(id)) return;
+        nextMap.set(id, row);
+      });
+      state.deletedEntries = Array.from(nextMap.values());
+      return;
+    }
+    if (itemType === "expense") {
+      const existing = Array.isArray(state.deletedExpenses) ? state.deletedExpenses : [];
+      const nextMap = new Map();
+      list.forEach((row) => {
+        const id = `${row?.id || ""}`.trim();
+        if (!id) return;
+        nextMap.set(id, {
+          ...row,
+          deletedAt: row?.deletedAt || row?.deleted_at || nowIso,
+        });
+      });
+      existing.forEach((row) => {
+        const id = `${row?.id || ""}`.trim();
+        if (!id || nextMap.has(id)) return;
+        nextMap.set(id, row);
+      });
+      state.deletedExpenses = Array.from(nextMap.values());
+    }
+  }
+
+  function removeDeletedRowsFromState(itemType, ids) {
+    const idSet = new Set(
+      (Array.isArray(ids) ? ids : [])
+        .map((id) => `${id || ""}`.trim())
+        .filter(Boolean)
+    );
+    if (!idSet.size) return;
+    if (itemType === "time") {
+      state.deletedEntries = (state.deletedEntries || []).filter(
+        (row) => !idSet.has(`${row?.id || ""}`.trim())
+      );
+      return;
+    }
+    if (itemType === "expense") {
+      state.deletedExpenses = (state.deletedExpenses || []).filter(
+        (row) => !idSet.has(`${row?.id || ""}`.trim())
+      );
+    }
   }
 
   async function loadDeletedItems() {
@@ -9421,6 +9502,13 @@
         }
         syncEntriesSelectionControls([]);
         syncExpenseSelectionControls([]);
+        if (!state.deletedItemsLoading && !state.deletedEntries.length && !state.deletedExpenses.length) {
+          loadDeletedItems().then(function () {
+            if (state.currentView === "entries" && state.entriesSubtab === "deleted") {
+              render();
+            }
+          });
+        }
         renderDeletedItemsTable();
       } else {
         if (state.expensesSelectionMode) {
@@ -10131,6 +10219,9 @@
   if (refs.entriesSwitchDeletedFromTime) {
     refs.entriesSwitchDeletedFromTime.addEventListener("click", async function () {
       state.entriesSubtab = "deleted";
+      state.deletedItemsView = "time";
+      state.deletedSelectionMode = false;
+      state.selectedDeletedKeys = new Set();
       await loadDeletedItems();
       render();
     });
@@ -10138,6 +10229,9 @@
   if (refs.entriesSwitchDeletedFromExpenses) {
     refs.entriesSwitchDeletedFromExpenses.addEventListener("click", async function () {
       state.entriesSubtab = "deleted";
+      state.deletedItemsView = "expense";
+      state.deletedSelectionMode = false;
+      state.selectedDeletedKeys = new Set();
       await loadDeletedItems();
       render();
     });
@@ -10768,6 +10862,7 @@
         rows: deletedRows.map((row) => ({ ...row })),
         count: 1,
       };
+      addDeletedRowsToState("expense", deletedRows);
       syncEntriesUndoUi();
       feedback("", false);
       render();
@@ -12751,6 +12846,7 @@
         rows: deletedRows.map((row) => ({ ...row })),
         count: 1,
       };
+      addDeletedRowsToState("time", deletedRows);
       syncEntriesUndoUi();
       if (state.editingId === id) {
         resetForm();
