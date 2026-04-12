@@ -493,6 +493,9 @@
     filterTotalHours: document.getElementById("filter-total-hours"),
     feedback: document.getElementById("feedback"),
     activeFilters: document.getElementById("active-filters"),
+    entriesUndoBar: document.getElementById("entries-undo-bar"),
+    entriesUndoMessage: document.getElementById("entries-undo-message"),
+    entriesUndoAction: document.getElementById("entries-undo-action"),
     entriesBody: document.getElementById("entries-body"),
     expensesBody: document.getElementById("expenses-body"),
     clientList: document.getElementById("client-list"),
@@ -525,6 +528,9 @@
     expensesSelectAllVisible: document.getElementById("expenses-select-all-visible"),
     expenseFilterTotal: document.getElementById("expense-filter-total"),
     expenseActiveFilters: document.getElementById("expense-active-filters"),
+    expensesUndoBar: document.getElementById("expenses-undo-bar"),
+    expensesUndoMessage: document.getElementById("expenses-undo-message"),
+    expensesUndoAction: document.getElementById("expenses-undo-action"),
     expenseFilterUser: document.getElementById("expense-filter-user"),
     expenseFilterClient: document.getElementById("expense-filter-client"),
     expenseFilterProject: document.getElementById("expense-filter-project"),
@@ -2662,6 +2668,8 @@
     selectedEntryIds: new Set(),
     expensesSelectionMode: false,
     selectedExpenseIds: new Set(),
+    lastTimeDeleteUndo: null,
+    lastExpenseDeleteUndo: null,
     delegators: [],
     myDelegations: [],
     delegationCandidates: [],
@@ -3422,6 +3430,8 @@
     state.selectedEntryIds = new Set();
     state.expensesSelectionMode = false;
     state.selectedExpenseIds = new Set();
+    state.lastTimeDeleteUndo = null;
+    state.lastExpenseDeleteUndo = null;
     state.levelLabels = {};
     state.officeLocations = [];
     state.expenseCategories = [];
@@ -3933,6 +3943,66 @@
     }
   }
 
+  function syncEntriesUndoUi() {
+    const timeUndo = state.lastTimeDeleteUndo;
+    const expenseUndo = state.lastExpenseDeleteUndo;
+
+    if (refs.entriesUndoBar && refs.entriesUndoMessage) {
+      if (timeUndo && Array.isArray(timeUndo.ids) && timeUndo.ids.length) {
+        const count = Number(timeUndo.count || timeUndo.ids.length) || 0;
+        refs.entriesUndoMessage.textContent =
+          `Deleted ${count} time entr${count === 1 ? "y" : "ies"}.`;
+        refs.entriesUndoBar.hidden = false;
+      } else {
+        refs.entriesUndoMessage.textContent = "";
+        refs.entriesUndoBar.hidden = true;
+      }
+    }
+
+    if (refs.expensesUndoBar && refs.expensesUndoMessage) {
+      if (expenseUndo && Array.isArray(expenseUndo.ids) && expenseUndo.ids.length) {
+        const count = Number(expenseUndo.count || expenseUndo.ids.length) || 0;
+        refs.expensesUndoMessage.textContent =
+          `Deleted ${count} expense${count === 1 ? "" : "s"}.`;
+        refs.expensesUndoBar.hidden = false;
+      } else {
+        refs.expensesUndoMessage.textContent = "";
+        refs.expensesUndoBar.hidden = true;
+      }
+    }
+  }
+
+  async function undoDeletedEntries() {
+    const undo = state.lastTimeDeleteUndo;
+    const ids = Array.isArray(undo?.ids) ? undo.ids : [];
+    const rows = Array.isArray(undo?.rows) ? undo.rows : [];
+    if (!ids.length) return;
+    try {
+      await mutatePersistentState(
+        "restore_entries",
+        { entryIds: ids },
+        { skipHydrate: true, refreshState: false, returnState: false }
+      );
+    } catch (error) {
+      feedback(error.message || "Unable to undo deleted time entries.", true);
+      return;
+    }
+
+    const restoredById = new Map(rows.map((row) => [`${row?.id || ""}`.trim(), row]));
+    const existing = Array.isArray(state.entries) ? state.entries.slice() : [];
+    const existingIds = new Set(existing.map((row) => `${row?.id || ""}`.trim()).filter(Boolean));
+    const merged = existing.slice();
+    for (const id of ids) {
+      if (!id || existingIds.has(id)) continue;
+      const row = restoredById.get(id);
+      if (row) merged.push({ ...row });
+    }
+    state.entries = merged;
+    state.lastTimeDeleteUndo = null;
+    feedback("Time entries restored.", false);
+    render();
+  }
+
   async function deleteSelectedEntries() {
     const visibleIds = visibleEntryIds();
     const selectedIds = selectedVisibleEntryIds(visibleIds);
@@ -3963,6 +4033,9 @@
     }
 
     const deletedSet = new Set(selectedIds);
+    const deletedRows = (state.entries || []).filter((entry) =>
+      deletedSet.has(`${entry?.id || ""}`.trim())
+    );
     state.entries = (state.entries || []).filter(
       (entry) => !deletedSet.has(`${entry?.id || ""}`.trim())
     );
@@ -3970,10 +4043,13 @@
       resetForm();
     }
     setEntriesSelectionMode(false);
-    feedback(
-      `Deleted ${count} entr${count === 1 ? "y" : "ies"}.`,
-      false
-    );
+    state.lastTimeDeleteUndo = {
+      ids: selectedIds.slice(),
+      rows: deletedRows.map((row) => ({ ...row })),
+      count,
+    };
+    syncEntriesUndoUi();
+    feedback("", false);
     render();
   }
 
@@ -4039,6 +4115,37 @@
     }
   }
 
+  async function undoDeletedExpenses() {
+    const undo = state.lastExpenseDeleteUndo;
+    const ids = Array.isArray(undo?.ids) ? undo.ids : [];
+    const rows = Array.isArray(undo?.rows) ? undo.rows : [];
+    if (!ids.length) return;
+    try {
+      await mutatePersistentState(
+        "restore_expenses",
+        { expenseIds: ids },
+        { skipHydrate: true, refreshState: false, returnState: false }
+      );
+    } catch (error) {
+      feedback(error.message || "Unable to undo deleted expenses.", true);
+      return;
+    }
+
+    const restoredById = new Map(rows.map((row) => [`${row?.id || ""}`.trim(), row]));
+    const existing = Array.isArray(state.expenses) ? state.expenses.slice() : [];
+    const existingIds = new Set(existing.map((row) => `${row?.id || ""}`.trim()).filter(Boolean));
+    const merged = existing.slice();
+    for (const id of ids) {
+      if (!id || existingIds.has(id)) continue;
+      const row = restoredById.get(id);
+      if (row) merged.push({ ...row });
+    }
+    state.expenses = merged;
+    state.lastExpenseDeleteUndo = null;
+    feedback("Expenses restored.", false);
+    render();
+  }
+
   async function deleteSelectedExpenses() {
     const visibleIds = visibleExpenseIds();
     const selectedIds = selectedVisibleExpenseIds(visibleIds);
@@ -4069,6 +4176,9 @@
     }
 
     const deletedSet = new Set(selectedIds);
+    const deletedRows = (state.expenses || []).filter((expense) =>
+      deletedSet.has(`${expense?.id || ""}`.trim())
+    );
     state.expenses = (state.expenses || []).filter(
       (expense) => !deletedSet.has(`${expense?.id || ""}`.trim())
     );
@@ -4076,10 +4186,13 @@
       resetExpenseForm();
     }
     setExpensesSelectionMode(false);
-    feedback(
-      `Deleted ${count} expense${count === 1 ? "" : "s"}.`,
-      false
-    );
+    state.lastExpenseDeleteUndo = {
+      ids: selectedIds.slice(),
+      rows: deletedRows.map((row) => ({ ...row })),
+      count,
+    };
+    syncEntriesUndoUi();
+    feedback("", false);
     render();
   }
 
@@ -9027,6 +9140,7 @@
         renderExpenses(filteredExpenses);
         syncExpenseSelectionControls(filteredExpenses);
         renderExpenseFilterState(filteredExpenses);
+        syncEntriesUndoUi();
       } else {
         if (state.expensesSelectionMode) {
           setExpensesSelectionMode(false);
@@ -9038,6 +9152,7 @@
         renderFilterState(filteredEntries);
         renderTable(filteredEntries);
         syncEntriesSelectionControls(filteredEntries);
+        syncEntriesUndoUi();
       }
       postHeight();
       return;
@@ -9756,6 +9871,11 @@
       await deleteSelectedEntries();
     });
   }
+  if (refs.entriesUndoAction) {
+    refs.entriesUndoAction.addEventListener("click", async function () {
+      await undoDeletedEntries();
+    });
+  }
   if (refs.entriesSelectAllVisible) {
     refs.entriesSelectAllVisible.addEventListener("change", function (event) {
       if (!state.entriesSelectionMode) return;
@@ -9780,6 +9900,11 @@
   if (refs.expensesDeleteSelected) {
     refs.expensesDeleteSelected.addEventListener("click", async function () {
       await deleteSelectedExpenses();
+    });
+  }
+  if (refs.expensesUndoAction) {
+    refs.expensesUndoAction.addEventListener("click", async function () {
+      await undoDeletedExpenses();
     });
   }
   if (refs.expensesSelectAllVisible) {
@@ -10282,11 +10407,29 @@
       const confirmed = window.confirm("Delete this expense?");
       if (!confirmed) return;
       try {
-        await mutatePersistentState("delete_expense", { id });
-        feedback("Expense deleted.", false);
+        await mutatePersistentState(
+          "delete_expense",
+          { id },
+          { skipHydrate: true, refreshState: false, returnState: false }
+        );
       } catch (err) {
         feedback(err.message || "Unable to delete expense.", true);
+        return;
       }
+      const deletedRows = (state.expenses || []).filter(
+        (item) => `${item?.id || ""}`.trim() === `${id || ""}`.trim()
+      );
+      state.expenses = (state.expenses || []).filter(
+        (item) => `${item?.id || ""}`.trim() !== `${id || ""}`.trim()
+      );
+      state.lastExpenseDeleteUndo = {
+        ids: [`${id || ""}`.trim()].filter(Boolean),
+        rows: deletedRows.map((row) => ({ ...row })),
+        count: 1,
+      };
+      syncEntriesUndoUi();
+      feedback("", false);
+      render();
       return;
     }
 
@@ -12201,16 +12344,32 @@
       }
 
       try {
-        await mutatePersistentState("delete_entry", { id });
+        await mutatePersistentState(
+          "delete_entry",
+          { id },
+          { skipHydrate: true, refreshState: false, returnState: false }
+        );
       } catch (error) {
         feedback(error.message || "Unable to delete entry.", true);
         return;
       }
 
+      const deletedRows = (state.entries || []).filter(
+        (item) => `${item?.id || ""}`.trim() === `${id || ""}`.trim()
+      );
+      state.entries = (state.entries || []).filter(
+        (item) => `${item?.id || ""}`.trim() !== `${id || ""}`.trim()
+      );
+      state.lastTimeDeleteUndo = {
+        ids: [`${id || ""}`.trim()].filter(Boolean),
+        rows: deletedRows.map((row) => ({ ...row })),
+        count: 1,
+      };
+      syncEntriesUndoUi();
       if (state.editingId === id) {
         resetForm();
       }
-      feedback("Entry deleted.", false);
+      feedback("", false);
       render();
     }
   });

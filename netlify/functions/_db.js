@@ -826,6 +826,8 @@ async function ensureSchema(sql) {
       status TEXT NOT NULL DEFAULT 'pending',
       approved_at TIMESTAMPTZ,
       approved_by_user_id TEXT REFERENCES users(id),
+      deleted_at TIMESTAMPTZ,
+      deleted_by_user_id TEXT REFERENCES users(id),
       account_id UUID REFERENCES accounts(id),
       created_at TIMESTAMPTZ NOT NULL,
       updated_at TIMESTAMPTZ NOT NULL
@@ -840,6 +842,8 @@ async function ensureSchema(sql) {
   await sql`ALTER TABLE entries ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'pending'`;
   await sql`ALTER TABLE entries ADD COLUMN IF NOT EXISTS approved_at TIMESTAMPTZ`;
   await sql`ALTER TABLE entries ADD COLUMN IF NOT EXISTS approved_by_user_id TEXT REFERENCES users(id)`;
+  await sql`ALTER TABLE entries ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`;
+  await sql`ALTER TABLE entries ADD COLUMN IF NOT EXISTS deleted_by_user_id TEXT REFERENCES users(id)`;
   await sql`ALTER TABLE entries ADD COLUMN IF NOT EXISTS project_id BIGINT REFERENCES projects(id) ON DELETE SET NULL`;
   await sql`ALTER TABLE entries ADD COLUMN IF NOT EXISTS charge_center_id TEXT REFERENCES corporate_function_categories(id) ON DELETE SET NULL`;
   await sql`CREATE INDEX IF NOT EXISTS entries_account_project_idx ON entries(account_id, project_id)`;
@@ -961,10 +965,14 @@ async function ensureSchema(sql) {
       notes TEXT,
       status TEXT NOT NULL DEFAULT 'pending',
       approved_at TEXT,
+      deleted_at TIMESTAMPTZ,
+      deleted_by_user_id TEXT REFERENCES users(id),
       created_at TEXT,
       updated_at TEXT
     )
   `;
+  await sql`ALTER TABLE expenses ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`;
+  await sql`ALTER TABLE expenses ADD COLUMN IF NOT EXISTS deleted_by_user_id TEXT REFERENCES users(id)`;
   await sql`
     CREATE INDEX IF NOT EXISTS expense_categories_account_idx
       ON expense_categories(account_uuid)
@@ -4188,6 +4196,7 @@ async function loadState(sql, currentUser) {
         ON cfg.id = cfc.group_id
        AND cfg.account_id = ${accountUuid}::uuid
       WHERE entries.account_id = ${accountUuid}::uuid
+        AND entries.deleted_at IS NULL
       ORDER BY entries.entry_date DESC, entries.created_at DESC
     `;
   } else if (isManagerFlag) {
@@ -4260,6 +4269,7 @@ async function loadState(sql, currentUser) {
             OR users.id = ${normalizedUser.id}
           )
           AND entries.account_id = ${accountUuid}::uuid
+          AND entries.deleted_at IS NULL
         ORDER BY entries.id, entries.entry_date DESC, entries.created_at DESC
       `;
   } else if (normalizedUser && isStaffFlag) {
@@ -4309,6 +4319,7 @@ async function loadState(sql, currentUser) {
        AND cfg.account_id = ${accountUuid}::uuid
       WHERE entries.user_name = ${normalizedUser.displayName}
         AND entries.account_id = ${accountUuid}::uuid
+        AND entries.deleted_at IS NULL
       ORDER BY entries.entry_date DESC, entries.created_at DESC
     `;
   }
@@ -4390,6 +4401,7 @@ async function loadState(sql, currentUser) {
           ON cfg.id = cfc.group_id
          AND cfg.account_id = ${accountUuid}::uuid
         WHERE entries.account_id = ${accountUuid}::uuid
+          AND entries.deleted_at IS NULL
       `;
       delegatedEntryRows.push(...rows);
     } else {
@@ -4439,6 +4451,7 @@ async function loadState(sql, currentUser) {
             ON cfg.id = cfc.group_id
            AND cfg.account_id = ${accountUuid}::uuid
           WHERE entries.account_id = ${accountUuid}::uuid
+            AND entries.deleted_at IS NULL
             AND u.id = ANY(${delegatorSelfOnlyIds})
         `;
         delegatedEntryRows.push(...rows);
@@ -4500,6 +4513,7 @@ async function loadState(sql, currentUser) {
               ON delegated_entry_levels.account_id = users.account_id
              AND delegated_entry_levels.level = users.level
             WHERE entries.account_id = ${accountUuid}::uuid
+              AND entries.deleted_at IS NULL
               AND (
                 projects.id = ANY(${scopedDelegatorProjectIds})
                 OR (
@@ -4563,6 +4577,7 @@ async function loadState(sql, currentUser) {
         updated_at AS "updatedAt"
       FROM expenses
       WHERE account_id = ${accountUuid}::uuid
+        AND deleted_at IS NULL
       ORDER BY expense_date DESC, created_at DESC NULLS LAST
     `;
   } else if (isManagerFlag) {
@@ -4588,6 +4603,7 @@ async function loadState(sql, currentUser) {
         JOIN projects ON projects.client_id = clients.id
           AND LOWER(projects.name) = LOWER(expenses.project_name)
         WHERE expenses.account_id = ${accountUuid}::uuid
+          AND expenses.deleted_at IS NULL
           AND projects.id = ANY(${scope.projectIds})
         ORDER BY expenses.expense_date DESC, expenses.created_at DESC NULLS LAST
       `;
@@ -4610,6 +4626,7 @@ async function loadState(sql, currentUser) {
         updated_at AS "updatedAt"
       FROM expenses
       WHERE account_id = ${accountUuid}::uuid
+        AND deleted_at IS NULL
         AND user_id = ${normalizedUser.id}
       ORDER BY expense_date DESC, created_at DESC NULLS LAST
     `;
@@ -4664,6 +4681,7 @@ async function loadState(sql, currentUser) {
           updated_at AS "updatedAt"
         FROM expenses
         WHERE account_id = ${accountUuid}::uuid
+          AND deleted_at IS NULL
       `;
       delegatedExpenseRows.push(...rows);
     } else {
@@ -4685,6 +4703,7 @@ async function loadState(sql, currentUser) {
             updated_at AS "updatedAt"
           FROM expenses
           WHERE account_id = ${accountUuid}::uuid
+            AND deleted_at IS NULL
             AND user_id = ANY(${delegatorSelfOnlyIds})
         `;
         delegatedExpenseRows.push(...rows);
@@ -4719,6 +4738,7 @@ async function loadState(sql, currentUser) {
             JOIN projects ON projects.client_id = clients.id
               AND LOWER(projects.name) = LOWER(expenses.project_name)
             WHERE expenses.account_id = ${accountUuid}::uuid
+              AND expenses.deleted_at IS NULL
               AND projects.id = ANY(${scopeProjectIds})
           `;
           delegatedExpenseRows.push(...rows);

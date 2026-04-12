@@ -3082,6 +3082,7 @@ async function deleteExpense(sql, payload, currentUser, accountId) {
     FROM expenses
     WHERE id = ${id}
       AND account_id = ${accountId}::uuid
+      AND deleted_at IS NULL
     LIMIT 1
   `;
   const expense = rows[0];
@@ -3139,10 +3140,15 @@ async function deleteExpense(sql, payload, currentUser, accountId) {
     category: expense.category,
   });
 
+  const deletedAt = new Date().toISOString();
   await sql`
-    DELETE FROM expenses
+    UPDATE expenses
+    SET deleted_at = ${deletedAt},
+        deleted_by_user_id = ${currentUser.id},
+        updated_at = ${deletedAt}
     WHERE id = ${id}
       AND account_id = ${accountId}::uuid
+      AND deleted_at IS NULL
   `;
 
   await logAudit(sql, {
@@ -3180,6 +3186,28 @@ async function deleteExpensesBulk(sql, payload, currentUser, accountId) {
   }
 
   return { deletedCount: expenseIds.length };
+}
+
+async function restoreExpenses(sql, payload, currentUser, accountId) {
+  const expenseIdsRaw = Array.isArray(payload?.expenseIds) ? payload.expenseIds : [];
+  const expenseIds = Array.from(
+    new Set(expenseIdsRaw.map((value) => normalizeText(value)).filter(Boolean))
+  );
+  if (!expenseIds.length) {
+    return { restoredCount: 0 };
+  }
+  const restoredRows = await sql`
+    UPDATE expenses
+    SET deleted_at = NULL,
+        deleted_by_user_id = NULL,
+        updated_at = NOW()
+    WHERE id = ANY(${expenseIds})
+      AND account_id = ${accountId}::uuid
+      AND deleted_at IS NOT NULL
+      AND deleted_by_user_id = ${currentUser.id}
+    RETURNING id
+  `;
+  return { restoredCount: restoredRows.length };
 }
 
 async function toggleExpenseStatus(sql, payload, currentUser, accountId) {
@@ -4155,6 +4183,7 @@ async function approveEntry(sql, payload, currentUser, accountId) {
     FROM entries
     WHERE id = ${id}
       AND account_id = ${accountId}::uuid
+      AND deleted_at IS NULL
     LIMIT 1
   `;
   const entry = rows[0];
@@ -4454,7 +4483,16 @@ async function deleteEntry(sql, payload, currentUser, accountId) {
     status: entry.status,
   });
 
-  await sql`DELETE FROM entries WHERE id = ${id}`;
+  const deletedAt = new Date().toISOString();
+  await sql`
+    UPDATE entries
+    SET deleted_at = ${deletedAt},
+        deleted_by_user_id = ${currentUser.id},
+        updated_at = ${deletedAt}
+    WHERE id = ${id}
+      AND account_id = ${accountId}::uuid
+      AND deleted_at IS NULL
+  `;
 
   await logAudit(sql, {
     accountId,
@@ -4490,6 +4528,28 @@ async function deleteEntriesBulk(sql, payload, currentUser, accountId) {
   }
 
   return { deletedCount: entryIds.length };
+}
+
+async function restoreEntries(sql, payload, currentUser, accountId) {
+  const entryIdsRaw = Array.isArray(payload?.entryIds) ? payload.entryIds : [];
+  const entryIds = Array.from(
+    new Set(entryIdsRaw.map((value) => normalizeText(value)).filter(Boolean))
+  );
+  if (!entryIds.length) {
+    return { restoredCount: 0 };
+  }
+  const restoredRows = await sql`
+    UPDATE entries
+    SET deleted_at = NULL,
+        deleted_by_user_id = NULL,
+        updated_at = NOW()
+    WHERE id = ANY(${entryIds}::uuid[])
+      AND account_id = ${accountId}::uuid
+      AND deleted_at IS NOT NULL
+      AND deleted_by_user_id = ${currentUser.id}
+    RETURNING id
+  `;
+  return { restoredCount: restoredRows.length };
 }
 
 exports.handler = async function handler(event) {
@@ -5323,6 +5383,15 @@ exports.handler = async function handler(event) {
         );
         if (mutationResult?.statusCode) return mutationResult;
         break;
+      case "restore_entries":
+        mutationResult = await restoreEntries(
+          sql,
+          request.payload || {},
+          context.currentUser,
+          accountId
+        );
+        if (mutationResult?.statusCode) return mutationResult;
+        break;
       case "approve_entry":
         mutationResult = await approveEntry(
           sql,
@@ -5663,6 +5732,16 @@ exports.handler = async function handler(event) {
       }
       case "delete_expenses_bulk": {
         mutationResult = await deleteExpensesBulk(
+          sql,
+          request.payload || {},
+          context.currentUser,
+          accountId
+        );
+        if (mutationResult?.statusCode) return mutationResult;
+        break;
+      }
+      case "restore_expenses": {
+        mutationResult = await restoreExpenses(
           sql,
           request.payload || {},
           context.currentUser,
