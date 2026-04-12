@@ -350,6 +350,7 @@
       permissionGroupForUser,
       getUserById,
       canUserAccessProject,
+      canViewEntryByScope,
       isAdmin,
       effectiveScopeUser,
     } = deps();
@@ -367,6 +368,16 @@
       return canUserAccessProject(current, expense.clientName, expense.projectName);
     }
     if (currentGroup === "executive" || currentGroup === "admin") {
+      if (
+        typeof canViewEntryByScope === "function" &&
+        !canViewEntryByScope(current, {
+          userId: expense.userId,
+          client: expense.clientName,
+          project: expense.projectName,
+        })
+      ) {
+        return false;
+      }
       if (!isAdmin(current) && !canUserAccessProject(current, expense.clientName, expense.projectName)) {
         return false;
       }

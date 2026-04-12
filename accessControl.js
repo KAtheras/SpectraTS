@@ -479,7 +479,16 @@
       if (entryUserName) {
         const byName =
           (state.users || []).find(
-            (user) => normalizeText(user?.displayName).toLowerCase() === entryUserName
+            (user) => {
+              const displayName = normalizeText(user?.displayName).toLowerCase();
+              const username = normalizeText(user?.username).toLowerCase();
+              const email = normalizeText(user?.email).toLowerCase();
+              return (
+                displayName === entryUserName ||
+                username === entryUserName ||
+                email === entryUserName
+              );
+            }
           ) || null;
         if (byName) return byName;
       }
@@ -489,6 +498,38 @@
       return null;
     }
 
+    function findProjectByTuple(client, project) {
+      const normalizedClient = normalizeText(client).toLowerCase();
+      const normalizedProject = normalizeText(project).toLowerCase();
+      if (!normalizedClient || !normalizedProject) return null;
+      return (
+        (state.projects || []).find((item) => {
+          const clientName = normalizeText(item?.client).toLowerCase();
+          const projectName = normalizeText(item?.name || item?.project).toLowerCase();
+          return clientName === normalizedClient && projectName === normalizedProject;
+        }) || null
+      );
+    }
+
+    function findClientByName(client) {
+      const normalizedClient = normalizeText(client).toLowerCase();
+      if (!normalizedClient) return null;
+      return (
+        (state.clients || []).find((item) => normalizeText(item?.name).toLowerCase() === normalizedClient) ||
+        null
+      );
+    }
+
+    function officeIdForEntry(entry, targetUser) {
+      const userOffice = officeIdForUser(targetUser);
+      if (userOffice) return userOffice;
+      const project = findProjectByTuple(entry?.client, entry?.project);
+      const projectOffice = normalizeText(project?.officeId ?? project?.office_id);
+      if (projectOffice) return projectOffice;
+      const client = findClientByName(entry?.client);
+      return normalizeText(client?.officeId ?? client?.office_id);
+    }
+
     function canViewEntryByScope(scopeUser, entry) {
       if (!scopeUser || !entry) return false;
       const scopeRole = roleKey(scopeUser) || "staff";
@@ -496,21 +537,25 @@
       const isSelfEntry =
         Boolean(targetUser?.id) &&
         normalizeText(targetUser.id) === normalizeText(scopeUser.id);
+      if (isSelfEntry) {
+        return true;
+      }
 
       if (scopeRole === "superuser") {
         return true;
       }
       if (scopeRole === "admin") {
-        if (!targetUser) return false;
-        return isSameOffice(scopeUser, targetUser);
+        const scopeOffice = officeIdForUser(scopeUser);
+        const entryOffice = officeIdForEntry(entry, targetUser);
+        if (!scopeOffice || !entryOffice) return false;
+        return scopeOffice === entryOffice;
       }
       if (scopeRole === "partner" || scopeRole === "executive" || scopeRole === "manager") {
-        if (isSelfEntry) return true;
         if (entryIsInternal(entry)) return false;
         return canUserAccessProject(scopeUser, entry.client, entry.project);
       }
       if (scopeRole === "staff") {
-        return isSelfEntry;
+        return false;
       }
       return false;
     }
