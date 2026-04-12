@@ -359,6 +359,24 @@ async function ensureSchema(sql) {
   `;
   await sql`
     INSERT INTO role_permissions (role_id, capability_id, scope_id, allowed)
+    SELECT pr.id, pc.id, ps.id, TRUE
+    FROM permission_roles pr
+    JOIN permission_capabilities pc ON pc.key = 'see_office_clients_projects'
+    JOIN permission_scopes ps ON ps.key = 'own_office'
+    WHERE pr.key = 'admin'
+    ON CONFLICT (role_id, capability_id, scope_id) DO NOTHING
+  `;
+  await sql`
+    INSERT INTO role_permissions (role_id, capability_id, scope_id, allowed)
+    SELECT pr.id, pc.id, ps.id, TRUE
+    FROM permission_roles pr
+    JOIN permission_capabilities pc ON pc.key = 'see_office_clients_projects'
+    JOIN permission_scopes ps ON ps.key = 'all_offices'
+    WHERE pr.key = 'superuser'
+    ON CONFLICT (role_id, capability_id, scope_id) DO NOTHING
+  `;
+  await sql`
+    INSERT INTO role_permissions (role_id, capability_id, scope_id, allowed)
     SELECT rp.role_id, new_cap.id, rp.scope_id, rp.allowed
     FROM role_permissions rp
     JOIN permission_capabilities old_cap ON old_cap.id = rp.capability_id
