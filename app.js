@@ -2426,7 +2426,6 @@
           };
         });
         state.users = nextUsers;
-        closeMemberEditorModal();
         render();
 
         try {
@@ -2475,6 +2474,7 @@
           if (followUpMutations.length) {
             await Promise.all(followUpMutations);
           }
+          closeMemberEditorModal();
           feedback("Member updated.", false);
           refreshSettingsTabInBackground("rates");
         } catch (innerError) {
