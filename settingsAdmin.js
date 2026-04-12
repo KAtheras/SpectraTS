@@ -1719,7 +1719,7 @@
         const validCount = isPreviewKind ? previewValidRowCount() : 0;
         const noun = previewKind === "expenses" ? "Expense" : previewKind === "members" ? "Member" : "Time";
         importValidBtn.textContent = `Upload Valid ${noun} Rows`;
-        importValidBtn.hidden = !isPreviewKind;
+        importValidBtn.hidden = !isPreviewKind || validCount <= 0;
         importValidBtn.disabled = !isPreviewKind || validCount <= 0;
       }
       if (resultBar && resultText) {
