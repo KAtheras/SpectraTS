@@ -2045,7 +2045,6 @@
       const sourceHeaders = Array.isArray(headers) ? headers : [];
       const previewHeaders = [
         "status",
-        "error",
         ...sourceHeaders.filter((header) => header !== "status" && header !== "error"),
       ];
       if (!previewHeaders.length) {
@@ -2061,15 +2060,16 @@
       expandedIssueRows = new Set(
         Array.from(expandedIssueRows).filter((index) => invalidRowIndexes.has(index))
       );
-      const headHtml = previewHeaders
-        .map(
-          (header) =>
-            `<th style="padding:8px 10px;border:1px solid var(--group-border);text-align:left;white-space:nowrap;">${escapeHtml(
-              header
-            )}</th>`
-        )
-        .join("") +
-        `<th style="padding:8px 6px;border:1px solid var(--group-border);text-align:center;width:40px;min-width:40px;">!</th>`;
+      const headHtml =
+        `<th style="padding:8px 6px;border:1px solid var(--group-border);text-align:center;width:40px;min-width:40px;">!</th>` +
+        previewHeaders
+          .map(
+            (header) =>
+              `<th style="padding:8px 10px;border:1px solid var(--group-border);text-align:left;white-space:nowrap;">${escapeHtml(
+                header
+              )}</th>`
+          )
+          .join("");
       const formatPreviewValue = function (header, value) {
         if (header === "date") {
           return `${value || ""}`;
@@ -2093,9 +2093,6 @@
         }
         if (header === "status") {
           return value === "Invalid" ? "Invalid" : "Valid";
-        }
-        if (header === "error") {
-          return `${value || ""}`;
         }
         return `${value ?? ""}`;
       };
@@ -2130,14 +2127,14 @@
                       style="min-height:24px;height:24px;padding:0 6px;border-color:var(--danger);color:var(--danger);font-weight:700;line-height:1;"
                     >!</button>`
                   : "";
-                const baseRow = `<tr style="${isInvalid ? "background: color-mix(in srgb, var(--danger) 7%, transparent);" : ""}">${previewHeaders
+                const baseRow = `<tr style="${isInvalid ? "background: color-mix(in srgb, var(--danger) 7%, transparent);" : ""}"><td style="padding:6px;border:1px solid var(--group-border);text-align:center;">${issueCell}</td>${previewHeaders
                   .map(
                     (header) =>
                       `<td style="padding:8px 10px;border:1px solid var(--group-border);vertical-align:top;">${escapeHtml(
                         formatPreviewValue(header, row[header])
                       )}</td>`
                   )
-                  .join("")}<td style="padding:6px;border:1px solid var(--group-border);text-align:center;">${issueCell}</td></tr>`;
+                  .join("")}</tr>`;
                 if (!isExpanded) {
                   return baseRow;
                 }
@@ -2617,6 +2614,12 @@
       );
       if (importedCount > 0 && typeof deps().loadPersistentState === "function") {
         await deps().loadPersistentState();
+        if (deps().state?.currentView === "members") {
+          renderUsersList();
+          deps().syncUserManagementControls?.();
+        } else if (deps().state?.currentView === "settings" && activeSettingsTab === "rates") {
+          renderRatesRows();
+        }
       }
       if (openMembersBtn) openMembersBtn.disabled = false;
       updateBulkUploadUiState();
