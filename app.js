@@ -2967,6 +2967,10 @@
     return Boolean(state.permissions?.edit_projects_all_modal);
   }
 
+  function canEditProjectPlanningCapability() {
+    return Boolean(state.permissions?.edit_project_planning);
+  }
+
   function hasClientsTabAccess() {
     return Boolean(
       canSeeAllClientsProjects() ||
@@ -3004,6 +3008,7 @@
   function canEditProjectPlanning(clientName, projectName) {
     const project = findProjectRow(clientName, projectName);
     if (!project) return false;
+    if (canEditProjectPlanningCapability()) return true;
     return isCurrentUserProjectLead(project);
   }
 

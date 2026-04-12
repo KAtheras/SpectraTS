@@ -245,6 +245,14 @@ async function ensureSchema(sql) {
       is_active = EXCLUDED.is_active
   `;
   await sql`
+    INSERT INTO permission_capabilities (key, label, category, is_active)
+    VALUES ('edit_project_planning', 'Can edit project planning', 'clients', TRUE)
+    ON CONFLICT (key) DO UPDATE SET
+      label = EXCLUDED.label,
+      category = EXCLUDED.category,
+      is_active = EXCLUDED.is_active
+  `;
+  await sql`
     INSERT INTO role_permissions (role_id, capability_id, scope_id, allowed)
     SELECT pr.id, pc.id, ps.id, TRUE
     FROM permission_roles pr
@@ -283,6 +291,7 @@ async function ensureSchema(sql) {
         "manage_projects_lifecycle",
         "edit_clients",
         "edit_projects_all_modal",
+        "edit_project_planning",
       ]})
       AND ps.key <> 'own_office'
   `;
@@ -354,6 +363,24 @@ async function ensureSchema(sql) {
     JOIN permission_capabilities pc ON pc.key = 'view_cost_rates'
     JOIN permission_scopes ps ON ps.key = 'own_office'
     WHERE pr.key = 'admin'
+    ON CONFLICT (role_id, capability_id, scope_id) DO NOTHING
+  `;
+  await sql`
+    INSERT INTO role_permissions (role_id, capability_id, scope_id, allowed)
+    SELECT pr.id, pc.id, ps.id, TRUE
+    FROM permission_roles pr
+    JOIN permission_capabilities pc ON pc.key = 'edit_project_planning'
+    JOIN permission_scopes ps ON ps.key = 'own_office'
+    WHERE pr.key = 'admin'
+    ON CONFLICT (role_id, capability_id, scope_id) DO NOTHING
+  `;
+  await sql`
+    INSERT INTO role_permissions (role_id, capability_id, scope_id, allowed)
+    SELECT pr.id, pc.id, ps.id, TRUE
+    FROM permission_roles pr
+    JOIN permission_capabilities pc ON pc.key = 'edit_project_planning'
+    JOIN permission_scopes ps ON ps.key = 'all_offices'
+    WHERE pr.key = 'superuser'
     ON CONFLICT (role_id, capability_id, scope_id) DO NOTHING
   `;
   await sql`

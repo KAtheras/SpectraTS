@@ -1211,6 +1211,7 @@ function buildPermissionsPayload(currentUser, permissionIndex) {
   const canManageProjectsLifecycle = can("manage_projects_lifecycle");
   const canEditClients = can("edit_clients");
   const canEditProjectsAllModal = can("edit_projects_all_modal");
+  const canEditProjectPlanning = can("edit_project_planning");
   const canAccessClientsTab = Boolean(
     canSeeAllClientsProjects || canSeeOfficeClientsProjects || canSeeAssignedClientsProjects
   );
@@ -1243,6 +1244,7 @@ function buildPermissionsPayload(currentUser, permissionIndex) {
     remove_project: can("archive_project"),
     manage_projects_lifecycle: canManageProjectsLifecycle,
     edit_projects_all_modal: canEditProjectsAllModal,
+    edit_project_planning: canEditProjectPlanning,
     create_client: can("create_client"),
     edit_client: can("edit_client"),
     archive_client: can("archive_client"),
@@ -1311,6 +1313,9 @@ function canEditProjectPlanningForTarget({ can, currentUser, targetProject, acto
     projectId,
     actorProjectIds,
   };
+  if (can("edit_project_planning", context)) {
+    return true;
+  }
   return isCurrentUserProjectLeadForProject(currentUser, targetProject);
 }
 

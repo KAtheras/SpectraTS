@@ -3232,6 +3232,7 @@
           { cap: "manage_projects_lifecycle", label: "Can add/remove/activate/deactivate projects", indent: false },
           { cap: "edit_clients", label: "Can edit clients", indent: false },
           { cap: "edit_projects_all_modal", label: "Can edit all projects (modal only)", indent: false },
+          { cap: "edit_project_planning", label: "Can edit project planning", indent: false },
         ],
       },
     ];
