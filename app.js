@@ -497,6 +497,7 @@
     entriesSelectAllVisible: document.getElementById("entries-select-all-visible"),
     filterTotalHours: document.getElementById("filter-total-hours"),
     feedback: document.getElementById("feedback"),
+    inputsFeedback: document.getElementById("inputs-feedback"),
     activeFilters: document.getElementById("active-filters"),
     entriesUndoBar: document.getElementById("entries-undo-bar"),
     entriesUndoMessage: document.getElementById("entries-undo-message"),
@@ -7435,8 +7436,23 @@
   }
 
   function feedback(message, isError) {
-    refs.feedback.textContent = message || "";
-    refs.feedback.dataset.error = isError ? "true" : "false";
+    const text = message || "";
+    if (!text) {
+      if (refs.feedback) {
+        refs.feedback.textContent = "";
+        refs.feedback.dataset.error = "false";
+      }
+      if (refs.inputsFeedback) {
+        refs.inputsFeedback.textContent = "";
+        refs.inputsFeedback.dataset.error = "false";
+      }
+      return;
+    }
+    const inInputsView = state.currentView === "inputs";
+    const target = inInputsView && refs.inputsFeedback ? refs.inputsFeedback : refs.feedback;
+    if (!target) return;
+    target.textContent = text;
+    target.dataset.error = isError ? "true" : "false";
   }
 
   function userInitials(user) {
@@ -7576,6 +7592,48 @@
 
   function isProjectActive(project) {
     return project?.isActive !== false && project?.is_active !== false;
+  }
+
+  function isInternalClientProjectRecord(record) {
+    const rawChargeCenterId = record?.chargeCenterId ?? record?.charge_center_id ?? "";
+    const chargeCenterId = `${rawChargeCenterId}`.trim().toLowerCase();
+    if (chargeCenterId && chargeCenterId !== "null" && chargeCenterId !== "undefined") {
+      return true;
+    }
+    const clientName = `${record?.client || record?.clientName || ""}`.trim().toLowerCase();
+    return clientName === "internal";
+  }
+
+  function hasDeactivatedOrRemovedClientProject(record) {
+    if (!record || isInternalClientProjectRecord(record)) return false;
+    const projectId = `${record?.projectId || record?.project_id || ""}`.trim();
+    const clientName = `${record?.client || record?.clientName || ""}`.trim();
+    const projectName = `${record?.project || record?.projectName || ""}`.trim();
+    const project = projectId
+      ? (state.projects || []).find((item) => `${item?.id || ""}`.trim() === projectId)
+      : (state.projects || []).find(
+          (item) =>
+            `${item?.client || ""}`.trim() === clientName &&
+            `${item?.name || item?.project || ""}`.trim() === projectName
+        );
+    if (!project || !isProjectActive(project)) {
+      return true;
+    }
+    const resolvedClientName = `${project?.client || clientName}`.trim();
+    if (!resolvedClientName) return true;
+    const client = (state.clients || []).find(
+      (item) => `${item?.name || ""}`.trim() === resolvedClientName
+    );
+    return !client || !isClientActive(client);
+  }
+
+  async function showDeactivatedClientProjectPrompt() {
+    await appDialog({
+      title: "Action not allowed",
+      message: "You cannot edit time or expenses on a deactivated (removed) client.",
+      cancelText: "Close",
+      hideConfirm: true,
+    });
   }
 
   function assignedActiveMembersCountForProject(clientName, projectName) {
@@ -10136,6 +10194,11 @@
       if (action === "inputs-time-detail-edit") {
         const id = `${actionEl.dataset.id || ""}`.trim();
         if (!id) return;
+        const entry = (state.entries || []).find((item) => `${item?.id || ""}`.trim() === id);
+        if (hasDeactivatedOrRemovedClientProject(entry)) {
+          await showDeactivatedClientProjectPrompt();
+          return;
+        }
         state.pendingInputsTimeEditId = id;
         state.inputSubtab = "time";
         setView("inputs");
@@ -10144,6 +10207,11 @@
       if (action === "inputs-time-detail-delete") {
         const id = `${actionEl.dataset.id || ""}`.trim();
         if (!id) return;
+        const entry = (state.entries || []).find((item) => `${item?.id || ""}`.trim() === id);
+        if (hasDeactivatedOrRemovedClientProject(entry)) {
+          await showDeactivatedClientProjectPrompt();
+          return;
+        }
         const confirmDelete = await appDialog({
           title: "Delete entry",
           message: "Are you sure you want to delete this entry?",
@@ -10229,6 +10297,11 @@
       if (action === "inputs-expense-detail-edit") {
         const id = `${actionEl.dataset.id || ""}`.trim();
         if (!id) return;
+        const expense = (state.expenses || []).find((item) => `${item?.id || ""}`.trim() === id);
+        if (hasDeactivatedOrRemovedClientProject(expense)) {
+          await showDeactivatedClientProjectPrompt();
+          return;
+        }
         state.pendingInputsExpenseEditId = id;
         state.inputSubtab = "expenses";
         setView("inputs");
@@ -10237,6 +10310,11 @@
       if (action === "inputs-expense-detail-delete") {
         const id = `${actionEl.dataset.id || ""}`.trim();
         if (!id) return;
+        const expense = (state.expenses || []).find((item) => `${item?.id || ""}`.trim() === id);
+        if (hasDeactivatedOrRemovedClientProject(expense)) {
+          await showDeactivatedClientProjectPrompt();
+          return;
+        }
         const confirmDelete = await appDialog({
           title: "Delete expense",
           message: "Are you sure you want to delete this expense?",
@@ -10879,6 +10957,10 @@
     if (!expense) return;
 
     if (action === "expense-edit") {
+      if (hasDeactivatedOrRemovedClientProject(expense)) {
+        await showDeactivatedClientProjectPrompt();
+        return;
+      }
       state.pendingInputsExpenseEditId = `${expense.id || ""}`.trim();
       state.inputSubtab = "expenses";
       setView("inputs");
@@ -10886,6 +10968,10 @@
     }
 
     if (action === "expense-delete") {
+      if (hasDeactivatedOrRemovedClientProject(expense)) {
+        await showDeactivatedClientProjectPrompt();
+        return;
+      }
       const confirmed = window.confirm("Delete this expense?");
       if (!confirmed) return;
       try {
@@ -12817,6 +12903,10 @@
     }
 
     if (action === "edit") {
+      if (hasDeactivatedOrRemovedClientProject(entry)) {
+        await showDeactivatedClientProjectPrompt();
+        return;
+      }
       state.pendingInputsTimeEditId = `${entry.id || ""}`.trim();
       state.inputSubtab = "time";
       setView("inputs");
@@ -12861,6 +12951,10 @@
     }
 
     if (action === "delete") {
+      if (hasDeactivatedOrRemovedClientProject(entry)) {
+        await showDeactivatedClientProjectPrompt();
+        return;
+      }
       const result = await appDialog({
         title: "Delete entry",
         message: "Are you sure you want to delete this entry?",
