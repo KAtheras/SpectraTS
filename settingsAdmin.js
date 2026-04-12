@@ -3421,7 +3421,7 @@
           }
         });
         if (!changedCount) {
-          setClientsGroupWarning("", false);
+          updateClientsGroupWarningFromRows(next);
           return;
         }
         permissionsSaveInFlight = true;
