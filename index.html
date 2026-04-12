@@ -366,6 +366,15 @@
                   <button class="button button-ghost" type="button" id="export-csv">
                     Export CSV
                   </button>
+                  <button class="button button-ghost" type="button" id="entries-select-toggle">
+                    Select
+                  </button>
+                  <button class="button button-ghost" type="button" id="entries-delete-selected" hidden>
+                    Delete Selected
+                  </button>
+                  <button class="button button-ghost" type="button" id="entries-select-cancel" hidden>
+                    Cancel
+                  </button>
                 </div>
               </div>
 
@@ -415,6 +424,13 @@
                 <table class="entries-table">
                   <thead>
                     <tr>
+                      <th id="entries-select-header" hidden>
+                        <input
+                          type="checkbox"
+                          id="entries-select-all-visible"
+                          aria-label="Select all visible entries"
+                        />
+                      </th>
                       <th>Date</th>
                       <th>User</th>
                       <th>Client</th>

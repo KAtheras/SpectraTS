@@ -4454,6 +4454,25 @@ async function deleteEntry(sql, payload, currentUser, accountId) {
   return null;
 }
 
+async function deleteEntriesBulk(sql, payload, currentUser, accountId) {
+  const entryIdsRaw = Array.isArray(payload?.entryIds) ? payload.entryIds : [];
+  const entryIds = Array.from(
+    new Set(entryIdsRaw.map((value) => normalizeText(value)).filter(Boolean))
+  );
+  if (!entryIds.length) {
+    return { deletedCount: 0 };
+  }
+
+  for (const id of entryIds) {
+    const result = await deleteEntry(sql, { id }, currentUser, accountId);
+    if (result?.statusCode) {
+      return result;
+    }
+  }
+
+  return { deletedCount: entryIds.length };
+}
+
 exports.handler = async function handler(event) {
   if (event.httpMethod !== "POST") {
     return errorResponse(405, "Method not allowed.");
@@ -5275,6 +5294,15 @@ exports.handler = async function handler(event) {
           context.currentUser,
           accountId
         );
+        break;
+      case "delete_entries_bulk":
+        mutationResult = await deleteEntriesBulk(
+          sql,
+          request.payload || {},
+          context.currentUser,
+          accountId
+        );
+        if (mutationResult?.statusCode) return mutationResult;
         break;
       case "approve_entry":
         mutationResult = await approveEntry(

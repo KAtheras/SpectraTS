@@ -225,6 +225,9 @@
 
   function renderTable(filteredEntries) {
     const { refs, state, escapeHtml, formatDisplayDateShort } = deps();
+    const isSelectionMode = Boolean(state.entriesSelectionMode);
+    const selectedEntryIds =
+      state.selectedEntryIds instanceof Set ? state.selectedEntryIds : new Set();
     const boundsSource = currentEntries({
       ...(state.filters || {}),
       from: "",
@@ -241,7 +244,7 @@
     if (!filteredEntries.length) {
       refs.entriesBody.innerHTML = `
         <tr>
-          <td colspan="9" class="empty-row">
+          <td colspan="${isSelectionMode ? 10 : 9}" class="empty-row">
             <div class="empty-state-panel">
               <strong>No entries match the current filters.</strong>
               <span>Clear the filters or add a new entry to get started.</span>
@@ -283,8 +286,31 @@
               aria-label="${entry.billable === false ? "Mark as billable" : "Mark as non-billable"}"
               ${entry.billable === false ? "" : "checked"}
             />`;
+        const rowId = String(entry?.id || "");
+        const selectedMarkup = isSelectionMode
+          ? `<td>
+              <input
+                type="checkbox"
+                data-action="select-entry"
+                data-id="${escapeHtml(rowId)}"
+                aria-label="Select entry"
+                ${selectedEntryIds.has(rowId) ? "checked" : ""}
+              />
+            </td>`
+          : "";
+        const actionsMarkup = isSelectionMode
+          ? ""
+          : `
+              <button class="text-button" type="button" data-action="edit" data-id="${entry.id}">
+                Edit
+              </button>
+              <button class="text-button danger" type="button" data-action="delete" data-id="${entry.id}">
+                Delete
+              </button>
+            `;
         return `
           <tr class="entry-row ${entry.status === "approved" ? "entry-approved" : ""}">
+            ${selectedMarkup}
             <td>${escapeHtml(formatDisplayDateShort(entry.date))}</td>
             <td>${escapeHtml(entry.user)}</td>
             <td class="${isInternalEntry ? "entry-cell-truncate" : ""}"${
@@ -318,12 +344,7 @@
               ${statusMarkup}
             </td>
             <td class="actions-cell">
-              <button class="text-button" type="button" data-action="edit" data-id="${entry.id}">
-                Edit
-              </button>
-              <button class="text-button danger" type="button" data-action="delete" data-id="${entry.id}">
-                Delete
-              </button>
+              ${actionsMarkup}
             </td>
           </tr>
         `;
