@@ -475,10 +475,7 @@
       formatDisplayDate,
       syncFilterDatePicker,
       currentEntries,
-      officeIdForEntryRecord,
-      escapeHtml,
     } = deps;
-    const officeField = field(refs.filterForm, "office");
     const userField = field(refs.filterForm, "user");
     const clientField = field(refs.filterForm, "client");
     const projectField = field(refs.filterForm, "project");
@@ -488,7 +485,6 @@
     const scopeRows =
       typeof currentEntries === "function"
         ? currentEntries({
-            office: "",
             user: "",
             client: "",
             project: "",
@@ -501,49 +497,9 @@
       typeof deps.effectiveScopeUser === "function"
         ? deps.effectiveScopeUser()
         : state.currentUser;
-    const officeNameById = new Map(
-      (state.officeLocations || []).map((item) => [`${item?.id || ""}`.trim(), `${item?.name || ""}`.trim()])
-    );
-    const requestedOffice = selection?.office ?? officeField?.value ?? "";
-    const officeIds = uniqueValues(
-      scopeRows
-        .map((entry) =>
-          typeof officeIdForEntryRecord === "function"
-            ? `${officeIdForEntryRecord(entry, scopeUser) || ""}`.trim()
-            : ""
-        )
-        .filter(Boolean)
-    ).sort((a, b) => {
-      const aLabel = officeNameById.get(a) || a;
-      const bLabel = officeNameById.get(b) || b;
-      return aLabel.localeCompare(bLabel);
-    });
-    const nextOfficeBase = officeIds.includes(requestedOffice) ? requestedOffice : "";
-    const nextOffice = !nextOfficeBase && officeIds.length === 1 ? officeIds[0] : nextOfficeBase;
-    if (officeField) {
-      officeField.innerHTML =
-        `<option value="">${escapeHtml("All offices")}</option>` +
-        officeIds
-          .map((officeId) => {
-            const label = officeNameById.get(officeId) || officeId;
-            const selected = officeId === nextOffice ? " selected" : "";
-            return `<option value="${escapeHtml(officeId)}"${selected}>${escapeHtml(label)}</option>`;
-          })
-          .join("");
-      officeField.value = nextOffice;
-    }
-    const officeScopedRows = nextOffice
-      ? scopeRows.filter((entry) => {
-          const entryOfficeId =
-            typeof officeIdForEntryRecord === "function"
-              ? `${officeIdForEntryRecord(entry, scopeUser) || ""}`.trim()
-              : "";
-          return entryOfficeId === nextOffice;
-        })
-      : scopeRows;
     const entryUsers = uniqueValues(
       [
-        ...officeScopedRows.map((entry) => entry.user).filter(Boolean),
+        ...scopeRows.map((entry) => entry.user).filter(Boolean),
         scopeUser?.displayName || "",
       ]
     );
@@ -558,8 +514,8 @@
           : userOptions[0] || "";
     const requestedClient = selection?.client ?? clientField?.value ?? "";
     const userScopedRows = nextUser
-      ? officeScopedRows.filter((entry) => entry.user === nextUser)
-      : officeScopedRows;
+      ? scopeRows.filter((entry) => entry.user === nextUser)
+      : scopeRows;
     const entryClients = uniqueValues(
       userScopedRows.map((entry) => entry.client).filter(Boolean)
     );

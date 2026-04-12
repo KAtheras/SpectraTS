@@ -45,7 +45,7 @@
     };
     const search = String(filters.search || "").trim().toLowerCase();
 
-    const { canViewEntryByScope, officeIdForEntryRecord } = deps();
+    const { canViewEntryByScope } = deps();
 
     return [...state.entries]
       .filter((entry) => {
@@ -55,13 +55,6 @@
             : true;
 
         if (!canView) {
-          return false;
-        }
-        const entryOfficeId =
-          typeof officeIdForEntryRecord === "function"
-            ? `${officeIdForEntryRecord(entry, scopeUser) || ""}`.trim()
-            : "";
-        if (filters.office && entryOfficeId !== filters.office) {
           return false;
         }
         const isInternal = isInternalEntry(entry);
@@ -115,12 +108,6 @@
     const { state, formatDisplayDate, refs, escapeHtml } = deps();
     const chips = [];
     const totalHours = filteredEntries.reduce((sum, entry) => sum + entry.hours, 0);
-    if (state.filters.office) {
-      const officeLabel =
-        (state.officeLocations || []).find((item) => `${item?.id || ""}`.trim() === state.filters.office)?.name ||
-        state.filters.office;
-      chips.push(`Office: ${officeLabel}`);
-    }
     if (state.filters.user) {
       chips.push(`User: ${state.filters.user}`);
     }

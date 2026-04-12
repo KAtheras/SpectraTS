@@ -568,10 +568,7 @@
       currentExpenses,
       uniqueValues,
       effectiveScopeUser,
-      officeIdForEntryRecord,
-      state,
     } = deps();
-    const selectedOffice = selection?.office || "";
     const selectedUserId = selection?.user || "";
     const selectedClient = selection?.client || "";
     const selectedProject = selection?.project || "";
@@ -581,7 +578,6 @@
     const expenseRows =
       typeof currentExpenses === "function"
         ? currentExpenses({
-            office: "",
             user: "",
             client: "",
             project: "",
@@ -590,61 +586,10 @@
             search: "",
           })
         : [];
-    const officeNameById = new Map(
-      (state.officeLocations || []).map((item) => [`${item?.id || ""}`.trim(), `${item?.name || ""}`.trim()])
-    );
-    const officeIds = uniqueValues(
-      expenseRows
-        .map((row) =>
-          typeof officeIdForEntryRecord === "function"
-            ? `${officeIdForEntryRecord(
-                {
-                  userId: row.userId,
-                  client: row.clientName,
-                  project: row.projectName,
-                },
-                scopeUser
-              ) || ""}`.trim()
-            : ""
-        )
-        .filter(Boolean)
-    ).sort((a, b) => (officeNameById.get(a) || a).localeCompare(officeNameById.get(b) || b));
-    const nextSelectedOfficeBase = officeIds.includes(selectedOffice) ? selectedOffice : "";
-    const nextSelectedOffice =
-      !nextSelectedOfficeBase && officeIds.length === 1 ? officeIds[0] : nextSelectedOfficeBase;
-    if (refs.expenseFilterOffice) {
-      const officeOptions = officeIds.map((id) => ({
-        value: id,
-        label: officeNameById.get(id) || id,
-      }));
-      setSelectOptionsWithPlaceholder(
-        { escapeHtml },
-        refs.expenseFilterOffice,
-        officeOptions,
-        nextSelectedOffice,
-        "All offices"
-      );
-    }
-    const officeScopedRows = nextSelectedOffice
-      ? expenseRows.filter((row) => {
-          const rowOfficeId =
-            typeof officeIdForEntryRecord === "function"
-              ? `${officeIdForEntryRecord(
-                  {
-                    userId: row.userId,
-                    client: row.clientName,
-                    project: row.projectName,
-                  },
-                  scopeUser
-                ) || ""}`.trim()
-              : "";
-          return rowOfficeId === nextSelectedOffice;
-        })
-      : expenseRows;
     if (refs.expenseFilterUser) {
       const users = uniqueValues(
         [
-          ...officeScopedRows.map((row) => row.userId).filter(Boolean),
+          ...expenseRows.map((row) => row.userId).filter(Boolean),
           scopeUser?.id || "",
         ]
       ).map((id) => ({
@@ -670,8 +615,8 @@
 
     const selectedUser = selection?.user || "";
     const userScopedRows = selectedUser
-      ? officeScopedRows.filter((row) => row.userId === selectedUser)
-      : officeScopedRows;
+      ? expenseRows.filter((row) => row.userId === selectedUser)
+      : expenseRows;
     const clientsRaw = uniqueValues(userScopedRows.map((row) => row.clientName).filter(Boolean));
     const clients = [
       ...clientsRaw

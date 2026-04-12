@@ -3068,7 +3068,6 @@
     const scopedRows =
       typeof currentEntries === "function"
         ? currentEntries({
-            office: "",
             user: "",
             client: "",
             project: "",
@@ -3509,7 +3508,6 @@
 
   function resetFilters() {
     const nextFilters = {
-      office: "",
       user: defaultFilterUser(state, isStaff),
       client: "",
       project: "",
@@ -3527,7 +3525,6 @@
   function cloneEntriesFilterState(source) {
     const next = source || {};
     return {
-      office: String(next.office || ""),
       user: String(next.user || ""),
       client: String(next.client || ""),
       project: String(next.project || ""),
@@ -3578,7 +3575,6 @@
     const timeFilters = cloneEntriesFilterState(state.filters);
     const expenseFilters = cloneEntriesFilterState(state.expenseFilters);
     if (refs.filterForm) {
-      const officeField = field(refs.filterForm, "office");
       const userField = field(refs.filterForm, "user");
       const clientField = field(refs.filterForm, "client");
       const projectField = field(refs.filterForm, "project");
@@ -3586,7 +3582,6 @@
       const toField = field(refs.filterForm, "to");
       const searchField = field(refs.filterForm, "search");
       syncFilterCatalogsUI(timeFilters);
-      if (officeField) officeField.value = timeFilters.office;
       if (userField) userField.value = timeFilters.user;
       if (clientField) clientField.value = timeFilters.client;
       if (projectField) projectField.value = timeFilters.project;
@@ -3598,7 +3593,6 @@
       syncFilterDatePicker({ refs, isValidDateString, escapeHtml }, "to", timeFilters.to);
     }
     if (refs.expenseFilterForm) {
-      const officeField = field(refs.expenseFilterForm, "office");
       const userField = field(refs.expenseFilterForm, "user");
       const clientField = field(refs.expenseFilterForm, "client");
       const projectField = field(refs.expenseFilterForm, "project");
@@ -3606,7 +3600,6 @@
       const toField = field(refs.expenseFilterForm, "to");
       const searchField = field(refs.expenseFilterForm, "search");
       syncExpenseFilterCatalogsUI(expenseFilters);
-      if (officeField) officeField.value = expenseFilters.office;
       if (userField) userField.value = expenseFilters.user;
       if (clientField) clientField.value = expenseFilters.client;
       if (projectField) projectField.value = expenseFilters.project;
@@ -7780,7 +7773,6 @@
     canUserAccessProject,
     canViewUserByRole,
     canViewEntryByScope,
-    officeIdForEntryRecord,
   } = accessControl;
 
   function clientHours(client) {
@@ -9576,7 +9568,6 @@
   function applyFiltersFromForm(options) {
     const settings = options || {};
     const showErrors = settings.showErrors !== false;
-    const officeField = field(refs.filterForm, "office");
     const userField = field(refs.filterForm, "user");
     const clientField = field(refs.filterForm, "client");
     const projectField = field(refs.filterForm, "project");
@@ -9601,7 +9592,6 @@
     }
 
     state.filters = {
-      office: officeField?.value || "",
       user: userField.value,
       client: clientField.value,
       project: projectField.value,
@@ -10664,11 +10654,9 @@
   }
 
   field(refs.filterForm, "client").addEventListener("change", function () {
-    const officeField = field(refs.filterForm, "office");
     const userField = field(refs.filterForm, "user");
     const clientField = field(refs.filterForm, "client");
     syncFilterCatalogsUI({
-      office: officeField?.value || "",
       user: userField.value,
       client: clientField.value,
       project: "",
@@ -10676,36 +10664,12 @@
     applyFiltersFromForm();
   });
 
-  field(refs.filterForm, "office")?.addEventListener("change", function () {
-    const officeField = field(refs.filterForm, "office");
-    syncFilterCatalogsUI({
-      office: officeField?.value || "",
-      user: "",
-      client: "",
-      project: "",
-    });
-    applyFiltersFromForm();
-  });
-
   field(refs.expenseFilterForm, "client")?.addEventListener("change", function () {
-    const officeField = field(refs.expenseFilterForm, "office");
     const userField = field(refs.expenseFilterForm, "user");
     const clientField = field(refs.expenseFilterForm, "client");
     syncExpenseFilterCatalogsUI({
-      office: officeField?.value || "",
       user: userField?.value || "",
       client: clientField?.value || "",
-      project: "",
-    });
-    applyExpenseFiltersFromForm();
-  });
-
-  field(refs.expenseFilterForm, "office")?.addEventListener("change", function () {
-    const officeField = field(refs.expenseFilterForm, "office");
-    syncExpenseFilterCatalogsUI({
-      office: officeField?.value || "",
-      user: "",
-      client: "",
       project: "",
     });
     applyExpenseFiltersFromForm();
@@ -10716,11 +10680,9 @@
   });
 
   field(refs.expenseFilterForm, "user")?.addEventListener("change", function () {
-    const officeField = field(refs.expenseFilterForm, "office");
     const userField = field(refs.expenseFilterForm, "user");
     const clientField = field(refs.expenseFilterForm, "client");
     syncExpenseFilterCatalogsUI({
-      office: officeField?.value || "",
       user: userField?.value || "",
       client: clientField?.value || "",
       project: field(refs.expenseFilterForm, "project")?.value || "",
@@ -10776,13 +10738,11 @@
   refs.expenseClearFilters?.addEventListener("click", function () {
     refs.expenseFilterForm?.reset();
     syncExpenseFilterCatalogsUI({
-      office: "",
       user: "",
       client: "",
       project: "",
     });
     state.expenseFilters = {
-      office: "",
       user: "",
       client: "",
       project: "",
@@ -11101,14 +11061,12 @@
         : "";
       state.filters = {
         ...state.filters,
-        office: "",
         user: nextTimeFilterUser,
         client: "",
         project: "",
       };
       state.expenseFilters = {
         ...state.expenseFilters,
-        office: "",
         user: resolveExpenseFilterUser(nextTimeFilterUser),
         client: "",
         project: "",
@@ -13371,7 +13329,6 @@
     syncFilterCatalogs,
     isManager,
     availableUsers,
-    officeIdForEntryRecord,
     expenseClientOptions: visibleExpenseClientOptions,
     defaultFilterUser,
     effectiveScopeUser,
@@ -13400,7 +13357,6 @@
     permissionGroupForUser: permissionGroupForUserWithSuper,
     canViewUserByRole,
     canViewEntryByScope,
-    officeIdForEntryRecord,
     canUserAccessProject,
     getUserByDisplayName,
     assignedProjectTuplesForCurrentUser,
@@ -13430,7 +13386,6 @@
     getUserByDisplayName,
     canViewUserByRole,
     canViewEntryByScope,
-    officeIdForEntryRecord,
     canUserAccessProject,
     effectiveScopeUser,
     clampDateToBounds,
