@@ -4805,10 +4805,18 @@
   function getInputsTimeUserDateBounds() {
     const currentUserId = `${state.currentUser?.id || ""}`.trim();
     const currentUserName = `${state.currentUser?.displayName || ""}`.trim();
+    const canonicalEntries = currentEntries({
+      user: "",
+      client: "",
+      project: "",
+      from: "",
+      to: "",
+      search: "",
+    });
     let minDate = "";
     let maxDate = "";
 
-    (state.entries || []).forEach((entry) => {
+    canonicalEntries.forEach((entry) => {
       if (!entry || !isValidDateString(entry.date)) return;
       const entryUserId = `${entry.userId || ""}`.trim();
       const entryUserName = `${entry.user || ""}`.trim();
@@ -4948,6 +4956,14 @@
   function buildInputsTimeCalendarData() {
     const dates = getInputsTimeCalendarDates();
     const dateSet = new Set(dates.map((item) => item.iso));
+    const canonicalEntries = currentEntries({
+      user: "",
+      client: "",
+      project: "",
+      from: "",
+      to: "",
+      search: "",
+    });
     const perProject = new Map();
     const totalsByDate = Object.create(null);
     const currentUserId = `${state.currentUser?.id || ""}`.trim();
@@ -4957,7 +4973,7 @@
       totalsByDate[item.iso] = 0;
     });
 
-    (state.entries || []).forEach((entry) => {
+    canonicalEntries.forEach((entry) => {
       if (!entry) return;
       const entryUserId = `${entry.userId || ""}`.trim();
       const entryUserName = `${entry.user || ""}`.trim();
