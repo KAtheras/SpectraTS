@@ -4121,6 +4121,8 @@ async function loadState(sql, currentUser) {
       ? "none"
       : hasGlobalClientsProjectsScope
         ? "global"
+        : hasOfficeClientsProjectsScope && hasAssignedClientsProjectsScope
+          ? "office_plus_assigned"
         : hasOfficeClientsProjectsScope
           ? "office"
         : hasAssignedClientsProjectsScope
@@ -4129,7 +4131,7 @@ async function loadState(sql, currentUser) {
   const allClients = await listClients(sql, accountUuid);
   const allProjects = await listProjects(sql, accountUuid);
   let actorProjectIds = [];
-  if (clientsProjectsScopeMode === "assigned") {
+  if (hasAssignedVisibilityScope) {
     const actorUserId = normalizeText(normalizedUser?.id);
     const actorClientLeadIds = [];
     if (hasAssignedVisibilityScope && actorUserId) {
@@ -4192,33 +4194,36 @@ async function loadState(sql, currentUser) {
       }
     });
   }
-  const visibleProjects =
-    clientsProjectsScopeMode === "global"
-      ? allProjects
-      : clientsProjectsScopeMode === "office"
-        ? allProjects.filter((project) => {
+  const visibleProjects = hasGlobalClientsProjectsScope
+    ? allProjects
+    : canAccessClientsShell
+      ? allProjects.filter((project) => {
+          const projectId = normalizeText(project?.id);
+          const inAssignedScope =
+            hasAssignedVisibilityScope && Boolean(projectId) && actorProjectIds.includes(projectId);
+          let inOfficeScope = false;
+          if (hasOfficeClientsProjectsScope) {
             const projectOfficeId = normalizeText(project?.officeId ?? project?.office_id);
             if (actorOfficeId && projectOfficeId && actorOfficeId === projectOfficeId) {
-              return true;
+              inOfficeScope = true;
+            } else {
+              const projectClientId = normalizeText(project?.clientId ?? project?.client_id);
+              if (projectClientId && actorOfficeId) {
+                const client = allClients.find((item) => normalizeText(item?.id) === projectClientId);
+                const clientOfficeId = normalizeText(client?.officeId ?? client?.office_id);
+                inOfficeScope = Boolean(clientOfficeId && actorOfficeId === clientOfficeId);
+              }
             }
-            const projectClientId = normalizeText(project?.clientId ?? project?.client_id);
-            if (!projectClientId || !actorOfficeId) return false;
-            const client = allClients.find((item) => normalizeText(item?.id) === projectClientId);
-            const clientOfficeId = normalizeText(client?.officeId ?? client?.office_id);
-            return Boolean(clientOfficeId && actorOfficeId === clientOfficeId);
-          })
-      : clientsProjectsScopeMode === "assigned"
-        ? allProjects.filter((project) => {
-            const projectId = normalizeText(project?.id);
-            return Boolean(projectId) && actorProjectIds.includes(projectId);
-          })
-        : [];
+          }
+          return inAssignedScope || inOfficeScope;
+        })
+      : [];
   const visibleClientIdSet = new Set(
     visibleProjects
       .map((project) => normalizeText(project?.clientId ?? project?.client_id))
       .filter(Boolean)
   );
-  if (clientsProjectsScopeMode === "assigned" && hasAssignedVisibilityScope) {
+  if (hasAssignedVisibilityScope) {
     actorClientIdsFromProjects.forEach((clientId) => {
       const normalizedClientId = normalizeText(clientId);
       if (normalizedClientId) {
@@ -4226,7 +4231,7 @@ async function loadState(sql, currentUser) {
       }
     });
   }
-  if (clientsProjectsScopeMode === "office" && actorOfficeId) {
+  if (hasOfficeClientsProjectsScope && actorOfficeId) {
     allClients.forEach((client) => {
       const clientId = normalizeText(client?.id);
       const clientOfficeId = normalizeText(client?.officeId ?? client?.office_id);
@@ -4236,22 +4241,15 @@ async function loadState(sql, currentUser) {
       }
     });
   }
-  const clients =
-    clientsProjectsScopeMode === "global"
-      ? allClients
-      : clientsProjectsScopeMode === "office"
-        ? allClients.filter((client) => {
-            const clientId = normalizeText(client?.id);
-            if (!clientId) return false;
-            return visibleClientIdSet.has(clientId);
-          })
-      : clientsProjectsScopeMode === "assigned"
-        ? allClients.filter((client) => {
-            const clientId = normalizeText(client?.id);
-            if (!clientId) return false;
-            return visibleClientIdSet.has(clientId);
-          })
-        : [];
+  const clients = hasGlobalClientsProjectsScope
+    ? allClients
+    : canAccessClientsShell
+      ? allClients.filter((client) => {
+          const clientId = normalizeText(client?.id);
+          if (!clientId) return false;
+          return visibleClientIdSet.has(clientId);
+        })
+      : [];
   const allUsers = normalizedUser ? await listUsers(sql, accountUuid) : [];
   const canViewInternalRecords = isAdminFlag;
   const currentUserId = normalizeText(normalizedUser?.id || "");
