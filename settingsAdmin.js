@@ -1593,12 +1593,14 @@
         <input type="file" id="bulk-upload-members-file" accept=".csv,.xlsx" hidden />
         <p id="bulk-upload-error" class="feedback" hidden></p>
         <div id="bulk-upload-preview" hidden>
-          <p id="bulk-upload-selected-file"></p>
-          <div id="bulk-upload-result-bar" class="panel-head-actions" hidden>
-            <p id="bulk-upload-result-text" class="feedback" style="margin:0;"></p>
-            <button type="button" class="button button-ghost" id="bulk-upload-download-rejects" hidden>
-              Download Rejected Rows
-            </button>
+          <div id="bulk-upload-preview-meta" class="panel-head-actions">
+            <p id="bulk-upload-selected-file" style="margin:0;"></p>
+            <div id="bulk-upload-result-bar" class="panel-head-actions" hidden>
+              <p id="bulk-upload-result-text" class="feedback" style="margin:0;"></p>
+              <button type="button" class="button button-ghost" id="bulk-upload-download-rejects" hidden>
+                Download Rejected Rows
+              </button>
+            </div>
           </div>
           <div id="bulk-upload-preview-table-wrap">Preview coming next</div>
         </div>
@@ -2040,7 +2042,12 @@
         objects: Array.isArray(objects) ? objects.slice() : [],
         kind: `${kind || ""}`.trim(),
       };
-      const previewHeaders = [...(Array.isArray(headers) ? headers : []), "status"];
+      const sourceHeaders = Array.isArray(headers) ? headers : [];
+      const previewHeaders = [
+        "status",
+        "error",
+        ...sourceHeaders.filter((header) => header !== "status" && header !== "error"),
+      ];
       if (!previewHeaders.length) {
         previewTableWrap.innerHTML = `<div class="empty-state-panel">Preview coming next</div>`;
         return;
@@ -2086,6 +2093,9 @@
         }
         if (header === "status") {
           return value === "Invalid" ? "Invalid" : "Valid";
+        }
+        if (header === "error") {
+          return `${value || ""}`;
         }
         return `${value ?? ""}`;
       };
@@ -2605,7 +2615,7 @@
         failedCount > 0 ? `${baseMessage} ${failedCount} row(s) failed during import.` : baseMessage,
         failedCount > 0
       );
-      if (invalidCount <= 0 && typeof deps().loadPersistentState === "function") {
+      if (importedCount > 0 && typeof deps().loadPersistentState === "function") {
         await deps().loadPersistentState();
       }
       if (openMembersBtn) openMembersBtn.disabled = false;
