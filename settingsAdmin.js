@@ -3222,6 +3222,11 @@
         label: "Client / Project controls",
         rows: [
           { cap: "see_all_clients_projects", label: "Can see all clients/projects", indent: false },
+          {
+            cap: "see_office_clients_projects",
+            label: "Can see all clients/projects in assigned office",
+            indent: false,
+          },
           { cap: "see_assigned_clients_projects", label: "Can see assigned clients/projects", indent: false },
           { cap: "manage_clients_lifecycle", label: "Can add/remove/activate/deactivate clients", indent: false },
           { cap: "manage_projects_lifecycle", label: "Can add/remove/activate/deactivate projects", indent: false },
