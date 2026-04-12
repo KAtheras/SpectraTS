@@ -2203,7 +2203,7 @@
             .join("")
         : `<tr><td colspan="${previewHeaders.length + 1}" style="padding:8px 10px;border:1px solid var(--group-border);">No data rows found.</td></tr>`;
       previewTableWrap.innerHTML = `
-        <div class="table-wrapper">
+        <div class="table-wrapper" style="max-height:360px;overflow:auto;border:1px solid var(--group-border);border-radius:10px;">
           <table class="table" style="width:100%;border-collapse:collapse;table-layout:auto;">
             <thead><tr>${headHtml}</tr></thead>
             <tbody>${bodyHtml}</tbody>
