@@ -6403,6 +6403,15 @@ exports.handler = async function handler(event) {
           },
         });
       }
+      case "clear_audit_logs": {
+        const adminError = requireAdmin(context);
+        if (adminError) return adminError;
+        await sql`
+          DELETE FROM audit_log
+          WHERE account_id = ${accountId}::uuid
+        `;
+        return json(200, { success: true });
+      }
       default:
         return errorResponse(400, "Unknown mutation action.");
     }
