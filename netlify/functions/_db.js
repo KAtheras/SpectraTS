@@ -1915,17 +1915,6 @@ async function createUserRecord(sql, payload) {
     throw new Error("That username already exists.");
   }
 
-  const existingDisplayName = await sql`
-    SELECT id
-    FROM users
-    WHERE LOWER(display_name) = LOWER(${displayName})
-      AND is_active = TRUE
-      AND account_id = ${accountUuid}::uuid
-    LIMIT 1
-  `;
-  if (existingDisplayName[0]) {
-    throw new Error("That team member name already exists.");
-  }
   if (employeeId) {
     const existingEmployeeId = await sql`
       SELECT id
@@ -2204,18 +2193,6 @@ async function updateUserRecord(sql, payload, actingUser) {
     throw new Error("That username already exists.");
   }
 
-  const duplicateDisplayName = await sql`
-    SELECT id
-    FROM users
-    WHERE LOWER(display_name) = LOWER(${displayName})
-      AND id <> ${existingUser.id}
-      AND is_active = TRUE
-      AND account_id = ${existingUser.account_id}::uuid
-    LIMIT 1
-  `;
-  if (duplicateDisplayName[0]) {
-    throw new Error("That team member name already exists.");
-  }
   if (employeeId) {
     const duplicateEmployeeId = await sql`
       SELECT id

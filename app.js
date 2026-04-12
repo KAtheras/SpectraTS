@@ -715,6 +715,7 @@
   let memberEditorModal = null;
   let memberEditorForm = null;
   let memberEditorTitle = null;
+  let memberEditorStatus = null;
   let memberEditorSubmit = null;
   let memberEditorReset = null;
   let memberEditorMode = "create";
@@ -1906,6 +1907,21 @@
           gap:10px;
           min-height:0;
         }
+        #member-editor-modal .member-editor-status{
+          margin:0;
+          padding:8px 10px;
+          border-radius:8px;
+          border:1px solid color-mix(in srgb, var(--line) 75%, transparent);
+          background:color-mix(in srgb, var(--panel) 85%, white);
+          color:var(--ink);
+          font-size:.86rem;
+          line-height:1.35;
+        }
+        #member-editor-modal .member-editor-status[data-error="true"]{
+          border-color:color-mix(in srgb, #d34d4d 35%, var(--line));
+          background:color-mix(in srgb, #d34d4d 12%, var(--panel));
+          color:color-mix(in srgb, #8f2525 82%, var(--ink));
+        }
         #member-editor-modal .member-editor-row{
           display:grid;
           grid-template-columns:repeat(3, minmax(0, 1fr));
@@ -2009,6 +2025,7 @@
             <button class="button button-ghost member-editor-head-cancel" type="button" data-member-editor-cancel>Cancel</button>
           </div>
           <form class="member-editor-form" data-member-editor-form>
+            <p class="member-editor-status" data-member-editor-status hidden></p>
             <div class="member-editor-row" data-member-editor-section="identity">
               <label><span>Member name</span><input type="text" name="display_name" required /></label>
               <label><span>User ID</span><input type="text" name="username" required /></label>
@@ -2047,6 +2064,7 @@
     document.body.appendChild(memberEditorModal);
     memberEditorForm = memberEditorModal.querySelector("[data-member-editor-form]");
     memberEditorTitle = memberEditorModal.querySelector("#member-editor-title");
+    memberEditorStatus = memberEditorModal.querySelector("[data-member-editor-status]");
     memberEditorSubmit = memberEditorModal.querySelector("[data-member-editor-submit]");
     memberEditorReset = memberEditorModal.querySelector("[data-member-editor-reset]");
     memberEditorModal.addEventListener("click", function (event) {
@@ -2085,10 +2103,19 @@
 
   function closeMemberEditorModal() {
     if (!memberEditorModal) return;
+    setMemberEditorStatus("", false);
     memberEditorModal.hidden = true;
     memberEditorModal.setAttribute("aria-hidden", "true");
     body.classList.remove("modal-open");
     memberEditorScope = "full";
+  }
+
+  function setMemberEditorStatus(message, isError) {
+    if (!memberEditorStatus) return;
+    const text = String(message || "").trim();
+    memberEditorStatus.textContent = text;
+    memberEditorStatus.dataset.error = isError ? "true" : "false";
+    memberEditorStatus.hidden = text.length === 0;
   }
 
   function openMemberEditorModal(mode, userId, focusFieldName, options) {
@@ -2127,6 +2154,7 @@
       feedback("Team member not found.", true);
       return;
     }
+    setMemberEditorStatus("", false);
     const targetRoleAllowed =
       mode !== "edit" ||
       typeof canViewUserByRole !== "function" ||
@@ -2224,6 +2252,11 @@
 
   async function submitMemberEditorModal(event) {
     event.preventDefault();
+    setMemberEditorStatus("", false);
+    const report = (message, isError) => {
+      setMemberEditorStatus(message, isError);
+      feedback(message, isError);
+    };
     const submitLabel =
       memberEditorMode === "create"
         ? "Add member"
@@ -2252,13 +2285,56 @@
     const baseRate = baseRaw === "" ? null : Number(baseRaw);
     const costRate = costRaw === "" ? null : Number(costRaw);
     if ((baseRate !== null && (!Number.isFinite(baseRate) || baseRate < 0)) || (costRate !== null && (!Number.isFinite(costRate) || costRate < 0))) {
-      feedback("Rates must be non-negative numbers.", true);
+      report("Rates must be non-negative numbers.", true);
       return;
     }
     const needsProfileValidation = memberEditorMode === "create" || canEditProfile;
     if (needsProfileValidation && (!email || !email.includes("@"))) {
-      feedback("Email must include @.", true);
+      report("Email must include @.", true);
       return;
+    }
+    if (needsProfileValidation) {
+      const normalizedUserId = memberEditorMode === "edit" ? String(memberEditorUserId || "").trim() : "";
+      const normalizedUsername = String(username || "").trim().toLowerCase();
+      const normalizedEmail = String(email || "").trim().toLowerCase();
+      const normalizedEmployeeId = String(employeeId || "").trim().toLowerCase();
+      const users = Array.isArray(state.users) ? state.users : [];
+      const conflictUserId = normalizedUsername
+        ? users.find((u) =>
+            u &&
+            String(u.id || "").trim() !== normalizedUserId &&
+            String(u.username || "").trim().toLowerCase() === normalizedUsername &&
+            u.isActive !== false
+          )
+        : null;
+      if (conflictUserId) {
+        report("That user ID already exists.", true);
+        return;
+      }
+      const conflictEmail = normalizedEmail
+        ? users.find((u) =>
+            u &&
+            String(u.id || "").trim() !== normalizedUserId &&
+            String(u.email || "").trim().toLowerCase() === normalizedEmail &&
+            u.isActive !== false
+          )
+        : null;
+      if (conflictEmail) {
+        report("That email already exists.", true);
+        return;
+      }
+      if (normalizedEmployeeId) {
+        const conflictEmployeeId = users.find((u) =>
+          u &&
+          String(u.id || "").trim() !== normalizedUserId &&
+          String(u.employeeId || "").trim().toLowerCase() === normalizedEmployeeId &&
+          u.isActive !== false
+        );
+        if (conflictEmployeeId) {
+          report("That employee ID already exists.", true);
+          return;
+        }
+      }
     }
 
     if (memberEditorSubmit) {
@@ -2269,7 +2345,7 @@
     try {
       if (memberEditorMode === "create") {
         if (!canCreate) {
-          feedback("Access denied.", true);
+          report("Access denied.", true);
           return;
         }
         const result = await mutatePersistentState(
@@ -2304,7 +2380,7 @@
         const userId = memberEditorUserId;
         const currentUser = (state.users || []).find((u) => u.id === userId);
         if (!currentUser) {
-          feedback("Team member not found.", true);
+          report("Team member not found.", true);
           return;
         }
         const targetRoleAllowed =
@@ -2314,7 +2390,7 @@
         if (isSelfProfileMode) {
           const currentUserId = `${state.currentUser?.id || ""}`.trim();
           if (!currentUserId || currentUserId !== `${userId || ""}`.trim()) {
-            feedback("Access denied.", true);
+            report("Access denied.", true);
             return;
           }
           const normalizeText = (value) => String(value || "").trim();
@@ -2407,86 +2483,49 @@
           return;
         }
 
-        const previousUserSnapshot = { ...currentUser };
-        const nextUsers = (state.users || []).map((item) => {
-          if (!item || item.id !== userId) return item;
-          return {
-            ...item,
-            displayName: profileChanged ? displayName : item.displayName,
-            username: profileChanged ? username : item.username,
-            email: profileChanged ? email : item.email,
-            employeeId: profileChanged ? employeeId : item.employeeId,
-            level: profileChanged ? level : item.level,
-            officeId: profileChanged ? officeId : item.officeId,
-            certifications: profileChanged ? certifications : item.certifications,
-            memberProfile: profileChanged ? memberProfile : item.memberProfile,
-            departmentId: departmentChanged ? departmentId : item.departmentId,
-            baseRate: baseRateChanged ? baseRate : item.baseRate,
-            costRate: costRateChanged ? costRate : item.costRate,
-          };
-        });
-        state.users = nextUsers;
-        render();
-
-        try {
-          if (canEditProfile) {
-            if (profileChanged) {
-              await mutatePersistentState(
-                "update_user",
-                {
-                  userId,
-                  displayName,
-                  username,
-                  email,
-                  employeeId,
-                  level,
-                  officeId,
-                  certifications,
-                  memberProfile,
-                },
-                settingsSaveFastOptions()
-              );
-            }
-          }
-          const followUpMutations = [];
-          if (departmentChanged) {
-            followUpMutations.push(
-              mutatePersistentState(
-                "set_user_department",
-                { userId, departmentId },
-                settingsSaveFastOptions()
-              )
+        if (canEditProfile) {
+          if (profileChanged) {
+            await mutatePersistentState(
+              "update_user",
+              {
+                userId,
+                displayName,
+                username,
+                email,
+                employeeId,
+                level,
+                officeId,
+                certifications,
+                memberProfile,
+              },
+              settingsSaveFastOptions()
             );
           }
-          if (ratesChanged) {
-            followUpMutations.push(
-              mutatePersistentState(
-                "update_user_rates",
-                {
-                  userId,
-                  baseRate: baseRateChanged ? baseRate : currentUser.baseRate,
-                  costRate: costRateChanged ? costRate : currentUser.costRate,
-                },
-                settingsSaveFastOptions()
-              )
-            );
-          }
-          if (followUpMutations.length) {
-            await Promise.all(followUpMutations);
-          }
-          closeMemberEditorModal();
-          feedback("Member updated.", false);
-          refreshSettingsTabInBackground("rates");
-        } catch (innerError) {
-          state.users = (state.users || []).map((item) =>
-            !item || item.id !== userId ? item : previousUserSnapshot
-          );
-          render();
-          throw innerError;
         }
+        if (departmentChanged) {
+          await mutatePersistentState(
+            "set_user_department",
+            { userId, departmentId },
+            settingsSaveFastOptions()
+          );
+        }
+        if (ratesChanged) {
+          await mutatePersistentState(
+            "update_user_rates",
+            {
+              userId,
+              baseRate: baseRateChanged ? baseRate : currentUser.baseRate,
+              costRate: costRateChanged ? costRate : currentUser.costRate,
+            },
+            settingsSaveFastOptions()
+          );
+        }
+        closeMemberEditorModal();
+        feedback("Member updated.", false);
+        refreshSettingsTabInBackground("rates");
       }
     } catch (error) {
-      feedback(error.message || "Unable to save member.", true);
+      report(error.message || "Unable to save member.", true);
     } finally {
       if (memberEditorSubmit && memberEditorModal && !memberEditorModal.hidden) {
         memberEditorSubmit.disabled = false;
