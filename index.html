@@ -355,6 +355,9 @@
                     <button class="button button-ghost entries-inline-switch" id="entries-switch-expenses" type="button">
                       Expenses
                     </button>
+                    <button class="button button-ghost entries-inline-switch" id="entries-switch-deleted-from-time" type="button">
+                      Deleted
+                    </button>
                   </h2>
                   <div class="filter-total" id="filter-total-hours">Total hours: 0.00</div>
                 </div>
@@ -462,6 +465,9 @@
                     <button class="button button-ghost entries-inline-switch" id="entries-switch-time" type="button">
                       Time
                     </button>
+                    <button class="button button-ghost entries-inline-switch" id="entries-switch-deleted-from-expenses" type="button">
+                      Deleted
+                    </button>
                   </h2>
                   <div class="filter-total" id="expense-filter-total">Total amount: $0.00</div>
                 </div>
@@ -558,6 +564,72 @@
                         <div class="empty-state-panel">
                           <strong>No expenses yet.</strong>
                           <span>Add an expense to get started.</span>
+                        </div>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </section>
+
+          <section class="input-panel entries-panel" id="entries-panel-deleted" hidden>
+            <section class="panel panel-table" id="deleted-entries-review-panel">
+              <div class="panel-head panel-head-logged">
+                <div class="panel-head-title-row">
+                  <h2>
+                    Deleted items
+                    <button class="button button-ghost entries-inline-switch" id="entries-switch-time-from-deleted" type="button">
+                      Time
+                    </button>
+                    <button class="button button-ghost entries-inline-switch" id="entries-switch-expenses-from-deleted" type="button">
+                      Expenses
+                    </button>
+                  </h2>
+                </div>
+                <div class="panel-head-actions">
+                  <button class="button button-ghost" type="button" id="deleted-select-toggle">
+                    Select
+                  </button>
+                  <button class="button button-ghost" type="button" id="deleted-restore-selected" hidden>
+                    Restore Selected
+                  </button>
+                  <button class="button button-ghost" type="button" id="deleted-select-cancel" hidden>
+                    Cancel
+                  </button>
+                </div>
+              </div>
+
+              <div class="table-wrapper">
+                <table class="entries-table">
+                  <thead>
+                    <tr>
+                      <th id="deleted-select-header" hidden>
+                        <input
+                          type="checkbox"
+                          id="deleted-select-all-visible"
+                          class="entries-billable-toggle"
+                          aria-label="Select all visible deleted items"
+                        />
+                      </th>
+                      <th>Type</th>
+                      <th>Date</th>
+                      <th>User</th>
+                      <th>Client</th>
+                      <th>Project</th>
+                      <th>Description</th>
+                      <th>Value</th>
+                      <th>Status</th>
+                      <th>Deleted</th>
+                      <th class="actions-cell">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="deleted-items-body">
+                    <tr>
+                      <td colspan="11" class="empty-row">
+                        <div class="empty-state-panel">
+                          <strong>No deleted items.</strong>
+                          <span>Deleted time entries and expenses will appear here.</span>
                         </div>
                       </td>
                     </tr>

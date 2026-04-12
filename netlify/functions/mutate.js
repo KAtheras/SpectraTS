@@ -3188,23 +3188,96 @@ async function deleteExpensesBulk(sql, payload, currentUser, accountId) {
   return { deletedCount: expenseIds.length };
 }
 
+async function canDeleteExpenseRecord(sql, expense, currentUser, accountId) {
+  if (!expense || !currentUser) return false;
+  const expenseClient = normalizeText(expense.client_name) || normalizeText(expense.clientName);
+  const expenseProject = normalizeText(expense.project_name) || normalizeText(expense.projectName);
+  const expenseUserId = normalizeText(expense.user_id) || normalizeText(expense.userId);
+  const project = await findProject(sql, expenseClient, expenseProject, accountId);
+  const targetUser = await findUserById(sql, expenseUserId, accountId);
+  if (!project && !isAdmin(currentUser)) {
+    return false;
+  }
+
+  if (isAdmin(currentUser)) {
+    return true;
+  }
+
+  if (isManager(currentUser)) {
+    if (project) {
+      const hasAccess = await managerHasProjectAccess(sql, currentUser.id, project.id, accountId);
+      if (!hasAccess) {
+        return false;
+      }
+    }
+    const targetGroup = permissionGroupForUser(targetUser);
+    if (targetUser && targetUser.id !== currentUser.id && targetGroup !== "staff") {
+      return false;
+    }
+    return true;
+  }
+
+  if (isStaff(currentUser)) {
+    if (expenseUserId !== currentUser.id) {
+      return false;
+    }
+    if (project) {
+      const memberRows = await sql`
+        SELECT id
+        FROM project_members
+        WHERE project_id = ${project.id}
+          AND user_id = ${currentUser.id}
+          AND account_id = ${accountId}::uuid
+        LIMIT 1
+      `;
+      if (!memberRows[0]) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  return false;
+}
+
 async function restoreExpenses(sql, payload, currentUser, accountId) {
-  const expenseIdsRaw = Array.isArray(payload?.expenseIds) ? payload.expenseIds : [];
+  const expenseIdsRaw = Array.isArray(payload?.expenseIds)
+    ? payload.expenseIds
+    : Array.isArray(payload?.ids)
+      ? payload.ids
+      : [];
   const expenseIds = Array.from(
     new Set(expenseIdsRaw.map((value) => normalizeText(value)).filter(Boolean))
   );
   if (!expenseIds.length) {
     return { restoredCount: 0 };
   }
+
+  const rows = await sql`
+    SELECT *
+    FROM expenses
+    WHERE id = ANY(${expenseIds})
+      AND account_id = ${accountId}::uuid
+      AND deleted_at IS NOT NULL
+  `;
+  const allowedIds = [];
+  for (const row of rows) {
+    if (await canDeleteExpenseRecord(sql, row, currentUser, accountId)) {
+      allowedIds.push(normalizeText(row.id));
+    }
+  }
+  if (!allowedIds.length) {
+    return { restoredCount: 0 };
+  }
+
   const restoredRows = await sql`
     UPDATE expenses
     SET deleted_at = NULL,
         deleted_by_user_id = NULL,
         updated_at = NOW()
-    WHERE id = ANY(${expenseIds})
+    WHERE id = ANY(${allowedIds})
       AND account_id = ${accountId}::uuid
       AND deleted_at IS NOT NULL
-      AND deleted_by_user_id = ${currentUser.id}
     RETURNING id
   `;
   return { restoredCount: restoredRows.length };
@@ -4530,26 +4603,164 @@ async function deleteEntriesBulk(sql, payload, currentUser, accountId) {
   return { deletedCount: entryIds.length };
 }
 
+async function canDeleteEntryRecord(sql, entry, currentUser, accountId) {
+  if (!entry || !currentUser) return false;
+  const entryClient = normalizeText(entry.client_name) || normalizeText(entry.client);
+  const entryProject = normalizeText(entry.project_name) || normalizeText(entry.project);
+  const entryUserName = normalizeText(entry.user_name) || normalizeText(entry.user);
+  const project = await findProject(sql, entryClient, entryProject, accountId);
+  if (!project && !isAdmin(currentUser)) {
+    return false;
+  }
+
+  if (isAdmin(currentUser)) {
+    return true;
+  }
+
+  if (isManager(currentUser)) {
+    if (project) {
+      const hasAccess = await managerHasProjectAccess(
+        sql,
+        currentUser.id,
+        project.id,
+        accountId
+      );
+      if (!hasAccess) {
+        return false;
+      }
+    }
+    const targetUser = await findUserByDisplayName(sql, entryUserName, accountId);
+    const targetGroup = permissionGroupForUser(targetUser);
+    if (targetUser && targetUser.id !== currentUser.id && targetGroup !== "staff") {
+      return false;
+    }
+    return true;
+  }
+
+  if (isStaff(currentUser)) {
+    if (entryUserName !== currentUser.displayName) {
+      return false;
+    }
+    if (project) {
+      const memberRows = await sql`
+        SELECT id
+        FROM project_members
+        WHERE project_id = ${project.id}
+          AND user_id = ${currentUser.id}
+          AND account_id = ${accountId}::uuid
+        LIMIT 1
+      `;
+      if (!memberRows[0]) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  return false;
+}
+
 async function restoreEntries(sql, payload, currentUser, accountId) {
-  const entryIdsRaw = Array.isArray(payload?.entryIds) ? payload.entryIds : [];
+  const entryIdsRaw = Array.isArray(payload?.entryIds)
+    ? payload.entryIds
+    : Array.isArray(payload?.ids)
+      ? payload.ids
+      : [];
   const entryIds = Array.from(
     new Set(entryIdsRaw.map((value) => normalizeText(value)).filter(Boolean))
   );
   if (!entryIds.length) {
     return { restoredCount: 0 };
   }
+
+  const rows = await sql`
+    SELECT
+      id,
+      user_name,
+      client_name,
+      project_name
+    FROM entries
+    WHERE id = ANY(${entryIds}::uuid[])
+      AND account_id = ${accountId}::uuid
+      AND deleted_at IS NOT NULL
+  `;
+  const allowedIds = [];
+  for (const row of rows) {
+    if (await canDeleteEntryRecord(sql, row, currentUser, accountId)) {
+      allowedIds.push(normalizeText(row.id));
+    }
+  }
+  if (!allowedIds.length) {
+    return { restoredCount: 0 };
+  }
+
   const restoredRows = await sql`
     UPDATE entries
     SET deleted_at = NULL,
         deleted_by_user_id = NULL,
         updated_at = NOW()
-    WHERE id = ANY(${entryIds}::uuid[])
+    WHERE id = ANY(${allowedIds}::uuid[])
       AND account_id = ${accountId}::uuid
       AND deleted_at IS NOT NULL
-      AND deleted_by_user_id = ${currentUser.id}
     RETURNING id
   `;
   return { restoredCount: restoredRows.length };
+}
+
+async function listDeletedItems(sql, currentUser, accountId) {
+  const deletedEntriesRows = await sql`
+    SELECT
+      id,
+      user_name AS "user",
+      client_name AS client,
+      project_name AS project,
+      entry_date AS date,
+      hours,
+      notes,
+      billable,
+      status,
+      deleted_at AS "deletedAt"
+    FROM entries
+    WHERE account_id = ${accountId}::uuid
+      AND deleted_at IS NOT NULL
+    ORDER BY deleted_at DESC, updated_at DESC
+  `;
+  const deletedEntries = [];
+  for (const row of deletedEntriesRows) {
+    if (await canDeleteEntryRecord(sql, row, currentUser, accountId)) {
+      deletedEntries.push(row);
+    }
+  }
+
+  const deletedExpenseRows = await sql`
+    SELECT
+      id,
+      user_id AS "userId",
+      client_name AS "clientName",
+      project_name AS "projectName",
+      expense_date AS "expenseDate",
+      category,
+      amount,
+      is_billable AS "isBillable",
+      notes,
+      status,
+      deleted_at AS "deletedAt"
+    FROM expenses
+    WHERE account_id = ${accountId}::uuid
+      AND deleted_at IS NOT NULL
+    ORDER BY deleted_at DESC, updated_at DESC
+  `;
+  const deletedExpenses = [];
+  for (const row of deletedExpenseRows) {
+    if (await canDeleteExpenseRecord(sql, row, currentUser, accountId)) {
+      deletedExpenses.push(row);
+    }
+  }
+
+  return {
+    deletedEntries,
+    deletedExpenses,
+  };
 }
 
 exports.handler = async function handler(event) {
@@ -5382,6 +5593,9 @@ exports.handler = async function handler(event) {
           accountId
         );
         if (mutationResult?.statusCode) return mutationResult;
+        break;
+      case "list_deleted_items":
+        mutationResult = await listDeletedItems(sql, context.currentUser, accountId);
         break;
       case "restore_entries":
         mutationResult = await restoreEntries(

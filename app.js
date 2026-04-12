@@ -432,8 +432,13 @@
     entriesSubtabExpenses: document.getElementById("entries-subtab-expenses"),
     entriesSwitchExpenses: document.getElementById("entries-switch-expenses"),
     entriesSwitchTime: document.getElementById("entries-switch-time"),
+    entriesSwitchDeletedFromTime: document.getElementById("entries-switch-deleted-from-time"),
+    entriesSwitchDeletedFromExpenses: document.getElementById("entries-switch-deleted-from-expenses"),
+    entriesSwitchTimeFromDeleted: document.getElementById("entries-switch-time-from-deleted"),
+    entriesSwitchExpensesFromDeleted: document.getElementById("entries-switch-expenses-from-deleted"),
     entriesPanelTime: document.getElementById("entries-panel-time"),
     entriesPanelExpenses: document.getElementById("entries-panel-expenses"),
+    entriesPanelDeleted: document.getElementById("entries-panel-deleted"),
     inboxView: document.getElementById("inbox-page"),
     inboxList: document.getElementById("inbox-list"),
     inboxFilterAll: document.getElementById("inbox-filter-all"),
@@ -531,6 +536,12 @@
     expensesUndoBar: document.getElementById("expenses-undo-bar"),
     expensesUndoMessage: document.getElementById("expenses-undo-message"),
     expensesUndoAction: document.getElementById("expenses-undo-action"),
+    deletedSelectToggle: document.getElementById("deleted-select-toggle"),
+    deletedRestoreSelected: document.getElementById("deleted-restore-selected"),
+    deletedSelectCancel: document.getElementById("deleted-select-cancel"),
+    deletedSelectHeader: document.getElementById("deleted-select-header"),
+    deletedSelectAllVisible: document.getElementById("deleted-select-all-visible"),
+    deletedItemsBody: document.getElementById("deleted-items-body"),
     expenseFilterUser: document.getElementById("expense-filter-user"),
     expenseFilterClient: document.getElementById("expense-filter-client"),
     expenseFilterProject: document.getElementById("expense-filter-project"),
@@ -2670,6 +2681,11 @@
     selectedExpenseIds: new Set(),
     lastTimeDeleteUndo: null,
     lastExpenseDeleteUndo: null,
+    deletedEntries: [],
+    deletedExpenses: [],
+    deletedSelectionMode: false,
+    selectedDeletedKeys: new Set(),
+    deletedItemsLoading: false,
     delegators: [],
     myDelegations: [],
     delegationCandidates: [],
@@ -3432,6 +3448,11 @@
     state.selectedExpenseIds = new Set();
     state.lastTimeDeleteUndo = null;
     state.lastExpenseDeleteUndo = null;
+    state.deletedEntries = [];
+    state.deletedExpenses = [];
+    state.deletedSelectionMode = false;
+    state.selectedDeletedKeys = new Set();
+    state.deletedItemsLoading = false;
     state.levelLabels = {};
     state.officeLocations = [];
     state.expenseCategories = [];
@@ -4196,6 +4217,224 @@
     render();
   }
 
+  function deletedItemKey(type, id) {
+    const normalizedType = `${type || ""}`.trim().toLowerCase();
+    const normalizedId = `${id || ""}`.trim();
+    return normalizedType && normalizedId ? `${normalizedType}:${normalizedId}` : "";
+  }
+
+  function combinedDeletedItems() {
+    const timeItems = (state.deletedEntries || []).map((item) => ({
+      ...item,
+      itemType: "time",
+      itemId: `${item?.id || ""}`.trim(),
+    }));
+    const expenseItems = (state.deletedExpenses || []).map((item) => ({
+      ...item,
+      itemType: "expense",
+      itemId: `${item?.id || ""}`.trim(),
+    }));
+    return [...timeItems, ...expenseItems].sort((a, b) => {
+      const left = `${a?.deletedAt || ""}`;
+      const right = `${b?.deletedAt || ""}`;
+      if (left === right) {
+        return `${b?.itemId || ""}`.localeCompare(`${a?.itemId || ""}`);
+      }
+      return right.localeCompare(left);
+    });
+  }
+
+  async function loadDeletedItems() {
+    if (state.deletedItemsLoading) return;
+    state.deletedItemsLoading = true;
+    try {
+      const payload = await mutatePersistentState(
+        "list_deleted_items",
+        {},
+        { skipHydrate: true, refreshState: false, returnState: false }
+      );
+      state.deletedEntries = Array.isArray(payload?.deletedEntries) ? payload.deletedEntries : [];
+      state.deletedExpenses = Array.isArray(payload?.deletedExpenses) ? payload.deletedExpenses : [];
+    } catch (error) {
+      feedback(error.message || "Unable to load deleted items.", true);
+    } finally {
+      state.deletedItemsLoading = false;
+    }
+  }
+
+  function syncDeletedSelectionControls(items) {
+    const visibleItems = Array.isArray(items) ? items : combinedDeletedItems();
+    const visibleKeys = visibleItems
+      .map((item) => deletedItemKey(item?.itemType, item?.itemId))
+      .filter(Boolean);
+    const visibleKeySet = new Set(visibleKeys);
+    const selectedSet = state.selectedDeletedKeys instanceof Set ? state.selectedDeletedKeys : new Set();
+    const pruned = new Set(Array.from(selectedSet).filter((key) => visibleKeySet.has(key)));
+    state.selectedDeletedKeys = pruned;
+
+    const selectedCount = pruned.size;
+    const isSelectionMode = Boolean(state.deletedSelectionMode);
+
+    if (refs.deletedSelectHeader) {
+      refs.deletedSelectHeader.hidden = !isSelectionMode;
+    }
+    if (refs.deletedSelectAllVisible) {
+      refs.deletedSelectAllVisible.hidden = !isSelectionMode;
+      refs.deletedSelectAllVisible.checked =
+        isSelectionMode && visibleKeys.length > 0 && selectedCount === visibleKeys.length;
+      refs.deletedSelectAllVisible.indeterminate =
+        isSelectionMode && selectedCount > 0 && selectedCount < visibleKeys.length;
+      refs.deletedSelectAllVisible.disabled = !isSelectionMode || visibleKeys.length === 0;
+    }
+    if (refs.deletedSelectToggle) {
+      refs.deletedSelectToggle.hidden = isSelectionMode;
+    }
+    if (refs.deletedRestoreSelected) {
+      refs.deletedRestoreSelected.hidden = !isSelectionMode;
+      refs.deletedRestoreSelected.disabled = selectedCount === 0;
+      refs.deletedRestoreSelected.textContent =
+        selectedCount > 0 ? `Restore Selected (${selectedCount})` : "Restore Selected";
+    }
+    if (refs.deletedSelectCancel) {
+      refs.deletedSelectCancel.hidden = !isSelectionMode;
+    }
+  }
+
+  async function restoreDeletedItems(itemsToRestore) {
+    const items = Array.isArray(itemsToRestore) ? itemsToRestore.filter(Boolean) : [];
+    if (!items.length) return;
+
+    const timeIds = items
+      .filter((item) => item.itemType === "time")
+      .map((item) => `${item.itemId || ""}`.trim())
+      .filter(Boolean);
+    const expenseIds = items
+      .filter((item) => item.itemType === "expense")
+      .map((item) => `${item.itemId || ""}`.trim())
+      .filter(Boolean);
+
+    try {
+      if (timeIds.length) {
+        await mutatePersistentState(
+          "restore_entries",
+          { ids: timeIds },
+          { skipHydrate: true, refreshState: false, returnState: false }
+        );
+      }
+      if (expenseIds.length) {
+        await mutatePersistentState(
+          "restore_expenses",
+          { ids: expenseIds },
+          { skipHydrate: true, refreshState: false, returnState: false }
+        );
+      }
+    } catch (error) {
+      feedback(error.message || "Unable to restore selected items.", true);
+      return;
+    }
+
+    const timeSet = new Set(timeIds);
+    const expenseSet = new Set(expenseIds);
+    const restoredTime = (state.deletedEntries || []).filter((item) => timeSet.has(`${item?.id || ""}`.trim()));
+    const restoredExpense = (state.deletedExpenses || []).filter((item) =>
+      expenseSet.has(`${item?.id || ""}`.trim())
+    );
+    state.deletedEntries = (state.deletedEntries || []).filter((item) => !timeSet.has(`${item?.id || ""}`.trim()));
+    state.deletedExpenses = (state.deletedExpenses || []).filter(
+      (item) => !expenseSet.has(`${item?.id || ""}`.trim())
+    );
+    if (restoredTime.length) {
+      const existingIds = new Set((state.entries || []).map((item) => `${item?.id || ""}`.trim()));
+      restoredTime.forEach((item) => {
+        const id = `${item?.id || ""}`.trim();
+        if (!id || existingIds.has(id)) return;
+        state.entries.push({ ...item, deletedAt: null, deletedByUserId: null });
+      });
+    }
+    if (restoredExpense.length) {
+      const existingIds = new Set((state.expenses || []).map((item) => `${item?.id || ""}`.trim()));
+      restoredExpense.forEach((item) => {
+        const id = `${item?.id || ""}`.trim();
+        if (!id || existingIds.has(id)) return;
+        state.expenses.push({ ...item, deletedAt: null, deletedByUserId: null });
+      });
+    }
+
+    state.deletedSelectionMode = false;
+    state.selectedDeletedKeys = new Set();
+    feedback("Items restored.", false);
+    render();
+  }
+
+  async function restoreSelectedDeletedItems() {
+    const items = combinedDeletedItems();
+    const selectedSet = state.selectedDeletedKeys instanceof Set ? state.selectedDeletedKeys : new Set();
+    const selectedItems = items.filter((item) => selectedSet.has(deletedItemKey(item.itemType, item.itemId)));
+    if (!selectedItems.length) return;
+    await restoreDeletedItems(selectedItems);
+  }
+
+  function renderDeletedItemsTable() {
+    if (!refs.deletedItemsBody) return;
+    const items = combinedDeletedItems();
+    syncDeletedSelectionControls(items);
+    if (!items.length) {
+      refs.deletedItemsBody.innerHTML = `
+        <tr>
+          <td colspan="${state.deletedSelectionMode ? 12 : 11}" class="empty-row">
+            <div class="empty-state-panel">
+              <strong>No deleted items.</strong>
+              <span>Deleted time entries and expenses will appear here.</span>
+            </div>
+          </td>
+        </tr>
+      `;
+      return;
+    }
+
+    refs.deletedItemsBody.innerHTML = items
+      .map((item) => {
+        const itemId = `${item?.itemId || ""}`.trim();
+        const itemType = item?.itemType === "expense" ? "expense" : "time";
+        const itemKey = deletedItemKey(itemType, itemId);
+        const selectedSet = state.selectedDeletedKeys instanceof Set ? state.selectedDeletedKeys : new Set();
+        const selectedMarkup = state.deletedSelectionMode
+          ? `<td><input type="checkbox" class="entries-billable-toggle" data-action="deleted-select-item" data-type="${escapeHtml(
+              itemType
+            )}" data-id="${escapeHtml(itemId)}" ${selectedSet.has(itemKey) ? "checked" : ""} /></td>`
+          : "";
+        const valueText =
+          itemType === "time"
+            ? `${Number(item?.hours || 0).toFixed(2)}h`
+            : `$${Number(item?.amount || 0).toFixed(2)}`;
+        const deletedAtText = formatDateTimeLocal(item?.deletedAt || "");
+        const description = itemType === "time"
+          ? `${item?.notes || ""}`.trim() || "(No note)"
+          : `${item?.category || ""}${item?.notes ? ` - ${item.notes}` : ""}`.trim() || "(No description)";
+        const actionsMarkup = state.deletedSelectionMode
+          ? ""
+          : `<button class="text-button" type="button" data-action="deleted-restore-item" data-type="${escapeHtml(
+              itemType
+            )}" data-id="${escapeHtml(itemId)}">Restore</button>`;
+        return `
+          <tr>
+            ${selectedMarkup}
+            <td>${itemType === "time" ? "Time" : "Expense"}</td>
+            <td>${escapeHtml(formatDisplayDateShort(itemType === "time" ? item?.date : item?.expenseDate))}</td>
+            <td>${escapeHtml(itemType === "time" ? item?.user : userNameById(item?.userId))}</td>
+            <td>${escapeHtml(itemType === "time" ? item?.client : item?.clientName)}</td>
+            <td>${escapeHtml(itemType === "time" ? item?.project : item?.projectName)}</td>
+            <td>${escapeHtml(description)}</td>
+            <td>${escapeHtml(valueText)}</td>
+            <td>${escapeHtml(item?.status === "approved" ? "Approved" : "Pending")}</td>
+            <td>${escapeHtml(deletedAtText || "")}</td>
+            <td class="actions-cell">${actionsMarkup}</td>
+          </tr>
+        `;
+      })
+      .join("");
+  }
+
   function setView(view) {
     if (!isViewAllowed(view)) {
       view = "inputs";
@@ -4206,6 +4445,10 @@
     }
     if (previousView === "entries" && view !== "entries" && state.expensesSelectionMode) {
       setExpensesSelectionMode(false);
+    }
+    if (previousView === "entries" && view !== "entries" && state.deletedSelectionMode) {
+      state.deletedSelectionMode = false;
+      state.selectedDeletedKeys = new Set();
     }
     if (view === "inbox" && previousView !== "inbox") {
       beginInboxVisit();
@@ -9024,7 +9267,12 @@
       refs.inputsTimeCalendarView.hidden = true;
     }
 
-    const entriesSubtab = state.entriesSubtab === "expenses" ? "expenses" : "time";
+    const entriesSubtab =
+      state.entriesSubtab === "expenses"
+        ? "expenses"
+        : state.entriesSubtab === "deleted"
+        ? "deleted"
+        : "time";
     if (refs.entriesViewTitle) {
       refs.entriesViewTitle.textContent = "Entries";
     }
@@ -9041,6 +9289,9 @@
     }
     if (refs.entriesPanelExpenses) {
       refs.entriesPanelExpenses.hidden = entriesSubtab !== "expenses";
+    }
+    if (refs.entriesPanelDeleted) {
+      refs.entriesPanelDeleted.hidden = entriesSubtab !== "deleted";
     }
 
     if (view === "clients") {
@@ -9149,6 +9400,10 @@
         if (state.entriesSelectionMode) {
           setEntriesSelectionMode(false);
         }
+        if (state.deletedSelectionMode) {
+          state.deletedSelectionMode = false;
+          state.selectedDeletedKeys = new Set();
+        }
         syncEntriesSelectionControls([]);
         syncExpenseFilterCatalogsUI(state.expenseFilters);
         const filteredExpenses = currentExpenses();
@@ -9157,9 +9412,23 @@
         syncExpenseSelectionControls(filteredExpenses);
         renderExpenseFilterState(filteredExpenses);
         syncEntriesUndoUi();
+      } else if (entriesSubtab === "deleted") {
+        if (state.entriesSelectionMode) {
+          setEntriesSelectionMode(false);
+        }
+        if (state.expensesSelectionMode) {
+          setExpensesSelectionMode(false);
+        }
+        syncEntriesSelectionControls([]);
+        syncExpenseSelectionControls([]);
+        renderDeletedItemsTable();
       } else {
         if (state.expensesSelectionMode) {
           setExpensesSelectionMode(false);
+        }
+        if (state.deletedSelectionMode) {
+          state.deletedSelectionMode = false;
+          state.selectedDeletedKeys = new Set();
         }
         syncExpenseSelectionControls([]);
         syncFilterCatalogsUI(state.filters);
@@ -9859,6 +10128,32 @@
       render();
     });
   }
+  if (refs.entriesSwitchDeletedFromTime) {
+    refs.entriesSwitchDeletedFromTime.addEventListener("click", async function () {
+      state.entriesSubtab = "deleted";
+      await loadDeletedItems();
+      render();
+    });
+  }
+  if (refs.entriesSwitchDeletedFromExpenses) {
+    refs.entriesSwitchDeletedFromExpenses.addEventListener("click", async function () {
+      state.entriesSubtab = "deleted";
+      await loadDeletedItems();
+      render();
+    });
+  }
+  if (refs.entriesSwitchTimeFromDeleted) {
+    refs.entriesSwitchTimeFromDeleted.addEventListener("click", function () {
+      state.entriesSubtab = "time";
+      render();
+    });
+  }
+  if (refs.entriesSwitchExpensesFromDeleted) {
+    refs.entriesSwitchExpensesFromDeleted.addEventListener("click", function () {
+      state.entriesSubtab = "expenses";
+      render();
+    });
+  }
   if (refs.entriesSwitchExpenses) {
     refs.entriesSwitchExpenses.addEventListener("click", function () {
       syncSharedEntriesFiltersFromTime();
@@ -9928,6 +10223,36 @@
       if (!state.expensesSelectionMode) return;
       const visibleIds = visibleExpenseIds();
       state.selectedExpenseIds = event.target.checked ? new Set(visibleIds) : new Set();
+      render();
+    });
+  }
+  if (refs.deletedSelectToggle) {
+    refs.deletedSelectToggle.addEventListener("click", function () {
+      if (state.entriesSubtab !== "deleted") return;
+      state.deletedSelectionMode = true;
+      render();
+    });
+  }
+  if (refs.deletedSelectCancel) {
+    refs.deletedSelectCancel.addEventListener("click", function () {
+      state.deletedSelectionMode = false;
+      state.selectedDeletedKeys = new Set();
+      render();
+    });
+  }
+  if (refs.deletedRestoreSelected) {
+    refs.deletedRestoreSelected.addEventListener("click", async function () {
+      await restoreSelectedDeletedItems();
+    });
+  }
+  if (refs.deletedSelectAllVisible) {
+    refs.deletedSelectAllVisible.addEventListener("change", function (event) {
+      if (!state.deletedSelectionMode) return;
+      const items = combinedDeletedItems();
+      const keys = items
+        .map((item) => deletedItemKey(item.itemType, item.itemId))
+        .filter(Boolean);
+      state.selectedDeletedKeys = event.target.checked ? new Set(keys) : new Set();
       render();
     });
   }
@@ -10496,6 +10821,51 @@
   }
 
   bindExpenseReviewTableActions(refs.expensesBody);
+
+  if (refs.deletedItemsBody) {
+    refs.deletedItemsBody.addEventListener("click", async function (event) {
+      const actionEl = event.target.closest("[data-action]");
+      if (!actionEl) return;
+      const action = `${actionEl.dataset.action || ""}`.trim();
+      const id = `${actionEl.dataset.id || ""}`.trim();
+      const type = `${actionEl.dataset.type || ""}`.trim().toLowerCase();
+      if (!id || (type !== "time" && type !== "expense")) return;
+
+      if (action === "deleted-select-item") {
+        if (!state.deletedSelectionMode) return;
+        const key = deletedItemKey(type, id);
+        if (!key) return;
+        const next = new Set(state.selectedDeletedKeys instanceof Set ? state.selectedDeletedKeys : []);
+        if (next.has(key)) {
+          next.delete(key);
+        } else {
+          next.add(key);
+        }
+        state.selectedDeletedKeys = next;
+        render();
+        return;
+      }
+
+      if (state.deletedSelectionMode) return;
+      if (action !== "deleted-restore-item") return;
+      const collection = type === "time" ? state.deletedEntries : state.deletedExpenses;
+      const source = (collection || []).find((item) => `${item?.id || ""}`.trim() === id);
+      if (!source) return;
+      await restoreDeletedItems([
+        {
+          itemType: type,
+          itemId: id,
+        },
+      ]);
+    });
+    refs.deletedItemsBody.addEventListener("keydown", function (event) {
+      const actionEl = event.target.closest("[data-action]");
+      if (!actionEl) return;
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      actionEl.click();
+    });
+  }
 
   if (refs.entriesBody) {
     refs.entriesBody.addEventListener("keydown", async function (event) {
