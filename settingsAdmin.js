@@ -3193,10 +3193,10 @@
     const { state, escapeHtml } = deps();
     const panel = document.querySelector('[data-settings-tab="permissions"]');
     if (!panel) return;
-    const setInlinePermissionsFeedback = (message, isError = false) => {
+    const setClientsGroupWarning = (message, isError = false) => {
       const activePanel = document.querySelector('[data-settings-tab="permissions"]');
       if (!activePanel) return;
-      const notice = activePanel.querySelector("[data-permissions-inline-feedback]");
+      const notice = activePanel.querySelector('[data-perm-group-warning="ClientProject"]');
       if (!notice) return;
       notice.textContent = message || "";
       notice.dataset.error = isError ? "true" : "false";
@@ -3305,6 +3305,7 @@
               <span class="permissions-group-chevron" data-perm-group-chevron="${escapeHtml(group.key)}" aria-hidden="true">${isCollapsed ? "▸" : "▾"}</span>
             </button>
             <div class="table-wrapper" data-perm-group-body="${escapeHtml(group.key)}" ${isCollapsed ? "hidden" : ""}>
+              ${group.key === "ClientProject" ? '<p class="feedback" data-perm-group-warning="ClientProject" hidden></p>' : ""}
               <table class="table perms-matrix">
                 <thead>
                   <tr>
@@ -3330,7 +3331,6 @@
         <div class="settings-section-right"></div>
       </div>
       <div class="settings-section-content">
-        <p class="feedback" data-permissions-inline-feedback hidden></p>
         ${groupsHtml}
       </div>
     `;
@@ -3380,7 +3380,7 @@
           }
         });
         if (!changedCount) {
-          setInlinePermissionsFeedback("", false);
+          setClientsGroupWarning("", false);
           return;
         }
         permissionsSaveInFlight = true;
@@ -3438,22 +3438,30 @@
             "see_office_clients_projects",
             "see_assigned_clients_projects",
           ];
+          const actionCaps = [
+            "manage_clients_lifecycle",
+            "manage_projects_lifecycle",
+            "edit_clients",
+            "edit_projects_all_modal",
+            "edit_project_planning",
+          ];
           const warningRoles = Array.from(allowedCapabilitiesByRole.entries())
             .filter(([_, caps]) => {
-              if (!caps.has("edit_project_planning")) return false;
+              const hasAnyActionCap = actionCaps.some((capability) => caps.has(capability));
+              if (!hasAnyActionCap) return false;
               return !visibilityCaps.some((capability) => caps.has(capability));
             })
             .map(([roleKey]) => roleKey);
           if (warningRoles.length) {
-            const warningMessage = `${warningRoles.join(", ")} can edit project planning but has no client/project visibility.`;
-            setInlinePermissionsFeedback(`Warning: ${warningMessage}`, false);
+            const warningMessage = `${warningRoles.join(", ")} has client/project action permissions but no client/project visibility.`;
+            setClientsGroupWarning(`Warning: ${warningMessage}`, false);
             deps().feedback(`Access updated. Warning: ${warningMessage}`, false);
           } else {
-            setInlinePermissionsFeedback("", false);
+            setClientsGroupWarning("", false);
             deps().feedback("Access updated.", false);
           }
         } catch (error) {
-          setInlinePermissionsFeedback(error.message || "Unable to save access.", true);
+          setClientsGroupWarning(error.message || "Unable to save access.", true);
           deps().feedback(error.message || "Unable to save access.", true);
           permissionsQueuedSnapshot = null;
         } finally {
