@@ -511,6 +511,23 @@
             gap:14px;
             padding-bottom:2px;
           }
+          #settings-page [data-settings-tab="bulk_upload"] .settings-section-content,
+          #settings-page [data-settings-tab="bulk_upload"] #bulk-upload-rows,
+          #settings-page [data-settings-tab="bulk_upload"] #bulk-upload-preview,
+          #settings-page [data-settings-tab="bulk_upload"] #bulk-upload-preview-table-wrap{
+            width:100%;
+            max-width:100%;
+            min-width:0;
+          }
+          #settings-page [data-settings-tab="bulk_upload"] #bulk-upload-preview{
+            overflow:hidden;
+          }
+          #settings-page [data-settings-tab="bulk_upload"] #bulk-upload-preview .table-wrapper{
+            width:100%;
+            max-width:100%;
+            min-width:0;
+            overflow:auto;
+          }
           #settings-page .settings-subsection{
             border:1px solid var(--group-border);
             border-radius:12px;
@@ -2250,8 +2267,8 @@
             .join("")
         : `<tr><td colspan="${previewHeaders.length + 1}" style="padding:8px 10px;border:1px solid var(--group-border);">No data rows found.</td></tr>`;
       previewTableWrap.innerHTML = `
-        <div class="table-wrapper" style="max-height:360px;overflow:auto;border:1px solid var(--group-border);border-radius:10px;">
-          <table class="table" style="width:100%;border-collapse:collapse;table-layout:auto;">
+        <div class="table-wrapper" style="width:100%;max-width:100%;min-width:0;max-height:360px;overflow:auto;border:1px solid var(--group-border);border-radius:10px;">
+          <table class="table" style="width:max-content;min-width:100%;border-collapse:collapse;table-layout:auto;">
             <thead><tr>${headHtml}</tr></thead>
             <tbody>${bodyHtml}</tbody>
           </table>
