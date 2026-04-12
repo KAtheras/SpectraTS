@@ -516,7 +516,18 @@
         const officeKey = `${toggle.dataset.officeToggle || ""}`.trim();
         if (!officeKey) return;
         if (collapsedOfficeKeys.has(officeKey)) {
-          collapsedOfficeKeys.delete(officeKey);
+          const visibleOfficeKeys = Array.from(
+            refs.userList.querySelectorAll("[data-office-toggle]")
+          )
+            .map((button) => `${button.dataset.officeToggle || ""}`.trim())
+            .filter(Boolean);
+          visibleOfficeKeys.forEach(function (key) {
+            if (key === officeKey) {
+              collapsedOfficeKeys.delete(key);
+            } else {
+              collapsedOfficeKeys.add(key);
+            }
+          });
         } else {
           collapsedOfficeKeys.add(officeKey);
         }
