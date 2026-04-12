@@ -2943,6 +2943,10 @@
     return Boolean(state.permissions?.see_all_clients_projects);
   }
 
+  function canSeeOfficeClientsProjects() {
+    return Boolean(state.permissions?.see_office_clients_projects);
+  }
+
   function canSeeAssignedClientsProjects() {
     return Boolean(state.permissions?.see_assigned_clients_projects);
   }
@@ -2965,7 +2969,9 @@
 
   function hasClientsTabAccess() {
     return Boolean(
-      canSeeAllClientsProjects() || canSeeAssignedClientsProjects()
+      canSeeAllClientsProjects() ||
+      canSeeOfficeClientsProjects() ||
+      canSeeAssignedClientsProjects()
     );
   }
 
@@ -7701,8 +7707,9 @@
 
   function assignedProjectTuplesForCurrentUser() {
     const canSeeAll = canSeeAllClientsProjects();
+    const canSeeOffice = canSeeOfficeClientsProjects();
     const canSeeAssigned = canSeeAssignedClientsProjects();
-    if (!canSeeAll && !canSeeAssigned) {
+    if (!canSeeAll && !canSeeOffice && !canSeeAssigned) {
       return [];
     }
     const visibleProjectIds = new Set(
@@ -7710,6 +7717,7 @@
     );
     const scopedProjects = (state.projects || []).filter((project) => {
       if (canSeeAll) return true;
+      if (canSeeOffice) return true;
       const projectId = `${project?.id || ""}`.trim();
       return Boolean(projectId) && visibleProjectIds.has(projectId);
     });

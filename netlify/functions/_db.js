@@ -206,6 +206,14 @@ async function ensureSchema(sql) {
   `;
   await sql`
     INSERT INTO permission_capabilities (key, label, category, is_active)
+    VALUES ('see_office_clients_projects', 'Can see all clients/projects in assigned office', 'clients', TRUE)
+    ON CONFLICT (key) DO UPDATE SET
+      label = EXCLUDED.label,
+      category = EXCLUDED.category,
+      is_active = EXCLUDED.is_active
+  `;
+  await sql`
+    INSERT INTO permission_capabilities (key, label, category, is_active)
     VALUES ('manage_clients_lifecycle', 'Can add/remove/activate/deactivate clients', 'clients', TRUE)
     ON CONFLICT (key) DO UPDATE SET
       label = EXCLUDED.label,
@@ -271,6 +279,7 @@ async function ensureSchema(sql) {
       AND pc.key = ANY(${[
         "see_all_clients_projects",
         "see_assigned_clients_projects",
+        "see_office_clients_projects",
         "manage_clients_lifecycle",
         "manage_projects_lifecycle",
         "edit_clients",
@@ -3735,6 +3744,10 @@ async function loadSettingsMetadata(sql, currentUser) {
       resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
       actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
     }) ||
+    canCap("see_office_clients_projects", {
+      resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+      actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+    }) ||
     canCap("see_assigned_clients_projects", {
       resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
       actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
@@ -3761,6 +3774,10 @@ async function loadSettingsMetadata(sql, currentUser) {
       actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
     }) ||
     canCap("see_all_clients_projects", {
+      resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+      actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+    }) ||
+    canCap("see_office_clients_projects", {
       resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
       actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
     }) ||
@@ -3907,6 +3924,10 @@ async function loadState(sql, currentUser) {
       resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
       actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
     }) ||
+    canCap("see_office_clients_projects", {
+      resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+      actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+    }) ||
     canCap("see_assigned_clients_projects", {
       resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
       actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
@@ -3934,6 +3955,10 @@ async function loadState(sql, currentUser) {
       actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
     }) ||
     canCap("see_all_clients_projects", {
+      resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+      actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+    }) ||
+    canCap("see_office_clients_projects", {
       resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
       actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
     }) ||
@@ -4034,13 +4059,21 @@ async function loadState(sql, currentUser) {
   const actorManagerProjectAssignments = Array.isArray(actorManagerAssignments?.projectRows)
     ? actorManagerAssignments.projectRows
     : [];
+  const actorOfficeId = normalizeText(normalizedUser?.officeId ?? normalizedUser?.office_id ?? null);
+  const globalScopeProbeOfficeId = actorOfficeId
+    ? `__outside_office__${actorOfficeId}`
+    : "__outside_office__";
   const canSeeAllClientsProjects = canCap("see_all_clients_projects", {
-    resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
-    actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+    resourceOfficeId: globalScopeProbeOfficeId,
+    actorOfficeId,
+  });
+  const canSeeOfficeClientsProjects = canCap("see_office_clients_projects", {
+    resourceOfficeId: actorOfficeId,
+    actorOfficeId,
   });
   const canSeeAssignedClientsProjects = canCap("see_assigned_clients_projects", {
-    resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
-    actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+    resourceOfficeId: actorOfficeId,
+    actorOfficeId,
   });
   const canManageClientsLifecycle = canCap("manage_clients_lifecycle", {
     resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
@@ -4058,8 +4091,11 @@ async function loadState(sql, currentUser) {
     resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
     actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
   });
-  const canAccessClientsShell = Boolean(canSeeAllClientsProjects || canSeeAssignedClientsProjects);
+  const canAccessClientsShell = Boolean(
+    canSeeAllClientsProjects || canSeeOfficeClientsProjects || canSeeAssignedClientsProjects
+  );
   const hasGlobalClientsProjectsScope = Boolean(canSeeAllClientsProjects);
+  const hasOfficeClientsProjectsScope = Boolean(canSeeOfficeClientsProjects);
   const hasAssignedVisibilityScope = Boolean(canSeeAssignedClientsProjects);
   const hasAssignedClientsProjectsScope = Boolean(hasAssignedVisibilityScope);
   const clientsProjectsScopeMode =
@@ -4067,6 +4103,8 @@ async function loadState(sql, currentUser) {
       ? "none"
       : hasGlobalClientsProjectsScope
         ? "global"
+        : hasOfficeClientsProjectsScope
+          ? "office"
         : hasAssignedClientsProjectsScope
           ? "assigned"
           : "none";
@@ -4095,7 +4133,7 @@ async function loadState(sql, currentUser) {
           ]),
         ].filter(Boolean)
       : [];
-    if (hasAssignedVisibilityScope && isManagerFlag) {
+    if (hasAssignedVisibilityScope) {
       const managerScope = await getManagerScope(sql, normalizedUser.id, accountUuid);
       (managerScope?.projectIds || []).forEach((projectId) => {
         const normalizedProjectId = normalizeText(projectId);
@@ -4139,6 +4177,18 @@ async function loadState(sql, currentUser) {
   const visibleProjects =
     clientsProjectsScopeMode === "global"
       ? allProjects
+      : clientsProjectsScopeMode === "office"
+        ? allProjects.filter((project) => {
+            const projectOfficeId = normalizeText(project?.officeId ?? project?.office_id);
+            if (actorOfficeId && projectOfficeId && actorOfficeId === projectOfficeId) {
+              return true;
+            }
+            const projectClientId = normalizeText(project?.clientId ?? project?.client_id);
+            if (!projectClientId || !actorOfficeId) return false;
+            const client = allClients.find((item) => normalizeText(item?.id) === projectClientId);
+            const clientOfficeId = normalizeText(client?.officeId ?? client?.office_id);
+            return Boolean(clientOfficeId && actorOfficeId === clientOfficeId);
+          })
       : clientsProjectsScopeMode === "assigned"
         ? allProjects.filter((project) => {
             const projectId = normalizeText(project?.id);
@@ -4158,9 +4208,25 @@ async function loadState(sql, currentUser) {
       }
     });
   }
+  if (clientsProjectsScopeMode === "office" && actorOfficeId) {
+    allClients.forEach((client) => {
+      const clientId = normalizeText(client?.id);
+      const clientOfficeId = normalizeText(client?.officeId ?? client?.office_id);
+      if (!clientId || !clientOfficeId) return;
+      if (clientOfficeId === actorOfficeId) {
+        visibleClientIdSet.add(clientId);
+      }
+    });
+  }
   const clients =
     clientsProjectsScopeMode === "global"
       ? allClients
+      : clientsProjectsScopeMode === "office"
+        ? allClients.filter((client) => {
+            const clientId = normalizeText(client?.id);
+            if (!clientId) return false;
+            return visibleClientIdSet.has(clientId);
+          })
       : clientsProjectsScopeMode === "assigned"
         ? allClients.filter((client) => {
             const clientId = normalizeText(client?.id);

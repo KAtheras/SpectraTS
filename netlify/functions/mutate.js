@@ -1194,13 +1194,26 @@ function buildPermissionsPayload(currentUser, permissionIndex) {
   const canManageCorporateFunctions = can("manage_corporate_functions") || can("manage_expense_categories");
   const canManageTargetRealizations = can("manage_target_realizations") || can("manage_departments");
   const canManageMessagingRules = can("manage_messaging_rules") || can("manage_settings_access");
-  const canSeeAllClientsProjects = can("see_all_clients_projects");
+  const actorOfficeId = currentUser?.officeId ?? currentUser?.office_id ?? null;
+  const globalScopeProbeOfficeId = actorOfficeId
+    ? `__outside_office__${String(actorOfficeId)}`
+    : "__outside_office__";
+  const canSeeAllClientsProjects = can("see_all_clients_projects", {
+    resourceOfficeId: globalScopeProbeOfficeId,
+    actorOfficeId,
+  });
+  const canSeeOfficeClientsProjects = can("see_office_clients_projects", {
+    resourceOfficeId: actorOfficeId,
+    actorOfficeId,
+  });
   const canSeeAssignedClientsProjects = can("see_assigned_clients_projects");
   const canManageClientsLifecycle = can("manage_clients_lifecycle");
   const canManageProjectsLifecycle = can("manage_projects_lifecycle");
   const canEditClients = can("edit_clients");
   const canEditProjectsAllModal = can("edit_projects_all_modal");
-  const canAccessClientsTab = Boolean(canSeeAllClientsProjects || canSeeAssignedClientsProjects);
+  const canAccessClientsTab = Boolean(
+    canSeeAllClientsProjects || canSeeOfficeClientsProjects || canSeeAssignedClientsProjects
+  );
   const permissionsPayload = {
     edit_user_department: can("edit_user_department"),
     view_settings_tab: false,
@@ -1234,6 +1247,7 @@ function buildPermissionsPayload(currentUser, permissionIndex) {
     edit_client: can("edit_client"),
     archive_client: can("archive_client"),
     see_all_clients_projects: canSeeAllClientsProjects,
+    see_office_clients_projects: canSeeOfficeClientsProjects,
     see_assigned_clients_projects: canSeeAssignedClientsProjects,
     manage_clients_lifecycle: canManageClientsLifecycle,
     edit_clients: canEditClients,

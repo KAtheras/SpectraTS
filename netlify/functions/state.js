@@ -87,7 +87,22 @@ exports.handler = async function handler(event) {
     const canManageMessagingRules =
       can(currentUser, "manage_messaging_rules", {}, permissionIndex) ||
       can(currentUser, "manage_settings_access", {}, permissionIndex);
-    const canSeeAllClientsProjects = can(currentUser, "see_all_clients_projects", {}, permissionIndex);
+    const actorOfficeId = currentUser?.officeId ?? currentUser?.office_id ?? null;
+    const globalScopeProbeOfficeId = actorOfficeId
+      ? `__outside_office__${String(actorOfficeId)}`
+      : "__outside_office__";
+    const canSeeAllClientsProjects = can(
+      currentUser,
+      "see_all_clients_projects",
+      { resourceOfficeId: globalScopeProbeOfficeId, actorOfficeId },
+      permissionIndex
+    );
+    const canSeeOfficeClientsProjects = can(
+      currentUser,
+      "see_office_clients_projects",
+      { resourceOfficeId: actorOfficeId, actorOfficeId },
+      permissionIndex
+    );
     const canSeeAssignedClientsProjects = can(
       currentUser,
       "see_assigned_clients_projects",
@@ -98,7 +113,9 @@ exports.handler = async function handler(event) {
     const canManageProjectsLifecycle = can(currentUser, "manage_projects_lifecycle", {}, permissionIndex);
     const canEditClients = can(currentUser, "edit_clients", {}, permissionIndex);
     const canEditProjectsAllModal = can(currentUser, "edit_projects_all_modal", {}, permissionIndex);
-    const canAccessClientsTab = Boolean(canSeeAllClientsProjects || canSeeAssignedClientsProjects);
+    const canAccessClientsTab = Boolean(
+      canSeeAllClientsProjects || canSeeOfficeClientsProjects || canSeeAssignedClientsProjects
+    );
     const permissions = {
       // existing keys
       edit_user_department: can(currentUser, "edit_user_department", {}, permissionIndex),
@@ -143,6 +160,7 @@ exports.handler = async function handler(event) {
       edit_client: can(currentUser, "edit_client", {}, permissionIndex),
       archive_client: can(currentUser, "archive_client", {}, permissionIndex),
       see_all_clients_projects: canSeeAllClientsProjects,
+      see_office_clients_projects: canSeeOfficeClientsProjects,
       see_assigned_clients_projects: canSeeAssignedClientsProjects,
       manage_clients_lifecycle: canManageClientsLifecycle,
       edit_clients: canEditClients,
