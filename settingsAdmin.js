@@ -3421,7 +3421,7 @@
           }
         });
         if (!changedCount) {
-          updateClientsGroupWarningFromRows(next);
+          updateClientsGroupWarningFromRows(collectPermissionsSnapshotFromInputs());
           return;
         }
         permissionsSaveInFlight = true;
@@ -3464,7 +3464,9 @@
             }))
             .filter((row) => row.role_key && row.capability_key);
           deps().state.rolePermissions = [...preservedRows, ...matrixAllowedRows];
-          const warningMessage = updateClientsGroupWarningFromRows(next);
+          const warningMessage = updateClientsGroupWarningFromRows(
+            collectPermissionsSnapshotFromInputs()
+          );
           if (warningMessage) {
             deps().feedback(`Access updated. Warning: ${warningMessage}`, false);
           } else {
