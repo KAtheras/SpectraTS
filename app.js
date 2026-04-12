@@ -233,6 +233,8 @@
     const applied = applyExpenseFiltersFromFormBase ? applyExpenseFiltersFromFormBase(options) : false;
     if (applied) {
       syncSharedEntriesFiltersFromExpense();
+      const filteredExpenses = currentExpenses();
+      syncExpenseSelectionControls(filteredExpenses);
     }
     return applied;
   }
@@ -516,6 +518,11 @@
     expenseFilterForm: document.getElementById("expense-filter-form"),
     expenseClearFilters: document.getElementById("expense-clear-filters"),
     expenseExportCsv: document.getElementById("expense-export-csv"),
+    expensesSelectToggle: document.getElementById("expenses-select-toggle"),
+    expensesDeleteSelected: document.getElementById("expenses-delete-selected"),
+    expensesSelectCancel: document.getElementById("expenses-select-cancel"),
+    expensesSelectHeader: document.getElementById("expenses-select-header"),
+    expensesSelectAllVisible: document.getElementById("expenses-select-all-visible"),
     expenseFilterTotal: document.getElementById("expense-filter-total"),
     expenseActiveFilters: document.getElementById("expense-active-filters"),
     expenseFilterUser: document.getElementById("expense-filter-user"),
@@ -2653,6 +2660,8 @@
     entriesSubtab: "time", // "time" | "expenses"
     entriesSelectionMode: false,
     selectedEntryIds: new Set(),
+    expensesSelectionMode: false,
+    selectedExpenseIds: new Set(),
     delegators: [],
     myDelegations: [],
     delegationCandidates: [],
@@ -3411,6 +3420,8 @@
     state.clientEditor = null;
     state.entriesSelectionMode = false;
     state.selectedEntryIds = new Set();
+    state.expensesSelectionMode = false;
+    state.selectedExpenseIds = new Set();
     state.levelLabels = {};
     state.officeLocations = [];
     state.expenseCategories = [];
@@ -3966,6 +3977,112 @@
     render();
   }
 
+  function clearExpenseSelection() {
+    state.selectedExpenseIds = new Set();
+  }
+
+  function setExpensesSelectionMode(enabled) {
+    const shouldEnable = Boolean(enabled);
+    state.expensesSelectionMode = shouldEnable;
+    if (!shouldEnable) {
+      clearExpenseSelection();
+    }
+  }
+
+  function visibleExpenseIds() {
+    return currentExpenses()
+      .map((expense) => `${expense?.id || ""}`.trim())
+      .filter(Boolean);
+  }
+
+  function selectedVisibleExpenseIds(visibleIds) {
+    const selectedSet = state.selectedExpenseIds instanceof Set ? state.selectedExpenseIds : new Set();
+    return (visibleIds || []).filter((id) => selectedSet.has(id));
+  }
+
+  function syncExpenseSelectionControls(filteredExpenses) {
+    const visibleIds = Array.isArray(filteredExpenses)
+      ? filteredExpenses.map((expense) => `${expense?.id || ""}`.trim()).filter(Boolean)
+      : visibleExpenseIds();
+    const visibleSet = new Set(visibleIds);
+    const selectedSet = state.selectedExpenseIds instanceof Set ? state.selectedExpenseIds : new Set();
+    const prunedSelected = new Set(Array.from(selectedSet).filter((id) => visibleSet.has(id)));
+    state.selectedExpenseIds = prunedSelected;
+
+    const selectedCount = prunedSelected.size;
+    const isSelectionMode = Boolean(state.expensesSelectionMode);
+
+    if (refs.expensesSelectHeader) {
+      refs.expensesSelectHeader.hidden = !isSelectionMode;
+    }
+    if (refs.expensesSelectAllVisible) {
+      refs.expensesSelectAllVisible.hidden = !isSelectionMode;
+      refs.expensesSelectAllVisible.checked =
+        isSelectionMode && visibleIds.length > 0 && selectedCount === visibleIds.length;
+      refs.expensesSelectAllVisible.indeterminate =
+        isSelectionMode &&
+        selectedCount > 0 &&
+        selectedCount < visibleIds.length;
+      refs.expensesSelectAllVisible.disabled = !isSelectionMode || visibleIds.length === 0;
+    }
+    if (refs.expensesSelectToggle) {
+      refs.expensesSelectToggle.hidden = isSelectionMode;
+    }
+    if (refs.expensesDeleteSelected) {
+      refs.expensesDeleteSelected.hidden = !isSelectionMode;
+      refs.expensesDeleteSelected.disabled = selectedCount === 0;
+      refs.expensesDeleteSelected.textContent =
+        selectedCount > 0 ? `Delete Selected (${selectedCount})` : "Delete Selected";
+    }
+    if (refs.expensesSelectCancel) {
+      refs.expensesSelectCancel.hidden = !isSelectionMode;
+    }
+  }
+
+  async function deleteSelectedExpenses() {
+    const visibleIds = visibleExpenseIds();
+    const selectedIds = selectedVisibleExpenseIds(visibleIds);
+    const count = selectedIds.length;
+    if (!count) {
+      return;
+    }
+
+    const result = await appDialog({
+      title: "Delete expenses",
+      message: `Delete ${count} expense${count === 1 ? "" : "s"}?`,
+      confirmText: "Delete",
+      cancelText: "Cancel",
+    });
+    if (!result?.confirmed) {
+      return;
+    }
+
+    try {
+      await mutatePersistentState(
+        "delete_expenses_bulk",
+        { expenseIds: selectedIds },
+        { skipHydrate: true, refreshState: false, returnState: false }
+      );
+    } catch (error) {
+      feedback(error.message || "Unable to delete selected expenses.", true);
+      return;
+    }
+
+    const deletedSet = new Set(selectedIds);
+    state.expenses = (state.expenses || []).filter(
+      (expense) => !deletedSet.has(`${expense?.id || ""}`.trim())
+    );
+    if (state.expenseEditingId && deletedSet.has(`${state.expenseEditingId}`.trim())) {
+      resetExpenseForm();
+    }
+    setExpensesSelectionMode(false);
+    feedback(
+      `Deleted ${count} expense${count === 1 ? "" : "s"}.`,
+      false
+    );
+    render();
+  }
+
   function setView(view) {
     if (!isViewAllowed(view)) {
       view = "inputs";
@@ -3973,6 +4090,9 @@
     const previousView = state.currentView;
     if (previousView === "entries" && view !== "entries" && state.entriesSelectionMode) {
       setEntriesSelectionMode(false);
+    }
+    if (previousView === "entries" && view !== "entries" && state.expensesSelectionMode) {
+      setExpensesSelectionMode(false);
     }
     if (view === "inbox" && previousView !== "inbox") {
       beginInboxVisit();
@@ -8903,9 +9023,15 @@
         syncEntriesSelectionControls([]);
         syncExpenseFilterCatalogsUI(state.expenseFilters);
         const filteredExpenses = currentExpenses();
+        syncExpenseSelectionControls(filteredExpenses);
         renderExpenses(filteredExpenses);
+        syncExpenseSelectionControls(filteredExpenses);
         renderExpenseFilterState(filteredExpenses);
       } else {
+        if (state.expensesSelectionMode) {
+          setExpensesSelectionMode(false);
+        }
+        syncExpenseSelectionControls([]);
         syncFilterCatalogsUI(state.filters);
         const filteredEntries = currentEntries();
         syncEntriesSelectionControls(filteredEntries);
@@ -9595,6 +9721,9 @@
   if (refs.entriesSwitchTime) {
     refs.entriesSwitchTime.addEventListener("click", function () {
       syncSharedEntriesFiltersFromExpense();
+      if (state.expensesSelectionMode) {
+        setExpensesSelectionMode(false);
+      }
       state.entriesSubtab = "time";
       render();
     });
@@ -9632,6 +9761,32 @@
       if (!state.entriesSelectionMode) return;
       const visibleIds = visibleEntryIds();
       state.selectedEntryIds = event.target.checked ? new Set(visibleIds) : new Set();
+      render();
+    });
+  }
+  if (refs.expensesSelectToggle) {
+    refs.expensesSelectToggle.addEventListener("click", function () {
+      if (state.entriesSubtab !== "expenses") return;
+      setExpensesSelectionMode(true);
+      render();
+    });
+  }
+  if (refs.expensesSelectCancel) {
+    refs.expensesSelectCancel.addEventListener("click", function () {
+      setExpensesSelectionMode(false);
+      render();
+    });
+  }
+  if (refs.expensesDeleteSelected) {
+    refs.expensesDeleteSelected.addEventListener("click", async function () {
+      await deleteSelectedExpenses();
+    });
+  }
+  if (refs.expensesSelectAllVisible) {
+    refs.expensesSelectAllVisible.addEventListener("change", function (event) {
+      if (!state.expensesSelectionMode) return;
+      const visibleIds = visibleExpenseIds();
+      state.selectedExpenseIds = event.target.checked ? new Set(visibleIds) : new Set();
       render();
     });
   }
@@ -10096,6 +10251,23 @@
     if (!actionEl) return;
     const action = actionEl.dataset.action;
     const id = actionEl.dataset.id;
+    if (action === "select-expense") {
+      if (!state.expensesSelectionMode || !id) return;
+      const next = new Set(state.selectedExpenseIds instanceof Set ? state.selectedExpenseIds : []);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      state.selectedExpenseIds = next;
+      render();
+      return;
+    }
+
+    if (state.expensesSelectionMode) {
+      return;
+    }
+
     const expense = (state.expenses || []).find((item) => item.id === id);
     if (!expense) return;
 

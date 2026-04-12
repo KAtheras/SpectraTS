@@ -3163,6 +3163,25 @@ async function deleteExpense(sql, payload, currentUser, accountId) {
   return null;
 }
 
+async function deleteExpensesBulk(sql, payload, currentUser, accountId) {
+  const expenseIdsRaw = Array.isArray(payload?.expenseIds) ? payload.expenseIds : [];
+  const expenseIds = Array.from(
+    new Set(expenseIdsRaw.map((value) => normalizeText(value)).filter(Boolean))
+  );
+  if (!expenseIds.length) {
+    return { deletedCount: 0 };
+  }
+
+  for (const id of expenseIds) {
+    const result = await deleteExpense(sql, { id }, currentUser, accountId);
+    if (result?.statusCode) {
+      return result;
+    }
+  }
+
+  return { deletedCount: expenseIds.length };
+}
+
 async function toggleExpenseStatus(sql, payload, currentUser, accountId) {
   const id = normalizeText(payload.id);
   if (!id) {
@@ -5640,6 +5659,16 @@ exports.handler = async function handler(event) {
           context.currentUser,
           accountId
         );
+        break;
+      }
+      case "delete_expenses_bulk": {
+        mutationResult = await deleteExpensesBulk(
+          sql,
+          request.payload || {},
+          context.currentUser,
+          accountId
+        );
+        if (mutationResult?.statusCode) return mutationResult;
         break;
       }
       case "toggle_expense_status": {

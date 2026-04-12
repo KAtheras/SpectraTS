@@ -394,6 +394,9 @@
   function renderExpenses(filtered) {
     const { refs, state, escapeHtml, formatDisplayDateShort } = deps();
     if (!refs.expensesBody) return;
+    const isSelectionMode = Boolean(state.expensesSelectionMode);
+    const selectedExpenseIds =
+      state.selectedExpenseIds instanceof Set ? state.selectedExpenseIds : new Set();
     const expenses = filtered || currentExpenses();
     const boundsSource = currentExpenses({
       ...(state.expenseFilters || {}),
@@ -411,7 +414,7 @@
     if (!expenses.length) {
       refs.expensesBody.innerHTML = `
         <tr>
-          <td colspan="10" class="empty-row">
+          <td colspan="${isSelectionMode ? 11 : 10}" class="empty-row">
             <div class="empty-state-panel">
               <strong>No expenses yet.</strong>
               <span>Add an expense to get started.</span>
@@ -441,8 +444,32 @@
               aria-label="${billable ? "Mark as non-billable" : "Mark as billable"}"
               ${billable ? "checked" : ""}
             />`;
+        const rowId = String(expense?.id || "");
+        const selectedMarkup = isSelectionMode
+          ? `<td>
+              <input
+                type="checkbox"
+                class="entries-billable-toggle"
+                data-action="select-expense"
+                data-id="${escapeHtml(rowId)}"
+                aria-label="Select expense"
+                ${selectedExpenseIds.has(rowId) ? "checked" : ""}
+              />
+            </td>`
+          : "";
+        const actionsMarkup = isSelectionMode
+          ? ""
+          : `
+              <button class="text-button" type="button" data-action="expense-edit" data-id="${expense.id}">
+                Edit
+              </button>
+              <button class="text-button danger" type="button" data-action="expense-delete" data-id="${expense.id}">
+                Delete
+              </button>
+            `;
         return `
           <tr class="${expense.status === "approved" ? "entry-approved" : ""}">
+            ${selectedMarkup}
             <td>${escapeHtml(formatDisplayDateShort(expense.expenseDate))}</td>
             <td>${escapeHtml(userNameById(expense.userId))}</td>
             <td>${escapeHtml(expense.clientName)}</td>
@@ -473,12 +500,7 @@
               ${statusMarkup}
             </td>
             <td class="actions-cell">
-              <button class="text-button" type="button" data-action="expense-edit" data-id="${expense.id}">
-                Edit
-              </button>
-              <button class="text-button danger" type="button" data-action="expense-delete" data-id="${expense.id}">
-                Delete
-              </button>
+              ${actionsMarkup}
             </td>
           </tr>
         `;
