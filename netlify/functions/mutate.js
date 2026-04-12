@@ -6070,6 +6070,7 @@ exports.handler = async function handler(event) {
           level,
           accountId,
         });
+        mutationResult = { createdUserId: createdUser.id };
         const setup = await createPasswordSetupToken(sql, {
           userId: createdUser.id,
           accountId,
@@ -6090,9 +6091,9 @@ exports.handler = async function handler(event) {
             token: setup.token,
           });
         } catch (error) {
-          mutationResult = {
-            message: `Member added, but setup email failed: ${error?.message || "Unknown error."}`,
-          };
+          mutationResult.message = `Member added, but setup email failed: ${
+            error?.message || "Unknown error."
+          }`;
         }
         break;
       }

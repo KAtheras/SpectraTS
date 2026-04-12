@@ -1742,6 +1742,7 @@
       expenses: ["member", "client", "project", "category", "date", "amount", "billable", "notes"],
       members: [
         "user_id",
+        "employee_id",
         "first_name",
         "last_name",
         "email",
@@ -1758,6 +1759,7 @@
       const collapsed = key.replace(/\s+/g, "_");
       if (key === "user" || key === "employee") return "member";
       if (collapsed === "user_id" || collapsed === "userid") return "user_id";
+      if (collapsed === "employee_id" || collapsed === "employeeid") return "employee_id";
       if (collapsed === "first_name" || collapsed === "firstname") return "first_name";
       if (collapsed === "last_name" || collapsed === "lastname") return "last_name";
       if (collapsed === "level/title" || collapsed === "level_title" || collapsed === "title") {
@@ -1834,7 +1836,22 @@
       const isExactHeaderMatch =
         headers.length === expectedHeaders.length &&
         headers.every((header, index) => header === expectedHeaders[index]);
-      if (!isExactHeaderMatch) {
+      const legacyMembersHeaders = [
+        "user_id",
+        "first_name",
+        "last_name",
+        "email",
+        "office",
+        "department",
+        "level_title",
+        "cost_rate",
+        "base_rate",
+      ];
+      const isLegacyMembersHeaderMatch =
+        kind === "members" &&
+        headers.length === legacyMembersHeaders.length &&
+        headers.every((header, index) => header === legacyMembersHeaders[index]);
+      if (!isExactHeaderMatch && !isLegacyMembersHeaderMatch) {
         throw new Error("INVALID_TEMPLATE");
       }
       const dataRows = rows
@@ -2242,6 +2259,7 @@
               ];
         const memberValues = [
           raw.user_id ?? row.user_id ?? "",
+          raw.employee_id ?? row.employee_id ?? "",
           raw.first_name ?? row.first_name ?? "",
           raw.last_name ?? row.last_name ?? "",
           raw.email ?? row.email ?? "",
@@ -2476,6 +2494,7 @@
         try {
           const displayName = `${row._resolvedDisplayName || ""}`.trim();
           const username = `${row.user_id || ""}`.trim();
+          const employeeId = `${row.employee_id || ""}`.trim() || username;
           const email = `${row.email || ""}`.trim();
           const level = Number(row._resolvedLevel);
           const officeId = `${row._resolvedOfficeId || ""}`.trim() || null;
@@ -2497,7 +2516,7 @@
               displayName,
               username,
               email,
-              employeeId: username,
+              employeeId,
               level,
               officeId,
             };
@@ -2539,7 +2558,7 @@
               displayName,
               username,
               email,
-              employeeId: username,
+              employeeId,
               level,
               officeId,
               baseRate: hasBaseRate ? baseRateRaw : null,
@@ -2549,18 +2568,14 @@
               skipHydrate: true,
               skipSettingsMetadataReload: true,
               refreshState: false,
+              returnState: false,
             }
           );
-          const createdUsers = Array.isArray(addResult?.users) ? addResult.users : [];
-          const createdUser =
-            createdUsers.find((user) => `${user?.username || ""}`.trim().toLowerCase() === username.toLowerCase()) ||
-            createdUsers.find((user) => `${user?.email || ""}`.trim().toLowerCase() === email.toLowerCase()) ||
-            null;
-          const createdUserId = `${createdUser?.id || ""}`.trim();
-          if (!createdUserId) {
-            throw new Error("Member created but could not resolve user id.");
-          }
+          const createdUserId = `${addResult?.createdUserId || ""}`.trim();
           if (departmentId) {
+            if (!createdUserId) {
+              throw new Error("Member created but could not resolve user id for department assignment.");
+            }
             await deps().mutatePersistentState(
               "set_user_department",
               { userId: createdUserId, departmentId },
@@ -2727,7 +2742,17 @@
       window.location.assign("/templates/expense-upload.xlsx");
     });
     downloadMembersTemplateBtn?.addEventListener("click", function () {
-      window.location.assign("/templates/member-upload.xlsx");
+      const headers = (EXPECTED_HEADERS.members || []).slice();
+      const csv = `${headers.map(toCsvCell).join(",")}\n`;
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = "member-upload-template.csv";
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      URL.revokeObjectURL(url);
     });
     timeInput?.addEventListener("change", function () {
       handleFileSelect(timeInput.files?.[0], "time");
