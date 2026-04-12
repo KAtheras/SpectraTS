@@ -3412,7 +3412,35 @@
             }))
             .filter((row) => row.role_key && row.capability_key);
           deps().state.rolePermissions = [...preservedRows, ...matrixAllowedRows];
-          deps().feedback("Access updated.", false);
+          const allowedCapabilitiesByRole = new Map();
+          next.forEach((row) => {
+            const roleKey = `${row?.role || ""}`.trim();
+            const capabilityKey = `${row?.capability || ""}`.trim();
+            if (!roleKey || !capabilityKey || !row.allowed) return;
+            if (!allowedCapabilitiesByRole.has(roleKey)) {
+              allowedCapabilitiesByRole.set(roleKey, new Set());
+            }
+            allowedCapabilitiesByRole.get(roleKey).add(capabilityKey);
+          });
+          const visibilityCaps = [
+            "see_all_clients_projects",
+            "see_office_clients_projects",
+            "see_assigned_clients_projects",
+          ];
+          const warningRoles = Array.from(allowedCapabilitiesByRole.entries())
+            .filter(([_, caps]) => {
+              if (!caps.has("edit_project_planning")) return false;
+              return !visibilityCaps.some((capability) => caps.has(capability));
+            })
+            .map(([roleKey]) => roleKey);
+          if (warningRoles.length) {
+            deps().feedback(
+              `Access updated. Warning: ${warningRoles.join(", ")} can edit project planning but has no client/project visibility.`,
+              false
+            );
+          } else {
+            deps().feedback("Access updated.", false);
+          }
         } catch (error) {
           deps().feedback(error.message || "Unable to save access.", true);
           permissionsQueuedSnapshot = null;
