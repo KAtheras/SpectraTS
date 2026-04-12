@@ -1033,6 +1033,9 @@
           #settings-page .perms-matrix thead th{
             text-transform:uppercase;
             letter-spacing:.04em;
+            font-size:.74rem;
+            font-weight:700;
+            color:var(--muted);
             padding-bottom:14px;
           }
           #settings-page .perms-matrix tbody tr:first-child th,
@@ -3641,11 +3644,11 @@
         }
         .target-realizations-table thead th span {
           font-family: var(--font-head);
-          font-size: .9rem;
+          font-size: .74rem;
           font-weight: 700;
           color: var(--muted);
           text-transform: uppercase;
-          letter-spacing: .04em;
+          letter-spacing: .06em;
         }
         .target-realizations-table tbody tr:first-child td {
           padding-top: 10px;
@@ -3678,11 +3681,11 @@
         }
         #settings-page [data-settings-tab="delegations"] .settings-row-label {
           font-family: var(--font-head);
-          font-size: .9rem;
+          font-size: .74rem;
           font-weight: 700;
           color: var(--muted);
           text-transform: uppercase;
-          letter-spacing: .04em;
+          letter-spacing: .06em;
         }
       `;
       document.head.appendChild(style);
