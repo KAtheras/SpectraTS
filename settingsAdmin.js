@@ -469,10 +469,11 @@
           }
           #settings-page .settings-section-left h3{
             margin:0;
-            text-transform:uppercase;
-            letter-spacing:.04em;
             font-family:var(--font-head);
             font-size:.9rem;
+            font-weight:700;
+            text-transform:uppercase;
+            letter-spacing:.04em;
             color:var(--muted);
           }
           #settings-page .settings-section-subtitle{
