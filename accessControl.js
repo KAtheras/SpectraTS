@@ -24,9 +24,9 @@
     function roleKey(user) {
       const raw =
         user?.permission_role_key ||
+        user?.role ||
         user?.permissionGroup ||
         user?.permission_group ||
-        user?.role ||
         user?.permissionRoleKey ||
         null;
       if (!raw) return null;
