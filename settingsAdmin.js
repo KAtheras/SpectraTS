@@ -2019,7 +2019,7 @@
             users.find((user) => `${user?.username || ""}`.trim().toLowerCase() === userId.toLowerCase()) || null;
           const matchedUserByEmail =
             users.find((user) => `${user?.email || ""}`.trim().toLowerCase() === email.toLowerCase()) || null;
-          const matchedUser = matchedUserByUserId || matchedUserByEmail || null;
+          const matchedUser = matchedUserByUserId || null;
 
           if (!userId) {
             rowStatus = "Invalid";
@@ -2032,6 +2032,18 @@
           if (!email || !email.includes("@")) {
             rowStatus = "Invalid";
             rowErrors.push("Valid email is required.");
+          }
+          if (!matchedUserByUserId && matchedUserByEmail) {
+            rowStatus = "Invalid";
+            rowErrors.push("Email already exists under a different User ID.");
+          }
+          if (
+            matchedUserByUserId &&
+            matchedUserByEmail &&
+            `${matchedUserByUserId.id || ""}`.trim() !== `${matchedUserByEmail.id || ""}`.trim()
+          ) {
+            rowStatus = "Invalid";
+            rowErrors.push("User ID and email resolve to different members.");
           }
           if (!office) {
             rowStatus = "Invalid";
@@ -2520,8 +2532,25 @@
       if (!validRows.length) return;
       const rejectedRows = objects.filter((row) => row.status !== "Valid");
       let importedCount = 0;
+      let createdCount = 0;
+      let updatedCount = 0;
+      let skippedCount = 0;
       let failedCount = 0;
       if (openMembersBtn) openMembersBtn.disabled = true;
+      const usersById = new Map(
+        (Array.isArray(deps().state?.users) ? deps().state.users : [])
+          .map((user) => [String(user?.id || "").trim(), user])
+          .filter(([id]) => Boolean(id))
+      );
+      const normalizeNullableText = function (value) {
+        const text = `${value ?? ""}`.trim();
+        return text || null;
+      };
+      const normalizeNullableNumber = function (value) {
+        if (value === null || value === undefined || `${value}`.trim() === "") return null;
+        const numeric = Number(value);
+        return Number.isFinite(numeric) ? Number(numeric) : null;
+      };
 
       for (const row of validRows) {
         try {
@@ -2544,6 +2573,25 @@
           const hasCostRate = costRateRaw !== null && Number.isFinite(costRateRaw);
           const existingUserId = `${row._resolvedUserId || ""}`.trim();
           if (existingUserId) {
+            const existingUser = usersById.get(existingUserId) || null;
+            const nextBaseRate = hasBaseRate ? Number(baseRateRaw) : null;
+            const nextCostRate = hasCostRate ? Number(costRateRaw) : null;
+            const hasProfileChanges = !(
+              normalizeNullableText(existingUser?.displayName) === normalizeNullableText(displayName) &&
+              normalizeNullableText(existingUser?.username) === normalizeNullableText(username) &&
+              normalizeNullableText(existingUser?.email) === normalizeNullableText(email) &&
+              normalizeNullableText(existingUser?.employeeId) === normalizeNullableText(employeeId) &&
+              normalizeNullableNumber(existingUser?.level) === normalizeNullableNumber(level) &&
+              normalizeNullableText(existingUser?.officeId) === normalizeNullableText(officeId) &&
+              normalizeNullableNumber(existingUser?.baseRate) === normalizeNullableNumber(nextBaseRate) &&
+              normalizeNullableNumber(existingUser?.costRate) === normalizeNullableNumber(nextCostRate)
+            );
+            const hasDepartmentChange =
+              normalizeNullableText(existingUser?.departmentId) !== normalizeNullableText(departmentId);
+            if (!hasProfileChanges && !hasDepartmentChange) {
+              skippedCount += 1;
+              continue;
+            }
             const updatePayload = {
               userId: existingUserId,
               displayName,
@@ -2582,6 +2630,20 @@
               );
             }
             importedCount += 1;
+            updatedCount += 1;
+            usersById.set(existingUserId, {
+              ...(existingUser || {}),
+              id: existingUserId,
+              displayName,
+              username,
+              email,
+              employeeId,
+              level,
+              officeId: officeId || null,
+              departmentId: departmentId || null,
+              baseRate: hasBaseRate ? Number(baseRateRaw) : null,
+              costRate: hasCostRate ? Number(costRateRaw) : null,
+            });
             continue;
           }
 
@@ -2621,6 +2683,21 @@
             );
           }
           importedCount += 1;
+          createdCount += 1;
+          if (createdUserId) {
+            usersById.set(createdUserId, {
+              id: createdUserId,
+              displayName,
+              username,
+              email,
+              employeeId,
+              level,
+              officeId: officeId || null,
+              departmentId: departmentId || null,
+              baseRate: hasBaseRate ? Number(baseRateRaw) : null,
+              costRate: hasCostRate ? Number(costRateRaw) : null,
+            });
+          }
         } catch (error) {
           failedCount += 1;
           row.status = "Invalid";
@@ -2655,7 +2732,7 @@
       };
       latestPreviewPayload = null;
       previewKind = "";
-      const baseMessage = `Imported ${importedCount} valid rows. ${invalidCount} invalid rows were not imported.`;
+      const baseMessage = `Created ${createdCount}, updated ${updatedCount}, skipped ${skippedCount} existing rows. ${invalidCount} invalid rows were not imported.`;
       deps().feedback(
         failedCount > 0 ? `${baseMessage} ${failedCount} row(s) failed during import.` : baseMessage,
         failedCount > 0
