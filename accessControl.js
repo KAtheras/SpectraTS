@@ -78,6 +78,26 @@
       return role === "staff";
     }
 
+    function isPartner(user) {
+      const role = roleKey(user);
+      return role === "partner";
+    }
+
+    function isPartnerOrManager(user) {
+      return isPartner(user) || isManager(user) || isExecutive(user);
+    }
+
+    function officeIdForUser(user) {
+      return normalizeText(user?.officeId ?? user?.office_id);
+    }
+
+    function isSameOffice(userA, userB) {
+      const officeA = officeIdForUser(userA);
+      const officeB = officeIdForUser(userB);
+      if (!officeA || !officeB) return false;
+      return officeA === officeB;
+    }
+
     function getUserById(userId) {
       const normalizedUserId = normalizeText(userId);
       return (
@@ -365,21 +385,134 @@
       const isSelf = target?.id && viewer?.id && target.id === viewer.id;
       if (isSelf) return true;
       if (viewerRole === "superuser") return true;
-      if (viewerRole === "admin") return targetRole !== "superuser";
-      if (viewerRole === "executive") return targetRole === "executive" || targetRole === "manager" || targetRole === "staff";
-      if (viewerRole === "manager") return targetRole === "manager" || targetRole === "staff";
+      if (viewerRole === "admin") return isSameOffice(viewer, target);
+      if (viewerRole === "partner" || viewerRole === "executive" || viewerRole === "manager") {
+        return targetRole !== "superuser" && targetRole !== "admin";
+      }
       return false;
+    }
+
+    function assignedProjectTupleKeysForUser(user, projectsArg) {
+      const userId = normalizeText(user?.id);
+      if (!userId) return new Set();
+      const projects = projectsArg || state.projects || [];
+      const keys = new Set();
+
+      (state.assignments?.projectMembers || []).forEach((item) => {
+        const assignmentUserId = normalizeText(item?.userId || item?.user_id);
+        if (assignmentUserId !== userId) return;
+        const tuple = resolveAssignmentProjectTuple(item);
+        if (tuple.client && tuple.project) {
+          keys.add(projectKey(tuple.client, tuple.project));
+        }
+      });
+
+      (state.assignments?.managerProjects || []).forEach((item) => {
+        const assignmentUserId = normalizeText(item?.managerId || item?.manager_id);
+        if (assignmentUserId !== userId) return;
+        const tuple = resolveAssignmentProjectTuple(item);
+        if (tuple.client && tuple.project) {
+          keys.add(projectKey(tuple.client, tuple.project));
+        }
+      });
+
+      const managerClients = (state.assignments?.managerClients || []).filter((item) => {
+        const assignmentUserId = normalizeText(item?.managerId || item?.manager_id);
+        return assignmentUserId === userId;
+      });
+      managerClients.forEach((item) => {
+        const clientName = normalizeText(item?.client || item?.client_name);
+        if (!clientName) return;
+        projects
+          .filter((project) => normalizeText(project?.client) === clientName)
+          .forEach((project) => {
+            const projectName = normalizeText(project?.name || project?.project);
+            if (projectName) {
+              keys.add(projectKey(clientName, projectName));
+            }
+          });
+      });
+
+      return keys;
     }
 
     function canUserAccessProject(user, client, project) {
       if (!user) {
         return false;
       }
+      const role = roleKey(user) || "staff";
+      if (role === "superuser" || role === "admin") {
+        return true;
+      }
       const normalizedClient = normalizeText(client);
       const normalizedProject = normalizeText(project);
-      return allowedProjectTuples(user).some(
-        (item) => item.client === normalizedClient && item.project === normalizedProject
-      );
+      if (!normalizedClient || !normalizedProject) {
+        return false;
+      }
+      if (isPartnerOrManager(user)) {
+        return assignedProjectTupleKeysForUser(user).has(projectKey(normalizedClient, normalizedProject));
+      }
+      if (isStaff(user)) {
+        return isUserAssignedToProject(user.id, normalizedClient, normalizedProject);
+      }
+      return false;
+    }
+
+    function entryIsInternal(entry) {
+      const clientName = normalizeText(entry?.client).toLowerCase();
+      const projectName = normalizeText(entry?.project);
+      const chargeCenterId = normalizeText(entry?.chargeCenterId ?? entry?.charge_center_id).toLowerCase();
+      const hasChargeCenter =
+        chargeCenterId !== "" && chargeCenterId !== "null" && chargeCenterId !== "undefined";
+      if (hasChargeCenter) return true;
+      if (clientName === "internal") return true;
+      return !clientName && !projectName;
+    }
+
+    function entryTargetUser(entry, scopeUser) {
+      const entryUserId = normalizeText(entry?.userId || entry?.user_id);
+      if (entryUserId) {
+        const byId = getUserById(entryUserId);
+        if (byId) return byId;
+      }
+      const entryUserName = normalizeText(entry?.user).toLowerCase();
+      if (entryUserName) {
+        const byName =
+          (state.users || []).find(
+            (user) => normalizeText(user?.displayName).toLowerCase() === entryUserName
+          ) || null;
+        if (byName) return byName;
+      }
+      if (scopeUser && normalizeText(scopeUser?.displayName).toLowerCase() === entryUserName) {
+        return scopeUser;
+      }
+      return null;
+    }
+
+    function canViewEntryByScope(scopeUser, entry) {
+      if (!scopeUser || !entry) return false;
+      const scopeRole = roleKey(scopeUser) || "staff";
+      const targetUser = entryTargetUser(entry, scopeUser);
+      const isSelfEntry =
+        Boolean(targetUser?.id) &&
+        normalizeText(targetUser.id) === normalizeText(scopeUser.id);
+
+      if (scopeRole === "superuser") {
+        return true;
+      }
+      if (scopeRole === "admin") {
+        if (!targetUser) return false;
+        return isSameOffice(scopeUser, targetUser);
+      }
+      if (scopeRole === "partner" || scopeRole === "executive" || scopeRole === "manager") {
+        if (isSelfEntry) return true;
+        if (entryIsInternal(entry)) return false;
+        return canUserAccessProject(scopeUser, entry.client, entry.project);
+      }
+      if (scopeRole === "staff") {
+        return isSelfEntry;
+      }
+      return false;
     }
 
     return {
@@ -413,6 +546,9 @@
       isUserAssignedToProject,
       canUserAccessProject,
       canViewUserByRole,
+      canViewEntryByScope,
+      officeIdForUser,
+      isSameOffice,
     };
   }
 

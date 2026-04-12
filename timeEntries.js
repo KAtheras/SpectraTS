@@ -45,48 +45,19 @@
     };
     const search = String(filters.search || "").trim().toLowerCase();
 
-    const {
-      getUserByDisplayName,
-      canViewUserByRole,
-      assignedProjectTuplesForCurrentUser,
-      getUserById: injectedGetUserById,
-    } = deps();
-    const allowedTupleKeys = new Set(
-      (typeof assignedProjectTuplesForCurrentUser === "function"
-        ? assignedProjectTuplesForCurrentUser()
-        : []
-      ).map((item) => `${item?.client || ""}::${item?.project || ""}`)
-    );
-
-    const getUserById =
-      typeof injectedGetUserById === "function"
-        ? injectedGetUserById
-        : (id) => state.users?.find((u) => u.id === id);
+    const { canViewEntryByScope } = deps();
 
     return [...state.entries]
       .filter((entry) => {
-        const targetUser =
-          (entry.userId ? getUserById?.(entry.userId) : null) ||
-          getUserByDisplayName(entry.user) ||
-          (scopeUser && entry.user === scopeUser.displayName
-            ? scopeUser
-            : null);
-
         const canView =
-          typeof canViewUserByRole === "function"
-            ? canViewUserByRole(scopeUser, targetUser)
+          typeof canViewEntryByScope === "function"
+            ? canViewEntryByScope(scopeUser, entry)
             : true;
 
         if (!canView) {
           return false;
         }
         const isInternal = isInternalEntry(entry);
-        if (
-          !isInternal &&
-          !allowedTupleKeys.has(`${entry.client || ""}::${entry.project || ""}`)
-        ) {
-          return false;
-        }
         if (filters.user && entry.user !== filters.user) {
           return false;
         }

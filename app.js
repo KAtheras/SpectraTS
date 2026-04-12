@@ -3064,33 +3064,23 @@
 
   function entryUserOptions() {
     const scopeUser = effectiveScopeUser();
-    if (!scopeUser) {
-      return availableUsers();
+    if (!scopeUser) return availableUsers();
+    const scopedRows =
+      typeof currentEntries === "function"
+        ? currentEntries({
+            user: "",
+            client: "",
+            project: "",
+            from: "",
+            to: "",
+            search: "",
+          })
+        : [];
+    const names = new Set(scopedRows.map((entry) => `${entry?.user || ""}`.trim()).filter(Boolean));
+    if (scopeUser?.displayName) {
+      names.add(scopeUser.displayName);
     }
-    if (isAdmin(scopeUser)) {
-      return availableUsers();
-    }
-    const allowedKeys = new Set(
-      allowedProjectTuples(scopeUser).map((item) => projectKey(item.client, item.project))
-    );
-    if (!allowedKeys.size) {
-      return [];
-    }
-    const allowedUserIds = new Set(
-      (state.assignments?.projectMembers || [])
-        .filter((item) => allowedKeys.has(projectKey(item.client, item.project)))
-        .map((item) => item.userId)
-    );
-    allowedUserIds.add(scopeUser.id);
-
-    return state.users
-      .filter(
-        (user) =>
-          allowedUserIds.has(user.id) &&
-          (isStaff(user) || user.id === scopeUser.id)
-      )
-      .map((user) => user.displayName)
-      .filter(Boolean);
+    return Array.from(names).sort((a, b) => a.localeCompare(b));
   }
 
   function normalizeInboxItem(item) {
@@ -7782,6 +7772,7 @@
     isUserAssignedToProject,
     canUserAccessProject,
     canViewUserByRole,
+    canViewEntryByScope,
   } = accessControl;
 
   function clientHours(client) {
@@ -13365,6 +13356,7 @@
     formatDisplayDateShort,
     permissionGroupForUser: permissionGroupForUserWithSuper,
     canViewUserByRole,
+    canViewEntryByScope,
     canUserAccessProject,
     getUserByDisplayName,
     assignedProjectTuplesForCurrentUser,
@@ -13393,6 +13385,7 @@
     entryUserOptions: visibleExpenseUserOptions,
     getUserByDisplayName,
     canViewUserByRole,
+    canViewEntryByScope,
     canUserAccessProject,
     effectiveScopeUser,
     clampDateToBounds,

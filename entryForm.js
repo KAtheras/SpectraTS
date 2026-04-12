@@ -494,9 +494,9 @@
             user: "",
             client: "",
             project: "",
-            from: selection?.from ?? state.filters.from ?? "",
-            to: selection?.to ?? state.filters.to ?? "",
-            search: selection?.search ?? state.filters.search ?? "",
+            from: "",
+            to: "",
+            search: "",
           })
         : (state.entries || []);
     const scopeUser =

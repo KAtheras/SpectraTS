@@ -214,28 +214,18 @@
     };
     const search = String(filters.search || "").trim().toLowerCase();
 
-    const { getUserById, canViewUserByRole, assignedProjectTuplesForCurrentUser } = deps();
-    const allowedTupleKeys = new Set(
-      (typeof assignedProjectTuplesForCurrentUser === "function"
-        ? assignedProjectTuplesForCurrentUser()
-        : []
-      ).map((item) => `${item?.client || ""}::${item?.project || ""}`)
-    );
+    const { canViewEntryByScope } = deps();
 
     return [...state.expenses]
       .filter((expense) => {
-        const targetUser = getUserById(expense.userId);
-        const canView = typeof canViewUserByRole === "function"
-          ? canViewUserByRole(scopeUser, targetUser)
+        const canView = typeof canViewEntryByScope === "function"
+          ? canViewEntryByScope(scopeUser, {
+              userId: expense.userId,
+              client: expense.clientName,
+              project: expense.projectName,
+            })
           : true;
         if (!canView) {
-          return false;
-        }
-        const isInternal = isInternalExpense(expense);
-        if (
-          !isInternal &&
-          !allowedTupleKeys.has(`${expense.clientName || ""}::${expense.projectName || ""}`)
-        ) {
           return false;
         }
         if (filters.user && expense.userId !== filters.user) {
