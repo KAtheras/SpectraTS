@@ -2345,6 +2345,7 @@
                 userId: row._resolvedUserId || "",
                 user: row._resolvedUserName || `${row.member || ""}`.trim(),
                 date: row.date || "",
+                projectId: row._resolvedProjectId || "",
                 client: row._resolvedClientName || `${row.client || ""}`.trim(),
                 project: row._resolvedProjectName || `${row.project || ""}`.trim(),
                 task: "",
