@@ -277,7 +277,6 @@ async function ensureSchema(sql) {
       AND rp.scope_id = ps.id
       AND pr.key <> 'superuser'
       AND pc.key = ANY(${[
-        "see_all_clients_projects",
         "see_assigned_clients_projects",
         "see_office_clients_projects",
         "manage_clients_lifecycle",

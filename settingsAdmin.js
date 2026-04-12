@@ -3254,9 +3254,12 @@
         const cells = roles
           .map((role) => {
             const isSuperuserRole = role.key === "superuser";
+            const usesAnyScope = cap === "see_all_clients_projects";
             const checked = isSuperuserRole
               ? anyScopeAllowedSet.has(`${role.key}|${cap}`)
-              : ownOfficeAllowedSet.has(`${role.key}|${cap}`);
+              : usesAnyScope
+                ? anyScopeAllowedSet.has(`${role.key}|${cap}`)
+                : ownOfficeAllowedSet.has(`${role.key}|${cap}`);
             const lockedAttrs = isSuperuserRole
               ? `disabled aria-disabled="true" class="locked-perm" title="Superuser permissions are fixed" data-perm-locked="true" data-locked-value="${checked ? "true" : "false"}"`
               : "";
@@ -3349,9 +3352,13 @@
         const liveRolePerms = Array.isArray(deps().state?.rolePermissions)
           ? deps().state.rolePermissions
           : [];
+        const capScopeKey = (capability) =>
+          `${capability || ""}`.trim() === "see_all_clients_projects"
+            ? "all_offices"
+            : "own_office";
         const currentAllowedSet = new Set(
           liveRolePerms
-            .filter((p) => p.allowed && p.scope_key === "own_office")
+            .filter((p) => p.allowed)
             .map((p) => `${p.role_key}|${p.capability_key}`)
         );
         let changedCount = 0;
@@ -3379,19 +3386,31 @@
           const stateRolePerms = Array.isArray(deps().state?.rolePermissions)
             ? deps().state.rolePermissions
             : [];
-          const preservedRows = stateRolePerms.filter(
-            (row) => `${row?.scope_key || ""}`.trim() !== "own_office"
+          const editedRoleCapSet = new Set(
+            next
+              .map((row) => {
+                const roleKey = `${row?.role || ""}`.trim();
+                const capabilityKey = `${row?.capability || ""}`.trim();
+                return roleKey && capabilityKey ? `${roleKey}|${capabilityKey}` : "";
+              })
+              .filter(Boolean)
           );
-          const ownOfficeAllowedRows = next
+          const preservedRows = stateRolePerms.filter((row) => {
+            const roleKey = `${row?.role_key || ""}`.trim();
+            const capabilityKey = `${row?.capability_key || ""}`.trim();
+            if (!roleKey || !capabilityKey) return true;
+            return !editedRoleCapSet.has(`${roleKey}|${capabilityKey}`);
+          });
+          const matrixAllowedRows = next
             .filter((row) => row.allowed)
             .map((row) => ({
               role_key: `${row.role || ""}`.trim(),
               capability_key: `${row.capability || ""}`.trim(),
-              scope_key: "own_office",
+              scope_key: capScopeKey(row.capability),
               allowed: true,
             }))
             .filter((row) => row.role_key && row.capability_key);
-          deps().state.rolePermissions = [...preservedRows, ...ownOfficeAllowedRows];
+          deps().state.rolePermissions = [...preservedRows, ...matrixAllowedRows];
           deps().feedback("Access updated.", false);
         } catch (error) {
           deps().feedback(error.message || "Unable to save access.", true);

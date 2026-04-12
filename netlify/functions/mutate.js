@@ -5223,20 +5223,20 @@ exports.handler = async function handler(event) {
             `
           : [];
         const scopes = await sql`
-          SELECT id
+          SELECT id, key
           FROM permission_scopes
-          WHERE key = 'own_office'
-          LIMIT 1
+          WHERE key = ANY(${["own_office", "all_offices"]})
         `;
-        const scopeId = scopes[0]?.id;
-        if (!scopeId) {
+        const scopeIdByKey = new Map(scopes.map((row) => [row.key, row.id]));
+        if (!scopeIdByKey.get("own_office") || !scopeIdByKey.get("all_offices")) {
           return errorResponse(500, "Scope not configured.");
         }
         const roleIdByKey = new Map(roles.map((r) => [r.key, r.id]));
         const capIdByKey = new Map(caps.map((c) => [c.key, c.id]));
+        const scopeKeyForCapability = (capabilityKey) =>
+          capabilityKey === "see_all_clients_projects" ? "all_offices" : "own_office";
 
-        // Normalize matrix-managed capabilities to own_office scope only.
-        // This prevents stale all_offices rows from silently granting access.
+        // Normalize matrix-managed capabilities by clearing prior scope rows first.
         if (roleKeysAll.length && capKeysAll.length) {
           await sql`
             DELETE FROM role_permissions rp
@@ -5248,11 +5248,12 @@ exports.handler = async function handler(event) {
           `;
         }
 
-        // Insert allowed pairs in own_office scope.
+        // Insert allowed pairs using matrix-defined scope defaults.
         for (const { role, capability } of allowedPairs) {
           const roleId = roleIdByKey.get(role);
           const capId = capIdByKey.get(capability);
-          if (!roleId || !capId) continue;
+          const scopeId = scopeIdByKey.get(scopeKeyForCapability(capability));
+          if (!roleId || !capId || !scopeId) continue;
           await sql`
             INSERT INTO role_permissions (role_id, capability_id, scope_id, allowed)
             VALUES (${roleId}, ${capId}, ${scopeId}, TRUE)
