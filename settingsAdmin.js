@@ -455,6 +455,7 @@
             align-items:center;
             justify-content:space-between;
             gap:12px;
+            min-height:calc(var(--button-height) + 12px);
             padding:0 0 12px;
             margin:0 0 14px;
             border-bottom:1px solid var(--group-border);
@@ -1176,6 +1177,7 @@
             #settings-page .settings-tab-group + .settings-tab-group{margin-top:10px}
             #settings-page .settings-section-header{
               gap:8px;
+              min-height:44px;
               margin:0 0 12px;
               padding:0 0 10px;
             }
