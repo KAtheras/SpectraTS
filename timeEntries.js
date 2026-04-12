@@ -257,13 +257,13 @@
 
     refs.entriesBody.innerHTML = filteredEntries
       .map((entry) => {
-        const internalEntry = isInternalEntry(entry);
-        const clientLabel = `${entry.client || ""}`.trim() || (internalEntry ? "Internal" : "");
-        const projectLabel = internalEntry
+        const internalEntryRow = isInternalEntry(entry);
+        const clientLabel = `${entry.client || ""}`.trim() || (internalEntryRow ? "Internal" : "");
+        const projectLabel = internalEntryRow
           ? internalProjectLabel(entry, state)
           : `${entry.project || ""}`.trim() || `${entry.task || ""}`.trim() || "Internal";
-        const isInternalEntry = internalEntry;
-        const statusMarkup = isInternalEntry
+        const isInternalRow = internalEntryRow;
+        const statusMarkup = isInternalRow
           ? ""
           : `<span
                 class="entry-status entry-status-${entry.status} ${
@@ -310,11 +310,11 @@
             ${selectedMarkup}
             <td>${escapeHtml(formatDisplayDateShort(entry.date))}</td>
             <td>${escapeHtml(entry.user)}</td>
-            <td class="${isInternalEntry ? "entry-cell-truncate" : ""}"${
-              isInternalEntry ? ` title="${escapeHtml(clientLabel)}"` : ""
+            <td class="${isInternalRow ? "entry-cell-truncate" : ""}"${
+              isInternalRow ? ` title="${escapeHtml(clientLabel)}"` : ""
             }>${escapeHtml(clientLabel)}</td>
-            <td class="${isInternalEntry ? "entry-cell-truncate" : ""}"${
-              isInternalEntry ? ` title="${escapeHtml(projectLabel)}"` : ""
+            <td class="${isInternalRow ? "entry-cell-truncate" : ""}"${
+              isInternalRow ? ` title="${escapeHtml(projectLabel)}"` : ""
             }>${escapeHtml(projectLabel)}</td>
             <td>${entry.hours.toFixed(2)}</td>
             <td>
@@ -337,7 +337,7 @@
                     </button>`
               }
             </td>
-            <td class="${isInternalEntry ? "entry-status-empty-cell" : ""}">
+            <td class="${isInternalRow ? "entry-status-empty-cell" : ""}">
               ${statusMarkup}
             </td>
             <td class="actions-cell">
