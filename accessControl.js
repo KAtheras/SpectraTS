@@ -521,13 +521,15 @@
     }
 
     function officeIdForEntry(entry, targetUser) {
-      const userOffice = officeIdForUser(targetUser);
-      if (userOffice) return userOffice;
       const project = findProjectByTuple(entry?.client, entry?.project);
       const projectOffice = normalizeText(project?.officeId ?? project?.office_id);
       if (projectOffice) return projectOffice;
       const client = findClientByName(entry?.client);
-      return normalizeText(client?.officeId ?? client?.office_id);
+      const clientOffice = normalizeText(client?.officeId ?? client?.office_id);
+      if (clientOffice) return clientOffice;
+      const userOffice = officeIdForUser(targetUser);
+      if (userOffice) return userOffice;
+      return "";
     }
 
     function officeIdForEntryRecord(entry, scopeUser) {
