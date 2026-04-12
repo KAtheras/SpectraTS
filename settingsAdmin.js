@@ -3305,7 +3305,6 @@
               <span class="permissions-group-chevron" data-perm-group-chevron="${escapeHtml(group.key)}" aria-hidden="true">${isCollapsed ? "▸" : "▾"}</span>
             </button>
             <div class="table-wrapper" data-perm-group-body="${escapeHtml(group.key)}" ${isCollapsed ? "hidden" : ""}>
-              ${group.key === "ClientProject" ? '<p class="feedback" data-perm-group-warning="ClientProject" hidden></p>' : ""}
               <table class="table perms-matrix">
                 <thead>
                   <tr>
@@ -3317,6 +3316,7 @@
                   ${buildRowsHtml(group.rows)}
                 </tbody>
               </table>
+              ${group.key === "ClientProject" ? '<p class="feedback" data-perm-group-warning="ClientProject" hidden></p>' : ""}
             </div>
           </section>
         `;
@@ -3335,6 +3335,57 @@
       </div>
     `;
 
+    const collectPermissionsSnapshotFromInputs = () => {
+      const activePanel = document.querySelector('[data-settings-tab="permissions"]');
+      if (!activePanel) return [];
+      const inputs = Array.from(activePanel.querySelectorAll("[data-perm-role][data-perm-cap]"));
+      return inputs
+        .filter((input) => input.dataset.permRole !== "superuser" && input.dataset.permLocked !== "true")
+        .map((input) => ({
+          role: input.dataset.permRole,
+          capability: input.dataset.permCap,
+          allowed: Boolean(input.checked),
+        }));
+    };
+    const updateClientsGroupWarningFromRows = (rows) => {
+      const allowedCapabilitiesByRole = new Map();
+      (Array.isArray(rows) ? rows : []).forEach((row) => {
+        const roleKey = `${row?.role || ""}`.trim();
+        const capabilityKey = `${row?.capability || ""}`.trim();
+        if (!roleKey || !capabilityKey || !row.allowed) return;
+        if (!allowedCapabilitiesByRole.has(roleKey)) {
+          allowedCapabilitiesByRole.set(roleKey, new Set());
+        }
+        allowedCapabilitiesByRole.get(roleKey).add(capabilityKey);
+      });
+      const visibilityCaps = [
+        "see_all_clients_projects",
+        "see_office_clients_projects",
+        "see_assigned_clients_projects",
+      ];
+      const actionCaps = [
+        "manage_clients_lifecycle",
+        "manage_projects_lifecycle",
+        "edit_clients",
+        "edit_projects_all_modal",
+        "edit_project_planning",
+      ];
+      const warningRoles = Array.from(allowedCapabilitiesByRole.entries())
+        .filter(([_, caps]) => {
+          const hasAnyActionCap = actionCaps.some((capability) => caps.has(capability));
+          if (!hasAnyActionCap) return false;
+          return !visibilityCaps.some((capability) => caps.has(capability));
+        })
+        .map(([roleKey]) => roleKey);
+      if (warningRoles.length) {
+        const warningMessage = `${warningRoles.join(", ")} has client/project action permissions but no client/project visibility.`;
+        setClientsGroupWarning(`Warning: ${warningMessage}`, false);
+        return warningMessage;
+      }
+      setClientsGroupWarning("", false);
+      return "";
+    };
+
     const schedulePermissionsSave = function () {
       const livePanel = document.querySelector('[data-settings-tab="permissions"]');
       if (!livePanel) return;
@@ -3344,17 +3395,7 @@
         clearTimeout(existing);
       }
       const timer = setTimeout(async () => {
-        const collectSnapshot = () => {
-          const inputs = Array.from(livePanel.querySelectorAll("[data-perm-role][data-perm-cap]"));
-          return inputs
-            .filter((input) => input.dataset.permRole !== "superuser" && input.dataset.permLocked !== "true")
-            .map((input) => ({
-              role: input.dataset.permRole,
-              capability: input.dataset.permCap,
-              allowed: Boolean(input.checked),
-            }));
-        };
-        const next = collectSnapshot();
+        const next = collectPermissionsSnapshotFromInputs();
         if (permissionsSaveInFlight) {
           permissionsQueuedSnapshot = next;
           permissionsSaveQueued = true;
@@ -3423,41 +3464,10 @@
             }))
             .filter((row) => row.role_key && row.capability_key);
           deps().state.rolePermissions = [...preservedRows, ...matrixAllowedRows];
-          const allowedCapabilitiesByRole = new Map();
-          next.forEach((row) => {
-            const roleKey = `${row?.role || ""}`.trim();
-            const capabilityKey = `${row?.capability || ""}`.trim();
-            if (!roleKey || !capabilityKey || !row.allowed) return;
-            if (!allowedCapabilitiesByRole.has(roleKey)) {
-              allowedCapabilitiesByRole.set(roleKey, new Set());
-            }
-            allowedCapabilitiesByRole.get(roleKey).add(capabilityKey);
-          });
-          const visibilityCaps = [
-            "see_all_clients_projects",
-            "see_office_clients_projects",
-            "see_assigned_clients_projects",
-          ];
-          const actionCaps = [
-            "manage_clients_lifecycle",
-            "manage_projects_lifecycle",
-            "edit_clients",
-            "edit_projects_all_modal",
-            "edit_project_planning",
-          ];
-          const warningRoles = Array.from(allowedCapabilitiesByRole.entries())
-            .filter(([_, caps]) => {
-              const hasAnyActionCap = actionCaps.some((capability) => caps.has(capability));
-              if (!hasAnyActionCap) return false;
-              return !visibilityCaps.some((capability) => caps.has(capability));
-            })
-            .map(([roleKey]) => roleKey);
-          if (warningRoles.length) {
-            const warningMessage = `${warningRoles.join(", ")} has client/project action permissions but no client/project visibility.`;
-            setClientsGroupWarning(`Warning: ${warningMessage}`, false);
+          const warningMessage = updateClientsGroupWarningFromRows(next);
+          if (warningMessage) {
             deps().feedback(`Access updated. Warning: ${warningMessage}`, false);
           } else {
-            setClientsGroupWarning("", false);
             deps().feedback("Access updated.", false);
           }
         } catch (error) {
@@ -3528,6 +3538,7 @@
       panel.addEventListener("change", function (event) {
         const toggle = event.target.closest("[data-perm-role][data-perm-cap]");
         if (toggle && toggle.dataset.permLocked !== "true") {
+          updateClientsGroupWarningFromRows(collectPermissionsSnapshotFromInputs());
           schedulePermissionsSave();
         }
         const input = event.target.closest('[data-perm-locked="true"]');
