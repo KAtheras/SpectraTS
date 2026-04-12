@@ -1666,9 +1666,10 @@
         if (!button) return;
         const isPreviewKind = hasPreview && previewKind === kind;
         const validCount = isPreviewKind ? previewValidRowCount() : 0;
-        button.textContent = isPreviewKind ? `Import Valid ${noun} Rows` : "Upload File";
-        button.dataset.mode = isPreviewKind ? `import-${kind}` : `upload-${kind}`;
-        button.disabled = isPreviewKind ? validCount === 0 : false;
+        const hasImportableRows = isPreviewKind && validCount > 0;
+        button.textContent = hasImportableRows ? `Import Valid ${noun} Rows` : "Upload File";
+        button.dataset.mode = hasImportableRows ? `import-${kind}` : `upload-${kind}`;
+        button.disabled = false;
       };
       setRowActionState(openTimeBtn, "time", "Time");
       setRowActionState(openExpensesBtn, "expenses", "Expense");
@@ -2742,18 +2743,40 @@
     downloadExpensesTemplateBtn?.addEventListener("click", function () {
       window.location.assign("/templates/expense-upload.xlsx");
     });
-    downloadMembersTemplateBtn?.addEventListener("click", function () {
+    downloadMembersTemplateBtn?.addEventListener("click", async function () {
       const headers = (EXPECTED_HEADERS.members || []).slice();
-      const csv = `${headers.map(toCsvCell).join(",")}\n`;
-      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = "member-upload-template.csv";
-      document.body.appendChild(anchor);
-      anchor.click();
-      document.body.removeChild(anchor);
-      URL.revokeObjectURL(url);
+      const columnLetter = function (index) {
+        let n = Number(index) + 1;
+        let result = "";
+        while (n > 0) {
+          const rem = (n - 1) % 26;
+          result = String.fromCharCode(65 + rem) + result;
+          n = Math.floor((n - 1) / 26);
+        }
+        return result;
+      };
+      try {
+        const XLSX = await ensureXlsx();
+        if (XLSX?.utils?.aoa_to_sheet && typeof XLSX.writeFile === "function") {
+          const sheet = XLSX.utils.aoa_to_sheet([headers]);
+          const lastCol = columnLetter(Math.max(headers.length - 1, 0));
+          sheet["!ref"] = `A1:${lastCol}501`;
+          // Pre-format the Member ID column as text so leading zeroes are preserved.
+          for (let row = 2; row <= 501; row += 1) {
+            const cellAddress = `A${row}`;
+            sheet[cellAddress] = { t: "s", v: "" };
+            sheet[cellAddress].z = "@";
+          }
+          sheet["A2"] = { t: "s", v: "0000001", z: "@" };
+          const workbook = XLSX.utils.book_new();
+          XLSX.utils.book_append_sheet(workbook, sheet, "Members");
+          XLSX.writeFile(workbook, "member-upload-template.xlsx");
+          return;
+        }
+      } catch (error) {
+        // Fall back to static template if XLSX generation fails.
+      }
+      window.location.assign("/templates/member-upload.xlsx");
     });
     timeInput?.addEventListener("change", function () {
       handleFileSelect(timeInput.files?.[0], "time");
