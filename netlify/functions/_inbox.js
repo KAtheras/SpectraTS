@@ -233,17 +233,17 @@ function buildTimeDigestMessage({
 }
 
 function buildTimeDigestNote({ members, projects }) {
-  const topMembers = (Array.isArray(members) ? members : [])
-    .slice(0, 3)
-    .map((row) => `${row.memberName} ${formatHoursCompact(row.totalHours)}h`)
-    .join(", ");
   const topProjects = (Array.isArray(projects) ? projects : [])
     .slice(0, 3)
     .map((row) => `${row.projectLabel} ${formatHoursCompact(row.totalHours)}h`)
     .join(", ");
+  const topMembers = (Array.isArray(members) ? members : [])
+    .slice(0, 3)
+    .map((row) => `${row.memberName} ${formatHoursCompact(row.totalHours)}h`)
+    .join(", ");
   const parts = [];
-  if (topMembers) parts.push(`Members: ${topMembers}`);
   if (topProjects) parts.push(`Projects: ${topProjects}`);
+  if (topMembers) parts.push(`Members: ${topMembers}`);
   return parts.join(" • ");
 }
 
@@ -273,15 +273,6 @@ function buildTimeDigestDeepLink({
       filters: { ...baseFilters },
     },
   ];
-  sortedMembers.slice(0, 5).forEach((member) => {
-    actions.push({
-      label: `${member.memberName} (${formatHoursCompact(member.totalHours)}h)`,
-      filters: {
-        ...baseFilters,
-        user: member.memberName,
-      },
-    });
-  });
   sortedProjects.slice(0, 5).forEach((project) => {
     actions.push({
       label: `${project.projectLabel} (${formatHoursCompact(project.totalHours)}h)`,
@@ -289,6 +280,15 @@ function buildTimeDigestDeepLink({
         ...baseFilters,
         client: project.clientName,
         project: project.projectName,
+      },
+    });
+  });
+  sortedMembers.slice(0, 5).forEach((member) => {
+    actions.push({
+      label: `${member.memberName} (${formatHoursCompact(member.totalHours)}h)`,
+      filters: {
+        ...baseFilters,
+        user: member.memberName,
       },
     });
   });

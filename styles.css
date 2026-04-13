@@ -669,6 +669,22 @@ body[data-theme="dark"] .button {
   align-items: center;
 }
 
+.inbox-item-links-digest {
+  display: grid;
+  gap: 8px;
+}
+
+.inbox-item-links-top {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.inbox-item-links-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 6px;
+}
+
 .inbox-item-link {
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -679,6 +695,10 @@ body[data-theme="dark"] .button {
   line-height: 1.2;
   padding: 4px 8px;
   cursor: pointer;
+  width: 100%;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
 }
 
 .inbox-item-link:hover,

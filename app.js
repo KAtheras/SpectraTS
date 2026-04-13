@@ -9992,18 +9992,78 @@
           ? " message-priority"
           : "";
         const deepLinkActions = Array.isArray(item?.deepLink?.actions)
-          ? item.deepLink.actions.filter((action) => action && String(action.label || "").trim())
+          ? item.deepLink.actions
+              .map((action, index) => ({
+                action,
+                index,
+                label: String(action?.label || "").trim(),
+              }))
+              .filter((row) => row.action && row.label)
           : [];
-        const linksMarkup = deepLinkActions.length
-          ? `<div class="inbox-item-links">
-              ${deepLinkActions
-                .slice(0, 8)
-                .map((action, index) => `<button type="button" class="inbox-item-link" data-inbox-open="${escapeHtml(item.id)}" data-inbox-open-action="${index}">${escapeHtml(
-                  String(action.label || "").trim()
-                )}</button>`)
-                .join("")}
-            </div>`
-          : "";
+        const isTimeDigest = `${item?.type || ""}`.trim() === "time_entry_daily_digest";
+        const viewAllAction = deepLinkActions.find((row) => row.label.toLowerCase() === "view all") || null;
+        const projectActions = isTimeDigest
+          ? deepLinkActions.filter((row) => {
+              if (viewAllAction && row.index === viewAllAction.index) return false;
+              const filters = row?.action?.filters || {};
+              return Boolean(String(filters.client || "").trim() || String(filters.project || "").trim());
+            })
+          : [];
+        const memberActions = isTimeDigest
+          ? deepLinkActions.filter((row) => {
+              if (viewAllAction && row.index === viewAllAction.index) return false;
+              const filters = row?.action?.filters || {};
+              return Boolean(String(filters.user || "").trim());
+            })
+          : [];
+        const genericActions = isTimeDigest
+          ? []
+          : deepLinkActions.slice(0, 8);
+        const linksMarkup = isTimeDigest
+          ? (viewAllAction || projectActions.length || memberActions.length)
+            ? `<div class="inbox-item-links inbox-item-links-digest">
+                ${
+                  viewAllAction
+                    ? `<div class="inbox-item-links-top">
+                        <button type="button" class="inbox-item-link" data-inbox-open="${escapeHtml(item.id)}" data-inbox-open-action="${viewAllAction.index}">${escapeHtml(
+                        viewAllAction.label
+                      )}</button>
+                      </div>`
+                    : ""
+                }
+                ${
+                  projectActions.length
+                    ? `<div class="inbox-item-links-grid">
+                        ${projectActions
+                          .map((row) => `<button type="button" class="inbox-item-link" data-inbox-open="${escapeHtml(item.id)}" data-inbox-open-action="${row.index}">${escapeHtml(
+                            row.label
+                          )}</button>`)
+                          .join("")}
+                      </div>`
+                    : ""
+                }
+                ${
+                  memberActions.length
+                    ? `<div class="inbox-item-links-grid">
+                        ${memberActions
+                          .map((row) => `<button type="button" class="inbox-item-link" data-inbox-open="${escapeHtml(item.id)}" data-inbox-open-action="${row.index}">${escapeHtml(
+                            row.label
+                          )}</button>`)
+                          .join("")}
+                      </div>`
+                    : ""
+                }
+              </div>`
+            : ""
+          : genericActions.length
+            ? `<div class="inbox-item-links">
+                ${genericActions
+                  .map((row) => `<button type="button" class="inbox-item-link" data-inbox-open="${escapeHtml(item.id)}" data-inbox-open-action="${row.index}">${escapeHtml(
+                    row.label
+                  )}</button>`)
+                  .join("")}
+              </div>`
+            : "";
         return `
           <div class="inbox-item${unreadClass}${selectedClass}${priorityClass}" data-inbox-id="${escapeHtml(item.id)}">
             <label class="inbox-item-check">
