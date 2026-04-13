@@ -3277,6 +3277,11 @@
       "edit_projects_all_modal",
       "edit_project_planning",
     ]);
+    const superuserHardEnabledCaps = new Set(
+      (capabilityGroups.find((group) => group.key === "Settings")?.rows || [])
+        .map((row) => `${row?.cap || ""}`.trim())
+        .filter(Boolean)
+    );
 
     const ownOfficeAllowedSet = new Set(
       rolePerms
@@ -3296,15 +3301,23 @@
         const cells = roles
           .map((role) => {
             const isSuperuserRole = role.key === "superuser";
-            const isSuperuserLocked = isSuperuserRole && !superuserMatrixEditableCaps.has(cap);
+            const isSuperuserHardEnabled = isSuperuserRole && superuserHardEnabledCaps.has(cap);
+            const isSuperuserLocked =
+              isSuperuserRole && (isSuperuserHardEnabled || !superuserMatrixEditableCaps.has(cap));
             const usesAnyScope = cap === "see_all_clients_projects" || cap === "view_all_entries";
-            const checked = isSuperuserRole
+            const checked = isSuperuserHardEnabled
+              ? true
+              : isSuperuserRole
               ? anyScopeAllowedSet.has(`${role.key}|${cap}`)
               : usesAnyScope
                 ? anyScopeAllowedSet.has(`${role.key}|${cap}`)
                 : ownOfficeAllowedSet.has(`${role.key}|${cap}`);
             const lockedAttrs = isSuperuserLocked
-              ? `disabled aria-disabled="true" class="locked-perm" title="Superuser permissions are fixed" data-perm-locked="true" data-locked-value="${checked ? "true" : "false"}"`
+              ? `disabled aria-disabled="true" class="locked-perm" title="${escapeHtml(
+                  isSuperuserHardEnabled
+                    ? "Superuser permissions are fixed to enabled in Settings Controls"
+                    : "Superuser permissions are fixed"
+                )}" data-perm-locked="true" data-locked-value="${checked ? "true" : "false"}"`
               : "";
             return `<td>
               <label class="perm-switch${isSuperuserLocked ? " is-locked" : ""}">
