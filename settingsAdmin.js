@@ -3264,6 +3264,19 @@
         ],
       },
     ];
+    const superuserMatrixEditableCaps = new Set([
+      "view_all_entries",
+      "view_office_entries",
+      "view_assigned_project_entries",
+      "see_all_clients_projects",
+      "see_office_clients_projects",
+      "see_assigned_clients_projects",
+      "manage_clients_lifecycle",
+      "manage_projects_lifecycle",
+      "edit_clients",
+      "edit_projects_all_modal",
+      "edit_project_planning",
+    ]);
 
     const ownOfficeAllowedSet = new Set(
       rolePerms
@@ -3283,17 +3296,18 @@
         const cells = roles
           .map((role) => {
             const isSuperuserRole = role.key === "superuser";
+            const isSuperuserLocked = isSuperuserRole && !superuserMatrixEditableCaps.has(cap);
             const usesAnyScope = cap === "see_all_clients_projects" || cap === "view_all_entries";
             const checked = isSuperuserRole
               ? anyScopeAllowedSet.has(`${role.key}|${cap}`)
               : usesAnyScope
                 ? anyScopeAllowedSet.has(`${role.key}|${cap}`)
                 : ownOfficeAllowedSet.has(`${role.key}|${cap}`);
-            const lockedAttrs = isSuperuserRole
+            const lockedAttrs = isSuperuserLocked
               ? `disabled aria-disabled="true" class="locked-perm" title="Superuser permissions are fixed" data-perm-locked="true" data-locked-value="${checked ? "true" : "false"}"`
               : "";
             return `<td>
-              <label class="perm-switch${isSuperuserRole ? " is-locked" : ""}">
+              <label class="perm-switch${isSuperuserLocked ? " is-locked" : ""}">
                 <input type="checkbox" data-perm-role="${escapeHtml(role.key)}" data-perm-cap="${escapeHtml(cap)}" ${checked ? "checked" : ""} ${lockedAttrs}>
                 <span class="perm-switch-track" aria-hidden="true"></span>
               </label>
@@ -3359,7 +3373,7 @@
       if (!activePanel) return [];
       const inputs = Array.from(activePanel.querySelectorAll("[data-perm-role][data-perm-cap]"));
       return inputs
-        .filter((input) => input.dataset.permRole !== "superuser" && input.dataset.permLocked !== "true")
+        .filter((input) => input.dataset.permLocked !== "true")
         .map((input) => ({
           role: input.dataset.permRole,
           capability: input.dataset.permCap,

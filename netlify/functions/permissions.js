@@ -10,6 +10,19 @@ const ROLE_ORDER = {
   admin: 4,
   superuser: 5,
 };
+const SUPERUSER_MATRIX_CONTROLLED_CAPABILITIES = new Set([
+  "view_all_entries",
+  "view_office_entries",
+  "view_assigned_project_entries",
+  "see_all_clients_projects",
+  "see_office_clients_projects",
+  "see_assigned_clients_projects",
+  "manage_clients_lifecycle",
+  "manage_projects_lifecycle",
+  "edit_clients",
+  "edit_projects_all_modal",
+  "edit_project_planning",
+]);
 
 const HEADERS = {
   A: "category",
@@ -227,7 +240,12 @@ function subjectRuleSatisfied(subjectRoleMax, allowSelf, ctx) {
 }
 
 function can(user, capabilityKey, ctx, permissionIndex) {
-  if (roleKeyFromUser(user) === "superuser") return true;
+  if (
+    roleKeyFromUser(user) === "superuser" &&
+    !SUPERUSER_MATRIX_CONTROLLED_CAPABILITIES.has(`${capabilityKey || ""}`.trim())
+  ) {
+    return true;
+  }
   const baseCtx = ctx || {};
   const normalizedCtx = {
     actorOfficeId: baseCtx.actorOfficeId ?? user?.office_id ?? user?.officeId,

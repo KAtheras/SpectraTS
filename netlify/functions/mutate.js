@@ -48,6 +48,19 @@ const {
   buildInboxMessage,
   dispatchNotificationEvent,
 } = require("./_inbox");
+const SUPERUSER_MATRIX_EDITABLE_CAPABILITIES = new Set([
+  "view_all_entries",
+  "view_office_entries",
+  "view_assigned_project_entries",
+  "see_all_clients_projects",
+  "see_office_clients_projects",
+  "see_assigned_clients_projects",
+  "manage_clients_lifecycle",
+  "manage_projects_lifecycle",
+  "edit_clients",
+  "edit_projects_all_modal",
+  "edit_project_planning",
+]);
 
 function hashSetupToken(token) {
   return crypto.createHash("sha256").update(token).digest("hex");
@@ -5301,8 +5314,12 @@ exports.handler = async function handler(event) {
           }))
           .filter((item) => item.role && item.capability);
 
-        // Do not allow superuser permissions to be modified through this matrix.
-        const filtered = normalized.filter((item) => item.role !== "superuser");
+        // Allow superuser edits only for matrix-controlled client/project and entry-visibility capabilities.
+        const filtered = normalized.filter(
+          (item) =>
+            item.role !== "superuser" ||
+            SUPERUSER_MATRIX_EDITABLE_CAPABILITIES.has(item.capability)
+        );
 
         const allowedPairs = filtered.filter((item) => item.allowed);
 
