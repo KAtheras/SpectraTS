@@ -298,6 +298,8 @@ async function ensureSchema(sql) {
         FROM role_permissions existing_rp
         JOIN permission_capabilities existing_cap ON existing_cap.id = existing_rp.capability_id
         WHERE existing_cap.key = 'manage_corporate_functions'
+          AND existing_rp.role_id = rp.role_id
+          AND existing_rp.scope_id = rp.scope_id
       )
     ON CONFLICT (role_id, capability_id, scope_id) DO NOTHING
   `;
@@ -354,6 +356,8 @@ async function ensureSchema(sql) {
         FROM role_permissions existing_rp
         JOIN permission_capabilities existing_cap ON existing_cap.id = existing_rp.capability_id
         WHERE existing_cap.key = 'manage_target_realizations'
+          AND existing_rp.role_id = rp.role_id
+          AND existing_rp.scope_id = rp.scope_id
       )
     ON CONFLICT (role_id, capability_id, scope_id) DO NOTHING
   `;
@@ -370,6 +374,8 @@ async function ensureSchema(sql) {
         FROM role_permissions existing_rp
         JOIN permission_capabilities existing_cap ON existing_cap.id = existing_rp.capability_id
         WHERE existing_cap.key = 'manage_messaging_rules'
+          AND existing_rp.role_id = rp.role_id
+          AND existing_rp.scope_id = rp.scope_id
       )
     ON CONFLICT (role_id, capability_id, scope_id) DO NOTHING
   `;
@@ -440,6 +446,8 @@ async function ensureSchema(sql) {
         FROM role_permissions existing_rp
         JOIN permission_capabilities existing_cap ON existing_cap.id = existing_rp.capability_id
         WHERE existing_cap.key = 'view_cost_rates'
+          AND existing_rp.role_id = rp.role_id
+          AND existing_rp.scope_id = rp.scope_id
       )
     ON CONFLICT (role_id, capability_id, scope_id) DO NOTHING
   `;
