@@ -4334,10 +4334,6 @@ async function loadState(sql, currentUser) {
       resourceOfficeId: normalizedUser?.officeId ?? null,
       actorOfficeId: normalizedUser?.officeId ?? null,
     }) ||
-    canCap("manage_levels", {
-      resourceOfficeId: normalizedUser?.officeId ?? null,
-      actorOfficeId: normalizedUser?.officeId ?? null,
-    }) ||
     manageDepartments ||
     manageCategories ||
     manageLocations ||
@@ -5246,33 +5242,58 @@ async function loadState(sql, currentUser) {
 
   let users = [];
   if (normalizedUser) {
-    users = allUsers.map((user) => {
-      const roleAllowed = canViewRatesForTarget(normalizedUser, user, levelLabels);
-      const canViewBaseRate = canCap("view_member_rates", {
+    const visibleUserIds = new Set();
+    const actorUserId = normalizeText(normalizedUser?.id);
+    if (actorUserId) {
+      visibleUserIds.add(actorUserId);
+    }
+    allUsers.forEach((user) => {
+      const userId = normalizeText(user?.id);
+      if (!userId) return;
+      const canViewUser = canCap("view_members", {
         resourceOfficeId: user.officeId ?? user.office_id ?? null,
         actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
       });
-      const canViewCostRates =
-        canCap("view_cost_rates", {
-          resourceOfficeId: user.officeId ?? user.office_id ?? null,
-          actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
-        }) ||
-        canCap("view_cost_rate", {
+      if (canViewUser) {
+        visibleUserIds.add(userId);
+      }
+    });
+    delegatorUserIds.forEach((id) => {
+      const normalizedId = normalizeText(id);
+      if (normalizedId) {
+        visibleUserIds.add(normalizedId);
+      }
+    });
+
+    users = allUsers
+      .filter((user) => visibleUserIds.has(normalizeText(user?.id)))
+      .map((user) => {
+        const roleAllowed = canViewRatesForTarget(normalizedUser, user, levelLabels);
+        const canViewBaseRate = canCap("view_member_rates", {
           resourceOfficeId: user.officeId ?? user.office_id ?? null,
           actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
         });
-      const canEditRates = canCap("edit_member_rates", {
-        resourceOfficeId: user.officeId ?? user.office_id ?? null,
-        actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+        const canViewCostRates =
+          canCap("view_cost_rates", {
+            resourceOfficeId: user.officeId ?? user.office_id ?? null,
+            actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+          }) ||
+          canCap("view_cost_rate", {
+            resourceOfficeId: user.officeId ?? user.office_id ?? null,
+            actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+          });
+        const canEditRates = canCap("edit_member_rates", {
+          resourceOfficeId: user.officeId ?? user.office_id ?? null,
+          actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+        });
+        const allowBaseRate = roleAllowed && (canViewBaseRate || canEditRates);
+        const allowCostRate = roleAllowed && canViewCostRates;
+        return {
+          ...user,
+          baseRate: allowBaseRate ? user.baseRate : null,
+          costRate: allowCostRate ? user.costRate : null,
+        };
       });
-      const allowBaseRate = roleAllowed && (canViewBaseRate || canEditRates);
-      const allowCostRate = roleAllowed && canViewCostRates;
-      return {
-        ...user,
-        baseRate: allowBaseRate ? user.baseRate : null,
-        costRate: allowCostRate ? user.costRate : null,
-      };
-    });
     if (delegatorUserIds.length) {
       const existing = new Set(users.map((item) => `${item?.id || ""}`.trim()).filter(Boolean));
       allUsers.forEach((user) => {

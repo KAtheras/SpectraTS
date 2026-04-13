@@ -171,7 +171,6 @@ exports.handler = async function handler(event) {
       edit_user_rates: can(currentUser, "edit_member_rates", {}, permissionIndex),
 
       // settings management
-      manage_levels: can(currentUser, "manage_levels", {}, permissionIndex),
       manage_departments: can(currentUser, "manage_departments", {}, permissionIndex),
       manage_expense_categories: can(currentUser, "manage_expense_categories", {}, permissionIndex),
       manage_corporate_functions: canManageCorporateFunctions,
@@ -231,7 +230,6 @@ exports.handler = async function handler(event) {
     };
     permissions.view_settings_tab = Boolean(
       permissions.view_members_page ||
-      permissions.manage_levels ||
       permissions.manage_departments ||
       permissions.manage_expense_categories ||
       permissions.manage_corporate_functions ||

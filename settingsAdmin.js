@@ -3616,7 +3616,7 @@
     if (!refs.departmentRows) return;
 
     const departments = Array.isArray(state.departments) ? state.departments.slice() : [];
-    const editable = Boolean(state.permissions?.manage_target_realizations);
+    const editable = Boolean(state.permissions?.manage_departments);
 
     const rowsHtml = departments
       .map((item) => {
@@ -3751,7 +3751,7 @@
           }))
           .filter((item) => item.id && item.name)
       : [];
-    const editable = Boolean(state.permissions?.manage_departments);
+    const editable = Boolean(state.permissions?.manage_target_realizations);
     const valueByKey = new Map();
     if (Array.isArray(state.targetRealizations)) {
       state.targetRealizations.forEach((item) => {

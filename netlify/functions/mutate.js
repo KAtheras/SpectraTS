@@ -66,6 +66,138 @@ function hashSetupToken(token) {
   return crypto.createHash("sha256").update(token).digest("hex");
 }
 
+function normalizeNullableText(value) {
+  const text = normalizeText(value);
+  return text || null;
+}
+
+function normalizeNullableNumber(value) {
+  if (value === undefined || value === null || value === "") return null;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return null;
+  return parsed;
+}
+
+function collectDisallowedClientLeadBypassChanges(payload, client) {
+  const compareText = (nextValue, currentValue) => normalizeNullableText(nextValue) !== normalizeNullableText(currentValue);
+  const changed = [];
+  if (Object.prototype.hasOwnProperty.call(payload || {}, "nextName")) {
+    const nextName = normalizeNullableText(payload?.nextName) || normalizeNullableText(payload?.clientName);
+    if (nextName && compareText(nextName, client?.name)) changed.push("client name");
+  }
+  if (Object.prototype.hasOwnProperty.call(payload || {}, "officeId")) {
+    if (compareText(payload?.officeId, client?.office_id)) changed.push("office");
+  }
+  if (Object.prototype.hasOwnProperty.call(payload || {}, "businessContactName")) {
+    if (compareText(payload?.businessContactName, client?.business_contact_name)) changed.push("business contact name");
+  }
+  if (Object.prototype.hasOwnProperty.call(payload || {}, "businessContactEmail")) {
+    if (compareText(payload?.businessContactEmail, client?.business_contact_email)) changed.push("business contact email");
+  }
+  if (Object.prototype.hasOwnProperty.call(payload || {}, "businessContactPhone")) {
+    if (compareText(payload?.businessContactPhone, client?.business_contact_phone)) changed.push("business contact phone");
+  }
+  if (Object.prototype.hasOwnProperty.call(payload || {}, "billingContactName")) {
+    if (compareText(payload?.billingContactName, client?.billing_contact_name)) changed.push("billing contact name");
+  }
+  if (Object.prototype.hasOwnProperty.call(payload || {}, "billingContactEmail")) {
+    if (compareText(payload?.billingContactEmail, client?.billing_contact_email)) changed.push("billing contact email");
+  }
+  if (Object.prototype.hasOwnProperty.call(payload || {}, "billingContactPhone")) {
+    if (compareText(payload?.billingContactPhone, client?.billing_contact_phone)) changed.push("billing contact phone");
+  }
+  if (Object.prototype.hasOwnProperty.call(payload || {}, "addressStreet")) {
+    if (compareText(payload?.addressStreet, client?.address_street)) changed.push("address street");
+  }
+  if (Object.prototype.hasOwnProperty.call(payload || {}, "addressCity")) {
+    if (compareText(payload?.addressCity, client?.address_city)) changed.push("address city");
+  }
+  if (Object.prototype.hasOwnProperty.call(payload || {}, "addressState")) {
+    if (compareText(payload?.addressState, client?.address_state)) changed.push("address state");
+  }
+  if (Object.prototype.hasOwnProperty.call(payload || {}, "addressPostal")) {
+    if (compareText(payload?.addressPostal, client?.address_postal)) changed.push("address postal");
+  }
+  return changed;
+}
+
+function collectDisallowedProjectLeadBypassChanges(payload, project) {
+  const compareText = (nextValue, currentValue) => normalizeNullableText(nextValue) !== normalizeNullableText(currentValue);
+  const compareNumber = (nextValue, currentValue) => normalizeNullableNumber(nextValue) !== normalizeNullableNumber(currentValue);
+  const changed = [];
+  if (Object.prototype.hasOwnProperty.call(payload || {}, "nextName")) {
+    const nextName = normalizeNullableText(payload?.nextName) || normalizeNullableText(payload?.projectName);
+    if (nextName && compareText(nextName, project?.name)) changed.push("project name");
+  }
+  if (Object.prototype.hasOwnProperty.call(payload || {}, "budgetAmount")) {
+    if (compareNumber(payload?.budgetAmount, project?.budget)) changed.push("budget amount");
+  }
+  if (Object.prototype.hasOwnProperty.call(payload || {}, "contractAmount")) {
+    if (compareNumber(payload?.contractAmount, project?.contract_amount ?? project?.contractAmount)) {
+      changed.push("contract amount");
+    }
+  }
+  if (
+    Object.prototype.hasOwnProperty.call(payload || {}, "pricingModel") ||
+    Object.prototype.hasOwnProperty.call(payload || {}, "pricing_model")
+  ) {
+    if (compareText(payload?.pricingModel ?? payload?.pricing_model, project?.pricing_model ?? project?.pricingModel)) {
+      changed.push("pricing model");
+    }
+  }
+  if (
+    Object.prototype.hasOwnProperty.call(payload || {}, "overheadPercent") ||
+    Object.prototype.hasOwnProperty.call(payload || {}, "overhead_percent")
+  ) {
+    if (compareNumber(payload?.overheadPercent ?? payload?.overhead_percent, project?.overhead_percent ?? project?.overheadPercent)) {
+      changed.push("overhead percent");
+    }
+  }
+  if (
+    Object.prototype.hasOwnProperty.call(payload || {}, "techAdminFeePctOverride") ||
+    Object.prototype.hasOwnProperty.call(payload || {}, "tech_admin_fee_pct_override")
+  ) {
+    if (
+      compareNumber(
+        payload?.techAdminFeePctOverride ?? payload?.tech_admin_fee_pct_override,
+        project?.tech_admin_fee_pct_override ?? project?.techAdminFeePctOverride
+      )
+    ) {
+      changed.push("tech/admin fee override");
+    }
+  }
+  if (
+    Object.prototype.hasOwnProperty.call(payload || {}, "targetRealizationPct") ||
+    Object.prototype.hasOwnProperty.call(payload || {}, "target_realization_pct")
+  ) {
+    if (
+      compareNumber(
+        payload?.targetRealizationPct ?? payload?.target_realization_pct,
+        project?.target_realization_pct ?? project?.targetRealizationPct
+      )
+    ) {
+      changed.push("target realization");
+    }
+  }
+  if (
+    Object.prototype.hasOwnProperty.call(payload || {}, "projectDepartmentId") ||
+    Object.prototype.hasOwnProperty.call(payload || {}, "project_department_id")
+  ) {
+    if (compareText(payload?.projectDepartmentId ?? payload?.project_department_id, project?.project_department_id)) {
+      changed.push("project department");
+    }
+  }
+  if (
+    Object.prototype.hasOwnProperty.call(payload || {}, "officeId") ||
+    Object.prototype.hasOwnProperty.call(payload || {}, "office_id")
+  ) {
+    if (compareText(payload?.officeId ?? payload?.office_id, project?.office_id ?? project?.officeId)) {
+      changed.push("office");
+    }
+  }
+  return changed;
+}
+
 const DELEGATION_CAPABILITIES = new Set([
   "enter_time_on_behalf",
   "enter_expenses_on_behalf",
@@ -1303,7 +1435,6 @@ function buildPermissionsPayload(currentUser, permissionIndex) {
     view_cost_rate: canViewCostRates,
     edit_cost_rates: canViewCostRates,
     edit_user_rates: can("edit_member_rates"),
-    manage_levels: can("manage_levels"),
     manage_departments: can("manage_departments"),
     manage_expense_categories: can("manage_expense_categories"),
     manage_corporate_functions: canManageCorporateFunctions,
@@ -1347,7 +1478,6 @@ function buildPermissionsPayload(currentUser, permissionIndex) {
   };
   permissionsPayload.view_settings_tab = Boolean(
     permissionsPayload.view_members_page ||
-    permissionsPayload.manage_levels ||
     permissionsPayload.manage_departments ||
     permissionsPayload.manage_expense_categories ||
     permissionsPayload.manage_corporate_functions ||
@@ -5317,6 +5447,15 @@ exports.handler = async function handler(event) {
         if (!canEdit && !canEditClientLeadBypass) {
           return errorResponse(403, "Access denied.");
         }
+        if (!canEdit && canEditClientLeadBypass) {
+          const disallowedChanges = collectDisallowedClientLeadBypassChanges(request.payload || {}, targetClient);
+          if (disallowedChanges.length) {
+            return errorResponse(
+              403,
+              `Out-of-scope client edits for superusers are limited to client lead only. Blocked fields: ${disallowedChanges.join(", ")}.`
+            );
+          }
+        }
         const beforeSnapshot = await snapshotClientById(sql, targetClient.id, accountId);
         mutationResult = canEdit
           ? await updateClient(sql, request.payload || {}, accountId)
@@ -5400,6 +5539,15 @@ exports.handler = async function handler(event) {
         const canEditProjectLeadBypass = isSuperuserActor && hasProjectLeadField;
         if (!canEditProject && !canEditProjectLeadBypass) {
           return errorResponse(403, "Access denied.");
+        }
+        if (!canEditProject && canEditProjectLeadBypass) {
+          const disallowedChanges = collectDisallowedProjectLeadBypassChanges(request.payload || {}, existingProject);
+          if (disallowedChanges.length) {
+            return errorResponse(
+              403,
+              `Out-of-scope project edits for superusers are limited to project lead only. Blocked fields: ${disallowedChanges.join(", ")}.`
+            );
+          }
         }
         const beforeSnapshot = await snapshotProjectById(sql, existingProject?.id || null, accountId);
         mutationResult = canEditProject
