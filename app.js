@@ -3412,7 +3412,7 @@
           groupName: String(item.groupName || item.group_name || "").trim(),
           name: String(item.name || "").trim(),
           sortOrder: Number(item.sortOrder ?? item.sort_order ?? 0) || 0,
-        })).filter((item) => item.groupId && item.name)
+        })).filter((item) => item.name)
       : [];
     state.account = data?.account || null;
     state.settingsAccess = data?.settingsAccess || {};
@@ -6042,13 +6042,22 @@
           .slice()
           .sort((a, b) => (Number(a?.sortOrder) || 0) - (Number(b?.sortOrder) || 0))
       : [];
-    return groups
+    const grouped = groups
       .map((group) => ({
         groupId: `${group?.id || ""}`.trim(),
         groupName: `${group?.name || ""}`.trim(),
         categories: categories.filter((item) => `${item?.groupId || ""}`.trim() === `${group?.id || ""}`.trim()),
       }))
       .filter((item) => item.groupId && item.groupName && item.categories.length);
+    const uncategorized = categories.filter((item) => !`${item?.groupId || ""}`.trim());
+    if (uncategorized.length) {
+      grouped.push({
+        groupId: "__ungrouped_internal__",
+        groupName: "Internal",
+        categories: uncategorized,
+      });
+    }
+    return grouped;
   }
 
   function corporateFunctionCategoryDisplayLabelById(categoryId) {
@@ -7832,18 +7841,17 @@
     const canSeeAll = canSeeAllClientsProjects();
     const canSeeOffice = canSeeOfficeClientsProjects();
     const canSeeAssigned = canSeeAssignedClientsProjects();
-    if (!canSeeAll && !canSeeOffice && !canSeeAssigned) {
-      return [];
-    }
     const visibleProjectIds = new Set(
       (state.visibleProjectIds || []).map((id) => `${id || ""}`.trim()).filter(Boolean)
     );
     const scopedProjects = (state.projects || []).filter((project) => {
-      if (canSeeAll) return true;
-      if (canSeeOffice) return true;
+      if (canSeeAll || canSeeOffice) return true;
       const projectId = `${project?.id || ""}`.trim();
       return Boolean(projectId) && visibleProjectIds.has(projectId);
     });
+    if (!canSeeAll && !canSeeOffice && !canSeeAssigned && !scopedProjects.length) {
+      return [];
+    }
     const tupleMap = new Map();
     scopedProjects.forEach((project) => {
       const client = `${project?.client || ""}`.trim();
