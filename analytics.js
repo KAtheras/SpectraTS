@@ -474,7 +474,11 @@
         ? (computed.groupedRows || []).filter((row) => !isInternalClientName(row?.name))
         : computed.groupedRows || [];
 
-    const groupedRowsHtml = visibleGroupedRows
+    const topGroupedRows = [...visibleGroupedRows]
+      .sort((a, b) => toNumber(b?.profit) - toNumber(a?.profit) || safeText(a?.name).localeCompare(safeText(b?.name)))
+      .slice(0, 5);
+
+    const groupedRowsHtml = topGroupedRows
       .map(
         (row) => `<tr>
           <td>${escapeHtml(row.name)}</td>
@@ -549,6 +553,9 @@
         </section>
 
         <section class="analytics-table-wrap">
+          <div style="padding:10px 12px 0;color:var(--muted);font-size:.76rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;">
+            Top 5 by Profit
+          </div>
           <table>
             <thead>
               <tr>
