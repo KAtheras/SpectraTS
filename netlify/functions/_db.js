@@ -4104,6 +4104,14 @@ async function loadState(sql, currentUser) {
   const actorManagerProjectAssignments = Array.isArray(actorManagerAssignments?.projectRows)
     ? actorManagerAssignments.projectRows
     : [];
+  const actorDirectAssignedProjectIds = [
+    ...new Set(
+      [
+        ...actorMemberProjectAssignments.map((row) => normalizeText(row?.projectId)),
+        ...actorManagerProjectAssignments.map((row) => normalizeText(row?.projectId)),
+      ].filter(Boolean)
+    ),
+  ];
   const actorOfficeId = normalizeText(normalizedUser?.officeId ?? normalizedUser?.office_id ?? null);
   const globalScopeProbeOfficeId = actorOfficeId
     ? `__outside_office__${actorOfficeId}`
@@ -4157,7 +4165,7 @@ async function loadState(sql, currentUser) {
           : "none";
   const allClients = await listClients(sql, accountUuid);
   const allProjects = await listProjects(sql, accountUuid);
-  let actorProjectIds = [];
+  let actorProjectIds = [...actorDirectAssignedProjectIds];
   if (hasAssignedVisibilityScope) {
     const actorUserId = normalizeText(normalizedUser?.id);
     const actorClientLeadIds = [];
@@ -4172,14 +4180,6 @@ async function loadState(sql, currentUser) {
         }
       });
     }
-    actorProjectIds = hasAssignedVisibilityScope
-      ? [
-          ...new Set([
-            ...actorMemberProjectAssignments.map((row) => normalizeText(row?.projectId)),
-            ...actorManagerProjectAssignments.map((row) => normalizeText(row?.projectId)),
-          ]),
-        ].filter(Boolean)
-      : [];
     if (hasAssignedVisibilityScope) {
       const managerScope = await getManagerScope(sql, normalizedUser.id, accountUuid);
       (managerScope?.projectIds || []).forEach((projectId) => {
@@ -4244,6 +4244,11 @@ async function loadState(sql, currentUser) {
           }
           return inAssignedScope || inOfficeScope;
         })
+      : normalizedUser
+        ? allProjects.filter((project) => {
+            const projectId = normalizeText(project?.id);
+            return Boolean(projectId) && actorDirectAssignedProjectIds.includes(projectId);
+          })
       : [];
   const visibleClientIdSet = new Set(
     visibleProjects

@@ -16,6 +16,8 @@ const EMAIL_ENABLED_EVENT_TYPES = new Set([
   "project_assignment_updated",
   "delegation_updated",
 ]);
+const TIME_DAILY_DIGEST_TYPE = "time_entry_daily_digest";
+const TIME_DAILY_DIGEST_SUBJECT_TYPE = "time_digest";
 
 function randomId() {
   if (typeof crypto.randomUUID === "function") {
@@ -183,6 +185,464 @@ async function createSystemInboxItems(sql, payload = {}) {
   }
 }
 
+function parseJsonObject(value) {
+  if (!value) return {};
+  if (typeof value === "object") return value;
+  try {
+    const parsed = JSON.parse(String(value));
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch (_) {
+    return {};
+  }
+}
+
+function formatHoursCompact(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric <= 0) return "0";
+  const rounded = Math.round(numeric * 10) / 10;
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+}
+
+function buildTimeDigestMessage({
+  entryCount,
+  totalHours,
+  memberCount,
+  projectCount,
+}) {
+  return `Today your team entered ${entryCount} time entr${
+    entryCount === 1 ? "y" : "ies"
+  } totaling ${formatHoursCompact(totalHours)} hours across ${memberCount} member${
+    memberCount === 1 ? "" : "s"
+  } and ${projectCount} project${projectCount === 1 ? "" : "s"}.`;
+}
+
+function buildTimeDigestNote({ members, projects }) {
+  const topMembers = (Array.isArray(members) ? members : [])
+    .slice(0, 3)
+    .map((row) => `${row.memberName} ${formatHoursCompact(row.totalHours)}h`)
+    .join(", ");
+  const topProjects = (Array.isArray(projects) ? projects : [])
+    .slice(0, 3)
+    .map((row) => `${row.projectLabel} ${formatHoursCompact(row.totalHours)}h`)
+    .join(", ");
+  const parts = [];
+  if (topMembers) parts.push(`Members: ${topMembers}`);
+  if (topProjects) parts.push(`Projects: ${topProjects}`);
+  return parts.join(" • ");
+}
+
+function buildTimeDigestDeepLink({
+  digestDate,
+  entryIds,
+  members,
+  projects,
+  entryCount,
+  totalHours,
+}) {
+  const baseFilters = {
+    from: digestDate,
+    to: digestDate,
+  };
+  const sortedMembers = (Array.isArray(members) ? members : []).slice().sort((a, b) => {
+    if (b.totalHours !== a.totalHours) return b.totalHours - a.totalHours;
+    return String(a.memberName || "").localeCompare(String(b.memberName || ""));
+  });
+  const sortedProjects = (Array.isArray(projects) ? projects : []).slice().sort((a, b) => {
+    if (b.totalHours !== a.totalHours) return b.totalHours - a.totalHours;
+    return String(a.projectLabel || "").localeCompare(String(b.projectLabel || ""));
+  });
+  const actions = [
+    {
+      label: "View all",
+      filters: { ...baseFilters },
+    },
+  ];
+  sortedMembers.slice(0, 5).forEach((member) => {
+    actions.push({
+      label: `${member.memberName} (${formatHoursCompact(member.totalHours)}h)`,
+      filters: {
+        ...baseFilters,
+        user: member.memberName,
+      },
+    });
+  });
+  sortedProjects.slice(0, 5).forEach((project) => {
+    actions.push({
+      label: `${project.projectLabel} (${formatHoursCompact(project.totalHours)}h)`,
+      filters: {
+        ...baseFilters,
+        client: project.clientName,
+        project: project.projectName,
+      },
+    });
+  });
+  return {
+    view: "entries",
+    subtab: "time",
+    subjectType: TIME_DAILY_DIGEST_SUBJECT_TYPE,
+    subjectId: digestDate,
+    filters: baseFilters,
+    actions,
+    digest: {
+      digestDate,
+      entryCount,
+      totalHours: Math.round(Number(totalHours || 0) * 10) / 10,
+      distinctMembers: sortedMembers.length,
+      distinctProjects: sortedProjects.length,
+      members: sortedMembers,
+      projects: sortedProjects,
+      entryIds: Array.isArray(entryIds) ? entryIds : [],
+    },
+  };
+}
+
+function mergeTimeDigestEntry(previousDigest, entryRow) {
+  const digest = previousDigest && typeof previousDigest === "object" ? previousDigest : {};
+  const existingEntryIds = new Set(
+    (Array.isArray(digest.entryIds) ? digest.entryIds : [])
+      .map((id) => `${id || ""}`.trim())
+      .filter(Boolean)
+  );
+  const entryId = `${entryRow?.id || ""}`.trim();
+  if (!entryId || existingEntryIds.has(entryId)) {
+    return digest;
+  }
+  existingEntryIds.add(entryId);
+
+  const existingMembers = Array.isArray(digest.members) ? digest.members : [];
+  const memberMap = new Map();
+  existingMembers.forEach((row) => {
+    const key = `${row?.memberId || row?.memberName || ""}`.trim();
+    if (!key) return;
+    memberMap.set(key, {
+      memberId: `${row?.memberId || ""}`.trim() || null,
+      memberName: `${row?.memberName || ""}`.trim() || "Unknown member",
+      entryCount: Number(row?.entryCount || 0),
+      totalHours: Number(row?.totalHours || 0),
+    });
+  });
+  const memberKey = `${entryRow?.userId || entryRow?.memberName || ""}`.trim() || entryId;
+  const memberCurrent = memberMap.get(memberKey) || {
+    memberId: `${entryRow?.userId || ""}`.trim() || null,
+    memberName: `${entryRow?.memberName || ""}`.trim() || "Unknown member",
+    entryCount: 0,
+    totalHours: 0,
+  };
+  memberCurrent.entryCount += 1;
+  memberCurrent.totalHours += Number(entryRow?.hours || 0);
+  memberMap.set(memberKey, memberCurrent);
+
+  const existingProjects = Array.isArray(digest.projects) ? digest.projects : [];
+  const projectMap = new Map();
+  existingProjects.forEach((row) => {
+    const key = `${row?.projectId || ""}|${row?.clientName || ""}|${row?.projectName || ""}`.trim();
+    if (!key) return;
+    projectMap.set(key, {
+      projectId: row?.projectId || null,
+      clientName: `${row?.clientName || ""}`.trim(),
+      projectName: `${row?.projectName || ""}`.trim(),
+      projectLabel: (() => {
+        const explicit = `${row?.projectLabel || ""}`.trim();
+        if (explicit) return explicit;
+        const clientName = `${row?.clientName || ""}`.trim();
+        const projectName = `${row?.projectName || ""}`.trim();
+        if (clientName && projectName) return `${clientName} / ${projectName}`;
+        return projectName || clientName || "Unknown project";
+      })(),
+      entryCount: Number(row?.entryCount || 0),
+      totalHours: Number(row?.totalHours || 0),
+    });
+  });
+  const projectKey = `${entryRow?.projectId || ""}|${entryRow?.clientName || ""}|${entryRow?.projectName || ""}`.trim();
+  const projectCurrent = projectMap.get(projectKey) || {
+    projectId: entryRow?.projectId || null,
+    clientName: `${entryRow?.clientName || ""}`.trim(),
+    projectName: `${entryRow?.projectName || ""}`.trim(),
+    projectLabel: `${entryRow?.clientName || ""}`.trim() && `${entryRow?.projectName || ""}`.trim()
+      ? `${`${entryRow?.clientName || ""}`.trim()} / ${`${entryRow?.projectName || ""}`.trim()}`
+      : `${entryRow?.projectName || entryRow?.clientName || "Unknown project"}`,
+    entryCount: 0,
+    totalHours: 0,
+  };
+  projectCurrent.entryCount += 1;
+  projectCurrent.totalHours += Number(entryRow?.hours || 0);
+  projectMap.set(projectKey, projectCurrent);
+
+  const members = Array.from(memberMap.values());
+  const projects = Array.from(projectMap.values());
+  const entryCount = existingEntryIds.size;
+  const totalHours = Array.from(projectMap.values()).reduce(
+    (sum, row) => sum + Number(row?.totalHours || 0),
+    0
+  );
+  return {
+    digestDate: digest.digestDate || entryRow?.digestDate || "",
+    entryIds: Array.from(existingEntryIds),
+    entryCount,
+    totalHours,
+    distinctMembers: members.length,
+    distinctProjects: projects.length,
+    members,
+    projects,
+  };
+}
+
+async function fetchTimeEntryForDigest(sql, { accountId, entryId }) {
+  const rows = await sql`
+    SELECT
+      e.id,
+      e.user_id AS "userId",
+      e.user_name AS "memberName",
+      e.entry_date AS "entryDate",
+      p.client_id AS "clientId",
+      e.client_name AS "clientName",
+      e.project_name AS "projectName",
+      e.project_id AS "projectId",
+      e.charge_center_id AS "chargeCenterId",
+      e.hours
+    FROM entries e
+    LEFT JOIN projects p
+      ON p.id = e.project_id
+     AND p.account_id = e.account_id
+    WHERE e.account_id = ${accountId}::uuid
+      AND e.id = ${entryId}
+      AND e.deleted_at IS NULL
+    LIMIT 1
+  `;
+  const row = rows[0];
+  if (!row) return null;
+  const digestDate = `${row.entryDate || ""}`.trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(digestDate)) return null;
+  return {
+    id: `${row.id || ""}`.trim(),
+    userId: `${row.userId || ""}`.trim() || null,
+    memberName: `${row.memberName || ""}`.trim() || "Unknown member",
+    digestDate,
+    clientId:
+      row.clientId === null || row.clientId === undefined || `${row.clientId}`.trim() === ""
+        ? null
+        : Number(row.clientId),
+    clientName: `${row.clientName || ""}`.trim(),
+    projectName: `${row.projectName || ""}`.trim(),
+    projectId:
+      row.projectId === null || row.projectId === undefined || `${row.projectId}`.trim() === ""
+        ? null
+        : Number(row.projectId),
+    chargeCenterId:
+      row.chargeCenterId === null ||
+      row.chargeCenterId === undefined ||
+      `${row.chargeCenterId}`.trim() === ""
+        ? null
+        : `${row.chargeCenterId}`.trim(),
+    hours: Number(row.hours || 0),
+  };
+}
+
+function normalizePermissionGroup(rawValue) {
+  const raw = `${rawValue || ""}`.trim().toLowerCase();
+  if (!raw) return "staff";
+  if (raw === "superuser") return "superuser";
+  if (raw === "admin" || raw === "partner" || raw === "principal") return "admin";
+  if (raw === "executive" || raw === "director") return "executive";
+  if (raw === "manager" || raw === "lead") return "manager";
+  return "staff";
+}
+
+async function listTimeDigestRecipientUserIdsByVisibility(sql, { accountId, actorUserId, entryRow }) {
+  if (!accountId || !entryRow) return [];
+  const actorId = `${actorUserId || ""}`.trim();
+  const recipientRows = await sql`
+    SELECT
+      u.id,
+      u.role,
+      ll.permission_group AS "permissionGroup"
+    FROM users u
+    LEFT JOIN level_labels ll
+      ON ll.account_id = u.account_id
+     AND ll.level = u.level
+    WHERE u.account_id = ${accountId}::uuid
+      AND u.is_active = TRUE
+  `;
+  const recipients = new Set();
+  const managerLikeIds = [];
+  for (const row of recipientRows) {
+    const userId = `${row?.id || ""}`.trim();
+    if (!userId || (actorId && userId === actorId)) continue;
+    const group = normalizePermissionGroup(row?.permissionGroup || row?.role);
+    if (group === "superuser" || group === "admin") {
+      recipients.add(userId);
+      continue;
+    }
+    if (group === "manager" || group === "executive") {
+      managerLikeIds.push(userId);
+    }
+  }
+  if (!managerLikeIds.length) {
+    return Array.from(recipients);
+  }
+
+  const ownerUserId = `${entryRow?.userId || ""}`.trim();
+  if (ownerUserId && managerLikeIds.includes(ownerUserId)) {
+    recipients.add(ownerUserId);
+  }
+
+  const projectId = Number(entryRow?.projectId);
+  const clientId = Number(entryRow?.clientId);
+  const isInternal = Boolean(entryRow?.chargeCenterId) || !Number.isInteger(projectId);
+  if (isInternal) {
+    return Array.from(recipients);
+  }
+
+  const projectManagerRows = await sql`
+    SELECT manager_id AS "managerId"
+    FROM manager_projects
+    WHERE account_id = ${accountId}::uuid
+      AND project_id = ${projectId}
+      AND manager_id = ANY(${managerLikeIds})
+  `;
+  projectManagerRows.forEach((row) => {
+    const managerId = `${row?.managerId || ""}`.trim();
+    if (managerId) recipients.add(managerId);
+  });
+
+  const memberRows = await sql`
+    SELECT user_id AS "userId"
+    FROM project_members
+    WHERE account_id = ${accountId}::uuid
+      AND project_id = ${projectId}
+      AND user_id = ANY(${managerLikeIds})
+  `;
+  memberRows.forEach((row) => {
+    const managerId = `${row?.userId || ""}`.trim();
+    if (managerId) recipients.add(managerId);
+  });
+
+  if (Number.isInteger(clientId)) {
+    const clientManagerRows = await sql`
+      SELECT manager_id AS "managerId"
+      FROM manager_clients
+      WHERE account_id = ${accountId}::uuid
+        AND client_id = ${clientId}
+        AND manager_id = ANY(${managerLikeIds})
+    `;
+    clientManagerRows.forEach((row) => {
+      const managerId = `${row?.managerId || ""}`.trim();
+      if (managerId) recipients.add(managerId);
+    });
+  }
+
+  return Array.from(recipients);
+}
+
+async function upsertTimeEntryDailyDigestInboxItems(sql, payload = {}, recipientUserIds = []) {
+  const accountId = payload.accountId;
+  const actorUserId = `${payload.actorUserId || ""}`.trim() || null;
+  const entryId = `${payload.subjectId || ""}`.trim();
+  const recipients = Array.from(
+    new Set((Array.isArray(recipientUserIds) ? recipientUserIds : []).map((id) => `${id || ""}`.trim()).filter(Boolean))
+  );
+  if (!accountId || !entryId || !recipients.length) return;
+
+  const entryRow = await fetchTimeEntryForDigest(sql, { accountId, entryId });
+  if (!entryRow) return;
+  const digestDate = entryRow.digestDate;
+
+  for (const recipientUserId of recipients) {
+    const existingRows = await sql`
+      SELECT id, deep_link_json AS "deepLinkJson"
+      FROM inbox_items
+      WHERE account_id = ${accountId}::uuid
+        AND recipient_user_id = ${recipientUserId}
+        AND type = ${TIME_DAILY_DIGEST_TYPE}
+        AND subject_type = ${TIME_DAILY_DIGEST_SUBJECT_TYPE}
+        AND subject_id = ${digestDate}
+        AND is_deleted = FALSE
+      ORDER BY created_at DESC
+    `;
+    const existing = existingRows[0] || null;
+    const staleIds = existingRows
+      .slice(1)
+      .map((row) => `${row?.id || ""}`.trim())
+      .filter(Boolean);
+    if (staleIds.length) {
+      await sql`
+        UPDATE inbox_items
+        SET is_deleted = TRUE
+        WHERE account_id = ${accountId}::uuid
+          AND id = ANY(${staleIds})
+      `;
+    }
+    const existingDeepLink = parseJsonObject(existing?.deepLinkJson);
+    const previousDigest = parseJsonObject(existingDeepLink?.digest);
+    const nextDigest = mergeTimeDigestEntry(previousDigest, entryRow);
+    nextDigest.digestDate = digestDate;
+    const deepLink = buildTimeDigestDeepLink({
+      digestDate,
+      entryIds: nextDigest.entryIds,
+      members: nextDigest.members,
+      projects: nextDigest.projects,
+      entryCount: Number(nextDigest.entryCount || 0),
+      totalHours: Number(nextDigest.totalHours || 0),
+    });
+    const message = buildTimeDigestMessage({
+      entryCount: Number(nextDigest.entryCount || 0),
+      totalHours: Number(nextDigest.totalHours || 0),
+      memberCount: Number(nextDigest.distinctMembers || 0),
+      projectCount: Number(nextDigest.distinctProjects || 0),
+    });
+    const noteSnippet = normalizeNoteSnippet(
+      buildTimeDigestNote({
+        members: nextDigest.members,
+        projects: nextDigest.projects,
+      }),
+      400
+    );
+    if (existing?.id) {
+      await sql`
+        UPDATE inbox_items
+        SET
+          actor_user_id = ${actorUserId},
+          message = ${message},
+          note_snippet = ${noteSnippet},
+          deep_link_json = ${JSON.stringify(deepLink)}::jsonb,
+          is_read = FALSE
+        WHERE id = ${existing.id}
+      `;
+      continue;
+    }
+    await sql`
+      INSERT INTO inbox_items (
+        id,
+        account_id,
+        type,
+        recipient_user_id,
+        actor_user_id,
+        subject_type,
+        subject_id,
+        message,
+        note_snippet,
+        is_read,
+        project_name_snapshot,
+        deep_link_json
+      )
+      VALUES (
+        ${randomId()},
+        ${accountId}::uuid,
+        ${TIME_DAILY_DIGEST_TYPE},
+        ${recipientUserId},
+        ${actorUserId},
+        ${TIME_DAILY_DIGEST_SUBJECT_TYPE},
+        ${digestDate},
+        ${message},
+        ${noteSnippet},
+        FALSE,
+        NULL,
+        ${JSON.stringify(deepLink)}::jsonb
+      )
+    `;
+  }
+}
+
 async function getNotificationRule(sql, { accountId, eventType }) {
   if (!accountId || !eventType || !SUPPORTED_EVENT_TYPES.has(eventType)) return null;
   const rows = await sql`
@@ -341,12 +801,16 @@ async function dispatchNotificationEvent(sql, payload = {}) {
   if (!accountId) return;
 
   const rule = await getNotificationRule(sql, { accountId, eventType });
+  const ruleScope = String(rule?.recipientScope || "").trim().toLowerCase();
+  const canDeriveTimeDigestRecipients =
+    eventType === "time_entry_created" &&
+    ruleScope === "project_manager";
   const deliverInbox = shouldDeliverImmediateInbox(rule);
   const deliverEmail = shouldDeliverImmediateEmail(rule, eventType);
   if (!deliverInbox && !deliverEmail) return;
 
   const recipientUserIds = await resolveRecipientsByScope(sql, payload, rule);
-  if (!recipientUserIds.length) return;
+  if (!recipientUserIds.length && !(deliverInbox && canDeriveTimeDigestRecipients)) return;
 
   const suppressInboxRecipientSet = new Set(
     (Array.isArray(payload.suppressInboxRecipientUserIds)
@@ -361,7 +825,29 @@ async function dispatchNotificationEvent(sql, payload = {}) {
     : recipientUserIds;
 
   if (deliverInbox) {
-    if (inboxRecipientUserIds.length) {
+    if (eventType === "time_entry_created") {
+      if (ruleScope === "project_manager") {
+        const entryRow = await fetchTimeEntryForDigest(sql, {
+          accountId,
+          entryId: payload.subjectId,
+        });
+        if (entryRow) {
+          const scopedRecipients = await listTimeDigestRecipientUserIdsByVisibility(sql, {
+            accountId,
+            actorUserId: payload.actorUserId,
+            entryRow,
+          });
+          const scopedRecipientUserIds = suppressInboxRecipientSet.size
+            ? scopedRecipients.filter((id) => !suppressInboxRecipientSet.has(`${id || ""}`.trim()))
+            : scopedRecipients;
+          if (scopedRecipientUserIds.length) {
+            await upsertTimeEntryDailyDigestInboxItems(sql, payload, scopedRecipientUserIds);
+          }
+        }
+      } else if (inboxRecipientUserIds.length) {
+        await upsertTimeEntryDailyDigestInboxItems(sql, payload, inboxRecipientUserIds);
+      }
+    } else if (inboxRecipientUserIds.length) {
       await createSystemInboxItems(sql, {
         ...payload,
         recipientUserIds: inboxRecipientUserIds,

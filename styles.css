@@ -662,6 +662,32 @@ body[data-theme="dark"] .button {
   text-overflow: ellipsis;
 }
 
+.inbox-item-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.inbox-item-link {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--accent);
+  font-family: var(--font-body);
+  font-size: 0.75rem;
+  line-height: 1.2;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+
+.inbox-item-link:hover,
+.inbox-item-link:focus-visible {
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--line));
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  outline: none;
+}
+
 .inbox-item-time {
   font-family: var(--font-body);
   font-size: 0.82rem;

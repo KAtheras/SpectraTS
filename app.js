@@ -9977,6 +9977,19 @@
         const priorityClass = emailHighlightedEventTypes.has(`${item.type || ""}`.trim())
           ? " message-priority"
           : "";
+        const deepLinkActions = Array.isArray(item?.deepLink?.actions)
+          ? item.deepLink.actions.filter((action) => action && String(action.label || "").trim())
+          : [];
+        const linksMarkup = deepLinkActions.length
+          ? `<div class="inbox-item-links">
+              ${deepLinkActions
+                .slice(0, 8)
+                .map((action, index) => `<button type="button" class="inbox-item-link" data-inbox-open="${escapeHtml(item.id)}" data-inbox-open-action="${index}">${escapeHtml(
+                  String(action.label || "").trim()
+                )}</button>`)
+                .join("")}
+            </div>`
+          : "";
         return `
           <div class="inbox-item${unreadClass}${selectedClass}${priorityClass}" data-inbox-id="${escapeHtml(item.id)}">
             <label class="inbox-item-check">
@@ -9990,6 +10003,7 @@
                     ? `<div class="inbox-item-note">${escapeHtml(item.noteSnippet)}</div>`
                     : ""
                 }
+                ${linksMarkup}
                 <div class="inbox-item-time">${escapeHtml(createdAt)}</div>
               </div>
               ${item.isRead ? "" : '<span class="inbox-item-dot" aria-hidden="true"></span>'}
@@ -10006,16 +10020,43 @@
       .join("");
   }
 
-  function routeInboxDeepLink(item) {
+  function applyEntriesFiltersFromDeepLink(filtersPayload) {
+    const filters = filtersPayload && typeof filtersPayload === "object" ? filtersPayload : null;
+    if (!filters) return;
+    const normalized = {
+      user: String(filters.user || "").trim(),
+      client: String(filters.client || "").trim(),
+      project: String(filters.project || "").trim(),
+      from: String(filters.from || "").trim(),
+      to: String(filters.to || "").trim(),
+      search: String(filters.search || "").trim(),
+    };
+    state.filters = normalized;
+  }
+
+  function routeInboxDeepLink(item, actionIndex) {
     if (!item) return;
-    const deepLink = item.deepLink && typeof item.deepLink === "object" ? item.deepLink : null;
+    const baseDeepLink = item.deepLink && typeof item.deepLink === "object" ? item.deepLink : null;
+    const actions = Array.isArray(baseDeepLink?.actions) ? baseDeepLink.actions : [];
+    const actionIdx = Number(actionIndex);
+    const action =
+      Number.isInteger(actionIdx) && actionIdx >= 0 && actionIdx < actions.length
+        ? actions[actionIdx]
+        : null;
+    const deepLink = {
+      ...(baseDeepLink || {}),
+      ...(action && typeof action === "object" ? action : {}),
+    };
     const view = `${deepLink?.view || ""}`.trim();
     const subtab = `${deepLink?.subtab || ""}`.trim();
     const subjectId = `${item.subjectId || deepLink?.subjectId || ""}`.trim();
     const subjectType = `${item.subjectType || deepLink?.subjectType || ""}`.trim();
+    const deepLinkFilters =
+      deepLink?.filters && typeof deepLink.filters === "object" ? deepLink.filters : null;
 
     if (view === "entries") {
       state.entriesSubtab = subtab === "expenses" ? "expenses" : "time";
+      applyEntriesFiltersFromDeepLink(deepLinkFilters);
       setView("entries");
       return;
     }
@@ -10049,7 +10090,7 @@
     setView("inbox");
   }
 
-  async function openInboxItem(itemId) {
+  async function openInboxItem(itemId, actionIndex) {
     const id = `${itemId || ""}`.trim();
     if (!id) return;
     const itemIndex = (state.inboxItems || []).findIndex((inboxItem) => inboxItem.id === id);
@@ -10072,7 +10113,7 @@
     }
 
     const refreshedItem = (state.inboxItems || []).find((inboxItem) => inboxItem.id === id) || item;
-    routeInboxDeepLink(refreshedItem);
+    routeInboxDeepLink(refreshedItem, actionIndex);
   }
 
   function exportCsv() {
@@ -10572,7 +10613,12 @@
       }
       const openButton = event.target.closest("[data-inbox-open]");
       if (!openButton) return;
-      await openInboxItem(openButton.dataset.inboxOpen);
+      const actionIndexRaw = openButton.dataset.inboxOpenAction;
+      const actionIndex =
+        actionIndexRaw === undefined || actionIndexRaw === null || `${actionIndexRaw}`.trim() === ""
+          ? null
+          : Number(actionIndexRaw);
+      await openInboxItem(openButton.dataset.inboxOpen, actionIndex);
     });
     refs.inboxList.addEventListener("change", function (event) {
       const checkbox = event.target.closest("[data-inbox-select]");
