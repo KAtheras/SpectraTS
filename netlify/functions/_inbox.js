@@ -90,7 +90,7 @@ function normalizeNoteSnippet(note, maxLength = 80) {
   return `${normalized.slice(0, Math.max(0, maxLength - 1)).trimEnd()}…`;
 }
 
-async function listManagerRecipientUserIds(sql, { accountId, clientId, projectId }) {
+async function listProjectLeadRecipientUserIds(sql, { accountId, projectId }) {
   if (!projectId) return [];
   const rows = await sql`
     SELECT p.project_lead_id AS "projectLeadId"
@@ -432,140 +432,6 @@ async function fetchTimeEntryForDigest(sql, { accountId, entryId }) {
   };
 }
 
-function normalizePermissionGroup(rawValue, labelValue, levelValue) {
-  const raw = `${rawValue || ""}`.trim().toLowerCase();
-  const label = `${labelValue || ""}`.trim().toLowerCase();
-  const level = Number(levelValue);
-  if (!raw && !label) {
-    if (Number.isFinite(level) && level >= 6) return "admin";
-    if (Number.isFinite(level) && level >= 5) return "executive";
-    if (Number.isFinite(level) && level >= 3) return "manager";
-    return "staff";
-  }
-  if (raw === "superuser") return "superuser";
-  if (raw === "admin" || raw === "partner" || raw === "principal") return "admin";
-  if (raw === "executive" || raw === "director") return "executive";
-  if (raw === "manager" || raw === "lead") return "manager";
-  if (label.includes("superuser")) return "superuser";
-  if (
-    label.includes("admin") ||
-    label.includes("partner") ||
-    label.includes("principal")
-  ) {
-    return "admin";
-  }
-  if (label.includes("executive") || label.includes("director")) return "executive";
-  if (label.includes("manager") || label.includes("lead")) return "manager";
-  return "staff";
-}
-
-async function listTimeDigestRecipientUserIdsByVisibility(sql, { accountId, actorUserId, entryRow }) {
-  if (!accountId || !entryRow) return [];
-  const actorId = `${actorUserId || ""}`.trim();
-  const recipientRows = await sql`
-    SELECT
-      u.id,
-      u.role,
-      u.level,
-      ll.label AS "levelLabel",
-      ll.permission_group AS "permissionGroup"
-    FROM users u
-    LEFT JOIN level_labels ll
-      ON ll.account_id = u.account_id
-     AND ll.level = u.level
-    WHERE u.account_id = ${accountId}::uuid
-      AND u.is_active = TRUE
-  `;
-  const recipients = new Set();
-  const managerLikeIds = [];
-  for (const row of recipientRows) {
-    const userId = `${row?.id || ""}`.trim();
-    if (!userId || (actorId && userId === actorId)) continue;
-    const group = normalizePermissionGroup(
-      row?.permissionGroup || row?.role,
-      row?.levelLabel,
-      row?.level
-    );
-    if (group === "superuser" || group === "admin") {
-      recipients.add(userId);
-      continue;
-    }
-    if (group === "manager" || group === "executive") {
-      managerLikeIds.push(userId);
-    }
-  }
-  if (!managerLikeIds.length) {
-    return Array.from(recipients);
-  }
-
-  const ownerUserId = `${entryRow?.userId || ""}`.trim();
-  if (ownerUserId && managerLikeIds.includes(ownerUserId)) {
-    recipients.add(ownerUserId);
-  }
-
-  const projectId = Number(entryRow?.projectId);
-  const clientId = Number(entryRow?.clientId);
-  const isInternal = Boolean(entryRow?.chargeCenterId) || !Number.isInteger(projectId);
-  if (isInternal) {
-    return Array.from(recipients);
-  }
-
-  const projectLeadRows = await sql`
-    SELECT p.project_lead_id AS "projectLeadId"
-    FROM projects p
-    JOIN users u
-      ON u.id = p.project_lead_id
-     AND u.account_id = p.account_id
-     AND u.is_active = TRUE
-    WHERE p.account_id = ${accountId}::uuid
-      AND p.id = ${projectId}
-    LIMIT 1
-  `;
-  const projectLeadId = `${projectLeadRows?.[0]?.projectLeadId || ""}`.trim();
-  if (projectLeadId && (!actorId || projectLeadId !== actorId)) {
-    recipients.add(projectLeadId);
-  }
-
-  const projectManagerRows = await sql`
-    SELECT manager_id AS "managerId"
-    FROM manager_projects
-    WHERE account_id = ${accountId}::uuid
-      AND project_id = ${projectId}
-      AND manager_id = ANY(${managerLikeIds})
-  `;
-  projectManagerRows.forEach((row) => {
-    const managerId = `${row?.managerId || ""}`.trim();
-    if (managerId) recipients.add(managerId);
-  });
-
-  const memberRows = await sql`
-    SELECT user_id AS "userId"
-    FROM project_members
-    WHERE account_id = ${accountId}::uuid
-      AND project_id = ${projectId}
-      AND user_id = ANY(${managerLikeIds})
-  `;
-  memberRows.forEach((row) => {
-    const managerId = `${row?.userId || ""}`.trim();
-    if (managerId) recipients.add(managerId);
-  });
-
-  if (Number.isInteger(clientId)) {
-    const clientManagerRows = await sql`
-      SELECT manager_id AS "managerId"
-      FROM manager_clients
-      WHERE account_id = ${accountId}::uuid
-        AND client_id = ${clientId}
-        AND manager_id = ANY(${managerLikeIds})
-    `;
-    clientManagerRows.forEach((row) => {
-      const managerId = `${row?.managerId || ""}`.trim();
-      if (managerId) recipients.add(managerId);
-    });
-  }
-
-  return Array.from(recipients);
-}
 
 async function upsertTimeEntryDailyDigestInboxItems(sql, payload = {}, recipientUserIds = []) {
   const accountId = payload.accountId;
@@ -713,10 +579,9 @@ function shouldDeliverImmediateEmail(rule, eventType) {
 async function resolveRecipientsByScope(sql, payload = {}, rule = null) {
   const scope = String(rule?.recipientScope || "").trim().toLowerCase();
   const accountId = payload.accountId;
-  if (scope === "project_manager") {
-    const ids = await listManagerRecipientUserIds(sql, {
+  if (scope === "project_lead") {
+    const ids = await listProjectLeadRecipientUserIds(sql, {
       accountId,
-      clientId: payload.clientId || null,
       projectId: payload.projectId || null,
     });
     const actorUserId = `${payload.actorUserId || ""}`.trim();
@@ -848,6 +713,12 @@ async function dispatchNotificationEvent(sql, payload = {}) {
       .filter(Boolean)
   );
 
+  const recipientUserIds = await resolveRecipientsByScope(sql, payload, rule);
+  if (!recipientUserIds.length) return;
+  const inboxRecipientUserIds = suppressInboxRecipientSet.size
+    ? recipientUserIds.filter((id) => !suppressInboxRecipientSet.has(`${id || ""}`.trim()))
+    : recipientUserIds;
+
   if (eventType === "time_entry_created") {
     if (deliverInbox) {
       const entryRow = await fetchTimeEntryForDigest(sql, {
@@ -855,33 +726,18 @@ async function dispatchNotificationEvent(sql, payload = {}) {
         entryId: payload.subjectId,
       });
       if (entryRow) {
-        const recipientUserIds = await listTimeDigestRecipientUserIdsByVisibility(sql, {
-          accountId,
-          actorUserId: payload.actorUserId,
-          entryRow,
-        });
-        const filteredRecipientUserIds = suppressInboxRecipientSet.size
-          ? recipientUserIds.filter((id) => !suppressInboxRecipientSet.has(`${id || ""}`.trim()))
-          : recipientUserIds;
-        if (filteredRecipientUserIds.length) {
-          await upsertTimeEntryDailyDigestInboxItems(sql, payload, filteredRecipientUserIds);
+        if (inboxRecipientUserIds.length) {
+          await upsertTimeEntryDailyDigestInboxItems(sql, payload, inboxRecipientUserIds);
         }
       }
     }
     if (deliverEmail) {
-      const recipientUserIds = await resolveRecipientsByScope(sql, payload, rule);
       if (recipientUserIds.length) {
         await deliverNotificationEmails(sql, payload, recipientUserIds);
       }
     }
     return;
   }
-
-  const recipientUserIds = await resolveRecipientsByScope(sql, payload, rule);
-  if (!recipientUserIds.length) return;
-  const inboxRecipientUserIds = suppressInboxRecipientSet.size
-    ? recipientUserIds.filter((id) => !suppressInboxRecipientSet.has(`${id || ""}`.trim()))
-    : recipientUserIds;
 
   if (deliverInbox && inboxRecipientUserIds.length) {
     await createSystemInboxItems(sql, {
@@ -896,7 +752,7 @@ async function dispatchNotificationEvent(sql, payload = {}) {
 
 module.exports = {
   buildInboxMessage,
-  listManagerRecipientUserIds,
+  listProjectLeadRecipientUserIds,
   createSystemInboxItems,
   dispatchNotificationEvent,
   normalizeNoteSnippet,

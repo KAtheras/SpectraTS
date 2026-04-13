@@ -124,6 +124,49 @@ async function resolveActingAsOwner(
   return { ownerUser, isDelegated: true };
 }
 
+function effectiveAuthorityUser(currentUser, actingContext) {
+  if (actingContext?.isDelegated && actingContext?.ownerUser) {
+    return actingContext.ownerUser;
+  }
+  return currentUser;
+}
+
+async function userHasProjectAssignment(sql, { accountId, userId, projectId }) {
+  if (!accountId || !userId || !projectId) return false;
+  const memberRows = await sql`
+    SELECT 1
+    FROM project_members
+    WHERE account_id = ${accountId}::uuid
+      AND user_id = ${userId}
+      AND project_id = ${projectId}
+    LIMIT 1
+  `;
+  if (memberRows[0]) return true;
+  const managerRows = await sql`
+    SELECT 1
+    FROM manager_projects
+    WHERE account_id = ${accountId}::uuid
+      AND manager_id = ${userId}
+      AND project_id = ${projectId}
+    LIMIT 1
+  `;
+  return Boolean(managerRows[0]);
+}
+
+async function requireDelegateProjectAssignment(sql, { currentUser, actingContext, accountId, projectId }) {
+  if (!actingContext?.isDelegated) return null;
+  const hasAssignment = await userHasProjectAssignment(sql, {
+    accountId,
+    userId: currentUser?.id || "",
+    projectId,
+  });
+  if (hasAssignment) return null;
+  return errorResponse(
+    403,
+    "Delegated actions require the delegate to be assigned to the target project."
+  );
+}
+
 async function validateSetupToken(sql, payload) {
   const token = normalizeText(payload?.token);
   if (!token) {
@@ -2755,6 +2798,7 @@ async function createExpense(sql, payload, currentUser, accountId) {
     return actingContext.error;
   }
   const canActOnBehalf = actingContext.isDelegated;
+  const authorityUser = effectiveAuthorityUser(currentUser, actingContext);
   const payloadExpense = payload.expense || {};
   const requestedUserId = normalizeText(payloadExpense.userId || payloadExpense.user_id);
   const expense = {
@@ -2781,6 +2825,18 @@ async function createExpense(sql, payload, currentUser, accountId) {
   if (!project && !isCorporateExpense) {
     return errorResponse(404, "Project not found.");
   }
+  if (canActOnBehalf && isCorporateExpense) {
+    return errorResponse(403, "Delegated actions require a project assignment.");
+  }
+  if (canActOnBehalf && project?.id) {
+    const assignmentError = await requireDelegateProjectAssignment(sql, {
+      currentUser,
+      actingContext,
+      accountId,
+      projectId: project.id,
+    });
+    if (assignmentError) return assignmentError;
+  }
   if (corporateCategory) {
     expense.clientName = "Internal";
     expense.projectName = normalizeCorporateProjectLabel(
@@ -2798,22 +2854,22 @@ async function createExpense(sql, payload, currentUser, accountId) {
   const isActorEditingOwnExpense =
     !canActOnBehalf && normalizeText(targetUser?.id) === normalizeText(currentUser?.id);
 
-  if (isAdmin(currentUser)) {
+  if (isAdmin(authorityUser)) {
     // full access
-  } else if (isManager(currentUser)) {
+  } else if (isManager(authorityUser)) {
     if (!isActorEditingOwnExpense && !isCorporateExpense) {
-      const hasAccess = await managerHasProjectAccess(sql, currentUser.id, project.id, accountId);
+      const hasAccess = await managerHasProjectAccess(sql, authorityUser.id, project.id, accountId);
       if (!hasAccess) {
         return errorResponse(403, "You are not assigned to this project.");
       }
-    } else if (!isActorEditingOwnExpense && !canActOnBehalf && targetUser.id !== currentUser.id) {
+    } else if (!isActorEditingOwnExpense && !canActOnBehalf && targetUser.id !== authorityUser.id) {
       return errorResponse(403, "You can only save your own internal expenses.");
     }
-    if (!isActorEditingOwnExpense && !canActOnBehalf && targetUser.id !== currentUser.id && targetGroup !== "staff") {
+    if (!isActorEditingOwnExpense && !canActOnBehalf && targetUser.id !== authorityUser.id && targetGroup !== "staff") {
       return errorResponse(403, "Managers can only edit staff expenses.");
     }
-  } else if (isStaff(currentUser)) {
-    if (!isActorEditingOwnExpense && !canActOnBehalf && targetUser.id !== currentUser.id) {
+  } else if (isStaff(authorityUser)) {
+    if (!isActorEditingOwnExpense && !canActOnBehalf && targetUser.id !== authorityUser.id) {
       return errorResponse(403, "You can only save expenses for your own account.");
     }
     if (!isActorEditingOwnExpense && !isCorporateExpense) {
@@ -2821,7 +2877,7 @@ async function createExpense(sql, payload, currentUser, accountId) {
         SELECT id
         FROM project_members
         WHERE project_id = ${project.id}
-          AND user_id = ${currentUser.id}
+          AND user_id = ${authorityUser.id}
           AND account_id = ${accountId}::uuid
         LIMIT 1
       `;
@@ -2932,6 +2988,17 @@ async function createExpense(sql, payload, currentUser, accountId) {
 }
 
 async function updateExpense(sql, payload, currentUser, accountId) {
+  const actingContext = await resolveActingAsOwner(sql, {
+    payload,
+    currentUser,
+    accountId,
+    requiredCapability: "enter_expenses_on_behalf",
+  });
+  if (actingContext.error) {
+    return actingContext.error;
+  }
+  const canActOnBehalf = actingContext.isDelegated;
+  const authorityUser = effectiveAuthorityUser(currentUser, actingContext);
   const expense = payload.expense || {};
   const id = normalizeText(expense.id);
   if (!id) {
@@ -2986,6 +3053,18 @@ async function updateExpense(sql, payload, currentUser, accountId) {
   if (!project && !isCorporateExpense) {
     return errorResponse(404, "Project not found.");
   }
+  if (canActOnBehalf && isCorporateExpense) {
+    return errorResponse(403, "Delegated actions require a project assignment.");
+  }
+  if (canActOnBehalf && project?.id) {
+    const assignmentError = await requireDelegateProjectAssignment(sql, {
+      currentUser,
+      actingContext,
+      accountId,
+      projectId: project.id,
+    });
+    if (assignmentError) return assignmentError;
+  }
   if (corporateCategory) {
     safeExpense.clientName = "Internal";
     safeExpense.projectName = normalizeCorporateProjectLabel(
@@ -3001,24 +3080,24 @@ async function updateExpense(sql, payload, currentUser, accountId) {
     return errorResponse(404, "Team member not found.");
   }
   const targetGroup = permissionGroupForUser(targetUser);
-  const isActorEditingOwnExpense = normalizeText(existing.user_id) === normalizeText(currentUser?.id);
+  const isActorEditingOwnExpense = !canActOnBehalf && normalizeText(existing.user_id) === normalizeText(currentUser?.id);
 
-  if (isAdmin(currentUser)) {
+  if (isAdmin(authorityUser)) {
     // full access
-  } else if (isManager(currentUser)) {
+  } else if (isManager(authorityUser)) {
     if (!isActorEditingOwnExpense && !isCorporateExpense) {
-      const hasAccess = await managerHasProjectAccess(sql, currentUser.id, project.id, accountId);
+      const hasAccess = await managerHasProjectAccess(sql, authorityUser.id, project.id, accountId);
       if (!hasAccess) {
         return errorResponse(403, "You are not assigned to this project.");
       }
-    } else if (!isActorEditingOwnExpense && targetUser.id !== currentUser.id) {
+    } else if (!isActorEditingOwnExpense && targetUser.id !== authorityUser.id) {
       return errorResponse(403, "You can only save your own internal expenses.");
     }
-    if (!isActorEditingOwnExpense && targetUser.id !== currentUser.id && targetGroup !== "staff") {
+    if (!isActorEditingOwnExpense && targetUser.id !== authorityUser.id && targetGroup !== "staff") {
       return errorResponse(403, "Managers can only edit staff expenses.");
     }
-  } else if (isStaff(currentUser)) {
-    if (!isActorEditingOwnExpense && targetUser.id !== currentUser.id) {
+  } else if (isStaff(authorityUser)) {
+    if (!isActorEditingOwnExpense && targetUser.id !== authorityUser.id) {
       return errorResponse(403, "You can only save expenses for your own account.");
     }
     if (!isActorEditingOwnExpense && !isCorporateExpense) {
@@ -3026,7 +3105,7 @@ async function updateExpense(sql, payload, currentUser, accountId) {
         SELECT id
         FROM project_members
         WHERE project_id = ${project.id}
-          AND user_id = ${currentUser.id}
+          AND user_id = ${authorityUser.id}
           AND account_id = ${accountId}::uuid
         LIMIT 1
       `;
@@ -3042,7 +3121,7 @@ async function updateExpense(sql, payload, currentUser, accountId) {
   const nextBillable = isBillable === 0 ? false : true;
   const billableChanged = previousBillable !== nextBillable;
   const existingStatus = normalizeStatus(existing.status);
-  const actorCanApprove = !isStaff(currentUser);
+  const actorCanApprove = !isStaff(authorityUser);
   const nextStatus =
     existingStatus === "approved" && billableChanged && !actorCanApprove
       ? "pending"
@@ -3136,6 +3215,17 @@ async function updateExpense(sql, payload, currentUser, accountId) {
 }
 
 async function deleteExpense(sql, payload, currentUser, accountId) {
+  const actingContext = await resolveActingAsOwner(sql, {
+    payload,
+    currentUser,
+    accountId,
+    requiredCapability: "enter_expenses_on_behalf",
+  });
+  if (actingContext.error) {
+    return actingContext.error;
+  }
+  const canActOnBehalf = actingContext.isDelegated;
+  const authorityUser = effectiveAuthorityUser(currentUser, actingContext);
   const id = normalizeText(payload.id);
   if (!id) {
     return errorResponse(400, "Expense id is required.");
@@ -3156,26 +3246,39 @@ async function deleteExpense(sql, payload, currentUser, accountId) {
 
   const project = await findProject(sql, expense.client_name, expense.project_name, accountId);
   const targetUser = await findUserById(sql, expense.user_id, accountId);
-  const isActorEditingOwnExpense = normalizeText(expense.user_id) === normalizeText(currentUser?.id);
-  if (!isActorEditingOwnExpense && !project && !isAdmin(currentUser)) {
+  const isActorEditingOwnExpense =
+    !canActOnBehalf && normalizeText(expense.user_id) === normalizeText(currentUser?.id);
+  if (canActOnBehalf && !project) {
+    return errorResponse(403, "Delegated actions require a project assignment.");
+  }
+  if (canActOnBehalf && project?.id) {
+    const assignmentError = await requireDelegateProjectAssignment(sql, {
+      currentUser,
+      actingContext,
+      accountId,
+      projectId: project.id,
+    });
+    if (assignmentError) return assignmentError;
+  }
+  if (!isActorEditingOwnExpense && !project && !isAdmin(authorityUser)) {
     return errorResponse(403, "You are not assigned to this project.");
   }
 
-  if (isAdmin(currentUser)) {
+  if (isAdmin(authorityUser)) {
     // full access
-  } else if (isManager(currentUser)) {
+  } else if (isManager(authorityUser)) {
     if (!isActorEditingOwnExpense && project) {
-      const hasAccess = await managerHasProjectAccess(sql, currentUser.id, project.id, accountId);
+      const hasAccess = await managerHasProjectAccess(sql, authorityUser.id, project.id, accountId);
       if (!hasAccess) {
         return errorResponse(403, "You are not assigned to this project.");
       }
     }
     const targetGroup = permissionGroupForUser(targetUser);
-    if (!isActorEditingOwnExpense && targetUser && targetUser.id !== currentUser.id && targetGroup !== "staff") {
+    if (!isActorEditingOwnExpense && targetUser && targetUser.id !== authorityUser.id && targetGroup !== "staff") {
       return errorResponse(403, "Managers can only edit staff expenses.");
     }
-  } else if (isStaff(currentUser)) {
-    if (!isActorEditingOwnExpense && expense.user_id !== currentUser.id) {
+  } else if (isStaff(authorityUser)) {
+    if (!isActorEditingOwnExpense && expense.user_id !== authorityUser.id) {
       return errorResponse(403, "You can only delete your own expenses.");
     }
     if (!isActorEditingOwnExpense && project) {
@@ -3183,7 +3286,7 @@ async function deleteExpense(sql, payload, currentUser, accountId) {
         SELECT id
         FROM project_members
         WHERE project_id = ${project.id}
-          AND user_id = ${currentUser.id}
+          AND user_id = ${authorityUser.id}
           AND account_id = ${accountId}::uuid
         LIMIT 1
       `;
@@ -3350,11 +3453,22 @@ async function restoreExpenses(sql, payload, currentUser, accountId) {
 }
 
 async function toggleExpenseStatus(sql, payload, currentUser, accountId) {
+  const actingContext = await resolveActingAsOwner(sql, {
+    payload,
+    currentUser,
+    accountId,
+    requiredCapability: "enter_expenses_on_behalf",
+  });
+  if (actingContext.error) {
+    return actingContext.error;
+  }
+  const canActOnBehalf = actingContext.isDelegated;
+  const authorityUser = effectiveAuthorityUser(currentUser, actingContext);
   const id = normalizeText(payload.id);
   if (!id) {
     return errorResponse(400, "Expense id is required.");
   }
-  if (!currentUser || permissionGroupForUser(currentUser) === "staff") {
+  if (!authorityUser || permissionGroupForUser(authorityUser) === "staff") {
     return errorResponse(403, "Manager access required.");
   }
 
@@ -3375,12 +3489,12 @@ async function toggleExpenseStatus(sql, payload, currentUser, accountId) {
     return errorResponse(404, "Expense user not found.");
   }
 
-  const currentGroup = permissionGroupForUser(currentUser);
+  const currentGroup = permissionGroupForUser(authorityUser);
   const targetGroup = permissionGroupForUser(targetUser);
-  const isCurrentAdmin = isAdmin(currentUser);
+  const isCurrentAdmin = isAdmin(authorityUser);
 
   if (!isCurrentAdmin) {
-    if (currentUser.id === targetUser.id) {
+    if (authorityUser.id === targetUser.id) {
       return errorResponse(403, "You cannot approve your own expenses.");
     }
     if (currentGroup === "manager" && targetGroup !== "staff") {
@@ -3392,9 +3506,18 @@ async function toggleExpenseStatus(sql, payload, currentUser, accountId) {
   if (!project) {
     return errorResponse(404, "Project not found.");
   }
+  if (canActOnBehalf) {
+    const assignmentError = await requireDelegateProjectAssignment(sql, {
+      currentUser,
+      actingContext,
+      accountId,
+      projectId: project.id,
+    });
+    if (assignmentError) return assignmentError;
+  }
 
   if (!isCurrentAdmin) {
-    const hasAccess = await managerHasProjectAccess(sql, currentUser.id, project.id, accountId);
+    const hasAccess = await managerHasProjectAccess(sql, authorityUser.id, project.id, accountId);
     if (!hasAccess) {
       return errorResponse(403, "You are not assigned to this project.");
     }
@@ -3933,6 +4056,7 @@ async function saveEntry(sql, payload, currentUser, accountId) {
     return actingContext.error;
   }
   const canActOnBehalf = actingContext.isDelegated;
+  const authorityUser = effectiveAuthorityUser(currentUser, actingContext);
   const payloadEntry = payload.entry || {};
   const requestedUserId = normalizeText(payloadEntry.userId);
   const requestedUserName = normalizeText(payloadEntry.user);
@@ -3981,6 +4105,18 @@ async function saveEntry(sql, payload, currentUser, accountId) {
     return errorResponse(400, deactivatedProjectRevisionMessage());
   }
   const isCorporateEntry = Boolean(corporateCategory) && !project;
+  if (canActOnBehalf && isCorporateEntry) {
+    return errorResponse(403, "Delegated actions require a project assignment.");
+  }
+  if (canActOnBehalf && project?.id) {
+    const assignmentError = await requireDelegateProjectAssignment(sql, {
+      currentUser,
+      actingContext,
+      accountId,
+      projectId: project.id,
+    });
+    if (assignmentError) return assignmentError;
+  }
   const normalizedClient = isCorporateEntry
     ? "Internal"
     : normalizeText(project?.client || entry.client);
@@ -4040,27 +4176,27 @@ async function saveEntry(sql, payload, currentUser, accountId) {
     normalizeText(targetUser?.id) === currentUserId &&
     isExistingEntryOwnedByActor;
 
-  if (isAdmin(currentUser)) {
+  if (isAdmin(authorityUser)) {
     // Full access.
-  } else if (isManager(currentUser)) {
+  } else if (isManager(authorityUser)) {
     if (!isActorEditingOwnEntry && !isCorporateEntry) {
       const hasAccess = await managerHasProjectAccess(
         sql,
-        currentUser.id,
+        authorityUser.id,
         project.id,
         accountId
       );
       if (!hasAccess) {
         return errorResponse(403, "You are not assigned to this project.");
       }
-    } else if (!isActorEditingOwnEntry && !canActOnBehalf && targetUser.id !== currentUser.id) {
+    } else if (!isActorEditingOwnEntry && !canActOnBehalf && targetUser.id !== authorityUser.id) {
       return errorResponse(403, "You can only save your own internal entries.");
     }
-    if (!isActorEditingOwnEntry && !canActOnBehalf && targetUser.id !== currentUser.id && targetGroup !== "staff") {
+    if (!isActorEditingOwnEntry && !canActOnBehalf && targetUser.id !== authorityUser.id && targetGroup !== "staff") {
       return errorResponse(403, "Managers can only edit staff time.");
     }
-  } else if (isStaff(currentUser)) {
-    if (!isActorEditingOwnEntry && !canActOnBehalf && targetUser.id !== currentUser.id) {
+  } else if (isStaff(authorityUser)) {
+    if (!isActorEditingOwnEntry && !canActOnBehalf && targetUser.id !== authorityUser.id) {
       return errorResponse(403, "You can only save entries for your own account.");
     }
     if (!isActorEditingOwnEntry && !isCorporateEntry) {
@@ -4068,7 +4204,7 @@ async function saveEntry(sql, payload, currentUser, accountId) {
         SELECT id
         FROM project_members
         WHERE project_id = ${project.id}
-          AND user_id = ${currentUser.id}
+          AND user_id = ${authorityUser.id}
         LIMIT 1
       `;
       if (!memberRows[0]) {
@@ -4091,7 +4227,7 @@ async function saveEntry(sql, payload, currentUser, accountId) {
     }
   }
 
-  if (!isAdmin(currentUser)) {
+  if (!isAdmin(authorityUser)) {
     const rows = await sql`
       SELECT user_id, user_name
       FROM entries
@@ -4107,7 +4243,7 @@ async function saveEntry(sql, payload, currentUser, accountId) {
         existingOwnerUserName &&
         currentUserDisplayName &&
         existingOwnerUserName.toLowerCase() === currentUserDisplayName);
-    if (rows[0] && !isRowOwnedByActor && isStaff(currentUser) && !canActOnBehalf) {
+    if (rows[0] && !isRowOwnedByActor && isStaff(authorityUser) && !canActOnBehalf) {
       return errorResponse(403, "You can only update your own entries.");
     }
   }
@@ -4157,7 +4293,7 @@ async function saveEntry(sql, payload, currentUser, accountId) {
   const persistedNormalizedStatus = persistedStatus
     ? normalizeStatus(persistedStatus)
     : "pending";
-  const actorCanApprove = !isStaff(currentUser);
+  const actorCanApprove = !isStaff(authorityUser);
   const preserveApprovedOnBillableToggle =
     Boolean(existing) &&
     persistedNormalizedStatus === "approved" &&
@@ -4351,11 +4487,21 @@ async function saveEntry(sql, payload, currentUser, accountId) {
 }
 
 async function approveEntry(sql, payload, currentUser, accountId) {
+  const actingContext = await resolveActingAsOwner(sql, {
+    payload,
+    currentUser,
+    accountId,
+    requiredCapability: "enter_time_on_behalf",
+  });
+  if (actingContext.error) {
+    return actingContext.error;
+  }
+  const authorityUser = effectiveAuthorityUser(currentUser, actingContext);
   const id = normalizeText(payload.id);
   if (!id) {
     return errorResponse(400, "Entry id is required.");
   }
-  if (!currentUser || permissionGroupForUser(currentUser) === "staff") {
+  if (!authorityUser || permissionGroupForUser(authorityUser) === "staff") {
     return errorResponse(403, "Manager access required.");
   }
 
@@ -4392,12 +4538,12 @@ async function approveEntry(sql, payload, currentUser, accountId) {
     return errorResponse(404, "Entry user not found.");
   }
 
-  const currentGroup = permissionGroupForUser(currentUser);
+  const currentGroup = permissionGroupForUser(authorityUser);
   const targetGroup = permissionGroupForUser(targetUser);
-  const isCurrentAdmin = isAdmin(currentUser);
+  const isCurrentAdmin = isAdmin(authorityUser);
 
   if (!isCurrentAdmin) {
-    if (currentUser.displayName === targetUser.display_name) {
+    if (authorityUser.displayName === targetUser.display_name) {
       return errorResponse(403, "You cannot approve your own entries.");
     }
     if (currentGroup === "manager" && targetGroup !== "staff") {
@@ -4409,11 +4555,20 @@ async function approveEntry(sql, payload, currentUser, accountId) {
   if (!project) {
     return errorResponse(404, "Project not found.");
   }
+  if (actingContext.isDelegated) {
+    const assignmentError = await requireDelegateProjectAssignment(sql, {
+      currentUser,
+      actingContext,
+      accountId,
+      projectId: project.id,
+    });
+    if (assignmentError) return assignmentError;
+  }
 
   if (!isCurrentAdmin) {
     const hasAccess = await managerHasProjectAccess(
       sql,
-      currentUser.id,
+      authorityUser.id,
       project.id,
       accountId
     );
@@ -4487,11 +4642,21 @@ async function approveEntry(sql, payload, currentUser, accountId) {
 }
 
 async function unapproveEntry(sql, payload, currentUser, accountId) {
+  const actingContext = await resolveActingAsOwner(sql, {
+    payload,
+    currentUser,
+    accountId,
+    requiredCapability: "enter_time_on_behalf",
+  });
+  if (actingContext.error) {
+    return actingContext.error;
+  }
+  const authorityUser = effectiveAuthorityUser(currentUser, actingContext);
   const id = normalizeText(payload.id);
   if (!id) {
     return errorResponse(400, "Entry id is required.");
   }
-  if (!currentUser || permissionGroupForUser(currentUser) === "staff") {
+  if (!authorityUser || permissionGroupForUser(authorityUser) === "staff") {
     return errorResponse(403, "Manager access required.");
   }
 
@@ -4527,12 +4692,12 @@ async function unapproveEntry(sql, payload, currentUser, accountId) {
     return errorResponse(404, "Entry user not found.");
   }
 
-  const currentGroup = permissionGroupForUser(currentUser);
+  const currentGroup = permissionGroupForUser(authorityUser);
   const targetGroup = permissionGroupForUser(targetUser);
-  const isCurrentAdmin = isAdmin(currentUser);
+  const isCurrentAdmin = isAdmin(authorityUser);
 
   if (!isCurrentAdmin) {
-    if (currentUser.displayName === targetUser.display_name) {
+    if (authorityUser.displayName === targetUser.display_name) {
       return errorResponse(403, "You cannot unapprove your own entries.");
     }
     if (currentGroup === "manager" && targetGroup !== "staff") {
@@ -4544,11 +4709,20 @@ async function unapproveEntry(sql, payload, currentUser, accountId) {
   if (!project) {
     return errorResponse(404, "Project not found.");
   }
+  if (actingContext.isDelegated) {
+    const assignmentError = await requireDelegateProjectAssignment(sql, {
+      currentUser,
+      actingContext,
+      accountId,
+      projectId: project.id,
+    });
+    if (assignmentError) return assignmentError;
+  }
 
   if (!isCurrentAdmin) {
     const hasAccess = await managerHasProjectAccess(
       sql,
-      currentUser.id,
+      authorityUser.id,
       project.id,
       accountId
     );
@@ -4598,6 +4772,17 @@ async function unapproveEntry(sql, payload, currentUser, accountId) {
 }
 
 async function deleteEntry(sql, payload, currentUser, accountId) {
+  const actingContext = await resolveActingAsOwner(sql, {
+    payload,
+    currentUser,
+    accountId,
+    requiredCapability: "enter_time_on_behalf",
+  });
+  if (actingContext.error) {
+    return actingContext.error;
+  }
+  const canActOnBehalf = actingContext.isDelegated;
+  const authorityUser = effectiveAuthorityUser(currentUser, actingContext);
   const id = normalizeText(payload.id);
   if (!id) {
     return errorResponse(400, "Entry id is required.");
@@ -4629,10 +4814,26 @@ async function deleteEntry(sql, payload, currentUser, accountId) {
   const currentUserId = normalizeText(currentUser?.id);
   const currentUserName = normalizeText(currentUser?.displayName).toLowerCase();
   const isActorEditingOwnEntry =
-    (entryOwnerUserId && currentUserId && entryOwnerUserId === currentUserId) ||
-    (!entryOwnerUserId && entryOwnerUserName && currentUserName && entryOwnerUserName === currentUserName);
+    !canActOnBehalf &&
+    ((entryOwnerUserId && currentUserId && entryOwnerUserId === currentUserId) ||
+      (!entryOwnerUserId &&
+        entryOwnerUserName &&
+        currentUserName &&
+        entryOwnerUserName === currentUserName));
 
   const project = await findProject(sql, entry.client, entry.project, accountId);
+  if (canActOnBehalf && !project) {
+    return errorResponse(403, "Delegated actions require a project assignment.");
+  }
+  if (canActOnBehalf && project?.id) {
+    const assignmentError = await requireDelegateProjectAssignment(sql, {
+      currentUser,
+      actingContext,
+      accountId,
+      projectId: project.id,
+    });
+    if (assignmentError) return assignmentError;
+  }
   if (
     !isActorEditingOwnEntry &&
     (!project || project.isActive === false || project.is_active === false)
@@ -4640,13 +4841,13 @@ async function deleteEntry(sql, payload, currentUser, accountId) {
     return errorResponse(400, deactivatedProjectRevisionMessage());
   }
 
-  if (isAdmin(currentUser)) {
+  if (isAdmin(authorityUser)) {
     // Full access.
-  } else if (isManager(currentUser)) {
+  } else if (isManager(authorityUser)) {
     if (!isActorEditingOwnEntry && project) {
       const hasAccess = await managerHasProjectAccess(
         sql,
-        currentUser.id,
+        authorityUser.id,
         project.id,
         accountId
       );
@@ -4658,11 +4859,11 @@ async function deleteEntry(sql, payload, currentUser, accountId) {
       (entry.user_id && (await findUserById(sql, entry.user_id, accountId))) ||
       (await findUserByDisplayName(sql, entry.user, accountId));
     const targetGroup = permissionGroupForUser(targetUser);
-    if (!isActorEditingOwnEntry && targetUser && targetUser.id !== currentUser.id && targetGroup !== "staff") {
+    if (!isActorEditingOwnEntry && targetUser && targetUser.id !== authorityUser.id && targetGroup !== "staff") {
       return errorResponse(403, "Managers can only edit staff time.");
     }
-  } else if (isStaff(currentUser)) {
-    if (!isActorEditingOwnEntry && ((entry.user_id && entry.user_id !== currentUser.id) || (!entry.user_id && entry.user !== currentUser.displayName))) {
+  } else if (isStaff(authorityUser)) {
+    if (!isActorEditingOwnEntry && ((entry.user_id && entry.user_id !== authorityUser.id) || (!entry.user_id && entry.user !== authorityUser.displayName))) {
       return errorResponse(403, "You can only delete your own entries.");
     }
     if (!isActorEditingOwnEntry && project) {
@@ -4670,7 +4871,7 @@ async function deleteEntry(sql, payload, currentUser, accountId) {
         SELECT id
         FROM project_members
         WHERE project_id = ${project.id}
-          AND user_id = ${currentUser.id}
+          AND user_id = ${authorityUser.id}
           AND account_id = ${accountId}::uuid
         LIMIT 1
       `;

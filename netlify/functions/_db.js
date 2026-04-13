@@ -1538,7 +1538,7 @@ async function ensureNotificationRulesForAccount(sql, accountUuid) {
       enabled: true,
       inboxEnabled: true,
       emailEnabled: false,
-      recipientScope: "project_manager",
+      recipientScope: "project_lead",
       deliveryMode: "immediate",
     },
     {
@@ -1546,7 +1546,7 @@ async function ensureNotificationRulesForAccount(sql, accountUuid) {
       enabled: true,
       inboxEnabled: true,
       emailEnabled: false,
-      recipientScope: "project_manager",
+      recipientScope: "project_lead",
       deliveryMode: "immediate",
     },
     {
@@ -1621,6 +1621,12 @@ async function ensureNotificationRulesForAccount(sql, accountUuid) {
       ON CONFLICT (account_id, event_type) DO NOTHING
     `;
   }
+  await sql`
+    UPDATE notification_rules
+    SET recipient_scope = 'project_lead', updated_at = NOW()
+    WHERE account_id = ${accountUuid}::uuid
+      AND recipient_scope = 'project_manager'
+  `;
 }
 
 async function seedDefaultCatalog(sql, accountId) {
@@ -4944,7 +4950,12 @@ async function loadState(sql, currentUser) {
       }
     }
 
-    const delegatedEntries = delegatedEntryRows;
+    const delegateAssignedProjectIdSet = new Set(actorDirectAssignedProjectIds);
+    const delegatedEntries = delegatedEntryRows.filter((item) => {
+      const resolvedProjectId = resolveRecordProjectId(item?.projectId, item?.client, item?.project);
+      if (!resolvedProjectId) return false;
+      return delegateAssignedProjectIdSet.has(resolvedProjectId);
+    });
     const entryById = new Map();
     [...entries, ...delegatedEntries].forEach((item) => {
       if (!item?.id) return;
@@ -5173,7 +5184,12 @@ async function loadState(sql, currentUser) {
       }
     }
 
-    const delegatedExpenses = delegatedExpenseRows;
+    const delegateAssignedProjectIdSet = new Set(actorDirectAssignedProjectIds);
+    const delegatedExpenses = delegatedExpenseRows.filter((item) => {
+      const resolvedProjectId = resolveRecordProjectId(null, item?.clientName, item?.projectName);
+      if (!resolvedProjectId) return false;
+      return delegateAssignedProjectIdSet.has(resolvedProjectId);
+    });
     const expenseById = new Map();
     [...expenses, ...delegatedExpenses].forEach((item) => {
       if (!item?.id) return;
