@@ -197,7 +197,7 @@
     });
   }
 
-  function renderTrendChart(container, trend, metric, metricLabel) {
+  function renderTrendChart(container, trend, focusMetric) {
     if (!container) return;
     const echarts = window.echarts;
     if (!echarts || typeof echarts.init !== "function") {
@@ -209,9 +209,13 @@
       container.innerHTML = '<div class="analytics-chart-empty">No trend data for the current filter range.</div>';
       return;
     }
-    const values = points.map((item) => toNumber(item?.[metric]));
-    const nonZeroPoints = values.filter((value) => Math.abs(value) > 0.0001).length;
-    if (points.length < 2 || nonZeroPoints === 0) {
+    const nonZeroPoints = points.filter((item) => {
+      const revenue = toNumber(item?.revenue);
+      const cost = toNumber(item?.cost);
+      const profit = toNumber(item?.profit);
+      return Math.abs(revenue) > 0.0001 || Math.abs(cost) > 0.0001 || Math.abs(profit) > 0.0001;
+    }).length;
+    if (nonZeroPoints === 0) {
       container.innerHTML =
         '<div class="analytics-chart-empty">Not enough meaningful data points to plot a trend yet.</div>';
       return;
@@ -232,14 +236,32 @@
     bindChartResize();
 
     const labels = points.map((item) => monthLabel(item?.month));
+    const costValues = points.map((item) => toNumber(item?.cost));
+    const profitValues = points.map((item) => toNumber(item?.profit));
+    const revenueValues = costValues.map((cost, index) => cost + profitValues[index]);
     const accent = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#2f6fed";
+    const barCostColor = "rgba(64, 120, 192, 0.78)";
+    const barProfitColor = "rgba(74, 180, 132, 0.78)";
+    const selectedMetric = safeText(focusMetric || "revenue");
+    const seriesOpacity = (metricKey) => (selectedMetric === metricKey ? 1 : 0.68);
 
     chart.setOption({
       animation: false,
       grid: { left: 44, right: 18, top: 18, bottom: 34 },
       tooltip: {
         trigger: "axis",
-        valueFormatter: (value) => formatMoney(value),
+        formatter: (params) => {
+          const rows = Array.isArray(params) ? params : [];
+          const first = rows[0];
+          const label = first?.axisValueLabel || "";
+          const byName = (name) => rows.find((row) => row?.seriesName === name)?.value ?? 0;
+          return [
+            label,
+            `Revenue: ${formatMoney(byName("Revenue"))}`,
+            `Cost: ${formatMoney(byName("Cost"))}`,
+            `Profit: ${formatMoney(byName("Profit"))}`,
+          ].join("<br/>");
+        },
       },
       xAxis: {
         type: "category",
@@ -260,15 +282,31 @@
       },
       series: [
         {
-          name: metricLabel,
-          data: values,
+          name: "Cost",
+          data: costValues,
+          type: "bar",
+          stack: "total",
+          itemStyle: { color: barCostColor, opacity: seriesOpacity("cost") },
+          emphasis: { focus: "series" },
+        },
+        {
+          name: "Profit",
+          data: profitValues,
+          type: "bar",
+          stack: "total",
+          itemStyle: { color: barProfitColor, opacity: seriesOpacity("profit") },
+          emphasis: { focus: "series" },
+        },
+        {
+          name: "Revenue",
+          data: revenueValues,
           type: "line",
           smooth: false,
           symbol: "circle",
           symbolSize: 7,
-          lineStyle: { width: 2.5, color: accent },
-          itemStyle: { color: accent },
-          areaStyle: { color: "rgba(47,111,237,0.10)" },
+          lineStyle: { width: selectedMetric === "revenue" ? 3 : 2.5, color: accent, opacity: seriesOpacity("revenue") },
+          itemStyle: { color: accent, opacity: seriesOpacity("revenue") },
+          emphasis: { focus: "series" },
         },
       ],
     });
@@ -326,12 +364,6 @@
         groupBy: uiState.groupBy,
       },
     });
-
-    const metricLabelMap = {
-      revenue: "Revenue",
-      cost: "Cost",
-      profit: "Profit",
-    };
 
     const scopeItems = uiState.scope === "office" ? scopeOptions.offices : scopeOptions.departments;
     const scopeLabel = uiState.scope === "office" ? "Office" : "Department";
@@ -412,7 +444,7 @@
 
         <section class="analytics-chart-wrap">
           <div class="analytics-chart-head">
-            <strong>${escapeHtml(metricLabelMap[uiState.trendMetric] || "Revenue")} trend</strong>
+            <strong>Revenue vs Cost + Profit trend</strong>
           </div>
           <div data-analytics-chart-host></div>
         </section>
@@ -444,8 +476,7 @@
     renderTrendChart(
       body.querySelector("[data-analytics-chart-host]"),
       computed.trend,
-      uiState.trendMetric,
-      metricLabelMap[uiState.trendMetric] || "Revenue"
+      uiState.trendMetric
     );
 
     const syncUiStateFromForm = () => {
