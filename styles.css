@@ -564,7 +564,7 @@ body[data-theme="dark"] .button {
   color: inherit;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
+  align-items: start;
   gap: 10px;
   padding: 10px 12px;
 }
@@ -585,6 +585,7 @@ body[data-theme="dark"] .button {
   justify-content: center;
   width: auto;
   height: auto;
+  margin-top: 2px;
 }
 
 .inbox-item-check input[type="checkbox"] {
@@ -720,6 +721,14 @@ body[data-theme="dark"] .button {
   color: var(--muted);
 }
 
+.inbox-item-meta-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  align-self: start;
+}
+
 .inbox-item-dot {
   width: 10px;
   height: 10px;
@@ -729,12 +738,12 @@ body[data-theme="dark"] .button {
 }
 
 .inbox-item-delete {
-  width: 28px;
-  height: 28px;
-  border: 1px solid var(--line);
+  width: 34px;
+  height: 34px;
+  border: 1px solid color-mix(in srgb, #b75a5a 40%, var(--line));
   border-radius: 8px;
-  background: transparent;
-  color: color-mix(in srgb, var(--text-muted) 85%, var(--text) 15%);
+  background: color-mix(in srgb, #b75a5a 8%, #ffffff);
+  color: #b04747;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -743,8 +752,8 @@ body[data-theme="dark"] .button {
 }
 
 .inbox-item-delete svg {
-  width: 15px;
-  height: 15px;
+  width: 16px;
+  height: 16px;
   display: block;
 }
 

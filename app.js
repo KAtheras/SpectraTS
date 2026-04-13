@@ -10078,18 +10078,22 @@
                       ? `<div class="inbox-item-note">${escapeHtml(item.noteSnippet)}</div>`
                       : ""
                   }
-                  <div class="inbox-item-time">${escapeHtml(createdAt)}</div>
                 </div>
                 ${item.isRead ? "" : '<span class="inbox-item-dot" aria-hidden="true"></span>'}
               </button>
               ${linksMarkup}
             </div>
-            <button class="inbox-item-delete" type="button" data-inbox-action="delete" data-inbox-id="${escapeHtml(item.id)}" aria-label="Delete notification">
-              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path d="M4 7h16M9.5 4h5M8 7l.7 12.2a1 1 0 0 0 1 .8h4.6a1 1 0 0 0 1-.8L16 7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M10.2 10.2v6.6M13.8 10.2v6.6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-              </svg>
-            </button>
+            <div class="inbox-item-meta-actions">
+              <div class="inbox-item-time">${escapeHtml(createdAt)}</div>
+              <button class="inbox-item-delete" type="button" data-inbox-action="delete" data-inbox-id="${escapeHtml(item.id)}" aria-label="Delete notification">
+                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M3.75 6.75h16.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M9.25 3.75h5.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M8.25 6.75l.7 11.1a1.35 1.35 0 0 0 1.35 1.25h3.4a1.35 1.35 0 0 0 1.35-1.25l.7-11.1" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M10.4 10.1v5.9M13.6 10.1v5.9" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+                </svg>
+              </button>
+            </div>
           </div>
         `;
       })
