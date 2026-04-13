@@ -3229,6 +3229,23 @@
         ],
       },
       {
+        key: "EntryVisibility",
+        label: "Entry Visibility",
+        rows: [
+          { cap: "view_all_entries", label: "View all entries", indent: false },
+          {
+            cap: "view_office_entries",
+            label: "View entries within assigned office",
+            indent: false,
+          },
+          {
+            cap: "view_assigned_project_entries",
+            label: "View entries within assigned project",
+            indent: false,
+          },
+        ],
+      },
+      {
         key: "ClientProject",
         label: "Client / Project controls",
         rows: [
@@ -3266,7 +3283,7 @@
         const cells = roles
           .map((role) => {
             const isSuperuserRole = role.key === "superuser";
-            const usesAnyScope = cap === "see_all_clients_projects";
+            const usesAnyScope = cap === "see_all_clients_projects" || cap === "view_all_entries";
             const checked = isSuperuserRole
               ? anyScopeAllowedSet.has(`${role.key}|${cap}`)
               : usesAnyScope
@@ -3407,7 +3424,7 @@
           ? deps().state.rolePermissions
           : [];
         const capScopeKey = (capability) =>
-          `${capability || ""}`.trim() === "see_all_clients_projects"
+          ["see_all_clients_projects", "view_all_entries"].includes(`${capability || ""}`.trim())
             ? "all_offices"
             : "own_office";
         const currentAllowedSet = new Set(

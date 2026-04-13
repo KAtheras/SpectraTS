@@ -253,6 +253,30 @@ async function ensureSchema(sql) {
       is_active = EXCLUDED.is_active
   `;
   await sql`
+    INSERT INTO permission_capabilities (key, label, category, is_active)
+    VALUES ('view_all_entries', 'View all entries', 'entries', TRUE)
+    ON CONFLICT (key) DO UPDATE SET
+      label = EXCLUDED.label,
+      category = EXCLUDED.category,
+      is_active = EXCLUDED.is_active
+  `;
+  await sql`
+    INSERT INTO permission_capabilities (key, label, category, is_active)
+    VALUES ('view_office_entries', 'View entries within assigned office', 'entries', TRUE)
+    ON CONFLICT (key) DO UPDATE SET
+      label = EXCLUDED.label,
+      category = EXCLUDED.category,
+      is_active = EXCLUDED.is_active
+  `;
+  await sql`
+    INSERT INTO permission_capabilities (key, label, category, is_active)
+    VALUES ('view_assigned_project_entries', 'View entries within assigned project', 'entries', TRUE)
+    ON CONFLICT (key) DO UPDATE SET
+      label = EXCLUDED.label,
+      category = EXCLUDED.category,
+      is_active = EXCLUDED.is_active
+  `;
+  await sql`
     INSERT INTO role_permissions (role_id, capability_id, scope_id, allowed)
     SELECT pr.id, pc.id, ps.id, TRUE
     FROM permission_roles pr
@@ -292,6 +316,8 @@ async function ensureSchema(sql) {
         "edit_clients",
         "edit_projects_all_modal",
         "edit_project_planning",
+        "view_office_entries",
+        "view_assigned_project_entries",
       ]})
       AND ps.key <> 'own_office'
   `;
@@ -430,6 +456,33 @@ async function ensureSchema(sql) {
     JOIN permission_capabilities pc ON pc.key = 'can_upload_data'
     JOIN permission_scopes ps ON ps.key = 'own_office'
     WHERE pr.key IN ('manager', 'executive', 'admin', 'superuser')
+    ON CONFLICT (role_id, capability_id, scope_id) DO NOTHING
+  `;
+  await sql`
+    INSERT INTO role_permissions (role_id, capability_id, scope_id, allowed)
+    SELECT pr.id, pc.id, ps.id, TRUE
+    FROM permission_roles pr
+    JOIN permission_capabilities pc ON pc.key = 'view_assigned_project_entries'
+    JOIN permission_scopes ps ON ps.key = 'own_office'
+    WHERE pr.key IN ('staff', 'manager', 'executive', 'admin', 'superuser')
+    ON CONFLICT (role_id, capability_id, scope_id) DO NOTHING
+  `;
+  await sql`
+    INSERT INTO role_permissions (role_id, capability_id, scope_id, allowed)
+    SELECT pr.id, pc.id, ps.id, TRUE
+    FROM permission_roles pr
+    JOIN permission_capabilities pc ON pc.key = 'view_office_entries'
+    JOIN permission_scopes ps ON ps.key = 'own_office'
+    WHERE pr.key IN ('executive', 'admin', 'superuser')
+    ON CONFLICT (role_id, capability_id, scope_id) DO NOTHING
+  `;
+  await sql`
+    INSERT INTO role_permissions (role_id, capability_id, scope_id, allowed)
+    SELECT pr.id, pc.id, ps.id, TRUE
+    FROM permission_roles pr
+    JOIN permission_capabilities pc ON pc.key = 'view_all_entries'
+    JOIN permission_scopes ps ON ps.key = 'all_offices'
+    WHERE pr.key IN ('admin', 'superuser')
     ON CONFLICT (role_id, capability_id, scope_id) DO NOTHING
   `;
 
@@ -4348,6 +4401,17 @@ async function loadState(sql, currentUser) {
     resourceOfficeId: actorOfficeId,
     actorOfficeId,
   });
+  const canViewAllEntries = canCap("view_all_entries", {
+    resourceOfficeId: globalScopeProbeOfficeId,
+    actorOfficeId,
+  });
+  const canViewOfficeEntries = canCap("view_office_entries", {
+    resourceOfficeId: actorOfficeId,
+    actorOfficeId,
+  });
+  const canViewAssignedProjectEntries = canCap("view_assigned_project_entries", {
+    actorOfficeId,
+  });
   const canManageClientsLifecycle = canCap("manage_clients_lifecycle", {
     resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
     actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
@@ -4527,9 +4591,87 @@ async function loadState(sql, currentUser) {
     const expenseUserId = normalizeText(expense?.userId || expense?.user_id || "");
     return Boolean(expenseUserId) && Boolean(currentUserId) && expenseUserId === currentUserId;
   };
+  const normalizedActorOfficeId = normalizeText(actorOfficeId);
+  const allProjectsById = new Map(
+    allProjects
+      .map((project) => [normalizeText(project?.id), project])
+      .filter(([id]) => Boolean(id))
+  );
+  const allClientsById = new Map(
+    allClients
+      .map((client) => [normalizeText(client?.id), client])
+      .filter(([id]) => Boolean(id))
+  );
+  const allClientsByName = new Map(
+    allClients
+      .map((client) => [normalizeText(client?.name).toLowerCase(), client])
+      .filter(([name]) => Boolean(name))
+  );
+  const projectIdsByClientProjectKey = new Map();
+  allProjects.forEach((project) => {
+    const projectId = normalizeText(project?.id);
+    const projectName = normalizeText(project?.name).toLowerCase();
+    const clientId = normalizeText(project?.clientId ?? project?.client_id);
+    if (!projectId || !projectName || !clientId) return;
+    const client = allClientsById.get(clientId);
+    const clientName = normalizeText(client?.name).toLowerCase();
+    if (!clientName) return;
+    projectIdsByClientProjectKey.set(`${clientName}|${projectName}`, projectId);
+  });
+  const actorProjectLeadProjectIds = allProjects
+    .filter((project) => normalizeText(project?.projectLeadId ?? project?.project_lead_id) === currentUserId)
+    .map((project) => normalizeText(project?.id))
+    .filter(Boolean);
+  const entryVisibilityProjectIds = new Set([
+    ...actorDirectAssignedProjectIds,
+    ...actorProjectLeadProjectIds,
+  ]);
+  const hasProjectLeadVisibility = actorProjectLeadProjectIds.length > 0;
+  const hasAssignedProjectEntryVisibility = canViewAssignedProjectEntries || hasProjectLeadVisibility;
+  const resolveRecordProjectId = (projectIdValue, clientNameValue, projectNameValue) => {
+    const explicitProjectId = normalizeText(projectIdValue);
+    if (explicitProjectId && allProjectsById.has(explicitProjectId)) {
+      return explicitProjectId;
+    }
+    const clientName = normalizeText(clientNameValue).toLowerCase();
+    const projectName = normalizeText(projectNameValue).toLowerCase();
+    if (!clientName || !projectName) {
+      return "";
+    }
+    return projectIdsByClientProjectKey.get(`${clientName}|${projectName}`) || "";
+  };
+  const resolveRecordOfficeId = (resolvedProjectId, clientNameValue) => {
+    if (resolvedProjectId) {
+      const resolvedProject = allProjectsById.get(resolvedProjectId);
+      const projectOfficeId = normalizeText(resolvedProject?.officeId ?? resolvedProject?.office_id);
+      if (projectOfficeId) return projectOfficeId;
+      const projectClientId = normalizeText(resolvedProject?.clientId ?? resolvedProject?.client_id);
+      if (projectClientId) {
+        const projectClient = allClientsById.get(projectClientId);
+        const clientOfficeId = normalizeText(projectClient?.officeId ?? projectClient?.office_id);
+        if (clientOfficeId) return clientOfficeId;
+      }
+    }
+    const client = allClientsByName.get(normalizeText(clientNameValue).toLowerCase());
+    return normalizeText(client?.officeId ?? client?.office_id);
+  };
+  const canViewEntryByScope = (projectIdValue, clientNameValue, projectNameValue) => {
+    if (canViewAllEntries) return true;
+    const resolvedProjectId = resolveRecordProjectId(projectIdValue, clientNameValue, projectNameValue);
+    if (canViewOfficeEntries && normalizedActorOfficeId) {
+      const officeId = resolveRecordOfficeId(resolvedProjectId, clientNameValue);
+      if (officeId && officeId === normalizedActorOfficeId) {
+        return true;
+      }
+    }
+    if (hasAssignedProjectEntryVisibility && resolvedProjectId) {
+      return entryVisibilityProjectIds.has(resolvedProjectId);
+    }
+    return false;
+  };
 
   let entries = [];
-  if (isAdminFlag) {
+  if (canViewAllEntries || canViewOfficeEntries || hasAssignedProjectEntryVisibility) {
     entries = await sql`
       SELECT
         entries.id,
@@ -4578,131 +4720,11 @@ async function loadState(sql, currentUser) {
         AND entries.deleted_at IS NULL
       ORDER BY entries.entry_date DESC, entries.created_at DESC
     `;
-  } else if (isManagerFlag) {
-    const scope = await getManagerScope(sql, normalizedUser.id, accountUuid);
-    const scopedProjectIds = scope.projectIds.length ? scope.projectIds : [0];
-    const managerVisibleGroups = currentGroup === "executive"
-      ? ["staff", "manager", "executive"]
-      : ["staff", "manager"];
-    entries = await sql`
-        SELECT DISTINCT ON (entries.id)
-          entries.id,
-          entries.user_name AS "user",
-          users.id AS "userId",
-          TO_CHAR(entries.entry_date, 'YYYY-MM-DD') AS date,
-          CASE
-            WHEN entries.charge_center_id IS NOT NULL THEN 'Internal'
-            ELSE COALESCE(clients.name, entries.client_name, 'Internal')
-          END AS client,
-          CASE
-            WHEN entries.charge_center_id IS NOT NULL
-            THEN COALESCE(NULLIF(TRIM(CONCAT_WS(' / ', NULLIF(TRIM(cfg.name), ''), NULLIF(TRIM(cfc.name), ''))), ''), NULLIF(TRIM(entries.project_name), ''), 'Internal')
-          ELSE COALESCE(projects.name, NULLIF(TRIM(entries.project_name), ''), 'Internal')
-          END AS project,
-          entries.project_id AS "projectId",
-          entries.charge_center_id AS "chargeCenterId",
-          entries.task,
-          entries.hours::FLOAT8 AS hours,
-          entries.notes,
-          entries.billable,
-          entries.status,
-          entries.created_at AS "createdAt",
-          entries.updated_at AS "updatedAt"
-        FROM entries
-        LEFT JOIN clients
-          ON LOWER(clients.name) = LOWER(entries.client_name)
-         AND clients.account_id = ${accountUuid}::uuid
-        LEFT JOIN projects
-          ON projects.id = entries.project_id
-          OR (
-            entries.project_id IS NULL
-            AND projects.client_id = clients.id
-            AND LOWER(projects.name) = LOWER(entries.project_name)
-          )
-        LEFT JOIN corporate_function_categories cfc
-          ON cfc.id = entries.charge_center_id
-         AND cfc.account_id = ${accountUuid}::uuid
-        LEFT JOIN corporate_function_groups cfg
-          ON cfg.id = cfc.group_id
-         AND cfg.account_id = ${accountUuid}::uuid
-        JOIN users
-          ON (users.id = entries.user_id OR LOWER(users.display_name) = LOWER(entries.user_name))
-         AND users.account_id = entries.account_id
-        LEFT JOIN level_labels manager_entry_levels
-          ON manager_entry_levels.account_id = users.account_id
-         AND manager_entry_levels.level = users.level
-        WHERE (
-          projects.id = ANY(${scopedProjectIds})
-          OR (
-            entries.project_id IS NULL
-            AND entries.charge_center_id IS NOT NULL
-            AND users.id = ${normalizedUser.id}
-          )
-        )
-          AND (
-            LOWER(
-              COALESCE(
-                NULLIF(TRIM(manager_entry_levels.permission_group), ''),
-                NULLIF(TRIM(users.role), ''),
-                'staff'
-              )
-            ) = ANY(${managerVisibleGroups})
-            OR users.id = ${normalizedUser.id}
-          )
-          AND entries.account_id = ${accountUuid}::uuid
-          AND entries.deleted_at IS NULL
-        ORDER BY entries.id, entries.entry_date DESC, entries.created_at DESC
-      `;
-  } else if (normalizedUser && isStaffFlag) {
-    entries = await sql`
-      SELECT
-        entries.id,
-        entries.user_name AS "user",
-        u.id AS "userId",
-        TO_CHAR(entries.entry_date, 'YYYY-MM-DD') AS date,
-        CASE
-          WHEN entries.charge_center_id IS NOT NULL THEN 'Internal'
-          ELSE COALESCE(clients.name, entries.client_name, 'Internal')
-        END AS client,
-        CASE
-          WHEN entries.charge_center_id IS NOT NULL
-            THEN COALESCE(NULLIF(TRIM(CONCAT_WS(' / ', NULLIF(TRIM(cfg.name), ''), NULLIF(TRIM(cfc.name), ''))), ''), NULLIF(TRIM(entries.project_name), ''), 'Internal')
-          ELSE COALESCE(projects.name, NULLIF(TRIM(entries.project_name), ''), 'Internal')
-        END AS project,
-        entries.project_id AS "projectId",
-        entries.charge_center_id AS "chargeCenterId",
-        entries.task,
-        entries.hours::FLOAT8 AS hours,
-        entries.notes,
-        entries.billable,
-        entries.status,
-        entries.created_at AS "createdAt",
-        entries.updated_at AS "updatedAt"
-      FROM entries
-      LEFT JOIN users u
-        ON (u.id = entries.user_id OR LOWER(u.display_name) = LOWER(entries.user_name))
-       AND u.account_id = ${accountUuid}::uuid
-      LEFT JOIN clients
-        ON LOWER(clients.name) = LOWER(entries.client_name)
-       AND clients.account_id = ${accountUuid}::uuid
-      LEFT JOIN projects
-        ON projects.id = entries.project_id
-        OR (
-          entries.project_id IS NULL
-          AND projects.client_id = clients.id
-          AND LOWER(projects.name) = LOWER(entries.project_name)
-        )
-      LEFT JOIN corporate_function_categories cfc
-        ON cfc.id = entries.charge_center_id
-       AND cfc.account_id = ${accountUuid}::uuid
-      LEFT JOIN corporate_function_groups cfg
-        ON cfg.id = cfc.group_id
-       AND cfg.account_id = ${accountUuid}::uuid
-      WHERE (entries.user_id = ${normalizedUser.id} OR entries.user_name = ${normalizedUser.displayName})
-        AND entries.account_id = ${accountUuid}::uuid
-        AND entries.deleted_at IS NULL
-      ORDER BY entries.entry_date DESC, entries.created_at DESC
-    `;
+    if (!canViewAllEntries) {
+      entries = entries.filter((entry) =>
+        canViewEntryByScope(entry?.projectId, entry?.client, entry?.project)
+      );
+    }
   }
 
   if (delegatorUserIds.length) {
@@ -4942,7 +4964,7 @@ async function loadState(sql, currentUser) {
   }
 
   let expenses = [];
-  if (isAdminFlag || isExecFlag) {
+  if (canViewAllEntries || canViewOfficeEntries || hasAssignedProjectEntryVisibility) {
     expenses = await sql`
       SELECT
         id,
@@ -4963,56 +4985,11 @@ async function loadState(sql, currentUser) {
         AND deleted_at IS NULL
       ORDER BY expense_date DESC, created_at DESC NULLS LAST
     `;
-  } else if (isManagerFlag) {
-    const scope = await getManagerScope(sql, normalizedUser.id, accountUuid);
-    if (scope.projectIds.length) {
-      expenses = await sql`
-        SELECT
-          expenses.id,
-          expenses.user_id AS "userId",
-          expenses.client_name AS "clientName",
-          expenses.project_name AS "projectName",
-          expenses.expense_date AS "expenseDate",
-          expenses.category,
-          expenses.amount::FLOAT8 AS amount,
-          expenses.is_billable AS "isBillable",
-          COALESCE(expenses.notes, '') AS notes,
-          expenses.status,
-          expenses.approved_at AS "approvedAt",
-          expenses.created_at AS "createdAt",
-          expenses.updated_at AS "updatedAt"
-        FROM expenses
-        JOIN clients ON LOWER(clients.name) = LOWER(expenses.client_name)
-        JOIN projects ON projects.client_id = clients.id
-          AND LOWER(projects.name) = LOWER(expenses.project_name)
-        WHERE expenses.account_id = ${accountUuid}::uuid
-          AND expenses.deleted_at IS NULL
-          AND projects.id = ANY(${scope.projectIds})
-        ORDER BY expenses.expense_date DESC, expenses.created_at DESC NULLS LAST
-      `;
+    if (!canViewAllEntries) {
+      expenses = expenses.filter((expense) =>
+        canViewEntryByScope(null, expense?.clientName, expense?.projectName)
+      );
     }
-  } else if (normalizedUser && isStaffFlag) {
-    expenses = await sql`
-      SELECT
-        id,
-        user_id AS "userId",
-        client_name AS "clientName",
-        project_name AS "projectName",
-        expense_date AS "expenseDate",
-        category,
-        amount::FLOAT8 AS amount,
-        is_billable AS "isBillable",
-        COALESCE(notes, '') AS notes,
-        status,
-        approved_at AS "approvedAt",
-        created_at AS "createdAt",
-        updated_at AS "updatedAt"
-      FROM expenses
-      WHERE account_id = ${accountUuid}::uuid
-        AND deleted_at IS NULL
-        AND user_id = ${normalizedUser.id}
-      ORDER BY expense_date DESC, created_at DESC NULLS LAST
-    `;
   }
 
   if (delegatorUserIds.length) {

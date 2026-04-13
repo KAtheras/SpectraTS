@@ -1224,6 +1224,20 @@ function buildPermissionsPayload(currentUser, permissionIndex) {
   const canAccessClientsTab = Boolean(
     canSeeAllClientsProjects || canSeeOfficeClientsProjects || canSeeAssignedClientsProjects
   );
+  const canViewAllEntries = can("view_all_entries", {
+    resourceOfficeId: globalScopeProbeOfficeId,
+    actorOfficeId,
+  });
+  const canViewOfficeEntries = can("view_office_entries", {
+    resourceOfficeId: actorOfficeId,
+    actorOfficeId,
+  });
+  const canViewAssignedProjectEntries = can("view_assigned_project_entries", {
+    actorOfficeId,
+  });
+  const canViewEntriesByMatrix = Boolean(
+    canViewAllEntries || canViewOfficeEntries || canViewAssignedProjectEntries
+  );
   const permissionsPayload = {
     edit_user_department: can("edit_user_department"),
     view_settings_tab: false,
@@ -1266,11 +1280,11 @@ function buildPermissionsPayload(currentUser, permissionIndex) {
     assign_project_managers: can("assign_project_managers"),
     create_entry: can("create_time_entry"),
     approve_entry: can("approve_time"),
-    view_entries: can("view_entries"),
+    view_entries: canViewEntriesByMatrix || can("view_entries"),
     create_expense: can("create_expense"),
     update_expense: can("edit_expense"),
     toggle_expense_status: can("approve_expense"),
-    view_expenses: can("view_expenses"),
+    view_expenses: canViewEntriesByMatrix || can("view_expenses"),
     view_users: can("view_users"),
     view_clients: canAccessClientsTab,
     view_projects: canAccessClientsTab,
@@ -5263,7 +5277,9 @@ exports.handler = async function handler(event) {
         const roleIdByKey = new Map(roles.map((r) => [r.key, r.id]));
         const capIdByKey = new Map(caps.map((c) => [c.key, c.id]));
         const scopeKeyForCapability = (capabilityKey) =>
-          capabilityKey === "see_all_clients_projects" ? "all_offices" : "own_office";
+          capabilityKey === "see_all_clients_projects" || capabilityKey === "view_all_entries"
+            ? "all_offices"
+            : "own_office";
 
         // Normalize matrix-managed capabilities by clearing prior scope rows first.
         if (roleKeysAll.length && capKeysAll.length) {

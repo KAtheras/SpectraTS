@@ -132,6 +132,27 @@ exports.handler = async function handler(event) {
     const canAccessClientsTab = Boolean(
       canSeeAllClientsProjects || canSeeOfficeClientsProjects || canSeeAssignedClientsProjects
     );
+    const canViewAllEntries = can(
+      currentUser,
+      "view_all_entries",
+      { resourceOfficeId: globalScopeProbeOfficeId, actorOfficeId },
+      permissionIndex
+    );
+    const canViewOfficeEntries = can(
+      currentUser,
+      "view_office_entries",
+      { resourceOfficeId: actorOfficeId, actorOfficeId },
+      permissionIndex
+    );
+    const canViewAssignedProjectEntries = can(
+      currentUser,
+      "view_assigned_project_entries",
+      { actorOfficeId },
+      permissionIndex
+    );
+    const canViewEntriesByMatrix = Boolean(
+      canViewAllEntries || canViewOfficeEntries || canViewAssignedProjectEntries
+    );
     const permissions = {
       // existing keys
       edit_user_department: can(currentUser, "edit_user_department", {}, permissionIndex),
@@ -189,13 +210,13 @@ exports.handler = async function handler(event) {
       // time entries
       create_entry: can(currentUser, "create_time_entry", {}, permissionIndex),
       approve_entry: can(currentUser, "approve_time", {}, permissionIndex),
-      view_entries: can(currentUser, "view_entries", {}, permissionIndex),
+      view_entries: canViewEntriesByMatrix || can(currentUser, "view_entries", {}, permissionIndex),
 
       // expenses
       create_expense: can(currentUser, "create_expense", {}, permissionIndex),
       update_expense: can(currentUser, "edit_expense", {}, permissionIndex),
       toggle_expense_status: can(currentUser, "approve_expense", {}, permissionIndex),
-      view_expenses: can(currentUser, "view_expenses", {}, permissionIndex),
+      view_expenses: canViewEntriesByMatrix || can(currentUser, "view_expenses", {}, permissionIndex),
 
       // visibility
       view_users: can(currentUser, "view_users", {}, permissionIndex),
