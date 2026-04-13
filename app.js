@@ -4630,6 +4630,8 @@
     render();
   }
 
+  window.setView = setView;
+
   function isMobileDrilldownViewport() {
     return window.innerWidth <= 768;
   }
