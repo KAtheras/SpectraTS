@@ -1247,8 +1247,8 @@ function buildPermissionsPayload(currentUser, permissionIndex) {
     });
   const canManageSettingsAccess = can("manage_settings_access");
   const canViewCostRates = can("view_cost_rates") || can("view_cost_rate");
-  const canManageCorporateFunctions = can("manage_corporate_functions") || can("manage_expense_categories");
-  const canManageTargetRealizations = can("manage_target_realizations") || can("manage_departments");
+  const canManageCorporateFunctions = can("manage_corporate_functions");
+  const canManageTargetRealizations = can("manage_target_realizations");
   const canManageMessagingRules = can("manage_messaging_rules") || can("manage_settings_access");
   const actorOfficeId = currentUser?.officeId ?? currentUser?.office_id ?? null;
   const globalScopeProbeOfficeId = actorOfficeId
@@ -6738,10 +6738,7 @@ exports.handler = async function handler(event) {
         break;
       }
       case "update_corporate_function_categories": {
-        if (
-          !can("manage_corporate_functions", { resourceOfficeId: context.currentUser?.officeId || null }) &&
-          !can("manage_expense_categories", { resourceOfficeId: context.currentUser?.officeId || null })
-        ) {
+        if (!can("manage_corporate_functions", { resourceOfficeId: context.currentUser?.officeId || null })) {
           return errorResponse(403, "Access denied.");
         }
         mutationResult = await runMutationWithAudit({
@@ -6774,10 +6771,7 @@ exports.handler = async function handler(event) {
         break;
       }
       case "update_target_realizations": {
-        if (
-          !can("manage_target_realizations", { resourceOfficeId: context.currentUser?.officeId || null }) &&
-          !can("manage_departments", { resourceOfficeId: context.currentUser?.officeId || null })
-        ) {
+        if (!can("manage_target_realizations", { resourceOfficeId: context.currentUser?.officeId || null })) {
           return errorResponse(403, "Access denied.");
         }
         mutationResult = await runMutationWithAudit({

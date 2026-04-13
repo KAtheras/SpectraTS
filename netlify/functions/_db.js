@@ -4130,7 +4130,7 @@ async function loadSettingsMetadata(sql, currentUser) {
     : [];
   let targetRealizations = [];
   if (
-    canCap("manage_departments", {
+    canCap("manage_target_realizations", {
       resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
       actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
     }) &&
@@ -5310,7 +5310,13 @@ async function loadState(sql, currentUser) {
   const projectExpenseCategories = await listProjectExpenseCategories(sql, accountUuid);
   const projectPlannedExpenses = await listProjectPlannedExpenses(sql, accountUuid);
   let targetRealizations = [];
-  if (manageDepartments && canUseOfficeLocationsForMembers) {
+  if (
+    canCap("manage_target_realizations", {
+      resourceOfficeId: normalizedUser?.officeId ?? null,
+      actorOfficeId: normalizedUser?.officeId ?? null,
+    }) &&
+    canUseOfficeLocationsForMembers
+  ) {
     try {
       targetRealizations = await listTargetRealizations(sql, accountUuid);
     } catch (error) {

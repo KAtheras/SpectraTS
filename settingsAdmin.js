@@ -3617,7 +3617,7 @@
     if (!refs.departmentRows) return;
 
     const departments = Array.isArray(state.departments) ? state.departments.slice() : [];
-    const editable = Boolean(state.permissions?.manage_departments);
+    const editable = Boolean(state.permissions?.manage_target_realizations);
 
     const rowsHtml = departments
       .map((item) => {

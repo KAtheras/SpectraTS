@@ -78,12 +78,18 @@ exports.handler = async function handler(event) {
     const canViewCostRates =
       can(currentUser, "view_cost_rates", {}, permissionIndex) ||
       can(currentUser, "view_cost_rate", {}, permissionIndex);
-    const canManageCorporateFunctions =
-      can(currentUser, "manage_corporate_functions", {}, permissionIndex) ||
-      can(currentUser, "manage_expense_categories", {}, permissionIndex);
-    const canManageTargetRealizations =
-      can(currentUser, "manage_target_realizations", {}, permissionIndex) ||
-      can(currentUser, "manage_departments", {}, permissionIndex);
+    const canManageCorporateFunctions = can(
+      currentUser,
+      "manage_corporate_functions",
+      {},
+      permissionIndex
+    );
+    const canManageTargetRealizations = can(
+      currentUser,
+      "manage_target_realizations",
+      {},
+      permissionIndex
+    );
     const canManageMessagingRules =
       can(currentUser, "manage_messaging_rules", {}, permissionIndex) ||
       can(currentUser, "manage_settings_access", {}, permissionIndex);

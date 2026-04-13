@@ -12097,7 +12097,7 @@
         event.preventDefault();
         if (!beginSettingsAutoSave("departments-form")) return;
         try {
-          if (!state.permissions?.manage_departments) {
+          if (!state.permissions?.manage_target_realizations) {
             feedback("Access denied.", true);
             return;
           }
