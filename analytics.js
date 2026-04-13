@@ -21,8 +21,11 @@
         align-items: end;
       }
       .analytics-filters label { display: grid; gap: 4px; font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
-      .analytics-filters select, .analytics-filters input { min-height: 34px; }
+      .analytics-filters select, .analytics-filters input { min-height: 34px; background: #fff; }
       .analytics-filter-range { min-width: 0; }
+      .analytics-segmented-toggle { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: #fff; min-height: 34px; }
+      .analytics-segmented-toggle .button { min-height: 34px; height: 34px; border: 0; border-radius: 0; padding: 0 12px; background: transparent; color: var(--muted); font-size: .82rem; font-weight: 700; }
+      .analytics-segmented-toggle .button.is-active { background: color-mix(in srgb, var(--accent) 14%, #fff); color: color-mix(in srgb, var(--accent) 72%, var(--ink) 28%); }
       .analytics-kpis { display: grid; grid-template-columns: repeat(5, minmax(140px, 1fr)); gap: 10px; }
       .analytics-kpi {
         border: 1px solid var(--line);
@@ -153,6 +156,11 @@
       entries,
       expenses,
     };
+  }
+
+  function normalizeTableMode(value) {
+    const mode = safeText(value).toLowerCase();
+    return mode === "project" ? "project" : "client";
   }
 
   function formatShortDate(isoDate) {
@@ -423,6 +431,7 @@
       });
       stateByContainer.set(container, uiState);
     }
+    uiState.groupBy = normalizeTableMode(uiState.groupBy);
 
     const scopeOptions = engine.listScopeOptions({
       offices: appState.officeLocations,
@@ -455,7 +464,7 @@
         scopeId: uiState.scopeId,
         clientId: uiState.clientId,
         projectId: uiState.projectId,
-        groupBy: uiState.groupBy,
+        groupBy: normalizeTableMode(uiState.groupBy),
       },
     });
 
@@ -489,6 +498,7 @@
         </tr>`
       )
       .join("");
+    const tableModeLabel = uiState.groupBy === "project" ? "Projects" : "Clients";
 
     body.innerHTML = `
       <div class="analytics-panel" data-analytics-root>
@@ -525,15 +535,12 @@
             </select>
           </label>
           <label>
-            <span>Group by</span>
-            <select name="groupBy">
-              <option value="client" ${uiState.groupBy === "client" ? "selected" : ""}>Client</option>
-              <option value="project" ${uiState.groupBy === "project" ? "selected" : ""}>Project</option>
-              <option value="office" ${uiState.groupBy === "office" ? "selected" : ""}>Office</option>
-              <option value="department" ${uiState.groupBy === "department" ? "selected" : ""}>Department</option>
-              <option value="member" ${uiState.groupBy === "member" ? "selected" : ""}>Member</option>
-              <option value="member_level" ${uiState.groupBy === "member_level" ? "selected" : ""}>Member level</option>
-            </select>
+            <span>View</span>
+            <div class="analytics-segmented-toggle" role="group" aria-label="Analytics table mode">
+              <button type="button" class="button ${uiState.groupBy === "client" ? "is-active" : ""}" data-analytics-groupby="client">Clients</button>
+              <button type="button" class="button ${uiState.groupBy === "project" ? "is-active" : ""}" data-analytics-groupby="project">Projects</button>
+            </div>
+            <input type="hidden" name="groupBy" value="${escapeHtml(uiState.groupBy)}" />
           </label>
         </form>
 
@@ -554,7 +561,7 @@
 
         <section class="analytics-table-wrap">
           <div style="padding:10px 12px 0;color:var(--muted);font-size:.76rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;">
-            Top 5 by Profit
+            Top 5 ${escapeHtml(tableModeLabel)} by Profit
           </div>
           <table>
             <thead>
@@ -595,8 +602,20 @@
       uiState.clientId = safeText(filterForm.elements.clientId?.value);
       uiState.projectId = safeText(filterForm.elements.projectId?.value);
       uiState.trendMetric = safeText(filterForm.elements.trendMetric?.value || "revenue");
-      uiState.groupBy = safeText(filterForm.elements.groupBy?.value || "client");
+      uiState.groupBy = normalizeTableMode(filterForm.elements.groupBy?.value);
     };
+
+    filterForm.querySelectorAll("[data-analytics-groupby]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const nextMode = normalizeTableMode(button.getAttribute("data-analytics-groupby"));
+        const modeField = filterForm.elements.groupBy;
+        if (modeField) {
+          modeField.value = nextMode;
+        }
+        uiState.groupBy = nextMode;
+        renderAnalyticsPage(options);
+      });
+    });
 
     filterForm.addEventListener("change", (event) => {
       const targetName = safeText(event?.target?.name);
