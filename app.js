@@ -10349,6 +10349,8 @@
     if (!button) return;
     button.addEventListener("click", function (event) {
       event.preventDefault();
+      event.stopImmediatePropagation();
+      event.stopPropagation();
       setView(viewName);
     });
   }
