@@ -618,6 +618,12 @@ body[data-theme="dark"] .button {
   outline: none;
 }
 
+.inbox-item-center {
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+}
+
 .inbox-item-main {
   min-width: 0;
   display: grid;

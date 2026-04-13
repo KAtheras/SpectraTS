@@ -10069,19 +10069,21 @@
             <label class="inbox-item-check">
               <input type="checkbox" data-inbox-select="${escapeHtml(item.id)}" ${isSelected ? "checked" : ""} />
             </label>
-            <button class="inbox-item-open" type="button" data-inbox-open="${escapeHtml(item.id)}">
-              <div class="inbox-item-main">
-                <div class="inbox-item-message"><span class="message-priority-icon" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none"><path d="M4 2.2v11.6M4 3h6.2l-1.4 2.4L10.2 8H4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>${escapeHtml(item.message || "Notification")}</div>
-                ${
-                  item.noteSnippet
-                    ? `<div class="inbox-item-note">${escapeHtml(item.noteSnippet)}</div>`
-                    : ""
-                }
-                ${linksMarkup}
-                <div class="inbox-item-time">${escapeHtml(createdAt)}</div>
-              </div>
-              ${item.isRead ? "" : '<span class="inbox-item-dot" aria-hidden="true"></span>'}
-            </button>
+            <div class="inbox-item-center">
+              <button class="inbox-item-open" type="button" data-inbox-open="${escapeHtml(item.id)}">
+                <div class="inbox-item-main">
+                  <div class="inbox-item-message"><span class="message-priority-icon" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none"><path d="M4 2.2v11.6M4 3h6.2l-1.4 2.4L10.2 8H4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>${escapeHtml(item.message || "Notification")}</div>
+                  ${
+                    item.noteSnippet
+                      ? `<div class="inbox-item-note">${escapeHtml(item.noteSnippet)}</div>`
+                      : ""
+                  }
+                  <div class="inbox-item-time">${escapeHtml(createdAt)}</div>
+                </div>
+                ${item.isRead ? "" : '<span class="inbox-item-dot" aria-hidden="true"></span>'}
+              </button>
+              ${linksMarkup}
+            </div>
             <button class="inbox-item-delete" type="button" data-inbox-action="delete" data-inbox-id="${escapeHtml(item.id)}" aria-label="Delete notification">
               <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
                 <path d="M4 7h16M9.5 4h5M8 7l.7 12.2a1 1 0 0 0 1 .8h4.6a1 1 0 0 0 1-.8L16 7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
