@@ -4708,18 +4708,6 @@
     setView("entries");
   }
 
-  function openAnalyticsPage() {
-    setView("analytics");
-  }
-
-  function handleOpenAnalyticsNav(event) {
-    if (event) {
-      event.preventDefault();
-      event.stopPropagation();
-    }
-    setView("analytics");
-  }
-
   function resolveActingAsUserId() {
     const normalizeId = (value) => `${value || ""}`.trim().toLowerCase();
     const currentUserIdRaw = `${state.currentUser?.id || ""}`.trim();
@@ -10357,38 +10345,21 @@
   refs.loginForm.addEventListener("submit", submitLogin);
   refs.bootstrapForm.addEventListener("submit", submitBootstrap);
 
-  document.addEventListener(
-    "click",
-    function (event) {
-      const analyticsNav = event.target?.closest?.("#open-analytics, #nav-analytics-mobile");
-      if (!analyticsNav) return;
+  function bindPrimaryNavButton(button, viewName) {
+    if (!button) return;
+    button.addEventListener("click", function (event) {
       event.preventDefault();
-      event.stopPropagation();
-      setView("analytics");
-    },
-    true
-  );
+      setView(viewName);
+    });
+  }
 
-  if (refs.navInputs) {
-    refs.navInputs.addEventListener("click", function () {
-      setView("inputs");
-    });
-  }
-  if (refs.navEntries) {
-    refs.navEntries.addEventListener("click", function () {
-      setView("entries");
-    });
-  }
-  if (refs.navInputsMobile) {
-    refs.navInputsMobile.addEventListener("click", function () {
-      setView("inputs");
-    });
-  }
-  if (refs.navEntriesMobile) {
-    refs.navEntriesMobile.addEventListener("click", function () {
-      setView("entries");
-    });
-  }
+  bindPrimaryNavButton(refs.navInputs, "inputs");
+  bindPrimaryNavButton(refs.navEntries, "entries");
+  bindPrimaryNavButton(refs.openAnalytics, "analytics");
+  bindPrimaryNavButton(refs.navInputsMobile, "inputs");
+  bindPrimaryNavButton(refs.navEntriesMobile, "entries");
+  bindPrimaryNavButton(refs.navAnalyticsMobile, "analytics");
+
   if (refs.inboxOpen) {
     refs.inboxOpen.addEventListener("click", function () {
       setView("inbox");
@@ -11386,12 +11357,6 @@
   }
   if (refs.addUserForm) {
     refs.addUserForm.addEventListener("submit", handleAddUser);
-  }
-  if (refs.openAnalytics) {
-    refs.openAnalytics.addEventListener("click", handleOpenAnalyticsNav);
-  }
-  if (refs.navAnalyticsMobile) {
-    refs.navAnalyticsMobile.addEventListener("click", handleOpenAnalyticsNav);
   }
   if (refs.settingsToggle) {
     refs.settingsToggle.addEventListener("click", function (event) {
