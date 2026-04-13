@@ -2782,26 +2782,28 @@ async function createExpense(sql, payload, currentUser, accountId) {
     return errorResponse(404, "Team member not found.");
   }
   const targetGroup = permissionGroupForUser(targetUser);
+  const isActorEditingOwnExpense =
+    !canActOnBehalf && normalizeText(targetUser?.id) === normalizeText(currentUser?.id);
 
   if (isAdmin(currentUser)) {
     // full access
   } else if (isManager(currentUser)) {
-    if (!isCorporateExpense) {
+    if (!isActorEditingOwnExpense && !isCorporateExpense) {
       const hasAccess = await managerHasProjectAccess(sql, currentUser.id, project.id, accountId);
       if (!hasAccess) {
         return errorResponse(403, "You are not assigned to this project.");
       }
-    } else if (!canActOnBehalf && targetUser.id !== currentUser.id) {
+    } else if (!isActorEditingOwnExpense && !canActOnBehalf && targetUser.id !== currentUser.id) {
       return errorResponse(403, "You can only save your own internal expenses.");
     }
-    if (!canActOnBehalf && targetUser.id !== currentUser.id && targetGroup !== "staff") {
+    if (!isActorEditingOwnExpense && !canActOnBehalf && targetUser.id !== currentUser.id && targetGroup !== "staff") {
       return errorResponse(403, "Managers can only edit staff expenses.");
     }
   } else if (isStaff(currentUser)) {
-    if (!canActOnBehalf && targetUser.id !== currentUser.id) {
+    if (!isActorEditingOwnExpense && !canActOnBehalf && targetUser.id !== currentUser.id) {
       return errorResponse(403, "You can only save expenses for your own account.");
     }
-    if (!isCorporateExpense) {
+    if (!isActorEditingOwnExpense && !isCorporateExpense) {
       const memberRows = await sql`
         SELECT id
         FROM project_members
@@ -2986,26 +2988,27 @@ async function updateExpense(sql, payload, currentUser, accountId) {
     return errorResponse(404, "Team member not found.");
   }
   const targetGroup = permissionGroupForUser(targetUser);
+  const isActorEditingOwnExpense = normalizeText(existing.user_id) === normalizeText(currentUser?.id);
 
   if (isAdmin(currentUser)) {
     // full access
   } else if (isManager(currentUser)) {
-    if (!isCorporateExpense) {
+    if (!isActorEditingOwnExpense && !isCorporateExpense) {
       const hasAccess = await managerHasProjectAccess(sql, currentUser.id, project.id, accountId);
       if (!hasAccess) {
         return errorResponse(403, "You are not assigned to this project.");
       }
-    } else if (targetUser.id !== currentUser.id) {
+    } else if (!isActorEditingOwnExpense && targetUser.id !== currentUser.id) {
       return errorResponse(403, "You can only save your own internal expenses.");
     }
-    if (targetUser.id !== currentUser.id && targetGroup !== "staff") {
+    if (!isActorEditingOwnExpense && targetUser.id !== currentUser.id && targetGroup !== "staff") {
       return errorResponse(403, "Managers can only edit staff expenses.");
     }
   } else if (isStaff(currentUser)) {
-    if (targetUser.id !== currentUser.id) {
+    if (!isActorEditingOwnExpense && targetUser.id !== currentUser.id) {
       return errorResponse(403, "You can only save expenses for your own account.");
     }
-    if (!isCorporateExpense) {
+    if (!isActorEditingOwnExpense && !isCorporateExpense) {
       const memberRows = await sql`
         SELECT id
         FROM project_members
@@ -3140,28 +3143,29 @@ async function deleteExpense(sql, payload, currentUser, accountId) {
 
   const project = await findProject(sql, expense.client_name, expense.project_name, accountId);
   const targetUser = await findUserById(sql, expense.user_id, accountId);
-  if (!project && !isAdmin(currentUser)) {
+  const isActorEditingOwnExpense = normalizeText(expense.user_id) === normalizeText(currentUser?.id);
+  if (!isActorEditingOwnExpense && !project && !isAdmin(currentUser)) {
     return errorResponse(403, "You are not assigned to this project.");
   }
 
   if (isAdmin(currentUser)) {
     // full access
   } else if (isManager(currentUser)) {
-    if (project) {
+    if (!isActorEditingOwnExpense && project) {
       const hasAccess = await managerHasProjectAccess(sql, currentUser.id, project.id, accountId);
       if (!hasAccess) {
         return errorResponse(403, "You are not assigned to this project.");
       }
     }
     const targetGroup = permissionGroupForUser(targetUser);
-    if (targetUser && targetUser.id !== currentUser.id && targetGroup !== "staff") {
+    if (!isActorEditingOwnExpense && targetUser && targetUser.id !== currentUser.id && targetGroup !== "staff") {
       return errorResponse(403, "Managers can only edit staff expenses.");
     }
   } else if (isStaff(currentUser)) {
-    if (expense.user_id !== currentUser.id) {
+    if (!isActorEditingOwnExpense && expense.user_id !== currentUser.id) {
       return errorResponse(403, "You can only delete your own expenses.");
     }
-    if (project) {
+    if (!isActorEditingOwnExpense && project) {
       const memberRows = await sql`
         SELECT id
         FROM project_members
@@ -3241,9 +3245,10 @@ async function canDeleteExpenseRecord(sql, expense, currentUser, accountId) {
   const expenseClient = normalizeText(expense.client_name) || normalizeText(expense.clientName);
   const expenseProject = normalizeText(expense.project_name) || normalizeText(expense.projectName);
   const expenseUserId = normalizeText(expense.user_id) || normalizeText(expense.userId);
+  const isActorEditingOwnExpense = expenseUserId && normalizeText(currentUser?.id) === expenseUserId;
   const project = await findProject(sql, expenseClient, expenseProject, accountId);
   const targetUser = await findUserById(sql, expenseUserId, accountId);
-  if (!project && !isAdmin(currentUser)) {
+  if (!isActorEditingOwnExpense && !project && !isAdmin(currentUser)) {
     return false;
   }
 
@@ -3252,24 +3257,24 @@ async function canDeleteExpenseRecord(sql, expense, currentUser, accountId) {
   }
 
   if (isManager(currentUser)) {
-    if (project) {
+    if (!isActorEditingOwnExpense && project) {
       const hasAccess = await managerHasProjectAccess(sql, currentUser.id, project.id, accountId);
       if (!hasAccess) {
         return false;
       }
     }
     const targetGroup = permissionGroupForUser(targetUser);
-    if (targetUser && targetUser.id !== currentUser.id && targetGroup !== "staff") {
+    if (!isActorEditingOwnExpense && targetUser && targetUser.id !== currentUser.id && targetGroup !== "staff") {
       return false;
     }
     return true;
   }
 
   if (isStaff(currentUser)) {
-    if (expenseUserId !== currentUser.id) {
+    if (!isActorEditingOwnExpense && expenseUserId !== currentUser.id) {
       return false;
     }
-    if (project) {
+    if (!isActorEditingOwnExpense && project) {
       const memberRows = await sql`
         SELECT id
         FROM project_members
@@ -3994,11 +3999,38 @@ async function saveEntry(sql, payload, currentUser, accountId) {
     normalizeText(targetUser.displayName) ||
     normalizeText(entry.user);
   const targetGroup = permissionGroupForUser(targetUser);
+  const currentUserId = normalizeText(currentUser?.id);
+  const existingOwnerRows =
+    normalizeText(entry.id)
+      ? await sql`
+          SELECT user_id, user_name
+          FROM entries
+          WHERE id = ${normalizeText(entry.id)}
+            AND account_id = ${accountId}::uuid
+          LIMIT 1
+        `
+      : [];
+  const existingOwner = existingOwnerRows[0];
+  const existingOwnerUserId = normalizeText(existingOwner?.user_id);
+  const existingOwnerUserName = normalizeText(existingOwner?.user_name).toLowerCase();
+  const currentUserDisplayName = normalizeText(currentUser?.displayName).toLowerCase();
+  const isExistingEntryOwnedByActor = existingOwner
+    ? (existingOwnerUserId && currentUserId && existingOwnerUserId === currentUserId) ||
+      (!existingOwnerUserId &&
+        existingOwnerUserName &&
+        currentUserDisplayName &&
+        existingOwnerUserName === currentUserDisplayName)
+    : true;
+  const isActorEditingOwnEntry =
+    !canActOnBehalf &&
+    normalizeText(targetUser?.id) &&
+    normalizeText(targetUser?.id) === currentUserId &&
+    isExistingEntryOwnedByActor;
 
   if (isAdmin(currentUser)) {
     // Full access.
   } else if (isManager(currentUser)) {
-    if (!isCorporateEntry) {
+    if (!isActorEditingOwnEntry && !isCorporateEntry) {
       const hasAccess = await managerHasProjectAccess(
         sql,
         currentUser.id,
@@ -4008,17 +4040,17 @@ async function saveEntry(sql, payload, currentUser, accountId) {
       if (!hasAccess) {
         return errorResponse(403, "You are not assigned to this project.");
       }
-    } else if (!canActOnBehalf && targetUser.id !== currentUser.id) {
+    } else if (!isActorEditingOwnEntry && !canActOnBehalf && targetUser.id !== currentUser.id) {
       return errorResponse(403, "You can only save your own internal entries.");
     }
-    if (!canActOnBehalf && targetUser.id !== currentUser.id && targetGroup !== "staff") {
+    if (!isActorEditingOwnEntry && !canActOnBehalf && targetUser.id !== currentUser.id && targetGroup !== "staff") {
       return errorResponse(403, "Managers can only edit staff time.");
     }
   } else if (isStaff(currentUser)) {
-    if (!canActOnBehalf && targetUser.id !== currentUser.id) {
+    if (!isActorEditingOwnEntry && !canActOnBehalf && targetUser.id !== currentUser.id) {
       return errorResponse(403, "You can only save entries for your own account.");
     }
-    if (!isCorporateEntry) {
+    if (!isActorEditingOwnEntry && !isCorporateEntry) {
       const memberRows = await sql`
         SELECT id
         FROM project_members
@@ -4032,7 +4064,7 @@ async function saveEntry(sql, payload, currentUser, accountId) {
     }
   }
 
-  if (!isCorporateEntry && targetGroup === "staff") {
+  if (!isActorEditingOwnEntry && !isCorporateEntry && targetGroup === "staff") {
     const memberRows = await sql`
       SELECT id
       FROM project_members
@@ -4048,13 +4080,21 @@ async function saveEntry(sql, payload, currentUser, accountId) {
 
   if (!isAdmin(currentUser)) {
     const rows = await sql`
-      SELECT user_name
+      SELECT user_id, user_name
       FROM entries
       WHERE id = ${normalizeText(entry.id)}
         AND account_id = ${accountId}::uuid
       LIMIT 1
     `;
-    if (rows[0] && rows[0].user_name !== entry.user && isStaff(currentUser) && !canActOnBehalf) {
+    const existingOwnerUserId = normalizeText(rows?.[0]?.user_id);
+    const existingOwnerUserName = normalizeText(rows?.[0]?.user_name);
+    const isRowOwnedByActor =
+      (existingOwnerUserId && existingOwnerUserId === currentUserId) ||
+      (!existingOwnerUserId &&
+        existingOwnerUserName &&
+        currentUserDisplayName &&
+        existingOwnerUserName.toLowerCase() === currentUserDisplayName);
+    if (rows[0] && !isRowOwnedByActor && isStaff(currentUser) && !canActOnBehalf) {
       return errorResponse(403, "You can only update your own entries.");
     }
   }
@@ -4571,16 +4611,26 @@ async function deleteEntry(sql, payload, currentUser, accountId) {
   if (!entry) {
     return errorResponse(404, "Entry not found.");
   }
+  const entryOwnerUserId = normalizeText(entry.user_id);
+  const entryOwnerUserName = normalizeText(entry.user).toLowerCase();
+  const currentUserId = normalizeText(currentUser?.id);
+  const currentUserName = normalizeText(currentUser?.displayName).toLowerCase();
+  const isActorEditingOwnEntry =
+    (entryOwnerUserId && currentUserId && entryOwnerUserId === currentUserId) ||
+    (!entryOwnerUserId && entryOwnerUserName && currentUserName && entryOwnerUserName === currentUserName);
 
   const project = await findProject(sql, entry.client, entry.project, accountId);
-  if (!project || project.isActive === false || project.is_active === false) {
+  if (
+    !isActorEditingOwnEntry &&
+    (!project || project.isActive === false || project.is_active === false)
+  ) {
     return errorResponse(400, deactivatedProjectRevisionMessage());
   }
 
   if (isAdmin(currentUser)) {
     // Full access.
   } else if (isManager(currentUser)) {
-    if (project) {
+    if (!isActorEditingOwnEntry && project) {
       const hasAccess = await managerHasProjectAccess(
         sql,
         currentUser.id,
@@ -4595,14 +4645,14 @@ async function deleteEntry(sql, payload, currentUser, accountId) {
       (entry.user_id && (await findUserById(sql, entry.user_id, accountId))) ||
       (await findUserByDisplayName(sql, entry.user, accountId));
     const targetGroup = permissionGroupForUser(targetUser);
-    if (targetUser && targetUser.id !== currentUser.id && targetGroup !== "staff") {
+    if (!isActorEditingOwnEntry && targetUser && targetUser.id !== currentUser.id && targetGroup !== "staff") {
       return errorResponse(403, "Managers can only edit staff time.");
     }
   } else if (isStaff(currentUser)) {
-    if ((entry.user_id && entry.user_id !== currentUser.id) || (!entry.user_id && entry.user !== currentUser.displayName)) {
+    if (!isActorEditingOwnEntry && ((entry.user_id && entry.user_id !== currentUser.id) || (!entry.user_id && entry.user !== currentUser.displayName))) {
       return errorResponse(403, "You can only delete your own entries.");
     }
-    if (project) {
+    if (!isActorEditingOwnEntry && project) {
       const memberRows = await sql`
         SELECT id
         FROM project_members
@@ -4684,8 +4734,16 @@ async function canDeleteEntryRecord(sql, entry, currentUser, accountId) {
   const entryProject = normalizeText(entry.project_name) || normalizeText(entry.project);
   const entryUserName = normalizeText(entry.user_name) || normalizeText(entry.user);
   const entryUserId = normalizeText(entry.user_id || "");
+  const actorUserId = normalizeText(currentUser?.id);
+  const actorUserName = normalizeText(currentUser?.displayName);
+  const isActorEditingOwnEntry =
+    (entryUserId && actorUserId && entryUserId === actorUserId) ||
+    (!entryUserId &&
+      entryUserName &&
+      actorUserName &&
+      entryUserName.toLowerCase() === actorUserName.toLowerCase());
   const project = await findProject(sql, entryClient, entryProject, accountId);
-  if (!project && !isAdmin(currentUser)) {
+  if (!isActorEditingOwnEntry && !project && !isAdmin(currentUser)) {
     return false;
   }
 
@@ -4694,7 +4752,7 @@ async function canDeleteEntryRecord(sql, entry, currentUser, accountId) {
   }
 
   if (isManager(currentUser)) {
-    if (project) {
+    if (!isActorEditingOwnEntry && project) {
       const hasAccess = await managerHasProjectAccess(
         sql,
         currentUser.id,
@@ -4709,17 +4767,17 @@ async function canDeleteEntryRecord(sql, entry, currentUser, accountId) {
       (entryUserId && (await findUserById(sql, entryUserId, accountId))) ||
       (await findUserByDisplayName(sql, entryUserName, accountId));
     const targetGroup = permissionGroupForUser(targetUser);
-    if (targetUser && targetUser.id !== currentUser.id && targetGroup !== "staff") {
+    if (!isActorEditingOwnEntry && targetUser && targetUser.id !== currentUser.id && targetGroup !== "staff") {
       return false;
     }
     return true;
   }
 
   if (isStaff(currentUser)) {
-    if ((entryUserId && entryUserId !== currentUser.id) || (!entryUserId && entryUserName !== currentUser.displayName)) {
+    if (!isActorEditingOwnEntry && ((entryUserId && entryUserId !== currentUser.id) || (!entryUserId && entryUserName !== currentUser.displayName))) {
       return false;
     }
-    if (project) {
+    if (!isActorEditingOwnEntry && project) {
       const memberRows = await sql`
         SELECT id
         FROM project_members

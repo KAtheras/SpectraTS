@@ -4962,6 +4962,73 @@ async function loadState(sql, currentUser) {
   if (!canViewInternalRecords) {
     entries = entries.filter((entry) => !isInternalEntryRecord(entry) || isOwnEntryRecord(entry));
   }
+  if (normalizedUser) {
+    const ownEntries = await sql`
+      SELECT
+        entries.id,
+        entries.user_name AS "user",
+        u.id AS "userId",
+        TO_CHAR(entries.entry_date, 'YYYY-MM-DD') AS date,
+        CASE
+          WHEN entries.charge_center_id IS NOT NULL THEN 'Internal'
+          ELSE COALESCE(clients.name, entries.client_name, 'Internal')
+        END AS client,
+        CASE
+          WHEN entries.charge_center_id IS NOT NULL
+            THEN COALESCE(NULLIF(TRIM(CONCAT_WS(' / ', NULLIF(TRIM(cfg.name), ''), NULLIF(TRIM(cfc.name), ''))), ''), NULLIF(TRIM(entries.project_name), ''), 'Internal')
+          ELSE COALESCE(projects.name, NULLIF(TRIM(entries.project_name), ''), 'Internal')
+        END AS project,
+        entries.project_id AS "projectId",
+        entries.charge_center_id AS "chargeCenterId",
+        entries.task,
+        entries.hours::FLOAT8 AS hours,
+        entries.notes,
+        entries.billable,
+        entries.status,
+        entries.created_at AS "createdAt",
+        entries.updated_at AS "updatedAt"
+      FROM entries
+      LEFT JOIN users u
+        ON (u.id = entries.user_id OR LOWER(u.display_name) = LOWER(entries.user_name))
+       AND u.account_id = ${accountUuid}::uuid
+      LEFT JOIN clients
+        ON LOWER(clients.name) = LOWER(entries.client_name)
+       AND clients.account_id = ${accountUuid}::uuid
+      LEFT JOIN projects
+        ON projects.id = entries.project_id
+        OR (
+          entries.project_id IS NULL
+          AND projects.client_id = clients.id
+          AND LOWER(projects.name) = LOWER(entries.project_name)
+        )
+      LEFT JOIN corporate_function_categories cfc
+        ON cfc.id = entries.charge_center_id
+       AND cfc.account_id = ${accountUuid}::uuid
+      LEFT JOIN corporate_function_groups cfg
+        ON cfg.id = cfc.group_id
+       AND cfg.account_id = ${accountUuid}::uuid
+      WHERE entries.account_id = ${accountUuid}::uuid
+        AND entries.deleted_at IS NULL
+        AND (
+          entries.user_id = ${normalizedUser.id}
+          OR LOWER(entries.user_name) = LOWER(${normalizedUser.displayName})
+        )
+      ORDER BY entries.entry_date DESC, entries.created_at DESC
+    `;
+    const entryById = new Map(entries.map((item) => [item?.id, item]));
+    ownEntries.forEach((item) => {
+      if (!item?.id) return;
+      entryById.set(item.id, item);
+    });
+    entries = Array.from(entryById.values()).sort((a, b) => {
+      const leftDate = `${a?.date || ""}`;
+      const rightDate = `${b?.date || ""}`;
+      if (leftDate === rightDate) {
+        return `${b?.createdAt || ""}`.localeCompare(`${a?.createdAt || ""}`);
+      }
+      return rightDate.localeCompare(leftDate);
+    });
+  }
 
   let expenses = [];
   if (canViewAllEntries || canViewOfficeEntries || hasAssignedProjectEntryVisibility) {
@@ -5123,6 +5190,42 @@ async function loadState(sql, currentUser) {
   }
   if (!canViewInternalRecords) {
     expenses = expenses.filter((expense) => !isInternalExpenseRecord(expense) || isOwnExpenseRecord(expense));
+  }
+  if (normalizedUser) {
+    const ownExpenses = await sql`
+      SELECT
+        id,
+        user_id AS "userId",
+        client_name AS "clientName",
+        project_name AS "projectName",
+        expense_date AS "expenseDate",
+        category,
+        amount::FLOAT8 AS amount,
+        is_billable AS "isBillable",
+        COALESCE(notes, '') AS notes,
+        status,
+        approved_at AS "approvedAt",
+        created_at AS "createdAt",
+        updated_at AS "updatedAt"
+      FROM expenses
+      WHERE account_id = ${accountUuid}::uuid
+        AND deleted_at IS NULL
+        AND user_id = ${normalizedUser.id}
+      ORDER BY expense_date DESC, created_at DESC NULLS LAST
+    `;
+    const expenseById = new Map(expenses.map((item) => [item?.id, item]));
+    ownExpenses.forEach((item) => {
+      if (!item?.id) return;
+      expenseById.set(item.id, item);
+    });
+    expenses = Array.from(expenseById.values()).sort((a, b) => {
+      const leftDate = `${a?.expenseDate || ""}`;
+      const rightDate = `${b?.expenseDate || ""}`;
+      if (leftDate === rightDate) {
+        return `${b?.createdAt || ""}`.localeCompare(`${a?.createdAt || ""}`);
+      }
+      return rightDate.localeCompare(leftDate);
+    });
   }
 
   let users = [];
