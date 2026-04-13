@@ -36,23 +36,6 @@
       .analytics-chart-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
       .analytics-chart-empty { color: var(--muted); font-size: .9rem; padding: 14px 0; }
       .analytics-trend-chart { width: 100%; height: 280px; }
-      .analytics-table-wrap { border: 1px solid var(--line); border-radius: 10px; overflow: auto; background: var(--surface); }
-      .analytics-table-wrap table { width: 100%; min-width: 760px; border-collapse: collapse; }
-      .analytics-table-wrap th, .analytics-table-wrap td { padding: 10px 12px; border-bottom: 1px solid var(--line); text-align: left; }
-      .analytics-table-wrap thead th {
-        font-size: .75rem;
-        color: var(--muted);
-        text-transform: uppercase;
-        letter-spacing: .04em;
-        position: sticky;
-        top: 0;
-        background: var(--surface);
-        z-index: 1;
-      }
-      .analytics-table-wrap td.num, .analytics-table-wrap th.num { text-align: right; }
-      .analytics-table-wrap tbody tr:nth-child(even) { background: color-mix(in srgb, var(--surface) 94%, var(--line) 6%); }
-      .analytics-table-wrap tbody tr:hover { background: color-mix(in srgb, var(--surface) 80%, var(--accent) 20%); }
-      .analytics-table-wrap tbody td:first-child { font-weight: 560; }
       .analytics-footnote { color: var(--muted); font-size: .76rem; }
     `;
     document.head.appendChild(style);
