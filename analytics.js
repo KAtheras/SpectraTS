@@ -1,26 +1,46 @@
 (function () {
   const stateByContainer = new WeakMap();
+  const chartInstanceByContainer = new WeakMap();
+  const chartInstances = new Set();
+  let chartResizeBound = false;
 
   function ensureStyles() {
     if (document.getElementById("analytics-phase1-style")) return;
     const style = document.createElement("style");
     style.id = "analytics-phase1-style";
     style.textContent = `
-      .analytics-panel { display: grid; gap: 12px; }
-      .analytics-filters { display: grid; grid-template-columns: repeat(6, minmax(140px, 1fr)); gap: 8px; }
-      .analytics-filters label { display: grid; gap: 4px; font-size: .8rem; color: var(--muted); }
+      .analytics-panel { display: grid; gap: 14px; padding-top: 2px; }
+      .analytics-filters {
+        display: grid;
+        grid-template-columns: minmax(180px, 1.25fr) repeat(6, minmax(140px, 1fr));
+        gap: 8px;
+        padding: 10px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: color-mix(in srgb, var(--surface) 82%, transparent);
+      }
+      .analytics-filters label { display: grid; gap: 4px; font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
       .analytics-filters select, .analytics-filters input { min-height: 34px; }
-      .analytics-kpis { display: grid; grid-template-columns: repeat(5, minmax(120px, 1fr)); gap: 8px; }
-      .analytics-kpi { border: 1px solid var(--line); border-radius: 8px; padding: 10px; background: var(--surface); }
-      .analytics-kpi-label { font-size: .76rem; color: var(--muted); margin-bottom: 4px; }
-      .analytics-kpi-value { font-size: 1.05rem; font-weight: 600; }
-      .analytics-chart-wrap { border: 1px solid var(--line); border-radius: 10px; padding: 10px; background: var(--surface); }
-      .analytics-chart-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+      .analytics-filter-range { min-width: 220px; }
+      .analytics-kpis { display: grid; grid-template-columns: repeat(5, minmax(140px, 1fr)); gap: 10px; }
+      .analytics-kpi {
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 12px;
+        background: linear-gradient(180deg, color-mix(in srgb, var(--surface) 95%, #fff 5%) 0%, var(--surface) 100%);
+      }
+      .analytics-kpi-label { font-size: .72rem; color: var(--muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: .05em; }
+      .analytics-kpi-value { font-size: 1.2rem; font-weight: 650; line-height: 1.2; }
+      .analytics-chart-wrap { border: 1px solid var(--line); border-radius: 10px; padding: 10px 10px 6px; background: var(--surface); }
+      .analytics-chart-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
       .analytics-chart-empty { color: var(--muted); font-size: .9rem; padding: 14px 0; }
+      .analytics-trend-chart { width: 100%; height: 280px; }
       .analytics-table-wrap { border: 1px solid var(--line); border-radius: 10px; overflow: auto; background: var(--surface); }
       .analytics-table-wrap table { width: 100%; min-width: 760px; border-collapse: collapse; }
-      .analytics-table-wrap th, .analytics-table-wrap td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: left; }
+      .analytics-table-wrap th, .analytics-table-wrap td { padding: 10px 12px; border-bottom: 1px solid var(--line); text-align: left; }
+      .analytics-table-wrap thead th { font-size: .75rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
       .analytics-table-wrap td.num, .analytics-table-wrap th.num { text-align: right; }
+      .analytics-table-wrap tbody tr:hover { background: color-mix(in srgb, var(--surface) 80%, var(--accent) 20%); }
       .analytics-footnote { color: var(--muted); font-size: .76rem; }
     `;
     document.head.appendChild(style);
@@ -49,6 +69,46 @@
   function formatHours(value) {
     const n = toNumber(value);
     return `${n.toFixed(1)}h`;
+  }
+
+  function formatShortDate(isoDate) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(isoDate || "")) return "";
+    const [year, month, day] = isoDate.split("-");
+    return `${month}/${day}/${year.slice(-2)}`;
+  }
+
+  function setRangeDisplayValue(input, fromIso, toIso) {
+    if (!input) return;
+    if (fromIso && toIso) {
+      input.value = `${formatShortDate(fromIso)} – ${formatShortDate(toIso)}`;
+      return;
+    }
+    if (fromIso) {
+      input.value = `${formatShortDate(fromIso)} –`;
+      return;
+    }
+    input.value = "Select date range";
+  }
+
+  function wireAnalyticsDateRangePicker(filterForm) {
+    const rangeInput = filterForm?.elements?.dateRange;
+    const fromInput = filterForm?.elements?.fromDate;
+    const toInput = filterForm?.elements?.toDate;
+    if (!rangeInput || !fromInput || !toInput) return;
+
+    rangeInput.dataset.dpFilter = "true";
+    rangeInput.dataset.dpRange = "true";
+    rangeInput._dpRangeFrom = fromInput;
+    rangeInput._dpRangeTo = toInput;
+    rangeInput._dpAnchor = rangeInput;
+
+    setRangeDisplayValue(rangeInput, safeText(fromInput.value), safeText(toInput.value));
+
+    const picker = window.datePicker;
+    if (picker && typeof picker.register === "function" && rangeInput.dataset.dpBound !== "true") {
+      picker.register(rangeInput);
+      setRangeDisplayValue(rangeInput, safeText(fromInput.value), safeText(toInput.value));
+    }
   }
 
   function monthLabel(isoMonthDate) {
@@ -114,69 +174,86 @@
     return options.join("");
   }
 
-  function buildTrendSvg(trend, metric) {
-    const values = (trend || []).map((item) => toNumber(item?.[metric]));
-    if (!values.length) {
-      return '<div class="analytics-chart-empty">No data in current filter range.</div>';
+  function bindChartResize() {
+    if (chartResizeBound) return;
+    chartResizeBound = true;
+    window.addEventListener("resize", () => {
+      chartInstances.forEach((instance) => {
+        if (instance && !instance.isDisposed()) {
+          instance.resize();
+        }
+      });
+    });
+  }
+
+  function renderTrendChart(container, trend, metric, metricLabel) {
+    if (!container) return;
+    const echarts = window.echarts;
+    if (!echarts || typeof echarts.init !== "function") {
+      container.innerHTML = '<div class="analytics-chart-empty">Chart library failed to load.</div>';
+      return;
+    }
+    if (!(trend || []).length) {
+      container.innerHTML = '<div class="analytics-chart-empty">No data in current filter range.</div>';
+      return;
     }
 
-    const width = 920;
-    const height = 240;
-    const padX = 34;
-    const padY = 20;
-    const innerW = width - padX * 2;
-    const innerH = height - padY * 2;
+    container.innerHTML = '<div class="analytics-trend-chart" data-analytics-trend-chart></div>';
+    const chartEl = container.querySelector("[data-analytics-trend-chart]");
+    if (!chartEl) return;
 
-    const max = Math.max(...values, 0);
-    const min = Math.min(...values, 0);
-    const range = Math.max(max - min, 1);
+    const existing = chartInstanceByContainer.get(container);
+    if (existing?.instance && !existing.instance.isDisposed()) {
+      chartInstances.delete(existing.instance);
+      existing.instance.dispose();
+    }
+    const chart = echarts.init(chartEl);
+    chartInstanceByContainer.set(container, { instance: chart });
+    chartInstances.add(chart);
+    bindChartResize();
 
-    const points = values.map((value, index) => {
-      const x = padX + ((values.length === 1 ? 0.5 : index / (values.length - 1)) * innerW);
-      const y = padY + ((max - value) / range) * innerH;
-      return { x, y, value, label: monthLabel(trend[index]?.month) };
+    const labels = trend.map((item) => monthLabel(item?.month));
+    const values = trend.map((item) => toNumber(item?.[metric]));
+    const accent = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#2f6fed";
+
+    chart.setOption({
+      animation: false,
+      grid: { left: 44, right: 18, top: 18, bottom: 34 },
+      tooltip: {
+        trigger: "axis",
+        valueFormatter: (value) => formatMoney(value),
+      },
+      xAxis: {
+        type: "category",
+        data: labels,
+        axisTick: { show: false },
+      },
+      yAxis: {
+        type: "value",
+        axisLabel: {
+          formatter: (value) => {
+            const abs = Math.abs(value);
+            if (abs >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
+            if (abs >= 1000) return `${(value / 1000).toFixed(0)}k`;
+            return String(Math.round(value));
+          },
+        },
+        splitLine: { lineStyle: { color: "rgba(128,128,128,0.25)" } },
+      },
+      series: [
+        {
+          name: metricLabel,
+          data: values,
+          type: "line",
+          smooth: false,
+          symbol: "circle",
+          symbolSize: 7,
+          lineStyle: { width: 2.5, color: accent },
+          itemStyle: { color: accent },
+          areaStyle: { color: "rgba(47,111,237,0.10)" },
+        },
+      ],
     });
-
-    const path = points
-      .map((point, index) => `${index === 0 ? "M" : "L"}${point.x.toFixed(2)},${point.y.toFixed(2)}`)
-      .join(" ");
-
-    const baselineY = padY + ((max - 0) / range) * innerH;
-    const ticks = [max, max - range / 2, min];
-
-    const xLabels = points
-      .map((point) => {
-        const label = point.label;
-        if (!label) return "";
-        return `<text x="${point.x.toFixed(2)}" y="${height - 2}" text-anchor="middle" font-size="11" fill="var(--muted)">${escapeHtml(label)}</text>`;
-      })
-      .join("");
-
-    const yGrid = ticks
-      .map((value) => {
-        const y = padY + ((max - value) / range) * innerH;
-        return `<g>
-          <line x1="${padX}" y1="${y.toFixed(2)}" x2="${width - padX}" y2="${y.toFixed(2)}" stroke="var(--line)" stroke-dasharray="4 3" />
-          <text x="${padX - 6}" y="${(y + 4).toFixed(2)}" text-anchor="end" font-size="11" fill="var(--muted)">${escapeHtml(formatMoney(value))}</text>
-        </g>`;
-      })
-      .join("");
-
-    const circles = points
-      .map(
-        (point) => `<circle cx="${point.x.toFixed(2)}" cy="${point.y.toFixed(2)}" r="3" fill="var(--accent)" />`
-      )
-      .join("");
-
-    return `
-      <svg viewBox="0 0 ${width} ${height}" width="100%" height="250" role="img" aria-label="Trend chart">
-        ${yGrid}
-        <line x1="${padX}" y1="${baselineY.toFixed(2)}" x2="${width - padX}" y2="${baselineY.toFixed(2)}" stroke="var(--line)" />
-        <path d="${path}" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
-        ${circles}
-        ${xLabels}
-      </svg>
-    `;
   }
 
   function renderAnalyticsPage(options) {
@@ -260,13 +337,11 @@
     body.innerHTML = `
       <div class="analytics-panel" data-analytics-root>
         <form class="analytics-filters" data-analytics-filters>
-          <label>
-            <span>From</span>
-            <input type="date" name="fromDate" value="${escapeHtml(uiState.fromDate)}" />
-          </label>
-          <label>
-            <span>To</span>
-            <input type="date" name="toDate" value="${escapeHtml(uiState.toDate)}" />
+          <label class="analytics-filter-range">
+            <span>Date range</span>
+            <input type="text" name="dateRange" value="" readonly autocomplete="off" />
+            <input type="hidden" name="fromDate" value="${escapeHtml(uiState.fromDate)}" />
+            <input type="hidden" name="toDate" value="${escapeHtml(uiState.toDate)}" />
           </label>
           <label>
             <span>Scope</span>
@@ -321,7 +396,7 @@
           <div class="analytics-chart-head">
             <strong>${escapeHtml(metricLabelMap[uiState.trendMetric] || "Revenue")} trend</strong>
           </div>
-          ${buildTrendSvg(computed.trend, uiState.trendMetric)}
+          <div data-analytics-chart-host></div>
         </section>
 
         <section class="analytics-table-wrap">
@@ -347,6 +422,13 @@
 
     const filterForm = body.querySelector("[data-analytics-filters]");
     if (!filterForm) return;
+    wireAnalyticsDateRangePicker(filterForm);
+    renderTrendChart(
+      body.querySelector("[data-analytics-chart-host]"),
+      computed.trend,
+      uiState.trendMetric,
+      metricLabelMap[uiState.trendMetric] || "Revenue"
+    );
 
     const syncUiStateFromForm = () => {
       uiState.fromDate = safeText(filterForm.elements.fromDate?.value);
