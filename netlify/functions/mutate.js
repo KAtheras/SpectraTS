@@ -3634,6 +3634,7 @@ async function toggleExpenseStatus(sql, payload, currentUser, accountId) {
     FROM expenses
     WHERE id = ${id}
       AND account_id = ${accountId}::uuid
+      AND deleted_at IS NULL
     LIMIT 1
   `;
   const expense = rows[0];
@@ -4860,6 +4861,7 @@ async function unapproveEntry(sql, payload, currentUser, accountId) {
     FROM entries
     WHERE id = ${id}
       AND account_id = ${accountId}::uuid
+      AND deleted_at IS NULL
     LIMIT 1
   `;
   const entry = rows[0];

@@ -4204,13 +4204,11 @@ async function loadState(sql, currentUser) {
         LIMIT 1
       `
     )[0];
-  const isSuperAdmin = normalizedUser && isAdmin(normalizedUser); // keep legacy flag equivalent to admin group
   const levelLabels = await listLevelLabels(sql, accountUuid);
   const currentGroup = normalizedUser ? permissionGroupForUser(normalizedUser, levelLabels) : null;
   const isAdminFlag = currentGroup === "admin" || currentGroup === "superuser";
   const isExecFlag = currentGroup === "executive" || currentGroup === "superuser";
   const isManagerFlag = currentGroup === "manager" || isExecFlag || isAdminFlag;
-  const isStaffFlag = currentGroup === "staff";
   if (normalizedUser) {
     normalizedUser.permissionGroup = currentGroup;
     normalizedUser.permission_group = currentGroup;
@@ -4218,7 +4216,6 @@ async function loadState(sql, currentUser) {
 
   const permissionRows = await permissions.loadPermissionsFromDb(sql);
   const permissionIndex = permissions.buildIndex({ permissions: permissionRows });
-  const roleKey = normalizedUser ? permissions.roleKeyFromUser(normalizedUser) : null;
   const canCap = (capability, ctx = {}) =>
     permissions.can(normalizedUser, capability, {
       permissionIndex,
@@ -4444,19 +4441,6 @@ async function loadState(sql, currentUser) {
   const hasGlobalClientsProjectsScope = Boolean(canSeeAllClientsProjects);
   const hasOfficeClientsProjectsScope = Boolean(canSeeOfficeClientsProjects);
   const hasAssignedVisibilityScope = Boolean(canSeeAssignedClientsProjects);
-  const hasAssignedClientsProjectsScope = Boolean(hasAssignedVisibilityScope);
-  const clientsProjectsScopeMode =
-    !normalizedUser || !canAccessClientsShell
-      ? "none"
-      : hasGlobalClientsProjectsScope
-        ? "global"
-        : hasOfficeClientsProjectsScope && hasAssignedClientsProjectsScope
-          ? "office_plus_assigned"
-        : hasOfficeClientsProjectsScope
-          ? "office"
-        : hasAssignedClientsProjectsScope
-          ? "assigned"
-          : "none";
   const allClients = await listClients(sql, accountUuid);
   const allProjects = await listProjects(sql, accountUuid);
   let actorProjectIds = [...actorDirectAssignedProjectIds];

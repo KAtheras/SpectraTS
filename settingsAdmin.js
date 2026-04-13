@@ -1671,11 +1671,6 @@
       bulkUploadRows.insertBefore(preview, nextSibling || null);
     };
 
-    const formatRowCount = function (count, singular, plural) {
-      const qty = Number(count) || 0;
-      return `${qty} ${qty === 1 ? singular : plural}`;
-    };
-
     const uploadTypeNouns = function (kind) {
       if (kind === "expenses") return { singular: "expense", plural: "expenses" };
       if (kind === "members") return { singular: "member", plural: "members" };
@@ -2057,10 +2052,6 @@
           if (!email || !email.includes("@")) {
             rowStatus = "Invalid";
             rowErrors.push("Valid email is required.");
-          }
-          if (matchedUserByUserId) {
-            rowStatus = "Invalid";
-            rowErrors.push("User ID already exists. Member uploads can only create new members.");
           }
           if (!matchedUserByUserId && matchedUserByEmployeeId) {
             rowStatus = "Invalid";
@@ -2586,6 +2577,7 @@
       const rejectedRows = objects.filter((row) => row.status !== "Valid");
       let importedCount = 0;
       let createdCount = 0;
+      let updatedCount = 0;
       let failedCount = 0;
       if (openMembersBtn) openMembersBtn.disabled = true;
       const usersById = new Map(
@@ -2613,34 +2605,56 @@
           const hasBaseRate = baseRateRaw !== null && Number.isFinite(baseRateRaw);
           const hasCostRate = costRateRaw !== null && Number.isFinite(costRateRaw);
           const existingUserId = `${row._resolvedUserId || ""}`.trim();
+          let createdUserId = "";
           if (existingUserId) {
-            throw new Error("User ID already exists. Member uploads can only create new members.");
+            await deps().mutatePersistentState(
+              "update_user",
+              {
+                source: "bulk_upload",
+                userId: existingUserId,
+                displayName,
+                username,
+                email,
+                employeeId,
+                level,
+                officeId,
+                baseRate: hasBaseRate ? baseRateRaw : null,
+                costRate: hasCostRate ? costRateRaw : null,
+              },
+              {
+                skipHydrate: true,
+                skipSettingsMetadataReload: true,
+                refreshState: false,
+                returnState: false,
+              }
+            );
+            createdUserId = existingUserId;
+          } else {
+            const addResult = await deps().mutatePersistentState(
+              "add_user",
+              {
+                source: "bulk_upload",
+                displayName,
+                username,
+                email,
+                employeeId,
+                level,
+                officeId,
+                baseRate: hasBaseRate ? baseRateRaw : null,
+                costRate: hasCostRate ? costRateRaw : null,
+              },
+              {
+                skipHydrate: true,
+                skipSettingsMetadataReload: true,
+                refreshState: false,
+                returnState: false,
+              }
+            );
+            createdUserId = `${addResult?.createdUserId || ""}`.trim();
           }
-
-          const addResult = await deps().mutatePersistentState(
-            "add_user",
-            {
-              source: "bulk_upload",
-              displayName,
-              username,
-              email,
-              employeeId,
-              level,
-              officeId,
-              baseRate: hasBaseRate ? baseRateRaw : null,
-              costRate: hasCostRate ? costRateRaw : null,
-            },
-            {
-              skipHydrate: true,
-              skipSettingsMetadataReload: true,
-              refreshState: false,
-              returnState: false,
-            }
-          );
-          const createdUserId = `${addResult?.createdUserId || ""}`.trim();
           if (departmentId) {
             if (!createdUserId) {
-              throw new Error("Member created but could not resolve user id for department assignment.");
+              throw new Error("Member saved but could not resolve user id for department assignment.");
             }
             await deps().mutatePersistentState(
               "set_user_department",
@@ -2654,7 +2668,11 @@
             );
           }
           importedCount += 1;
-          createdCount += 1;
+          if (existingUserId) {
+            updatedCount += 1;
+          } else {
+            createdCount += 1;
+          }
           if (createdUserId) {
             usersById.set(createdUserId, {
               id: createdUserId,
@@ -2703,7 +2721,7 @@
       };
       latestPreviewPayload = null;
       previewKind = "";
-      const baseMessage = `Created ${createdCount}. ${invalidCount} invalid rows were not imported.`;
+      const baseMessage = `Created ${createdCount}. Updated ${updatedCount}. ${invalidCount} invalid rows were not imported.`;
       deps().feedback(
         failedCount > 0 ? `${baseMessage} ${failedCount} row(s) failed during import.` : baseMessage,
         failedCount > 0
