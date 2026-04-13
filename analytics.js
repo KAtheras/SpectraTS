@@ -38,9 +38,20 @@
       .analytics-table-wrap { border: 1px solid var(--line); border-radius: 10px; overflow: auto; background: var(--surface); }
       .analytics-table-wrap table { width: 100%; min-width: 760px; border-collapse: collapse; }
       .analytics-table-wrap th, .analytics-table-wrap td { padding: 10px 12px; border-bottom: 1px solid var(--line); text-align: left; }
-      .analytics-table-wrap thead th { font-size: .75rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+      .analytics-table-wrap thead th {
+        font-size: .75rem;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: .04em;
+        position: sticky;
+        top: 0;
+        background: var(--surface);
+        z-index: 1;
+      }
       .analytics-table-wrap td.num, .analytics-table-wrap th.num { text-align: right; }
+      .analytics-table-wrap tbody tr:nth-child(even) { background: color-mix(in srgb, var(--surface) 94%, var(--line) 6%); }
       .analytics-table-wrap tbody tr:hover { background: color-mix(in srgb, var(--surface) 80%, var(--accent) 20%); }
+      .analytics-table-wrap tbody td:first-child { font-weight: 560; }
       .analytics-footnote { color: var(--muted); font-size: .76rem; }
     `;
     document.head.appendChild(style);
@@ -193,8 +204,16 @@
       container.innerHTML = '<div class="analytics-chart-empty">Chart library failed to load.</div>';
       return;
     }
-    if (!(trend || []).length) {
-      container.innerHTML = '<div class="analytics-chart-empty">No data in current filter range.</div>';
+    const points = trend || [];
+    if (!points.length) {
+      container.innerHTML = '<div class="analytics-chart-empty">No trend data for the current filter range.</div>';
+      return;
+    }
+    const values = points.map((item) => toNumber(item?.[metric]));
+    const nonZeroPoints = values.filter((value) => Math.abs(value) > 0.0001).length;
+    if (points.length < 2 || nonZeroPoints === 0) {
+      container.innerHTML =
+        '<div class="analytics-chart-empty">Not enough meaningful data points to plot a trend yet.</div>';
       return;
     }
 
@@ -212,8 +231,7 @@
     chartInstances.add(chart);
     bindChartResize();
 
-    const labels = trend.map((item) => monthLabel(item?.month));
-    const values = trend.map((item) => toNumber(item?.[metric]));
+    const labels = points.map((item) => monthLabel(item?.month));
     const accent = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#2f6fed";
 
     chart.setOption({
@@ -315,12 +333,15 @@
       profit: "Profit",
     };
 
-    const scopeItems =
-      uiState.scope === "office"
-        ? scopeOptions.offices
-        : uiState.scope === "department"
-        ? scopeOptions.departments
-        : [];
+    const scopeItems = uiState.scope === "office" ? scopeOptions.offices : scopeOptions.departments;
+    const scopeLabel = uiState.scope === "office" ? "Office" : "Department";
+    const scopeSelectorHtml =
+      uiState.scope === "company"
+        ? ""
+        : `<label>
+            <span>${escapeHtml(scopeLabel)}</span>
+            <select name="scopeId">${renderOptions(scopeItems, uiState.scopeId, "All")}</select>
+          </label>`;
 
     const groupedRowsHtml = (computed.groupedRows || [])
       .map(
@@ -351,10 +372,7 @@
               <option value="department" ${uiState.scope === "department" ? "selected" : ""}>Department</option>
             </select>
           </label>
-          <label ${uiState.scope === "company" ? "hidden" : ""}>
-            <span>${uiState.scope === "office" ? "Office" : "Department"}</span>
-            <select name="scopeId">${renderOptions(scopeItems, uiState.scopeId, "All")}</select>
-          </label>
+          ${scopeSelectorHtml}
           <label>
             <span>Client (optional)</span>
             <select name="clientId">${renderOptions(clientProjectOptions.clients, uiState.clientId, "All")}</select>
