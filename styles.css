@@ -585,7 +585,8 @@ body[data-theme="dark"] .button {
   justify-content: center;
   width: auto;
   height: auto;
-  margin-top: 2px;
+  align-self: start;
+  margin-top: 8px;
 }
 
 .inbox-item-check input[type="checkbox"] {
@@ -738,22 +739,22 @@ body[data-theme="dark"] .button {
 }
 
 .inbox-item-delete {
-  width: 34px;
-  height: 34px;
-  border: 1px solid color-mix(in srgb, #b75a5a 40%, var(--line));
-  border-radius: 8px;
-  background: color-mix(in srgb, #b75a5a 8%, #ffffff);
+  width: auto;
+  height: auto;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   color: #b04747;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  padding: 0;
+  padding: 0 2px;
 }
 
 .inbox-item-delete svg {
-  width: 16px;
-  height: 16px;
+  width: 26px;
+  height: 26px;
   display: block;
 }
 

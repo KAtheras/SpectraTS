@@ -10086,11 +10086,8 @@
             <div class="inbox-item-meta-actions">
               <div class="inbox-item-time">${escapeHtml(createdAt)}</div>
               <button class="inbox-item-delete" type="button" data-inbox-action="delete" data-inbox-id="${escapeHtml(item.id)}" aria-label="Delete notification">
-                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                  <path d="M3.75 6.75h16.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
-                  <path d="M9.25 3.75h5.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
-                  <path d="M8.25 6.75l.7 11.1a1.35 1.35 0 0 0 1.35 1.25h3.4a1.35 1.35 0 0 0 1.35-1.25l.7-11.1" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
-                  <path d="M10.4 10.1v5.9M13.6 10.1v5.9" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+                <svg viewBox="0 -960 960 960" aria-hidden="true">
+                  <path d="M280-120q-33 0-56.5-23.5T200-200v-520h-40v-80h200v-40h240v40h200v80h-40v520q0 33-23.5 56.5T680-120H280Zm400-600H280v520h400v-520ZM360-280h80v-360h-80v360Zm160 0h80v-360h-80v360ZM280-720v520-520Z" fill="currentColor"/>
                 </svg>
               </button>
             </div>
