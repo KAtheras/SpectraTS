@@ -4712,6 +4712,14 @@
     setView("analytics");
   }
 
+  function handleOpenAnalyticsNav(event) {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    setView("analytics");
+  }
+
   function resolveActingAsUserId() {
     const normalizeId = (value) => `${value || ""}`.trim().toLowerCase();
     const currentUserIdRaw = `${state.currentUser?.id || ""}`.trim();
@@ -11368,10 +11376,10 @@
     refs.addUserForm.addEventListener("submit", handleAddUser);
   }
   if (refs.openAnalytics) {
-    refs.openAnalytics.addEventListener("click", openAnalyticsPage);
+    refs.openAnalytics.addEventListener("click", handleOpenAnalyticsNav);
   }
   if (refs.navAnalyticsMobile) {
-    refs.navAnalyticsMobile.addEventListener("click", openAnalyticsPage);
+    refs.navAnalyticsMobile.addEventListener("click", handleOpenAnalyticsNav);
   }
   if (refs.settingsToggle) {
     refs.settingsToggle.addEventListener("click", function (event) {
