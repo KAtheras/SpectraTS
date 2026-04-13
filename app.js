@@ -790,9 +790,10 @@
   }
 
   function setupAddClientHeaderAction() {
-    const addForm = refs.addClientForm;
-    if (!addForm) return;
-    const clientsColumn = addForm.closest(".catalog-column");
+    const clientsColumn =
+      refs.clientColumnLabel?.closest(".catalog-column") ||
+      refs.clientList?.closest(".catalog-column") ||
+      refs.addClientForm?.closest(".catalog-column");
     const header = clientsColumn?.querySelector(".catalog-column-head");
     if (!header) return;
     header.style.display = "flex";
@@ -856,8 +857,8 @@
       header.appendChild(clientLifecycleToggleWrap);
     }
     syncClientLifecycleToggleUi();
-    if (addForm.isConnected) {
-      addForm.remove();
+    if (refs.addClientForm && refs.addClientForm.isConnected) {
+      refs.addClientForm.remove();
     }
   }
 
@@ -9481,6 +9482,8 @@
     }
 
     if (view === "clients") {
+      setupAddClientHeaderAction();
+      setupAddProjectHeaderAction();
       renderClientEditor();
       syncClientEditorLeadField();
       renderCatalogLists({
