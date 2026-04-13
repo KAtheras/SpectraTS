@@ -1527,6 +1527,31 @@
       const finalize = () => {
         const payload = buildProjectDialogPayload();
         if (!payload) return;
+        const clientNameForValidation = String(
+          options?.clientName || state.selectedCatalogClient || ""
+        ).trim();
+        if (clientNameForValidation) {
+          const normalizedNextName = String(payload.projectName || "").trim().toLowerCase();
+          const duplicateProject = (state.projects || []).find((item) => {
+            if (!item) return false;
+            const itemClient = String(item.client || "").trim();
+            if (itemClient !== clientNameForValidation) return false;
+            const itemName = String(item.name || item.project || "").trim().toLowerCase();
+            if (itemName !== normalizedNextName) return false;
+            if (isProjectEditDialog) {
+              const itemId = String(item.id || "").trim();
+              if (currentProjectId && itemId && itemId === currentProjectId) return false;
+              if (!currentProjectId && itemName === String(currentName || "").trim().toLowerCase()) return false;
+            }
+            return true;
+          });
+          if (duplicateProject) {
+            setError("That project already exists for this client.");
+            nameInput?.focus();
+            nameInput?.select();
+            return;
+          }
+        }
         if (isProjectEditDialog) {
           cleanup();
           resolve(payload);
@@ -12272,6 +12297,20 @@
         feedback(msg, true);
         return;
       }
+      const normalizedNextClientName = String(values.name || "").trim().toLowerCase();
+      const hasDuplicateClientName = (state.clients || []).some((client) => {
+        const existingName = String(client?.name || "").trim().toLowerCase();
+        if (!existingName || existingName !== normalizedNextClientName) return false;
+        if (editor.mode !== "edit") return true;
+        const originalName = String(editor.originalName || "").trim().toLowerCase();
+        return existingName !== originalName;
+      });
+      if (hasDuplicateClientName) {
+        const msg = "That client already exists.";
+        setClientEditorMessage(form, msg);
+        feedback(msg, true);
+        return;
+      }
       const errors = [];
       const rawBizPhone = field(form, "business_contact_phone")?.value || "";
       const rawBillPhone = field(form, "billing_contact_phone")?.value || "";
@@ -12365,7 +12404,9 @@
           project: state.filters.project,
         });
       } catch (error) {
-        feedback(error.message || "Unable to save client.", true);
+        const msg = error.message || "Unable to save client.";
+        setClientEditorMessage(form, msg);
+        feedback(msg, true);
       }
       render();
     });
