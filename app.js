@@ -8981,6 +8981,16 @@
       refs.auditView.hidden = view !== "audit";
     }
 
+    if (view === "analytics" && refs.analyticsPage) {
+      const analyticsRenderer = window.analyticsFeature?.renderAnalyticsPage;
+      if (typeof analyticsRenderer === "function") {
+        analyticsRenderer({
+          container: refs.analyticsPage,
+          state,
+        });
+      }
+    }
+
     if (view === "project_planning") {
       if (refs.mainFrame) {
         const normalizedPlanningProjectId =
