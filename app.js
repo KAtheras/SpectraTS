@@ -4064,6 +4064,13 @@
     if (!count) {
       return;
     }
+    const selectedEntries = (state.entries || []).filter((entry) =>
+      selectedIds.includes(`${entry?.id || ""}`.trim())
+    );
+    if (selectedEntries.some((entry) => hasDeactivatedOrRemovedClientProject(entry))) {
+      await showDeactivatedClientProjectPrompt();
+      return;
+    }
 
     const result = await appDialog({
       title: "Delete entries",
@@ -4211,6 +4218,13 @@
     const selectedIds = selectedVisibleExpenseIds(visibleIds);
     const count = selectedIds.length;
     if (!count) {
+      return;
+    }
+    const selectedExpenses = (state.expenses || []).filter((expense) =>
+      selectedIds.includes(`${expense?.id || ""}`.trim())
+    );
+    if (selectedExpenses.some((expense) => hasDeactivatedOrRemovedClientProject(expense))) {
+      await showDeactivatedClientProjectPrompt();
       return;
     }
 
