@@ -203,6 +203,22 @@ function formatHoursCompact(value) {
   return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
 }
 
+function normalizeDigestDate(value) {
+  if (!value && value !== 0) return "";
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return value.toISOString().slice(0, 10);
+  }
+  const text = `${value || ""}`.trim();
+  if (!text) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
+  if (/^\d{4}-\d{2}-\d{2}T/i.test(text)) return text.slice(0, 10);
+  const parsed = new Date(text);
+  if (!Number.isNaN(parsed.getTime())) {
+    return parsed.toISOString().slice(0, 10);
+  }
+  return "";
+}
+
 function buildTimeDigestMessage({
   entryCount,
   totalHours,
@@ -411,8 +427,8 @@ async function fetchTimeEntryForDigest(sql, { accountId, entryId }) {
   `;
   const row = rows[0];
   if (!row) return null;
-  const digestDate = `${row.entryDate || ""}`.trim();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(digestDate)) return null;
+  const digestDate = normalizeDigestDate(row.entryDate);
+  if (!digestDate) return null;
   return {
     id: `${row.id || ""}`.trim(),
     userId: `${row.userId || ""}`.trim() || null,
@@ -881,6 +897,8 @@ async function dispatchNotificationEvent(sql, payload = {}) {
     if (eventType === "time_entry_created") {
       if (filteredDigestRecipientUserIds.length) {
         await upsertTimeEntryDailyDigestInboxItems(sql, payload, filteredDigestRecipientUserIds);
+      } else if (inboxRecipientUserIds.length) {
+        await upsertTimeEntryDailyDigestInboxItems(sql, payload, inboxRecipientUserIds);
       }
     } else if (inboxRecipientUserIds.length) {
       await createSystemInboxItems(sql, {
