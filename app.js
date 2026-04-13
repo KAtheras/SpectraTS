@@ -10345,23 +10345,15 @@
   refs.loginForm.addEventListener("submit", submitLogin);
   refs.bootstrapForm.addEventListener("submit", submitBootstrap);
 
-  function bindPrimaryNavigation() {
-    const routeClick = function (event) {
-      const trigger = event.target?.closest?.("[data-nav-view]");
-      if (!trigger) return;
-      const nextView = `${trigger.dataset.navView || ""}`.trim().toLowerCase();
-      if (!nextView) return;
-      event.preventDefault();
-      setView(nextView);
-      if (nextView === "audit") {
-        loadAuditLogs();
+  document.querySelectorAll('[data-nav-view]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const view = btn.getAttribute('data-nav-view');
+      if (view) {
+        setView(view);
       }
-    };
-    refs.appTopbar?.addEventListener("click", routeClick);
-    refs.mobileTabbar?.addEventListener("click", routeClick);
-  }
-
-  bindPrimaryNavigation();
+    });
+  });
 
   if (refs.inboxOpen) {
     refs.inboxOpen.addEventListener("click", function () {
