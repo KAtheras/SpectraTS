@@ -3154,12 +3154,12 @@
     {
       eventType: "time_entry_created",
       label: "Time entered",
-      recipientText: "Project manager (closest assigned)",
+      recipientText: "Project Lead",
     },
     {
       eventType: "expense_entry_created",
       label: "Expense entered",
-      recipientText: "Project manager (closest assigned)",
+      recipientText: "Project Lead",
     },
     {
       eventType: "entry_approved",
