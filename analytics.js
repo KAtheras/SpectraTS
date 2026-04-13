@@ -428,11 +428,11 @@
           </label>
           ${scopeSelectorHtml}
           <label>
-            <span>Client (optional)</span>
+            <span>Client</span>
             <select name="clientId">${renderOptions(clientProjectOptions.clients, uiState.clientId, "All")}</select>
           </label>
           <label>
-            <span>Project (optional)</span>
+            <span>Project</span>
             <select name="projectId">${renderOptions(projectItems, uiState.projectId, "All")}</select>
           </label>
           <label>
