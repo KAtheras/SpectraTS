@@ -860,24 +860,6 @@ async function dispatchNotificationEvent(sql, payload = {}) {
   const deliverEmail = shouldDeliverImmediateEmail(rule, eventType);
   if (!deliverInbox && !deliverEmail) return;
 
-  let digestRecipientUserIds = [];
-  if (deliverInbox && eventType === "time_entry_created") {
-    const entryRow = await fetchTimeEntryForDigest(sql, {
-      accountId,
-      entryId: payload.subjectId,
-    });
-    if (entryRow) {
-      digestRecipientUserIds = await listTimeDigestRecipientUserIdsByVisibility(sql, {
-        accountId,
-        actorUserId: payload.actorUserId,
-        entryRow,
-      });
-    }
-  }
-
-  const recipientUserIds = await resolveRecipientsByScope(sql, payload, rule);
-  if (!recipientUserIds.length && !digestRecipientUserIds.length) return;
-
   const suppressInboxRecipientSet = new Set(
     (Array.isArray(payload.suppressInboxRecipientUserIds)
       ? payload.suppressInboxRecipientUserIds
@@ -886,26 +868,47 @@ async function dispatchNotificationEvent(sql, payload = {}) {
       .map((id) => `${id || ""}`.trim())
       .filter(Boolean)
   );
+
+  if (eventType === "time_entry_created") {
+    if (deliverInbox) {
+      const entryRow = await fetchTimeEntryForDigest(sql, {
+        accountId,
+        entryId: payload.subjectId,
+      });
+      if (entryRow) {
+        const recipientUserIds = await listTimeDigestRecipientUserIdsByVisibility(sql, {
+          accountId,
+          actorUserId: payload.actorUserId,
+          entryRow,
+        });
+        const filteredRecipientUserIds = suppressInboxRecipientSet.size
+          ? recipientUserIds.filter((id) => !suppressInboxRecipientSet.has(`${id || ""}`.trim()))
+          : recipientUserIds;
+        if (filteredRecipientUserIds.length) {
+          await upsertTimeEntryDailyDigestInboxItems(sql, payload, filteredRecipientUserIds);
+        }
+      }
+    }
+    if (deliverEmail) {
+      const recipientUserIds = await resolveRecipientsByScope(sql, payload, rule);
+      if (recipientUserIds.length) {
+        await deliverNotificationEmails(sql, payload, recipientUserIds);
+      }
+    }
+    return;
+  }
+
+  const recipientUserIds = await resolveRecipientsByScope(sql, payload, rule);
+  if (!recipientUserIds.length) return;
   const inboxRecipientUserIds = suppressInboxRecipientSet.size
     ? recipientUserIds.filter((id) => !suppressInboxRecipientSet.has(`${id || ""}`.trim()))
     : recipientUserIds;
-  const filteredDigestRecipientUserIds = suppressInboxRecipientSet.size
-    ? digestRecipientUserIds.filter((id) => !suppressInboxRecipientSet.has(`${id || ""}`.trim()))
-    : digestRecipientUserIds;
 
-  if (deliverInbox) {
-    if (eventType === "time_entry_created") {
-      if (filteredDigestRecipientUserIds.length) {
-        await upsertTimeEntryDailyDigestInboxItems(sql, payload, filteredDigestRecipientUserIds);
-      } else if (inboxRecipientUserIds.length) {
-        await upsertTimeEntryDailyDigestInboxItems(sql, payload, inboxRecipientUserIds);
-      }
-    } else if (inboxRecipientUserIds.length) {
-      await createSystemInboxItems(sql, {
-        ...payload,
-        recipientUserIds: inboxRecipientUserIds,
-      });
-    }
+  if (deliverInbox && inboxRecipientUserIds.length) {
+    await createSystemInboxItems(sql, {
+      ...payload,
+      recipientUserIds: inboxRecipientUserIds,
+    });
   }
   if (deliverEmail) {
     await deliverNotificationEmails(sql, payload, recipientUserIds);
