@@ -6042,6 +6042,9 @@
           .slice()
           .sort((a, b) => (Number(a?.sortOrder) || 0) - (Number(b?.sortOrder) || 0))
       : [];
+    const validGroupIds = new Set(
+      groups.map((group) => `${group?.id || ""}`.trim()).filter(Boolean)
+    );
     const grouped = groups
       .map((group) => ({
         groupId: `${group?.id || ""}`.trim(),
@@ -6049,7 +6052,10 @@
         categories: categories.filter((item) => `${item?.groupId || ""}`.trim() === `${group?.id || ""}`.trim()),
       }))
       .filter((item) => item.groupId && item.groupName && item.categories.length);
-    const uncategorized = categories.filter((item) => !`${item?.groupId || ""}`.trim());
+    const uncategorized = categories.filter((item) => {
+      const groupId = `${item?.groupId || ""}`.trim();
+      return !groupId || !validGroupIds.has(groupId);
+    });
     if (uncategorized.length) {
       grouped.push({
         groupId: "__ungrouped_internal__",

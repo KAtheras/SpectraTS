@@ -493,6 +493,22 @@ async function listTimeDigestRecipientUserIdsByVisibility(sql, { accountId, acto
     return Array.from(recipients);
   }
 
+  const projectLeadRows = await sql`
+    SELECT p.project_lead_id AS "projectLeadId"
+    FROM projects p
+    JOIN users u
+      ON u.id = p.project_lead_id
+     AND u.account_id = p.account_id
+     AND u.is_active = TRUE
+    WHERE p.account_id = ${accountId}::uuid
+      AND p.id = ${projectId}
+    LIMIT 1
+  `;
+  const projectLeadId = `${projectLeadRows?.[0]?.projectLeadId || ""}`.trim();
+  if (projectLeadId && (!actorId || projectLeadId !== actorId)) {
+    recipients.add(projectLeadId);
+  }
+
   const projectManagerRows = await sql`
     SELECT manager_id AS "managerId"
     FROM manager_projects
@@ -801,16 +817,27 @@ async function dispatchNotificationEvent(sql, payload = {}) {
   if (!accountId) return;
 
   const rule = await getNotificationRule(sql, { accountId, eventType });
-  const ruleScope = String(rule?.recipientScope || "").trim().toLowerCase();
-  const canDeriveTimeDigestRecipients =
-    eventType === "time_entry_created" &&
-    ruleScope === "project_manager";
   const deliverInbox = shouldDeliverImmediateInbox(rule);
   const deliverEmail = shouldDeliverImmediateEmail(rule, eventType);
   if (!deliverInbox && !deliverEmail) return;
 
+  let digestRecipientUserIds = [];
+  if (deliverInbox && eventType === "time_entry_created") {
+    const entryRow = await fetchTimeEntryForDigest(sql, {
+      accountId,
+      entryId: payload.subjectId,
+    });
+    if (entryRow) {
+      digestRecipientUserIds = await listTimeDigestRecipientUserIdsByVisibility(sql, {
+        accountId,
+        actorUserId: payload.actorUserId,
+        entryRow,
+      });
+    }
+  }
+
   const recipientUserIds = await resolveRecipientsByScope(sql, payload, rule);
-  if (!recipientUserIds.length && !(deliverInbox && canDeriveTimeDigestRecipients)) return;
+  if (!recipientUserIds.length && !digestRecipientUserIds.length) return;
 
   const suppressInboxRecipientSet = new Set(
     (Array.isArray(payload.suppressInboxRecipientUserIds)
@@ -823,29 +850,14 @@ async function dispatchNotificationEvent(sql, payload = {}) {
   const inboxRecipientUserIds = suppressInboxRecipientSet.size
     ? recipientUserIds.filter((id) => !suppressInboxRecipientSet.has(`${id || ""}`.trim()))
     : recipientUserIds;
+  const filteredDigestRecipientUserIds = suppressInboxRecipientSet.size
+    ? digestRecipientUserIds.filter((id) => !suppressInboxRecipientSet.has(`${id || ""}`.trim()))
+    : digestRecipientUserIds;
 
   if (deliverInbox) {
     if (eventType === "time_entry_created") {
-      if (ruleScope === "project_manager") {
-        const entryRow = await fetchTimeEntryForDigest(sql, {
-          accountId,
-          entryId: payload.subjectId,
-        });
-        if (entryRow) {
-          const scopedRecipients = await listTimeDigestRecipientUserIdsByVisibility(sql, {
-            accountId,
-            actorUserId: payload.actorUserId,
-            entryRow,
-          });
-          const scopedRecipientUserIds = suppressInboxRecipientSet.size
-            ? scopedRecipients.filter((id) => !suppressInboxRecipientSet.has(`${id || ""}`.trim()))
-            : scopedRecipients;
-          if (scopedRecipientUserIds.length) {
-            await upsertTimeEntryDailyDigestInboxItems(sql, payload, scopedRecipientUserIds);
-          }
-        }
-      } else if (inboxRecipientUserIds.length) {
-        await upsertTimeEntryDailyDigestInboxItems(sql, payload, inboxRecipientUserIds);
+      if (filteredDigestRecipientUserIds.length) {
+        await upsertTimeEntryDailyDigestInboxItems(sql, payload, filteredDigestRecipientUserIds);
       }
     } else if (inboxRecipientUserIds.length) {
       await createSystemInboxItems(sql, {
