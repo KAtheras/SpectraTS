@@ -12,16 +12,17 @@
       .analytics-panel { display: grid; gap: 14px; padding-top: 2px; }
       .analytics-filters {
         display: grid;
-        grid-template-columns: minmax(180px, 1.25fr) repeat(6, minmax(140px, 1fr));
+        grid-template-columns: repeat(6, minmax(0, 1fr));
         gap: 8px;
         padding: 10px;
         border: 1px solid var(--line);
         border-radius: 10px;
         background: color-mix(in srgb, var(--surface) 82%, transparent);
+        align-items: end;
       }
       .analytics-filters label { display: grid; gap: 4px; font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
       .analytics-filters select, .analytics-filters input { min-height: 34px; }
-      .analytics-filter-range { min-width: 220px; }
+      .analytics-filter-range { min-width: 0; }
       .analytics-filter-check {
         display: flex;
         align-items: center;
@@ -257,8 +258,8 @@
     const profitValues = points.map((item) => toNumber(item?.profit));
     const revenueValues = costValues.map((cost, index) => cost + profitValues[index]);
     const accent = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#2f6fed";
-    const barCostColor = "rgba(64, 120, 192, 0.78)";
-    const barProfitColor = "rgba(74, 180, 132, 0.78)";
+    const areaCostColor = "rgba(64, 120, 192, 0.78)";
+    const areaProfitColor = "rgba(74, 180, 132, 0.78)";
     const selectedMetric = safeText(focusMetric || "revenue");
     const seriesOpacity = (metricKey) => (selectedMetric === metricKey ? 1 : 0.68);
 
@@ -301,17 +302,25 @@
         {
           name: "Cost",
           data: costValues,
-          type: "bar",
+          type: "line",
           stack: "total",
-          itemStyle: { color: barCostColor, opacity: seriesOpacity("cost") },
+          smooth: false,
+          symbol: "none",
+          lineStyle: { width: 1.6, color: areaCostColor, opacity: seriesOpacity("cost") },
+          itemStyle: { color: areaCostColor, opacity: seriesOpacity("cost") },
+          areaStyle: { color: "rgba(64, 120, 192, 0.30)", opacity: seriesOpacity("cost") },
           emphasis: { focus: "series" },
         },
         {
           name: "Profit",
           data: profitValues,
-          type: "bar",
+          type: "line",
           stack: "total",
-          itemStyle: { color: barProfitColor, opacity: seriesOpacity("profit") },
+          smooth: false,
+          symbol: "none",
+          lineStyle: { width: 1.6, color: areaProfitColor, opacity: seriesOpacity("profit") },
+          itemStyle: { color: areaProfitColor, opacity: seriesOpacity("profit") },
+          areaStyle: { color: "rgba(74, 180, 132, 0.28)", opacity: seriesOpacity("profit") },
           emphasis: { focus: "series" },
         },
         {
