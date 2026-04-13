@@ -8989,6 +8989,8 @@
           state,
         });
       }
+      postHeight();
+      return;
     }
 
     if (view === "project_planning") {
