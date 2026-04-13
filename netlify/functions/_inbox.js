@@ -660,7 +660,8 @@ async function upsertTimeEntryDailyDigestInboxItems(sql, payload = {}, recipient
           message = ${message},
           note_snippet = ${noteSnippet},
           deep_link_json = ${JSON.stringify(deepLink)}::jsonb,
-          is_read = FALSE
+          is_read = FALSE,
+          created_at = NOW()
         WHERE id = ${existing.id}
       `;
       continue;
