@@ -7000,7 +7000,7 @@
       setInputsExpenseRowSaved,
       setInputsExpenseEditButtonVisible,
       setInputsExpenseDeleteButtonVisible,
-      () => true
+      isInputsExpenseRowReadyToSave
     );
   }
 
