@@ -10345,22 +10345,25 @@
   refs.loginForm.addEventListener("submit", submitLogin);
   refs.bootstrapForm.addEventListener("submit", submitBootstrap);
 
-  function bindPrimaryNavButton(button, viewName) {
-    if (!button) return;
-    button.addEventListener("click", function (event) {
+  function bindPrimaryNavigation() {
+    const routeClick = function (event) {
+      const trigger = event.target?.closest?.("[data-nav-view]");
+      if (!trigger) return;
+      const nextView = `${trigger.dataset.navView || ""}`.trim().toLowerCase();
+      if (!nextView) return;
       event.preventDefault();
       event.stopImmediatePropagation();
       event.stopPropagation();
-      setView(viewName);
-    });
+      setView(nextView);
+      if (nextView === "audit") {
+        loadAuditLogs();
+      }
+    };
+    refs.appTopbar?.addEventListener("click", routeClick);
+    refs.mobileTabbar?.addEventListener("click", routeClick);
   }
 
-  bindPrimaryNavButton(refs.navInputs, "inputs");
-  bindPrimaryNavButton(refs.navEntries, "entries");
-  bindPrimaryNavButton(refs.openAnalytics, "analytics");
-  bindPrimaryNavButton(refs.navInputsMobile, "inputs");
-  bindPrimaryNavButton(refs.navEntriesMobile, "entries");
-  bindPrimaryNavButton(refs.navAnalyticsMobile, "analytics");
+  bindPrimaryNavigation();
 
   if (refs.inboxOpen) {
     refs.inboxOpen.addEventListener("click", function () {
@@ -10797,42 +10800,9 @@
       }
     });
   }
-  if (refs.navAudit) {
-    refs.navAudit.addEventListener("click", function () {
-      if (!isAdmin(state.currentUser)) return;
-      setView("audit");
-      loadAuditLogs();
-    });
-  }
-  if (refs.navAuditMobile) {
-    refs.navAuditMobile.addEventListener("click", function () {
-      if (!isAdmin(state.currentUser)) return;
-      setView("audit");
-      loadAuditLogs();
-    });
-  }
-
-
-  if (refs.navMembers) {
-    refs.navMembers.addEventListener("click", function () {
-      setView("members");
-    });
-  }
-  if (refs.navMembersMobile) {
-    refs.navMembersMobile.addEventListener("click", function () {
-      setView("members");
-    });
-  }
-
   if (refs.logoutButton) {
     refs.logoutButton.addEventListener("click", function () {
       handleLogout();
-    });
-  }
-
-  if (refs.openCatalog) {
-    refs.openCatalog.addEventListener("click", function () {
-      setView("clients");
     });
   }
 
@@ -10875,12 +10845,6 @@
       true
     );
   }
-  if (refs.navClientsMobile) {
-    refs.navClientsMobile.addEventListener("click", function () {
-      setView("clients");
-    });
-  }
-
   // legacy back button removed; no handler needed
 
   if (refs.themeToggle) {
