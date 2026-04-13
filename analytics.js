@@ -23,17 +23,6 @@
       .analytics-filters label { display: grid; gap: 4px; font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
       .analytics-filters select, .analytics-filters input { min-height: 34px; }
       .analytics-filter-range { min-width: 0; }
-      .analytics-filter-check {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        min-height: 34px;
-        text-transform: none;
-        letter-spacing: 0;
-        font-size: .82rem;
-        color: var(--text);
-      }
-      .analytics-filter-check input { min-height: 16px; }
       .analytics-kpis { display: grid; grid-template-columns: repeat(5, minmax(140px, 1fr)); gap: 10px; }
       .analytics-kpi {
         border: 1px solid var(--line);
@@ -97,6 +86,73 @@
   function isInternalClientName(name) {
     const text = safeText(name).toLowerCase();
     return text === "internal" || text === "internal work";
+  }
+
+  function buildInternalScopeSets(dataState) {
+    const clients = Array.isArray(dataState?.clients) ? dataState.clients : [];
+    const projects = Array.isArray(dataState?.projects) ? dataState.projects : [];
+    const internalClientIds = new Set();
+    const internalProjectIds = new Set();
+
+    clients.forEach((client) => {
+      const id = safeText(client?.id);
+      const name = safeText(client?.name || client?.client || client?.clientName);
+      if (id && isInternalClientName(name)) {
+        internalClientIds.add(id);
+      }
+    });
+
+    projects.forEach((project) => {
+      const id = safeText(project?.id);
+      const clientId = safeText(project?.clientId || project?.client_id);
+      const clientName = safeText(project?.client || project?.clientName);
+      if (!id) return;
+      if (internalClientIds.has(clientId) || isInternalClientName(clientName)) {
+        internalProjectIds.add(id);
+      }
+    });
+
+    return { internalClientIds, internalProjectIds };
+  }
+
+  function isInternalRecord(record, internalScope) {
+    const projectId = safeText(record?.projectId || record?.project_id);
+    const clientId = safeText(record?.clientId || record?.client_id);
+    const clientName = safeText(record?.client || record?.clientName || record?.client_name);
+    if (projectId && internalScope.internalProjectIds.has(projectId)) return true;
+    if (clientId && internalScope.internalClientIds.has(clientId)) return true;
+    return isInternalClientName(clientName);
+  }
+
+  function excludeInternalAnalyticsData(dataState) {
+    const internalScope = buildInternalScopeSets(dataState);
+    const clients = (Array.isArray(dataState?.clients) ? dataState.clients : []).filter((client) => {
+      const id = safeText(client?.id);
+      const name = safeText(client?.name || client?.client || client?.clientName);
+      if (id && internalScope.internalClientIds.has(id)) return false;
+      return !isInternalClientName(name);
+    });
+    const projects = (Array.isArray(dataState?.projects) ? dataState.projects : []).filter((project) => {
+      const id = safeText(project?.id);
+      const clientId = safeText(project?.clientId || project?.client_id);
+      const clientName = safeText(project?.client || project?.clientName);
+      if (id && internalScope.internalProjectIds.has(id)) return false;
+      if (clientId && internalScope.internalClientIds.has(clientId)) return false;
+      return !isInternalClientName(clientName);
+    });
+    const entries = (Array.isArray(dataState?.entries) ? dataState.entries : []).filter(
+      (entry) => !isInternalRecord(entry, internalScope)
+    );
+    const expenses = (Array.isArray(dataState?.expenses) ? dataState.expenses : []).filter(
+      (expense) => !isInternalRecord(expense, internalScope)
+    );
+
+    return {
+      clients,
+      projects,
+      entries,
+      expenses,
+    };
   }
 
   function formatShortDate(isoDate) {
@@ -176,7 +232,6 @@
       projectId: "",
       trendMetric: "revenue",
       groupBy: "client",
-      includeInternalWork: false,
     };
   }
 
@@ -349,10 +404,14 @@
       return;
     }
 
+    const filteredData = excludeInternalAnalyticsData(appState);
     const body = container.querySelector(".analytics-body") || container;
     let uiState = stateByContainer.get(container);
     if (!uiState) {
-      uiState = initialUiState(appState);
+      uiState = initialUiState({
+        entries: filteredData.entries,
+        expenses: filteredData.expenses,
+      });
       stateByContainer.set(container, uiState);
     }
 
@@ -361,8 +420,8 @@
       departments: appState.departments,
     });
     const clientProjectOptions = engine.listClientProjectOptions({
-      clients: appState.clients,
-      projects: appState.projects,
+      clients: filteredData.clients,
+      projects: filteredData.projects,
     });
 
     const selectedClientId = uiState.clientId;
@@ -371,11 +430,11 @@
       : [];
 
     const computed = engine.computeAnalytics({
-      entries: appState.entries,
-      expenses: appState.expenses,
+      entries: filteredData.entries,
+      expenses: filteredData.expenses,
       users: appState.users,
-      projects: appState.projects,
-      clients: appState.clients,
+      projects: filteredData.projects,
+      clients: filteredData.clients,
       offices: appState.officeLocations,
       departments: appState.departments,
       assignments: appState.assignments,
@@ -402,7 +461,7 @@
           </label>`;
 
     const visibleGroupedRows =
-      uiState.groupBy === "client" && !uiState.includeInternalWork
+      uiState.groupBy === "client"
         ? (computed.groupedRows || []).filter((row) => !isInternalClientName(row?.name))
         : computed.groupedRows || [];
 
@@ -463,13 +522,6 @@
               <option value="member_level" ${uiState.groupBy === "member_level" ? "selected" : ""}>Member level</option>
             </select>
           </label>
-          <label ${uiState.groupBy === "client" ? "" : "hidden"}>
-            <span>Client visibility</span>
-            <div class="analytics-filter-check">
-              <input type="checkbox" name="includeInternalWork" ${uiState.includeInternalWork ? "checked" : ""} />
-              <span>Include internal work</span>
-            </div>
-          </label>
         </form>
 
         <section class="analytics-kpis">
@@ -526,7 +578,6 @@
       uiState.projectId = safeText(filterForm.elements.projectId?.value);
       uiState.trendMetric = safeText(filterForm.elements.trendMetric?.value || "revenue");
       uiState.groupBy = safeText(filterForm.elements.groupBy?.value || "client");
-      uiState.includeInternalWork = Boolean(filterForm.elements.includeInternalWork?.checked);
     };
 
     filterForm.addEventListener("change", (event) => {
