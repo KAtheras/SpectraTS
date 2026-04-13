@@ -10352,8 +10352,6 @@
       const nextView = `${trigger.dataset.navView || ""}`.trim().toLowerCase();
       if (!nextView) return;
       event.preventDefault();
-      event.stopImmediatePropagation();
-      event.stopPropagation();
       setView(nextView);
       if (nextView === "audit") {
         loadAuditLogs();
