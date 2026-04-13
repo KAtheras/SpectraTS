@@ -2273,6 +2273,33 @@ async function updateClient(sql, payload, accountId) {
   return null;
 }
 
+async function updateClientLeadOnly(sql, payload, accountId) {
+  const clientName = normalizeText(payload?.clientName);
+  if (!clientName) {
+    return errorResponse(400, "Client name is required.");
+  }
+  const client = await findClient(sql, clientName, accountId);
+  if (!client) {
+    return errorResponse(404, "Client not found.");
+  }
+  const nextClientLeadId = normalizeText(payload?.clientLeadId ?? payload?.client_lead_id) || null;
+  if (nextClientLeadId) {
+    const lead = await findUserById(sql, nextClientLeadId, accountId);
+    if (!lead) {
+      return errorResponse(400, "Client lead not found.");
+    }
+  }
+  await sql`
+    UPDATE clients
+    SET
+      client_lead_id = ${nextClientLeadId},
+      updated_at = NOW()
+    WHERE id = ${client.id}
+      AND account_id = ${accountId}::uuid
+  `;
+  return null;
+}
+
 async function addProject(sql, payload, currentUser, accountId) {
   const clientName = normalizeText(payload.clientName);
   const projectName = normalizeText(payload.projectName);
@@ -3836,6 +3863,34 @@ async function updateProject(sql, payload, currentUser, accountId) {
   return null;
 }
 
+async function updateProjectLeadOnly(sql, payload, accountId) {
+  const clientName = normalizeText(payload?.clientName);
+  const projectName = normalizeText(payload?.projectName);
+  if (!clientName || !projectName) {
+    return errorResponse(404, "Project not found.");
+  }
+  const project = await findProject(sql, clientName, projectName, accountId);
+  if (!project) {
+    return errorResponse(404, "Project not found.");
+  }
+  const nextProjectLeadId = normalizeText(payload?.projectLeadId ?? payload?.project_lead_id) || null;
+  if (nextProjectLeadId) {
+    const lead = await findUserById(sql, nextProjectLeadId, accountId);
+    if (!lead) {
+      return errorResponse(400, "Project lead not found.");
+    }
+  }
+  await sql`
+    UPDATE projects
+    SET
+      project_lead_id = ${nextProjectLeadId},
+      updated_at = NOW()
+    WHERE id = ${project.id}
+      AND account_id = ${accountId}::uuid
+  `;
+  return null;
+}
+
 async function removeClient(sql, payload, accountId) {
   const clientName = normalizeText(payload.clientName);
   const client = await findClient(sql, clientName, accountId);
@@ -5251,14 +5306,21 @@ exports.handler = async function handler(event) {
         if (!targetClient) {
           return errorResponse(404, "Client not found.");
         }
+        const isSuperuserActor = permissions.roleKeyFromUser(context.currentUser) === "superuser";
+        const hasClientLeadField =
+          Object.prototype.hasOwnProperty.call(request.payload || {}, "clientLeadId") ||
+          Object.prototype.hasOwnProperty.call(request.payload || {}, "client_lead_id");
         const canEdit = can("edit_clients", {
           resourceOfficeId: targetClient.office_id || null,
         });
-        if (!canEdit) {
+        const canEditClientLeadBypass = isSuperuserActor && hasClientLeadField;
+        if (!canEdit && !canEditClientLeadBypass) {
           return errorResponse(403, "Access denied.");
         }
         const beforeSnapshot = await snapshotClientById(sql, targetClient.id, accountId);
-        mutationResult = await updateClient(sql, request.payload || {}, accountId);
+        mutationResult = canEdit
+          ? await updateClient(sql, request.payload || {}, accountId)
+          : await updateClientLeadOnly(sql, request.payload || {}, accountId);
         if (mutationResult?.statusCode) return mutationResult;
         const afterSnapshot = await snapshotClientById(sql, targetClient.id, accountId);
         await logEntityAudit(sql, {
@@ -5319,6 +5381,10 @@ exports.handler = async function handler(event) {
         if (!existingProject) {
           return errorResponse(404, "Project not found.");
         }
+        const isSuperuserActor = permissions.roleKeyFromUser(context.currentUser) === "superuser";
+        const hasProjectLeadField =
+          Object.prototype.hasOwnProperty.call(request.payload || {}, "projectLeadId") ||
+          Object.prototype.hasOwnProperty.call(request.payload || {}, "project_lead_id");
         const actorProjectIds = await collectUserProjectIdsForClient(
           sql,
           context.currentUser,
@@ -5331,11 +5397,14 @@ exports.handler = async function handler(event) {
           targetProject: existingProject,
           actorProjectIds,
         });
-        if (!canEditProject) {
+        const canEditProjectLeadBypass = isSuperuserActor && hasProjectLeadField;
+        if (!canEditProject && !canEditProjectLeadBypass) {
           return errorResponse(403, "Access denied.");
         }
         const beforeSnapshot = await snapshotProjectById(sql, existingProject?.id || null, accountId);
-        mutationResult = await updateProject(sql, request.payload || {}, context.currentUser, accountId);
+        mutationResult = canEditProject
+          ? await updateProject(sql, request.payload || {}, context.currentUser, accountId)
+          : await updateProjectLeadOnly(sql, request.payload || {}, accountId);
         if (mutationResult?.statusCode) return mutationResult;
         const afterSnapshot = await snapshotProjectById(sql, existingProject?.id || null, accountId);
         await logEntityAudit(sql, {
