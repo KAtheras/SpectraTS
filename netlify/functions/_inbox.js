@@ -438,13 +438,30 @@ async function fetchTimeEntryForDigest(sql, { accountId, entryId }) {
   };
 }
 
-function normalizePermissionGroup(rawValue) {
+function normalizePermissionGroup(rawValue, labelValue, levelValue) {
   const raw = `${rawValue || ""}`.trim().toLowerCase();
-  if (!raw) return "staff";
+  const label = `${labelValue || ""}`.trim().toLowerCase();
+  const level = Number(levelValue);
+  if (!raw && !label) {
+    if (Number.isFinite(level) && level >= 6) return "admin";
+    if (Number.isFinite(level) && level >= 5) return "executive";
+    if (Number.isFinite(level) && level >= 3) return "manager";
+    return "staff";
+  }
   if (raw === "superuser") return "superuser";
   if (raw === "admin" || raw === "partner" || raw === "principal") return "admin";
   if (raw === "executive" || raw === "director") return "executive";
   if (raw === "manager" || raw === "lead") return "manager";
+  if (label.includes("superuser")) return "superuser";
+  if (
+    label.includes("admin") ||
+    label.includes("partner") ||
+    label.includes("principal")
+  ) {
+    return "admin";
+  }
+  if (label.includes("executive") || label.includes("director")) return "executive";
+  if (label.includes("manager") || label.includes("lead")) return "manager";
   return "staff";
 }
 
@@ -455,6 +472,8 @@ async function listTimeDigestRecipientUserIdsByVisibility(sql, { accountId, acto
     SELECT
       u.id,
       u.role,
+      u.level,
+      ll.label AS "levelLabel",
       ll.permission_group AS "permissionGroup"
     FROM users u
     LEFT JOIN level_labels ll
@@ -468,7 +487,11 @@ async function listTimeDigestRecipientUserIdsByVisibility(sql, { accountId, acto
   for (const row of recipientRows) {
     const userId = `${row?.id || ""}`.trim();
     if (!userId || (actorId && userId === actorId)) continue;
-    const group = normalizePermissionGroup(row?.permissionGroup || row?.role);
+    const group = normalizePermissionGroup(
+      row?.permissionGroup || row?.role,
+      row?.levelLabel,
+      row?.level
+    );
     if (group === "superuser" || group === "admin") {
       recipients.add(userId);
       continue;
