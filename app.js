@@ -10357,6 +10357,18 @@
   refs.loginForm.addEventListener("submit", submitLogin);
   refs.bootstrapForm.addEventListener("submit", submitBootstrap);
 
+  document.addEventListener(
+    "click",
+    function (event) {
+      const analyticsNav = event.target?.closest?.("#open-analytics, #nav-analytics-mobile");
+      if (!analyticsNav) return;
+      event.preventDefault();
+      event.stopPropagation();
+      setView("analytics");
+    },
+    true
+  );
+
   if (refs.navInputs) {
     refs.navInputs.addEventListener("click", function () {
       setView("inputs");

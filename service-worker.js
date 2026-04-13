@@ -1,5 +1,5 @@
-const CACHE_NAME = "trakmetric-shell-v4";
-const SHELL_PATHS = ["/", "/index.html", "/styles.css", "/app.js"];
+const CACHE_NAME = "trakmetric-shell-v5";
+const SHELL_PATHS = ["/", "/index.html", "/styles.css", "/app.js", "/analytics.js", "/analyticsEngine.js"];
 const SHELL_SET = new Set(SHELL_PATHS);
 
 self.addEventListener("install", (event) => {
