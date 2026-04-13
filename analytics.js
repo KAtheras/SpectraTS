@@ -180,6 +180,15 @@
     const toInput = filterForm?.elements?.toDate;
     if (!rangeInput || !fromInput || !toInput) return;
 
+    const fromIso = safeText(fromInput.value);
+    const toIso = safeText(toInput.value);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(fromIso)) {
+      fromInput.dataset.dpCanonical = fromIso;
+    }
+    if (/^\d{4}-\d{2}-\d{2}$/.test(toIso)) {
+      toInput.dataset.dpCanonical = toIso;
+    }
+
     rangeInput.dataset.dpFilter = "true";
     rangeInput.dataset.dpRange = "true";
     rangeInput._dpRangeFrom = fromInput;
@@ -570,8 +579,10 @@
     );
 
     const syncUiStateFromForm = () => {
-      uiState.fromDate = safeText(filterForm.elements.fromDate?.value);
-      uiState.toDate = safeText(filterForm.elements.toDate?.value);
+      const fromInput = filterForm.elements.fromDate;
+      const toInput = filterForm.elements.toDate;
+      uiState.fromDate = safeText(fromInput?.dataset?.dpCanonical || fromInput?.value);
+      uiState.toDate = safeText(toInput?.dataset?.dpCanonical || toInput?.value);
       uiState.scope = safeText(filterForm.elements.scope?.value || "company");
       uiState.scopeId = safeText(filterForm.elements.scopeId?.value);
       uiState.clientId = safeText(filterForm.elements.clientId?.value);
