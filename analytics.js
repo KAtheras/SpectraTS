@@ -22,6 +22,17 @@
       .analytics-filters label { display: grid; gap: 4px; font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
       .analytics-filters select, .analytics-filters input { min-height: 34px; }
       .analytics-filter-range { min-width: 220px; }
+      .analytics-filter-check {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 34px;
+        text-transform: none;
+        letter-spacing: 0;
+        font-size: .82rem;
+        color: var(--text);
+      }
+      .analytics-filter-check input { min-height: 16px; }
       .analytics-kpis { display: grid; grid-template-columns: repeat(5, minmax(140px, 1fr)); gap: 10px; }
       .analytics-kpi {
         border: 1px solid var(--line);
@@ -80,6 +91,11 @@
   function formatHours(value) {
     const n = toNumber(value);
     return `${n.toFixed(1)}h`;
+  }
+
+  function isInternalClientName(name) {
+    const text = safeText(name).toLowerCase();
+    return text === "internal" || text === "internal work";
   }
 
   function formatShortDate(isoDate) {
@@ -159,6 +175,7 @@
       projectId: "",
       trendMetric: "revenue",
       groupBy: "client",
+      includeInternalWork: false,
     };
   }
 
@@ -375,7 +392,12 @@
             <select name="scopeId">${renderOptions(scopeItems, uiState.scopeId, "All")}</select>
           </label>`;
 
-    const groupedRowsHtml = (computed.groupedRows || [])
+    const visibleGroupedRows =
+      uiState.groupBy === "client" && !uiState.includeInternalWork
+        ? (computed.groupedRows || []).filter((row) => !isInternalClientName(row?.name))
+        : computed.groupedRows || [];
+
+    const groupedRowsHtml = visibleGroupedRows
       .map(
         (row) => `<tr>
           <td>${escapeHtml(row.name)}</td>
@@ -431,6 +453,13 @@
               <option value="member" ${uiState.groupBy === "member" ? "selected" : ""}>Member</option>
               <option value="member_level" ${uiState.groupBy === "member_level" ? "selected" : ""}>Member level</option>
             </select>
+          </label>
+          <label ${uiState.groupBy === "client" ? "" : "hidden"}>
+            <span>Client visibility</span>
+            <div class="analytics-filter-check">
+              <input type="checkbox" name="includeInternalWork" ${uiState.includeInternalWork ? "checked" : ""} />
+              <span>Include internal work</span>
+            </div>
           </label>
         </form>
 
@@ -488,6 +517,7 @@
       uiState.projectId = safeText(filterForm.elements.projectId?.value);
       uiState.trendMetric = safeText(filterForm.elements.trendMetric?.value || "revenue");
       uiState.groupBy = safeText(filterForm.elements.groupBy?.value || "client");
+      uiState.includeInternalWork = Boolean(filterForm.elements.includeInternalWork?.checked);
     };
 
     filterForm.addEventListener("change", (event) => {
