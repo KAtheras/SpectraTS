@@ -302,7 +302,7 @@
 
     try {
       const { feedback } = deps();
-      if (!state.permissions?.manage_levels) {
+      if (!state.permissions?.edit_user_profile) {
         feedback("Access denied.", true);
         return;
       }
@@ -11481,7 +11481,7 @@
   if (refs.addLevel) {
     refs.addLevel.addEventListener("click", async function () {
       handleAddLevel();
-      if (!state.permissions?.manage_levels) {
+      if (!state.permissions?.edit_user_profile) {
         return;
       }
       const levels = getLevelDefinitions()
@@ -12288,7 +12288,7 @@
     refs.levelRows.addEventListener("click", async function (event) {
       const deleteBtn = event.target.closest("[data-level-delete]");
       if (!deleteBtn) return;
-      if (!state.permissions?.manage_levels) {
+      if (!state.permissions?.edit_user_profile) {
         feedback("Access denied.", true);
         return;
       }

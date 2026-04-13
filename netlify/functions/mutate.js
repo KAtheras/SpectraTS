@@ -6528,6 +6528,7 @@ exports.handler = async function handler(event) {
         if (!target || !target.is_active) {
           return errorResponse(404, "User not found.");
         }
+        const isSuperuserActor = permissions.roleKeyFromUser(context.currentUser) === "superuser";
         const hasAnyRateChange =
           request.payload?.baseRate !== undefined ||
           request.payload?.costRate !== undefined ||
@@ -6547,7 +6548,21 @@ exports.handler = async function handler(event) {
             : request.payload?.office_id !== undefined && request.payload?.office_id !== null
               ? normalizeText(request.payload.office_id)
               : target.office_id || target.officeId || null;
-        if (!can("edit_member_profile", { resourceOfficeId: nextOfficeId })) {
+        const targetOfficeId = target.office_id || target.officeId || null;
+        const canEditTargetOffice = can("edit_member_profile", {
+          resourceOfficeId: targetOfficeId,
+          targetOfficeId,
+          targetUserId: target.id,
+        });
+        const canEditDestinationOffice =
+          nextOfficeId && nextOfficeId !== targetOfficeId
+            ? can("edit_member_profile", {
+                resourceOfficeId: nextOfficeId,
+                targetOfficeId: nextOfficeId,
+                targetUserId: target.id,
+              })
+            : true;
+        if (!isSuperuserActor && (!canEditTargetOffice || !canEditDestinationOffice)) {
           return errorResponse(403, "Access denied.");
         }
         const hasBaseRateChange =
@@ -6663,7 +6678,7 @@ exports.handler = async function handler(event) {
         break;
       }
       case "update_level_labels": {
-        if (!can("manage_levels", { resourceOfficeId: context.currentUser?.officeId || null })) {
+        if (!can("edit_member_profile", { resourceOfficeId: context.currentUser?.officeId || null })) {
           return errorResponse(403, "Access denied.");
         }
         mutationResult = await runMutationWithAudit({

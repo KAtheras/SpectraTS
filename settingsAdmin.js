@@ -83,7 +83,7 @@
     const { state } = deps();
     const isMobileLayout = isMobileSettingsLayout();
     const tabs = [];
-    if (state.permissions?.manage_levels) tabs.push("levels");
+    if (state.permissions?.edit_user_profile) tabs.push("levels");
     if (state.permissions?.manage_expense_categories) tabs.push("categories");
     if (state.permissions?.manage_corporate_functions) tabs.push("corporate_functions");
     if (state.permissions?.manage_office_locations && !isMobileLayout) tabs.push("locations");
@@ -3216,7 +3216,6 @@
           { cap: "edit_member_rates", label: "Edit base rates", indent: true },
           { cap: "view_cost_rates", label: "View cost rates", indent: true },
           { cap: "edit_member_profile", label: "Edit member profile", indent: true },
-          { cap: "manage_levels", label: "Manage member levels", indent: false },
           { cap: "manage_settings_access", label: "Manage access settings", indent: false },
           { cap: "can_delegate", label: "Can delegate access", indent: false },
           { cap: "manage_departments", label: "Manage practice departments", indent: false },
@@ -3913,7 +3912,7 @@
       ${rowsHtml}
     `;
 
-    const editable = Boolean(state.permissions?.manage_levels);
+    const editable = Boolean(state.permissions?.edit_user_profile);
     refs.levelRows.querySelectorAll("input, select").forEach(function (el) {
       el.disabled = !editable;
     });
@@ -3923,7 +3922,7 @@
   }
 
   function renderRatesRows() {
-    const { refs, state, escapeHtml } = deps();
+    const { refs, state, escapeHtml, permissionGroupForUser } = deps();
     if (!refs.ratesRows) return;
     const isMobileMemberInfo = isMobileSettingsLayout();
     if (!isMobileMemberInfo) {
@@ -3938,7 +3937,16 @@
     );
     const canEditProfile = Boolean(state.permissions?.edit_user_profile);
     const canEditAny = canEditRates || canEditCostRates || canEditProfile;
-    const users = (state.users || []).filter((u) => u.isActive !== false);
+    const actorOfficeId = `${state.currentUser?.officeId || state.currentUser?.office_id || ""}`.trim();
+    const actorGroup = String(permissionGroupForUser?.(state.currentUser) || "").toLowerCase();
+    const isSuperuserActor = actorGroup === "superuser";
+    const users = (state.users || []).filter((u) => {
+      if (!u || u.isActive === false) return false;
+      if (isSuperuserActor) return true;
+      const userOfficeId = `${u.officeId || u.office_id || ""}`.trim();
+      if (!actorOfficeId) return false;
+      return userOfficeId === actorOfficeId;
+    });
     const departments = state.departments || [];
     const titleOptions = Object.entries(state.levelLabels || {})
       .map(([level, value]) => ({
@@ -4601,7 +4609,7 @@
 
   function handleAddLevel() {
     const { state, feedback } = deps();
-    if (!state.permissions?.manage_levels) {
+    if (!state.permissions?.edit_user_profile) {
       feedback("Access denied.", true);
       return;
     }
