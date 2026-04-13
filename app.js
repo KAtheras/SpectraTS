@@ -4082,6 +4082,10 @@
         { skipHydrate: true, refreshState: false, returnState: false }
       );
     } catch (error) {
+      if (isDeactivatedClientProjectErrorMessage(error?.message)) {
+        await showDeactivatedClientProjectPrompt();
+        return;
+      }
       feedback(error.message || "Unable to delete selected entries.", true);
       return;
     }
@@ -4227,6 +4231,10 @@
         { skipHydrate: true, refreshState: false, returnState: false }
       );
     } catch (error) {
+      if (isDeactivatedClientProjectErrorMessage(error?.message)) {
+        await showDeactivatedClientProjectPrompt();
+        return;
+      }
       feedback(error.message || "Unable to delete selected expenses.", true);
       return;
     }
@@ -7635,6 +7643,15 @@
       cancelText: "Close",
       hideConfirm: true,
     });
+  }
+
+  function isDeactivatedClientProjectErrorMessage(message) {
+    const text = `${message || ""}`.trim().toLowerCase();
+    if (!text) return false;
+    return (
+      text.includes("deactivated (or deleted) project") ||
+      text.includes("deactivated (removed) client")
+    );
   }
 
   function assignedActiveMembersCountForProject(clientName, projectName) {
