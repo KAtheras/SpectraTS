@@ -5321,8 +5321,6 @@ exports.handler = async function handler(event) {
             SUPERUSER_MATRIX_EDITABLE_CAPABILITIES.has(item.capability)
         );
 
-        const allowedPairs = filtered.filter((item) => item.allowed);
-
         const roleKeysAll = Array.from(new Set(filtered.map((i) => i.role)));
         const capKeysAll = Array.from(new Set(filtered.map((i) => i.capability)));
 
@@ -5368,15 +5366,17 @@ exports.handler = async function handler(event) {
           `;
         }
 
-        // Insert allowed pairs using matrix-defined scope defaults.
-        for (const { role, capability } of allowedPairs) {
+        // Persist both checked and unchecked rows.
+        // Storing explicit false rows prevents schema-default seed inserts from
+        // re-enabling capabilities after a reload.
+        for (const { role, capability, allowed } of filtered) {
           const roleId = roleIdByKey.get(role);
           const capId = capIdByKey.get(capability);
           const scopeId = scopeIdByKey.get(scopeKeyForCapability(capability));
           if (!roleId || !capId || !scopeId) continue;
           await sql`
             INSERT INTO role_permissions (role_id, capability_id, scope_id, allowed)
-            VALUES (${roleId}, ${capId}, ${scopeId}, TRUE)
+            VALUES (${roleId}, ${capId}, ${scopeId}, ${allowed ? true : false})
             ON CONFLICT (role_id, capability_id, scope_id) DO UPDATE SET allowed = EXCLUDED.allowed
           `;
         }
