@@ -7,7 +7,6 @@ const {
   ensureDefaultAccount,
   ensureSchema,
   errorResponse,
-  findUserByUsername,
   getSessionContext,
   getSql,
   json,
@@ -113,7 +112,21 @@ exports.handler = async function handler(event) {
 
       const username = normalizeText(request.payload?.username);
       const password = String(request.payload?.password || "");
-      const user = await findUserByUsername(sql, username);
+      const usernameMatches = await sql`
+        SELECT *
+        FROM users
+        WHERE LOWER(username) = LOWER(${username})
+          AND is_active = TRUE
+        ORDER BY created_at ASC
+        LIMIT 2
+      `;
+      if (usernameMatches.length > 1) {
+        return errorResponse(
+          401,
+          "This User ID exists in multiple customer accounts. Contact support to resolve tenant identity."
+        );
+      }
+      const user = usernameMatches[0] || null;
 
       if (!user || !user.is_active || !verifyPassword(password, user.password_hash)) {
         if (username.includes("@")) {

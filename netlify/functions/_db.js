@@ -599,6 +599,10 @@ async function ensureSchema(sql) {
         AND TRIM(COALESCE(email, '')) <> ''
   `;
   await sql`
+    CREATE UNIQUE INDEX IF NOT EXISTS users_account_id_id_uq_idx
+      ON users (account_id, id)
+  `;
+  await sql`
     DO $$
     BEGIN
       IF NOT EXISTS (
@@ -727,6 +731,10 @@ async function ensureSchema(sql) {
     CREATE UNIQUE INDEX IF NOT EXISTS clients_name_ci_idx
     ON clients (account_id, LOWER(name))
   `;
+  await sql`
+    CREATE UNIQUE INDEX IF NOT EXISTS clients_account_id_id_uq_idx
+      ON clients (account_id, id)
+  `;
 
   await sql`
     CREATE TABLE IF NOT EXISTS projects (
@@ -797,6 +805,10 @@ async function ensureSchema(sql) {
   await sql`
     CREATE UNIQUE INDEX IF NOT EXISTS projects_client_name_ci_idx
     ON projects (client_id, LOWER(name))
+  `;
+  await sql`
+    CREATE UNIQUE INDEX IF NOT EXISTS projects_account_id_id_uq_idx
+      ON projects (account_id, id)
   `;
 
   await sql`
@@ -1199,6 +1211,176 @@ async function ensureSchema(sql) {
       ON inbox_items (account_id, recipient_user_id, is_read, created_at DESC)
   `;
   await sql`
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'entries_account_user_fk'
+          AND conrelid = 'entries'::regclass
+      ) THEN
+        ALTER TABLE entries
+        ADD CONSTRAINT entries_account_user_fk
+        FOREIGN KEY (account_id, user_id)
+        REFERENCES users(account_id, id)
+        NOT VALID;
+      END IF;
+    END $$;
+  `;
+  await sql`
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'expenses_account_user_fk'
+          AND conrelid = 'expenses'::regclass
+      ) THEN
+        ALTER TABLE expenses
+        ADD CONSTRAINT expenses_account_user_fk
+        FOREIGN KEY (account_id, user_id)
+        REFERENCES users(account_id, id)
+        NOT VALID;
+      END IF;
+    END $$;
+  `;
+  await sql`
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'project_members_account_user_fk'
+          AND conrelid = 'project_members'::regclass
+      ) THEN
+        ALTER TABLE project_members
+        ADD CONSTRAINT project_members_account_user_fk
+        FOREIGN KEY (account_id, user_id)
+        REFERENCES users(account_id, id)
+        NOT VALID;
+      END IF;
+    END $$;
+  `;
+  await sql`
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'manager_projects_account_manager_fk'
+          AND conrelid = 'manager_projects'::regclass
+      ) THEN
+        ALTER TABLE manager_projects
+        ADD CONSTRAINT manager_projects_account_manager_fk
+        FOREIGN KEY (account_id, manager_id)
+        REFERENCES users(account_id, id)
+        NOT VALID;
+      END IF;
+    END $$;
+  `;
+  await sql`
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'manager_clients_account_manager_fk'
+          AND conrelid = 'manager_clients'::regclass
+      ) THEN
+        ALTER TABLE manager_clients
+        ADD CONSTRAINT manager_clients_account_manager_fk
+        FOREIGN KEY (account_id, manager_id)
+        REFERENCES users(account_id, id)
+        NOT VALID;
+      END IF;
+    END $$;
+  `;
+  await sql`
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'delegations_account_delegator_fk'
+          AND conrelid = 'delegations'::regclass
+      ) THEN
+        ALTER TABLE delegations
+        ADD CONSTRAINT delegations_account_delegator_fk
+        FOREIGN KEY (account_id, delegator_user_id)
+        REFERENCES users(account_id, id)
+        NOT VALID;
+      END IF;
+    END $$;
+  `;
+  await sql`
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'delegations_account_delegate_fk'
+          AND conrelid = 'delegations'::regclass
+      ) THEN
+        ALTER TABLE delegations
+        ADD CONSTRAINT delegations_account_delegate_fk
+        FOREIGN KEY (account_id, delegate_user_id)
+        REFERENCES users(account_id, id)
+        NOT VALID;
+      END IF;
+    END $$;
+  `;
+  await sql`
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'password_setup_tokens_account_user_fk'
+          AND conrelid = 'password_setup_tokens'::regclass
+      ) THEN
+        ALTER TABLE password_setup_tokens
+        ADD CONSTRAINT password_setup_tokens_account_user_fk
+        FOREIGN KEY (account_id, user_id)
+        REFERENCES users(account_id, id)
+        NOT VALID;
+      END IF;
+    END $$;
+  `;
+  await sql`
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'inbox_items_account_recipient_fk'
+          AND conrelid = 'inbox_items'::regclass
+      ) THEN
+        ALTER TABLE inbox_items
+        ADD CONSTRAINT inbox_items_account_recipient_fk
+        FOREIGN KEY (account_id, recipient_user_id)
+        REFERENCES users(account_id, id)
+        NOT VALID;
+      END IF;
+    END $$;
+  `;
+  await sql`
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'inbox_items_account_actor_fk'
+          AND conrelid = 'inbox_items'::regclass
+      ) THEN
+        ALTER TABLE inbox_items
+        ADD CONSTRAINT inbox_items_account_actor_fk
+        FOREIGN KEY (account_id, actor_user_id)
+        REFERENCES users(account_id, id)
+        NOT VALID;
+      END IF;
+    END $$;
+  `;
+  await sql`
     CREATE TABLE IF NOT EXISTS notification_rules (
       account_id UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
       event_type TEXT NOT NULL,
@@ -1272,12 +1454,16 @@ async function ensureSchema(sql) {
       users.id,
       NOW()
     FROM entries
-    JOIN users ON (users.id = entries.user_id OR LOWER(users.display_name) = LOWER(entries.user_name))
+    JOIN users
+      ON (users.id = entries.user_id OR LOWER(users.display_name) = LOWER(entries.user_name))
+     AND users.account_id = entries.account_id
     JOIN clients ON LOWER(clients.name) = LOWER(entries.client_name)
     JOIN projects ON projects.client_id = clients.id
       AND LOWER(projects.name) = LOWER(entries.project_name)
     WHERE users.is_active = TRUE
+      AND entries.account_id = ${accountUuid}::uuid
       AND clients.account_id = ${accountUuid}::uuid
+      AND projects.account_id = entries.account_id
     ON CONFLICT (project_id, user_id) DO NOTHING
   `;
 
@@ -1902,6 +2088,7 @@ async function listLevelLabels(sql, accountId) {
 async function createUserRecord(sql, payload) {
   const username = normalizeText(payload.username);
   const email = normalizeText(payload.email);
+  const source = normalizeText(payload.source).toLowerCase();
   const employeeId = normalizeText(payload.employeeId ?? payload.employee_id);
   const displayName = normalizeText(payload.displayName);
   const password = String(payload.password || "");
@@ -1967,6 +2154,21 @@ async function createUserRecord(sql, payload) {
     `;
     if (existingEmployeeId[0]) {
       throw new Error("That employee ID already exists.");
+    }
+  }
+  if (source === "bulk_upload" && email) {
+    const crossAccountEmail = await sql`
+      SELECT id, account_id
+      FROM users
+      WHERE LOWER(email) = LOWER(${email})
+        AND is_active = TRUE
+        AND account_id <> ${accountUuid}::uuid
+      LIMIT 1
+    `;
+    if (crossAccountEmail[0]) {
+      throw new Error(
+        "Email is already used in another customer account. Use a unique email for member upload."
+      );
     }
   }
   const now = new Date().toISOString();
@@ -2163,6 +2365,7 @@ async function updateUserRecord(sql, payload, actingUser) {
         ? normalizeText(payload.office_id)
         : null;
   const existingUser = await findUserById(sql, userId, actingUser?.accountId);
+  const source = normalizeText(payload?.source).toLowerCase();
   const email =
     payload.email !== undefined && payload.email !== null && payload.email !== ""
       ? normalizeText(payload.email)
@@ -2234,6 +2437,22 @@ async function updateUserRecord(sql, payload, actingUser) {
     `;
     if (duplicateEmployeeId[0]) {
       throw new Error("That employee ID already exists.");
+    }
+  }
+  if (source === "bulk_upload" && email) {
+    const crossAccountEmail = await sql`
+      SELECT id, account_id
+      FROM users
+      WHERE LOWER(email) = LOWER(${email})
+        AND id <> ${existingUser.id}
+        AND is_active = TRUE
+        AND account_id <> ${existingUser.account_id}::uuid
+      LIMIT 1
+    `;
+    if (crossAccountEmail[0]) {
+      throw new Error(
+        "Email is already used in another customer account. Use a unique email for member upload."
+      );
     }
   }
   if (baseRate !== null && !(Number.isFinite(baseRate) && baseRate >= 0)) {
@@ -2328,7 +2547,8 @@ async function updateUserRecord(sql, payload, actingUser) {
     await sql`
       UPDATE entries
       SET user_name = ${displayName}
-      WHERE user_name = ${existingUser.display_name}
+      WHERE account_id = ${existingUser.account_id}::uuid
+        AND user_name = ${existingUser.display_name}
     `;
   }
 
@@ -4405,7 +4625,9 @@ async function loadState(sql, currentUser) {
         LEFT JOIN corporate_function_groups cfg
           ON cfg.id = cfc.group_id
          AND cfg.account_id = ${accountUuid}::uuid
-        JOIN users ON (users.id = entries.user_id OR LOWER(users.display_name) = LOWER(entries.user_name))
+        JOIN users
+          ON (users.id = entries.user_id OR LOWER(users.display_name) = LOWER(entries.user_name))
+         AND users.account_id = entries.account_id
         LEFT JOIN level_labels manager_entry_levels
           ON manager_entry_levels.account_id = users.account_id
          AND manager_entry_levels.level = users.level
@@ -4667,7 +4889,9 @@ async function loadState(sql, currentUser) {
             LEFT JOIN corporate_function_groups cfg
               ON cfg.id = cfc.group_id
              AND cfg.account_id = ${accountUuid}::uuid
-            JOIN users ON (users.id = entries.user_id OR LOWER(users.display_name) = LOWER(entries.user_name))
+            JOIN users
+              ON (users.id = entries.user_id OR LOWER(users.display_name) = LOWER(entries.user_name))
+             AND users.account_id = entries.account_id
             LEFT JOIN level_labels delegated_entry_levels
               ON delegated_entry_levels.account_id = users.account_id
              AND delegated_entry_levels.level = users.level

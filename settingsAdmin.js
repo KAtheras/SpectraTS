@@ -2620,6 +2620,7 @@
           const addResult = await deps().mutatePersistentState(
             "add_user",
             {
+              source: "bulk_upload",
               displayName,
               username,
               email,
