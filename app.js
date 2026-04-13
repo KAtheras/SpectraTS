@@ -9797,6 +9797,23 @@
     return (state.inboxItems || []).reduce((count, item) => count + (item?.isRead ? 1 : 0), 0);
   }
 
+  function isTimeDigestInboxItem(item) {
+    return `${item?.type || ""}`.trim() === "time_entry_daily_digest";
+  }
+
+  async function confirmDigestDeleteWarning(itemCount = 1) {
+    const plural = Number(itemCount) === 1 ? "" : "s";
+    const result = await appDialog({
+      title: "Delete Daily Digest?",
+      message:
+        `This action will also delete your daily digest notification${plural}.\n\n` +
+        "If you delete it, today's digest will restart and only include entries added after deletion.",
+      confirmText: "Delete",
+      cancelText: "Cancel",
+    });
+    return Boolean(result?.confirmed);
+  }
+
   function visibleInboxItems() {
     const items = Array.isArray(state.inboxItems) ? state.inboxItems.slice() : [];
     items.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
@@ -9882,6 +9899,11 @@
   async function deleteInboxItem(itemId) {
     const id = `${itemId || ""}`.trim();
     if (!id) return;
+    const targetItem = (state.inboxItems || []).find((item) => `${item?.id || ""}`.trim() === id) || null;
+    if (isTimeDigestInboxItem(targetItem)) {
+      const confirmed = await confirmDigestDeleteWarning(1);
+      if (!confirmed) return;
+    }
     const previousItems = Array.isArray(state.inboxItems) ? state.inboxItems.slice() : [];
     state.inboxItems = previousItems.filter((item) => `${item?.id || ""}`.trim() !== id);
     setInboxSelected(id, false);
@@ -9899,6 +9921,17 @@
   async function deleteSelectedInboxItems() {
     const ids = selectedInboxIds();
     if (!ids.length) return;
+    const idSetForDigestCheck = new Set(ids);
+    const digestCount = (state.inboxItems || []).reduce((count, item) => {
+      if (!item) return count;
+      const itemId = `${item?.id || ""}`.trim();
+      if (!idSetForDigestCheck.has(itemId)) return count;
+      return count + (isTimeDigestInboxItem(item) ? 1 : 0);
+    }, 0);
+    if (digestCount > 0) {
+      const confirmed = await confirmDigestDeleteWarning(digestCount);
+      if (!confirmed) return;
+    }
     const idSet = new Set(ids);
     const previousItems = Array.isArray(state.inboxItems) ? state.inboxItems.slice() : [];
     state.inboxItems = previousItems.filter((item) => !idSet.has(`${item?.id || ""}`.trim()));
