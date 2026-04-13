@@ -9953,16 +9953,51 @@
       feedback("No read notifications to delete.", false);
       return;
     }
+    const readItems = (state.inboxItems || []).filter((item) => item?.isRead);
+    const readDigestCount = readItems.reduce(
+      (count, item) => count + (isTimeDigestInboxItem(item) ? 1 : 0),
+      0
+    );
+    let deleteMode = "all";
+    if (readDigestCount > 0) {
+      const choice = await appDialog({
+        title: "Delete Read Notifications",
+        message:
+          "Read notifications include your daily digest.\n\nChoose what to delete:",
+        confirmText: "Delete all",
+        cancelText: "Delete only non-digest",
+      });
+      deleteMode = choice?.confirmed ? "all" : "non_digest";
+    }
+    const readIdsToDelete = readItems
+      .filter((item) => {
+        if (deleteMode === "all") return true;
+        return !isTimeDigestInboxItem(item);
+      })
+      .map((item) => `${item?.id || ""}`.trim())
+      .filter(Boolean);
+    if (!readIdsToDelete.length) {
+      feedback("No non-digest read notifications to delete.", false);
+      return;
+    }
+
     const previousItems = Array.isArray(state.inboxItems) ? state.inboxItems.slice() : [];
-    state.inboxItems = previousItems.filter((item) => !item?.isRead);
+    const deleteIdSet = new Set(readIdsToDelete);
+    state.inboxItems = previousItems.filter((item) => !deleteIdSet.has(`${item?.id || ""}`.trim()));
     clearInboxSelection();
     refreshInboxUi();
-    const deletedCount = Math.max(0, readBefore);
+    const deletedCount = readIdsToDelete.length;
     try {
-      await mutatePersistentState("delete_all_read_inbox_items", {}, { refreshState: false, returnState: false });
+      await mutatePersistentState(
+        "delete_inbox_items",
+        { ids: readIdsToDelete },
+        { refreshState: false, returnState: false }
+      );
       feedback(
         deletedCount > 0
-          ? `Deleted ${deletedCount} read notification${deletedCount === 1 ? "" : "s"}.`
+          ? deleteMode === "non_digest"
+            ? `Deleted ${deletedCount} non-digest read notification${deletedCount === 1 ? "" : "s"}.`
+            : `Deleted ${deletedCount} read notification${deletedCount === 1 ? "" : "s"}.`
           : "No read notifications were deleted.",
         false
       );
