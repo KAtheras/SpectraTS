@@ -3,6 +3,14 @@
   const chartInstanceByContainer = new WeakMap();
   const chartInstances = new Set();
   let chartResizeBound = false;
+  const ANALYTICS_SUB_TAB_UTILIZATION = "utilization";
+  const ANALYTICS_SUB_TAB_REALIZATION = "realization";
+  const ANALYTICS_SUB_TAB_PROFITABILITY = "profitability";
+  const ANALYTICS_SUB_TABS = [
+    { key: ANALYTICS_SUB_TAB_UTILIZATION, label: "Utilization" },
+    { key: ANALYTICS_SUB_TAB_REALIZATION, label: "Realization" },
+    { key: ANALYTICS_SUB_TAB_PROFITABILITY, label: "Profitability" },
+  ];
 
   function ensureStyles() {
     if (document.getElementById("analytics-phase1-style")) return;
@@ -10,6 +18,44 @@
     style.id = "analytics-phase1-style";
     style.textContent = `
       .analytics-panel { display: grid; gap: 14px; padding-top: 2px; }
+      .analytics-subtabs {
+        display: inline-flex;
+        gap: 8px;
+        padding: 0 4px 8px;
+        border-bottom: 1px solid var(--panel-border);
+        width: fit-content;
+      }
+      .analytics-subtab {
+        border: 1px solid var(--panel-border);
+        background: var(--surface);
+        color: var(--ink);
+        border-radius: 10px 10px 4px 4px;
+        padding: 8px 14px;
+        font-family: var(--font-head);
+        font-size: .9rem;
+        letter-spacing: .01em;
+        cursor: pointer;
+      }
+      .analytics-subtab.is-active {
+        background: var(--panel);
+        border-color: var(--accent);
+      }
+      .analytics-subtab-shell {
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: var(--surface);
+        padding: 14px;
+        display: grid;
+        gap: 8px;
+      }
+      .analytics-subtab-shell h3 {
+        margin: 0;
+        font-size: 1rem;
+      }
+      .analytics-subtab-shell p {
+        margin: 0;
+        color: var(--muted);
+      }
       .analytics-filters {
         display: grid;
         grid-template-columns: repeat(6, minmax(0, 1fr));
@@ -218,12 +264,60 @@
     return {
       fromDate: bounds.minDate || "",
       toDate: bounds.maxDate || "",
+      activeTab: ANALYTICS_SUB_TAB_PROFITABILITY,
       scope: "company",
       scopeId: "",
       clientId: "",
       projectId: "",
       trendMetric: "revenue",
     };
+  }
+
+  function normalizeAnalyticsSubTab(value) {
+    const key = safeText(value).toLowerCase();
+    const found = ANALYTICS_SUB_TABS.find((tab) => tab.key === key);
+    return found ? found.key : ANALYTICS_SUB_TAB_PROFITABILITY;
+  }
+
+  function renderAnalyticsSubTabHtml(activeTab) {
+    return `
+      <div class="analytics-subtabs" role="tablist" aria-label="Analytics sections">
+        ${ANALYTICS_SUB_TABS.map(
+          (tab) =>
+            `<button class="analytics-subtab ${activeTab === tab.key ? "is-active" : ""}" type="button" role="tab" aria-selected="${
+              activeTab === tab.key ? "true" : "false"
+            }" data-analytics-subtab="${escapeHtml(tab.key)}">${escapeHtml(tab.label)}</button>`
+        ).join("")}
+      </div>
+    `;
+  }
+
+  function placeholderShellForSubTab(activeTab) {
+    if (activeTab === ANALYTICS_SUB_TAB_UTILIZATION) {
+      return `
+        <section class="analytics-subtab-shell">
+          <h3>Utilization</h3>
+          <p>Utilization analytics is coming next.</p>
+        </section>
+      `;
+    }
+    return `
+      <section class="analytics-subtab-shell">
+        <h3>Realization</h3>
+        <p>Realization analytics is coming next.</p>
+      </section>
+    `;
+  }
+
+  function bindAnalyticsSubTabEvents(body, uiState, options) {
+    body.querySelectorAll("[data-analytics-subtab]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const nextTab = normalizeAnalyticsSubTab(button.dataset.analyticsSubtab);
+        if (nextTab === uiState.activeTab) return;
+        uiState.activeTab = nextTab;
+        renderAnalyticsPage(options);
+      });
+    });
   }
 
   function escapeHtml(value) {
@@ -405,6 +499,20 @@
       });
       stateByContainer.set(container, uiState);
     }
+    uiState.activeTab = normalizeAnalyticsSubTab(uiState.activeTab);
+    const subTabsHtml = renderAnalyticsSubTabHtml(uiState.activeTab);
+
+    if (uiState.activeTab !== ANALYTICS_SUB_TAB_PROFITABILITY) {
+      body.innerHTML = `
+        <div class="analytics-panel" data-analytics-root>
+          ${subTabsHtml}
+          ${placeholderShellForSubTab(uiState.activeTab)}
+        </div>
+      `;
+      bindAnalyticsSubTabEvents(body, uiState, options);
+      return;
+    }
+
     const scopeOptions = engine.listScopeOptions({
       offices: appState.officeLocations,
       departments: appState.departments,
@@ -452,6 +560,11 @@
 
     body.innerHTML = `
       <div class="analytics-panel" data-analytics-root>
+        ${subTabsHtml}
+        <section class="analytics-subtab-shell">
+          <h3>Profitability</h3>
+          <p>Revenue, cost, and profit performance across the selected scope.</p>
+        </section>
         <form class="analytics-filters" data-analytics-filters>
           <label class="analytics-filter-range">
             <span>Date range</span>
@@ -505,6 +618,7 @@
       </div>
     `;
 
+    bindAnalyticsSubTabEvents(body, uiState, options);
     const filterForm = body.querySelector("[data-analytics-filters]");
     if (!filterForm) return;
     wireAnalyticsDateRangePicker(filterForm);
