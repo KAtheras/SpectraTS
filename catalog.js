@@ -267,7 +267,24 @@
                     </span>
                   </span>
                   <span class="catalog-project-content-grid">
-                    <span class="catalog-project-mini-card">
+                    <span class="catalog-project-mini-card catalog-project-mini-card--team">
+                      <span class="catalog-project-mini-title">Team</span>
+                      <span class="catalog-project-team-lead">
+                        <span class="catalog-project-mini-label">Project Lead</span>
+                        <span class="catalog-project-mini-value">${escapeHtml(projectLeadName || "—")}</span>
+                      </span>
+                      <span class="catalog-project-team-grid">
+                        <span class="catalog-project-team-col">
+                          <span class="catalog-project-mini-label">Managers</span>
+                          ${renderPeopleList(managerNameList)}
+                        </span>
+                        <span class="catalog-project-team-col">
+                          <span class="catalog-project-mini-label">Staff</span>
+                          ${renderPeopleList(staffNameList)}
+                        </span>
+                      </span>
+                    </span>
+                    <span class="catalog-project-mini-card catalog-project-mini-card--info">
                       <span class="catalog-project-mini-title">Project Info</span>
                       <span class="catalog-project-mini-row">
                         <span class="catalog-project-mini-label">Office</span>
@@ -276,21 +293,6 @@
                       <span class="catalog-project-mini-row">
                         <span class="catalog-project-mini-label">Department</span>
                         <span class="catalog-project-mini-value">${escapeHtml(projectDepartmentName || "—")}</span>
-                      </span>
-                    </span>
-                    <span class="catalog-project-mini-card">
-                      <span class="catalog-project-mini-title">Team</span>
-                      <span class="catalog-project-team-block">
-                        <span class="catalog-project-mini-label">Project Lead</span>
-                        <span class="catalog-project-mini-value">${escapeHtml(projectLeadName || "—")}</span>
-                      </span>
-                      <span class="catalog-project-team-block">
-                        <span class="catalog-project-mini-label">Managers</span>
-                        ${renderPeopleList(managerNameList)}
-                      </span>
-                      <span class="catalog-project-team-block">
-                        <span class="catalog-project-mini-label">Staff</span>
-                        ${renderPeopleList(staffNameList)}
                       </span>
                     </span>
                   </span>

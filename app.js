@@ -2068,35 +2068,9 @@
     refs.projectList.querySelectorAll(".catalog-item.catalog-item-project").forEach((card) => {
       const projectName = String(card.getAttribute("data-project") || "").trim();
       if (!projectName || !state.selectedCatalogClient) return;
-      const project = (state.projects || []).find(
-        (item) => item && item.client === state.selectedCatalogClient && String(item.name || "").trim() === projectName
-      );
-      const leadName = String(
-        project?.projectLeadName ||
-          getUserById(project?.projectLeadId || project?.project_lead_id || "")?.displayName ||
-          ""
-      ).trim();
-      const projectDepartmentName = String(
-        project?.projectDepartmentName ||
-          (
-            (state.departments || []).find(
-              (item) =>
-                String(item?.id || "").trim() ===
-                String(project?.projectDepartmentId || project?.project_department_id || "").trim()
-            )?.name || ""
-          )
-      ).trim();
       const copy = card.querySelector(".catalog-item-copy");
       if (!copy) return;
       dedupeOfficeLines(copy);
-      const leadLine = copy.querySelector("[data-project-lead-line]");
-      if (leadLine) {
-        leadLine.textContent = `Project Lead: ${leadName || "—"}`;
-      }
-      const departmentLine = copy.querySelector("[data-project-department-line]");
-      if (departmentLine) {
-        departmentLine.textContent = `Practice Department: ${projectDepartmentName || "—"}`;
-      }
     });
     if (!refs.clientList) return;
     refs.clientList.querySelectorAll(".catalog-item[data-client]").forEach((card) => {
