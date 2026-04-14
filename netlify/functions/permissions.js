@@ -23,6 +23,10 @@ const SUPERUSER_MATRIX_CONTROLLED_CAPABILITIES = new Set([
   "edit_projects_all_modal",
   "edit_project_planning",
 ]);
+const UNCONDITIONAL_CAPABILITIES = new Set([
+  "edit_projects_all_modal",
+  "edit_project_planning",
+]);
 
 const HEADERS = {
   A: "category",
@@ -260,6 +264,9 @@ function can(user, capabilityKey, ctx, permissionIndex) {
   const roleCaps = index.get(roleKey);
   if (!roleCaps) return false;
   const perms = roleCaps.get(capabilityKey) || [];
+  if (UNCONDITIONAL_CAPABILITIES.has(`${capabilityKey || ""}`.trim())) {
+    return perms.some((perm) => perm && perm.allowed);
+  }
   for (const perm of perms) {
     if (!perm.allowed) continue;
     if (!scopeMatches(perm.scope_key, normalizedCtx)) continue;
