@@ -1278,12 +1278,12 @@
                 </button>
               </div>
             </label>
+          </div>
+          <div class="project-dialog-core-row" style="grid-template-columns: repeat(3, minmax(0, 1fr));">
             <label class="project-dialog-field">
               <span>Overhead %</span>
               <input type="text" name="overhead_percent" inputmode="decimal" placeholder="e.g. 12.5" />
             </label>
-          </div>
-          <div class="project-dialog-core-row" style="grid-template-columns: repeat(2, minmax(0, 1fr));">
             <label class="project-dialog-field">
               <span>Target Realization %</span>
               <input type="text" name="target_realization_pct" inputmode="decimal" placeholder="e.g. 72.5" />
