@@ -3818,8 +3818,7 @@ body[data-theme="dark"] .audit-detail-col {
 
 #clients-page .catalog-item-project .catalog-project-top {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 12px;
+  gap: 6px;
   align-items: start;
 }
 
@@ -3833,67 +3832,52 @@ body[data-theme="dark"] .audit-detail-col {
   margin-left: 0;
 }
 
-#clients-page .catalog-item-project .catalog-project-top-right {
+#clients-page .catalog-item-project .catalog-project-meta-bar {
   display: grid;
-  grid-template-columns: auto auto auto;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) auto;
   gap: 8px;
-  align-items: start;
-}
-
-#clients-page .catalog-item-project .catalog-project-info-inline {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 4px;
-  min-width: 180px;
+  width: 100%;
   padding: 7px 9px;
   border: 1px solid color-mix(in srgb, var(--line) 50%, transparent);
   border-radius: 10px;
   background: color-mix(in srgb, var(--surface-strong) 86%, var(--surface));
 }
 
-#clients-page .catalog-item-project .catalog-project-info-inline-col {
+#clients-page .catalog-item-project .catalog-project-meta-item {
   display: grid;
   gap: 1px;
   min-width: 0;
+}
+
+#clients-page .catalog-item-project .catalog-project-meta-item--action {
+  justify-items: end;
+  align-items: center;
+}
+
+#clients-page .catalog-item-project .catalog-project-meta-label {
+  font-size: 0.64rem;
+  font-weight: 740;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--ink) 46%, var(--muted) 54%);
+}
+
+#clients-page .catalog-item-project .catalog-project-meta-value {
+  font-size: 0.88rem;
+  line-height: 1.2;
+  color: color-mix(in srgb, var(--ink) 84%, var(--muted) 16%);
+}
+
+#clients-page .catalog-item-project .catalog-project-meta-value--complete {
+  font-size: 0.95rem;
+  font-weight: 640;
 }
 
 #clients-page .catalog-item-project .catalog-project-top-edit {
   min-height: 36px;
   padding: 0 12px;
   border-radius: 10px;
-  align-self: stretch;
-}
-
-#clients-page .catalog-item-project .catalog-project-kpi-card {
-  display: grid;
-  gap: 5px;
-  padding: 9px 11px;
-  min-width: 160px;
-  border: 1px solid color-mix(in srgb, var(--line) 64%, transparent);
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--surface-strong) 92%, var(--surface));
-}
-
-#clients-page .catalog-item-project .catalog-project-kpi-label {
-  font-size: 0.68rem;
-  font-weight: 760;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: color-mix(in srgb, var(--ink) 56%, var(--muted) 44%);
-}
-
-#clients-page .catalog-item-project .catalog-project-kpi-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-#clients-page .catalog-item-project .catalog-project-kpi-value {
-  font-size: 1.32rem;
-  font-weight: 860;
-  line-height: 1;
-  color: var(--ink);
+  align-self: start;
 }
 
 #clients-page .catalog-item-project .catalog-project-content-grid {
@@ -3956,11 +3940,6 @@ body[data-theme="dark"] .audit-detail-col {
   color: color-mix(in srgb, var(--ink) 46%, var(--muted) 54%);
 }
 
-#clients-page .catalog-item-project .catalog-project-info-inline .catalog-project-mini-label {
-  font-size: 0.64rem;
-  color: color-mix(in srgb, var(--ink) 46%, var(--muted) 54%);
-}
-
 #clients-page .catalog-item-project .catalog-project-mini-value {
   font-size: 0.88rem;
   line-height: 1.28;
@@ -3986,7 +3965,7 @@ body[data-theme="dark"] .audit-detail-col {
   font-weight: 620;
 }
 
-#clients-page .catalog-item-project.is-inactive .catalog-project-kpi-value,
+#clients-page .catalog-item-project.is-inactive .catalog-project-meta-value,
 #clients-page .catalog-item-project.is-inactive .catalog-project-mini-value,
 #clients-page .catalog-item-project.is-inactive .catalog-project-people-list li {
   color: color-mix(in srgb, var(--ink) 38%, var(--muted) 62%);
@@ -3997,19 +3976,9 @@ body[data-theme="dark"] .audit-detail-col {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  #clients-page .catalog-item-project .catalog-project-top-right {
+  #clients-page .catalog-item-project .catalog-project-meta-bar {
     grid-template-columns: minmax(0, 1fr);
     gap: 6px;
-  }
-
-  #clients-page .catalog-item-project .catalog-project-info-inline {
-    min-width: 0;
-    width: 100%;
-  }
-
-  #clients-page .catalog-item-project .catalog-project-kpi-card {
-    min-width: 0;
-    width: 100%;
   }
 
   #clients-page .catalog-item-project .catalog-project-footer-row {

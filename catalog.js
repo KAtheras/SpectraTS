@@ -248,50 +248,50 @@
               >
                 <span class="catalog-item-copy">
                   <span class="catalog-project-top">
+                    ${
+                      showEditProjectAction
+                        ? `<button
+                        type="button"
+                        class="button button-ghost catalog-project-top-edit"
+                        aria-label="Edit ${escapeHtml(project)}"
+                        data-edit-project="${escapeHtml(project)}"
+                      >
+                        Edit
+                      </button>`
+                        : ""
+                    }
                     <span class="catalog-project-title-wrap">
                       <span class="catalog-item-title">${escapeHtml(project)}</span>
                       <small class="catalog-item-title-meta">${escapeHtml(
                         `${projectHours(selectedClient, project).toFixed(2)}h logged`
                       )}</small>
                     </span>
-                    <span class="catalog-project-top-right">
-                      <span class="catalog-project-info-inline">
-                        <span class="catalog-project-info-inline-col">
-                          <span class="catalog-project-mini-label">Office</span>
-                          <span class="catalog-project-mini-value">${escapeHtml(projectOffice || "—")}</span>
-                        </span>
-                        <span class="catalog-project-info-inline-col">
-                          <span class="catalog-project-mini-label">Department</span>
-                          <span class="catalog-project-mini-value">${escapeHtml(projectDepartmentName || "—")}</span>
-                        </span>
-                      </span>
-                      <span class="catalog-project-kpi-card">
-                        <span class="catalog-project-kpi-label">% Complete</span>
-                        <span class="catalog-project-kpi-row">
-                          <strong class="catalog-project-kpi-value">${escapeHtml(percentCompleteDisplay)}</strong>
-                          ${
-                            canEditProjectCard
-                              ? `<button
-                              type="button"
-                              class="catalog-edit catalog-edit-inline"
-                              aria-label="Update progress for ${escapeHtml(project)}"
-                              data-update-project-progress="${escapeHtml(project)}"
-                            >
-                              Update
-                            </button>`
-                              : ""
-                          }
-                        </span>
-                      </span>
+                  </span>
+                  <span class="catalog-project-meta-bar">
+                    <span class="catalog-project-meta-item">
+                      <span class="catalog-project-meta-label">Office</span>
+                      <span class="catalog-project-meta-value">${escapeHtml(projectOffice || "—")}</span>
+                    </span>
+                    <span class="catalog-project-meta-item">
+                      <span class="catalog-project-meta-label">Department</span>
+                      <span class="catalog-project-meta-value">${escapeHtml(projectDepartmentName || "—")}</span>
+                    </span>
+                    <span class="catalog-project-meta-item catalog-project-meta-item--complete">
+                      <span class="catalog-project-meta-label">% Complete</span>
+                      <span class="catalog-project-meta-value catalog-project-meta-value--complete">${escapeHtml(
+                        percentCompleteDisplay
+                      )}</span>
+                    </span>
+                    <span class="catalog-project-meta-item catalog-project-meta-item--action">
                       ${
-                        showEditProjectAction
+                        canEditProjectCard
                           ? `<button
                           type="button"
-                          class="button button-ghost catalog-project-top-edit"
-                          aria-label="Edit ${escapeHtml(project)}"
-                          data-edit-project="${escapeHtml(project)}"
+                          class="catalog-edit catalog-edit-inline"
+                          aria-label="Update progress for ${escapeHtml(project)}"
+                          data-update-project-progress="${escapeHtml(project)}"
                         >
-                          Edit
+                          Update
                         </button>`
                           : ""
                       }
