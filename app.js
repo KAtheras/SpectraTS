@@ -1161,6 +1161,7 @@
     }
     feedback("Project updated.", false);
     render();
+    loadPersistentStateInBackground();
   }
 
   async function openProjectDialog(options) {
@@ -1747,7 +1748,7 @@
         });
       };
 
-      const onOpenProjectPlanning = (event) => {
+      const onOpenProjectPlanning = async (event) => {
         if (!canOpenPlanningFromDialog) {
           setError("Access denied.");
           return;
@@ -1763,6 +1764,45 @@
         const payload = buildProjectDialogPayload();
         if (!payload) return;
         setError("");
+        const originalButtonText = openPlanningButton?.textContent || "Open Project Planner";
+        if (openPlanningButton) {
+          openPlanningButton.disabled = true;
+          openPlanningButton.textContent = "Saving...";
+        }
+        try {
+          await mutatePersistentState(
+            "update_project",
+            {
+              clientName: String(options?.clientName || "").trim(),
+              projectName: String(options?.projectName || "").trim(),
+              nextName: payload.projectName,
+              contractAmount: payload.contractAmount,
+              pricingModel: payload.pricingModel,
+              overheadPercent: payload.overheadPercent,
+              targetRealizationPct: payload.targetRealizationPct,
+              techAdminFeePctOverride: payload.techAdminFeePctOverride,
+              project_lead_id: payload.projectLeadId,
+              project_department_id: payload.projectDepartmentId,
+              office_id: payload.projectOfficeId,
+            },
+            { skipHydrate: true, refreshState: false, returnState: false }
+          );
+          await persistProjectTeamAssignments({
+            clientName: String(options?.clientName || "").trim(),
+            projectName: payload.projectName,
+            initialManagerUserIds: initialManagerUserIds,
+            initialStaffUserIds: initialStaffUserIds,
+            nextManagerUserIds: payload.managerUserIds,
+            nextStaffUserIds: payload.staffUserIds,
+          });
+        } catch (error) {
+          setError(error?.message || "Unable to update project.");
+          if (openPlanningButton) {
+            openPlanningButton.disabled = false;
+            openPlanningButton.textContent = originalButtonText;
+          }
+          return;
+        }
         const originalClientName = String(options?.clientName || "").trim();
         const originalProjectName = String(options?.projectName || "").trim();
         const nextProjectName = String(payload.projectName || "").trim();
@@ -1818,39 +1858,8 @@
           projectId: projectIdForPlanning,
         });
         setView("project_planning");
-        mutatePersistentState(
-          "update_project",
-          {
-            clientName: String(options?.clientName || "").trim(),
-            projectName: String(options?.projectName || "").trim(),
-            nextName: payload.projectName,
-            contractAmount: payload.contractAmount,
-            pricingModel: payload.pricingModel,
-            overheadPercent: payload.overheadPercent,
-            targetRealizationPct: payload.targetRealizationPct,
-            techAdminFeePctOverride: payload.techAdminFeePctOverride,
-            project_lead_id: payload.projectLeadId,
-            project_department_id: payload.projectDepartmentId,
-            office_id: payload.projectOfficeId,
-          },
-          { skipHydrate: true, refreshState: false, returnState: false }
-        )
-          .then(async function () {
-            await persistProjectTeamAssignments({
-              clientName: String(options?.clientName || "").trim(),
-              projectName: payload.projectName,
-              initialManagerUserIds: initialManagerUserIds,
-              initialStaffUserIds: initialStaffUserIds,
-              nextManagerUserIds: payload.managerUserIds,
-              nextStaffUserIds: payload.staffUserIds,
-            });
-            feedback("Project updated.", false);
-            loadPersistentStateInBackground();
-          })
-          .catch(function (error) {
-            feedback(error?.message || "Unable to update project.", true);
-            loadPersistentStateInBackground();
-          });
+        feedback("Project updated.", false);
+        loadPersistentStateInBackground();
       };
       openPlanningButton?.addEventListener("click", onOpenProjectPlanning);
 
@@ -1939,6 +1948,7 @@
     });
     feedback("Project added.", false);
     render();
+    loadPersistentStateInBackground();
   }
 
   function setupAddProjectHeaderAction() {
