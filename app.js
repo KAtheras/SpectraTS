@@ -1284,17 +1284,11 @@
       form.className = "project-dialog-form";
       form.innerHTML = `
         <section class="project-dialog-section">
-          <div class="project-dialog-core-row" style="grid-template-columns: repeat(2, minmax(0, 1fr));">
+          <div class="project-dialog-core-row" style="grid-template-columns: repeat(3, minmax(0, 1fr));">
             <label class="project-dialog-field">
               <span>Project name</span>
               <input type="text" name="project_name" required />
             </label>
-            <label class="project-dialog-field">
-              <span>Project Lead</span>
-              <select name="project_lead_id">${leadOptions}</select>
-            </label>
-          </div>
-          <div class="project-dialog-core-row" style="grid-template-columns: repeat(2, minmax(0, 1fr));">
             <label class="project-dialog-field">
               <span>Practice Department</span>
               <select name="project_department_id">${departmentOptions}</select>
@@ -1353,16 +1347,23 @@
             ? `
         <section class="project-dialog-section">
           <h3 class="panel-subheading">Team</h3>
+          <div class="project-dialog-core-row" style="grid-template-columns: repeat(2, minmax(0, 1fr));">
+            <label class="project-dialog-field">
+              <span>Project Lead</span>
+              <select name="project_lead_id">${leadOptions}</select>
+            </label>
+            <div class="project-dialog-team-add-wrap">
+              <button type="button" class="button button-ghost" data-project-team-add-member>+ Add Member</button>
+            </div>
+          </div>
           <div class="project-dialog-team-grid">
             <div class="project-dialog-team-col">
               <h4>Managers</h4>
               <div data-project-team-list="managers"></div>
-              <button type="button" class="button button-ghost" data-project-team-add="manager">+ Add Manager</button>
             </div>
             <div class="project-dialog-team-col">
               <h4>Staff</h4>
               <div data-project-team-list="staff"></div>
-              <button type="button" class="button button-ghost" data-project-team-add="staff">+ Add Staff</button>
             </div>
           </div>
         </section>
@@ -1403,8 +1404,7 @@
       const projectCancelButton = form.querySelector("[data-project-cancel]");
       const teamManagersList = form.querySelector('[data-project-team-list="managers"]');
       const teamStaffList = form.querySelector('[data-project-team-list="staff"]');
-      const addManagerButton = form.querySelector('[data-project-team-add="manager"]');
-      const addStaffButton = form.querySelector('[data-project-team-add="staff"]');
+      const addMemberButton = form.querySelector("[data-project-team-add-member]");
       const errorNode = form.querySelector("[data-project-dialog-error]");
       const dialogCard = refs.dialog?.querySelector(".dialog-card");
       const projectHasExplicitTechAdminOverride = currentTechAdminFeePctOverride !== null;
@@ -1451,9 +1451,11 @@
         container.innerHTML = `<ul class="project-dialog-team-list">${userIds
           .map((userId) => {
             const label = userDisplayNameById(userId);
-            return `<li><span>${escapeHtml(label)}</span><button type="button" class="button button-ghost" data-project-team-remove="${escapeHtml(
+            return `<li><span>${escapeHtml(label)}</span><button type="button" class="project-dialog-team-remove" data-project-team-remove="${escapeHtml(
               group
-            )}" data-project-team-user-id="${escapeHtml(userId)}" aria-label="Remove ${escapeHtml(label)}">Remove</button></li>`;
+            )}" data-project-team-user-id="${escapeHtml(userId)}" aria-label="Remove ${escapeHtml(
+              label
+            )}" title="Remove ${escapeHtml(label)}">🗑</button></li>`;
           })
           .join("")}</ul>`;
       };
@@ -1461,44 +1463,39 @@
         renderTeamEditableList(teamManagersList, pendingManagerUserIds, "manager");
         renderTeamEditableList(teamStaffList, pendingStaffUserIds, "staff");
       };
-      const openTeamPicker = (group) => {
-        const scopedGroup = group === "manager" ? "manager" : "staff";
+      const openTeamPicker = () => {
         const projectNameForTeam = String(nameInput?.value || currentName || options?.projectName || "").trim();
         if (!projectNameForTeam) {
           setError("Enter a project name before editing team assignments.");
           nameInput?.focus();
           return;
         }
-        memberModalState.mode = scopedGroup === "manager" ? "project-assign-manager" : "project-add-member";
+        memberModalState.mode = "project-add-member";
         memberModalState.client = String(options?.clientName || state.selectedCatalogClient || "").trim();
         memberModalState.project = projectNameForTeam;
-        memberModalState.assigned =
-          scopedGroup === "manager"
-            ? [...pendingManagerUserIds]
-            : [
-                ...new Set([
-                  ...pendingStaffUserIds,
-                  ...pendingManagerUserIds,
-                  ...(state.users || [])
-                    .filter((user) => isManager(user))
-                    .map((user) => String(user?.id || "").trim())
-                    .filter(Boolean),
-                ]),
-              ];
+        memberModalState.assigned = [...new Set([...pendingStaffUserIds, ...pendingManagerUserIds])];
         memberModalState.overrides = {};
         memberModalState.searchTerm = "";
         memberModalState.interceptSelection = ({ selectedIds }) => {
-          if (scopedGroup === "manager") {
-            const next = new Set(pendingManagerUserIds);
-            selectedIds.forEach((id) => next.add(String(id || "").trim()));
-            pendingManagerUserIds = Array.from(next).filter(Boolean);
-          } else {
-            const next = new Set(pendingStaffUserIds);
-            selectedIds.forEach((id) => next.add(String(id || "").trim()));
-            pendingStaffUserIds = Array.from(next).filter(
-              (id) => id && !pendingManagerUserIds.includes(id)
-            );
-          }
+          const nextManagers = new Set(pendingManagerUserIds);
+          const nextStaff = new Set(pendingStaffUserIds);
+          selectedIds.forEach((id) => {
+            const normalizedId = String(id || "").trim();
+            if (!normalizedId) return;
+            const user = getUserById(normalizedId);
+            if (isManager(user)) {
+              nextManagers.add(normalizedId);
+              nextStaff.delete(normalizedId);
+              return;
+            }
+            if (!nextManagers.has(normalizedId)) {
+              nextStaff.add(normalizedId);
+            }
+          });
+          pendingManagerUserIds = Array.from(nextManagers).filter(Boolean);
+          pendingStaffUserIds = Array.from(nextStaff).filter(
+            (id) => id && !nextManagers.has(id)
+          );
           renderTeamEditors();
         };
         openMembersModal();
@@ -1516,8 +1513,7 @@
         }
         renderTeamEditors();
       };
-      const onAddManagerClick = () => openTeamPicker("manager");
-      const onAddStaffClick = () => openTeamPicker("staff");
+      const onAddMemberClick = () => openTeamPicker();
       const resolveTargetRealizationForSelection = () => {
         const selectedOfficeId = String(officeSelect?.value || "").trim();
         const selectedDepartmentId = String(departmentSelect?.value || "").trim();
@@ -1563,8 +1559,7 @@
       }
       setPricingModel(currentPricingModel);
       renderTeamEditors();
-      addManagerButton?.addEventListener("click", onAddManagerClick);
-      addStaffButton?.addEventListener("click", onAddStaffClick);
+      addMemberButton?.addEventListener("click", onAddMemberClick);
       teamManagersList?.addEventListener("click", onTeamListClick);
       teamStaffList?.addEventListener("click", onTeamListClick);
       pricingModelToggleButtons.forEach((button) =>
@@ -1628,8 +1623,7 @@
         pricingModelToggleButtons.forEach((button) =>
           button.removeEventListener("click", onPricingModelToggleClick)
         );
-        addManagerButton?.removeEventListener("click", onAddManagerClick);
-        addStaffButton?.removeEventListener("click", onAddStaffClick);
+        addMemberButton?.removeEventListener("click", onAddMemberClick);
         teamManagersList?.removeEventListener("click", onTeamListClick);
         teamStaffList?.removeEventListener("click", onTeamListClick);
         if (memberModalState.interceptSelection) {

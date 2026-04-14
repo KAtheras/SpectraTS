@@ -277,7 +277,7 @@ body.modal-open {
 
 .project-dialog-team-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
 }
 
@@ -309,6 +309,34 @@ body.modal-open {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
+}
+
+.project-dialog-team-add-wrap {
+  display: flex;
+  align-items: end;
+  justify-content: flex-start;
+}
+
+.project-dialog-team-remove {
+  width: 30px;
+  min-width: 30px;
+  max-width: 30px;
+  height: 30px;
+  border: 1px solid #d8b0b0;
+  border-radius: 6px;
+  background: #fdf6f6;
+  color: #a13a3a;
+  font-size: 0.9rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.project-dialog-team-remove:hover,
+.project-dialog-team-remove:focus-visible {
+  background: #f9eaea;
+  border-color: #c88f8f;
+  color: #8c2f2f;
+  outline: none;
 }
 
 .project-dialog-team-empty {
