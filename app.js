@@ -1218,7 +1218,7 @@
             )
         )
         .join("");
-      const showTeamSection = isProjectEditDialog;
+      const showTeamSection = true;
       const renderNameList = (items) =>
         items.length
           ? `<ul class="project-dialog-team-list">${items
@@ -1254,10 +1254,8 @@
             <label class="project-dialog-field">
               <span>Contract Amount (optional)</span>
               <input type="text" name="contract_amount" inputmode="decimal" placeholder="25000 or $25,000" />
+              <small class="project-dialog-helper" data-contract-amount-helper></small>
             </label>
-            ${
-              isProjectEditDialog
-                ? `
             <label class="project-dialog-field">
               <span>Project Type</span>
               <div class="project-planning-contract-type-toggle" role="tablist" aria-label="Contract type">
@@ -1284,18 +1282,7 @@
               <span>Overhead %</span>
               <input type="text" name="overhead_percent" inputmode="decimal" placeholder="e.g. 12.5" />
             </label>
-            `
-                : `
-            <label class="project-dialog-field">
-              <span>Budget (optional)</span>
-              <input type="text" name="budget_amount" inputmode="decimal" placeholder="15000 or $15,000" />
-            </label>
-            `
-            }
           </div>
-          ${
-            isProjectEditDialog
-              ? `
           <div class="project-dialog-core-row" style="grid-template-columns: repeat(2, minmax(0, 1fr));">
             <label class="project-dialog-field">
               <span>Target Realization %</span>
@@ -1306,28 +1293,6 @@
               <input type="text" name="tech_admin_fee_pct_override" inputmode="decimal" placeholder="Optional (uses department default when blank)" />
             </label>
           </div>
-          `
-              : ""
-          }
-          ${
-            isProjectEditDialog
-              ? ""
-              : `
-          <div class="project-dialog-core-row" style="grid-template-columns: repeat(2, minmax(0, 1fr));">
-            <label class="project-dialog-field">
-              <span>Project Type</span>
-              <select name="pricing_model">
-                <option value="fixed_fee">Fixed Fee</option>
-                <option value="time_and_materials">Time &amp; Materials</option>
-              </select>
-            </label>
-            <label class="project-dialog-field">
-              <span>Overhead %</span>
-              <input type="text" name="overhead_percent" inputmode="decimal" placeholder="e.g. 12.5" />
-            </label>
-          </div>
-          `
-          }
         </section>
         ${
           showTeamSection
@@ -1366,8 +1331,8 @@
       `;
 
       const nameInput = form.querySelector('input[name="project_name"]');
-      const budgetInput = form.querySelector('input[name="budget_amount"]');
       const contractAmountInput = form.querySelector('input[name="contract_amount"]');
+      const contractAmountHelper = form.querySelector("[data-contract-amount-helper]");
       const leadSelect = form.querySelector('select[name="project_lead_id"]');
       const departmentSelect = form.querySelector('select[name="project_department_id"]');
       const officeSelect = form.querySelector('select[name="project_office_id"]');
@@ -1394,6 +1359,12 @@
             : "fixed_fee";
         if (pricingModelInput) {
           pricingModelInput.value = normalized;
+        }
+        if (contractAmountHelper) {
+          contractAmountHelper.textContent =
+            normalized === "time_and_materials"
+              ? "Estimated budget for planning and tracking purposes"
+              : "Total contracted amount for the project";
         }
         pricingModelToggleButtons.forEach((button) => {
           const value = String(button?.dataset?.pricingModelValue || "").trim();
@@ -1448,9 +1419,6 @@
       if (nameInput) {
         nameInput.value = currentName;
       }
-      if (budgetInput) {
-        budgetInput.value = currentBudget !== null ? String(currentBudget) : "";
-      }
       if (contractAmountInput) {
         contractAmountInput.value =
           currentContractAmount !== null ? String(currentContractAmount) : "";
@@ -1480,12 +1448,10 @@
       if (officeSelect) {
         officeSelect.value = currentProjectOfficeId;
       }
-      if (isProjectEditDialog) {
-        departmentSelect?.addEventListener("change", syncTargetRealizationDefault);
-        officeSelect?.addEventListener("change", syncTargetRealizationDefault);
-        departmentSelect?.addEventListener("change", syncTechAdminFeeOverrideDefault);
-        techAdminFeeOverrideInput?.addEventListener("input", onTechAdminFeeInput);
-      }
+      departmentSelect?.addEventListener("change", syncTargetRealizationDefault);
+      officeSelect?.addEventListener("change", syncTargetRealizationDefault);
+      departmentSelect?.addEventListener("change", syncTechAdminFeeOverrideDefault);
+      techAdminFeeOverrideInput?.addEventListener("input", onTechAdminFeeInput);
       syncTechAdminFeeOverrideDefault();
 
       refs.dialogTitle.textContent = title;
@@ -1561,15 +1527,9 @@
           techAdminFeeOverrideInput?.focus();
           return null;
         }
-        const parsedBudget = parseProjectBudgetAmount(budgetInput?.value || "");
-        if (!isProjectEditDialog && !parsedBudget.ok) {
-          setError("Budget must be a non-negative number.");
-          budgetInput?.focus();
-          return null;
-        }
         return {
           projectName: nextName,
-          budgetAmount: parsedBudget.value,
+          budgetAmount: currentBudget,
           contractAmount: parsedContractAmount.value,
           pricingModel:
             String(pricingModelInput?.value || "fixed_fee").trim() === "time_and_materials"
@@ -1789,6 +1749,8 @@
         contractAmount: projectDialog.contractAmount,
         pricingModel: projectDialog.pricingModel,
         overheadPercent: projectDialog.overheadPercent,
+        targetRealizationPct: projectDialog.targetRealizationPct,
+        techAdminFeePctOverride: projectDialog.techAdminFeePctOverride,
         project_lead_id: projectDialog.projectLeadId,
         project_department_id: projectDialog.projectDepartmentId,
         office_id: projectDialog.projectOfficeId,
