@@ -1620,8 +1620,8 @@
       if (refs.dialogTextarea) {
         refs.dialogTextarea.hidden = true;
       }
-      refs.dialogInputRow.innerHTML = "";
-      refs.dialogInputRow.appendChild(form);
+      const preservedDialogInputNodes = Array.from(refs.dialogInputRow.childNodes || []);
+      refs.dialogInputRow.replaceChildren(form);
       dialogCard?.classList.add("dialog-card--project");
       refs.dialog.hidden = false;
       refs.dialogConfirm.hidden = true;
@@ -1653,7 +1653,7 @@
         projectCancelButton?.removeEventListener("click", onCancel);
         form.remove();
         dialogCard?.classList.remove("dialog-card--project");
-        refs.dialogInputRow.innerHTML = "";
+        refs.dialogInputRow.replaceChildren(...preservedDialogInputNodes);
         refs.dialogMessage.hidden = false;
         refs.dialogInputRow.hidden = true;
         refs.dialogInput.hidden = false;
