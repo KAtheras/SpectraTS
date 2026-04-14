@@ -212,6 +212,28 @@
             : typeof project.project_lead_name === "string" && project.project_lead_name.trim()
               ? project.project_lead_name.trim()
               : "";
+        const percentCompleteRaw =
+          project.percentComplete !== undefined && project.percentComplete !== null
+            ? Number(project.percentComplete)
+            : project.percent_complete !== undefined && project.percent_complete !== null
+              ? Number(project.percent_complete)
+              : null;
+        const percentCompleteUpdatedAt =
+          typeof project.percentCompleteUpdatedAt === "string" && project.percentCompleteUpdatedAt.trim()
+            ? project.percentCompleteUpdatedAt.trim()
+            : typeof project.percent_complete_updated_at === "string" && project.percent_complete_updated_at.trim()
+              ? project.percent_complete_updated_at.trim()
+              : null;
+        const planningStatusRaw =
+          project.planningStatus !== undefined && project.planningStatus !== null
+            ? String(project.planningStatus).trim().toLowerCase()
+            : project.planning_status !== undefined && project.planning_status !== null
+              ? String(project.planning_status).trim().toLowerCase()
+              : "draft";
+        const planningStatus =
+          planningStatusRaw === "submitted" || planningStatusRaw === "approved" || planningStatusRaw === "draft"
+            ? planningStatusRaw
+            : "draft";
         return {
           id: project.id || "",
           client,
@@ -236,6 +258,12 @@
           projectLeadId: projectLeadId || null,
           project_lead_id: projectLeadId || null,
           projectLeadName,
+          percentComplete: Number.isFinite(percentCompleteRaw) ? percentCompleteRaw : null,
+          percent_complete: Number.isFinite(percentCompleteRaw) ? percentCompleteRaw : null,
+          percentCompleteUpdatedAt,
+          percent_complete_updated_at: percentCompleteUpdatedAt,
+          planningStatus,
+          planning_status: planningStatus,
         };
       })
       .filter(Boolean);
