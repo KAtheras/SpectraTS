@@ -1229,7 +1229,6 @@
       form.className = "project-dialog-form";
       form.innerHTML = `
         <section class="project-dialog-section">
-          <h3 class="panel-subheading">Core</h3>
           <div class="project-dialog-core-row" style="grid-template-columns: repeat(2, minmax(0, 1fr));">
             <label class="project-dialog-field">
               <span>Project name</span>
