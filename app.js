@@ -963,6 +963,53 @@
     return { ok: true, value: parsed };
   }
 
+  async function persistProjectTeamAssignments(options) {
+    const clientName = String(options?.clientName || "").trim();
+    const projectName = String(options?.projectName || "").trim();
+    if (!clientName || !projectName) return;
+    const normalizeIds = (ids) =>
+      [...new Set((Array.isArray(ids) ? ids : []).map((id) => String(id || "").trim()).filter(Boolean))];
+    const initialManagers = normalizeIds(options?.initialManagerUserIds);
+    const initialStaff = normalizeIds(options?.initialStaffUserIds);
+    const nextManagers = normalizeIds(options?.nextManagerUserIds);
+    const nextStaff = normalizeIds(options?.nextStaffUserIds).filter((id) => !nextManagers.includes(id));
+
+    const toAddManagers = nextManagers.filter((id) => !initialManagers.includes(id));
+    const toRemoveManagers = initialManagers.filter((id) => !nextManagers.includes(id));
+    const toAddStaff = nextStaff.filter((id) => !initialStaff.includes(id));
+    const toRemoveStaff = initialStaff.filter((id) => !nextStaff.includes(id));
+
+    const mutationOptions = { skipHydrate: true, refreshState: false, returnState: false };
+    for (const managerId of toAddManagers) {
+      await mutatePersistentState(
+        "assign_manager_project",
+        { managerId, clientName, projectName },
+        mutationOptions
+      );
+    }
+    for (const managerId of toRemoveManagers) {
+      await mutatePersistentState(
+        "unassign_manager_project",
+        { managerId, clientName, projectName },
+        mutationOptions
+      );
+    }
+    for (const userId of toAddStaff) {
+      await mutatePersistentState(
+        "add_project_member",
+        { userId, clientName, projectName },
+        mutationOptions
+      );
+    }
+    for (const userId of toRemoveStaff) {
+      await mutatePersistentState(
+        "remove_project_member",
+        { userId, clientName, projectName },
+        mutationOptions
+      );
+    }
+  }
+
   function syncBillingContactFromBusiness(form) {
     if (!form) return;
     const sameAsBusiness = field(form, "billing_same_as_business");
@@ -1054,8 +1101,8 @@
       if (raw === null || raw === undefined || `${raw}`.trim() === "") return null;
       return Number.isFinite(Number(raw)) ? Number(raw) : null;
     })();
-    const managerNames = userNamesForIds(managerIdsForProject(normalizedClient, normalizedProject));
-    const staffNames = userNamesForIds(staffIdsForProject(normalizedClient, normalizedProject));
+    const managerUserIds = managerIdsForProject(normalizedClient, normalizedProject);
+    const staffUserIds = staffIdsForProject(normalizedClient, normalizedProject);
     const projectDialog = await openProjectDialog({
       mode: "edit",
       projectId: String(projectRow?.id || "").trim() || null,
@@ -1071,8 +1118,8 @@
       projectDepartmentId,
       projectOfficeId,
       clientOfficeId,
-      managerNames,
-      staffNames,
+      managerUserIds,
+      staffUserIds,
       allowOpenPlanning: canEditProjectPlanning(normalizedClient, normalizedProject),
     });
     if (!projectDialog) {
@@ -1095,6 +1142,14 @@
         project_lead_id: projectDialog.projectLeadId,
         project_department_id: projectDialog.projectDepartmentId,
         office_id: projectDialog.projectOfficeId,
+      });
+      await persistProjectTeamAssignments({
+        clientName: normalizedClient,
+        projectName: nextName,
+        initialManagerUserIds: managerUserIds,
+        initialStaffUserIds: staffUserIds,
+        nextManagerUserIds: projectDialog.managerUserIds,
+        nextStaffUserIds: projectDialog.staffUserIds,
       });
     } catch (error) {
       feedback(error?.message || "Unable to update project.", true);
@@ -1156,8 +1211,14 @@
           : Number.isFinite(Number(defaultTargetRealizationPctRaw))
             ? Number(defaultTargetRealizationPctRaw)
             : null;
-      const managerNames = Array.isArray(options?.managerNames) ? options.managerNames.filter(Boolean) : [];
-      const staffNames = Array.isArray(options?.staffNames) ? options.staffNames.filter(Boolean) : [];
+      const initialManagerUserIds = Array.isArray(options?.managerUserIds)
+        ? [...new Set(options.managerUserIds.map((id) => String(id || "").trim()).filter(Boolean))]
+        : [];
+      const initialStaffUserIds = Array.isArray(options?.staffUserIds)
+        ? [...new Set(options.staffUserIds.map((id) => String(id || "").trim()).filter(Boolean))]
+        : [];
+      let pendingManagerUserIds = [...initialManagerUserIds];
+      let pendingStaffUserIds = [...initialStaffUserIds];
       const title = mode === "edit" ? "Edit project" : "Add project";
       const finalConfirmText = mode === "edit" ? "Save" : "Add";
       const activeUsers = (state.users || [])
@@ -1219,12 +1280,6 @@
         )
         .join("");
       const showTeamSection = true;
-      const renderNameList = (items) =>
-        items.length
-          ? `<ul class="project-dialog-team-list">${items
-              .map((name) => `<li>${escapeHtml(String(name || "").trim())}</li>`)
-              .join("")}</ul>`
-          : '<p class="project-dialog-team-empty">None</p>';
       const form = document.createElement("form");
       form.className = "project-dialog-form";
       form.innerHTML = `
@@ -1301,11 +1356,13 @@
           <div class="project-dialog-team-grid">
             <div class="project-dialog-team-col">
               <h4>Managers</h4>
-              ${renderNameList(managerNames)}
+              <div data-project-team-list="managers"></div>
+              <button type="button" class="button button-ghost" data-project-team-add="manager">+ Add Manager</button>
             </div>
             <div class="project-dialog-team-col">
               <h4>Staff</h4>
-              ${renderNameList(staffNames)}
+              <div data-project-team-list="staff"></div>
+              <button type="button" class="button button-ghost" data-project-team-add="staff">+ Add Staff</button>
             </div>
           </div>
         </section>
@@ -1344,6 +1401,10 @@
       const techAdminFeeOverrideInput = form.querySelector('input[name="tech_admin_fee_pct_override"]');
       const openPlanningButton = form.querySelector("[data-project-open-planning]");
       const projectCancelButton = form.querySelector("[data-project-cancel]");
+      const teamManagersList = form.querySelector('[data-project-team-list="managers"]');
+      const teamStaffList = form.querySelector('[data-project-team-list="staff"]');
+      const addManagerButton = form.querySelector('[data-project-team-add="manager"]');
+      const addStaffButton = form.querySelector('[data-project-team-add="staff"]');
       const errorNode = form.querySelector("[data-project-dialog-error]");
       const dialogCard = refs.dialog?.querySelector(".dialog-card");
       const projectHasExplicitTechAdminOverride = currentTechAdminFeePctOverride !== null;
@@ -1379,6 +1440,84 @@
         const value = String(button.dataset.pricingModelValue || "").trim();
         setPricingModel(value);
       };
+      const userDisplayNameById = (userId) =>
+        String(getUserById(userId)?.displayName || getUserById(userId)?.username || userId || "").trim();
+      const renderTeamEditableList = (container, userIds, group) => {
+        if (!container) return;
+        if (!Array.isArray(userIds) || userIds.length === 0) {
+          container.innerHTML = '<p class="project-dialog-team-empty">None</p>';
+          return;
+        }
+        container.innerHTML = `<ul class="project-dialog-team-list">${userIds
+          .map((userId) => {
+            const label = userDisplayNameById(userId);
+            return `<li><span>${escapeHtml(label)}</span><button type="button" class="button button-ghost" data-project-team-remove="${escapeHtml(
+              group
+            )}" data-project-team-user-id="${escapeHtml(userId)}" aria-label="Remove ${escapeHtml(label)}">Remove</button></li>`;
+          })
+          .join("")}</ul>`;
+      };
+      const renderTeamEditors = () => {
+        renderTeamEditableList(teamManagersList, pendingManagerUserIds, "manager");
+        renderTeamEditableList(teamStaffList, pendingStaffUserIds, "staff");
+      };
+      const openTeamPicker = (group) => {
+        const scopedGroup = group === "manager" ? "manager" : "staff";
+        const projectNameForTeam = String(nameInput?.value || currentName || options?.projectName || "").trim();
+        if (!projectNameForTeam) {
+          setError("Enter a project name before editing team assignments.");
+          nameInput?.focus();
+          return;
+        }
+        memberModalState.mode = scopedGroup === "manager" ? "project-assign-manager" : "project-add-member";
+        memberModalState.client = String(options?.clientName || state.selectedCatalogClient || "").trim();
+        memberModalState.project = projectNameForTeam;
+        memberModalState.assigned =
+          scopedGroup === "manager"
+            ? [...pendingManagerUserIds]
+            : [
+                ...new Set([
+                  ...pendingStaffUserIds,
+                  ...pendingManagerUserIds,
+                  ...(state.users || [])
+                    .filter((user) => isManager(user))
+                    .map((user) => String(user?.id || "").trim())
+                    .filter(Boolean),
+                ]),
+              ];
+        memberModalState.overrides = {};
+        memberModalState.searchTerm = "";
+        memberModalState.interceptSelection = ({ selectedIds }) => {
+          if (scopedGroup === "manager") {
+            const next = new Set(pendingManagerUserIds);
+            selectedIds.forEach((id) => next.add(String(id || "").trim()));
+            pendingManagerUserIds = Array.from(next).filter(Boolean);
+          } else {
+            const next = new Set(pendingStaffUserIds);
+            selectedIds.forEach((id) => next.add(String(id || "").trim()));
+            pendingStaffUserIds = Array.from(next).filter(
+              (id) => id && !pendingManagerUserIds.includes(id)
+            );
+          }
+          renderTeamEditors();
+        };
+        openMembersModal();
+      };
+      const onTeamListClick = (event) => {
+        const removeButton = event.target.closest("[data-project-team-remove]");
+        if (!removeButton) return;
+        const group = String(removeButton.dataset.projectTeamRemove || "").trim();
+        const userId = String(removeButton.dataset.projectTeamUserId || "").trim();
+        if (!userId) return;
+        if (group === "manager") {
+          pendingManagerUserIds = pendingManagerUserIds.filter((id) => id !== userId);
+        } else {
+          pendingStaffUserIds = pendingStaffUserIds.filter((id) => id !== userId);
+        }
+        renderTeamEditors();
+      };
+      const onAddManagerClick = () => openTeamPicker("manager");
+      const onAddStaffClick = () => openTeamPicker("staff");
       const resolveTargetRealizationForSelection = () => {
         const selectedOfficeId = String(officeSelect?.value || "").trim();
         const selectedDepartmentId = String(departmentSelect?.value || "").trim();
@@ -1423,6 +1562,11 @@
           currentContractAmount !== null ? String(currentContractAmount) : "";
       }
       setPricingModel(currentPricingModel);
+      renderTeamEditors();
+      addManagerButton?.addEventListener("click", onAddManagerClick);
+      addStaffButton?.addEventListener("click", onAddStaffClick);
+      teamManagersList?.addEventListener("click", onTeamListClick);
+      teamStaffList?.addEventListener("click", onTeamListClick);
       pricingModelToggleButtons.forEach((button) =>
         button.addEventListener("click", onPricingModelToggleClick)
       );
@@ -1484,6 +1628,13 @@
         pricingModelToggleButtons.forEach((button) =>
           button.removeEventListener("click", onPricingModelToggleClick)
         );
+        addManagerButton?.removeEventListener("click", onAddManagerClick);
+        addStaffButton?.removeEventListener("click", onAddStaffClick);
+        teamManagersList?.removeEventListener("click", onTeamListClick);
+        teamStaffList?.removeEventListener("click", onTeamListClick);
+        if (memberModalState.interceptSelection) {
+          memberModalState.interceptSelection = null;
+        }
         openPlanningButton?.removeEventListener("click", onOpenProjectPlanning);
         projectCancelButton?.removeEventListener("click", onCancel);
         form.remove();
@@ -1540,6 +1691,8 @@
             !projectHasExplicitTechAdminOverride && !techAdminFeeTouched
               ? null
               : parsedTechAdminFeeOverride.value,
+          managerUserIds: [...pendingManagerUserIds],
+          staffUserIds: [...pendingStaffUserIds],
           projectLeadId: String(leadSelect?.value || "").trim() || null,
           projectDepartmentId: String(departmentSelect?.value || "").trim() || null,
           projectOfficeId: String(officeSelect?.value || "").trim() || null,
@@ -1586,6 +1739,10 @@
           contractAmount: payload.contractAmount,
           pricingModel: payload.pricingModel,
           overheadPercent: payload.overheadPercent,
+          targetRealizationPct: payload.targetRealizationPct,
+          techAdminFeePctOverride: payload.techAdminFeePctOverride,
+          managerUserIds: payload.managerUserIds,
+          staffUserIds: payload.staffUserIds,
           projectLeadId: payload.projectLeadId,
           projectDepartmentId: payload.projectDepartmentId,
           projectOfficeId: payload.projectOfficeId,
@@ -1680,7 +1837,15 @@
           },
           { skipHydrate: true, refreshState: false, returnState: false }
         )
-          .then(function () {
+          .then(async function () {
+            await persistProjectTeamAssignments({
+              clientName: String(options?.clientName || "").trim(),
+              projectName: payload.projectName,
+              initialManagerUserIds: initialManagerUserIds,
+              initialStaffUserIds: initialStaffUserIds,
+              nextManagerUserIds: payload.managerUserIds,
+              nextStaffUserIds: payload.staffUserIds,
+            });
             feedback("Project updated.", false);
             loadPersistentStateInBackground();
           })
@@ -1730,6 +1895,8 @@
       contractAmount: null,
       pricingModel: "fixed_fee",
       overheadPercent: null,
+      managerUserIds: [],
+      staffUserIds: [],
       projectLeadId: null,
       clientOfficeId: String(selectedClientRow?.officeId || selectedClientRow?.office_id || "").trim() || null,
     });
@@ -1753,6 +1920,14 @@
         project_lead_id: projectDialog.projectLeadId,
         project_department_id: projectDialog.projectDepartmentId,
         office_id: projectDialog.projectOfficeId,
+      });
+      await persistProjectTeamAssignments({
+        clientName: state.selectedCatalogClient,
+        projectName: projectDialog.projectName,
+        initialManagerUserIds: [],
+        initialStaffUserIds: [],
+        nextManagerUserIds: projectDialog.managerUserIds,
+        nextStaffUserIds: projectDialog.staffUserIds,
       });
     } catch (error) {
       feedback(error.message || "Unable to add project.", true);
@@ -2879,6 +3054,7 @@
     client: "",
     project: "",
     userId: "",
+    interceptSelection: null,
     initialAssigned: [],
     initialOverrides: {},
     assigned: [],
@@ -4924,6 +5100,7 @@
   }
 
   function closeMembersModal() {
+    memberModalState.interceptSelection = null;
     membersCloseMembersModal?.({
       refs,
       body,
@@ -13320,6 +13497,28 @@
           }
           overrideInputMap[input.dataset.overrideInput] = num;
         }
+      }
+
+      const interceptSelection =
+        typeof memberModalState.interceptSelection === "function"
+          ? memberModalState.interceptSelection
+          : null;
+      if (
+        interceptSelection &&
+        (mode === "project-assign-manager" || mode === "project-add-member")
+      ) {
+        try {
+          interceptSelection({
+            mode,
+            client,
+            project,
+            selectedIds: selected.map((id) => String(id || "").trim()).filter(Boolean),
+          });
+        } finally {
+          memberModalState.interceptSelection = null;
+        }
+        closeMembersModal();
+        return;
       }
 
   let success = false;

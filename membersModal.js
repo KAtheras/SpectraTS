@@ -304,7 +304,7 @@
           checkboxDisabled = true;
           checkboxTitle = "Managers or higher only.";
         }
-        if (isDirectAssignedToProject) {
+        if (isDirectAssignedToProject || assignedSet.has(user.id)) {
           checkboxDisabled = true;
           checkboxTitle = "Already assigned.";
         }

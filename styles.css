@@ -305,6 +305,10 @@ body.modal-open {
 
 .project-dialog-team-list li {
   margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
 }
 
 .project-dialog-team-empty {
