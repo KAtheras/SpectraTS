@@ -313,29 +313,40 @@ body.modal-open {
 
 .project-dialog-team-add-wrap {
   display: flex;
-  align-items: end;
+  align-items: flex-end;
   justify-content: flex-start;
+  align-self: end;
+  padding-bottom: 1px;
 }
 
 .project-dialog-team-remove {
-  width: 30px;
-  min-width: 30px;
-  max-width: 30px;
-  height: 30px;
-  border: 1px solid #d8b0b0;
-  border-radius: 6px;
-  background: #fdf6f6;
+  width: 42px;
+  min-width: 42px;
+  height: 42px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   color: #a13a3a;
-  font-size: 0.9rem;
-  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
+  opacity: 0.8;
+  transition: opacity 0.15s ease;
+}
+
+.project-dialog-team-remove svg {
+  width: 29px;
+  height: 29px;
+  display: block;
 }
 
 .project-dialog-team-remove:hover,
 .project-dialog-team-remove:focus-visible {
-  background: #f9eaea;
-  border-color: #c88f8f;
-  color: #8c2f2f;
+  color: color-mix(in srgb, var(--danger) 92%, #ff9f9f 8%);
+  opacity: 1;
+  background: transparent;
   outline: none;
 }
 
@@ -2567,6 +2578,10 @@ body[data-theme="dark"] .audit-detail-col {
   padding: 16px;
   background: var(--modal-overlay);
   backdrop-filter: blur(8px);
+}
+
+#members-modal.modal-backdrop {
+  z-index: 260;
 }
 
 .modal-backdrop[hidden] {
