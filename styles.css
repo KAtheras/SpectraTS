@@ -3834,7 +3834,7 @@ body[data-theme="dark"] .audit-detail-col {
 
 #clients-page .catalog-item-project .catalog-project-meta-bar {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
   gap: 8px;
   width: 100%;
   padding: 7px 9px;
@@ -3849,9 +3849,12 @@ body[data-theme="dark"] .audit-detail-col {
   min-width: 0;
 }
 
-#clients-page .catalog-item-project .catalog-project-meta-item--action {
-  justify-items: end;
+#clients-page .catalog-item-project .catalog-project-meta-item--complete-action {
+  display: inline-flex;
   align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  white-space: nowrap;
 }
 
 #clients-page .catalog-item-project .catalog-project-meta-label {
@@ -3868,16 +3871,11 @@ body[data-theme="dark"] .audit-detail-col {
   color: color-mix(in srgb, var(--ink) 84%, var(--muted) 16%);
 }
 
-#clients-page .catalog-item-project .catalog-project-meta-value--complete {
-  font-size: 0.95rem;
-  font-weight: 640;
-}
-
-#clients-page .catalog-item-project .catalog-project-top-edit {
-  min-height: 36px;
-  padding: 0 12px;
-  border-radius: 10px;
-  align-self: start;
+#clients-page .catalog-item-project .catalog-project-meta-complete-text {
+  font-size: 1.04rem;
+  font-weight: 700;
+  line-height: 1.1;
+  color: color-mix(in srgb, var(--ink) 92%, var(--muted) 8%);
 }
 
 #clients-page .catalog-item-project .catalog-project-content-grid {

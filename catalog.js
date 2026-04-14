@@ -248,23 +248,25 @@
               >
                 <span class="catalog-item-copy">
                   <span class="catalog-project-top">
-                    ${
-                      showEditProjectAction
-                        ? `<button
-                        type="button"
-                        class="button button-ghost catalog-project-top-edit"
-                        aria-label="Edit ${escapeHtml(project)}"
-                        data-edit-project="${escapeHtml(project)}"
-                      >
-                        Edit
-                      </button>`
-                        : ""
-                    }
-                    <span class="catalog-project-title-wrap">
-                      <span class="catalog-item-title">${escapeHtml(project)}</span>
-                      <small class="catalog-item-title-meta">${escapeHtml(
-                        `${projectHours(selectedClient, project).toFixed(2)}h logged`
-                      )}</small>
+                    <span class="catalog-card-head">
+                      <span class="catalog-project-title-wrap">
+                        <span class="catalog-item-title">${escapeHtml(project)}</span>
+                        <small class="catalog-item-title-meta">${escapeHtml(
+                          `${projectHours(selectedClient, project).toFixed(2)}h logged`
+                        )}</small>
+                      </span>
+                      ${
+                        showEditProjectAction
+                          ? `<button
+                          type="button"
+                          class="catalog-edit catalog-edit-inline"
+                          aria-label="Edit ${escapeHtml(project)}"
+                          data-edit-project="${escapeHtml(project)}"
+                        >
+                          Edit
+                        </button>`
+                          : ""
+                      }
                     </span>
                   </span>
                   <span class="catalog-project-meta-bar">
@@ -276,13 +278,10 @@
                       <span class="catalog-project-meta-label">Department</span>
                       <span class="catalog-project-meta-value">${escapeHtml(projectDepartmentName || "—")}</span>
                     </span>
-                    <span class="catalog-project-meta-item catalog-project-meta-item--complete">
-                      <span class="catalog-project-meta-label">% Complete</span>
-                      <span class="catalog-project-meta-value catalog-project-meta-value--complete">${escapeHtml(
-                        percentCompleteDisplay
+                    <span class="catalog-project-meta-item catalog-project-meta-item--complete-action">
+                      <span class="catalog-project-meta-complete-text">${escapeHtml(
+                        `${percentCompleteDisplay} complete`
                       )}</span>
-                    </span>
-                    <span class="catalog-project-meta-item catalog-project-meta-item--action">
                       ${
                         canEditProjectCard
                           ? `<button
