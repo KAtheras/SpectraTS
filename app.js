@@ -1443,6 +1443,14 @@
       };
       const userDisplayNameById = (userId) =>
         String(getUserById(userId)?.displayName || getUserById(userId)?.username || userId || "").trim();
+      const userTitleById = (userId) => {
+        const user = getUserById(userId);
+        const explicitLevelLabel = String(levelLabel?.(user?.level) || "").trim();
+        if (explicitLevelLabel) return explicitLevelLabel;
+        const group = String(permissionGroupForUser(user) || "").trim().toLowerCase();
+        if (!group) return "";
+        return group.charAt(0).toUpperCase() + group.slice(1);
+      };
       const renderTeamEditableList = (container, userIds, group) => {
         if (!container) return;
         if (!Array.isArray(userIds) || userIds.length === 0) {
@@ -1452,7 +1460,14 @@
         container.innerHTML = `<ul class="project-dialog-team-list">${userIds
           .map((userId) => {
             const label = userDisplayNameById(userId);
-            return `<li><span>${escapeHtml(label)}</span><button type="button" class="project-dialog-team-remove" data-project-team-remove="${escapeHtml(
+            const title = userTitleById(userId);
+            return `<li><span class="project-dialog-team-member"><span class="project-dialog-team-member-name">${escapeHtml(
+              label
+            )}</span>${
+              title
+                ? `<span class="project-dialog-team-member-title">${escapeHtml(title)}</span>`
+                : ""
+            }</span><button type="button" class="project-dialog-team-remove" data-project-team-remove="${escapeHtml(
               group
             )}" data-project-team-user-id="${escapeHtml(userId)}" aria-label="Remove ${escapeHtml(
               label

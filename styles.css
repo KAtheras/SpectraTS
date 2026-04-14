@@ -343,6 +343,21 @@ body.modal-open {
   gap: 8px;
 }
 
+.project-dialog-team-member {
+  display: grid;
+  gap: 1px;
+}
+
+.project-dialog-team-member-name {
+  font-weight: 500;
+}
+
+.project-dialog-team-member-title {
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.2;
+}
+
 .project-dialog-team-add-wrap {
   display: flex;
   align-items: center;
