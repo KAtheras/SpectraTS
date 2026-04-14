@@ -13060,11 +13060,18 @@
         currentPercentRaw === null || currentPercentRaw === undefined || currentPercentRaw === ""
           ? ""
           : String(Number(currentPercentRaw));
-      const nextPercentText = window.prompt("Update % Complete (0-100)", currentPercentText);
-      if (nextPercentText === null) {
+      const dialog = await appDialog({
+        title: "Update % Complete",
+        message: "Enter a value from 0 to 100.",
+        confirmText: "Save",
+        cancelText: "Cancel",
+        input: true,
+        defaultValue: currentPercentText,
+      });
+      if (!dialog?.confirmed) {
         return;
       }
-      const trimmedPercent = String(nextPercentText || "").trim();
+      const trimmedPercent = String(dialog?.value || "").trim();
       if (!trimmedPercent) {
         feedback("% Complete is required.", true);
         return;
@@ -13075,37 +13082,15 @@
         return;
       }
       try {
-        const result = await mutatePersistentState(
+        await mutatePersistentState(
           "update_project_progress",
           {
             clientName: state.selectedCatalogClient,
             projectName,
             percentComplete: nextPercent,
           },
-          { skipHydrate: true, refreshState: false, returnState: false }
+          { skipHydrate: false, refreshState: false, returnState: true }
         );
-        const updatedProgress = result?.projectProgress || null;
-        const nextPercentComplete =
-          updatedProgress?.percentComplete !== null && updatedProgress?.percentComplete !== undefined
-            ? Number(updatedProgress.percentComplete)
-            : nextPercent;
-        const nextPercentUpdatedAt = updatedProgress?.percentCompleteUpdatedAt || new Date().toISOString();
-        const nextPlanningStatus = updatedProgress?.planningStatus || (projectRow?.planningStatus ?? "draft");
-        state.projects = (state.projects || []).map((project) => {
-          const matchesClient =
-            String(project?.client || "").trim() === String(state.selectedCatalogClient || "").trim();
-          const matchesProject = String(project?.name || "").trim() === projectName;
-          if (!matchesClient || !matchesProject) return project;
-          return {
-            ...project,
-            percentComplete: nextPercentComplete,
-            percent_complete: nextPercentComplete,
-            percentCompleteUpdatedAt: nextPercentUpdatedAt,
-            percent_complete_updated_at: nextPercentUpdatedAt,
-            planningStatus: nextPlanningStatus,
-            planning_status: nextPlanningStatus,
-          };
-        });
         renderCatalogAside();
         syncProjectCardsUx();
         feedback("Project progress updated.", false);
