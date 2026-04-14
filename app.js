@@ -1009,6 +1009,13 @@
     )
       ? Number(projectRow.overheadPercent ?? projectRow.overhead_percent)
       : null;
+    const currentPricingModelRaw = String(
+      projectRow.pricingModel ?? projectRow.pricing_model ?? ""
+    )
+      .trim()
+      .toLowerCase();
+    const currentPricingModel =
+      currentPricingModelRaw === "time_and_materials" ? "time_and_materials" : "fixed_fee";
     const projectTargetRaw = projectRow.targetRealizationPct ?? projectRow.target_realization_pct;
     const currentTargetRealizationPct =
       projectTargetRaw === null || projectTargetRaw === undefined || `${projectTargetRaw}`.trim() === ""
@@ -1055,6 +1062,7 @@
       clientName: normalizedClient,
       projectName: normalizedProject,
       contractAmount: currentContractAmount,
+      pricingModel: currentPricingModel,
       overheadPercent: currentOverheadPercent,
       targetRealizationPct: currentTargetRealizationPct,
       techAdminFeePctOverride: currentTechAdminFeePctOverride,
@@ -1080,6 +1088,7 @@
         projectName: normalizedProject,
         nextName,
         contractAmount: projectDialog.contractAmount,
+        pricingModel: projectDialog.pricingModel,
         overheadPercent: projectDialog.overheadPercent,
         targetRealizationPct: projectDialog.targetRealizationPct,
         techAdminFeePctOverride: projectDialog.techAdminFeePctOverride,
@@ -1250,6 +1259,28 @@
               isProjectEditDialog
                 ? `
             <label class="project-dialog-field">
+              <span>Project Type</span>
+              <div class="project-planning-contract-type-toggle" role="tablist" aria-label="Contract type">
+                <input type="hidden" name="pricing_model" value="fixed_fee" />
+                <button
+                  type="button"
+                  class="project-planning-contract-type-option"
+                  data-pricing-model-value="fixed_fee"
+                  aria-selected="false"
+                >
+                  Fixed Fee
+                </button>
+                <button
+                  type="button"
+                  class="project-planning-contract-type-option"
+                  data-pricing-model-value="time_and_materials"
+                  aria-selected="false"
+                >
+                  Time &amp; Materials
+                </button>
+              </div>
+            </label>
+            <label class="project-dialog-field">
               <span>Overhead %</span>
               <input type="text" name="overhead_percent" inputmode="decimal" placeholder="e.g. 12.5" />
             </label>
@@ -1340,7 +1371,10 @@
       const leadSelect = form.querySelector('select[name="project_lead_id"]');
       const departmentSelect = form.querySelector('select[name="project_department_id"]');
       const officeSelect = form.querySelector('select[name="project_office_id"]');
-      const pricingModelSelect = form.querySelector('select[name="pricing_model"]');
+      const pricingModelInput = form.querySelector('[name="pricing_model"]');
+      const pricingModelToggleButtons = Array.from(
+        form.querySelectorAll("[data-pricing-model-value]")
+      );
       const overheadPercentInput = form.querySelector('input[name="overhead_percent"]');
       const targetRealizationInput = form.querySelector('input[name="target_realization_pct"]');
       const techAdminFeeOverrideInput = form.querySelector('input[name="tech_admin_fee_pct_override"]');
@@ -1352,6 +1386,28 @@
       let techAdminFeeTouched = false;
       const onTechAdminFeeInput = () => {
         techAdminFeeTouched = true;
+      };
+      const setPricingModel = (nextModel) => {
+        const normalized =
+          String(nextModel || "").trim() === "time_and_materials"
+            ? "time_and_materials"
+            : "fixed_fee";
+        if (pricingModelInput) {
+          pricingModelInput.value = normalized;
+        }
+        pricingModelToggleButtons.forEach((button) => {
+          const value = String(button?.dataset?.pricingModelValue || "").trim();
+          const isActive = value === normalized;
+          button.classList.toggle("is-active", isActive);
+          button.setAttribute("aria-selected", isActive ? "true" : "false");
+        });
+      };
+      const onPricingModelToggleClick = (event) => {
+        const button = event.target.closest("[data-pricing-model-value]");
+        if (!button) return;
+        event.preventDefault();
+        const value = String(button.dataset.pricingModelValue || "").trim();
+        setPricingModel(value);
       };
       const resolveTargetRealizationForSelection = () => {
         const selectedOfficeId = String(officeSelect?.value || "").trim();
@@ -1399,9 +1455,10 @@
         contractAmountInput.value =
           currentContractAmount !== null ? String(currentContractAmount) : "";
       }
-      if (pricingModelSelect) {
-        pricingModelSelect.value = currentPricingModel;
-      }
+      setPricingModel(currentPricingModel);
+      pricingModelToggleButtons.forEach((button) =>
+        button.addEventListener("click", onPricingModelToggleClick)
+      );
       if (overheadPercentInput) {
         overheadPercentInput.value =
           currentOverheadPercent !== null ? String(currentOverheadPercent) : "";
@@ -1459,6 +1516,9 @@
         officeSelect?.removeEventListener("change", syncTargetRealizationDefault);
         departmentSelect?.removeEventListener("change", syncTechAdminFeeOverrideDefault);
         techAdminFeeOverrideInput?.removeEventListener("input", onTechAdminFeeInput);
+        pricingModelToggleButtons.forEach((button) =>
+          button.removeEventListener("click", onPricingModelToggleClick)
+        );
         openPlanningButton?.removeEventListener("click", onOpenProjectPlanning);
         projectCancelButton?.removeEventListener("click", onCancel);
         form.remove();
@@ -1511,7 +1571,10 @@
           projectName: nextName,
           budgetAmount: parsedBudget.value,
           contractAmount: parsedContractAmount.value,
-          pricingModel: String(pricingModelSelect?.value || "fixed_fee").trim() || "fixed_fee",
+          pricingModel:
+            String(pricingModelInput?.value || "fixed_fee").trim() === "time_and_materials"
+              ? "time_and_materials"
+              : "fixed_fee",
           overheadPercent: parsedOverheadPercent.value,
           targetRealizationPct: parsedTargetRealization.value,
           techAdminFeePctOverride:
@@ -1608,6 +1671,8 @@
               project: nextProjectName,
               contractAmount: payload.contractAmount,
               contract_amount: payload.contractAmount,
+              pricingModel: payload.pricingModel,
+              pricing_model: payload.pricingModel,
               overheadPercent: payload.overheadPercent,
               overhead_percent: payload.overheadPercent,
               targetRealizationPct: payload.targetRealizationPct,
@@ -1646,6 +1711,7 @@
             projectName: String(options?.projectName || "").trim(),
             nextName: payload.projectName,
             contractAmount: payload.contractAmount,
+            pricingModel: payload.pricingModel,
             overheadPercent: payload.overheadPercent,
             targetRealizationPct: payload.targetRealizationPct,
             techAdminFeePctOverride: payload.techAdminFeePctOverride,

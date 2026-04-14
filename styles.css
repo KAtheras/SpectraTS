@@ -225,6 +225,36 @@ body.modal-open {
   gap: var(--space-8);
 }
 
+.project-dialog-field .project-planning-contract-type-toggle {
+  display: inline-flex;
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  overflow: hidden;
+  width: fit-content;
+  min-height: 38px;
+}
+
+.project-dialog-field .project-planning-contract-type-option {
+  border: 0;
+  border-right: 1px solid var(--panel-border);
+  background: var(--surface);
+  color: var(--ink);
+  padding: 0 12px;
+  font-family: var(--font-head);
+  font-size: 0.86rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.project-dialog-field .project-planning-contract-type-option:last-child {
+  border-right: 0;
+}
+
+.project-dialog-field .project-planning-contract-type-option.is-active {
+  background: color-mix(in srgb, var(--accent) 16%, var(--surface));
+  color: var(--ink);
+}
+
 .project-dialog-field > span {
   color: var(--muted);
   font-family: var(--font-head);
