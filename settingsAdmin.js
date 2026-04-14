@@ -1431,8 +1431,29 @@
     const { state, escapeHtml } = deps();
     const panel = document.querySelector('[data-settings-tab="corporate_functions"]');
     if (!panel || !state.permissions?.manage_corporate_functions) return;
+    const preferredGroupOrder = new Map([
+      ["administrative", 0],
+      ["business development", 1],
+      ["professional development", 2],
+    ]);
+    const normalizeGroupName = (value) =>
+      String(value || "")
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, " ");
     const groups = Array.isArray(state.corporateFunctionGroups)
-      ? state.corporateFunctionGroups.slice().sort((a, b) => (Number(a?.sortOrder) || 0) - (Number(b?.sortOrder) || 0))
+      ? state.corporateFunctionGroups
+          .slice()
+          .sort((a, b) => {
+            const aName = normalizeGroupName(a?.name);
+            const bName = normalizeGroupName(b?.name);
+            const aRank = preferredGroupOrder.has(aName) ? preferredGroupOrder.get(aName) : Number.POSITIVE_INFINITY;
+            const bRank = preferredGroupOrder.has(bName) ? preferredGroupOrder.get(bName) : Number.POSITIVE_INFINITY;
+            if (aRank !== bRank) return aRank - bRank;
+            const sortDelta = (Number(a?.sortOrder) || 0) - (Number(b?.sortOrder) || 0);
+            if (sortDelta !== 0) return sortDelta;
+            return aName.localeCompare(bName);
+          })
       : [];
     const categories = Array.isArray(state.corporateFunctionCategories)
       ? state.corporateFunctionCategories.slice().sort((a, b) => (Number(a?.sortOrder) || 0) - (Number(b?.sortOrder) || 0))
