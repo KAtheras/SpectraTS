@@ -231,7 +231,7 @@ body.modal-open {
   border-radius: 10px;
   overflow: hidden;
   width: fit-content;
-  min-height: 38px;
+  min-height: 36px;
 }
 
 .project-dialog-field .project-planning-contract-type-option {
@@ -239,6 +239,8 @@ body.modal-open {
   border-right: 1px solid var(--panel-border);
   background: var(--surface);
   color: var(--ink);
+  height: 36px;
+  min-height: 36px;
   padding: 0 12px;
   font-family: var(--font-head);
   font-size: 0.86rem;
@@ -280,6 +282,7 @@ body.modal-open {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
+  align-items: start;
 }
 
 .project-dialog-team-head {
@@ -291,11 +294,14 @@ body.modal-open {
 
 .project-dialog-team-col {
   display: grid;
-  gap: 8px;
+  gap: 4px;
+  align-content: start;
 }
 
 .project-dialog-team-col h4 {
-  margin: 0;
+  margin: 0 0 4px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid color-mix(in srgb, var(--panel-border) 70%, transparent);
   color: var(--muted);
   font-family: var(--font-head);
   font-size: 0.72rem;
@@ -306,17 +312,18 @@ body.modal-open {
 
 .project-dialog-team-list {
   margin: 0;
-  padding-left: 18px;
+  padding-left: 0;
+  list-style: none;
   display: grid;
-  gap: 4px;
+  gap: 2px;
 }
 
 .project-dialog-team-list li {
   margin: 0;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: 10px;
+  gap: 8px;
 }
 
 .project-dialog-team-add-wrap {
@@ -326,9 +333,9 @@ body.modal-open {
 }
 
 .project-dialog-team-remove {
-  width: 42px;
-  min-width: 42px;
-  height: 42px;
+  width: auto;
+  min-width: 0;
+  height: auto;
   padding: 0;
   border: 0;
   border-radius: 0;
@@ -343,9 +350,24 @@ body.modal-open {
 }
 
 .project-dialog-team-remove svg {
-  width: 29px;
-  height: 29px;
+  width: 24px;
+  height: 24px;
   display: block;
+}
+
+.project-dialog-econ-row {
+  align-items: start;
+}
+
+.project-dialog-econ-row > .project-dialog-field:first-child .project-planning-contract-type-toggle {
+  width: 100%;
+}
+
+.project-dialog-inline-fields {
+  grid-column: 3 / span 2;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
 }
 
 .project-dialog-team-remove:hover,
@@ -371,6 +393,10 @@ body.modal-open {
 @media (max-width: 980px) {
   .project-dialog-core-row,
   .project-dialog-team-grid {
+    grid-template-columns: 1fr;
+  }
+  .project-dialog-inline-fields {
+    grid-column: auto;
     grid-template-columns: 1fr;
   }
 }

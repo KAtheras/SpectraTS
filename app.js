@@ -1303,7 +1303,7 @@
               <select name="project_lead_id">${leadOptions}</select>
             </label>
           </div>
-          <div class="project-dialog-core-row" style="grid-template-columns: minmax(260px, 1.5fr) minmax(220px, 1.25fr) minmax(150px, 0.8fr) minmax(140px, 0.7fr) minmax(160px, 0.8fr);">
+          <div class="project-dialog-core-row project-dialog-econ-row" style="grid-template-columns: repeat(4, minmax(0, 1fr));">
             <label class="project-dialog-field">
               <span>Project Type</span>
               <div class="project-planning-contract-type-toggle" role="tablist" aria-label="Contract type">
@@ -1331,18 +1331,20 @@
               <input type="text" name="contract_amount" inputmode="decimal" placeholder="25000 or $25,000" />
               <small class="project-dialog-helper" data-contract-amount-helper></small>
             </label>
-            <label class="project-dialog-field">
-              <span>Target Realization %</span>
-              <input type="text" name="target_realization_pct" inputmode="decimal" placeholder="e.g. 72.5" />
-            </label>
-            <label class="project-dialog-field">
-              <span>Overhead %</span>
-              <input type="text" name="overhead_percent" inputmode="decimal" placeholder="e.g. 12.5" />
-            </label>
-            <label class="project-dialog-field">
-              <span>Tech/Admin Fee %</span>
-              <input type="text" name="tech_admin_fee_pct_override" inputmode="decimal" placeholder="Optional (uses department default when blank)" />
-            </label>
+            <div class="project-dialog-inline-fields">
+              <label class="project-dialog-field">
+                <span>Target Realization %</span>
+                <input type="text" name="target_realization_pct" inputmode="decimal" placeholder="e.g. 72.5" />
+              </label>
+              <label class="project-dialog-field">
+                <span>Overhead %</span>
+                <input type="text" name="overhead_percent" inputmode="decimal" placeholder="e.g. 12.5" />
+              </label>
+              <label class="project-dialog-field">
+                <span>Tech/Admin Fee %</span>
+                <input type="text" name="tech_admin_fee_pct_override" inputmode="decimal" placeholder="Optional (uses department default when blank)" />
+              </label>
+            </div>
           </div>
         </section>
         ${
