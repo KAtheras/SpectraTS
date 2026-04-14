@@ -307,7 +307,25 @@
                     </span>
                   </span>
                   <span class="catalog-project-footer-row">
-                    <span class="catalog-item-actions catalog-item-actions-bottom">
+                    <span class="catalog-project-footer-left">
+                      <button
+                        type="button"
+                        class="catalog-edit"
+                        aria-label="View time for ${escapeHtml(project)}"
+                        data-view-time-project="${escapeHtml(project)}"
+                      >
+                        View Time
+                      </button>
+                      <button
+                        type="button"
+                        class="catalog-edit"
+                        aria-label="View expenses for ${escapeHtml(project)}"
+                        data-view-expenses-project="${escapeHtml(project)}"
+                      >
+                        View Expenses
+                      </button>
+                    </span>
+                    <span class="catalog-item-actions catalog-item-actions-bottom catalog-project-footer-right">
                       <span class="catalog-item-secondary-actions">
                         ${
                           showEditProjectAction
@@ -321,22 +339,6 @@
                         </button>`
                             : ""
                         }
-                        <button
-                          type="button"
-                          class="catalog-edit"
-                          aria-label="View time for ${escapeHtml(project)}"
-                          data-view-time-project="${escapeHtml(project)}"
-                        >
-                          View Time
-                        </button>
-                        <button
-                          type="button"
-                          class="catalog-edit"
-                          aria-label="View expenses for ${escapeHtml(project)}"
-                          data-view-expenses-project="${escapeHtml(project)}"
-                        >
-                          View Expenses
-                        </button>
 	                        ${
                             showProjectLifecycleActions
                               ? `<button
