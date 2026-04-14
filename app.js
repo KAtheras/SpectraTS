@@ -1010,6 +1010,38 @@
     }
   }
 
+  function projectScopedManagerIdsForProject(clientName, projectName) {
+    const normalizedClient = String(clientName || "").trim().toLowerCase();
+    const normalizedProject = String(projectName || "").trim().toLowerCase();
+    if (!normalizedClient || !normalizedProject) return [];
+    const targetProject = (state.projects || []).find(
+      (item) =>
+        String(item?.client || "").trim().toLowerCase() === normalizedClient &&
+        String(item?.name || item?.project || "").trim().toLowerCase() === normalizedProject
+    );
+    const targetProjectId = String(targetProject?.id || "").trim();
+    const matchesProject = (item) => {
+      const itemProjectId = String(item?.projectId || item?.project_id || "").trim();
+      if (targetProjectId && itemProjectId && itemProjectId === targetProjectId) return true;
+      const itemClient = String(item?.clientName || item?.client_name || item?.client || "").trim().toLowerCase();
+      const itemProject = String(item?.projectName || item?.project_name || item?.project || "").trim().toLowerCase();
+      return itemClient === normalizedClient && itemProject === normalizedProject;
+    };
+    const managerIdsFromProjectAssignments = (state.assignments?.managerProjects || [])
+      .filter(matchesProject)
+      .map((item) => String(item?.managerId || item?.manager_id || "").trim())
+      .filter(Boolean);
+    const managerIdsFromProjectMembers = (state.assignments?.projectMembers || [])
+      .filter(matchesProject)
+      .map((item) => String(item?.userId || item?.user_id || "").trim())
+      .filter((userId) => {
+        if (!userId) return false;
+        const user = getUserById(userId);
+        return Boolean(user && !isStaff(user));
+      });
+    return uniqueValues([...managerIdsFromProjectAssignments, ...managerIdsFromProjectMembers]);
+  }
+
   function syncBillingContactFromBusiness(form) {
     if (!form) return;
     const sameAsBusiness = field(form, "billing_same_as_business");
@@ -1101,7 +1133,7 @@
       if (raw === null || raw === undefined || `${raw}`.trim() === "") return null;
       return Number.isFinite(Number(raw)) ? Number(raw) : null;
     })();
-    const managerUserIds = managerIdsForProject(normalizedClient, normalizedProject);
+    const managerUserIds = projectScopedManagerIdsForProject(normalizedClient, normalizedProject);
     const staffUserIds = staffIdsForProject(normalizedClient, normalizedProject);
     const projectDialog = await openProjectDialog({
       mode: "edit",
@@ -1523,14 +1555,10 @@
       const onTeamListClick = (event) => {
         const removeButton = event.target.closest("[data-project-team-remove]");
         if (!removeButton) return;
-        const group = String(removeButton.dataset.projectTeamRemove || "").trim();
         const userId = String(removeButton.dataset.projectTeamUserId || "").trim();
         if (!userId) return;
-        if (group === "manager") {
-          pendingManagerUserIds = pendingManagerUserIds.filter((id) => id !== userId);
-        } else {
-          pendingStaffUserIds = pendingStaffUserIds.filter((id) => id !== userId);
-        }
+        pendingManagerUserIds = pendingManagerUserIds.filter((id) => id !== userId);
+        pendingStaffUserIds = pendingStaffUserIds.filter((id) => id !== userId);
         renderTeamEditors();
       };
       const onAddMemberClick = () => openTeamPicker();
