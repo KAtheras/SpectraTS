@@ -78,6 +78,14 @@ function normalizeNullableNumber(value) {
   return parsed;
 }
 
+function normalizePlanningStatus(value, fallback = "draft") {
+  const normalized = normalizeText(value).toLowerCase();
+  if (normalized === "submitted" || normalized === "approved" || normalized === "draft") {
+    return normalized;
+  }
+  return fallback;
+}
+
 function collectDisallowedClientLeadBypassChanges(payload, client) {
   const compareText = (nextValue, currentValue) => normalizeNullableText(nextValue) !== normalizeNullableText(currentValue);
   const changed = [];
@@ -1333,6 +1341,9 @@ async function snapshotProjectById(sql, projectId, accountId) {
       p.overhead_percent,
       p.tech_admin_fee_pct_override,
       p.target_realization_pct,
+      p.percent_complete,
+      p.percent_complete_updated_at,
+      p.planning_status,
       p.is_active,
       c.name AS client_name
     FROM projects p
@@ -1365,6 +1376,12 @@ async function snapshotProjectById(sql, projectId, accountId) {
       row.target_realization_pct !== null && row.target_realization_pct !== undefined
         ? Number(row.target_realization_pct)
         : null,
+    percent_complete:
+      row.percent_complete !== null && row.percent_complete !== undefined
+        ? Number(row.percent_complete)
+        : null,
+    percent_complete_updated_at: row.percent_complete_updated_at || null,
+    planning_status: normalizePlanningStatus(row.planning_status, "draft"),
     is_active: row.is_active !== false,
   };
 }
@@ -4022,6 +4039,82 @@ async function updateProjectLeadOnly(sql, payload, accountId) {
   return null;
 }
 
+async function updateProjectProgress(sql, payload, accountId) {
+  const clientName = normalizeText(payload?.clientName);
+  const projectName = normalizeText(payload?.projectName);
+  if (!clientName || !projectName) {
+    return errorResponse(404, "Project not found.");
+  }
+  const project = await findProject(sql, clientName, projectName, accountId);
+  if (!project) {
+    return errorResponse(404, "Project not found.");
+  }
+  const hasPercentCompleteField =
+    Object.prototype.hasOwnProperty.call(payload || {}, "percentComplete") ||
+    Object.prototype.hasOwnProperty.call(payload || {}, "percent_complete");
+  if (!hasPercentCompleteField) {
+    return errorResponse(400, "percent_complete is required.");
+  }
+  const percentRaw = payload?.percentComplete ?? payload?.percent_complete;
+  const percentComplete = Number(percentRaw);
+  if (!Number.isFinite(percentComplete)) {
+    return errorResponse(400, "Percent complete must be a number.");
+  }
+  if (percentComplete < 0 || percentComplete > 100) {
+    return errorResponse(400, "Percent complete must be between 0 and 100.");
+  }
+  const hasPlanningStatusField =
+    Object.prototype.hasOwnProperty.call(payload || {}, "planningStatus") ||
+    Object.prototype.hasOwnProperty.call(payload || {}, "planning_status");
+  const nextPlanningStatus = hasPlanningStatusField
+    ? normalizePlanningStatus(payload?.planningStatus ?? payload?.planning_status, "")
+    : null;
+  if (hasPlanningStatusField && !nextPlanningStatus) {
+    return errorResponse(400, "Invalid planning status.");
+  }
+  const rows = hasPlanningStatusField
+    ? await sql`
+        UPDATE projects
+        SET
+          percent_complete = ${percentComplete},
+          percent_complete_updated_at = NOW(),
+          planning_status = ${nextPlanningStatus},
+          updated_at = NOW()
+        WHERE id = ${project.id}
+          AND account_id = ${accountId}::uuid
+        RETURNING
+          percent_complete AS "percentComplete",
+          percent_complete_updated_at AS "percentCompleteUpdatedAt",
+          planning_status AS "planningStatus"
+      `
+    : await sql`
+        UPDATE projects
+        SET
+          percent_complete = ${percentComplete},
+          percent_complete_updated_at = NOW(),
+          updated_at = NOW()
+        WHERE id = ${project.id}
+          AND account_id = ${accountId}::uuid
+        RETURNING
+          percent_complete AS "percentComplete",
+          percent_complete_updated_at AS "percentCompleteUpdatedAt",
+          planning_status AS "planningStatus"
+      `;
+  const updated = rows?.[0] || null;
+  return {
+    projectProgress: {
+      clientName,
+      projectName,
+      percentComplete:
+        updated?.percentComplete !== null && updated?.percentComplete !== undefined
+          ? Number(updated.percentComplete)
+          : null,
+      percentCompleteUpdatedAt: updated?.percentCompleteUpdatedAt || null,
+      planningStatus: normalizePlanningStatus(updated?.planningStatus, "draft"),
+    },
+  };
+}
+
 async function removeClient(sql, payload, accountId) {
   const clientName = normalizeText(payload.clientName);
   const client = await findClient(sql, clientName, accountId);
@@ -5555,6 +5648,45 @@ exports.handler = async function handler(event) {
         mutationResult = canEditProject
           ? await updateProject(sql, request.payload || {}, context.currentUser, accountId)
           : await updateProjectLeadOnly(sql, request.payload || {}, accountId);
+        if (mutationResult?.statusCode) return mutationResult;
+        const afterSnapshot = await snapshotProjectById(sql, existingProject?.id || null, accountId);
+        await logEntityAudit(sql, {
+          accountId,
+          context,
+          entityType: "project",
+          entityId: existingProject?.id || normalizeText(request.payload?.projectId) || `${clientName}:${projectName}`,
+          action: "update",
+          beforeSnapshot,
+          afterSnapshot,
+          contextClientId: beforeSnapshot?.client_id || afterSnapshot?.client_id || null,
+          contextProjectId: existingProject?.id || null,
+        });
+        break;
+      }
+      case "update_project_progress": {
+        const clientName = normalizeText(request.payload?.clientName);
+        const projectName = normalizeText(request.payload?.projectName);
+        const existingProject = await findProject(sql, clientName, projectName, accountId);
+        if (!existingProject) {
+          return errorResponse(404, "Project not found.");
+        }
+        const actorProjectIds = await collectUserProjectIdsForClient(
+          sql,
+          context.currentUser,
+          existingProject.client_id,
+          accountId
+        );
+        const canEditProject = canEditProjectModalForTarget({
+          can,
+          currentUser: context.currentUser,
+          targetProject: existingProject,
+          actorProjectIds,
+        });
+        if (!canEditProject) {
+          return errorResponse(403, "Access denied.");
+        }
+        const beforeSnapshot = await snapshotProjectById(sql, existingProject?.id || null, accountId);
+        mutationResult = await updateProjectProgress(sql, request.payload || {}, accountId);
         if (mutationResult?.statusCode) return mutationResult;
         const afterSnapshot = await snapshotProjectById(sql, existingProject?.id || null, accountId);
         await logEntityAudit(sql, {

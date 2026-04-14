@@ -810,7 +810,10 @@ async function ensureSchema(sql) {
       name TEXT NOT NULL,
       created_by TEXT REFERENCES users(id),
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      budget_amount NUMERIC(12,2)
+      budget_amount NUMERIC(12,2),
+      percent_complete NUMERIC(5,2),
+      percent_complete_updated_at TIMESTAMPTZ,
+      planning_status TEXT NOT NULL DEFAULT 'draft'
     )
   `;
 
@@ -862,6 +865,23 @@ async function ensureSchema(sql) {
   await sql`
     ALTER TABLE projects
     ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  `;
+  await sql`
+    ALTER TABLE projects
+    ADD COLUMN IF NOT EXISTS percent_complete NUMERIC(5,2)
+  `;
+  await sql`
+    ALTER TABLE projects
+    ADD COLUMN IF NOT EXISTS percent_complete_updated_at TIMESTAMPTZ
+  `;
+  await sql`
+    ALTER TABLE projects
+    ADD COLUMN IF NOT EXISTS planning_status TEXT NOT NULL DEFAULT 'draft'
+  `;
+  await sql`
+    UPDATE projects
+    SET planning_status = 'draft'
+    WHERE planning_status IS NULL OR TRIM(planning_status) = ''
   `;
   await sql`ALTER TABLE projects ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE`;
 
@@ -3039,6 +3059,12 @@ async function findProject(sql, clientName, projectName, accountId) {
       projects.tech_admin_fee_pct_override AS tech_admin_fee_pct_override,
       projects.target_realization_pct AS "targetRealizationPct",
       projects.target_realization_pct AS target_realization_pct,
+      projects.percent_complete AS "percentComplete",
+      projects.percent_complete AS percent_complete,
+      projects.percent_complete_updated_at AS "percentCompleteUpdatedAt",
+      projects.percent_complete_updated_at AS percent_complete_updated_at,
+      projects.planning_status AS "planningStatus",
+      projects.planning_status AS planning_status,
       projects.office_id AS "officeId",
       projects.office_id AS office_id,
       projects.project_department_id AS "projectDepartmentId",
@@ -3077,6 +3103,12 @@ async function listProjects(sql, accountId) {
       projects.tech_admin_fee_pct_override AS tech_admin_fee_pct_override,
       projects.target_realization_pct AS "targetRealizationPct",
       projects.target_realization_pct AS target_realization_pct,
+      projects.percent_complete AS "percentComplete",
+      projects.percent_complete AS percent_complete,
+      projects.percent_complete_updated_at AS "percentCompleteUpdatedAt",
+      projects.percent_complete_updated_at AS percent_complete_updated_at,
+      projects.planning_status AS "planningStatus",
+      projects.planning_status AS planning_status,
       projects.office_id AS "officeId",
       projects.project_department_id AS "projectDepartmentId",
       projects.project_department_id AS project_department_id,

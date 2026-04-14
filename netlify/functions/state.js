@@ -71,6 +71,14 @@ exports.handler = async function handler(event) {
         projectDepartmentId: project?.projectDepartmentId ?? project?.project_department_id ?? null,
         project_department_id: project?.projectDepartmentId ?? project?.project_department_id ?? null,
         projectDepartmentName: project?.projectDepartmentName ?? null,
+        percentComplete: project?.percentComplete ?? project?.percent_complete ?? null,
+        percent_complete: project?.percentComplete ?? project?.percent_complete ?? null,
+        percentCompleteUpdatedAt:
+          project?.percentCompleteUpdatedAt ?? project?.percent_complete_updated_at ?? null,
+        percent_complete_updated_at:
+          project?.percentCompleteUpdatedAt ?? project?.percent_complete_updated_at ?? null,
+        planningStatus: project?.planningStatus ?? project?.planning_status ?? "draft",
+        planning_status: project?.planningStatus ?? project?.planning_status ?? "draft",
       }));
     }
     const currentUser = state.currentUser;

@@ -13042,6 +13042,79 @@
   });
 
   refs.projectList.addEventListener("click", async function (event) {
+    const updateProgressButton = event.target.closest("[data-update-project-progress]");
+    if (updateProgressButton) {
+      const projectName = String(updateProgressButton.dataset.updateProjectProgress || "").trim();
+      if (!projectName) return;
+      if (!canEditProjectModal(state.selectedCatalogClient, projectName)) {
+        feedback("Access denied.", true);
+        return;
+      }
+      const projectRow = (state.projects || []).find(
+        (project) =>
+          String(project?.client || "").trim() === String(state.selectedCatalogClient || "").trim() &&
+          String(project?.name || "").trim() === projectName
+      );
+      const currentPercentRaw = projectRow?.percentComplete ?? projectRow?.percent_complete;
+      const currentPercentText =
+        currentPercentRaw === null || currentPercentRaw === undefined || currentPercentRaw === ""
+          ? ""
+          : String(Number(currentPercentRaw));
+      const nextPercentText = window.prompt("Update % Complete (0-100)", currentPercentText);
+      if (nextPercentText === null) {
+        return;
+      }
+      const trimmedPercent = String(nextPercentText || "").trim();
+      if (!trimmedPercent) {
+        feedback("% Complete is required.", true);
+        return;
+      }
+      const nextPercent = Number(trimmedPercent);
+      if (!Number.isFinite(nextPercent) || nextPercent < 0 || nextPercent > 100) {
+        feedback("% Complete must be a number between 0 and 100.", true);
+        return;
+      }
+      try {
+        const result = await mutatePersistentState(
+          "update_project_progress",
+          {
+            clientName: state.selectedCatalogClient,
+            projectName,
+            percentComplete: nextPercent,
+          },
+          { skipHydrate: true, refreshState: false, returnState: false }
+        );
+        const updatedProgress = result?.projectProgress || null;
+        const nextPercentComplete =
+          updatedProgress?.percentComplete !== null && updatedProgress?.percentComplete !== undefined
+            ? Number(updatedProgress.percentComplete)
+            : nextPercent;
+        const nextPercentUpdatedAt = updatedProgress?.percentCompleteUpdatedAt || new Date().toISOString();
+        const nextPlanningStatus = updatedProgress?.planningStatus || (projectRow?.planningStatus ?? "draft");
+        state.projects = (state.projects || []).map((project) => {
+          const matchesClient =
+            String(project?.client || "").trim() === String(state.selectedCatalogClient || "").trim();
+          const matchesProject = String(project?.name || "").trim() === projectName;
+          if (!matchesClient || !matchesProject) return project;
+          return {
+            ...project,
+            percentComplete: nextPercentComplete,
+            percent_complete: nextPercentComplete,
+            percentCompleteUpdatedAt: nextPercentUpdatedAt,
+            percent_complete_updated_at: nextPercentUpdatedAt,
+            planningStatus: nextPlanningStatus,
+            planning_status: nextPlanningStatus,
+          };
+        });
+        renderCatalogAside();
+        syncProjectCardsUx();
+        feedback("Project progress updated.", false);
+      } catch (error) {
+        feedback(error.message || "Unable to update project progress.", true);
+      }
+      return;
+    }
+
     const viewTimeButton = event.target.closest("[data-view-time-project]");
     if (viewTimeButton) {
       const projectName = viewTimeButton.dataset.viewTimeProject;

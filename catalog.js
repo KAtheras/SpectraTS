@@ -228,6 +228,15 @@
                 `Managers: ${hasManagers ? managerNames : "—"}`,
                 `Staff: ${hasStaff ? staffNames : "—"}`,
               ].filter(Boolean);
+              const rawPercentComplete = projectRow?.percentComplete ?? projectRow?.percent_complete;
+              const hasPercentComplete =
+                rawPercentComplete !== null &&
+                rawPercentComplete !== undefined &&
+                String(rawPercentComplete).trim() !== "" &&
+                Number.isFinite(Number(rawPercentComplete));
+              const percentCompleteDisplay = hasPercentComplete
+                ? `${Number(rawPercentComplete).toFixed(2).replace(/\.?0+$/, "")}%`
+                : "—";
 
               return `
               <article
@@ -262,6 +271,21 @@
                     <span data-project-lead-line="1">${escapeHtml(teamBits[0])}</span>
                     <span>${escapeHtml(teamBits[1])}</span>
                     <span>${escapeHtml(teamBits[2])}</span>
+                    <span>
+                      ${escapeHtml(`% Complete: ${percentCompleteDisplay}`)}
+                      ${
+                        canEditProjectCard
+                          ? `<button
+                          type="button"
+                          class="catalog-edit catalog-edit-inline"
+                          aria-label="Update progress for ${escapeHtml(project)}"
+                          data-update-project-progress="${escapeHtml(project)}"
+                        >
+                          Update
+                        </button>`
+                          : ""
+                      }
+                    </span>
                   </span>
                   <span class="catalog-project-footer-row">
                     <span class="catalog-item-actions catalog-item-actions-bottom">
