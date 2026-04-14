@@ -2067,6 +2067,13 @@
               <label><span>Base rate</span><input type="number" step="0.01" min="0" name="base_rate" /></label>
               <label><span>Cost rate</span><input type="number" step="0.01" min="0" name="cost_rate" /></label>
               <label><span>Email</span><input type="email" name="email" required /></label>
+              <label>
+                <span>FLSA status</span>
+                <select name="is_exempt">
+                  <option value="false">Non-exempt</option>
+                  <option value="true">Exempt</option>
+                </select>
+              </label>
             </div>
             <div class="member-editor-textarea" data-member-editor-section="profile">
               <label>
@@ -2214,11 +2221,12 @@
     field(memberEditorForm, "office_id").value = user?.officeId || "";
     field(memberEditorForm, "base_rate").value = user?.baseRate ?? "";
     field(memberEditorForm, "cost_rate").value = user?.costRate ?? "";
+    field(memberEditorForm, "is_exempt").value = user?.isExempt === true ? "true" : "false";
     field(memberEditorForm, "certifications").value = user?.certifications || "";
     field(memberEditorForm, "member_profile").value = user?.memberProfile || "";
 
     const profileEditable = mode === "create" ? canCreate : (isSelfProfileMode ? true : canEditProfile);
-    ["display_name", "username", "email", "employee_id", "level", "department_id", "office_id", "certifications", "member_profile"].forEach((name) => {
+    ["display_name", "username", "email", "employee_id", "level", "department_id", "office_id", "is_exempt", "certifications", "member_profile"].forEach((name) => {
       const el = field(memberEditorForm, name);
       if (el) el.disabled = !profileEditable;
     });
@@ -2307,6 +2315,7 @@
     const officeId = field(memberEditorForm, "office_id").value || null;
     const certifications = field(memberEditorForm, "certifications").value.trim();
     const memberProfile = field(memberEditorForm, "member_profile").value.trim();
+    const isExempt = field(memberEditorForm, "is_exempt").value === "true";
     const baseRaw = field(memberEditorForm, "base_rate").value.trim();
     const costRaw = field(memberEditorForm, "cost_rate").value.trim();
     const baseRate = baseRaw === "" ? null : Number(baseRaw);
@@ -2373,6 +2382,7 @@
             officeId,
             baseRate,
             costRate,
+            isExempt,
             certifications,
             memberProfile,
           },
@@ -2477,6 +2487,7 @@
             normalizeText(currentUser.employeeId) !== employeeId ||
             normalizeLevel(currentUser.level || "1") !== level ||
             normalizeText(currentUser.officeId) !== normalizeText(officeId) ||
+            Boolean(currentUser.isExempt) !== isExempt ||
             normalizeText(currentUser.certifications) !== certifications ||
             normalizeText(currentUser.memberProfile) !== memberProfile
           );
@@ -2509,6 +2520,7 @@
                 employeeId,
                 level,
                 officeId,
+                isExempt,
                 certifications,
                 memberProfile,
               },

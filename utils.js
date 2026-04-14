@@ -104,6 +104,12 @@
         : user.must_change_password !== undefined
           ? Boolean(user.must_change_password)
           : false;
+    const isExempt =
+      user.isExempt !== undefined
+        ? Boolean(user.isExempt)
+        : user.is_exempt !== undefined
+          ? Boolean(user.is_exempt)
+          : false;
 
     if (!displayName || !username) {
       return null;
@@ -120,6 +126,7 @@
       baseRate: Number.isFinite(baseRate) ? baseRate : null,
       costRate: Number.isFinite(costRate) ? costRate : null,
       mustChangePassword,
+      isExempt,
       accountId: user.accountId || "",
       officeId: officeId !== null && officeId !== undefined ? String(officeId) : "",
       departmentId: departmentId !== null && departmentId !== undefined ? String(departmentId) : "",

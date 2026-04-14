@@ -524,6 +524,7 @@ async function ensureSchema(sql) {
       office_id TEXT NULL REFERENCES office_locations(id) ON DELETE SET NULL,
       account_id UUID REFERENCES accounts(id),
       must_change_password BOOLEAN NOT NULL DEFAULT FALSE,
+      is_exempt BOOLEAN NOT NULL DEFAULT FALSE,
       is_active BOOLEAN NOT NULL DEFAULT TRUE,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -537,6 +538,7 @@ async function ensureSchema(sql) {
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS base_rate NUMERIC(10,2)`;
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS cost_rate NUMERIC(10,2)`;
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT FALSE`;
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_exempt BOOLEAN NOT NULL DEFAULT FALSE`;
   await sql`
     ALTER TABLE users
     ADD COLUMN IF NOT EXISTS office_id TEXT NULL REFERENCES office_locations(id) ON DELETE SET NULL
@@ -1843,6 +1845,36 @@ function normalizeLevel(value) {
   return 1;
 }
 
+function normalizeIsExempt(value, fallback = false) {
+  if (value === undefined || value === null || value === "") {
+    return Boolean(fallback);
+  }
+  if (typeof value === "boolean") {
+    return value;
+  }
+  if (typeof value === "number") {
+    if (value === 1) return true;
+    if (value === 0) return false;
+  }
+  const raw = normalizeText(value).toLowerCase();
+  if (!raw) return Boolean(fallback);
+  if (raw === "true" || raw === "1" || raw === "yes" || raw === "y" || raw === "exempt") {
+    return true;
+  }
+  if (
+    raw === "false" ||
+    raw === "0" ||
+    raw === "no" ||
+    raw === "n" ||
+    raw === "non-exempt" ||
+    raw === "non_exempt" ||
+    raw === "nonexempt"
+  ) {
+    return false;
+  }
+  return Boolean(fallback);
+}
+
 function defaultPermissionGroup(label) {
   const normalized = normalizeText(label).toLowerCase();
   if (
@@ -2077,6 +2109,7 @@ async function listUsers(sql, accountId) {
       offices.name AS "officeName",
       users.department_id AS "departmentId",
       d.name AS "departmentName",
+      users.is_exempt AS "isExempt",
       mp.certifications AS certifications,
       mp.member_profile AS "memberProfile",
       users.must_change_password AS "mustChangePassword",
@@ -2173,6 +2206,10 @@ async function createUserRecord(sql, payload) {
     payload.mustChangePassword === false || payload.mustChangePassword === "false"
       ? false
       : true;
+  const isExempt = normalizeIsExempt(
+    payload.isExempt ?? payload.is_exempt ?? payload.exemptionStatus,
+    false
+  );
   const accountId = normalizeText(payload.accountId);
   const accountUuid = accountId ? `${accountId}` : accountId;
   if (!accountUuid) {
@@ -2261,6 +2298,7 @@ async function createUserRecord(sql, payload) {
       base_rate = ${baseRate},
       cost_rate = ${costRate},
       office_id = ${officeId},
+      is_exempt = ${isExempt},
       is_active = TRUE,
       must_change_password = ${mustChangePassword},
       updated_at = ${now}
@@ -2277,6 +2315,7 @@ async function createUserRecord(sql, payload) {
       baseRate,
       costRate,
       officeId: officeId || null,
+      isExempt,
       createdAt: userRecord.created_at,
       updatedAt: now,
       passwordHash: userRecord.password_hash,
@@ -2299,6 +2338,7 @@ async function createUserRecord(sql, payload) {
     passwordHash: hashPassword(passwordValue),
     accountId: accountUuid,
     officeId: officeId || null,
+    isExempt,
     mustChangePassword,
   };
 
@@ -2315,6 +2355,7 @@ async function createUserRecord(sql, payload) {
       base_rate,
       cost_rate,
       office_id,
+      is_exempt,
       must_change_password,
       account_id,
       is_active,
@@ -2333,6 +2374,7 @@ async function createUserRecord(sql, payload) {
       ${user.baseRate},
       ${user.costRate},
       ${user.officeId},
+      ${user.isExempt},
       ${user.mustChangePassword},
       ${user.accountId}::uuid,
       TRUE,
@@ -2455,6 +2497,10 @@ async function updateUserRecord(sql, payload, actingUser) {
       : existingUser?.cost_rate ?? null;
   const costRate =
     rawCostRate === null ? null : Number(rawCostRate);
+  const isExempt = normalizeIsExempt(
+    payload?.isExempt ?? payload?.is_exempt ?? payload?.exemptionStatus,
+    existingUser?.is_exempt === true
+  );
   const hasCertifications = Object.prototype.hasOwnProperty.call(payload || {}, "certifications");
   const hasMemberProfile =
     Object.prototype.hasOwnProperty.call(payload || {}, "memberProfile") ||
@@ -2570,6 +2616,7 @@ async function updateUserRecord(sql, payload, actingUser) {
       base_rate = ${baseRate},
       cost_rate = ${costRate},
       office_id = ${officeId},
+      is_exempt = ${isExempt},
       updated_at = ${updatedAt}
     WHERE id = ${existingUser.id}
   `;
@@ -2638,6 +2685,7 @@ async function updateUserRecord(sql, payload, actingUser) {
       baseRate: refreshed.base_rate ?? null,
       costRate: refreshed.cost_rate ?? null,
       officeId: refreshed.office_id || null,
+      isExempt: refreshed.is_exempt === true,
       accountId: refreshed.account_id,
     };
   }
@@ -2796,6 +2844,7 @@ async function getSessionContext(sql, event, request) {
       users.office_id AS "officeId",
       users.department_id AS "departmentId",
       d.name AS "departmentName",
+      users.is_exempt AS "isExempt",
       users.account_id AS "accountId",
       level_labels.permission_group AS "permissionGroup"
     FROM sessions
