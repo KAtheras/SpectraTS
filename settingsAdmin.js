@@ -3748,12 +3748,12 @@
           display: flex;
           align-items: center;
         }
-        .target-realizations-input-wrap [data-target-realization-input] {
+        #settings-page .target-realizations-input-wrap [data-target-realization-input].settings-field {
           min-width: 0;
           width: 100%;
           max-width: 132px;
           box-sizing: border-box;
-          padding-right: 32px;
+          padding-right: 38px;
           text-align: right;
         }
         .target-realizations-input-suffix {
