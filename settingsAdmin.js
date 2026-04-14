@@ -3752,12 +3752,15 @@
           min-width: 0;
           width: 100%;
           max-width: 132px;
-          padding-right: 22px;
+          box-sizing: border-box;
+          padding-right: 32px;
           text-align: right;
         }
         .target-realizations-input-suffix {
           position: absolute;
-          right: 10px;
+          right: 12px;
+          width: 12px;
+          text-align: center;
           color: var(--muted);
           font-weight: 600;
           pointer-events: none;
