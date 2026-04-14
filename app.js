@@ -1303,7 +1303,7 @@
               <select name="project_lead_id">${leadOptions}</select>
             </label>
           </div>
-          <div class="project-dialog-core-row" style="grid-template-columns: repeat(5, minmax(0, 1fr));">
+          <div class="project-dialog-core-row" style="grid-template-columns: minmax(260px, 1.5fr) minmax(220px, 1.25fr) minmax(150px, 0.8fr) minmax(140px, 0.7fr) minmax(160px, 0.8fr);">
             <label class="project-dialog-field">
               <span>Project Type</span>
               <div class="project-planning-contract-type-toggle" role="tablist" aria-label="Contract type">
@@ -1340,7 +1340,7 @@
               <input type="text" name="overhead_percent" inputmode="decimal" placeholder="e.g. 12.5" />
             </label>
             <label class="project-dialog-field">
-              <span>Tech/Admin Fee Override %</span>
+              <span>Tech/Admin Fee %</span>
               <input type="text" name="tech_admin_fee_pct_override" inputmode="decimal" placeholder="Optional (uses department default when blank)" />
             </label>
           </div>

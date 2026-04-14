@@ -243,6 +243,7 @@ body.modal-open {
   font-family: var(--font-head);
   font-size: 0.86rem;
   font-weight: 600;
+  white-space: nowrap;
   cursor: pointer;
 }
 
