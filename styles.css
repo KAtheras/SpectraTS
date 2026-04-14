@@ -281,6 +281,13 @@ body.modal-open {
   gap: 12px;
 }
 
+.project-dialog-team-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .project-dialog-team-col {
   display: grid;
   gap: 8px;
@@ -313,10 +320,8 @@ body.modal-open {
 
 .project-dialog-team-add-wrap {
   display: flex;
-  align-items: flex-end;
-  justify-content: flex-start;
-  align-self: end;
-  padding-bottom: 1px;
+  align-items: center;
+  justify-content: flex-end;
 }
 
 .project-dialog-team-remove {

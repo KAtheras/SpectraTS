@@ -1285,7 +1285,7 @@
       form.className = "project-dialog-form";
       form.innerHTML = `
         <section class="project-dialog-section">
-          <div class="project-dialog-core-row" style="grid-template-columns: repeat(3, minmax(0, 1fr));">
+          <div class="project-dialog-core-row" style="grid-template-columns: repeat(4, minmax(0, 1fr));">
             <label class="project-dialog-field">
               <span>Project name</span>
               <input type="text" name="project_name" required />
@@ -1298,13 +1298,12 @@
               <span>Office Location</span>
               <select name="project_office_id">${officeOptions}</select>
             </label>
-          </div>
-          <div class="project-dialog-core-row" style="grid-template-columns: repeat(2, minmax(0, 1fr));">
             <label class="project-dialog-field">
-              <span>Contract amount/budget</span>
-              <input type="text" name="contract_amount" inputmode="decimal" placeholder="25000 or $25,000" />
-              <small class="project-dialog-helper" data-contract-amount-helper></small>
+              <span>Project Lead</span>
+              <select name="project_lead_id">${leadOptions}</select>
             </label>
+          </div>
+          <div class="project-dialog-core-row" style="grid-template-columns: repeat(5, minmax(0, 1fr));">
             <label class="project-dialog-field">
               <span>Project Type</span>
               <div class="project-planning-contract-type-toggle" role="tablist" aria-label="Contract type">
@@ -1327,15 +1326,18 @@
                 </button>
               </div>
             </label>
-          </div>
-          <div class="project-dialog-core-row" style="grid-template-columns: repeat(3, minmax(0, 1fr));">
             <label class="project-dialog-field">
-              <span>Overhead %</span>
-              <input type="text" name="overhead_percent" inputmode="decimal" placeholder="e.g. 12.5" />
+              <span>Contract amount/budget</span>
+              <input type="text" name="contract_amount" inputmode="decimal" placeholder="25000 or $25,000" />
+              <small class="project-dialog-helper" data-contract-amount-helper></small>
             </label>
             <label class="project-dialog-field">
               <span>Target Realization %</span>
               <input type="text" name="target_realization_pct" inputmode="decimal" placeholder="e.g. 72.5" />
+            </label>
+            <label class="project-dialog-field">
+              <span>Overhead %</span>
+              <input type="text" name="overhead_percent" inputmode="decimal" placeholder="e.g. 12.5" />
             </label>
             <label class="project-dialog-field">
               <span>Tech/Admin Fee Override %</span>
@@ -1347,12 +1349,8 @@
           showTeamSection
             ? `
         <section class="project-dialog-section">
-          <h3 class="panel-subheading">Team</h3>
-          <div class="project-dialog-core-row" style="grid-template-columns: repeat(2, minmax(0, 1fr));">
-            <label class="project-dialog-field">
-              <span>Project Lead</span>
-              <select name="project_lead_id">${leadOptions}</select>
-            </label>
+          <div class="project-dialog-team-head">
+            <h3 class="panel-subheading">Team</h3>
             <div class="project-dialog-team-add-wrap">
               <button type="button" class="button button-ghost" data-project-team-add-member>+ Add Member</button>
             </div>
