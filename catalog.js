@@ -26,7 +26,6 @@
       isClientActive,
       isProjectActive,
       projectHours,
-      formatNameList,
       userNamesForIds,
       managerIdsForProject,
       staffIdsForProject,
@@ -211,23 +210,20 @@
               const showRemoveMemberAction = canManageMembers && Boolean(state.permissions?.assign_project_members);
               const managerIds = managerIdsForProject(selectedClient, project);
               const projectStaffIds = staffIdsForProject(selectedClient, project);
-              const hasManagers = managerIds.length > 0;
-              const hasStaff = projectStaffIds.length > 0;
-              const managerNames = formatNameList(
-                userNamesForIds(managerIds)
-              );
-              const staffNames = formatNameList(
-                userNamesForIds(projectStaffIds)
-              );
-              const projectSecondaryBits = [
-                projectOffice ? `Office: ${projectOffice}` : "",
-                projectDepartmentName ? `Practice Department: ${projectDepartmentName}` : "",
-              ].filter(Boolean);
-              const teamBits = [
-                `Project Lead: ${projectLeadName || "—"}`,
-                `Managers: ${hasManagers ? managerNames : "—"}`,
-                `Staff: ${hasStaff ? staffNames : "—"}`,
-              ].filter(Boolean);
+              const managerNameList = userNamesForIds(managerIds)
+                .map((name) => String(name || "").trim())
+                .filter(Boolean);
+              const staffNameList = userNamesForIds(projectStaffIds)
+                .map((name) => String(name || "").trim())
+                .filter(Boolean);
+              const renderPeopleList = (names) => {
+                if (!Array.isArray(names) || names.length === 0) {
+                  return `<span class="catalog-project-mini-value">—</span>`;
+                }
+                return `<ul class="catalog-project-people-list">${names
+                  .map((name) => `<li>${escapeHtml(name)}</li>`)
+                  .join("")}</ul>`;
+              };
               const rawPercentComplete = projectRow?.percentComplete ?? projectRow?.percent_complete;
               const hasPercentComplete =
                 rawPercentComplete !== null &&
@@ -243,53 +239,76 @@
                 class="catalog-item catalog-item-project${projectIsActive ? "" : " is-inactive"}"
                 data-project="${escapeHtml(project)}"
               >
-                <span class="catalog-card-head">
-                  <span class="catalog-item-title">
-                    ${escapeHtml(project)}
-                    <small class="catalog-item-title-meta">${escapeHtml(`${projectHours(selectedClient, project).toFixed(2)}h logged`)}</small>
-                  </span>
-	                  ${
-                      showEditProjectAction
-                        ? `<button
-	                    type="button"
-	                    class="catalog-edit catalog-edit-inline"
-	                    aria-label="Edit ${escapeHtml(project)}"
-	                    data-edit-project="${escapeHtml(project)}"
-	                  >
-	                    Edit
-	                  </button>`
-                        : ""
-                    }
-                </span>
                 <span class="catalog-item-copy">
-                  ${
-                    projectSecondaryBits.length
-                      ? `<small class="catalog-item-secondary">${escapeHtml(projectSecondaryBits.join(" · "))}</small>`
-                      : ""
-                  }
-                  <span class="catalog-item-meta catalog-item-people">
-                    <span data-project-lead-line="1">${escapeHtml(teamBits[0])}</span>
-                    <span>${escapeHtml(teamBits[1])}</span>
-                    <span>${escapeHtml(teamBits[2])}</span>
-                    <span>
-                      ${escapeHtml(`% Complete: ${percentCompleteDisplay}`)}
-                      ${
-                        canEditProjectCard
-                          ? `<button
-                          type="button"
-                          class="catalog-edit catalog-edit-inline"
-                          aria-label="Update progress for ${escapeHtml(project)}"
-                          data-update-project-progress="${escapeHtml(project)}"
-                        >
-                          Update
-                        </button>`
-                          : ""
-                      }
+                  <span class="catalog-project-top">
+                    <span class="catalog-project-title-wrap">
+                      <span class="catalog-item-title">${escapeHtml(project)}</span>
+                      <small class="catalog-item-title-meta">${escapeHtml(
+                        `${projectHours(selectedClient, project).toFixed(2)}h logged`
+                      )}</small>
+                    </span>
+                    <span class="catalog-project-kpi-card">
+                      <span class="catalog-project-kpi-label">% Complete</span>
+                      <span class="catalog-project-kpi-row">
+                        <strong class="catalog-project-kpi-value">${escapeHtml(percentCompleteDisplay)}</strong>
+                        ${
+                          canEditProjectCard
+                            ? `<button
+                            type="button"
+                            class="catalog-edit catalog-edit-inline"
+                            aria-label="Update progress for ${escapeHtml(project)}"
+                            data-update-project-progress="${escapeHtml(project)}"
+                          >
+                            Update
+                          </button>`
+                            : ""
+                        }
+                      </span>
+                    </span>
+                  </span>
+                  <span class="catalog-project-content-grid">
+                    <span class="catalog-project-mini-card">
+                      <span class="catalog-project-mini-title">Project Info</span>
+                      <span class="catalog-project-mini-row">
+                        <span class="catalog-project-mini-label">Office</span>
+                        <span class="catalog-project-mini-value">${escapeHtml(projectOffice || "—")}</span>
+                      </span>
+                      <span class="catalog-project-mini-row">
+                        <span class="catalog-project-mini-label">Department</span>
+                        <span class="catalog-project-mini-value">${escapeHtml(projectDepartmentName || "—")}</span>
+                      </span>
+                    </span>
+                    <span class="catalog-project-mini-card">
+                      <span class="catalog-project-mini-title">Team</span>
+                      <span class="catalog-project-team-block">
+                        <span class="catalog-project-mini-label">Project Lead</span>
+                        <span class="catalog-project-mini-value">${escapeHtml(projectLeadName || "—")}</span>
+                      </span>
+                      <span class="catalog-project-team-block">
+                        <span class="catalog-project-mini-label">Managers</span>
+                        ${renderPeopleList(managerNameList)}
+                      </span>
+                      <span class="catalog-project-team-block">
+                        <span class="catalog-project-mini-label">Staff</span>
+                        ${renderPeopleList(staffNameList)}
+                      </span>
                     </span>
                   </span>
                   <span class="catalog-project-footer-row">
                     <span class="catalog-item-actions catalog-item-actions-bottom">
                       <span class="catalog-item-secondary-actions">
+                        ${
+                          showEditProjectAction
+                            ? `<button
+                          type="button"
+                          class="catalog-edit"
+                          aria-label="Edit ${escapeHtml(project)}"
+                          data-edit-project="${escapeHtml(project)}"
+                        >
+                          Edit
+                        </button>`
+                            : ""
+                        }
                         <button
                           type="button"
                           class="catalog-edit"
