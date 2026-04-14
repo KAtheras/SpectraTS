@@ -231,6 +231,17 @@ body.modal-open {
   min-height: 36px;
 }
 
+.project-dialog-field input {
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.project-dialog-field select {
+  padding-top: 0;
+  padding-bottom: 0;
+  line-height: 34px;
+}
+
 .project-dialog-field .project-planning-contract-type-toggle {
   display: inline-flex;
   border: 1px solid var(--panel-border);
