@@ -208,11 +208,18 @@
               const showProjectLifecycleActions = canDeleteProject;
               const showAddMemberAction = canManageMembers && Boolean(state.permissions?.assign_project_members);
               const showRemoveMemberAction = canManageMembers && Boolean(state.permissions?.assign_project_members);
-              const managerIds = managerIdsForProject(selectedClient, project);
+              const projectLeadUserId = String(projectRow?.projectLeadId || projectRow?.project_lead_id || "").trim();
+              const managerIds = managerIdsForProject(selectedClient, project).filter(
+                (id) => String(id || "").trim() !== projectLeadUserId
+              );
               const projectStaffIds = staffIdsForProject(selectedClient, project);
+              const normalizedProjectLeadName = String(projectLeadName || "").trim().toLowerCase();
               const managerNameList = userNamesForIds(managerIds)
                 .map((name) => String(name || "").trim())
-                .filter(Boolean);
+                .filter((name) => {
+                  if (!name) return false;
+                  return String(name).trim().toLowerCase() !== normalizedProjectLeadName;
+                });
               const staffNameList = userNamesForIds(projectStaffIds)
                 .map((name) => String(name || "").trim())
                 .filter(Boolean);

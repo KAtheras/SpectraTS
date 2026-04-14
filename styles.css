@@ -3885,31 +3885,31 @@ body[data-theme="dark"] .audit-detail-col {
 
 #clients-page .catalog-item-project .catalog-project-team-lead {
   display: grid;
-  gap: 3px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid color-mix(in srgb, var(--line) 56%, transparent);
+  gap: 2px;
+  padding-bottom: 4px;
 }
 
 #clients-page .catalog-item-project .catalog-project-team-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 10px;
+  gap: 8px;
 }
 
 #clients-page .catalog-item-project .catalog-project-team-col {
   display: grid;
-  gap: 4px;
+  gap: 2px;
   align-content: start;
   min-width: 0;
 }
 
 #clients-page .catalog-item-project .catalog-project-mini-card--info {
-  gap: 6px;
+  gap: 4px;
+  padding: 8px 10px;
 }
 
 #clients-page .catalog-item-project .catalog-project-mini-row {
   display: grid;
-  gap: 1px;
+  gap: 0;
 }
 
 #clients-page .catalog-item-project .catalog-project-mini-label {
@@ -3927,8 +3927,8 @@ body[data-theme="dark"] .audit-detail-col {
 
 #clients-page .catalog-item-project .catalog-project-mini-value {
   font-size: 0.88rem;
-  line-height: 1.35;
-  color: var(--ink);
+  line-height: 1.28;
+  color: color-mix(in srgb, var(--ink) 84%, var(--muted) 16%);
 }
 
 #clients-page .catalog-item-project .catalog-project-people-list {
@@ -3936,13 +3936,13 @@ body[data-theme="dark"] .audit-detail-col {
   padding-left: 0;
   list-style: none;
   display: grid;
-  gap: 2px;
+  gap: 1px;
 }
 
 #clients-page .catalog-item-project .catalog-project-people-list li {
   font-size: 0.88rem;
-  line-height: 1.35;
-  color: var(--ink);
+  line-height: 1.28;
+  color: color-mix(in srgb, var(--ink) 84%, var(--muted) 16%);
 }
 
 #clients-page .catalog-item-project.is-inactive .catalog-project-kpi-value,
