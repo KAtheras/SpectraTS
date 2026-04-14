@@ -1252,7 +1252,7 @@
           </div>
           <div class="project-dialog-core-row" style="grid-template-columns: repeat(2, minmax(0, 1fr));">
             <label class="project-dialog-field">
-              <span>Contract Amount (optional)</span>
+              <span>Contract amount/budget</span>
               <input type="text" name="contract_amount" inputmode="decimal" placeholder="25000 or $25,000" />
               <small class="project-dialog-helper" data-contract-amount-helper></small>
             </label>
