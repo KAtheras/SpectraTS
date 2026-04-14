@@ -283,6 +283,18 @@
                           }
                         </span>
                       </span>
+                      ${
+                        showEditProjectAction
+                          ? `<button
+                          type="button"
+                          class="button button-ghost catalog-project-top-edit"
+                          aria-label="Edit ${escapeHtml(project)}"
+                          data-edit-project="${escapeHtml(project)}"
+                        >
+                          Edit
+                        </button>`
+                          : ""
+                      }
                     </span>
                   </span>
                   <span class="catalog-project-content-grid">
@@ -327,18 +339,6 @@
                     </span>
                     <span class="catalog-item-actions catalog-item-actions-bottom catalog-project-footer-right">
                       <span class="catalog-item-secondary-actions">
-                        ${
-                          showEditProjectAction
-                            ? `<button
-                          type="button"
-                          class="catalog-edit"
-                          aria-label="Edit ${escapeHtml(project)}"
-                          data-edit-project="${escapeHtml(project)}"
-                        >
-                          Edit
-                        </button>`
-                            : ""
-                        }
 	                        ${
                             showProjectLifecycleActions
                               ? `<button
