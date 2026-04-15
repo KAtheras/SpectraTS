@@ -91,38 +91,38 @@
       }
       .analytics-util-filters label { display: grid; gap: 4px; font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
       .analytics-util-filters select { min-height: 34px; background: #fff; }
-      .analytics-util-table-wrap {
+      .analytics-util-grid {
+        display: grid;
+        grid-template-columns: minmax(260px, 1fr) minmax(420px, 2fr);
+        gap: 10px;
+        align-items: stretch;
+      }
+      .analytics-util-card {
         border: 1px solid var(--line);
         border-radius: 10px;
         background: var(--surface);
-        overflow: auto;
+        padding: 10px 10px 8px;
+        min-height: 430px;
       }
-      .analytics-util-table {
+      .analytics-util-left-scroll {
+        height: 380px;
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding-right: 4px;
+      }
+      .analytics-util-left-chart {
+        min-height: 260px;
+      }
+      .analytics-util-right-chart {
         width: 100%;
-        border-collapse: collapse;
-        font-size: .86rem;
+        height: 380px;
       }
-      .analytics-util-table th,
-      .analytics-util-table td {
-        padding: 8px 10px;
-        border-bottom: 1px solid color-mix(in srgb, var(--line) 65%, transparent);
-        text-align: right;
-        white-space: nowrap;
-      }
-      .analytics-util-table th:first-child,
-      .analytics-util-table td:first-child {
-        text-align: left;
-      }
-      .analytics-util-table thead th {
-        font-size: .72rem;
-        letter-spacing: .04em;
-        text-transform: uppercase;
-        color: var(--muted);
-        background: color-mix(in srgb, var(--surface-strong) 92%, #fff 8%);
-      }
-      .analytics-util-table tbody tr:last-child td { border-bottom: 0; }
       @media (max-width: 980px) {
         .analytics-util-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .analytics-util-grid { grid-template-columns: minmax(0, 1fr); }
+        .analytics-util-card { min-height: 340px; }
+        .analytics-util-left-scroll { height: 300px; }
+        .analytics-util-right-chart { height: 300px; }
       }
       @media (max-width: 640px) {
         .analytics-util-filters { grid-template-columns: minmax(0, 1fr); }
@@ -400,6 +400,7 @@
       utilizationGroupBy: "member",
       utilizationOfficeId: "",
       utilizationDepartmentId: "",
+      utilizationSelectedKey: "",
     };
   }
 
@@ -600,46 +601,57 @@
     });
   }
 
-  function renderUtilizationChart(container, rows, groupByLabel) {
+  function renderUtilizationOverviewChart(options) {
+    const container = options?.container;
+    const rows = Array.isArray(options?.rows) ? options.rows : [];
+    const groupByLabel = safeText(options?.groupByLabel || "Group");
+    const selectedKey = safeText(options?.selectedKey);
+    const onSelect = typeof options?.onSelect === "function" ? options.onSelect : null;
     if (!container) return;
     const echarts = window.echarts;
     if (!echarts || typeof echarts.init !== "function") {
       container.innerHTML = '<div class="analytics-chart-empty">Chart library failed to load.</div>';
       return;
     }
-    const points = Array.isArray(rows) ? rows : [];
-    if (!points.length) {
+    if (!rows.length) {
       container.innerHTML = '<div class="analytics-chart-empty">No utilization data for the selected filters.</div>';
       return;
     }
-
-    container.innerHTML = '<div class="analytics-trend-chart" data-analytics-trend-chart></div>';
-    const chartEl = container.querySelector("[data-analytics-trend-chart]");
-    if (!chartEl) return;
+    const chartHeight = Math.max(260, rows.length * 30);
+    container.innerHTML = `<div class="analytics-util-left-chart" data-analytics-util-left-chart style="height:${chartHeight}px;"></div>`;
+    const resolvedChartEl = container.querySelector("[data-analytics-util-left-chart]");
+    if (!resolvedChartEl) return;
 
     const existing = chartInstanceByContainer.get(container);
     if (existing?.instance && !existing.instance.isDisposed()) {
       chartInstances.delete(existing.instance);
       existing.instance.dispose();
     }
-    const chart = echarts.init(chartEl);
+    const chart = echarts.init(resolvedChartEl);
     chartInstanceByContainer.set(container, { instance: chart });
     chartInstances.add(chart);
     bindChartResize();
 
-    const labels = points.map((item) => safeText(item?.name));
-    const client = points.map((item) => toNumber(item?.clientHours));
-    const internal = points.map((item) => toNumber(item?.internalHours));
-    const pto = points.map((item) => toNumber(item?.ptoHours));
-    const idle = points.map((item) => toNumber(item?.idleHours));
-    const totals = points.map((item) =>
+    const labels = rows.map((item) => safeText(item?.name));
+    const makeSeriesData = (key) =>
+      rows.map((row) => {
+        const isSelected = safeText(row?.key) === selectedKey;
+        return {
+          value: toNumber(row?.[key]),
+          itemStyle: {
+            opacity: isSelected ? 1 : 0.42,
+            borderColor: isSelected ? "#193f94" : "transparent",
+            borderWidth: isSelected ? 1.2 : 0,
+          },
+        };
+      });
+    const capacityByIndex = rows.map((item) =>
       toNumber(item?.clientHours) + toNumber(item?.internalHours) + toNumber(item?.ptoHours) + toNumber(item?.idleHours)
     );
-    const utilLabelPoints = points.map((item, index) => [totals[index], index, formatPercent(item?.utilizationPct)]);
 
     chart.setOption({
       animation: false,
-      grid: { left: 120, right: 80, top: 44, bottom: 58 },
+      grid: { left: 110, right: 40, top: 30, bottom: 36 },
       tooltip: {
         trigger: "axis",
         axisPointer: { type: "shadow" },
@@ -647,13 +659,15 @@
           const rowsData = Array.isArray(params) ? params : [];
           const first = rowsData[0];
           const label = first?.axisValueLabel || "";
-          const get = (name) => toNumber(rowsData.find((row) => row?.seriesName === name)?.value);
+          const dataIndex = Number(first?.dataIndex);
+          const sample = Number.isInteger(dataIndex) ? rows[dataIndex] : null;
+          const get = (name) => toNumber(rowsData.find((row) => row?.seriesName === name)?.value?.value ?? rowsData.find((row) => row?.seriesName === name)?.value);
           const c = get("Client");
           const i = get("Internal");
           const p = get("PTO");
           const d = get("Idle");
-          const cap = c + i + p + d;
-          const util = cap > 0 ? (c / cap) * 100 : null;
+          const cap = sample ? toNumber(sample.capacityHours) : c + i + p + d;
+          const util = sample ? sample.utilizationPct : cap > 0 ? (c / cap) * 100 : null;
           return [
             `${escapeHtml(groupByLabel)}: ${escapeHtml(label)}`,
             `Utilization: ${formatPercent(util)}`,
@@ -667,29 +681,31 @@
       },
       xAxis: {
         type: "value",
-        axisLabel: {
-          formatter: (value) => `${Math.round(value)}`,
-        },
+        axisLabel: { formatter: (value) => `${Math.round(value)}` },
         splitLine: { lineStyle: { color: "rgba(128,128,128,0.25)" } },
       },
       yAxis: {
         type: "category",
         data: labels,
         axisTick: { show: false },
+        axisLabel: {
+          formatter: (value, index) => {
+            const row = rows[index];
+            const prefix = safeText(row?.key) === selectedKey ? "● " : "";
+            return `${prefix}${value}`;
+          },
+        },
       },
-      legend: {
-        top: 8,
-        data: ["Client", "Internal", "PTO", "Idle"],
-      },
+      legend: { bottom: 0, data: ["Client", "Internal", "PTO", "Idle"] },
       series: [
-        { name: "Client", type: "bar", stack: "hours", data: client, itemStyle: { color: "#2f6fed" } },
-        { name: "Internal", type: "bar", stack: "hours", data: internal, itemStyle: { color: "#2f9988" } },
-        { name: "PTO", type: "bar", stack: "hours", data: pto, itemStyle: { color: "#9a78d1" } },
-        { name: "Idle", type: "bar", stack: "hours", data: idle, itemStyle: { color: "#b8bdc7" } },
+        { name: "Client", type: "bar", stack: "hours", data: makeSeriesData("clientHours"), itemStyle: { color: "#2f6fed" } },
+        { name: "Internal", type: "bar", stack: "hours", data: makeSeriesData("internalHours"), itemStyle: { color: "#2f9988" } },
+        { name: "PTO", type: "bar", stack: "hours", data: makeSeriesData("ptoHours"), itemStyle: { color: "#9a78d1" } },
+        { name: "Idle", type: "bar", stack: "hours", data: makeSeriesData("idleHours"), itemStyle: { color: "#b8bdc7" } },
         {
           name: "Utilization",
           type: "scatter",
-          data: utilLabelPoints,
+          data: rows.map((item, index) => [capacityByIndex[index], index, formatPercent(item?.utilizationPct)]),
           silent: true,
           tooltip: { show: false },
           symbolSize: 1,
@@ -704,6 +720,95 @@
           },
           z: 10,
         },
+      ],
+    });
+
+    chart.off("click");
+    chart.on("click", (params) => {
+      const dataIndex = Number(params?.dataIndex);
+      if (!Number.isInteger(dataIndex)) return;
+      const row = rows[dataIndex];
+      const key = safeText(row?.key);
+      if (!key || key === selectedKey || !onSelect) return;
+      onSelect(key);
+    });
+  }
+
+  function renderUtilizationDetailChart(options) {
+    const container = options?.container;
+    const seriesRows = Array.isArray(options?.seriesRows) ? options.seriesRows : [];
+    if (!container) return;
+    const echarts = window.echarts;
+    if (!echarts || typeof echarts.init !== "function") {
+      container.innerHTML = '<div class="analytics-chart-empty">Chart library failed to load.</div>';
+      return;
+    }
+    if (!seriesRows.length) {
+      container.innerHTML = '<div class="analytics-chart-empty">No time-bucket utilization data for the selected item.</div>';
+      return;
+    }
+
+    container.innerHTML = '<div class="analytics-util-right-chart" data-analytics-util-right-chart></div>';
+    const chartEl = container.querySelector("[data-analytics-util-right-chart]");
+    if (!chartEl) return;
+    const existing = chartInstanceByContainer.get(container);
+    if (existing?.instance && !existing.instance.isDisposed()) {
+      chartInstances.delete(existing.instance);
+      existing.instance.dispose();
+    }
+    const chart = echarts.init(chartEl);
+    chartInstanceByContainer.set(container, { instance: chart });
+    chartInstances.add(chart);
+    bindChartResize();
+
+    const labels = seriesRows.map((item) => safeText(item?.label));
+    const client = seriesRows.map((item) => toNumber(item?.clientHours));
+    const internal = seriesRows.map((item) => toNumber(item?.internalHours));
+    const pto = seriesRows.map((item) => toNumber(item?.ptoHours));
+    const idle = seriesRows.map((item) => toNumber(item?.idleHours));
+
+    chart.setOption({
+      animation: false,
+      grid: { left: 46, right: 20, top: 30, bottom: 56 },
+      legend: { bottom: 0, data: ["Client", "Internal", "PTO", "Idle"] },
+      tooltip: {
+        trigger: "axis",
+        axisPointer: { type: "shadow" },
+        formatter: (params) => {
+          const rowsData = Array.isArray(params) ? params : [];
+          const first = rowsData[0];
+          const index = Number(first?.dataIndex);
+          const point = Number.isInteger(index) ? seriesRows[index] : null;
+          const get = (name) => toNumber(rowsData.find((row) => row?.seriesName === name)?.value);
+          const c = get("Client");
+          const i = get("Internal");
+          const p = get("PTO");
+          const d = get("Idle");
+          return [
+            safeText(first?.axisValueLabel),
+            `Utilization: ${formatPercent(point?.utilizationPct)}`,
+            `Client: ${formatHours(c)}`,
+            `Internal: ${formatHours(i)}`,
+            `PTO: ${formatHours(p)}`,
+            `Idle: ${formatHours(d)}`,
+          ].join("<br/>");
+        },
+      },
+      xAxis: {
+        type: "category",
+        data: labels,
+        axisTick: { show: false },
+      },
+      yAxis: {
+        type: "value",
+        axisLabel: { formatter: (value) => `${Math.round(value)}` },
+        splitLine: { lineStyle: { color: "rgba(128,128,128,0.25)" } },
+      },
+      series: [
+        { name: "Client", type: "bar", stack: "hours", data: client, itemStyle: { color: "#2f6fed" } },
+        { name: "Internal", type: "bar", stack: "hours", data: internal, itemStyle: { color: "#2f9988" } },
+        { name: "PTO", type: "bar", stack: "hours", data: pto, itemStyle: { color: "#9a78d1" } },
+        { name: "Idle", type: "bar", stack: "hours", data: idle, itemStyle: { color: "#b8bdc7" } },
       ],
     });
   }
@@ -776,6 +881,19 @@
           departmentId: uiState.utilizationDepartmentId,
         },
       });
+      const utilizationRows = Array.isArray(utilization?.rows) ? utilization.rows : [];
+      const availableKeys = new Set(utilizationRows.map((row) => safeText(row?.key)).filter(Boolean));
+      const preferredSelectedKey = safeText(uiState.utilizationSelectedKey);
+      if (!preferredSelectedKey || !availableKeys.has(preferredSelectedKey)) {
+        uiState.utilizationSelectedKey = safeText(utilizationRows[0]?.key);
+      }
+      const selectedRow =
+        utilizationRows.find((row) => safeText(row?.key) === safeText(uiState.utilizationSelectedKey)) || null;
+      const selectedSeries = selectedRow
+        ? Array.isArray(utilization?.timeSeriesByKey?.[selectedRow.key])
+          ? utilization.timeSeriesByKey[selectedRow.key]
+          : []
+        : [];
 
       body.innerHTML = `
         <div class="analytics-panel" data-analytics-root>
@@ -822,47 +940,21 @@
             )}</div></article>
           </section>
 
-          <section class="analytics-chart-wrap">
-            <div class="analytics-chart-head">
-              <strong>Client vs Internal vs PTO vs Idle by ${escapeHtml(groupByLabel)}</strong>
-            </div>
-            <div data-analytics-utilization-chart-host></div>
-          </section>
-
-          <section class="analytics-util-table-wrap">
-            <table class="analytics-util-table">
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Utilization %</th>
-                  <th>Client Hours</th>
-                  <th>Internal Hours</th>
-                  <th>PTO Hours</th>
-                  <th>Idle Hours</th>
-                  <th>Capacity</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${
-                  utilization.rows.length
-                    ? utilization.rows
-                        .map(
-                          (row) => `
-                    <tr>
-                      <td>${escapeHtml(row.name || "Unassigned")}</td>
-                      <td>${escapeHtml(formatPercent(row.utilizationPct))}</td>
-                      <td>${escapeHtml(formatHours(row.clientHours))}</td>
-                      <td>${escapeHtml(formatHours(row.internalHours))}</td>
-                      <td>${escapeHtml(formatHours(row.ptoHours))}</td>
-                      <td>${escapeHtml(formatHours(row.idleHours))}</td>
-                      <td>${escapeHtml(formatHours(row.capacityHours))}</td>
-                    </tr>`
-                        )
-                        .join("")
-                    : `<tr><td colspan="7">No utilization data for the selected filters.</td></tr>`
-                }
-              </tbody>
-            </table>
+          <section class="analytics-util-grid">
+            <article class="analytics-util-card">
+              <div class="analytics-chart-head">
+                <strong>Current Utilization by ${escapeHtml(groupByLabel)}</strong>
+              </div>
+              <div class="analytics-util-left-scroll">
+                <div data-analytics-utilization-left-host></div>
+              </div>
+            </article>
+            <article class="analytics-util-card">
+              <div class="analytics-chart-head">
+                <strong>${escapeHtml(selectedRow ? `${selectedRow.name} Over Time` : "Utilization Over Time")}</strong>
+              </div>
+              <div data-analytics-utilization-right-host></div>
+            </article>
           </section>
 
           <p class="analytics-footnote">${escapeHtml(utilization.assumptions.capacity)}</p>
@@ -881,11 +973,20 @@
           renderAnalyticsPage(options);
         });
       }
-      renderUtilizationChart(
-        body.querySelector("[data-analytics-utilization-chart-host]"),
-        utilization.rows,
-        groupByLabel
-      );
+      renderUtilizationOverviewChart({
+        container: body.querySelector("[data-analytics-utilization-left-host]"),
+        rows: utilizationRows,
+        groupByLabel,
+        selectedKey: uiState.utilizationSelectedKey,
+        onSelect: (nextKey) => {
+          uiState.utilizationSelectedKey = safeText(nextKey);
+          renderAnalyticsPage(options);
+        },
+      });
+      renderUtilizationDetailChart({
+        container: body.querySelector("[data-analytics-utilization-right-host]"),
+        seriesRows: selectedSeries,
+      });
       return;
     }
 

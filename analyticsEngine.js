@@ -281,6 +281,101 @@
     return { key: fallback.key, label: fallback.label };
   }
 
+  function toIsoDate(date) {
+    const year = date.getFullYear();
+    const month = `${date.getMonth() + 1}`.padStart(2, "0");
+    const day = `${date.getDate()}`.padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+
+  function addDaysIso(isoDate, days) {
+    if (!isValidIsoDate(isoDate)) return "";
+    const date = new Date(`${isoDate}T00:00:00`);
+    date.setDate(date.getDate() + days);
+    return toIsoDate(date);
+  }
+
+  function daysBetweenInclusive(fromDate, toDate) {
+    if (!isValidIsoDate(fromDate) || !isValidIsoDate(toDate) || fromDate > toDate) return 0;
+    const from = new Date(`${fromDate}T00:00:00`);
+    const to = new Date(`${toDate}T00:00:00`);
+    const diff = Math.round((to.getTime() - from.getTime()) / 86400000);
+    return diff + 1;
+  }
+
+  function formatUtilizationWeeklyLabel(fromDate, toDate) {
+    const from = new Date(`${fromDate}T00:00:00`);
+    const to = new Date(`${toDate}T00:00:00`);
+    const fromLabel = from.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    const toLabel = to.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    return `${fromLabel} - ${toLabel}`;
+  }
+
+  function formatUtilizationMonthlyLabel(isoMonthStart) {
+    const date = new Date(`${isoMonthStart}T00:00:00`);
+    return date.toLocaleDateString(undefined, { month: "short", year: "2-digit" });
+  }
+
+  function buildUtilizationTimeBuckets(fromDate, toDate) {
+    if (!isValidIsoDate(fromDate) || !isValidIsoDate(toDate) || fromDate > toDate) {
+      return { granularity: "week", buckets: [] };
+    }
+    const totalDays = daysBetweenInclusive(fromDate, toDate);
+    const useWeekly = totalDays <= 62;
+    const buckets = [];
+
+    if (useWeekly) {
+      let cursor = fromDate;
+      let index = 0;
+      while (cursor <= toDate) {
+        const bucketFrom = cursor;
+        const tentativeTo = addDaysIso(bucketFrom, 6);
+        const bucketTo = tentativeTo && tentativeTo < toDate ? tentativeTo : toDate;
+        buckets.push({
+          key: `w${index}::${bucketFrom}`,
+          label: formatUtilizationWeeklyLabel(bucketFrom, bucketTo),
+          fromDate: bucketFrom,
+          toDate: bucketTo,
+          businessDays: countBusinessDaysInclusive(bucketFrom, bucketTo),
+        });
+        index += 1;
+        cursor = addDaysIso(bucketTo, 1);
+      }
+      return { granularity: "week", buckets };
+    }
+
+    let cursor = fromDate;
+    const seen = new Set();
+    while (cursor <= toDate) {
+      const monthStart = `${cursor.slice(0, 7)}-01`;
+      if (!seen.has(monthStart)) {
+        seen.add(monthStart);
+        const date = new Date(`${monthStart}T00:00:00`);
+        const monthEnd = toIsoDate(new Date(date.getFullYear(), date.getMonth() + 1, 0));
+        const bucketFrom = monthStart < fromDate ? fromDate : monthStart;
+        const bucketTo = monthEnd > toDate ? toDate : monthEnd;
+        buckets.push({
+          key: `m::${monthStart}`,
+          label: formatUtilizationMonthlyLabel(monthStart),
+          fromDate: bucketFrom,
+          toDate: bucketTo,
+          businessDays: countBusinessDaysInclusive(bucketFrom, bucketTo),
+        });
+      }
+      cursor = addDaysIso(`${cursor.slice(0, 7)}-28`, 4).slice(0, 7) + "-01";
+    }
+    return { granularity: "month", buckets };
+  }
+
+  function classifyUtilizationBucket(entry, project, corporateCategoryById) {
+    const internal = isInternalEntryLike(entry, project);
+    if (internal) {
+      return isPtoLikeEntry(entry, project, corporateCategoryById) ? "pto" : "internal";
+    }
+    if (entry?.billable === false) return "internal";
+    return "client";
+  }
+
   function computeUtilizationAnalytics(input) {
     const entries = Array.isArray(input?.entries) ? input.entries : [];
     const users = Array.isArray(input?.users) ? input.users : [];
@@ -307,6 +402,8 @@
     const corporateCategoryById = buildCorporateCategoryIndex(corporateFunctionCategories);
 
     const businessDays = countBusinessDaysInclusive(fromDate, toDate);
+    const timeBucketMeta = buildUtilizationTimeBuckets(fromDate, toDate);
+    const timeBuckets = timeBucketMeta.buckets;
     const defaultMemberCapacityHours = businessDays * 8;
     const memberCapacityByKey = new Map();
     const grouped = new Map();
@@ -338,13 +435,7 @@
       }
       globalMemberKeys.add(memberKey);
 
-      let bucket = "client";
-      const internal = isInternalEntryLike(entry, project);
-      if (internal) {
-        bucket = isPtoLikeEntry(entry, project, corporateCategoryById) ? "pto" : "internal";
-      } else if (entry?.billable === false) {
-        bucket = "internal";
-      }
+      const bucket = classifyUtilizationBucket(entry, project, corporateCategoryById);
 
       if (bucket === "client") totalClientHours += hours;
       if (bucket === "internal") totalInternalHours += hours;
@@ -365,6 +456,7 @@
           internalHours: 0,
           ptoHours: 0,
           memberKeys: new Set(),
+          timeByBucket: new Map(),
         });
       }
       const target = grouped.get(identity.key);
@@ -372,6 +464,16 @@
       if (bucket === "client") target.clientHours += hours;
       if (bucket === "internal") target.internalHours += hours;
       if (bucket === "pto") target.ptoHours += hours;
+      const bucketDef = timeBuckets.find((item) => inDateRange(date, item.fromDate, item.toDate)) || null;
+      if (bucketDef) {
+        if (!target.timeByBucket.has(bucketDef.key)) {
+          target.timeByBucket.set(bucketDef.key, { clientHours: 0, internalHours: 0, ptoHours: 0 });
+        }
+        const timeTarget = target.timeByBucket.get(bucketDef.key);
+        if (bucket === "client") timeTarget.clientHours += hours;
+        if (bucket === "internal") timeTarget.internalHours += hours;
+        if (bucket === "pto") timeTarget.ptoHours += hours;
+      }
     });
 
     const rows = Array.from(grouped.values()).map((row) => {
@@ -381,6 +483,7 @@
       });
       const idleHours = Math.max(0, capacity - (row.clientHours + row.internalHours + row.ptoHours));
       return {
+        key: row.key,
         name: row.name,
         utilizationPct: utilizationPct(row.clientHours, capacity),
         clientHours: row.clientHours,
@@ -388,6 +491,8 @@
         ptoHours: row.ptoHours,
         idleHours,
         capacityHours: capacity,
+        memberCount: row.memberKeys.size,
+        timeByBucket: row.timeByBucket,
       };
     });
 
@@ -403,6 +508,43 @@
     });
     const totalIdleHours = Math.max(0, totalCapacity - (totalClientHours + totalInternalHours + totalPtoHours));
 
+    const timeSeriesByKey = {};
+    rows.forEach((row) => {
+      const perBucket = Array.isArray(timeBuckets)
+        ? timeBuckets.map((bucket) => {
+            const sample = row.timeByBucket.get(bucket.key) || { clientHours: 0, internalHours: 0, ptoHours: 0 };
+            const capacityHours = row.memberCount * toNumber(bucket.businessDays) * 8;
+            const idleHours = Math.max(
+              0,
+              capacityHours - (sample.clientHours + sample.internalHours + sample.ptoHours)
+            );
+            return {
+              key: bucket.key,
+              label: bucket.label,
+              clientHours: sample.clientHours,
+              internalHours: sample.internalHours,
+              ptoHours: sample.ptoHours,
+              idleHours,
+              capacityHours,
+              utilizationPct: utilizationPct(sample.clientHours, capacityHours),
+            };
+          })
+        : [];
+      timeSeriesByKey[row.key] = perBucket;
+    });
+
+    const cleanRows = rows.map((row) => ({
+      key: row.key,
+      name: row.name,
+      utilizationPct: row.utilizationPct,
+      clientHours: row.clientHours,
+      internalHours: row.internalHours,
+      ptoHours: row.ptoHours,
+      idleHours: row.idleHours,
+      capacityHours: row.capacityHours,
+      memberCount: row.memberCount,
+    }));
+
     return {
       kpis: {
         avgUtilizationPct: utilizationPct(totalClientHours, totalCapacity),
@@ -411,7 +553,9 @@
         ptoHours: totalPtoHours,
         idleHours: totalIdleHours,
       },
-      rows,
+      rows: cleanRows,
+      timeBuckets: timeBuckets.map((bucket) => ({ key: bucket.key, label: bucket.label })),
+      timeSeriesByKey,
       assumptions: {
         capacity: "Capacity defaults to business days in period × 8 hours per unique member in scope.",
         categoryMapping:
