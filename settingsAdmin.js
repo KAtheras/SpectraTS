@@ -1820,8 +1820,12 @@
         "office",
         "department",
         "level_title",
+        "active_from",
+        "is_exempt",
         "cost_rate",
         "base_rate",
+        "certifications",
+        "member_profile",
       ],
     };
 
@@ -1836,8 +1840,28 @@
       if (collapsed === "level/title" || collapsed === "level_title" || collapsed === "title") {
         return "level_title";
       }
+      if (collapsed === "active_from" || collapsed === "start_date" || collapsed === "startdate") {
+        return "active_from";
+      }
+      if (
+        collapsed === "is_exempt" ||
+        collapsed === "flsa_status" ||
+        collapsed === "exempt_status" ||
+        collapsed === "exemption_status" ||
+        collapsed === "exempt"
+      ) {
+        return "is_exempt";
+      }
       if (collapsed === "cost_rate" || collapsed === "costrate") return "cost_rate";
       if (collapsed === "base_rate" || collapsed === "baserate") return "base_rate";
+      if (collapsed === "certifications" || collapsed === "certification") return "certifications";
+      if (
+        collapsed === "member_profile" ||
+        collapsed === "memberprofile" ||
+        collapsed === "profile"
+      ) {
+        return "member_profile";
+      }
       return key;
     };
 
@@ -1890,6 +1914,14 @@
       const text = `${value ?? ""}`.trim().toLowerCase();
       if (["yes", "true", "1"].includes(text)) return true;
       if (["no", "false", "0"].includes(text)) return false;
+      return "";
+    };
+
+    const normalizeExemptValue = function (value) {
+      const text = `${value ?? ""}`.trim().toLowerCase();
+      if (!text) return "";
+      if (["yes", "true", "1", "exempt"].includes(text)) return true;
+      if (["no", "false", "0", "non-exempt", "nonexempt"].includes(text)) return false;
       return "";
     };
 
@@ -1966,6 +1998,23 @@
           if (header === "cost_rate" || header === "base_rate") {
             const numeric = Number(raw);
             item[header] = Number.isFinite(numeric) ? numeric : "";
+            return;
+          }
+          if (header === "active_from") {
+            item[header] = normalizeDateValue(raw);
+            return;
+          }
+          if (header === "is_exempt") {
+            const normalizedExempt = normalizeExemptValue(raw);
+            const rawText = `${raw ?? ""}`.trim();
+            const isInvalidExempt = rawText !== "" && normalizedExempt === "";
+            if (isInvalidExempt) {
+              rowStatus = "Invalid";
+              rowErrors.push(`Invalid FLSA value: ${rawText}`);
+              item[header] = rawText;
+              return;
+            }
+            item[header] = normalizedExempt;
             return;
           }
           item[header] = `${raw ?? ""}`.trim();
@@ -2117,6 +2166,8 @@
           }
           const baseRate = item.base_rate;
           const costRate = item.cost_rate;
+          const activeFrom = `${item.active_from || ""}`.trim();
+          const isExempt = item.is_exempt;
           if (item._raw?.base_rate && (!Number.isFinite(Number(baseRate)) || Number(baseRate) < 0)) {
             rowStatus = "Invalid";
             rowErrors.push("Base rate must be a non-negative number.");
@@ -2124,6 +2175,14 @@
           if (item._raw?.cost_rate && (!Number.isFinite(Number(costRate)) || Number(costRate) < 0)) {
             rowStatus = "Invalid";
             rowErrors.push("Cost rate must be a non-negative number.");
+          }
+          if (item._raw?.active_from && activeFrom && !/^\d{4}-\d{2}-\d{2}$/.test(activeFrom)) {
+            rowStatus = "Invalid";
+            rowErrors.push("Start date must be a valid date.");
+          }
+          if (item._raw?.is_exempt && isExempt === "") {
+            rowStatus = "Invalid";
+            rowErrors.push("FLSA status must be Exempt or Non-exempt.");
           }
 
           item._resolvedDisplayName = `${firstName} ${lastName}`.trim();
@@ -2380,8 +2439,12 @@
           raw.office ?? row.office ?? "",
           raw.department ?? row.department ?? "",
           raw.level_title ?? row.level_title ?? "",
+          raw.active_from ?? row.active_from ?? "",
+          raw.is_exempt ?? row.is_exempt ?? "",
           raw.cost_rate ?? row.cost_rate ?? "",
           raw.base_rate ?? row.base_rate ?? "",
+          raw.certifications ?? row.certifications ?? "",
+          raw.member_profile ?? row.member_profile ?? "",
           row.error ?? "",
         ];
         const outputValues = kind === "members" ? memberValues : values;
@@ -2628,6 +2691,15 @@
             row.cost_rate === "" || row.cost_rate === null || row.cost_rate === undefined
               ? null
               : Number(row.cost_rate);
+          const activeFromRaw = `${row.active_from || ""}`.trim();
+          const activeFrom = /^\d{4}-\d{2}-\d{2}$/.test(activeFromRaw) ? activeFromRaw : null;
+          const isExemptRaw = row.is_exempt;
+          const isExempt =
+            isExemptRaw === true || isExemptRaw === false
+              ? isExemptRaw
+              : false;
+          const certifications = `${row.certifications || ""}`.trim();
+          const memberProfile = `${row.member_profile || ""}`.trim();
           const hasBaseRate = baseRateRaw !== null && Number.isFinite(baseRateRaw);
           const hasCostRate = costRateRaw !== null && Number.isFinite(costRateRaw);
           const existingUserId = `${row._resolvedUserId || ""}`.trim();
@@ -2644,8 +2716,12 @@
                 employeeId,
                 level,
                 officeId,
+                activeFrom,
+                isExempt,
                 baseRate: hasBaseRate ? baseRateRaw : null,
                 costRate: hasCostRate ? costRateRaw : null,
+                certifications,
+                memberProfile,
               },
               {
                 skipHydrate: true,
@@ -2666,8 +2742,12 @@
                 employeeId,
                 level,
                 officeId,
+                activeFrom,
+                isExempt,
                 baseRate: hasBaseRate ? baseRateRaw : null,
                 costRate: hasCostRate ? costRateRaw : null,
+                certifications,
+                memberProfile,
               },
               {
                 skipHydrate: true,

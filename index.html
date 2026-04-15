@@ -591,6 +591,9 @@
                   </h2>
                 </div>
                 <div class="panel-head-actions">
+                  <button class="button button-ghost" type="button" id="deleted-clear-filters">
+                    Clear
+                  </button>
                   <button class="button button-ghost" type="button" id="deleted-select-toggle">
                     Select
                   </button>
@@ -602,6 +605,40 @@
                   </button>
                 </div>
               </div>
+
+              <form id="deleted-filter-form" class="filters">
+                <label>
+                  <span>User</span>
+                  <select name="user" id="deleted-filter-user"></select>
+                </label>
+                <label>
+                  <span>Client</span>
+                  <select name="client" id="deleted-filter-client"></select>
+                </label>
+                <label>
+                  <span>Project</span>
+                  <select name="project" id="deleted-filter-project"></select>
+                </label>
+                <label>
+                  <span>From</span>
+                  <input type="date" name="from" id="deleted-filter-from" />
+                </label>
+                <label>
+                  <span>To</span>
+                  <input type="date" name="to" id="deleted-filter-to" />
+                </label>
+                <label>
+                  <span>Search</span>
+                  <input
+                    type="search"
+                    name="search"
+                    id="deleted-filter-search"
+                    placeholder="Project, category, or notes"
+                  />
+                </label>
+              </form>
+
+              <div id="deleted-active-filters" class="active-filters" hidden></div>
 
               <div class="table-wrapper">
                 <table class="entries-table">

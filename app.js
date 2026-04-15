@@ -538,6 +538,15 @@
     expensesUndoMessage: document.getElementById("expenses-undo-message"),
     expensesUndoAction: document.getElementById("expenses-undo-action"),
     deletedSelectToggle: document.getElementById("deleted-select-toggle"),
+    deletedClearFilters: document.getElementById("deleted-clear-filters"),
+    deletedFilterForm: document.getElementById("deleted-filter-form"),
+    deletedFilterUser: document.getElementById("deleted-filter-user"),
+    deletedFilterClient: document.getElementById("deleted-filter-client"),
+    deletedFilterProject: document.getElementById("deleted-filter-project"),
+    deletedFilterFrom: document.getElementById("deleted-filter-from"),
+    deletedFilterTo: document.getElementById("deleted-filter-to"),
+    deletedFilterSearch: document.getElementById("deleted-filter-search"),
+    deletedActiveFilters: document.getElementById("deleted-active-filters"),
     deletedRestoreSelected: document.getElementById("deleted-restore-selected"),
     deletedSelectCancel: document.getElementById("deleted-select-cancel"),
     deletedSelectHeader: document.getElementById("deleted-select-header"),
@@ -2991,6 +3000,14 @@
     deletedEntries: [],
     deletedExpenses: [],
     deletedItemsView: "time", // "time" | "expense" | "all"
+    deletedFilters: {
+      user: "",
+      client: "",
+      project: "",
+      from: "",
+      to: "",
+      search: "",
+    },
     deletedSelectionMode: false,
     selectedDeletedKeys: new Set(),
     deletedItemsLoading: false,
@@ -3828,6 +3845,14 @@
     state.deletedEntries = [];
     state.deletedExpenses = [];
     state.deletedItemsView = "time";
+    state.deletedFilters = {
+      user: "",
+      client: "",
+      project: "",
+      from: "",
+      to: "",
+      search: "",
+    };
     state.deletedSelectionMode = false;
     state.selectedDeletedKeys = new Set();
     state.deletedItemsLoading = false;
@@ -4028,6 +4053,16 @@
         state.inactiveUsers = [];
         state.clients = [];
         state.entries = [];
+        state.deletedEntries = [];
+        state.deletedExpenses = [];
+        state.deletedFilters = {
+          user: "",
+          client: "",
+          project: "",
+          from: "",
+          to: "",
+          search: "",
+        };
         state.catalog = normalizeCatalog(DEFAULT_CLIENT_PROJECTS, true);
         state.projects = [];
         state.notificationRules = [];
@@ -4628,6 +4663,167 @@
     return normalizedType && normalizedId ? `${normalizedType}:${normalizedId}` : "";
   }
 
+  function normalizeDeletedFilterState(input) {
+    const base = input && typeof input === "object" ? input : {};
+    return {
+      user: `${base.user || ""}`.trim(),
+      client: `${base.client || ""}`.trim(),
+      project: `${base.project || ""}`.trim(),
+      from: isValidDateString(base.from) ? base.from : "",
+      to: isValidDateString(base.to) ? base.to : "",
+      search: `${base.search || ""}`.trim(),
+    };
+  }
+
+  function deletedItemUserName(item) {
+    if (!item) return "";
+    if (`${item.itemType || ""}`.trim() === "expense") {
+      return (
+        `${userNameById(item?.userId) || ""}`.trim() ||
+        `${item?.user || ""}`.trim() ||
+        `${item?.userId || ""}`.trim()
+      );
+    }
+    return `${item?.user || ""}`.trim();
+  }
+
+  function deletedItemIsoDate(item) {
+    if (!item) return "";
+    if (`${item.itemType || ""}`.trim() === "expense") {
+      return normalizeIsoDateValue(String(item?.expenseDate || "").trim());
+    }
+    return normalizeIsoDateValue(String(item?.date || "").trim());
+  }
+
+  function syncDeletedFilterOptions() {
+    if (!refs.deletedFilterForm) return;
+    const draftFilters = normalizeDeletedFilterState({
+      ...state.deletedFilters,
+      user: `${refs.deletedFilterUser?.value || state.deletedFilters.user || ""}`.trim(),
+      client: `${refs.deletedFilterClient?.value || state.deletedFilters.client || ""}`.trim(),
+      project: `${refs.deletedFilterProject?.value || state.deletedFilters.project || ""}`.trim(),
+    });
+    const sourceItems =
+      state.deletedItemsView === "expense"
+        ? (state.deletedExpenses || []).map((item) => ({ ...item, itemType: "expense" }))
+        : (state.deletedEntries || []).map((item) => ({ ...item, itemType: "time" }));
+    const users = Array.from(
+      new Set(
+        sourceItems
+          .map((item) => deletedItemUserName(item))
+          .map((name) => `${name || ""}`.trim())
+          .filter(Boolean)
+      )
+    ).sort((a, b) => a.localeCompare(b));
+    const userFilteredItems = draftFilters.user
+      ? sourceItems.filter(
+          (item) => deletedItemUserName(item).toLowerCase() === draftFilters.user.toLowerCase()
+        )
+      : sourceItems;
+    const clients = Array.from(
+      new Set(
+        userFilteredItems
+          .map((item) =>
+            `${item.itemType === "expense" ? item?.clientName : item?.client || ""}`.trim()
+          )
+          .filter(Boolean)
+      )
+    ).sort((a, b) => a.localeCompare(b));
+    const clientFilteredItems = draftFilters.client
+      ? userFilteredItems.filter(
+          (item) =>
+            `${item.itemType === "expense" ? item?.clientName : item?.client || ""}`
+              .trim()
+              .toLowerCase() === draftFilters.client.toLowerCase()
+        )
+      : userFilteredItems;
+    const projects = Array.from(
+      new Set(
+        clientFilteredItems
+          .map((item) =>
+            `${item.itemType === "expense" ? item?.projectName : item?.project || ""}`.trim()
+          )
+          .filter(Boolean)
+      )
+    ).sort((a, b) => a.localeCompare(b));
+
+    const writeOptions = (select, values, placeholder) => {
+      if (!select) return;
+      const current = `${select.value || ""}`.trim();
+      select.innerHTML = [
+        `<option value="">${escapeHtml(placeholder)}</option>`,
+        ...values.map((value) => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`),
+      ].join("");
+      select.value = values.includes(current) ? current : "";
+    };
+
+    writeOptions(refs.deletedFilterUser, users, "All users");
+    writeOptions(refs.deletedFilterClient, clients, "All clients");
+    writeOptions(refs.deletedFilterProject, projects, "All projects");
+  }
+
+  function renderDeletedFilterState(items) {
+    if (!refs.deletedActiveFilters) return;
+    const filters = normalizeDeletedFilterState(state.deletedFilters);
+    const chips = [];
+    if (filters.user) chips.push(`User: ${filters.user}`);
+    if (filters.client) chips.push(`Client: ${filters.client}`);
+    if (filters.project) chips.push(`Project: ${filters.project}`);
+    if (filters.from || filters.to) {
+      chips.push(
+        `Date: ${filters.from ? formatDisplayDate(filters.from) : "Any"} - ${
+          filters.to ? formatDisplayDate(filters.to) : "Any"
+        }`
+      );
+    }
+    if (filters.search) chips.push(`Search: ${filters.search}`);
+    if (!chips.length) {
+      refs.deletedActiveFilters.hidden = true;
+      refs.deletedActiveFilters.innerHTML = "";
+      return;
+    }
+    refs.deletedActiveFilters.hidden = false;
+    refs.deletedActiveFilters.innerHTML = chips
+      .map((text) => `<span class="chip">${escapeHtml(text)}</span>`)
+      .join("");
+  }
+
+  function applyDeletedFiltersFromForm(options) {
+    if (!refs.deletedFilterForm) return false;
+    const showErrors = (options && options.showErrors) !== false;
+    const user = `${field(refs.deletedFilterForm, "user")?.value || ""}`.trim();
+    const client = `${field(refs.deletedFilterForm, "client")?.value || ""}`.trim();
+    const project = `${field(refs.deletedFilterForm, "project")?.value || ""}`.trim();
+    const fromRaw = getDateInputIsoValue(field(refs.deletedFilterForm, "from"));
+    const toRaw = getDateInputIsoValue(field(refs.deletedFilterForm, "to"));
+    const search = `${field(refs.deletedFilterForm, "search")?.value || ""}`.trim();
+    if (fromRaw && !isValidDateString(fromRaw)) {
+      if (showErrors) feedback("From date is invalid.", true);
+      return false;
+    }
+    if (toRaw && !isValidDateString(toRaw)) {
+      if (showErrors) feedback("To date is invalid.", true);
+      return false;
+    }
+    if (fromRaw && toRaw && fromRaw > toRaw) {
+      if (showErrors) feedback("From date cannot be after To date.", true);
+      return false;
+    }
+    state.deletedFilters = normalizeDeletedFilterState({
+      user,
+      client,
+      project,
+      from: fromRaw,
+      to: toRaw,
+      search,
+    });
+    setDateInputIsoValue(refs.deletedFilterFrom, state.deletedFilters.from);
+    setDateInputIsoValue(refs.deletedFilterTo, state.deletedFilters.to);
+    feedback("", false);
+    render();
+    return true;
+  }
+
   function combinedDeletedItems() {
     const deletedItemsView =
       state.deletedItemsView === "expense"
@@ -4635,6 +4831,7 @@
         : state.deletedItemsView === "all"
         ? "all"
         : "time";
+    const filters = normalizeDeletedFilterState(state.deletedFilters);
     const timeItems = (state.deletedEntries || []).map((item) => ({
       ...item,
       itemType: "time",
@@ -4651,7 +4848,28 @@
         : deletedItemsView === "all"
         ? [...timeItems, ...expenseItems]
         : timeItems;
-    return merged.sort((a, b) => {
+    return merged
+      .filter((item) => {
+        const name = deletedItemUserName(item).toLowerCase();
+        const client = `${item?.itemType === "expense" ? item?.clientName : item?.client || ""}`.trim().toLowerCase();
+        const project = `${item?.itemType === "expense" ? item?.projectName : item?.project || ""}`.trim().toLowerCase();
+        const isoDate = deletedItemIsoDate(item);
+        const searchHaystack = [
+          name,
+          client,
+          project,
+          `${item?.category || ""}`.trim().toLowerCase(),
+          `${item?.notes || ""}`.trim().toLowerCase(),
+        ].join(" ");
+        if (filters.user && name !== filters.user.toLowerCase()) return false;
+        if (filters.client && client !== filters.client.toLowerCase()) return false;
+        if (filters.project && project !== filters.project.toLowerCase()) return false;
+        if (filters.from && (!isoDate || isoDate < filters.from)) return false;
+        if (filters.to && (!isoDate || isoDate > filters.to)) return false;
+        if (filters.search && !searchHaystack.includes(filters.search.toLowerCase())) return false;
+        return true;
+      })
+      .sort((a, b) => {
       const left = `${a?.deletedAt || ""}`;
       const right = `${b?.deletedAt || ""}`;
       if (left === right) {
@@ -4857,6 +5075,7 @@
   function renderDeletedItemsTable() {
     if (!refs.deletedItemsBody) return;
     const items = combinedDeletedItems();
+    renderDeletedFilterState(items);
     syncDeletedSelectionControls(items);
     if (!items.length) {
       refs.deletedItemsBody.innerHTML = `
@@ -10137,6 +10356,13 @@
             }
           });
         }
+        syncDeletedFilterOptions();
+        if (refs.deletedFilterUser) refs.deletedFilterUser.value = state.deletedFilters.user || "";
+        if (refs.deletedFilterClient) refs.deletedFilterClient.value = state.deletedFilters.client || "";
+        if (refs.deletedFilterProject) refs.deletedFilterProject.value = state.deletedFilters.project || "";
+        setDateInputIsoValue(refs.deletedFilterFrom, state.deletedFilters.from || "");
+        setDateInputIsoValue(refs.deletedFilterTo, state.deletedFilters.to || "");
+        if (refs.deletedFilterSearch) refs.deletedFilterSearch.value = state.deletedFilters.search || "";
         renderDeletedItemsTable();
       } else {
         if (state.expensesSelectionMode) {
@@ -11471,6 +11697,46 @@
     });
   }
 
+  if (refs.deletedFilterFrom) {
+    bindCustomDateInput(refs.deletedFilterFrom, state.deletedFilters.from || "");
+    refs.deletedFilterFrom.addEventListener("change", function () {
+      applyDeletedFiltersFromForm({ showErrors: false });
+    });
+  }
+  if (refs.deletedFilterTo) {
+    bindCustomDateInput(refs.deletedFilterTo, state.deletedFilters.to || "");
+    refs.deletedFilterTo.addEventListener("change", function () {
+      applyDeletedFiltersFromForm({ showErrors: false });
+    });
+  }
+  if (refs.deletedFilterUser) {
+    refs.deletedFilterUser.addEventListener("change", function () {
+      applyDeletedFiltersFromForm();
+    });
+  }
+  if (refs.deletedFilterClient) {
+    refs.deletedFilterClient.addEventListener("change", function () {
+      syncDeletedFilterOptions();
+      applyDeletedFiltersFromForm();
+    });
+  }
+  if (refs.deletedFilterProject) {
+    refs.deletedFilterProject.addEventListener("change", function () {
+      applyDeletedFiltersFromForm();
+    });
+  }
+  if (refs.deletedFilterSearch) {
+    refs.deletedFilterSearch.addEventListener("input", function () {
+      applyDeletedFiltersFromForm({ showErrors: false });
+    });
+  }
+  if (refs.deletedFilterForm) {
+    refs.deletedFilterForm.addEventListener("submit", function (event) {
+      event.preventDefault();
+      applyDeletedFiltersFromForm();
+    });
+  }
+
   refs.clearFilters.addEventListener("click", function () {
     refs.filterForm.reset();
     resetFilters();
@@ -11505,6 +11771,23 @@
   });
 
   refs.expenseExportCsv?.addEventListener("click", exportExpensesCsv);
+
+  refs.deletedClearFilters?.addEventListener("click", function () {
+    if (refs.deletedFilterForm) {
+      refs.deletedFilterForm.reset();
+    }
+    state.deletedFilters = {
+      user: "",
+      client: "",
+      project: "",
+      from: "",
+      to: "",
+      search: "",
+    };
+    setDateInputIsoValue(refs.deletedFilterFrom, "");
+    setDateInputIsoValue(refs.deletedFilterTo, "");
+    render();
+  });
 
   refs.auditFilterEntity?.addEventListener("change", applyAuditFiltersFromForm);
   refs.auditFilterAction?.addEventListener("change", applyAuditFiltersFromForm);
