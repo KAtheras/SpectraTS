@@ -787,8 +787,8 @@
         },
       },
       series: [
-        { name: "Client", type: "bar", stack: "hours", data: makeSeriesData("clientHours"), itemStyle: { color: "#2f6fed" } },
-        { name: "Internal", type: "bar", stack: "hours", data: makeSeriesData("internalHours"), itemStyle: { color: "#2f9988" } },
+        { name: "Client", type: "bar", stack: "hours", data: makeSeriesData("clientHours"), itemStyle: { color: "#2f9988" } },
+        { name: "Internal", type: "bar", stack: "hours", data: makeSeriesData("internalHours"), itemStyle: { color: "#2f6fed" } },
         { name: "PTO", type: "bar", stack: "hours", data: makeSeriesData("ptoHours"), itemStyle: { color: "#9a78d1" } },
         { name: "Idle", type: "bar", stack: "hours", data: makeSeriesData("idleHours"), itemStyle: { color: "#b8bdc7" } },
         {
@@ -922,8 +922,8 @@
         splitLine: { lineStyle: { color: "rgba(128,128,128,0.25)" } },
       },
       series: [
-        { name: "Client", type: "bar", stack: "hours", data: client, itemStyle: { color: "#2f6fed" } },
-        { name: "Internal", type: "bar", stack: "hours", data: internal, itemStyle: { color: "#2f9988" } },
+        { name: "Client", type: "bar", stack: "hours", data: client, itemStyle: { color: "#2f9988" } },
+        { name: "Internal", type: "bar", stack: "hours", data: internal, itemStyle: { color: "#2f6fed" } },
         { name: "PTO", type: "bar", stack: "hours", data: pto, itemStyle: { color: "#9a78d1" } },
         { name: "Idle", type: "bar", stack: "hours", data: idle, itemStyle: { color: "#b8bdc7" } },
         {
@@ -1081,8 +1081,8 @@
           </section>
 
           <section class="analytics-util-shared-legend" aria-label="Utilization legend">
-            <span class="analytics-util-legend-item"><span class="analytics-util-legend-swatch" style="background:#2f6fed;"></span>Client</span>
-            <span class="analytics-util-legend-item"><span class="analytics-util-legend-swatch" style="background:#2f9988;"></span>Internal</span>
+            <span class="analytics-util-legend-item"><span class="analytics-util-legend-swatch" style="background:#2f9988;"></span>Client</span>
+            <span class="analytics-util-legend-item"><span class="analytics-util-legend-swatch" style="background:#2f6fed;"></span>Internal</span>
             <span class="analytics-util-legend-item"><span class="analytics-util-legend-swatch" style="background:#9a78d1;"></span>PTO</span>
             <span class="analytics-util-legend-item"><span class="analytics-util-legend-swatch" style="background:#b8bdc7;"></span>Idle</span>
           </section>
