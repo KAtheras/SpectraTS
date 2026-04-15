@@ -93,9 +93,29 @@
       .analytics-util-filters select { min-height: 34px; background: #fff; }
       .analytics-util-grid {
         display: grid;
-        grid-template-columns: minmax(260px, 1fr) minmax(420px, 2fr);
+        grid-template-columns: minmax(320px, 2fr) minmax(420px, 3fr);
         gap: 10px;
         align-items: stretch;
+      }
+      .analytics-util-shared-legend {
+        display: inline-flex;
+        flex-wrap: wrap;
+        gap: 8px 14px;
+        align-items: center;
+        padding: 0 2px;
+      }
+      .analytics-util-legend-item {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: .78rem;
+        color: var(--muted);
+      }
+      .analytics-util-legend-swatch {
+        width: 10px;
+        height: 10px;
+        border-radius: 3px;
+        display: inline-block;
       }
       .analytics-util-card {
         border: 1px solid var(--line);
@@ -651,7 +671,7 @@
 
     chart.setOption({
       animation: false,
-      grid: { left: 110, right: 40, top: 30, bottom: 36 },
+      grid: { left: 172, right: 40, top: 26, bottom: 10 },
       tooltip: {
         trigger: "axis",
         axisPointer: { type: "shadow" },
@@ -696,7 +716,6 @@
           },
         },
       },
-      legend: { bottom: 0, data: ["Client", "Internal", "PTO", "Idle"] },
       series: [
         { name: "Client", type: "bar", stack: "hours", data: makeSeriesData("clientHours"), itemStyle: { color: "#2f6fed" } },
         { name: "Internal", type: "bar", stack: "hours", data: makeSeriesData("internalHours"), itemStyle: { color: "#2f9988" } },
@@ -770,7 +789,6 @@
     chart.setOption({
       animation: false,
       grid: { left: 46, right: 20, top: 30, bottom: 56 },
-      legend: { bottom: 0, data: ["Client", "Internal", "PTO", "Idle"] },
       tooltip: {
         trigger: "axis",
         axisPointer: { type: "shadow" },
@@ -938,6 +956,13 @@
             <article class="analytics-kpi"><div class="analytics-kpi-label">Idle Hours</div><div class="analytics-kpi-value">${escapeHtml(
               formatHours(utilization.kpis.idleHours)
             )}</div></article>
+          </section>
+
+          <section class="analytics-util-shared-legend" aria-label="Utilization legend">
+            <span class="analytics-util-legend-item"><span class="analytics-util-legend-swatch" style="background:#2f6fed;"></span>Client</span>
+            <span class="analytics-util-legend-item"><span class="analytics-util-legend-swatch" style="background:#2f9988;"></span>Internal</span>
+            <span class="analytics-util-legend-item"><span class="analytics-util-legend-swatch" style="background:#9a78d1;"></span>PTO</span>
+            <span class="analytics-util-legend-item"><span class="analytics-util-legend-swatch" style="background:#b8bdc7;"></span>Idle</span>
           </section>
 
           <section class="analytics-util-grid">
