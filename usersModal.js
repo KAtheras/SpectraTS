@@ -580,8 +580,19 @@
       el.disabled = !canManageUsers;
     });
     const activeFromField = field(refs.addUserForm, "active_from");
-    if (activeFromField && !activeFromField.value) {
-      activeFromField.value = new Date().toISOString().slice(0, 10);
+    if (activeFromField) {
+      const todayIso = new Date().toISOString().slice(0, 10);
+      if (window.datePicker && typeof window.datePicker.register === "function") {
+        if (activeFromField.dataset.dpBound !== "true") {
+          activeFromField.type = "date";
+          activeFromField.value = todayIso;
+          window.datePicker.register(activeFromField);
+        }
+        activeFromField.dataset.dpCanonical =
+          activeFromField.dataset.dpCanonical || activeFromField.value || todayIso;
+      } else if (!activeFromField.value) {
+        activeFromField.value = todayIso;
+      }
     }
 
     if (refs.levelLabelsForm) {

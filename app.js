@@ -2447,8 +2447,10 @@
     field(memberEditorForm, "level").value = String(user?.level || sortedLevelEntries[0]?.[0] || "1");
     field(memberEditorForm, "department_id").value = user?.departmentId || "";
     field(memberEditorForm, "office_id").value = user?.officeId || "";
-    field(memberEditorForm, "active_from").value =
-      String(user?.activeFrom || "").trim() || new Date().toISOString().slice(0, 10);
+    const activeFromField = field(memberEditorForm, "active_from");
+    const activeFromSeed =
+      normalizeIsoDateValue(user?.activeFrom || user?.active_from || "") || new Date().toISOString().slice(0, 10);
+    bindCustomDateInput(activeFromField, activeFromSeed);
     field(memberEditorForm, "base_rate").value = user?.baseRate ?? "";
     field(memberEditorForm, "cost_rate").value = user?.costRate ?? "";
     field(memberEditorForm, "is_exempt").value = user?.isExempt === true ? "true" : "false";
@@ -2551,7 +2553,7 @@
     const level = normalizeLevel(field(memberEditorForm, "level").value || "1");
     const departmentId = field(memberEditorForm, "department_id").value || null;
     const officeId = field(memberEditorForm, "office_id").value || null;
-    const activeFrom = field(memberEditorForm, "active_from").value.trim();
+    const activeFrom = getDateInputIsoValue(field(memberEditorForm, "active_from"));
     const certifications = field(memberEditorForm, "certifications").value.trim();
     const memberProfile = field(memberEditorForm, "member_profile").value.trim();
     const isExempt = field(memberEditorForm, "is_exempt").value === "true";
@@ -3505,12 +3507,12 @@
       state.currentUser.memberProfile = String(
         data?.currentUser?.memberProfile ?? data?.currentUser?.member_profile ?? ""
       ).trim();
-      state.currentUser.activeFrom = String(
+      state.currentUser.activeFrom = normalizeIsoDateValue(
         data?.currentUser?.activeFrom ?? data?.currentUser?.active_from ?? ""
-      ).trim();
-      state.currentUser.activeTo = String(
+      );
+      state.currentUser.activeTo = normalizeIsoDateValue(
         data?.currentUser?.activeTo ?? data?.currentUser?.active_to ?? ""
-      ).trim();
+      );
       state.currentUser.status = String(
         data?.currentUser?.status ?? (state.currentUser.activeTo ? "terminated" : "active")
       ).trim();
@@ -3540,12 +3542,12 @@
             normalized.memberProfile = String(
               u?.memberProfile ?? u?.member_profile ?? ""
             ).trim();
-            normalized.activeFrom = String(
+            normalized.activeFrom = normalizeIsoDateValue(
               u?.activeFrom ?? u?.active_from ?? ""
-            ).trim();
-            normalized.activeTo = String(
+            );
+            normalized.activeTo = normalizeIsoDateValue(
               u?.activeTo ?? u?.active_to ?? ""
-            ).trim();
+            );
             normalized.status = String(
               u?.status ?? (normalized.activeTo ? "terminated" : "active")
             ).trim();
@@ -3580,12 +3582,12 @@
             normalized.memberProfile = String(
               u?.memberProfile ?? u?.member_profile ?? ""
             ).trim();
-            normalized.activeFrom = String(
+            normalized.activeFrom = normalizeIsoDateValue(
               u?.activeFrom ?? u?.active_from ?? ""
-            ).trim();
-            normalized.activeTo = String(
+            );
+            normalized.activeTo = normalizeIsoDateValue(
               u?.activeTo ?? u?.active_to ?? ""
-            ).trim();
+            );
             normalized.status = String(
               u?.status ?? (normalized.activeTo ? "terminated" : "active")
             ).trim();
@@ -5218,16 +5220,27 @@
       const showInput = Boolean(options?.input);
       const defaultValue = options?.defaultValue || "";
       const inputType = String(options?.inputType || "text").trim() || "text";
+      const isDateInput = inputType === "date";
+      let dialogDateInput = null;
+      let dialogResolveValue = () => refs.dialogInput.value.trim();
 
       refs.dialogTitle.textContent = title;
       refs.dialogMessage.textContent = message;
       refs.dialogInputRow.hidden = !showInput;
-      refs.dialogInput.hidden = false;
-      refs.dialogInput.type = inputType;
+      refs.dialogInput.hidden = isDateInput;
+      refs.dialogInput.type = isDateInput ? "text" : inputType;
       if (refs.dialogTextarea) {
         refs.dialogTextarea.hidden = true;
       }
       refs.dialogInput.value = defaultValue;
+      if (showInput && isDateInput) {
+        dialogDateInput = document.createElement("input");
+        dialogDateInput.type = "date";
+        dialogDateInput.className = "bulk-date-input";
+        refs.dialogInputRow.appendChild(dialogDateInput);
+        bindCustomDateInput(dialogDateInput, String(defaultValue || "").trim());
+        dialogResolveValue = () => getDateInputIsoValue(dialogDateInput);
+      }
       refs.dialogConfirm.textContent = confirmText;
       refs.dialogCancel.textContent = cancelText;
       refs.dialog.hidden = false;
@@ -5238,6 +5251,11 @@
 
       const cleanup = () => {
         refs.dialog.hidden = true;
+        if (dialogDateInput && dialogDateInput.parentNode) {
+          dialogDateInput.remove();
+        }
+        refs.dialogInput.hidden = false;
+        refs.dialogInput.type = "text";
         refs.dialogConfirm.removeEventListener("click", onConfirm);
         refs.dialogCancel.removeEventListener("click", onCancel);
       };
@@ -5246,7 +5264,7 @@
         cleanup();
         resolve({
           confirmed: true,
-          value: showInput ? refs.dialogInput.value.trim() : undefined,
+          value: showInput ? dialogResolveValue() : undefined,
         });
       };
       const onCancel = () => {
@@ -5258,8 +5276,12 @@
       refs.dialogCancel.addEventListener("click", onCancel);
 
       if (showInput) {
-        refs.dialogInput.focus();
-        refs.dialogInput.select();
+        if (dialogDateInput) {
+          dialogDateInput.focus();
+        } else {
+          refs.dialogInput.focus();
+          refs.dialogInput.select();
+        }
       }
     });
   }
@@ -5511,6 +5533,58 @@
     const iso = `${year}-${month}-${day}`;
 
     return isValidDateString(iso) ? iso : null;
+  }
+
+  function normalizeIsoDateValue(value) {
+    const raw = String(value || "").trim();
+    if (!raw) return "";
+    if (isValidDateString(raw)) return raw;
+    if (/^\d{4}-\d{2}-\d{2}T/.test(raw)) {
+      const iso = raw.slice(0, 10);
+      if (isValidDateString(iso)) return iso;
+    }
+    const normalized =
+      typeof normalizeDisplayDateInput === "function"
+        ? normalizeDisplayDateInput(raw)
+        : "";
+    return isValidDateString(normalized) ? normalized : "";
+  }
+
+  function getDateInputIsoValue(input) {
+    if (!input) return "";
+    const canonical = normalizeIsoDateValue(input.dataset?.dpCanonical || "");
+    if (canonical) return canonical;
+    return normalizeIsoDateValue(input.value || "");
+  }
+
+  function setDateInputIsoValue(input, isoValue) {
+    if (!input) return;
+    const safeIso = isValidDateString(isoValue) ? isoValue : "";
+    input.dataset.dpCanonical = safeIso;
+    if (input.classList.contains("dp-desktop-date")) {
+      input.value = safeIso ? formatDisplayDate(safeIso) : "";
+      return;
+    }
+    input.value = safeIso;
+  }
+
+  function bindCustomDateInput(input, fallbackIso) {
+    if (!input) return;
+    const safeFallback = isValidDateString(fallbackIso)
+      ? fallbackIso
+      : new Date().toISOString().slice(0, 10);
+    if (window.datePicker && typeof window.datePicker.register === "function") {
+      if (input.dataset.dpBound !== "true") {
+        input.type = "date";
+        input.value = safeFallback;
+        window.datePicker.register(input);
+      }
+      setDateInputIsoValue(input, safeFallback);
+      return;
+    }
+    if (!input.value) {
+      input.value = safeFallback;
+    }
   }
 
   function shiftIsoDate(value, deltaDays) {
@@ -8930,10 +9004,8 @@
     const level = isGlobalAdmin(state.currentUser) ? selectedLevel : 1;
     const officeIdRaw = formData.get("office_id");
     const officeId = officeIdRaw ? String(officeIdRaw) : null;
-    const activeFromRaw = String(formData.get("active_from") || "").trim();
-    const activeFrom = /^\d{4}-\d{2}-\d{2}$/.test(activeFromRaw)
-      ? activeFromRaw
-      : new Date().toISOString().slice(0, 10);
+    const activeFrom = getDateInputIsoValue(field(refs.addUserForm, "active_from"))
+      || new Date().toISOString().slice(0, 10);
     const baseRateRaw = formData.get("base_rate");
     const baseRate =
       baseRateRaw !== null && baseRateRaw !== ""
@@ -8977,7 +9049,7 @@
     }
     const activeFromField = field(refs.addUserForm, "active_from");
     if (activeFromField) {
-      activeFromField.value = new Date().toISOString().slice(0, 10);
+      bindCustomDateInput(activeFromField, new Date().toISOString().slice(0, 10));
     }
     setUserFeedback("Team member added.", false);
     render();
