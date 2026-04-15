@@ -265,6 +265,11 @@
     { id: "office", name: "Office" },
   ];
 
+  const UTILIZATION_MEMBER_SORT_OPTIONS = [
+    { id: "high_to_low", name: "High → Low" },
+    { id: "low_to_high", name: "Low → High" },
+  ];
+
   function normalizeUtilizationPeriod(value) {
     const key = safeText(value).toLowerCase();
     return UTILIZATION_PERIODS.some((item) => item.id === key) ? key : "this_month";
@@ -273,6 +278,31 @@
   function normalizeUtilizationGroupBy(value) {
     const key = safeText(value).toLowerCase();
     return UTILIZATION_GROUP_BY_OPTIONS.some((item) => item.id === key) ? key : "member";
+  }
+
+  function normalizeUtilizationMemberSort(value) {
+    const key = safeText(value).toLowerCase();
+    return UTILIZATION_MEMBER_SORT_OPTIONS.some((item) => item.id === key) ? key : "high_to_low";
+  }
+
+  function utilizationSortValue(row) {
+    const n = Number(row?.utilizationPct);
+    return Number.isFinite(n) ? n : -1;
+  }
+
+  function sortUtilizationRowsForUi(rows, groupBy, memberSortOrder) {
+    const list = Array.isArray(rows) ? [...rows] : [];
+    if (normalizeUtilizationGroupBy(groupBy) !== "member") return list;
+    const order = normalizeUtilizationMemberSort(memberSortOrder);
+    list.sort((a, b) => {
+      const left = utilizationSortValue(a);
+      const right = utilizationSortValue(b);
+      if (order === "low_to_high") {
+        return left - right || safeText(a?.name).localeCompare(safeText(b?.name));
+      }
+      return right - left || safeText(a?.name).localeCompare(safeText(b?.name));
+    });
+    return list;
   }
 
   function utilizationPeriodRange(periodId, nowDate) {
@@ -477,6 +507,7 @@
       utilizationOfficeId: "",
       utilizationDepartmentId: "",
       utilizationSelectedKey: "",
+      utilizationMemberSort: "high_to_low",
     };
   }
 
@@ -995,6 +1026,7 @@
     if (uiState.activeTab === ANALYTICS_SUB_TAB_UTILIZATION) {
       uiState.utilizationPeriod = normalizeUtilizationPeriod(uiState.utilizationPeriod);
       uiState.utilizationGroupBy = normalizeUtilizationGroupBy(uiState.utilizationGroupBy);
+      uiState.utilizationMemberSort = normalizeUtilizationMemberSort(uiState.utilizationMemberSort);
 
       const periodRange = utilizationPeriodRange(uiState.utilizationPeriod, new Date());
       const scopeOptions = engine.listScopeOptions({
@@ -1021,7 +1053,13 @@
           departmentId: uiState.utilizationDepartmentId,
         },
       });
-      const utilizationRows = Array.isArray(utilization?.rows) ? utilization.rows : [];
+      const rawUtilizationRows = Array.isArray(utilization?.rows) ? utilization.rows : [];
+      const utilizationRows = sortUtilizationRowsForUi(
+        rawUtilizationRows,
+        uiState.utilizationGroupBy,
+        uiState.utilizationMemberSort
+      );
+      const showMemberSortControl = uiState.utilizationGroupBy === "member";
       const availableKeys = new Set(utilizationRows.map((row) => safeText(row?.key)).filter(Boolean));
       const preferredSelectedKey = safeText(uiState.utilizationSelectedKey);
       if (!preferredSelectedKey || !availableKeys.has(preferredSelectedKey)) {
@@ -1091,6 +1129,16 @@
             <article class="analytics-util-card">
               <div class="analytics-chart-head">
                 <strong>Current Utilization by ${escapeHtml(groupByLabel)}</strong>
+                ${
+                  showMemberSortControl
+                    ? `<label style="display:inline-flex;align-items:center;gap:6px;font-size:.74rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;">
+                        <span>Sort</span>
+                        <select name="memberSort" data-analytics-member-sort style="min-height:30px;background:#fff;">
+                          ${renderOptions(UTILIZATION_MEMBER_SORT_OPTIONS, uiState.utilizationMemberSort)}
+                        </select>
+                      </label>`
+                    : ""
+                }
               </div>
               <div class="analytics-util-left-scroll">
                 <div data-analytics-utilization-left-host></div>
@@ -1117,6 +1165,13 @@
           uiState.utilizationGroupBy = normalizeUtilizationGroupBy(utilizationFilterForm.elements.groupBy?.value);
           uiState.utilizationOfficeId = safeText(utilizationFilterForm.elements.officeId?.value);
           uiState.utilizationDepartmentId = safeText(utilizationFilterForm.elements.departmentId?.value);
+          renderAnalyticsPage(options);
+        });
+      }
+      const memberSortSelect = body.querySelector("[data-analytics-member-sort]");
+      if (memberSortSelect) {
+        memberSortSelect.addEventListener("change", () => {
+          uiState.utilizationMemberSort = normalizeUtilizationMemberSort(memberSortSelect.value);
           renderAnalyticsPage(options);
         });
       }
