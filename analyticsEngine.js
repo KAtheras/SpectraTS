@@ -272,7 +272,8 @@
   function utilizationGroupIdentity(groupBy, row, levelLabels) {
     if (groupBy === "member") {
       const label = safeText(row?.memberName) || "Unassigned";
-      return { key: `member::${label.toLowerCase()}`, label };
+      const memberId = safeText(row?.memberId);
+      return memberId ? { key: `member::${memberId}`, label } : { key: `member::${label.toLowerCase()}`, label };
     }
     if (groupBy === "title") {
       const label = safeText(row?.memberTitle) || "Unassigned";
@@ -509,6 +510,7 @@
       if (bucket === "pto") totalPtoHours += hours;
 
       const row = {
+        memberId: userId || safeText(scopeMeta.user?.id),
         memberName,
         memberTitle,
         officeName: scopeMeta.officeName,
@@ -553,6 +555,7 @@
       return {
         key: row.key,
         name: row.name,
+        memberId: row.memberId || "",
         utilizationPct: utilizationPct(row.clientHours, capacity),
         clientHours: row.clientHours,
         internalHours: row.internalHours,
@@ -608,6 +611,7 @@
     const cleanRows = rows.map((row) => ({
       key: row.key,
       name: row.name,
+      memberId: row.memberId || "",
       memberTitle: row.memberTitle || "",
       utilizationPct: row.utilizationPct,
       clientHours: row.clientHours,

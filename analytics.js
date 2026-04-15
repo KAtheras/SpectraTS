@@ -365,32 +365,12 @@
     return safeText(row?.memberTitle) || "Unassigned";
   }
 
-  function explicitTitleFromUser(user) {
-    return safeText(
-      user?.title ||
-        user?.jobTitle ||
-        user?.job_title ||
-        user?.memberTitle ||
-        user?.member_title
-    );
-  }
-
-  function memberTitleByRowKey(rows, users) {
+  function memberTitleByRowKey(rows) {
     const index = new Map();
-    const userList = Array.isArray(users) ? users : [];
-    const usersByName = new Map();
-    userList.forEach((user) => {
-      const displayName = safeText(user?.displayName || user?.username).toLowerCase();
-      if (!displayName) return;
-      if (!usersByName.has(displayName)) usersByName.set(displayName, user);
-    });
     (Array.isArray(rows) ? rows : []).forEach((row) => {
       const key = safeText(row?.key);
       if (!key) return;
-      const rowName = safeText(row?.name).toLowerCase();
-      const match = rowName ? usersByName.get(rowName) : null;
-      const derived = explicitTitleFromUser(match);
-      index.set(key, derived || "Unassigned");
+      index.set(key, memberTitleLabel(row));
     });
     return index;
   }
@@ -1156,7 +1136,7 @@
       });
       const rawUtilizationRows = Array.isArray(utilization?.rows) ? utilization.rows : [];
       const isMemberGrouping = uiState.utilizationGroupBy === "member";
-      const memberTitleIndex = memberTitleByRowKey(rawUtilizationRows, appState.users);
+      const memberTitleIndex = memberTitleByRowKey(rawUtilizationRows);
       const memberTitleOptions = [
         { id: UTILIZATION_MEMBER_TITLE_ALL, name: "All Titles" },
         ...Array.from(
