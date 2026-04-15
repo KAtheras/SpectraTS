@@ -147,6 +147,22 @@
         pointer-events: none;
         line-height: 1;
       }
+      .analytics-util-select-wrap {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        width: 100%;
+      }
+      .analytics-util-select {
+        appearance: none;
+        width: 100%;
+        min-height: 34px;
+        padding-right: 28px;
+      }
+      .analytics-util-select-wrap .analytics-member-title-chevron {
+        right: 10px;
+        font-size: .7rem;
+      }
       .analytics-util-card {
         border: 1px solid var(--line);
         border-radius: 10px;
@@ -349,25 +365,17 @@
     return safeText(row?.memberTitle) || "Unassigned";
   }
 
-  function titleFromUser(user, levelLabels) {
-    const explicitTitle = safeText(
+  function explicitTitleFromUser(user) {
+    return safeText(
       user?.title ||
         user?.jobTitle ||
         user?.job_title ||
         user?.memberTitle ||
-        user?.member_title ||
-        user?.role
+        user?.member_title
     );
-    if (explicitTitle) return explicitTitle;
-    const level = Number(user?.level);
-    const explicitLevelLabel = safeText(levelLabels?.[level]?.label);
-    if (explicitLevelLabel) return explicitLevelLabel;
-    const permissionGroup = safeText(user?.permissionGroup || user?.permission_group).toLowerCase();
-    if (!permissionGroup) return "";
-    return permissionGroup.charAt(0).toUpperCase() + permissionGroup.slice(1);
   }
 
-  function memberTitleByRowKey(rows, users, levelLabels) {
+  function memberTitleByRowKey(rows, users) {
     const index = new Map();
     const userList = Array.isArray(users) ? users : [];
     const usersByName = new Map();
@@ -379,14 +387,9 @@
     (Array.isArray(rows) ? rows : []).forEach((row) => {
       const key = safeText(row?.key);
       if (!key) return;
-      const rowTitle = memberTitleLabel(row);
-      if (rowTitle && rowTitle !== "Unassigned") {
-        index.set(key, rowTitle);
-        return;
-      }
       const rowName = safeText(row?.name).toLowerCase();
       const match = rowName ? usersByName.get(rowName) : null;
-      const derived = titleFromUser(match, levelLabels);
+      const derived = explicitTitleFromUser(match);
       index.set(key, derived || "Unassigned");
     });
     return index;
@@ -1153,7 +1156,7 @@
       });
       const rawUtilizationRows = Array.isArray(utilization?.rows) ? utilization.rows : [];
       const isMemberGrouping = uiState.utilizationGroupBy === "member";
-      const memberTitleIndex = memberTitleByRowKey(rawUtilizationRows, appState.users, appState.levelLabels);
+      const memberTitleIndex = memberTitleByRowKey(rawUtilizationRows, appState.users);
       const memberTitleOptions = [
         { id: UTILIZATION_MEMBER_TITLE_ALL, name: "All Titles" },
         ...Array.from(
@@ -1207,23 +1210,45 @@
           <form class="analytics-util-filters" data-analytics-utilization-filters>
             <label>
               <span>Period</span>
-              <select name="period">${renderOptions(UTILIZATION_PERIODS, uiState.utilizationPeriod)}</select>
+              <span class="analytics-util-select-wrap">
+                <select name="period" class="analytics-util-select">${renderOptions(
+                  UTILIZATION_PERIODS,
+                  uiState.utilizationPeriod
+                )}</select>
+                <span class="analytics-member-title-chevron" aria-hidden="true">▾</span>
+              </span>
             </label>
             <label>
               <span>Group By</span>
-              <select name="groupBy">${renderOptions(UTILIZATION_GROUP_BY_OPTIONS, uiState.utilizationGroupBy)}</select>
+              <span class="analytics-util-select-wrap">
+                <select name="groupBy" class="analytics-util-select">${renderOptions(
+                  UTILIZATION_GROUP_BY_OPTIONS,
+                  uiState.utilizationGroupBy
+                )}</select>
+                <span class="analytics-member-title-chevron" aria-hidden="true">▾</span>
+              </span>
             </label>
             <label>
               <span>Office</span>
-              <select name="officeId">${renderOptions(scopeOptions.offices, uiState.utilizationOfficeId, "All")}</select>
+              <span class="analytics-util-select-wrap">
+                <select name="officeId" class="analytics-util-select">${renderOptions(
+                  scopeOptions.offices,
+                  uiState.utilizationOfficeId,
+                  "All"
+                )}</select>
+                <span class="analytics-member-title-chevron" aria-hidden="true">▾</span>
+              </span>
             </label>
             <label>
               <span>Department</span>
-              <select name="departmentId">${renderOptions(
-                scopeOptions.departments,
-                uiState.utilizationDepartmentId,
-                "All"
-              )}</select>
+              <span class="analytics-util-select-wrap">
+                <select name="departmentId" class="analytics-util-select">${renderOptions(
+                  scopeOptions.departments,
+                  uiState.utilizationDepartmentId,
+                  "All"
+                )}</select>
+                <span class="analytics-member-title-chevron" aria-hidden="true">▾</span>
+              </span>
             </label>
           </form>
 
