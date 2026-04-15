@@ -176,6 +176,37 @@
     return `${n.toFixed(1)}h`;
   }
 
+  function wrapTwoLineLabel(text, maxCharsPerLine) {
+    const source = safeText(text);
+    if (!source) return "";
+    const maxChars = Math.max(8, Number(maxCharsPerLine) || 16);
+    if (source.length <= maxChars) return source;
+    const words = source.split(/\s+/).filter(Boolean);
+    if (!words.length) return source;
+
+    const lines = [];
+    let current = "";
+    words.forEach((word) => {
+      if (!current) {
+        current = word;
+        return;
+      }
+      const next = `${current} ${word}`;
+      if (next.length <= maxChars) {
+        current = next;
+        return;
+      }
+      lines.push(current);
+      current = word;
+    });
+    if (current) lines.push(current);
+
+    if (lines.length <= 2) return lines.join("\n");
+    const second = lines[1];
+    const clippedSecond = second.length > maxChars - 1 ? `${second.slice(0, maxChars - 1)}…` : `${second}…`;
+    return `${lines[0]}\n${clippedSecond}`;
+  }
+
   function startOfMonth(date) {
     return new Date(date.getFullYear(), date.getMonth(), 1);
   }
@@ -746,12 +777,12 @@
         data: labels,
         axisTick: { show: false },
         axisLabel: {
-          width: 146,
-          overflow: "truncate",
+          width: 168,
+          lineHeight: 18,
           formatter: (value, index) => {
             const row = rows[index];
             const prefix = safeText(row?.key) === selectedKey ? "● " : "";
-            return `${prefix}${value}`;
+            return `${prefix}${wrapTwoLineLabel(value, 18)}`;
           },
         },
       },
