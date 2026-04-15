@@ -2289,6 +2289,7 @@
               <label><span>Title</span><select name="level"></select></label>
               <label><span>Department</span><select name="department_id"><option value="">No department</option></select></label>
               <label><span>Office</span><select name="office_id" required><option value="">Select office</option></select></label>
+              <label><span>Start date</span><input type="date" name="active_from" /></label>
             </div>
             <div class="member-editor-row" data-member-editor-section="rates">
               <label><span>Base rate</span><input type="number" step="0.01" min="0" name="base_rate" /></label>
@@ -2446,6 +2447,8 @@
     field(memberEditorForm, "level").value = String(user?.level || sortedLevelEntries[0]?.[0] || "1");
     field(memberEditorForm, "department_id").value = user?.departmentId || "";
     field(memberEditorForm, "office_id").value = user?.officeId || "";
+    field(memberEditorForm, "active_from").value =
+      String(user?.activeFrom || "").trim() || new Date().toISOString().slice(0, 10);
     field(memberEditorForm, "base_rate").value = user?.baseRate ?? "";
     field(memberEditorForm, "cost_rate").value = user?.costRate ?? "";
     field(memberEditorForm, "is_exempt").value = user?.isExempt === true ? "true" : "false";
@@ -2453,7 +2456,7 @@
     field(memberEditorForm, "member_profile").value = user?.memberProfile || "";
 
     const profileEditable = mode === "create" ? canCreate : (isSelfProfileMode ? true : canEditProfile);
-    ["display_name", "username", "email", "employee_id", "level", "department_id", "office_id", "is_exempt", "certifications", "member_profile"].forEach((name) => {
+    ["display_name", "username", "email", "employee_id", "level", "department_id", "office_id", "active_from", "is_exempt", "certifications", "member_profile"].forEach((name) => {
       const el = field(memberEditorForm, name);
       if (el) el.disabled = !profileEditable;
     });
@@ -2476,9 +2479,17 @@
     const certificationsSection = memberEditorForm.querySelector('[data-member-editor-section="certifications"]');
     if (identitySection) identitySection.hidden = isSelfProfileMode;
     if (orgSection) orgSection.hidden = isSelfProfileMode;
-    if (ratesSection) ratesSection.hidden = isSelfProfileMode;
-    if (profileSection) profileSection.hidden = false;
-    if (certificationsSection) certificationsSection.hidden = false;
+    if (ratesSection) ratesSection.hidden = isSelfProfileMode || mode === "edit";
+    if (profileSection) profileSection.hidden = mode === "edit" && !isSelfProfileMode;
+    if (certificationsSection) certificationsSection.hidden = mode === "edit" && !isSelfProfileMode;
+    if (!isSelfProfileMode && mode === "edit") {
+      ["username", "email", "employee_id", "office_id", "is_exempt"].forEach((name) => {
+        const el = field(memberEditorForm, name);
+        if (el) el.disabled = true;
+      });
+      if (baseRateField) baseRateField.disabled = true;
+      if (costRateField) costRateField.disabled = true;
+    }
     if (memberEditorReset) {
       memberEditorReset.hidden = isSelfProfileMode || !(mode === "edit" && Boolean(state.permissions?.reset_user_password));
       memberEditorReset.disabled =
@@ -2540,6 +2551,7 @@
     const level = normalizeLevel(field(memberEditorForm, "level").value || "1");
     const departmentId = field(memberEditorForm, "department_id").value || null;
     const officeId = field(memberEditorForm, "office_id").value || null;
+    const activeFrom = field(memberEditorForm, "active_from").value.trim();
     const certifications = field(memberEditorForm, "certifications").value.trim();
     const memberProfile = field(memberEditorForm, "member_profile").value.trim();
     const isExempt = field(memberEditorForm, "is_exempt").value === "true";
@@ -2549,6 +2561,10 @@
     const costRate = costRaw === "" ? null : Number(costRaw);
     if ((baseRate !== null && (!Number.isFinite(baseRate) || baseRate < 0)) || (costRate !== null && (!Number.isFinite(costRate) || costRate < 0))) {
       report("Rates must be non-negative numbers.", true);
+      return;
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(activeFrom)) {
+      report("Start date is required.", true);
       return;
     }
     const needsProfileValidation = memberEditorMode === "create" || canEditProfile;
@@ -2610,6 +2626,7 @@
             baseRate,
             costRate,
             isExempt,
+            activeFrom,
             certifications,
             memberProfile,
           },
@@ -2713,22 +2730,13 @@
             normalizeText(currentUser.email) !== email ||
             normalizeText(currentUser.employeeId) !== employeeId ||
             normalizeLevel(currentUser.level || "1") !== level ||
-            normalizeText(currentUser.officeId) !== normalizeText(officeId) ||
-            Boolean(currentUser.isExempt) !== isExempt ||
-            normalizeText(currentUser.certifications) !== certifications ||
-            normalizeText(currentUser.memberProfile) !== memberProfile
+            normalizeText(currentUser.activeFrom) !== normalizeText(activeFrom)
           );
         const departmentChanged =
           canEditProfile &&
           normalizeText(currentUser.departmentId) !== normalizeText(departmentId);
-        const baseRateChanged =
-          canEditBaseRates &&
-          targetRoleAllowed &&
-          normalizeNumber(currentUser.baseRate) !== normalizeNumber(baseRate);
-        const costRateChanged =
-          canEditCostRates &&
-          targetRoleAllowed &&
-          normalizeNumber(currentUser.costRate) !== normalizeNumber(costRate);
+        const baseRateChanged = false;
+        const costRateChanged = false;
         const ratesChanged = baseRateChanged || costRateChanged;
         if (!profileChanged && !departmentChanged && !ratesChanged) {
           closeMemberEditorModal();
@@ -2746,10 +2754,9 @@
                 email,
                 employeeId,
                 level,
-                officeId,
-                isExempt,
-                certifications,
-                memberProfile,
+                officeId: currentUser.officeId || null,
+                isExempt: currentUser.isExempt === true,
+                activeFrom,
               },
               settingsSaveFastOptions()
             );
@@ -2926,6 +2933,7 @@
     sessionToken: loadSessionToken(),
     currentUser: null,
     users: [],
+    inactiveUsers: [],
     bootstrapRequired: false,
     levelLabels: {},
     officeLocations: [],
@@ -3497,6 +3505,15 @@
       state.currentUser.memberProfile = String(
         data?.currentUser?.memberProfile ?? data?.currentUser?.member_profile ?? ""
       ).trim();
+      state.currentUser.activeFrom = String(
+        data?.currentUser?.activeFrom ?? data?.currentUser?.active_from ?? ""
+      ).trim();
+      state.currentUser.activeTo = String(
+        data?.currentUser?.activeTo ?? data?.currentUser?.active_to ?? ""
+      ).trim();
+      state.currentUser.status = String(
+        data?.currentUser?.status ?? (state.currentUser.activeTo ? "terminated" : "active")
+      ).trim();
     }
     const nextCurrentUserId = `${state.currentUser?.id || ""}`.trim();
     if (previousCurrentUserId !== nextCurrentUserId) {
@@ -3523,6 +3540,61 @@
             normalized.memberProfile = String(
               u?.memberProfile ?? u?.member_profile ?? ""
             ).trim();
+            normalized.activeFrom = String(
+              u?.activeFrom ?? u?.active_from ?? ""
+            ).trim();
+            normalized.activeTo = String(
+              u?.activeTo ?? u?.active_to ?? ""
+            ).trim();
+            normalized.status = String(
+              u?.status ?? (normalized.activeTo ? "terminated" : "active")
+            ).trim();
+            normalized.isActive =
+              u?.isActive !== undefined
+                ? Boolean(u.isActive)
+                : u?.is_active !== undefined
+                  ? Boolean(u.is_active)
+                  : normalized.status.toLowerCase() !== "terminated";
+            return normalized;
+          })
+          .filter(Boolean)
+      : [];
+    state.inactiveUsers = Array.isArray(data?.inactiveUsers)
+      ? data.inactiveUsers
+          .map((u) => {
+            const normalized = ensureRole(normalizeUser(u));
+            if (!normalized) return null;
+            normalized.officeName =
+              typeof u?.officeName === "string" && u.officeName.trim()
+                ? u.officeName.trim()
+                : typeof u?.office_name === "string" && u.office_name.trim()
+                  ? u.office_name.trim()
+                  : "";
+            normalized.email =
+              typeof u?.email === "string" && u.email.trim()
+                ? u.email.trim()
+                : "";
+            normalized.certifications = String(
+              u?.certifications ?? ""
+            ).trim();
+            normalized.memberProfile = String(
+              u?.memberProfile ?? u?.member_profile ?? ""
+            ).trim();
+            normalized.activeFrom = String(
+              u?.activeFrom ?? u?.active_from ?? ""
+            ).trim();
+            normalized.activeTo = String(
+              u?.activeTo ?? u?.active_to ?? ""
+            ).trim();
+            normalized.status = String(
+              u?.status ?? (normalized.activeTo ? "terminated" : "active")
+            ).trim();
+            normalized.isActive =
+              u?.isActive !== undefined
+                ? Boolean(u.isActive)
+                : u?.is_active !== undefined
+                  ? Boolean(u.is_active)
+                  : normalized.status.toLowerCase() !== "terminated";
             return normalized;
           })
           .filter(Boolean)
@@ -3733,6 +3805,7 @@
   function clearRemoteAppState() {
     state.currentUser = null;
     state.users = [];
+    state.inactiveUsers = [];
     state.bootstrapRequired = false;
     state.catalog = normalizeCatalog(DEFAULT_CLIENT_PROJECTS, true);
     state.clients = [];
@@ -3946,6 +4019,7 @@
         state.bootstrapRequired = Boolean(error.payload?.bootstrapRequired);
         state.currentUser = null;
         state.users = [];
+        state.inactiveUsers = [];
         state.clients = [];
         state.entries = [];
         state.catalog = normalizeCatalog(DEFAULT_CLIENT_PROJECTS, true);
@@ -5143,11 +5217,13 @@
       const hideConfirm = Boolean(options?.hideConfirm);
       const showInput = Boolean(options?.input);
       const defaultValue = options?.defaultValue || "";
+      const inputType = String(options?.inputType || "text").trim() || "text";
 
       refs.dialogTitle.textContent = title;
       refs.dialogMessage.textContent = message;
       refs.dialogInputRow.hidden = !showInput;
       refs.dialogInput.hidden = false;
+      refs.dialogInput.type = inputType;
       if (refs.dialogTextarea) {
         refs.dialogTextarea.hidden = true;
       }
@@ -8854,6 +8930,10 @@
     const level = isGlobalAdmin(state.currentUser) ? selectedLevel : 1;
     const officeIdRaw = formData.get("office_id");
     const officeId = officeIdRaw ? String(officeIdRaw) : null;
+    const activeFromRaw = String(formData.get("active_from") || "").trim();
+    const activeFrom = /^\d{4}-\d{2}-\d{2}$/.test(activeFromRaw)
+      ? activeFromRaw
+      : new Date().toISOString().slice(0, 10);
     const baseRateRaw = formData.get("base_rate");
     const baseRate =
       baseRateRaw !== null && baseRateRaw !== ""
@@ -8878,6 +8958,7 @@
         password,
         level,
         officeId,
+        activeFrom,
         baseRate,
         costRate,
       });
@@ -8894,13 +8975,17 @@
     if (officeField) {
       officeField.value = "";
     }
+    const activeFromField = field(refs.addUserForm, "active_from");
+    if (activeFromField) {
+      activeFromField.value = new Date().toISOString().slice(0, 10);
+    }
     setUserFeedback("Team member added.", false);
     render();
   }
 
   async function handleUserListAction(event) {
     const button = event.target.closest(
-      "[data-user-edit], [data-user-profile-edit], [data-user-role], [data-user-password], [data-user-deactivate]"
+      "[data-user-edit], [data-user-profile-edit], [data-user-role], [data-user-password], [data-user-deactivate], [data-user-reactivate]"
     );
     if (!button) {
       return;
@@ -8914,8 +8999,10 @@
       button.dataset.userProfileEdit ||
       button.dataset.userRole ||
       button.dataset.userPassword ||
-      button.dataset.userDeactivate;
-    const user = state.users.find(function (candidate) {
+      button.dataset.userDeactivate ||
+      button.dataset.userReactivate;
+    const allKnownUsers = [...(state.users || []), ...(state.inactiveUsers || [])];
+    const user = allKnownUsers.find(function (candidate) {
       return candidate.id === userId;
     });
 
@@ -9010,28 +9097,62 @@
         });
         setUserFeedback(`Password updated for ${user.displayName}.`, false);
       } else if (button.dataset.userDeactivate) {
+        const suggestedDate = new Date().toISOString().slice(0, 10);
         const dialog = await appDialog({
-          title: `Deactivate ${user.displayName}?`,
-          confirmText: "Deactivate",
+          title: `Terminate ${user.displayName}`,
+          message: "Termination date (YYYY-MM-DD)",
+          input: true,
+          inputType: "date",
+          defaultValue: suggestedDate,
+          confirmText: "Terminate",
           cancelText: "Cancel",
         });
-        if (!dialog.confirmed) {
+        if (!dialog.confirmed) return;
+        const terminationDate = String(dialog.value || "").trim();
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(terminationDate)) {
+          setUserFeedback("Termination date is required (YYYY-MM-DD).", true);
+          return;
+        }
+        const activeFrom = String(user.activeFrom || "").trim();
+        if (activeFrom && terminationDate < activeFrom) {
+          setUserFeedback("Termination date cannot be before start date.", true);
           return;
         }
 
-        await mutatePersistentState("deactivate_user", {
-          userId: user.id,
-        }, {
-          skipHydrate: true,
-          returnState: false,
-          skipSettingsMetadataReload: true,
+        await mutatePersistentState(
+          "terminate_user",
+          {
+            userId: user.id,
+            terminationDate,
+          },
+          {
+            skipHydrate: true,
+            returnState: false,
+            skipSettingsMetadataReload: true,
+          }
+        );
+        refreshSettingsTabInBackground("rates");
+        setUserFeedback(`${user.displayName} was terminated.`, false);
+        return;
+      } else if (button.dataset.userReactivate) {
+        const dialog = await appDialog({
+          title: `Reactivate ${user.displayName}?`,
+          confirmText: "Reactivate",
+          cancelText: "Cancel",
         });
-        if (state.currentView === "settings") {
-          refreshSettingsTabInBackground("rates");
-          setUserFeedback(`${user.displayName} was deactivated.`, false);
-          return;
-        }
-        setUserFeedback(`${user.displayName} was deactivated.`, false);
+        if (!dialog.confirmed) return;
+        await mutatePersistentState(
+          "reactivate_user",
+          { userId: user.id },
+          {
+            skipHydrate: true,
+            returnState: false,
+            skipSettingsMetadataReload: true,
+          }
+        );
+        refreshSettingsTabInBackground("rates");
+        setUserFeedback(`${user.displayName} was reactivated.`, false);
+        return;
       }
     } catch (error) {
       const message = error.message || "Unable to update team member.";

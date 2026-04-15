@@ -579,6 +579,10 @@
       }
       el.disabled = !canManageUsers;
     });
+    const activeFromField = field(refs.addUserForm, "active_from");
+    if (activeFromField && !activeFromField.value) {
+      activeFromField.value = new Date().toISOString().slice(0, 10);
+    }
 
     if (refs.levelLabelsForm) {
       refs.levelLabelsForm.hidden = !isGlobalAdmin(state.currentUser);

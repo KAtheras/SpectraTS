@@ -6,6 +6,8 @@ const {
   createUserRecord,
   createPasswordSetupToken,
   deactivateUser,
+  terminateUser,
+  reactivateUser,
   ensureSchema,
   ensureNotificationRulesForAccount,
   errorResponse,
@@ -6957,6 +6959,30 @@ exports.handler = async function handler(event) {
           return errorResponse(403, "Access denied.");
         }
         await deactivateUser(sql, request.payload || {}, context.currentUser);
+        break;
+      }
+      case "terminate_user": {
+        const target = await findUserById(sql, request.payload?.userId, accountId);
+        if (!target || !target.is_active) {
+          return errorResponse(404, "User not found.");
+        }
+        const targetOfficeId = target.office_id || target.officeId || null;
+        if (!can("deactivate_member", { resourceOfficeId: targetOfficeId, targetUserId: target.id })) {
+          return errorResponse(403, "Access denied.");
+        }
+        await terminateUser(sql, request.payload || {}, context.currentUser);
+        break;
+      }
+      case "reactivate_user": {
+        const target = await findUserById(sql, request.payload?.userId, accountId);
+        if (!target) {
+          return errorResponse(404, "User not found.");
+        }
+        const targetOfficeId = target.office_id || target.officeId || null;
+        if (!can("deactivate_member", { resourceOfficeId: targetOfficeId, targetUserId: target.id })) {
+          return errorResponse(403, "Access denied.");
+        }
+        await reactivateUser(sql, request.payload || {}, context.currentUser);
         break;
       }
       case "update_level_labels": {

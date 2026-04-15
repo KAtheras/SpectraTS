@@ -36,6 +36,7 @@
   let mobileSettingsMode = "list";
   let collapsedCorporateGroupIds = new Set();
   let memberInfoSearchTerm = "";
+  let memberInfoStatusFilter = "active";
   let memberInfoMobileMode = "list";
   let memberInfoMobileSelectedUserId = "";
   let delegationsSelectedDelegateId = "";
@@ -761,6 +762,10 @@
             border-radius:14px;
             background:color-mix(in srgb, var(--panel) 92%, var(--input-bg));
             padding:14px;
+          }
+          #settings-page .member-info-card.member-info-card--inactive{
+            background:color-mix(in srgb, var(--panel) 86%, #eceff4 14%);
+            border-color:color-mix(in srgb, var(--group-border) 70%, #9aa3b0 30%);
           }
           #settings-page .member-info-name{
             font-family:var(--font-head);
@@ -3982,8 +3987,12 @@
     const actorOfficeId = `${state.currentUser?.officeId || state.currentUser?.office_id || ""}`.trim();
     const actorGroup = String(permissionGroupForUser?.(state.currentUser) || "").toLowerCase();
     const isSuperuserActor = actorGroup === "superuser";
-    const users = (state.users || []).filter((u) => {
-      if (!u || u.isActive === false) return false;
+    const sourceUsers =
+      memberInfoStatusFilter === "inactive"
+        ? (state.inactiveUsers || [])
+        : (state.users || []);
+    const users = sourceUsers.filter((u) => {
+      if (!u) return false;
       if (isSuperuserActor) return true;
       const userOfficeId = `${u.officeId || u.office_id || ""}`.trim();
       if (!actorOfficeId) return false;
@@ -4015,7 +4024,9 @@
       return raw ? escapeHtml(raw) : "—";
     };
     const buildMemberCard = (user) => `
-          <article class="member-info-card member-info-card--enhanced" data-user-id="${escapeHtml(
+          <article class="member-info-card member-info-card--enhanced ${
+            memberInfoStatusFilter === "inactive" ? "member-info-card--inactive" : ""
+          }" data-user-id="${escapeHtml(
             user.id
           )}" data-member-info-search-item data-member-info-search="${escapeHtml(
       `${user.displayName || ""} ${user.username || ""}`.toLowerCase()
@@ -4057,6 +4068,20 @@
                   <span class="member-info-field-label">Cost rate</span>
                   <span class="member-info-field-value">${valueOrDash(user.costRate)}</span>
                 </div>
+                ${
+                  memberInfoStatusFilter === "inactive"
+                    ? `
+                <div class="member-info-item">
+                  <span class="member-info-field-label">Start date</span>
+                  <span class="member-info-field-value">${valueOrDash(user.activeFrom)}</span>
+                </div>
+                <div class="member-info-item">
+                  <span class="member-info-field-label">Termination date</span>
+                  <span class="member-info-field-value">${valueOrDash(user.activeTo)}</span>
+                </div>
+                `
+                    : ""
+                }
               </div>
               <div class="member-info-action member-info-action-enhanced">
                 ${
@@ -4068,9 +4093,13 @@
                 }
                 ${
                   canEditProfile
-                    ? `<button type="button" class="member-info-remove settings-row-delete-icon" data-user-deactivate="${escapeHtml(
-                        user.id
-                      )}" aria-label="Remove member">${SETTINGS_DELETE_ICON}</button>`
+                    ? memberInfoStatusFilter === "inactive"
+                      ? `<button type="button" class="button button-ghost member-info-edit" data-user-reactivate="${escapeHtml(
+                          user.id
+                        )}">Reactivate</button>`
+                      : `<button type="button" class="button button-ghost member-info-edit" data-user-deactivate="${escapeHtml(
+                          user.id
+                        )}" aria-label="Terminate member">Terminate</button>`
                     : ""
                 }
               </div>
@@ -4096,6 +4125,10 @@
       const rowsHtml = users
         .map((user) => {
           const searchIndex = `${user.displayName || ""} ${user.username || ""}`.toLowerCase();
+          const subLabel =
+            memberInfoStatusFilter === "inactive"
+              ? (user.activeTo ? `Terminated ${user.activeTo}` : "Past member")
+              : valueOrDash(user.username);
           return `
             <button
               type="button"
@@ -4105,13 +4138,17 @@
               data-member-info-search="${escapeHtml(searchIndex)}"
             >
               <span class="member-info-mobile-item-name">${escapeHtml(user.displayName)}</span>
-              <span class="member-info-mobile-item-sub">${valueOrDash(user.username)}</span>
+              <span class="member-info-mobile-item-sub">${subLabel}</span>
             </button>
           `;
         })
         .join("");
       refs.ratesRows.innerHTML = `
         <div class="member-info-search-row">
+          <div class="expense-toggle" style="margin-bottom:8px;">
+            <button type="button" class="${memberInfoStatusFilter === "active" ? "is-active" : ""}" data-member-status-filter="active">Active</button>
+            <button type="button" class="${memberInfoStatusFilter === "inactive" ? "is-active" : ""}" data-member-status-filter="inactive">Inactive / Past</button>
+          </div>
           <input
             type="search"
             data-member-info-search-input
@@ -4130,6 +4167,10 @@
       const rowsHtml = users.map((user) => buildMemberCard(user)).join("");
       refs.ratesRows.innerHTML = `
         <div class="member-info-search-row">
+          <div class="expense-toggle" style="margin-bottom:8px;">
+            <button type="button" class="${memberInfoStatusFilter === "active" ? "is-active" : ""}" data-member-status-filter="active">Active</button>
+            <button type="button" class="${memberInfoStatusFilter === "inactive" ? "is-active" : ""}" data-member-status-filter="inactive">Inactive / Past</button>
+          </div>
           <input
             type="search"
             data-member-info-search-input
@@ -4169,6 +4210,17 @@
       });
       applySearchFilter(memberInfoSearchTerm);
     }
+    refs.ratesRows.querySelectorAll("[data-member-status-filter]").forEach((btn) => {
+      btn.addEventListener("click", function () {
+        const next = String(btn.dataset.memberStatusFilter || "active").trim().toLowerCase();
+        if (next !== "active" && next !== "inactive") return;
+        if (next === memberInfoStatusFilter) return;
+        memberInfoStatusFilter = next;
+        memberInfoMobileSelectedUserId = "";
+        memberInfoMobileMode = "list";
+        renderRatesRows();
+      });
+    });
     refs.ratesRows.querySelectorAll("[data-member-info-select]").forEach((btn) => {
       btn.addEventListener("click", function () {
         memberInfoMobileSelectedUserId = btn.dataset.memberInfoSelect || "";

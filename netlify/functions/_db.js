@@ -539,6 +539,9 @@ async function ensureSchema(sql) {
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS cost_rate NUMERIC(10,2)`;
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT FALSE`;
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_exempt BOOLEAN NOT NULL DEFAULT FALSE`;
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS active_from DATE`;
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS active_to DATE`;
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS status TEXT`;
   await sql`
     ALTER TABLE users
     ADD COLUMN IF NOT EXISTS office_id TEXT NULL REFERENCES office_locations(id) ON DELETE SET NULL
@@ -624,7 +627,11 @@ async function ensureSchema(sql) {
   `;
   await sql`UPDATE users SET account_id = ${accountUuid}::uuid WHERE account_id IS NULL`;
   await sql`UPDATE users SET email = '' WHERE email IS NULL`;
+  await sql`UPDATE users SET active_from = COALESCE(active_from, DATE(created_at), CURRENT_DATE)`;
+  await sql`UPDATE users SET status = CASE WHEN active_to IS NULL THEN 'active' ELSE 'terminated' END`;
   await sql`ALTER TABLE users DROP CONSTRAINT IF EXISTS users_level_check`;
+  await sql`ALTER TABLE users DROP CONSTRAINT IF EXISTS users_status_check`;
+  await sql`ALTER TABLE users DROP CONSTRAINT IF EXISTS users_active_dates_check`;
   await sql`
     ALTER TABLE users
     ADD CONSTRAINT users_level_check
@@ -632,8 +639,30 @@ async function ensureSchema(sql) {
   `;
   await sql`
     ALTER TABLE users
+    ALTER COLUMN active_from SET DEFAULT CURRENT_DATE
+  `;
+  await sql`
+    ALTER TABLE users
+    ALTER COLUMN status SET DEFAULT 'active'
+  `;
+  await sql`
+    ALTER TABLE users
+    ALTER COLUMN status SET NOT NULL
+  `;
+  await sql`
+    ALTER TABLE users
     ADD CONSTRAINT users_role_check
     CHECK (LOWER(TRIM(role)) IN ('staff', 'manager', 'executive', 'admin', 'superuser'))
+  `;
+  await sql`
+    ALTER TABLE users
+    ADD CONSTRAINT users_status_check
+    CHECK (LOWER(TRIM(status)) IN ('active', 'terminated'))
+  `;
+  await sql`
+    ALTER TABLE users
+    ADD CONSTRAINT users_active_dates_check
+    CHECK (active_to IS NULL OR active_from IS NULL OR active_to >= active_from)
   `;
 
   await sql`
@@ -2113,7 +2142,9 @@ async function findUserByDisplayName(sql, displayName, accountId) {
   return rows[0] || null;
 }
 
-async function listUsers(sql, accountId) {
+async function listUsers(sql, accountId, options = {}) {
+  const includeInactive = options?.includeInactive === true;
+  const activeClause = includeInactive ? sql`TRUE` : sql`users.is_active = TRUE`;
   const rows = await sql`
     SELECT
       users.id,
@@ -2135,7 +2166,10 @@ async function listUsers(sql, accountId) {
       users.must_change_password AS "mustChangePassword",
       users.account_id AS "accountId",
       users.is_active AS "isActive",
-      users.created_at AS "createdAt"
+      users.created_at AS "createdAt",
+      users.active_from AS "activeFrom",
+      users.active_to AS "activeTo",
+      users.status
     FROM users
     LEFT JOIN departments d
       ON d.id = users.department_id
@@ -2146,7 +2180,7 @@ async function listUsers(sql, accountId) {
     LEFT JOIN member_profiles mp
       ON mp.member_id = users.id
      AND mp.account_id = ${accountId}::uuid
-    WHERE users.is_active = TRUE
+    WHERE ${activeClause}
       AND users.account_id = ${accountId}::uuid
     ORDER BY LOWER(users.display_name), LOWER(users.username)
   `;
@@ -2230,6 +2264,7 @@ async function createUserRecord(sql, payload) {
     payload.isExempt ?? payload.is_exempt ?? payload.exemptionStatus,
     false
   );
+  const activeFromInput = normalizeText(payload.activeFrom ?? payload.active_from);
   const accountId = normalizeText(payload.accountId);
   const accountUuid = accountId ? `${accountId}` : accountId;
   if (!accountUuid) {
@@ -2296,6 +2331,8 @@ async function createUserRecord(sql, payload) {
     }
   }
   const now = new Date().toISOString();
+  const activeFrom =
+    /^\d{4}-\d{2}-\d{2}$/.test(activeFromInput) ? activeFromInput : now.slice(0, 10);
 
   const levelLabels = await listLevelLabels(sql, accountUuid);
   if (!levelLabels[level]) {
@@ -2320,6 +2357,9 @@ async function createUserRecord(sql, payload) {
       office_id = ${officeId},
       is_exempt = ${isExempt},
       is_active = TRUE,
+      active_from = ${activeFrom},
+      active_to = NULL,
+      status = 'active',
       must_change_password = ${mustChangePassword},
       updated_at = ${now}
     WHERE id = ${userRecord.id}
@@ -2336,6 +2376,7 @@ async function createUserRecord(sql, payload) {
       costRate,
       officeId: officeId || null,
       isExempt,
+      activeFrom,
       createdAt: userRecord.created_at,
       updatedAt: now,
       passwordHash: userRecord.password_hash,
@@ -2360,6 +2401,7 @@ async function createUserRecord(sql, payload) {
     officeId: officeId || null,
     isExempt,
     mustChangePassword,
+    activeFrom,
   };
 
   await sql`
@@ -2377,6 +2419,9 @@ async function createUserRecord(sql, payload) {
       office_id,
       is_exempt,
       must_change_password,
+      active_from,
+      active_to,
+      status,
       account_id,
       is_active,
       created_at,
@@ -2396,6 +2441,9 @@ async function createUserRecord(sql, payload) {
       ${user.officeId},
       ${user.isExempt},
       ${user.mustChangePassword},
+      ${user.activeFrom},
+      NULL,
+      'active',
       ${user.accountId}::uuid,
       TRUE,
       ${user.createdAt},
@@ -2521,6 +2569,10 @@ async function updateUserRecord(sql, payload, actingUser) {
     payload?.isExempt ?? payload?.is_exempt ?? payload?.exemptionStatus,
     existingUser?.is_exempt === true
   );
+  const activeFromInput =
+    payload?.activeFrom !== undefined || payload?.active_from !== undefined
+      ? normalizeText(payload?.activeFrom ?? payload?.active_from)
+      : normalizeText(existingUser?.active_from || "");
   const hasCertifications = Object.prototype.hasOwnProperty.call(payload || {}, "certifications");
   const hasMemberProfile =
     Object.prototype.hasOwnProperty.call(payload || {}, "memberProfile") ||
@@ -2594,6 +2646,14 @@ async function updateUserRecord(sql, payload, actingUser) {
   if (costRate !== null && !(Number.isFinite(costRate) && costRate >= 0)) {
     throw new Error("Cost rate must be a non-negative number.");
   }
+  const activeFrom =
+    /^\d{4}-\d{2}-\d{2}$/.test(activeFromInput)
+      ? activeFromInput
+      : normalizeText(existingUser?.active_from || "") || new Date().toISOString().slice(0, 10);
+  const activeTo = normalizeText(existingUser?.active_to || "");
+  if (activeFrom && activeTo && /^\d{4}-\d{2}-\d{2}$/.test(activeTo) && activeTo < activeFrom) {
+    throw new Error("Start date cannot be after termination date.");
+  }
 
   const levelLabelMap = await listLevelLabels(sql, existingUser.account_id);
   if (!levelLabelMap[level]) {
@@ -2637,6 +2697,7 @@ async function updateUserRecord(sql, payload, actingUser) {
       cost_rate = ${costRate},
       office_id = ${officeId},
       is_exempt = ${isExempt},
+      active_from = ${activeFrom || null},
       updated_at = ${updatedAt}
     WHERE id = ${existingUser.id}
   `;
@@ -2706,6 +2767,11 @@ async function updateUserRecord(sql, payload, actingUser) {
       costRate: refreshed.cost_rate ?? null,
       officeId: refreshed.office_id || null,
       isExempt: refreshed.is_exempt === true,
+      activeFrom: refreshed.active_from || null,
+      activeTo: refreshed.active_to || null,
+      status:
+        normalizeText(refreshed.status).toLowerCase() ||
+        (refreshed.active_to ? "terminated" : "active"),
       accountId: refreshed.account_id,
     };
   }
@@ -2835,6 +2901,63 @@ async function deactivateUser(sql, payload, actingUser) {
   `;
 
   await sql`DELETE FROM sessions WHERE user_id = ${existingUser.id}`;
+}
+
+async function terminateUser(sql, payload, actingUser) {
+  const userId = normalizeText(payload?.userId);
+  const terminationDate = normalizeText(payload?.terminationDate ?? payload?.termination_date);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(terminationDate)) {
+    throw new Error("Termination date is required.");
+  }
+  const existingUser = await findUserById(sql, userId, actingUser?.accountId);
+  if (!existingUser || !existingUser.is_active) {
+    throw new Error("User not found.");
+  }
+  if (actingUser && existingUser.id === actingUser.id) {
+    throw new Error("You cannot terminate your own account.");
+  }
+  const activeFrom = normalizeText(existingUser.active_from || "");
+  if (activeFrom && terminationDate < activeFrom) {
+    throw new Error("Termination date cannot be before start date.");
+  }
+  const levelLabelMap = await listLevelLabels(sql, existingUser.account_id);
+  if (isAdmin(existingUser, levelLabelMap)) {
+    const admins = await adminCount(sql, existingUser.account_id);
+    if (admins <= 1) {
+      throw new Error("At least one Admin account is required.");
+    }
+  }
+
+  await sql`
+    UPDATE users
+    SET
+      active_to = ${terminationDate},
+      status = 'terminated',
+      is_active = FALSE,
+      updated_at = ${new Date().toISOString()}
+    WHERE id = ${existingUser.id}
+      AND account_id = ${existingUser.account_id}::uuid
+  `;
+
+  await sql`DELETE FROM sessions WHERE user_id = ${existingUser.id}`;
+}
+
+async function reactivateUser(sql, payload, actingUser) {
+  const userId = normalizeText(payload?.userId);
+  const existingUser = await findUserById(sql, userId, actingUser?.accountId);
+  if (!existingUser) {
+    throw new Error("User not found.");
+  }
+  await sql`
+    UPDATE users
+    SET
+      active_to = NULL,
+      status = 'active',
+      is_active = TRUE,
+      updated_at = ${new Date().toISOString()}
+    WHERE id = ${existingUser.id}
+      AND account_id = ${existingUser.account_id}::uuid
+  `;
 }
 
 async function getSessionContext(sql, event, request) {
@@ -4641,7 +4764,7 @@ async function loadState(sql, currentUser) {
           return visibleClientIdSet.has(clientId);
         })
       : [];
-  const allUsers = normalizedUser ? await listUsers(sql, accountUuid) : [];
+  const allUsers = normalizedUser ? await listUsers(sql, accountUuid, { includeInactive: true }) : [];
   const canViewInternalRecords = isAdminFlag;
   const currentUserId = normalizeText(normalizedUser?.id || "");
   const currentUserDisplayName = normalizeText(normalizedUser?.displayName || "").toLowerCase();
@@ -5314,6 +5437,7 @@ async function loadState(sql, currentUser) {
   }
 
   let users = [];
+  let inactiveUsers = [];
   if (normalizedUser) {
     const visibleUserIds = new Set();
     const actorUserId = normalizeText(normalizedUser?.id);
@@ -5338,7 +5462,7 @@ async function loadState(sql, currentUser) {
       }
     });
 
-    users = allUsers
+    const visibleUsers = allUsers
       .filter((user) => visibleUserIds.has(normalizeText(user?.id)))
       .map((user) => {
         const roleAllowed = canViewRatesForTarget(normalizedUser, user, levelLabels);
@@ -5367,11 +5491,14 @@ async function loadState(sql, currentUser) {
           costRate: allowCostRate ? user.costRate : null,
         };
       });
+    users = visibleUsers.filter((user) => user?.isActive !== false && `${user?.status || ""}`.trim().toLowerCase() !== "terminated");
+    inactiveUsers = visibleUsers.filter((user) => user?.isActive === false || `${user?.status || ""}`.trim().toLowerCase() === "terminated");
     if (delegatorUserIds.length) {
       const existing = new Set(users.map((item) => `${item?.id || ""}`.trim()).filter(Boolean));
       allUsers.forEach((user) => {
         const id = `${user?.id || ""}`.trim();
         if (!id || !delegatorUserIds.includes(id) || existing.has(id)) return;
+        if (user?.isActive === false || `${user?.status || ""}`.trim().toLowerCase() === "terminated") return;
         users.push({
           ...user,
           baseRate: null,
@@ -5533,6 +5660,7 @@ async function loadState(sql, currentUser) {
     },
     account: { id: accountUuid, name: accountRow?.name || null },
     users,
+    inactiveUsers,
     departments,
     officeLocations,
     clients,
@@ -5680,6 +5808,8 @@ module.exports = {
   createUserRecord,
   createPasswordSetupToken,
   deactivateUser,
+  terminateUser,
+  reactivateUser,
   ensureDefaultAccount,
   ensureSchema,
   ensureNotificationRulesForAccount,
