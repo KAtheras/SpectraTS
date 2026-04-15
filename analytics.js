@@ -662,7 +662,9 @@
       container.innerHTML = '<div class="analytics-chart-empty">No utilization data for the selected filters.</div>';
       return;
     }
-    const chartHeight = Math.max(260, rows.length * 30);
+    const scrollHost = container.closest(".analytics-util-left-scroll");
+    const availableHeight = Number(scrollHost?.clientHeight) || 380;
+    const chartHeight = Math.max(availableHeight, rows.length * 42);
     container.innerHTML = `<div class="analytics-util-left-chart" data-analytics-util-left-chart style="height:${chartHeight}px;"></div>`;
     const resolvedChartEl = container.querySelector("[data-analytics-util-left-chart]");
     if (!resolvedChartEl) return;
