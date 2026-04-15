@@ -269,6 +269,7 @@
     { id: "high_to_low", name: "High → Low" },
     { id: "low_to_high", name: "Low → High" },
   ];
+  const UTILIZATION_MEMBER_TITLE_ALL = "__all_titles__";
 
   function normalizeUtilizationPeriod(value) {
     const key = safeText(value).toLowerCase();
@@ -307,6 +308,23 @@
 
   function nextUtilizationMemberSort(current) {
     return normalizeUtilizationMemberSort(current) === "high_to_low" ? "low_to_high" : "high_to_low";
+  }
+
+  function normalizeUtilizationMemberTitle(value) {
+    const key = safeText(value);
+    return key || UTILIZATION_MEMBER_TITLE_ALL;
+  }
+
+  function memberTitleLabel(row) {
+    return safeText(row?.memberTitle) || "Unassigned";
+  }
+
+  function filterUtilizationRowsByMemberTitle(rows, groupBy, selectedTitle) {
+    const list = Array.isArray(rows) ? [...rows] : [];
+    if (normalizeUtilizationGroupBy(groupBy) !== "member") return list;
+    const selected = normalizeUtilizationMemberTitle(selectedTitle);
+    if (selected === UTILIZATION_MEMBER_TITLE_ALL) return list;
+    return list.filter((row) => memberTitleLabel(row) === selected);
   }
 
   function utilizationPeriodRange(periodId, nowDate) {
@@ -512,6 +530,7 @@
       utilizationDepartmentId: "",
       utilizationSelectedKey: "",
       utilizationMemberSort: "high_to_low",
+      utilizationMemberTitle: UTILIZATION_MEMBER_TITLE_ALL,
     };
   }
 
@@ -1032,6 +1051,7 @@
       uiState.utilizationPeriod = normalizeUtilizationPeriod(uiState.utilizationPeriod);
       uiState.utilizationGroupBy = normalizeUtilizationGroupBy(uiState.utilizationGroupBy);
       uiState.utilizationMemberSort = normalizeUtilizationMemberSort(uiState.utilizationMemberSort);
+      uiState.utilizationMemberTitle = normalizeUtilizationMemberTitle(uiState.utilizationMemberTitle);
 
       const periodRange = utilizationPeriodRange(uiState.utilizationPeriod, new Date());
       const scopeOptions = engine.listScopeOptions({
@@ -1059,12 +1079,31 @@
         },
       });
       const rawUtilizationRows = Array.isArray(utilization?.rows) ? utilization.rows : [];
-      const utilizationRows = sortUtilizationRowsForUi(
+      const isMemberGrouping = uiState.utilizationGroupBy === "member";
+      const memberTitleOptions = [
+        { id: UTILIZATION_MEMBER_TITLE_ALL, name: "All Titles" },
+        ...Array.from(new Set(rawUtilizationRows.map((row) => memberTitleLabel(row)).filter(Boolean)))
+          .sort((a, b) => a.localeCompare(b))
+          .map((title) => ({ id: title, name: title })),
+      ];
+      if (
+        isMemberGrouping &&
+        uiState.utilizationMemberTitle !== UTILIZATION_MEMBER_TITLE_ALL &&
+        !memberTitleOptions.some((item) => item.id === uiState.utilizationMemberTitle)
+      ) {
+        uiState.utilizationMemberTitle = UTILIZATION_MEMBER_TITLE_ALL;
+      }
+      const titleFilteredRows = filterUtilizationRowsByMemberTitle(
         rawUtilizationRows,
+        uiState.utilizationGroupBy,
+        uiState.utilizationMemberTitle
+      );
+      const utilizationRows = sortUtilizationRowsForUi(
+        titleFilteredRows,
         uiState.utilizationGroupBy,
         uiState.utilizationMemberSort
       );
-      const showMemberSortControl = uiState.utilizationGroupBy === "member";
+      const showMemberSortControl = isMemberGrouping;
       const availableKeys = new Set(utilizationRows.map((row) => safeText(row?.key)).filter(Boolean));
       const preferredSelectedKey = safeText(uiState.utilizationSelectedKey);
       if (!preferredSelectedKey || !availableKeys.has(preferredSelectedKey)) {
@@ -1133,7 +1172,16 @@
           <section class="analytics-util-grid">
             <article class="analytics-util-card">
               <div class="analytics-chart-head">
-                <strong>Current Utilization by ${escapeHtml(groupByLabel)}</strong>
+                ${
+                  showMemberSortControl
+                    ? `<span style="display:inline-flex;align-items:center;gap:8px;min-width:0;">
+                        <strong>Members:</strong>
+                        <select name="memberTitle" data-analytics-member-title style="min-height:30px;background:#fff;max-width:220px;">
+                          ${renderOptions(memberTitleOptions, uiState.utilizationMemberTitle)}
+                        </select>
+                      </span>`
+                    : `<strong>Current Utilization by ${escapeHtml(groupByLabel)}</strong>`
+                }
                 ${
                   showMemberSortControl
                     ? `<button
@@ -1181,6 +1229,13 @@
       if (memberSortToggle) {
         memberSortToggle.addEventListener("click", () => {
           uiState.utilizationMemberSort = nextUtilizationMemberSort(uiState.utilizationMemberSort);
+          renderAnalyticsPage(options);
+        });
+      }
+      const memberTitleSelect = body.querySelector("[data-analytics-member-title]");
+      if (memberTitleSelect) {
+        memberTitleSelect.addEventListener("change", () => {
+          uiState.utilizationMemberTitle = normalizeUtilizationMemberTitle(memberTitleSelect.value);
           renderAnalyticsPage(options);
         });
       }

@@ -510,6 +510,7 @@
         grouped.set(identity.key, {
           key: identity.key,
           name: identity.label,
+          memberTitle: groupBy === "member" ? memberTitle : "",
           clientHours: 0,
           internalHours: 0,
           ptoHours: 0,
@@ -598,6 +599,7 @@
     const cleanRows = rows.map((row) => ({
       key: row.key,
       name: row.name,
+      memberTitle: row.memberTitle || "",
       utilizationPct: row.utilizationPct,
       clientHours: row.clientHours,
       internalHours: row.internalHours,
