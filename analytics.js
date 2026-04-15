@@ -183,15 +183,59 @@
         width: 100%;
         height: 380px;
       }
+      .analytics-realization-controls {
+        display: grid;
+        grid-template-columns: auto repeat(3, minmax(0, 1fr));
+        gap: 8px;
+        align-items: end;
+      }
+      .analytics-realization-layer {
+        display: inline-flex;
+        gap: 4px;
+        align-items: center;
+        border: 1px solid var(--line);
+        border-radius: 9px;
+        padding: 3px;
+        background: var(--surface);
+      }
+      .analytics-realization-layer button {
+        border: 0;
+        background: transparent;
+        color: var(--muted);
+        border-radius: 6px;
+        padding: 5px 10px;
+        font-size: .8rem;
+        font-weight: 620;
+        cursor: pointer;
+      }
+      .analytics-realization-layer button.is-active {
+        background: color-mix(in srgb, var(--accent) 14%, var(--surface) 86%);
+        color: var(--ink);
+      }
+      .analytics-realization-layer button:disabled {
+        cursor: not-allowed;
+        opacity: .52;
+      }
+      .analytics-realization-chart {
+        width: 100%;
+        height: 340px;
+      }
+      .analytics-realization-trend {
+        width: 100%;
+        height: 280px;
+      }
       @media (max-width: 980px) {
         .analytics-util-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         .analytics-util-grid { grid-template-columns: minmax(0, 1fr); }
         .analytics-util-card { min-height: 340px; }
         .analytics-util-left-scroll { height: 300px; }
         .analytics-util-right-chart { height: 300px; }
+        .analytics-realization-controls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .analytics-realization-layer { grid-column: 1 / -1; }
       }
       @media (max-width: 640px) {
         .analytics-util-filters { grid-template-columns: minmax(0, 1fr); }
+        .analytics-realization-controls { grid-template-columns: minmax(0, 1fr); }
       }
     `;
     document.head.appendChild(style);
@@ -289,10 +333,6 @@
     return addDays(date, diff);
   }
 
-  function endOfWeekSunday(date) {
-    return addDays(startOfWeekMonday(date), 6);
-  }
-
   const UTILIZATION_PERIODS = [
     { id: "this_week", name: "This Week" },
     { id: "last_week", name: "Last Week" },
@@ -316,6 +356,27 @@
     { id: "low_to_high", name: "Low → High" },
   ];
   const UTILIZATION_MEMBER_TITLE_ALL = "__all_titles__";
+  const REALIZATION_LAYER_OPTIONS = [
+    { id: "completed", name: "Completed" },
+    { id: "open", name: "Open" },
+    { id: "combined", name: "Combined" },
+  ];
+  const REALIZATION_PERIODS = [
+    { id: "this_quarter", name: "This Quarter" },
+    { id: "last_quarter", name: "Last Quarter" },
+    { id: "ytd", name: "YTD" },
+    { id: "last_year", name: "Last Year" },
+  ];
+  const REALIZATION_GROUP_BY_OPTIONS = [
+    { id: "client", name: "Client" },
+    { id: "project", name: "Project" },
+    { id: "department", name: "Department" },
+    { id: "office", name: "Office" },
+  ];
+  const REALIZATION_SORT_OPTIONS = [
+    { id: "high_to_low", name: "High → Low" },
+    { id: "low_to_high", name: "Low → High" },
+  ];
 
   function normalizeUtilizationPeriod(value) {
     const key = safeText(value).toLowerCase();
@@ -420,6 +481,66 @@
       return { fromDate: `${year}-01-01`, toDate: `${year}-12-31` };
     }
     return { fromDate: toIsoDate(startOfMonth(todayDate)), toDate: toIsoDate(endOfMonth(todayDate)) };
+  }
+
+  function normalizeRealizationLayer(value) {
+    const key = safeText(value).toLowerCase();
+    return REALIZATION_LAYER_OPTIONS.some((item) => item.id === key) ? key : "completed";
+  }
+
+  function normalizeRealizationPeriod(value) {
+    const key = safeText(value).toLowerCase();
+    return REALIZATION_PERIODS.some((item) => item.id === key) ? key : "this_quarter";
+  }
+
+  function normalizeRealizationGroupBy(value) {
+    const key = safeText(value).toLowerCase();
+    return REALIZATION_GROUP_BY_OPTIONS.some((item) => item.id === key) ? key : "client";
+  }
+
+  function normalizeRealizationSort(value) {
+    const key = safeText(value).toLowerCase();
+    return REALIZATION_SORT_OPTIONS.some((item) => item.id === key) ? key : "high_to_low";
+  }
+
+  function nextRealizationSort(current) {
+    return normalizeRealizationSort(current) === "high_to_low" ? "low_to_high" : "high_to_low";
+  }
+
+  function realizationPeriodRange(periodId, nowDate) {
+    const now = nowDate instanceof Date ? nowDate : new Date();
+    const todayDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const period = normalizeRealizationPeriod(periodId);
+    if (period === "this_quarter") {
+      return { fromDate: toIsoDate(startOfQuarter(todayDate)), toDate: toIsoDate(endOfQuarter(todayDate)) };
+    }
+    if (period === "last_quarter") {
+      const startThisQuarter = startOfQuarter(todayDate);
+      const anyLastQuarterDate = new Date(startThisQuarter.getFullYear(), startThisQuarter.getMonth() - 1, 1);
+      return { fromDate: toIsoDate(startOfQuarter(anyLastQuarterDate)), toDate: toIsoDate(endOfQuarter(anyLastQuarterDate)) };
+    }
+    if (period === "ytd") {
+      return { fromDate: `${todayDate.getFullYear()}-01-01`, toDate: toIsoDate(todayDate) };
+    }
+    if (period === "last_year") {
+      const year = todayDate.getFullYear() - 1;
+      return { fromDate: `${year}-01-01`, toDate: `${year}-12-31` };
+    }
+    return { fromDate: toIsoDate(startOfQuarter(todayDate)), toDate: toIsoDate(endOfQuarter(todayDate)) };
+  }
+
+  function sortRealizationRows(rows, sortOrder) {
+    const order = normalizeRealizationSort(sortOrder);
+    const list = Array.isArray(rows) ? [...rows] : [];
+    list.sort((a, b) => {
+      const left = Number.isFinite(Number(a?.realizationPct)) ? Number(a.realizationPct) : -1;
+      const right = Number.isFinite(Number(b?.realizationPct)) ? Number(b.realizationPct) : -1;
+      if (order === "low_to_high") {
+        return left - right || safeText(a?.name).localeCompare(safeText(b?.name));
+      }
+      return right - left || safeText(a?.name).localeCompare(safeText(b?.name));
+    });
+    return list;
   }
 
   function isInternalClientName(name) {
@@ -587,6 +708,13 @@
       utilizationSelectedKey: "",
       utilizationMemberSort: "high_to_low",
       utilizationMemberTitle: UTILIZATION_MEMBER_TITLE_ALL,
+      realizationLayer: "completed",
+      realizationPeriod: "this_quarter",
+      realizationOfficeId: "",
+      realizationDepartmentId: "",
+      realizationGroupBy: "client",
+      realizationSort: "high_to_low",
+      realizationSelectedKey: "",
     };
   }
 
@@ -606,15 +734,6 @@
             }" data-analytics-subtab="${escapeHtml(tab.key)}">${escapeHtml(tab.label)}</button>`
         ).join("")}
       </div>
-    `;
-  }
-
-  function placeholderShellForSubTab(activeTab) {
-    return `
-      <section class="analytics-subtab-shell">
-        <h3>Realization</h3>
-        <p>Realization analytics is coming next.</p>
-      </section>
     `;
   }
 
@@ -1063,6 +1182,197 @@
     });
   }
 
+  function renderRealizationPrimaryChart(options) {
+    const container = options?.container;
+    const rows = Array.isArray(options?.rows) ? options.rows : [];
+    const groupByLabel = safeText(options?.groupByLabel || "Group");
+    const selectedKey = safeText(options?.selectedKey);
+    const onSelect = typeof options?.onSelect === "function" ? options.onSelect : null;
+    if (!container) return;
+    const echarts = window.echarts;
+    if (!echarts || typeof echarts.init !== "function") {
+      container.innerHTML = '<div class="analytics-chart-empty">Chart library failed to load.</div>';
+      return;
+    }
+    if (!rows.length) {
+      container.innerHTML = '<div class="analytics-chart-empty">No completed-project realization data for the selected filters.</div>';
+      return;
+    }
+    container.innerHTML = '<div class="analytics-realization-chart" data-analytics-realization-chart></div>';
+    const chartEl = container.querySelector("[data-analytics-realization-chart]");
+    if (!chartEl) return;
+    const existing = chartInstanceByContainer.get(container);
+    if (existing?.instance && !existing.instance.isDisposed()) {
+      chartInstances.delete(existing.instance);
+      existing.instance.dispose();
+    }
+    const chart = echarts.init(chartEl);
+    chartInstanceByContainer.set(container, { instance: chart });
+    chartInstances.add(chart);
+    bindChartResize();
+
+    const labels = rows.map((row) => safeText(row?.name));
+    const values = rows.map((row) => {
+      const isSelected = safeText(row?.key) === selectedKey;
+      return {
+        value: Number.isFinite(Number(row?.realizationPct)) ? Number(row.realizationPct) : 0,
+        itemStyle: {
+          opacity: isSelected ? 1 : 0.72,
+          borderColor: isSelected ? "#193f94" : "transparent",
+          borderWidth: isSelected ? 1.2 : 0,
+        },
+      };
+    });
+    const maxValue = Math.max(100, ...rows.map((row) => Number.isFinite(Number(row?.realizationPct)) ? Number(row.realizationPct) : 0));
+
+    chart.setOption({
+      animation: false,
+      grid: { left: 180, right: 24, top: 22, bottom: 28 },
+      tooltip: {
+        trigger: "item",
+        formatter: (param) => {
+          const row = rows[Number(param?.dataIndex)] || null;
+          return [
+            `${escapeHtml(groupByLabel)}: ${escapeHtml(safeText(row?.name))}`,
+            `Realization: ${formatPercent(row?.realizationPct)}`,
+            `Actual: ${formatMoney(row?.actualRevenue)}`,
+            `Standard: ${formatMoney(row?.standardRevenue)}`,
+          ].join("<br/>");
+        },
+      },
+      xAxis: {
+        type: "value",
+        max: maxValue * 1.12,
+        axisLabel: { formatter: (value) => `${Math.round(value)}%` },
+        splitLine: { lineStyle: { color: "rgba(128,128,128,0.25)" } },
+      },
+      yAxis: {
+        type: "category",
+        inverse: true,
+        data: labels,
+        axisTick: { show: false },
+        axisLabel: {
+          width: 160,
+          lineHeight: 17,
+          formatter: (value) => wrapTwoLineLabel(value, 24),
+        },
+      },
+      series: [
+        {
+          type: "bar",
+          data: values,
+          barWidth: 18,
+          itemStyle: { color: "#2f6fed" },
+          label: {
+            show: true,
+            position: "right",
+            distance: 6,
+            color: "#283142",
+            fontSize: 12,
+            fontWeight: 700,
+            formatter: (params) => formatPercent(rows[Number(params?.dataIndex)]?.realizationPct),
+          },
+        },
+      ],
+    });
+
+    chart.off("click");
+    chart.on("click", (params) => {
+      const dataIndex = Number(params?.dataIndex);
+      if (!Number.isInteger(dataIndex)) return;
+      const row = rows[dataIndex];
+      const key = safeText(row?.key);
+      if (!key || key === selectedKey || !onSelect) return;
+      onSelect(key);
+    });
+  }
+
+  function renderRealizationTrendChart(options) {
+    const container = options?.container;
+    const seriesRows = Array.isArray(options?.seriesRows) ? options.seriesRows : [];
+    if (!container) return;
+    const echarts = window.echarts;
+    if (!echarts || typeof echarts.init !== "function") {
+      container.innerHTML = '<div class="analytics-chart-empty">Chart library failed to load.</div>';
+      return;
+    }
+    if (!seriesRows.length) {
+      container.innerHTML = '<div class="analytics-chart-empty">No monthly realization trend for the selected item.</div>';
+      return;
+    }
+    container.innerHTML = '<div class="analytics-realization-trend" data-analytics-realization-trend></div>';
+    const chartEl = container.querySelector("[data-analytics-realization-trend]");
+    if (!chartEl) return;
+    const existing = chartInstanceByContainer.get(container);
+    if (existing?.instance && !existing.instance.isDisposed()) {
+      chartInstances.delete(existing.instance);
+      existing.instance.dispose();
+    }
+    const chart = echarts.init(chartEl);
+    chartInstanceByContainer.set(container, { instance: chart });
+    chartInstances.add(chart);
+    bindChartResize();
+
+    const labels = seriesRows.map((row) => {
+      const month = safeText(row?.month);
+      if (!month) return "";
+      const [year, mm] = month.split("-");
+      const date = new Date(Number(year), Number(mm) - 1, 1);
+      return date.toLocaleDateString(undefined, { month: "short", year: "numeric" });
+    });
+    const values = seriesRows.map((row) => (Number.isFinite(Number(row?.realizationPct)) ? Number(row.realizationPct) : 0));
+    const maxValue = Math.max(100, ...values);
+
+    chart.setOption({
+      animation: false,
+      grid: { left: 50, right: 20, top: 24, bottom: 52 },
+      tooltip: {
+        trigger: "axis",
+        axisPointer: { type: "shadow" },
+        formatter: (params) => {
+          const first = Array.isArray(params) ? params[0] : params;
+          const idx = Number(first?.dataIndex);
+          const row = Number.isInteger(idx) ? seriesRows[idx] : null;
+          return [
+            safeText(first?.axisValueLabel),
+            `Realization: ${formatPercent(row?.realizationPct)}`,
+            `Actual: ${formatMoney(row?.actualRevenue)}`,
+            `Standard: ${formatMoney(row?.standardRevenue)}`,
+          ].join("<br/>");
+        },
+      },
+      xAxis: {
+        type: "category",
+        data: labels,
+        axisTick: { show: false },
+      },
+      yAxis: {
+        type: "value",
+        max: maxValue * 1.12,
+        axisLabel: { formatter: (value) => `${Math.round(value)}%` },
+        splitLine: { lineStyle: { color: "rgba(128,128,128,0.25)" } },
+      },
+      series: [
+        {
+          name: "Realization %",
+          type: "bar",
+          barWidth: 22,
+          data: values,
+          itemStyle: { color: "#2f6fed", borderRadius: [4, 4, 0, 0] },
+          label: {
+            show: true,
+            position: "top",
+            distance: 4,
+            color: "#283142",
+            fontSize: 11,
+            fontWeight: 700,
+            formatter: (params) => formatPercent(seriesRows[Number(params?.dataIndex)]?.realizationPct),
+          },
+        },
+      ],
+    });
+  }
+
   function renderAnalyticsPage(options) {
     ensureStyles();
 
@@ -1093,13 +1403,198 @@
     const subTabsHtml = renderAnalyticsSubTabHtml(uiState.activeTab);
 
     if (uiState.activeTab === ANALYTICS_SUB_TAB_REALIZATION) {
+      uiState.realizationLayer = normalizeRealizationLayer(uiState.realizationLayer);
+      uiState.realizationPeriod = normalizeRealizationPeriod(uiState.realizationPeriod);
+      uiState.realizationGroupBy = normalizeRealizationGroupBy(uiState.realizationGroupBy);
+      uiState.realizationSort = normalizeRealizationSort(uiState.realizationSort);
+      const scopeOptions = engine.listScopeOptions({
+        offices: appState.officeLocations,
+        departments: appState.departments,
+      });
+      const periodRange = realizationPeriodRange(uiState.realizationPeriod, new Date());
+      const isCompletedLayer = uiState.realizationLayer === "completed";
+      const realizationComputed =
+        isCompletedLayer && typeof engine.computeRealizationAnalytics === "function"
+          ? engine.computeRealizationAnalytics({
+              entries: profitabilityData.entries,
+              expenses: profitabilityData.expenses,
+              users: appState.users,
+              projects: profitabilityData.projects,
+              clients: profitabilityData.clients,
+              offices: appState.officeLocations,
+              departments: appState.departments,
+              assignments: appState.assignments,
+              levelLabels: appState.levelLabels,
+              filters: {
+                fromDate: periodRange.fromDate,
+                toDate: periodRange.toDate,
+                groupBy: uiState.realizationGroupBy,
+                officeId: uiState.realizationOfficeId,
+                departmentId: uiState.realizationDepartmentId,
+              },
+            })
+          : { kpis: {}, rows: [], monthlyByKey: {} };
+      const realizationRows = sortRealizationRows(realizationComputed.rows, uiState.realizationSort);
+      const availableKeys = new Set(realizationRows.map((row) => safeText(row?.key)).filter(Boolean));
+      const selectedKey = safeText(uiState.realizationSelectedKey);
+      if (!selectedKey || !availableKeys.has(selectedKey)) {
+        uiState.realizationSelectedKey = safeText(realizationRows[0]?.key);
+      }
+      const selectedRow =
+        realizationRows.find((row) => safeText(row?.key) === safeText(uiState.realizationSelectedKey)) || null;
+      const selectedSeries =
+        selectedRow && realizationComputed.monthlyByKey
+          ? Array.isArray(realizationComputed.monthlyByKey[selectedRow.key])
+            ? realizationComputed.monthlyByKey[selectedRow.key]
+            : []
+          : [];
+      const groupByLabel =
+        REALIZATION_GROUP_BY_OPTIONS.find((item) => item.id === uiState.realizationGroupBy)?.name || "Client";
+
       body.innerHTML = `
         <div class="analytics-panel" data-analytics-root>
           ${subTabsHtml}
-          ${placeholderShellForSubTab(ANALYTICS_SUB_TAB_REALIZATION)}
+          <form class="analytics-realization-controls" data-analytics-realization-controls>
+            <div class="analytics-realization-layer" role="group" aria-label="Realization layer">
+              ${REALIZATION_LAYER_OPTIONS.map((item) => {
+                const active = uiState.realizationLayer === item.id;
+                const enabled = item.id !== "combined";
+                return `<button type="button" data-analytics-realization-layer="${escapeHtml(item.id)}" ${
+                  enabled ? "" : "disabled"
+                } class="${active ? "is-active" : ""}">${escapeHtml(item.name)}</button>`;
+              }).join("")}
+            </div>
+            <label>
+              <span>Period</span>
+              <span class="analytics-util-select-wrap">
+                <select name="realizationPeriod" class="analytics-util-select">${renderOptions(
+                  REALIZATION_PERIODS,
+                  uiState.realizationPeriod
+                )}</select>
+                <span class="analytics-member-title-chevron" aria-hidden="true">▾</span>
+              </span>
+            </label>
+            <label>
+              <span>Office</span>
+              <span class="analytics-util-select-wrap">
+                <select name="realizationOfficeId" class="analytics-util-select">${renderOptions(
+                  scopeOptions.offices,
+                  uiState.realizationOfficeId,
+                  "All"
+                )}</select>
+                <span class="analytics-member-title-chevron" aria-hidden="true">▾</span>
+              </span>
+            </label>
+            <label>
+              <span>Department</span>
+              <span class="analytics-util-select-wrap">
+                <select name="realizationDepartmentId" class="analytics-util-select">${renderOptions(
+                  scopeOptions.departments,
+                  uiState.realizationDepartmentId,
+                  "All"
+                )}</select>
+                <span class="analytics-member-title-chevron" aria-hidden="true">▾</span>
+              </span>
+            </label>
+          </form>
+
+          <section class="analytics-kpis" style="grid-template-columns:repeat(3,minmax(140px,1fr));">
+            <article class="analytics-kpi"><div class="analytics-kpi-label">Avg Realization %</div><div class="analytics-kpi-value">${escapeHtml(
+              isCompletedLayer ? formatPercent(realizationComputed.kpis.avgRealizationPct) : "—"
+            )}</div></article>
+            <article class="analytics-kpi"><div class="analytics-kpi-label">Actual Revenue</div><div class="analytics-kpi-value">${escapeHtml(
+              isCompletedLayer ? formatMoney(realizationComputed.kpis.actualRevenue) : "—"
+            )}</div></article>
+            <article class="analytics-kpi"><div class="analytics-kpi-label">Standard Revenue</div><div class="analytics-kpi-value">${escapeHtml(
+              isCompletedLayer ? formatMoney(realizationComputed.kpis.standardRevenue) : "—"
+            )}</div></article>
+          </section>
+
+          <section class="analytics-chart-wrap">
+            <div class="analytics-chart-head">
+              <span class="analytics-util-select-wrap" style="max-width:220px;">
+                <select name="realizationGroupBy" data-analytics-realization-groupby class="analytics-util-select">
+                  ${renderOptions(REALIZATION_GROUP_BY_OPTIONS, uiState.realizationGroupBy)}
+                </select>
+                <span class="analytics-member-title-chevron" aria-hidden="true">▾</span>
+              </span>
+              <button
+                type="button"
+                data-analytics-realization-sort-toggle
+                style="border:0;background:transparent;padding:0;font-size:.82rem;font-weight:620;color:var(--muted);cursor:pointer;text-decoration:underline;"
+              >
+                Sort: ${escapeHtml(
+                  REALIZATION_SORT_OPTIONS.find((item) => item.id === uiState.realizationSort)?.name || "High → Low"
+                )}
+              </button>
+            </div>
+            ${
+              isCompletedLayer
+                ? '<div data-analytics-realization-primary-host></div>'
+                : '<div class="analytics-chart-empty">In-progress realization coming soon</div>'
+            }
+          </section>
+
+          <section class="analytics-chart-wrap">
+            <div class="analytics-chart-head">
+              <strong>${escapeHtml(selectedRow ? `${selectedRow.name} Monthly Realization` : "Monthly Realization Trend")}</strong>
+            </div>
+            ${
+              isCompletedLayer
+                ? '<div data-analytics-realization-trend-host></div>'
+                : '<div class="analytics-chart-empty">In-progress realization coming soon</div>'
+            }
+          </section>
         </div>
       `;
       bindAnalyticsSubTabEvents(body, uiState, options);
+      const realizationControls = body.querySelector("[data-analytics-realization-controls]");
+      if (realizationControls) {
+        realizationControls.addEventListener("click", (event) => {
+          const button = event.target.closest("[data-analytics-realization-layer]");
+          if (!button || button.disabled) return;
+          const nextLayer = normalizeRealizationLayer(button.dataset.analyticsRealizationLayer);
+          if (nextLayer === uiState.realizationLayer) return;
+          uiState.realizationLayer = nextLayer;
+          renderAnalyticsPage(options);
+        });
+        realizationControls.addEventListener("change", () => {
+          uiState.realizationPeriod = normalizeRealizationPeriod(realizationControls.elements.realizationPeriod?.value);
+          uiState.realizationOfficeId = safeText(realizationControls.elements.realizationOfficeId?.value);
+          uiState.realizationDepartmentId = safeText(realizationControls.elements.realizationDepartmentId?.value);
+          renderAnalyticsPage(options);
+        });
+      }
+      const realizationGroupBy = body.querySelector("[data-analytics-realization-groupby]");
+      if (realizationGroupBy) {
+        realizationGroupBy.addEventListener("change", () => {
+          uiState.realizationGroupBy = normalizeRealizationGroupBy(realizationGroupBy.value);
+          renderAnalyticsPage(options);
+        });
+      }
+      const realizationSortToggle = body.querySelector("[data-analytics-realization-sort-toggle]");
+      if (realizationSortToggle) {
+        realizationSortToggle.addEventListener("click", () => {
+          uiState.realizationSort = nextRealizationSort(uiState.realizationSort);
+          renderAnalyticsPage(options);
+        });
+      }
+      if (isCompletedLayer) {
+        renderRealizationPrimaryChart({
+          container: body.querySelector("[data-analytics-realization-primary-host]"),
+          rows: realizationRows,
+          groupByLabel,
+          selectedKey: uiState.realizationSelectedKey,
+          onSelect: (nextKey) => {
+            uiState.realizationSelectedKey = safeText(nextKey);
+            renderAnalyticsPage(options);
+          },
+        });
+        renderRealizationTrendChart({
+          container: body.querySelector("[data-analytics-realization-trend-host]"),
+          seriesRows: selectedSeries,
+        });
+      }
       return;
     }
 

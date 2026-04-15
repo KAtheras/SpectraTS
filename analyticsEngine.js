@@ -180,6 +180,13 @@
     return pricing === "time_and_materials" ? "tm" : "fixed";
   }
 
+  function isCompletedProject(project) {
+    if (!project || typeof project !== "object") return false;
+    if (project?.isActive === false || project?.is_active === false) return true;
+    const status = safeText(project?.status || project?.projectStatus || project?.project_status).toLowerCase();
+    return status === "deactivated" || status === "inactive" || status === "completed";
+  }
+
   function applyScopeFilter(row, filters) {
     const scope = safeText(filters?.scope || "company");
     const scopeId = safeText(filters?.scopeId);
@@ -343,14 +350,6 @@
     const date = new Date(`${isoDate}T00:00:00`);
     date.setDate(date.getDate() + days);
     return toIsoDate(date);
-  }
-
-  function daysBetweenInclusive(fromDate, toDate) {
-    if (!isValidIsoDate(fromDate) || !isValidIsoDate(toDate) || fromDate > toDate) return 0;
-    const from = new Date(`${fromDate}T00:00:00`);
-    const to = new Date(`${toDate}T00:00:00`);
-    const diff = Math.round((to.getTime() - from.getTime()) / 86400000);
-    return diff + 1;
   }
 
   function formatUtilizationWeeklyLabel(fromDate, toDate) {
@@ -727,6 +726,254 @@
     return { key: "unknown", label: "Unknown" };
   }
 
+  function addMonthsIso(isoDate, count) {
+    if (!isValidIsoDate(isoDate)) return "";
+    const date = new Date(`${isoDate}T00:00:00`);
+    return toIsoDate(new Date(date.getFullYear(), date.getMonth() + count, 1));
+  }
+
+  function buildMonthlyBuckets(fromDate, toDate) {
+    if (!isValidIsoDate(fromDate) || !isValidIsoDate(toDate) || fromDate > toDate) return [];
+    const rows = [];
+    let cursor = `${fromDate.slice(0, 7)}-01`;
+    const endCursor = `${toDate.slice(0, 7)}-01`;
+    while (cursor && cursor <= endCursor) {
+      rows.push({
+        key: cursor,
+        month: cursor,
+      });
+      cursor = addMonthsIso(cursor, 1);
+    }
+    return rows;
+  }
+
+  function computeRealizationAnalytics(input) {
+    const entries = Array.isArray(input?.entries) ? input.entries : [];
+    const expenses = Array.isArray(input?.expenses) ? input.expenses : [];
+    const users = Array.isArray(input?.users) ? input.users : [];
+    const projects = Array.isArray(input?.projects) ? input.projects : [];
+    const clients = Array.isArray(input?.clients) ? input.clients : [];
+    const offices = Array.isArray(input?.offices) ? input.offices : [];
+    const departments = Array.isArray(input?.departments) ? input.departments : [];
+    const assignments = input?.assignments || {};
+    const levelLabels = input?.levelLabels && typeof input.levelLabels === "object" ? input.levelLabels : {};
+    const filters = input?.filters || {};
+    const fromDate = safeText(filters?.fromDate);
+    const toDate = safeText(filters?.toDate);
+    const groupBy = safeText(filters?.groupBy || "client").toLowerCase();
+    const officeFilterId = safeText(filters?.officeId);
+    const departmentFilterId = safeText(filters?.departmentId);
+
+    const usersById = buildUserIndex(users);
+    const usersByUniqueName = buildUniqueUserNameIndex(users);
+    const projectIndex = buildProjectIndex(projects);
+    const clientsById = buildLookupMap(clients, (row) => safeText(row?.id));
+    const officesById = buildLookupMap(offices, (row) => safeText(row?.id));
+    const departmentsById = buildLookupMap(departments, (row) => safeText(row?.id));
+    const projectMemberOverrides = buildLookupMap(assignments?.projectMembers, (row) => {
+      const projectId = safeText(row?.projectId || row?.project_id);
+      const userId = safeText(row?.userId || row?.user_id);
+      return projectId && userId ? `${projectId}::${userId}` : "";
+    });
+    const managerOverrides = buildLookupMap(assignments?.managerProjects, (row) => {
+      const projectId = safeText(row?.projectId || row?.project_id);
+      const userId = safeText(row?.managerId || row?.manager_id);
+      return projectId && userId ? `${projectId}::${userId}` : "";
+    });
+
+    const buckets = buildMonthlyBuckets(fromDate, toDate);
+    const grouped = new Map();
+    const totals = { actualRevenue: 0, standardRevenue: 0 };
+    const fixedProjectActivity = new Map();
+
+    const ensureGroup = (rowContext) => {
+      const identity = groupKeyForDimension(groupBy, rowContext, levelLabels);
+      if (!grouped.has(identity.key)) {
+        grouped.set(identity.key, {
+          key: identity.key,
+          name: identity.label,
+          actualRevenue: 0,
+          standardRevenue: 0,
+          byMonth: new Map(),
+        });
+      }
+      return grouped.get(identity.key);
+    };
+
+    const addGroupMetric = (rowContext, monthKey, actualRevenue, standardRevenue) => {
+      const actual = toNumber(actualRevenue);
+      const standard = toNumber(standardRevenue);
+      if (actual === 0 && standard === 0) return;
+      const target = ensureGroup(rowContext);
+      target.actualRevenue += actual;
+      target.standardRevenue += standard;
+      totals.actualRevenue += actual;
+      totals.standardRevenue += standard;
+      if (monthKey) {
+        if (!target.byMonth.has(monthKey)) {
+          target.byMonth.set(monthKey, { actualRevenue: 0, standardRevenue: 0 });
+        }
+        const monthTarget = target.byMonth.get(monthKey);
+        monthTarget.actualRevenue += actual;
+        monthTarget.standardRevenue += standard;
+      }
+    };
+
+    entries.forEach((entry) => {
+      if (!entry || isDeletedRecord(entry)) return;
+      const date = entryDate(entry);
+      if (!inDateRange(date, fromDate, toDate)) return;
+
+      const project = resolveProjectForRecord(entry, projectIndex);
+      if (!isCompletedProject(project)) return;
+      const projectType = resolveProjectType(project);
+      const scopeMeta = resolveScopeMeta(
+        entry,
+        project,
+        usersById,
+        usersByUniqueName,
+        clientsById,
+        officesById,
+        departmentsById
+      );
+      if (officeFilterId && safeText(scopeMeta.officeId) !== officeFilterId) return;
+      if (departmentFilterId && safeText(scopeMeta.departmentId) !== departmentFilterId) return;
+
+      const hours = toNumber(entry?.hours);
+      if (hours <= 0) return;
+      const rates = resolveRateForEntry(entry, project, usersById, projectMemberOverrides, managerOverrides);
+      const isBillable = entry?.billable !== false;
+      const actualRevenue = projectType === "tm" ? (isBillable ? hours * rates.billRate : 0) : 0;
+      const standardRevenue = hours * rates.baseRate;
+      const monthKey = formatMonthKey(date);
+      const rowContext = {
+        projectId: safeText(project?.id || entry?.projectId || entry?.project_id),
+        clientId: safeText(project?.clientId || project?.client_id),
+        clientName: safeText(project?.client || entry?.client),
+        projectName: safeText(project?.name || project?.project || entry?.project),
+        officeId: scopeMeta.officeId,
+        officeName: scopeMeta.officeName,
+        departmentId: scopeMeta.departmentId,
+        departmentName: scopeMeta.departmentName,
+      };
+      addGroupMetric(rowContext, monthKey, actualRevenue, standardRevenue);
+
+      if (projectType === "fixed") {
+        const projectId = safeText(project?.id || entry?.projectId || entry?.project_id);
+        if (!projectId) return;
+        const existing = fixedProjectActivity.get(projectId) || { monthKey, rowContext };
+        if (!existing.monthKey || monthKey > existing.monthKey) {
+          existing.monthKey = monthKey;
+          existing.rowContext = rowContext;
+        }
+        fixedProjectActivity.set(projectId, existing);
+      }
+    });
+
+    expenses.forEach((expense) => {
+      if (!expense || isDeletedRecord(expense)) return;
+      const date = expenseDate(expense);
+      if (!inDateRange(date, fromDate, toDate)) return;
+
+      const project = resolveProjectForRecord(expense, projectIndex);
+      if (!isCompletedProject(project)) return;
+      const projectType = resolveProjectType(project);
+      const scopeMeta = resolveScopeMeta(
+        expense,
+        project,
+        usersById,
+        usersByUniqueName,
+        clientsById,
+        officesById,
+        departmentsById
+      );
+      if (officeFilterId && safeText(scopeMeta.officeId) !== officeFilterId) return;
+      if (departmentFilterId && safeText(scopeMeta.departmentId) !== departmentFilterId) return;
+
+      const amount = toNumber(expense?.amount);
+      if (amount <= 0) return;
+      const isBillable = expense?.isBillable !== false && expense?.is_billable !== false;
+      const actualRevenue = projectType === "tm" ? (isBillable ? amount : 0) : 0;
+      const standardRevenue = projectType === "tm" ? (isBillable ? amount : 0) : 0;
+      const monthKey = formatMonthKey(date);
+      const rowContext = {
+        projectId: safeText(project?.id || expense?.projectId || expense?.project_id),
+        clientId: safeText(project?.clientId || project?.client_id),
+        clientName: safeText(project?.client || expense?.client || expense?.clientName),
+        projectName: safeText(project?.name || project?.project || expense?.project || expense?.projectName),
+        officeId: scopeMeta.officeId,
+        officeName: scopeMeta.officeName,
+        departmentId: scopeMeta.departmentId,
+        departmentName: scopeMeta.departmentName,
+      };
+      addGroupMetric(rowContext, monthKey, actualRevenue, standardRevenue);
+
+      if (projectType === "fixed") {
+        const projectId = safeText(project?.id || expense?.projectId || expense?.project_id);
+        if (!projectId) return;
+        const existing = fixedProjectActivity.get(projectId) || { monthKey, rowContext };
+        if (!existing.monthKey || monthKey > existing.monthKey) {
+          existing.monthKey = monthKey;
+          existing.rowContext = rowContext;
+        }
+        fixedProjectActivity.set(projectId, existing);
+      }
+    });
+
+    fixedProjectActivity.forEach((activity, projectId) => {
+      const project = projectIndex.byId.get(projectId) || null;
+      if (!isCompletedProject(project)) return;
+      const contractAmount = toNullableNumber(project?.contractAmount ?? project?.contract_amount);
+      if (!Number.isFinite(contractAmount) || contractAmount <= 0) return;
+      addGroupMetric(activity.rowContext || {}, activity.monthKey, contractAmount, 0);
+    });
+
+    const rows = Array.from(grouped.values()).map((row) => ({
+      key: row.key,
+      name: row.name,
+      actualRevenue: row.actualRevenue,
+      standardRevenue: row.standardRevenue,
+      realizationPct: realizationPct(row.actualRevenue, row.standardRevenue),
+      byMonth: row.byMonth,
+    }));
+
+    rows.sort((a, b) => {
+      const left = Number.isFinite(a.realizationPct) ? a.realizationPct : -1;
+      const right = Number.isFinite(b.realizationPct) ? b.realizationPct : -1;
+      return right - left || b.actualRevenue - a.actualRevenue || a.name.localeCompare(b.name);
+    });
+
+    const monthlyByKey = {};
+    rows.forEach((row) => {
+      monthlyByKey[row.key] = buckets.map((bucket) => {
+        const monthSample = row.byMonth.get(bucket.key) || { actualRevenue: 0, standardRevenue: 0 };
+        return {
+          month: bucket.month,
+          actualRevenue: monthSample.actualRevenue,
+          standardRevenue: monthSample.standardRevenue,
+          realizationPct: realizationPct(monthSample.actualRevenue, monthSample.standardRevenue),
+        };
+      });
+    });
+
+    return {
+      kpis: {
+        avgRealizationPct: realizationPct(totals.actualRevenue, totals.standardRevenue),
+        actualRevenue: totals.actualRevenue,
+        standardRevenue: totals.standardRevenue,
+      },
+      rows: rows.map((row) => ({
+        key: row.key,
+        name: row.name,
+        actualRevenue: row.actualRevenue,
+        standardRevenue: row.standardRevenue,
+        realizationPct: row.realizationPct,
+      })),
+      monthlyByKey,
+      months: buckets.map((bucket) => bucket.month),
+    };
+  }
+
   function computeAnalytics(input) {
     const entries = Array.isArray(input?.entries) ? input.entries : [];
     const expenses = Array.isArray(input?.expenses) ? input.expenses : [];
@@ -1076,6 +1323,7 @@
   window.analyticsEngine = {
     computeAnalytics,
     computeUtilizationAnalytics,
+    computeRealizationAnalytics,
     listScopeOptions,
     listClientProjectOptions,
   };
