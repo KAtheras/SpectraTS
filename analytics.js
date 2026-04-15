@@ -305,6 +305,10 @@
     return list;
   }
 
+  function nextUtilizationMemberSort(current) {
+    return normalizeUtilizationMemberSort(current) === "high_to_low" ? "low_to_high" : "high_to_low";
+  }
+
   function utilizationPeriodRange(periodId, nowDate) {
     const now = nowDate instanceof Date ? nowDate : new Date();
     const todayDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -805,6 +809,7 @@
       },
       yAxis: {
         type: "category",
+        inverse: true,
         data: labels,
         axisTick: { show: false },
         axisLabel: {
@@ -1131,12 +1136,16 @@
                 <strong>Current Utilization by ${escapeHtml(groupByLabel)}</strong>
                 ${
                   showMemberSortControl
-                    ? `<label style="display:inline-flex;align-items:center;gap:6px;font-size:.74rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;">
-                        <span>Sort</span>
-                        <select name="memberSort" data-analytics-member-sort style="min-height:30px;background:#fff;">
-                          ${renderOptions(UTILIZATION_MEMBER_SORT_OPTIONS, uiState.utilizationMemberSort)}
-                        </select>
-                      </label>`
+                    ? `<button
+                        type="button"
+                        data-analytics-member-sort-toggle
+                        style="border:0;background:transparent;padding:0;font-size:.82rem;font-weight:620;color:var(--muted);cursor:pointer;text-decoration:underline;"
+                      >
+                        Sort: ${escapeHtml(
+                          UTILIZATION_MEMBER_SORT_OPTIONS.find((item) => item.id === uiState.utilizationMemberSort)?.name ||
+                            "High → Low"
+                        )}
+                      </button>`
                     : ""
                 }
               </div>
@@ -1168,10 +1177,10 @@
           renderAnalyticsPage(options);
         });
       }
-      const memberSortSelect = body.querySelector("[data-analytics-member-sort]");
-      if (memberSortSelect) {
-        memberSortSelect.addEventListener("change", () => {
-          uiState.utilizationMemberSort = normalizeUtilizationMemberSort(memberSortSelect.value);
+      const memberSortToggle = body.querySelector("[data-analytics-member-sort-toggle]");
+      if (memberSortToggle) {
+        memberSortToggle.addEventListener("click", () => {
+          uiState.utilizationMemberSort = nextUtilizationMemberSort(uiState.utilizationMemberSort);
           renderAnalyticsPage(options);
         });
       }
