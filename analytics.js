@@ -697,7 +697,7 @@
 
     chart.setOption({
       animation: false,
-      grid: { left: 172, right: 40, top: 26, bottom: 10 },
+      grid: { left: 172, right: 40, top: 26, bottom: 26, containLabel: true },
       tooltip: {
         trigger: "axis",
         axisPointer: { type: "shadow" },
@@ -732,7 +732,11 @@
           if (maxValue <= 0) return 1;
           return maxValue * 1.08;
         },
-        axisLabel: { formatter: (value) => `${Math.round(value)}` },
+        axisLabel: {
+          formatter: (value) => `${Math.round(value)}`,
+          margin: 10,
+          hideOverlap: true,
+        },
         splitLine: { lineStyle: { color: "rgba(128,128,128,0.25)" } },
       },
       yAxis: {
