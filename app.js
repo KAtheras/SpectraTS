@@ -434,6 +434,7 @@
     entriesSwitchTime: document.getElementById("entries-switch-time"),
     entriesSwitchDeletedFromTime: document.getElementById("entries-switch-deleted-from-time"),
     entriesSwitchDeletedFromExpenses: document.getElementById("entries-switch-deleted-from-expenses"),
+    entriesSwitchActiveFromDeleted: document.getElementById("entries-switch-active-from-deleted"),
     entriesSwitchTimeFromDeleted: document.getElementById("entries-switch-time-from-deleted"),
     entriesSwitchExpensesFromDeleted: document.getElementById("entries-switch-expenses-from-deleted"),
     entriesPanelTime: document.getElementById("entries-panel-time"),
@@ -11274,13 +11275,21 @@
   }
   if (refs.entriesSwitchTimeFromDeleted) {
     refs.entriesSwitchTimeFromDeleted.addEventListener("click", function () {
-      state.entriesSubtab = "time";
+      state.entriesSubtab = "deleted";
+      state.deletedItemsView = "time";
       render();
     });
   }
   if (refs.entriesSwitchExpensesFromDeleted) {
     refs.entriesSwitchExpensesFromDeleted.addEventListener("click", function () {
-      state.entriesSubtab = "expenses";
+      state.entriesSubtab = "deleted";
+      state.deletedItemsView = "expense";
+      render();
+    });
+  }
+  if (refs.entriesSwitchActiveFromDeleted) {
+    refs.entriesSwitchActiveFromDeleted.addEventListener("click", function () {
+      state.entriesSubtab = state.deletedItemsView === "expense" ? "expenses" : "time";
       render();
     });
   }
