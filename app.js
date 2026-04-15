@@ -2481,17 +2481,9 @@
     const certificationsSection = memberEditorForm.querySelector('[data-member-editor-section="certifications"]');
     if (identitySection) identitySection.hidden = isSelfProfileMode;
     if (orgSection) orgSection.hidden = isSelfProfileMode;
-    if (ratesSection) ratesSection.hidden = isSelfProfileMode || mode === "edit";
-    if (profileSection) profileSection.hidden = mode === "edit" && !isSelfProfileMode;
-    if (certificationsSection) certificationsSection.hidden = mode === "edit" && !isSelfProfileMode;
-    if (!isSelfProfileMode && mode === "edit") {
-      ["username", "email", "employee_id", "office_id", "is_exempt"].forEach((name) => {
-        const el = field(memberEditorForm, name);
-        if (el) el.disabled = true;
-      });
-      if (baseRateField) baseRateField.disabled = true;
-      if (costRateField) costRateField.disabled = true;
-    }
+    if (ratesSection) ratesSection.hidden = isSelfProfileMode;
+    if (profileSection) profileSection.hidden = false;
+    if (certificationsSection) certificationsSection.hidden = false;
     if (memberEditorReset) {
       memberEditorReset.hidden = isSelfProfileMode || !(mode === "edit" && Boolean(state.permissions?.reset_user_password));
       memberEditorReset.disabled =
@@ -2732,13 +2724,23 @@
             normalizeText(currentUser.email) !== email ||
             normalizeText(currentUser.employeeId) !== employeeId ||
             normalizeLevel(currentUser.level || "1") !== level ||
+            normalizeText(currentUser.officeId) !== normalizeText(officeId) ||
+            Boolean(currentUser.isExempt) !== isExempt ||
+            normalizeText(currentUser.certifications) !== certifications ||
+            normalizeText(currentUser.memberProfile) !== memberProfile ||
             normalizeText(currentUser.activeFrom) !== normalizeText(activeFrom)
           );
         const departmentChanged =
           canEditProfile &&
           normalizeText(currentUser.departmentId) !== normalizeText(departmentId);
-        const baseRateChanged = false;
-        const costRateChanged = false;
+        const baseRateChanged =
+          canEditBaseRates &&
+          targetRoleAllowed &&
+          normalizeNumber(currentUser.baseRate) !== normalizeNumber(baseRate);
+        const costRateChanged =
+          canEditCostRates &&
+          targetRoleAllowed &&
+          normalizeNumber(currentUser.costRate) !== normalizeNumber(costRate);
         const ratesChanged = baseRateChanged || costRateChanged;
         if (!profileChanged && !departmentChanged && !ratesChanged) {
           closeMemberEditorModal();
@@ -2756,9 +2758,11 @@
                 email,
                 employeeId,
                 level,
-                officeId: currentUser.officeId || null,
-                isExempt: currentUser.isExempt === true,
+                officeId,
+                isExempt,
                 activeFrom,
+                certifications,
+                memberProfile,
               },
               settingsSaveFastOptions()
             );
