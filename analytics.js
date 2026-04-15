@@ -118,8 +118,9 @@
         display: inline-block;
       }
       .analytics-member-title-select {
+        appearance: none;
         min-height: 28px;
-        padding: 0 8px;
+        padding: 0 28px 0 8px;
         border-radius: 7px;
         border: 1px solid color-mix(in srgb, var(--line) 72%, transparent);
         background: color-mix(in srgb, var(--surface) 92%, transparent);
@@ -130,6 +131,21 @@
       .analytics-member-title-select:focus-visible {
         outline: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
         outline-offset: 1px;
+      }
+      .analytics-member-title-wrap {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+      }
+      .analytics-member-title-chevron {
+        position: absolute;
+        right: 8px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: color-mix(in srgb, var(--ink) 52%, var(--muted) 48%);
+        font-size: .72rem;
+        pointer-events: none;
+        line-height: 1;
       }
       .analytics-util-card {
         border: 1px solid var(--line);
@@ -331,6 +347,49 @@
 
   function memberTitleLabel(row) {
     return safeText(row?.memberTitle) || "Unassigned";
+  }
+
+  function titleFromUser(user, levelLabels) {
+    const explicitTitle = safeText(
+      user?.title ||
+        user?.jobTitle ||
+        user?.job_title ||
+        user?.memberTitle ||
+        user?.member_title ||
+        user?.role
+    );
+    if (explicitTitle) return explicitTitle;
+    const level = Number(user?.level);
+    const explicitLevelLabel = safeText(levelLabels?.[level]?.label);
+    if (explicitLevelLabel) return explicitLevelLabel;
+    const permissionGroup = safeText(user?.permissionGroup || user?.permission_group).toLowerCase();
+    if (!permissionGroup) return "";
+    return permissionGroup.charAt(0).toUpperCase() + permissionGroup.slice(1);
+  }
+
+  function memberTitleByRowKey(rows, users, levelLabels) {
+    const index = new Map();
+    const userList = Array.isArray(users) ? users : [];
+    const usersByName = new Map();
+    userList.forEach((user) => {
+      const displayName = safeText(user?.displayName || user?.username).toLowerCase();
+      if (!displayName) return;
+      if (!usersByName.has(displayName)) usersByName.set(displayName, user);
+    });
+    (Array.isArray(rows) ? rows : []).forEach((row) => {
+      const key = safeText(row?.key);
+      if (!key) return;
+      const rowTitle = memberTitleLabel(row);
+      if (rowTitle && rowTitle !== "Unassigned") {
+        index.set(key, rowTitle);
+        return;
+      }
+      const rowName = safeText(row?.name).toLowerCase();
+      const match = rowName ? usersByName.get(rowName) : null;
+      const derived = titleFromUser(match, levelLabels);
+      index.set(key, derived || "Unassigned");
+    });
+    return index;
   }
 
   function filterUtilizationRowsByMemberTitle(rows, groupBy, selectedTitle) {
@@ -1094,9 +1153,16 @@
       });
       const rawUtilizationRows = Array.isArray(utilization?.rows) ? utilization.rows : [];
       const isMemberGrouping = uiState.utilizationGroupBy === "member";
+      const memberTitleIndex = memberTitleByRowKey(rawUtilizationRows, appState.users, appState.levelLabels);
       const memberTitleOptions = [
         { id: UTILIZATION_MEMBER_TITLE_ALL, name: "All Titles" },
-        ...Array.from(new Set(rawUtilizationRows.map((row) => memberTitleLabel(row)).filter(Boolean)))
+        ...Array.from(
+          new Set(
+            rawUtilizationRows
+              .map((row) => memberTitleIndex.get(safeText(row?.key)) || "Unassigned")
+              .filter(Boolean)
+          )
+        )
           .sort((a, b) => a.localeCompare(b))
           .map((title) => ({ id: title, name: title })),
       ];
@@ -1108,7 +1174,10 @@
         uiState.utilizationMemberTitle = UTILIZATION_MEMBER_TITLE_ALL;
       }
       const titleFilteredRows = filterUtilizationRowsByMemberTitle(
-        rawUtilizationRows,
+        rawUtilizationRows.map((row) => ({
+          ...row,
+          memberTitle: memberTitleIndex.get(safeText(row?.key)) || memberTitleLabel(row),
+        })),
         uiState.utilizationGroupBy,
         uiState.utilizationMemberTitle
       );
@@ -1190,9 +1259,12 @@
                   showMemberSortControl
                     ? `<span style="display:inline-flex;align-items:center;gap:8px;min-width:0;">
                         <strong>Members:</strong>
-                        <select name="memberTitle" data-analytics-member-title class="analytics-member-title-select" style="max-width:200px;">
-                          ${renderOptions(memberTitleOptions, uiState.utilizationMemberTitle)}
-                        </select>
+                        <span class="analytics-member-title-wrap" style="max-width:200px;">
+                          <select name="memberTitle" data-analytics-member-title class="analytics-member-title-select" style="max-width:200px;">
+                            ${renderOptions(memberTitleOptions, uiState.utilizationMemberTitle)}
+                          </select>
+                          <span class="analytics-member-title-chevron" aria-hidden="true">▾</span>
+                        </span>
                       </span>`
                     : `<strong>Current Utilization by ${escapeHtml(groupByLabel)}</strong>`
                 }
