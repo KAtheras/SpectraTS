@@ -632,10 +632,14 @@
     const internal = points.map((item) => toNumber(item?.internalHours));
     const pto = points.map((item) => toNumber(item?.ptoHours));
     const idle = points.map((item) => toNumber(item?.idleHours));
+    const totals = points.map((item) =>
+      toNumber(item?.clientHours) + toNumber(item?.internalHours) + toNumber(item?.ptoHours) + toNumber(item?.idleHours)
+    );
+    const utilLabelPoints = points.map((item, index) => [totals[index], index, formatPercent(item?.utilizationPct)]);
 
     chart.setOption({
       animation: false,
-      grid: { left: 120, right: 18, top: 18, bottom: 30 },
+      grid: { left: 120, right: 80, top: 44, bottom: 58 },
       tooltip: {
         trigger: "axis",
         axisPointer: { type: "shadow" },
@@ -674,13 +678,32 @@
         axisTick: { show: false },
       },
       legend: {
-        bottom: 0,
+        top: 8,
+        data: ["Client", "Internal", "PTO", "Idle"],
       },
       series: [
         { name: "Client", type: "bar", stack: "hours", data: client, itemStyle: { color: "#2f6fed" } },
-        { name: "Internal", type: "bar", stack: "hours", data: internal, itemStyle: { color: "#6f7f96" } },
+        { name: "Internal", type: "bar", stack: "hours", data: internal, itemStyle: { color: "#2f9988" } },
         { name: "PTO", type: "bar", stack: "hours", data: pto, itemStyle: { color: "#9a78d1" } },
         { name: "Idle", type: "bar", stack: "hours", data: idle, itemStyle: { color: "#b8bdc7" } },
+        {
+          name: "Utilization",
+          type: "scatter",
+          data: utilLabelPoints,
+          silent: true,
+          tooltip: { show: false },
+          symbolSize: 1,
+          itemStyle: { opacity: 0 },
+          label: {
+            show: true,
+            position: "right",
+            color: "var(--ink)",
+            fontSize: 12,
+            fontWeight: 700,
+            formatter: (params) => safeText(params?.data?.[2]),
+          },
+          z: 10,
+        },
       ],
     });
   }
@@ -757,12 +780,6 @@
       body.innerHTML = `
         <div class="analytics-panel" data-analytics-root>
           ${subTabsHtml}
-          <section class="analytics-subtab-shell">
-            <h3>Utilization</h3>
-            <p>Capacity usage by ${escapeHtml(groupByLabel.toLowerCase())} for ${escapeHtml(
-              UTILIZATION_PERIODS.find((item) => item.id === uiState.utilizationPeriod)?.name || ""
-            )}.</p>
-          </section>
 
           <form class="analytics-util-filters" data-analytics-utilization-filters>
             <label>
