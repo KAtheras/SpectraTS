@@ -18,6 +18,17 @@
     return /^\d{4}-\d{2}-\d{2}$/.test(String(value || ""));
   }
 
+  function normalizeIsoDateValue(value) {
+    const raw = safeText(value);
+    if (!raw) return "";
+    if (isValidIsoDate(raw)) return raw;
+    if (/^\d{4}-\d{2}-\d{2}T/.test(raw)) {
+      const sliced = raw.slice(0, 10);
+      return isValidIsoDate(sliced) ? sliced : "";
+    }
+    return "";
+  }
+
   function formatMonthKey(isoDate) {
     return isValidIsoDate(isoDate) ? `${isoDate.slice(0, 7)}-01` : "";
   }
@@ -224,6 +235,36 @@
   function utilizationPct(clientHours, capacityHours) {
     if (capacityHours <= 0) return null;
     return (clientHours / capacityHours) * 100;
+  }
+
+  function resolveMemberActivePeriod(user) {
+    const activeFrom = normalizeIsoDateValue(user?.activeFrom ?? user?.active_from);
+    if (!activeFrom) {
+      return { useLifecycle: false, activeFrom: "", activeTo: "" };
+    }
+    const activeToRaw = normalizeIsoDateValue(user?.activeTo ?? user?.active_to);
+    const activeTo = activeToRaw && activeToRaw >= activeFrom ? activeToRaw : "";
+    return { useLifecycle: true, activeFrom, activeTo };
+  }
+
+  function memberBusinessDaysInRange(memberMeta, fromDate, toDate, options) {
+    if (!isValidIsoDate(fromDate) || !isValidIsoDate(toDate) || fromDate > toDate) return 0;
+    const capToDate = normalizeIsoDateValue(options?.capToDate);
+    let rangeFrom = fromDate;
+    let rangeTo = toDate;
+    if (capToDate) {
+      rangeTo = minIsoDate(rangeTo, capToDate);
+    }
+    if (rangeFrom > rangeTo) return 0;
+    if (!memberMeta?.useLifecycle) {
+      return countBusinessDaysInclusive(rangeFrom, rangeTo);
+    }
+    rangeFrom = maxIsoDate(rangeFrom, memberMeta.activeFrom);
+    if (memberMeta.activeTo) {
+      rangeTo = minIsoDate(rangeTo, memberMeta.activeTo);
+    }
+    if (!rangeFrom || !rangeTo || rangeFrom > rangeTo) return 0;
+    return countBusinessDaysInclusive(rangeFrom, rangeTo);
   }
 
   function countBusinessDaysInclusive(fromDate, toDate) {
@@ -514,6 +555,7 @@
     const timeBuckets = timeBucketMeta.buckets;
     const defaultMemberCapacityHours = businessDays * 8;
     const memberCapacityByKey = new Map();
+    const memberMetaByKey = new Map();
     const grouped = new Map();
     const globalMemberKeys = new Set();
 
@@ -546,8 +588,16 @@
       const memberName = safeText(scopeMeta.user?.displayName || scopeMeta.user?.username || entry?.user) || "Unassigned";
       const memberKey = userId || `name::${memberName.toLowerCase()}`;
       const memberTitle = resolveMemberTitle(scopeMeta.user || {}, levelLabels);
+      if (!memberMetaByKey.has(memberKey)) {
+        memberMetaByKey.set(memberKey, resolveMemberActivePeriod(scopeMeta.user || null));
+      }
       if (!memberCapacityByKey.has(memberKey)) {
-        memberCapacityByKey.set(memberKey, defaultMemberCapacityHours);
+        const memberMeta = memberMetaByKey.get(memberKey) || { useLifecycle: false };
+        const tenureBusinessDays = memberBusinessDaysInRange(memberMeta, fromDate, toDate);
+        memberCapacityByKey.set(
+          memberKey,
+          memberMeta.useLifecycle ? tenureBusinessDays * 8 : defaultMemberCapacityHours
+        );
       }
       globalMemberKeys.add(memberKey);
 
@@ -620,8 +670,9 @@
         capacityHours: capacity,
         memberCount: row.memberKeys.size,
         timeByBucket: row.timeByBucket,
+        memberKeys: row.memberKeys,
       };
-    });
+    }).filter((row) => !(groupBy === "member" && row.capacityHours <= 0));
 
     rows.sort((a, b) => {
       const left = Number.isFinite(a.utilizationPct) ? a.utilizationPct : -1;
@@ -642,12 +693,20 @@
             const sample = row.timeByBucket.get(bucket.key) || { clientHours: 0, internalHours: 0, ptoHours: 0 };
             const effectiveBucketFrom = maxIsoDate(bucket.fromDate, fromDate);
             const effectiveBucketTo = minIsoDate(bucket.toDate, toDate);
-            const effectiveToForCapacity = minIsoDate(effectiveBucketTo, todayIso);
-            const effectiveBusinessDays = countBusinessDaysInclusive(effectiveBucketFrom, effectiveToForCapacity);
-            const capacityHours = row.memberCount * toNumber(effectiveBusinessDays) * 8;
+            let bucketCapacityHours = 0;
+            row.memberKeys.forEach((memberKey) => {
+              const memberMeta = memberMetaByKey.get(memberKey) || { useLifecycle: false };
+              const tenureBusinessDays = memberBusinessDaysInRange(
+                memberMeta,
+                effectiveBucketFrom,
+                effectiveBucketTo,
+                { capToDate: todayIso }
+              );
+              bucketCapacityHours += tenureBusinessDays * 8;
+            });
             const idleHours = Math.max(
               0,
-              capacityHours - (sample.clientHours + sample.internalHours + sample.ptoHours)
+              bucketCapacityHours - (sample.clientHours + sample.internalHours + sample.ptoHours)
             );
             return {
               key: bucket.key,
@@ -656,8 +715,8 @@
               internalHours: sample.internalHours,
               ptoHours: sample.ptoHours,
               idleHours,
-              capacityHours,
-              utilizationPct: utilizationPct(sample.clientHours, capacityHours),
+              capacityHours: bucketCapacityHours,
+              utilizationPct: utilizationPct(sample.clientHours, bucketCapacityHours),
             };
           })
         : [];
@@ -690,7 +749,8 @@
       timeBuckets: timeBuckets.map((bucket) => ({ key: bucket.key, label: bucket.label })),
       timeSeriesByKey,
       assumptions: {
-        capacity: "Capacity defaults to business days in period × 8 hours per unique member in scope.",
+        capacity:
+          "Capacity uses business days × 8 hours per member, prorated to each member's active period (active_from/active_to) when available; members without active_from use legacy full-period capacity behavior.",
         categoryMapping:
           "Client = billable external project time; Internal = internal/corporate time plus non-billable external time, excluding PTO; PTO = internal time matching PTO keywords (vacation/sick/holiday/leave).",
       },

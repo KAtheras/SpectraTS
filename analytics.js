@@ -1387,6 +1387,16 @@
     const profitabilityData = excludeInternalAnalyticsData(appState);
     const utilizationData = {
       entries: Array.isArray(appState?.entries) ? appState.entries : [],
+      users: Array.isArray(appState?.users) || Array.isArray(appState?.inactiveUsers)
+        ? Array.from(
+            new Map(
+              [...(Array.isArray(appState?.users) ? appState.users : []), ...(Array.isArray(appState?.inactiveUsers) ? appState.inactiveUsers : [])]
+                .filter(Boolean)
+                .map((user) => [safeText(user?.id || user?.userId || user?.user_id) || safeText(user?.username || user?.displayName), user])
+                .filter((pair) => safeText(pair[0]))
+            ).values()
+          )
+        : [],
       projects: Array.isArray(appState?.projects) ? appState.projects : [],
       clients: Array.isArray(appState?.clients) ? appState.clients : [],
     };
@@ -1613,7 +1623,7 @@
         UTILIZATION_GROUP_BY_OPTIONS.find((item) => item.id === uiState.utilizationGroupBy)?.name || "Group";
       const utilization = engine.computeUtilizationAnalytics({
         entries: utilizationData.entries,
-        users: appState.users,
+        users: utilizationData.users,
         projects: utilizationData.projects,
         clients: utilizationData.clients,
         offices: appState.officeLocations,
