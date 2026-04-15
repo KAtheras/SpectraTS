@@ -117,6 +117,20 @@
         border-radius: 3px;
         display: inline-block;
       }
+      .analytics-member-title-select {
+        min-height: 28px;
+        padding: 0 8px;
+        border-radius: 7px;
+        border: 1px solid color-mix(in srgb, var(--line) 72%, transparent);
+        background: color-mix(in srgb, var(--surface) 92%, transparent);
+        color: color-mix(in srgb, var(--ink) 72%, var(--muted) 28%);
+        font-size: .82rem;
+        font-weight: 560;
+      }
+      .analytics-member-title-select:focus-visible {
+        outline: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+        outline-offset: 1px;
+      }
       .analytics-util-card {
         border: 1px solid var(--line);
         border-radius: 10px;
@@ -1176,7 +1190,7 @@
                   showMemberSortControl
                     ? `<span style="display:inline-flex;align-items:center;gap:8px;min-width:0;">
                         <strong>Members:</strong>
-                        <select name="memberTitle" data-analytics-member-title style="min-height:30px;background:#fff;max-width:220px;">
+                        <select name="memberTitle" data-analytics-member-title class="analytics-member-title-select" style="max-width:200px;">
                           ${renderOptions(memberTitleOptions, uiState.utilizationMemberTitle)}
                         </select>
                       </span>`

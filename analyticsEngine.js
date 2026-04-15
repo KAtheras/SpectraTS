@@ -213,6 +213,15 @@
   }
 
   function resolveMemberTitle(user, levelLabels) {
+    const explicitTitle = safeText(
+      user?.title ||
+        user?.jobTitle ||
+        user?.job_title ||
+        user?.memberTitle ||
+        user?.member_title ||
+        user?.role
+    );
+    if (explicitTitle) return explicitTitle;
     const level = Number(user?.level);
     const explicitLevelLabel = safeText(levelLabels?.[level]?.label);
     if (explicitLevelLabel) return explicitLevelLabel;
