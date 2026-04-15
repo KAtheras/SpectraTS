@@ -239,16 +239,10 @@
         user?.jobTitle ||
         user?.job_title ||
         user?.memberTitle ||
-        user?.member_title ||
-        user?.role
+        user?.member_title
     );
     if (explicitTitle) return explicitTitle;
-    const level = Number(user?.level);
-    const explicitLevelLabel = safeText(levelLabels?.[level]?.label);
-    if (explicitLevelLabel) return explicitLevelLabel;
-    const permissionGroup = safeText(user?.permissionGroup || user?.permission_group).toLowerCase();
-    if (!permissionGroup) return "Unassigned";
-    return permissionGroup.charAt(0).toUpperCase() + permissionGroup.slice(1);
+    return "Unassigned";
   }
 
   function buildCorporateCategoryIndex(categories) {
