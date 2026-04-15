@@ -551,6 +551,7 @@
         grouped.set(identity.key, {
           key: identity.key,
           name: identity.label,
+          memberId: groupBy === "member" ? safeText(row.memberId) : "",
           memberTitle: groupBy === "member" ? memberTitle : "",
           clientHours: 0,
           internalHours: 0,
@@ -560,6 +561,12 @@
         });
       }
       const target = grouped.get(identity.key);
+      if (!target.memberId && groupBy === "member") {
+        target.memberId = safeText(row.memberId);
+      }
+      if ((!target.memberTitle || target.memberTitle === "Unassigned") && groupBy === "member") {
+        target.memberTitle = memberTitle;
+      }
       target.memberKeys.add(memberKey);
       if (bucket === "client") target.clientHours += hours;
       if (bucket === "internal") target.internalHours += hours;
@@ -585,7 +592,8 @@
       return {
         key: row.key,
         name: row.name,
-        memberId: row.memberId || "",
+        memberId: safeText(row.memberId),
+        memberTitle: safeText(row.memberTitle),
         utilizationPct: utilizationPct(row.clientHours, capacity),
         clientHours: row.clientHours,
         internalHours: row.internalHours,
