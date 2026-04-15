@@ -693,6 +693,7 @@
     const capacityByIndex = rows.map((item) =>
       toNumber(item?.clientHours) + toNumber(item?.internalHours) + toNumber(item?.ptoHours) + toNumber(item?.idleHours)
     );
+    const utilizationLabelByIndex = rows.map((item) => formatPercent(item?.utilizationPct));
 
     chart.setOption({
       animation: false,
@@ -726,6 +727,11 @@
       },
       xAxis: {
         type: "value",
+        max: (value) => {
+          const maxValue = toNumber(value?.max);
+          if (maxValue <= 0) return 1;
+          return maxValue * 1.08;
+        },
         axisLabel: { formatter: (value) => `${Math.round(value)}` },
         splitLine: { lineStyle: { color: "rgba(128,128,128,0.25)" } },
       },
@@ -747,22 +753,42 @@
         { name: "PTO", type: "bar", stack: "hours", data: makeSeriesData("ptoHours"), itemStyle: { color: "#9a78d1" } },
         { name: "Idle", type: "bar", stack: "hours", data: makeSeriesData("idleHours"), itemStyle: { color: "#b8bdc7" } },
         {
-          name: "Utilization",
-          type: "scatter",
-          data: rows.map((item, index) => [capacityByIndex[index], index, formatPercent(item?.utilizationPct)]),
+          name: "__utilization_label__",
+          type: "bar",
+          data: capacityByIndex,
+          barGap: "-100%",
           silent: true,
           tooltip: { show: false },
-          symbolSize: 1,
-          itemStyle: { opacity: 0 },
+          itemStyle: { color: "rgba(0,0,0,0)" },
           label: {
             show: true,
             position: "right",
-            color: "var(--ink)",
+            distance: 6,
+            color: "#283142",
             fontSize: 12,
             fontWeight: 700,
-            formatter: (params) => safeText(params?.data?.[2]),
+            formatter: (params) => safeText(utilizationLabelByIndex[Number(params?.dataIndex)]),
+            hideOverlap: true,
           },
-          z: 10,
+          z: 20,
+          zlevel: 0,
+          emphasis: { disabled: true },
+          select: { disabled: true },
+          blur: { itemStyle: { opacity: 0 } },
+        },
+      ],
+    });
+
+    // Keep left chart labels visible in dense lists by preferring display over animation interpolation.
+    chart.setOption({
+      animation: false,
+      series: [
+        {},
+        {},
+        {},
+        {},
+        {
+          labelLayout: { hideOverlap: true },
         },
       ],
     });
@@ -813,6 +839,7 @@
     const totals = seriesRows.map((item) =>
       toNumber(item?.clientHours) + toNumber(item?.internalHours) + toNumber(item?.ptoHours) + toNumber(item?.idleHours)
     );
+    const utilizationLabelByIndex = seriesRows.map((item) => formatPercent(item?.utilizationPct));
 
     chart.setOption({
       animation: false,
@@ -847,6 +874,11 @@
       },
       yAxis: {
         type: "value",
+        max: (value) => {
+          const maxValue = toNumber(value?.max);
+          if (maxValue <= 0) return 1;
+          return maxValue * 1.12;
+        },
         axisLabel: { formatter: (value) => `${Math.round(value)}` },
         splitLine: { lineStyle: { color: "rgba(128,128,128,0.25)" } },
       },
@@ -856,23 +888,26 @@
         { name: "PTO", type: "bar", stack: "hours", data: pto, itemStyle: { color: "#9a78d1" } },
         { name: "Idle", type: "bar", stack: "hours", data: idle, itemStyle: { color: "#b8bdc7" } },
         {
-          name: "Utilization",
-          type: "scatter",
-          data: seriesRows.map((item, index) => [index, totals[index], formatPercent(item?.utilizationPct)]),
+          name: "__utilization_label__",
+          type: "bar",
+          data: totals,
+          barGap: "-100%",
           silent: true,
           tooltip: { show: false },
-          symbolSize: 1,
-          itemStyle: { opacity: 0 },
+          itemStyle: { color: "rgba(0,0,0,0)" },
           label: {
             show: true,
             position: "top",
-            color: "var(--ink)",
+            distance: 4,
+            color: "#283142",
             fontSize: 11,
             fontWeight: 700,
-            formatter: (params) => safeText(params?.data?.[2]),
+            formatter: (params) => safeText(utilizationLabelByIndex[Number(params?.dataIndex)]),
             hideOverlap: true,
           },
           z: 10,
+          emphasis: { disabled: true },
+          select: { disabled: true },
         },
       ],
     });
