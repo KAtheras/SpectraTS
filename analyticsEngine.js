@@ -44,6 +44,23 @@
     return byId;
   }
 
+  function buildUniqueUserNameIndex(users) {
+    const rows = Array.isArray(users) ? users : [];
+    const counts = new Map();
+    rows.forEach((user) => {
+      const name = safeText(user?.displayName || user?.display_name || user?.username).toLowerCase();
+      if (!name) return;
+      counts.set(name, (counts.get(name) || 0) + 1);
+    });
+    const byName = new Map();
+    rows.forEach((user) => {
+      const name = safeText(user?.displayName || user?.display_name || user?.username).toLowerCase();
+      if (!name) return;
+      if (counts.get(name) === 1) byName.set(name, user);
+    });
+    return byName;
+  }
+
   function buildLookupMap(rows, keyFn) {
     const map = new Map();
     (Array.isArray(rows) ? rows : []).forEach((row) => {
@@ -65,9 +82,13 @@
     return projectIndex.byClientProject.get(`${client.toLowerCase()}::${projectName.toLowerCase()}`) || null;
   }
 
-  function resolveScopeMeta(record, project, usersById, clientsById, officesById, departmentsById) {
+  function resolveScopeMeta(record, project, usersById, usersByUniqueName, clientsById, officesById, departmentsById) {
     const userId = safeText(record?.userId || record?.user_id);
-    const user = userId ? usersById.get(userId) : null;
+    const userName = safeText(record?.user).toLowerCase();
+    const user =
+      (userId ? usersById.get(userId) : null) ||
+      (userName ? usersByUniqueName.get(userName) : null) ||
+      null;
 
     const projectOfficeId = safeText(project?.officeId || project?.office_id);
     const projectDepartmentId = safeText(project?.projectDepartmentId || project?.project_department_id);
@@ -463,6 +484,7 @@
     const departmentFilterId = safeText(filters?.departmentId);
 
     const usersById = buildUserIndex(users);
+    const usersByUniqueName = buildUniqueUserNameIndex(users);
     const projectIndex = buildProjectIndex(projects);
     const clientsById = buildLookupMap(clients, (row) => safeText(row?.id));
     const officesById = buildLookupMap(offices, (row) => safeText(row?.id));
@@ -490,7 +512,15 @@
       if (hours <= 0) return;
 
       const project = resolveProjectForRecord(entry, projectIndex);
-      const scopeMeta = resolveScopeMeta(entry, project, usersById, clientsById, officesById, departmentsById);
+      const scopeMeta = resolveScopeMeta(
+        entry,
+        project,
+        usersById,
+        usersByUniqueName,
+        clientsById,
+        officesById,
+        departmentsById
+      );
       if (officeFilterId && safeText(scopeMeta.officeId) !== officeFilterId) return;
       if (departmentFilterId && safeText(scopeMeta.departmentId) !== departmentFilterId) return;
 
@@ -686,6 +716,7 @@
     const toDate = safeText(filters?.toDate);
 
     const usersById = buildUserIndex(users);
+    const usersByUniqueName = buildUniqueUserNameIndex(users);
     const projectIndex = buildProjectIndex(projects);
     const clientsById = buildLookupMap(clients, (row) => safeText(row?.id));
     const officesById = buildLookupMap(offices, (row) => safeText(row?.id));
@@ -731,7 +762,15 @@
       const project = resolveProjectForRecord(entry, projectIndex);
       const projectId = safeText(project?.id || entry?.projectId || entry?.project_id);
       const clientId = safeText(project?.clientId || project?.client_id);
-      const scopeMeta = resolveScopeMeta(entry, project, usersById, clientsById, officesById, departmentsById);
+      const scopeMeta = resolveScopeMeta(
+        entry,
+        project,
+        usersById,
+        usersByUniqueName,
+        clientsById,
+        officesById,
+        departmentsById
+      );
 
       const rowContext = {
         projectId,
@@ -801,7 +840,15 @@
       const projectType = resolveProjectType(project);
       const projectId = safeText(project?.id || expense?.projectId || expense?.project_id);
       const clientId = safeText(project?.clientId || project?.client_id);
-      const scopeMeta = resolveScopeMeta(expense, project, usersById, clientsById, officesById, departmentsById);
+      const scopeMeta = resolveScopeMeta(
+        expense,
+        project,
+        usersById,
+        usersByUniqueName,
+        clientsById,
+        officesById,
+        departmentsById
+      );
 
       const rowContext = {
         projectId,
