@@ -810,10 +810,13 @@
     const internal = seriesRows.map((item) => toNumber(item?.internalHours));
     const pto = seriesRows.map((item) => toNumber(item?.ptoHours));
     const idle = seriesRows.map((item) => toNumber(item?.idleHours));
+    const totals = seriesRows.map((item) =>
+      toNumber(item?.clientHours) + toNumber(item?.internalHours) + toNumber(item?.ptoHours) + toNumber(item?.idleHours)
+    );
 
     chart.setOption({
       animation: false,
-      grid: { left: 46, right: 20, top: 30, bottom: 56 },
+      grid: { left: 46, right: 20, top: 34, bottom: 56 },
       tooltip: {
         trigger: "axis",
         axisPointer: { type: "shadow" },
@@ -852,6 +855,25 @@
         { name: "Internal", type: "bar", stack: "hours", data: internal, itemStyle: { color: "#2f9988" } },
         { name: "PTO", type: "bar", stack: "hours", data: pto, itemStyle: { color: "#9a78d1" } },
         { name: "Idle", type: "bar", stack: "hours", data: idle, itemStyle: { color: "#b8bdc7" } },
+        {
+          name: "Utilization",
+          type: "scatter",
+          data: seriesRows.map((item, index) => [index, totals[index], formatPercent(item?.utilizationPct)]),
+          silent: true,
+          tooltip: { show: false },
+          symbolSize: 1,
+          itemStyle: { opacity: 0 },
+          label: {
+            show: true,
+            position: "top",
+            color: "var(--ink)",
+            fontSize: 11,
+            fontWeight: 700,
+            formatter: (params) => safeText(params?.data?.[2]),
+            hideOverlap: true,
+          },
+          z: 10,
+        },
       ],
     });
   }
