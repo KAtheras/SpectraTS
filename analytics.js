@@ -202,7 +202,23 @@
     return `${year}-${month}-${day}`;
   }
 
+  function addDays(date, days) {
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate() + days);
+  }
+
+  function startOfWeekMonday(date) {
+    const day = date.getDay();
+    const diff = day === 0 ? -6 : 1 - day;
+    return addDays(date, diff);
+  }
+
+  function endOfWeekSunday(date) {
+    return addDays(startOfWeekMonday(date), 6);
+  }
+
   const UTILIZATION_PERIODS = [
+    { id: "this_week", name: "This Week" },
+    { id: "last_week", name: "Last Week" },
     { id: "this_month", name: "This Month" },
     { id: "last_month", name: "Last Month" },
     { id: "this_quarter", name: "This Quarter" },
@@ -233,6 +249,15 @@
     const todayDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const period = normalizeUtilizationPeriod(periodId);
 
+    if (period === "this_week") {
+      return { fromDate: toIsoDate(startOfWeekMonday(todayDate)), toDate: toIsoDate(todayDate) };
+    }
+    if (period === "last_week") {
+      const thisWeekMonday = startOfWeekMonday(todayDate);
+      const lastWeekMonday = addDays(thisWeekMonday, -7);
+      const lastWeekSunday = addDays(thisWeekMonday, -1);
+      return { fromDate: toIsoDate(lastWeekMonday), toDate: toIsoDate(lastWeekSunday) };
+    }
     if (period === "this_month") {
       return { fromDate: toIsoDate(startOfMonth(todayDate)), toDate: toIsoDate(endOfMonth(todayDate)) };
     }
@@ -894,6 +919,7 @@
         filters: {
           fromDate: periodRange.fromDate,
           toDate: periodRange.toDate,
+          period: uiState.utilizationPeriod,
           groupBy: uiState.utilizationGroupBy,
           officeId: uiState.utilizationOfficeId,
           departmentId: uiState.utilizationDepartmentId,

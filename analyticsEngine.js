@@ -311,32 +311,84 @@
     return `${fromLabel} - ${toLabel}`;
   }
 
-  function formatUtilizationMonthlyLabel(isoMonthStart) {
-    const date = new Date(`${isoMonthStart}T00:00:00`);
-    return date.toLocaleDateString(undefined, { month: "short", year: "2-digit" });
+  function formatUtilizationDailyLabel(isoDate) {
+    const date = new Date(`${isoDate}T00:00:00`);
+    return date.toLocaleDateString(undefined, { weekday: "short", month: "numeric", day: "numeric" });
   }
 
-  function buildUtilizationTimeBuckets(fromDate, toDate) {
+  function formatUtilizationMonthlyLabel(isoMonthStart) {
+    const date = new Date(`${isoMonthStart}T00:00:00`);
+    return date.toLocaleDateString(undefined, { month: "short", year: "numeric" });
+  }
+
+  function startOfWeekMondayIso(isoDate) {
+    if (!isValidIsoDate(isoDate)) return "";
+    const date = new Date(`${isoDate}T00:00:00`);
+    const day = date.getDay();
+    const diff = day === 0 ? -6 : 1 - day;
+    date.setDate(date.getDate() + diff);
+    return toIsoDate(date);
+  }
+
+  function endOfWeekSundayIso(isoDate) {
+    const monday = startOfWeekMondayIso(isoDate);
+    return monday ? addDaysIso(monday, 6) : "";
+  }
+
+  function maxIsoDate(a, b) {
+    if (!a) return b;
+    if (!b) return a;
+    return a > b ? a : b;
+  }
+
+  function minIsoDate(a, b) {
+    if (!a) return b;
+    if (!b) return a;
+    return a < b ? a : b;
+  }
+
+  function buildUtilizationTimeBuckets(periodKey, fromDate, toDate) {
     if (!isValidIsoDate(fromDate) || !isValidIsoDate(toDate) || fromDate > toDate) {
       return { granularity: "week", buckets: [] };
     }
-    const totalDays = daysBetweenInclusive(fromDate, toDate);
-    const useWeekly = totalDays <= 62;
+    const period = safeText(periodKey).toLowerCase();
     const buckets = [];
 
-    if (useWeekly) {
-      let cursor = fromDate;
+    if (period === "this_week" || period === "last_week") {
+      const monday = startOfWeekMondayIso(fromDate);
+      for (let index = 0; index < 7; index += 1) {
+        const bucketFrom = addDaysIso(monday, index);
+        const bucketTo = bucketFrom;
+        buckets.push({
+          key: `d${index}::${bucketFrom}`,
+          label: formatUtilizationDailyLabel(bucketFrom),
+          fromDate: bucketFrom,
+          toDate: bucketTo,
+          businessDays: countBusinessDaysInclusive(
+            maxIsoDate(bucketFrom, fromDate),
+            minIsoDate(bucketTo, toDate)
+          ),
+        });
+      }
+      return { granularity: "day", buckets };
+    }
+
+    if (period === "this_month" || period === "last_month") {
+      let cursor = startOfWeekMondayIso(fromDate);
+      const endWeek = endOfWeekSundayIso(toDate);
       let index = 0;
-      while (cursor <= toDate) {
+      while (cursor && endWeek && cursor <= endWeek) {
         const bucketFrom = cursor;
-        const tentativeTo = addDaysIso(bucketFrom, 6);
-        const bucketTo = tentativeTo && tentativeTo < toDate ? tentativeTo : toDate;
+        const bucketTo = addDaysIso(bucketFrom, 6);
         buckets.push({
           key: `w${index}::${bucketFrom}`,
           label: formatUtilizationWeeklyLabel(bucketFrom, bucketTo),
           fromDate: bucketFrom,
           toDate: bucketTo,
-          businessDays: countBusinessDaysInclusive(bucketFrom, bucketTo),
+          businessDays: countBusinessDaysInclusive(
+            maxIsoDate(bucketFrom, fromDate),
+            minIsoDate(bucketTo, toDate)
+          ),
         });
         index += 1;
         cursor = addDaysIso(bucketTo, 1);
@@ -344,9 +396,10 @@
       return { granularity: "week", buckets };
     }
 
-    let cursor = fromDate;
+    let cursor = `${fromDate.slice(0, 7)}-01`;
+    const monthEndCursor = `${toDate.slice(0, 7)}-01`;
     const seen = new Set();
-    while (cursor <= toDate) {
+    while (cursor <= monthEndCursor) {
       const monthStart = `${cursor.slice(0, 7)}-01`;
       if (!seen.has(monthStart)) {
         seen.add(monthStart);
@@ -359,7 +412,10 @@
           label: formatUtilizationMonthlyLabel(monthStart),
           fromDate: bucketFrom,
           toDate: bucketTo,
-          businessDays: countBusinessDaysInclusive(bucketFrom, bucketTo),
+          businessDays: countBusinessDaysInclusive(
+            maxIsoDate(bucketFrom, fromDate),
+            minIsoDate(bucketTo, toDate)
+          ),
         });
       }
       cursor = addDaysIso(`${cursor.slice(0, 7)}-28`, 4).slice(0, 7) + "-01";
@@ -388,6 +444,7 @@
       : [];
     const levelLabels = input?.levelLabels && typeof input.levelLabels === "object" ? input.levelLabels : {};
     const filters = input?.filters || {};
+    const period = safeText(filters?.period || "");
     const groupBy = safeText(filters?.groupBy || "member").toLowerCase();
     const fromDate = safeText(filters?.fromDate);
     const toDate = safeText(filters?.toDate);
@@ -402,7 +459,7 @@
     const corporateCategoryById = buildCorporateCategoryIndex(corporateFunctionCategories);
 
     const businessDays = countBusinessDaysInclusive(fromDate, toDate);
-    const timeBucketMeta = buildUtilizationTimeBuckets(fromDate, toDate);
+    const timeBucketMeta = buildUtilizationTimeBuckets(period, fromDate, toDate);
     const timeBuckets = timeBucketMeta.buckets;
     const defaultMemberCapacityHours = businessDays * 8;
     const memberCapacityByKey = new Map();
