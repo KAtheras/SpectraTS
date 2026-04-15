@@ -193,6 +193,233 @@
     return (revenue / standardRevenue) * 100;
   }
 
+  function utilizationPct(clientHours, capacityHours) {
+    if (capacityHours <= 0) return null;
+    return (clientHours / capacityHours) * 100;
+  }
+
+  function countBusinessDaysInclusive(fromDate, toDate) {
+    if (!isValidIsoDate(fromDate) || !isValidIsoDate(toDate) || fromDate > toDate) return 0;
+    const start = new Date(`${fromDate}T00:00:00`);
+    const end = new Date(`${toDate}T00:00:00`);
+    let current = new Date(start.getTime());
+    let count = 0;
+    while (current <= end) {
+      const day = current.getDay();
+      if (day !== 0 && day !== 6) count += 1;
+      current.setDate(current.getDate() + 1);
+    }
+    return count;
+  }
+
+  function resolveMemberTitle(user, levelLabels) {
+    const level = Number(user?.level);
+    const explicitLevelLabel = safeText(levelLabels?.[level]?.label);
+    if (explicitLevelLabel) return explicitLevelLabel;
+    const permissionGroup = safeText(user?.permissionGroup || user?.permission_group).toLowerCase();
+    if (!permissionGroup) return "Unassigned";
+    return permissionGroup.charAt(0).toUpperCase() + permissionGroup.slice(1);
+  }
+
+  function buildCorporateCategoryIndex(categories) {
+    const map = new Map();
+    (Array.isArray(categories) ? categories : []).forEach((row) => {
+      const id = safeText(row?.id);
+      if (!id) return;
+      map.set(id, {
+        name: safeText(row?.name),
+        groupName: safeText(row?.groupName || row?.group_name),
+      });
+    });
+    return map;
+  }
+
+  function isInternalEntryLike(entry, project) {
+    const chargeCenterId = safeText(entry?.chargeCenterId || entry?.charge_center_id);
+    if (chargeCenterId) return true;
+    const projectId = safeText(project?.id || entry?.projectId || entry?.project_id);
+    const clientName = safeText(project?.client || entry?.client || entry?.clientName || entry?.client_name).toLowerCase();
+    return !projectId && clientName === "internal";
+  }
+
+  function isPtoLikeEntry(entry, project, corporateCategoryById) {
+    const chargeCenterId = safeText(entry?.chargeCenterId || entry?.charge_center_id);
+    const categoryMeta = chargeCenterId ? corporateCategoryById.get(chargeCenterId) : null;
+    const tokens = [
+      safeText(entry?.task),
+      safeText(entry?.project),
+      safeText(project?.name || project?.project),
+      safeText(categoryMeta?.name),
+      safeText(categoryMeta?.groupName),
+      safeText(entry?.notes),
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+    if (!tokens) return false;
+    return /\b(pto|vacation|holiday|sick|sick\s+time|leave|bereavement|personal\s+day|parental|jury)\b/i.test(tokens);
+  }
+
+  function utilizationGroupIdentity(groupBy, row, levelLabels) {
+    if (groupBy === "member") {
+      const label = safeText(row?.memberName) || "Unassigned";
+      return { key: `member::${label.toLowerCase()}`, label };
+    }
+    if (groupBy === "title") {
+      const label = safeText(row?.memberTitle) || "Unassigned";
+      return { key: `title::${label.toLowerCase()}`, label };
+    }
+    if (groupBy === "department") {
+      const label = safeText(row?.departmentName) || "Unassigned";
+      return { key: `department::${label.toLowerCase()}`, label };
+    }
+    if (groupBy === "office") {
+      const label = safeText(row?.officeName) || "Unassigned";
+      return { key: `office::${label.toLowerCase()}`, label };
+    }
+    const fallback = groupKeyForDimension(groupBy, row, levelLabels);
+    return { key: fallback.key, label: fallback.label };
+  }
+
+  function computeUtilizationAnalytics(input) {
+    const entries = Array.isArray(input?.entries) ? input.entries : [];
+    const users = Array.isArray(input?.users) ? input.users : [];
+    const projects = Array.isArray(input?.projects) ? input.projects : [];
+    const clients = Array.isArray(input?.clients) ? input.clients : [];
+    const offices = Array.isArray(input?.offices) ? input.offices : [];
+    const departments = Array.isArray(input?.departments) ? input.departments : [];
+    const corporateFunctionCategories = Array.isArray(input?.corporateFunctionCategories)
+      ? input.corporateFunctionCategories
+      : [];
+    const levelLabels = input?.levelLabels && typeof input.levelLabels === "object" ? input.levelLabels : {};
+    const filters = input?.filters || {};
+    const groupBy = safeText(filters?.groupBy || "member").toLowerCase();
+    const fromDate = safeText(filters?.fromDate);
+    const toDate = safeText(filters?.toDate);
+    const officeFilterId = safeText(filters?.officeId);
+    const departmentFilterId = safeText(filters?.departmentId);
+
+    const usersById = buildUserIndex(users);
+    const projectIndex = buildProjectIndex(projects);
+    const clientsById = buildLookupMap(clients, (row) => safeText(row?.id));
+    const officesById = buildLookupMap(offices, (row) => safeText(row?.id));
+    const departmentsById = buildLookupMap(departments, (row) => safeText(row?.id));
+    const corporateCategoryById = buildCorporateCategoryIndex(corporateFunctionCategories);
+
+    const businessDays = countBusinessDaysInclusive(fromDate, toDate);
+    const defaultMemberCapacityHours = businessDays * 8;
+    const memberCapacityByKey = new Map();
+    const grouped = new Map();
+    const globalMemberKeys = new Set();
+
+    let totalClientHours = 0;
+    let totalInternalHours = 0;
+    let totalPtoHours = 0;
+
+    entries.forEach((entry) => {
+      if (!entry || isDeletedRecord(entry)) return;
+      const date = entryDate(entry);
+      if (!inDateRange(date, fromDate, toDate)) return;
+
+      const hours = toNumber(entry?.hours);
+      if (hours <= 0) return;
+
+      const project = resolveProjectForRecord(entry, projectIndex);
+      const scopeMeta = resolveScopeMeta(entry, project, usersById, clientsById, officesById, departmentsById);
+      if (officeFilterId && safeText(scopeMeta.officeId) !== officeFilterId) return;
+      if (departmentFilterId && safeText(scopeMeta.departmentId) !== departmentFilterId) return;
+
+      const userId = safeText(entry?.userId || entry?.user_id);
+      const memberName = safeText(scopeMeta.user?.displayName || scopeMeta.user?.username || entry?.user) || "Unassigned";
+      const memberKey = userId || `name::${memberName.toLowerCase()}`;
+      const memberTitle = resolveMemberTitle(scopeMeta.user || {}, levelLabels);
+      if (!memberCapacityByKey.has(memberKey)) {
+        memberCapacityByKey.set(memberKey, defaultMemberCapacityHours);
+      }
+      globalMemberKeys.add(memberKey);
+
+      let bucket = "client";
+      const internal = isInternalEntryLike(entry, project);
+      if (internal) {
+        bucket = isPtoLikeEntry(entry, project, corporateCategoryById) ? "pto" : "internal";
+      } else if (entry?.billable === false) {
+        bucket = "internal";
+      }
+
+      if (bucket === "client") totalClientHours += hours;
+      if (bucket === "internal") totalInternalHours += hours;
+      if (bucket === "pto") totalPtoHours += hours;
+
+      const row = {
+        memberName,
+        memberTitle,
+        officeName: scopeMeta.officeName,
+        departmentName: scopeMeta.departmentName,
+      };
+      const identity = utilizationGroupIdentity(groupBy, row, levelLabels);
+      if (!grouped.has(identity.key)) {
+        grouped.set(identity.key, {
+          key: identity.key,
+          name: identity.label,
+          clientHours: 0,
+          internalHours: 0,
+          ptoHours: 0,
+          memberKeys: new Set(),
+        });
+      }
+      const target = grouped.get(identity.key);
+      target.memberKeys.add(memberKey);
+      if (bucket === "client") target.clientHours += hours;
+      if (bucket === "internal") target.internalHours += hours;
+      if (bucket === "pto") target.ptoHours += hours;
+    });
+
+    const rows = Array.from(grouped.values()).map((row) => {
+      let capacity = 0;
+      row.memberKeys.forEach((memberKey) => {
+        capacity += toNumber(memberCapacityByKey.get(memberKey));
+      });
+      const idleHours = Math.max(0, capacity - (row.clientHours + row.internalHours + row.ptoHours));
+      return {
+        name: row.name,
+        utilizationPct: utilizationPct(row.clientHours, capacity),
+        clientHours: row.clientHours,
+        internalHours: row.internalHours,
+        ptoHours: row.ptoHours,
+        idleHours,
+        capacityHours: capacity,
+      };
+    });
+
+    rows.sort((a, b) => {
+      const left = Number.isFinite(a.utilizationPct) ? a.utilizationPct : -1;
+      const right = Number.isFinite(b.utilizationPct) ? b.utilizationPct : -1;
+      return right - left || b.clientHours - a.clientHours || a.name.localeCompare(b.name);
+    });
+
+    let totalCapacity = 0;
+    globalMemberKeys.forEach((memberKey) => {
+      totalCapacity += toNumber(memberCapacityByKey.get(memberKey));
+    });
+    const totalIdleHours = Math.max(0, totalCapacity - (totalClientHours + totalInternalHours + totalPtoHours));
+
+    return {
+      kpis: {
+        avgUtilizationPct: utilizationPct(totalClientHours, totalCapacity),
+        clientHours: totalClientHours,
+        internalHours: totalInternalHours,
+        ptoHours: totalPtoHours,
+        idleHours: totalIdleHours,
+      },
+      rows,
+      assumptions: {
+        capacity: "Capacity defaults to business days in period × 8 hours per unique member in scope.",
+        categoryMapping:
+          "Client = billable external project time; Internal = internal/corporate time plus non-billable external time, excluding PTO; PTO = internal time matching PTO keywords (vacation/sick/holiday/leave).",
+      },
+    };
+  }
+
   function groupKeyForDimension(dimension, row, levelLabels) {
     if (dimension === "client") {
       const name = safeText(row?.clientName) || "Unassigned";
@@ -553,6 +780,7 @@
 
   window.analyticsEngine = {
     computeAnalytics,
+    computeUtilizationAnalytics,
     listScopeOptions,
     listClientProjectOptions,
   };

@@ -83,6 +83,50 @@
       .analytics-chart-empty { color: var(--muted); font-size: .9rem; padding: 14px 0; }
       .analytics-trend-chart { width: 100%; height: 280px; }
       .analytics-footnote { color: var(--muted); font-size: .76rem; }
+      .analytics-util-filters {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 8px;
+        align-items: end;
+      }
+      .analytics-util-filters label { display: grid; gap: 4px; font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+      .analytics-util-filters select { min-height: 34px; background: #fff; }
+      .analytics-util-table-wrap {
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: var(--surface);
+        overflow: auto;
+      }
+      .analytics-util-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: .86rem;
+      }
+      .analytics-util-table th,
+      .analytics-util-table td {
+        padding: 8px 10px;
+        border-bottom: 1px solid color-mix(in srgb, var(--line) 65%, transparent);
+        text-align: right;
+        white-space: nowrap;
+      }
+      .analytics-util-table th:first-child,
+      .analytics-util-table td:first-child {
+        text-align: left;
+      }
+      .analytics-util-table thead th {
+        font-size: .72rem;
+        letter-spacing: .04em;
+        text-transform: uppercase;
+        color: var(--muted);
+        background: color-mix(in srgb, var(--surface-strong) 92%, #fff 8%);
+      }
+      .analytics-util-table tbody tr:last-child td { border-bottom: 0; }
+      @media (max-width: 980px) {
+        .analytics-util-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      }
+      @media (max-width: 640px) {
+        .analytics-util-filters { grid-template-columns: minmax(0, 1fr); }
+      }
     `;
     document.head.appendChild(style);
   }
@@ -110,6 +154,88 @@
   function formatHours(value) {
     const n = toNumber(value);
     return `${n.toFixed(1)}h`;
+  }
+
+  function startOfMonth(date) {
+    return new Date(date.getFullYear(), date.getMonth(), 1);
+  }
+
+  function endOfMonth(date) {
+    return new Date(date.getFullYear(), date.getMonth() + 1, 0);
+  }
+
+  function startOfQuarter(date) {
+    const month = date.getMonth();
+    const quarterStartMonth = month - (month % 3);
+    return new Date(date.getFullYear(), quarterStartMonth, 1);
+  }
+
+  function endOfQuarter(date) {
+    const start = startOfQuarter(date);
+    return new Date(start.getFullYear(), start.getMonth() + 3, 0);
+  }
+
+  function toIsoDate(date) {
+    const year = date.getFullYear();
+    const month = `${date.getMonth() + 1}`.padStart(2, "0");
+    const day = `${date.getDate()}`.padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+
+  const UTILIZATION_PERIODS = [
+    { id: "this_month", name: "This Month" },
+    { id: "last_month", name: "Last Month" },
+    { id: "this_quarter", name: "This Quarter" },
+    { id: "last_quarter", name: "Last Quarter" },
+    { id: "ytd", name: "YTD" },
+    { id: "last_year", name: "Last Year" },
+  ];
+
+  const UTILIZATION_GROUP_BY_OPTIONS = [
+    { id: "member", name: "Member" },
+    { id: "title", name: "Title" },
+    { id: "department", name: "Department" },
+    { id: "office", name: "Office" },
+  ];
+
+  function normalizeUtilizationPeriod(value) {
+    const key = safeText(value).toLowerCase();
+    return UTILIZATION_PERIODS.some((item) => item.id === key) ? key : "this_month";
+  }
+
+  function normalizeUtilizationGroupBy(value) {
+    const key = safeText(value).toLowerCase();
+    return UTILIZATION_GROUP_BY_OPTIONS.some((item) => item.id === key) ? key : "member";
+  }
+
+  function utilizationPeriodRange(periodId, nowDate) {
+    const now = nowDate instanceof Date ? nowDate : new Date();
+    const todayDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const period = normalizeUtilizationPeriod(periodId);
+
+    if (period === "this_month") {
+      return { fromDate: toIsoDate(startOfMonth(todayDate)), toDate: toIsoDate(endOfMonth(todayDate)) };
+    }
+    if (period === "last_month") {
+      const month = new Date(todayDate.getFullYear(), todayDate.getMonth() - 1, 1);
+      return { fromDate: toIsoDate(startOfMonth(month)), toDate: toIsoDate(endOfMonth(month)) };
+    }
+    if (period === "this_quarter") {
+      return { fromDate: toIsoDate(startOfQuarter(todayDate)), toDate: toIsoDate(endOfQuarter(todayDate)) };
+    }
+    if (period === "last_quarter") {
+      const startThisQuarter = startOfQuarter(todayDate);
+      const anyLastQuarterDate = new Date(startThisQuarter.getFullYear(), startThisQuarter.getMonth() - 1, 1);
+      return { fromDate: toIsoDate(startOfQuarter(anyLastQuarterDate)), toDate: toIsoDate(endOfQuarter(anyLastQuarterDate)) };
+    }
+    if (period === "ytd") {
+      return { fromDate: `${todayDate.getFullYear()}-01-01`, toDate: toIsoDate(todayDate) };
+    }
+    if (period === "last_year") {
+      const year = todayDate.getFullYear() - 1;
+      return { fromDate: `${year}-01-01`, toDate: `${year}-12-31` };
+    }
+    return { fromDate: toIsoDate(startOfMonth(todayDate)), toDate: toIsoDate(endOfMonth(todayDate)) };
   }
 
   function isInternalClientName(name) {
@@ -270,6 +396,10 @@
       clientId: "",
       projectId: "",
       trendMetric: "revenue",
+      utilizationPeriod: "this_month",
+      utilizationGroupBy: "member",
+      utilizationOfficeId: "",
+      utilizationDepartmentId: "",
     };
   }
 
@@ -293,14 +423,6 @@
   }
 
   function placeholderShellForSubTab(activeTab) {
-    if (activeTab === ANALYTICS_SUB_TAB_UTILIZATION) {
-      return `
-        <section class="analytics-subtab-shell">
-          <h3>Utilization</h3>
-          <p>Utilization analytics is coming next.</p>
-        </section>
-      `;
-    }
     return `
       <section class="analytics-subtab-shell">
         <h3>Realization</h3>
@@ -478,6 +600,91 @@
     });
   }
 
+  function renderUtilizationChart(container, rows, groupByLabel) {
+    if (!container) return;
+    const echarts = window.echarts;
+    if (!echarts || typeof echarts.init !== "function") {
+      container.innerHTML = '<div class="analytics-chart-empty">Chart library failed to load.</div>';
+      return;
+    }
+    const points = Array.isArray(rows) ? rows : [];
+    if (!points.length) {
+      container.innerHTML = '<div class="analytics-chart-empty">No utilization data for the selected filters.</div>';
+      return;
+    }
+
+    container.innerHTML = '<div class="analytics-trend-chart" data-analytics-trend-chart></div>';
+    const chartEl = container.querySelector("[data-analytics-trend-chart]");
+    if (!chartEl) return;
+
+    const existing = chartInstanceByContainer.get(container);
+    if (existing?.instance && !existing.instance.isDisposed()) {
+      chartInstances.delete(existing.instance);
+      existing.instance.dispose();
+    }
+    const chart = echarts.init(chartEl);
+    chartInstanceByContainer.set(container, { instance: chart });
+    chartInstances.add(chart);
+    bindChartResize();
+
+    const labels = points.map((item) => safeText(item?.name));
+    const client = points.map((item) => toNumber(item?.clientHours));
+    const internal = points.map((item) => toNumber(item?.internalHours));
+    const pto = points.map((item) => toNumber(item?.ptoHours));
+    const idle = points.map((item) => toNumber(item?.idleHours));
+
+    chart.setOption({
+      animation: false,
+      grid: { left: 120, right: 18, top: 18, bottom: 30 },
+      tooltip: {
+        trigger: "axis",
+        axisPointer: { type: "shadow" },
+        formatter: (params) => {
+          const rowsData = Array.isArray(params) ? params : [];
+          const first = rowsData[0];
+          const label = first?.axisValueLabel || "";
+          const get = (name) => toNumber(rowsData.find((row) => row?.seriesName === name)?.value);
+          const c = get("Client");
+          const i = get("Internal");
+          const p = get("PTO");
+          const d = get("Idle");
+          const cap = c + i + p + d;
+          const util = cap > 0 ? (c / cap) * 100 : null;
+          return [
+            `${escapeHtml(groupByLabel)}: ${escapeHtml(label)}`,
+            `Utilization: ${formatPercent(util)}`,
+            `Client: ${formatHours(c)}`,
+            `Internal: ${formatHours(i)}`,
+            `PTO: ${formatHours(p)}`,
+            `Idle: ${formatHours(d)}`,
+            `Capacity: ${formatHours(cap)}`,
+          ].join("<br/>");
+        },
+      },
+      xAxis: {
+        type: "value",
+        axisLabel: {
+          formatter: (value) => `${Math.round(value)}`,
+        },
+        splitLine: { lineStyle: { color: "rgba(128,128,128,0.25)" } },
+      },
+      yAxis: {
+        type: "category",
+        data: labels,
+        axisTick: { show: false },
+      },
+      legend: {
+        bottom: 0,
+      },
+      series: [
+        { name: "Client", type: "bar", stack: "hours", data: client, itemStyle: { color: "#2f6fed" } },
+        { name: "Internal", type: "bar", stack: "hours", data: internal, itemStyle: { color: "#6f7f96" } },
+        { name: "PTO", type: "bar", stack: "hours", data: pto, itemStyle: { color: "#9a78d1" } },
+        { name: "Idle", type: "bar", stack: "hours", data: idle, itemStyle: { color: "#b8bdc7" } },
+      ],
+    });
+  }
+
   function renderAnalyticsPage(options) {
     ensureStyles();
 
@@ -489,27 +696,179 @@
       return;
     }
 
-    const filteredData = excludeInternalAnalyticsData(appState);
+    const profitabilityData = excludeInternalAnalyticsData(appState);
+    const utilizationData = {
+      entries: Array.isArray(appState?.entries) ? appState.entries : [],
+      projects: Array.isArray(appState?.projects) ? appState.projects : [],
+      clients: Array.isArray(appState?.clients) ? appState.clients : [],
+    };
     const body = container.querySelector(".analytics-body") || container;
     let uiState = stateByContainer.get(container);
     if (!uiState) {
       uiState = initialUiState({
-        entries: filteredData.entries,
-        expenses: filteredData.expenses,
+        entries: profitabilityData.entries,
+        expenses: profitabilityData.expenses,
       });
       stateByContainer.set(container, uiState);
     }
     uiState.activeTab = normalizeAnalyticsSubTab(uiState.activeTab);
     const subTabsHtml = renderAnalyticsSubTabHtml(uiState.activeTab);
 
-    if (uiState.activeTab !== ANALYTICS_SUB_TAB_PROFITABILITY) {
+    if (uiState.activeTab === ANALYTICS_SUB_TAB_REALIZATION) {
       body.innerHTML = `
         <div class="analytics-panel" data-analytics-root>
           ${subTabsHtml}
-          ${placeholderShellForSubTab(uiState.activeTab)}
+          ${placeholderShellForSubTab(ANALYTICS_SUB_TAB_REALIZATION)}
         </div>
       `;
       bindAnalyticsSubTabEvents(body, uiState, options);
+      return;
+    }
+
+    if (uiState.activeTab === ANALYTICS_SUB_TAB_UTILIZATION) {
+      uiState.utilizationPeriod = normalizeUtilizationPeriod(uiState.utilizationPeriod);
+      uiState.utilizationGroupBy = normalizeUtilizationGroupBy(uiState.utilizationGroupBy);
+
+      const periodRange = utilizationPeriodRange(uiState.utilizationPeriod, new Date());
+      const scopeOptions = engine.listScopeOptions({
+        offices: appState.officeLocations,
+        departments: appState.departments,
+      });
+      const groupByLabel =
+        UTILIZATION_GROUP_BY_OPTIONS.find((item) => item.id === uiState.utilizationGroupBy)?.name || "Group";
+      const utilization = engine.computeUtilizationAnalytics({
+        entries: utilizationData.entries,
+        users: appState.users,
+        projects: utilizationData.projects,
+        clients: utilizationData.clients,
+        offices: appState.officeLocations,
+        departments: appState.departments,
+        corporateFunctionCategories: appState.corporateFunctionCategories,
+        levelLabels: appState.levelLabels,
+        filters: {
+          fromDate: periodRange.fromDate,
+          toDate: periodRange.toDate,
+          groupBy: uiState.utilizationGroupBy,
+          officeId: uiState.utilizationOfficeId,
+          departmentId: uiState.utilizationDepartmentId,
+        },
+      });
+
+      body.innerHTML = `
+        <div class="analytics-panel" data-analytics-root>
+          ${subTabsHtml}
+          <section class="analytics-subtab-shell">
+            <h3>Utilization</h3>
+            <p>Capacity usage by ${escapeHtml(groupByLabel.toLowerCase())} for ${escapeHtml(
+              UTILIZATION_PERIODS.find((item) => item.id === uiState.utilizationPeriod)?.name || ""
+            )}.</p>
+          </section>
+
+          <form class="analytics-util-filters" data-analytics-utilization-filters>
+            <label>
+              <span>Period</span>
+              <select name="period">${renderOptions(UTILIZATION_PERIODS, uiState.utilizationPeriod)}</select>
+            </label>
+            <label>
+              <span>Group By</span>
+              <select name="groupBy">${renderOptions(UTILIZATION_GROUP_BY_OPTIONS, uiState.utilizationGroupBy)}</select>
+            </label>
+            <label>
+              <span>Office</span>
+              <select name="officeId">${renderOptions(scopeOptions.offices, uiState.utilizationOfficeId, "All")}</select>
+            </label>
+            <label>
+              <span>Department</span>
+              <select name="departmentId">${renderOptions(
+                scopeOptions.departments,
+                uiState.utilizationDepartmentId,
+                "All"
+              )}</select>
+            </label>
+          </form>
+
+          <section class="analytics-kpis">
+            <article class="analytics-kpi"><div class="analytics-kpi-label">Avg Utilization %</div><div class="analytics-kpi-value">${escapeHtml(
+              formatPercent(utilization.kpis.avgUtilizationPct)
+            )}</div></article>
+            <article class="analytics-kpi"><div class="analytics-kpi-label">Client Hours</div><div class="analytics-kpi-value">${escapeHtml(
+              formatHours(utilization.kpis.clientHours)
+            )}</div></article>
+            <article class="analytics-kpi"><div class="analytics-kpi-label">Internal Hours</div><div class="analytics-kpi-value">${escapeHtml(
+              formatHours(utilization.kpis.internalHours)
+            )}</div></article>
+            <article class="analytics-kpi"><div class="analytics-kpi-label">PTO Hours</div><div class="analytics-kpi-value">${escapeHtml(
+              formatHours(utilization.kpis.ptoHours)
+            )}</div></article>
+            <article class="analytics-kpi"><div class="analytics-kpi-label">Idle Hours</div><div class="analytics-kpi-value">${escapeHtml(
+              formatHours(utilization.kpis.idleHours)
+            )}</div></article>
+          </section>
+
+          <section class="analytics-chart-wrap">
+            <div class="analytics-chart-head">
+              <strong>Client vs Internal vs PTO vs Idle by ${escapeHtml(groupByLabel)}</strong>
+            </div>
+            <div data-analytics-utilization-chart-host></div>
+          </section>
+
+          <section class="analytics-util-table-wrap">
+            <table class="analytics-util-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Utilization %</th>
+                  <th>Client Hours</th>
+                  <th>Internal Hours</th>
+                  <th>PTO Hours</th>
+                  <th>Idle Hours</th>
+                  <th>Capacity</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${
+                  utilization.rows.length
+                    ? utilization.rows
+                        .map(
+                          (row) => `
+                    <tr>
+                      <td>${escapeHtml(row.name || "Unassigned")}</td>
+                      <td>${escapeHtml(formatPercent(row.utilizationPct))}</td>
+                      <td>${escapeHtml(formatHours(row.clientHours))}</td>
+                      <td>${escapeHtml(formatHours(row.internalHours))}</td>
+                      <td>${escapeHtml(formatHours(row.ptoHours))}</td>
+                      <td>${escapeHtml(formatHours(row.idleHours))}</td>
+                      <td>${escapeHtml(formatHours(row.capacityHours))}</td>
+                    </tr>`
+                        )
+                        .join("")
+                    : `<tr><td colspan="7">No utilization data for the selected filters.</td></tr>`
+                }
+              </tbody>
+            </table>
+          </section>
+
+          <p class="analytics-footnote">${escapeHtml(utilization.assumptions.capacity)}</p>
+          <p class="analytics-footnote">${escapeHtml(utilization.assumptions.categoryMapping)}</p>
+        </div>
+      `;
+
+      bindAnalyticsSubTabEvents(body, uiState, options);
+      const utilizationFilterForm = body.querySelector("[data-analytics-utilization-filters]");
+      if (utilizationFilterForm) {
+        utilizationFilterForm.addEventListener("change", () => {
+          uiState.utilizationPeriod = normalizeUtilizationPeriod(utilizationFilterForm.elements.period?.value);
+          uiState.utilizationGroupBy = normalizeUtilizationGroupBy(utilizationFilterForm.elements.groupBy?.value);
+          uiState.utilizationOfficeId = safeText(utilizationFilterForm.elements.officeId?.value);
+          uiState.utilizationDepartmentId = safeText(utilizationFilterForm.elements.departmentId?.value);
+          renderAnalyticsPage(options);
+        });
+      }
+      renderUtilizationChart(
+        body.querySelector("[data-analytics-utilization-chart-host]"),
+        utilization.rows,
+        groupByLabel
+      );
       return;
     }
 
@@ -518,8 +877,8 @@
       departments: appState.departments,
     });
     const clientProjectOptions = engine.listClientProjectOptions({
-      clients: filteredData.clients,
-      projects: filteredData.projects,
+      clients: profitabilityData.clients,
+      projects: profitabilityData.projects,
     });
 
     const selectedClientId = uiState.clientId;
@@ -528,11 +887,11 @@
       : [];
 
     const computed = engine.computeAnalytics({
-      entries: filteredData.entries,
-      expenses: filteredData.expenses,
+      entries: profitabilityData.entries,
+      expenses: profitabilityData.expenses,
       users: appState.users,
-      projects: filteredData.projects,
-      clients: filteredData.clients,
+      projects: profitabilityData.projects,
+      clients: profitabilityData.clients,
       offices: appState.officeLocations,
       departments: appState.departments,
       assignments: appState.assignments,
