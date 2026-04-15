@@ -448,6 +448,7 @@
     const groupBy = safeText(filters?.groupBy || "member").toLowerCase();
     const fromDate = safeText(filters?.fromDate);
     const toDate = safeText(filters?.toDate);
+    const todayIso = toIsoDate(new Date());
     const officeFilterId = safeText(filters?.officeId);
     const departmentFilterId = safeText(filters?.departmentId);
 
@@ -570,7 +571,11 @@
       const perBucket = Array.isArray(timeBuckets)
         ? timeBuckets.map((bucket) => {
             const sample = row.timeByBucket.get(bucket.key) || { clientHours: 0, internalHours: 0, ptoHours: 0 };
-            const capacityHours = row.memberCount * toNumber(bucket.businessDays) * 8;
+            const effectiveBucketFrom = maxIsoDate(bucket.fromDate, fromDate);
+            const effectiveBucketTo = minIsoDate(bucket.toDate, toDate);
+            const effectiveToForCapacity = minIsoDate(effectiveBucketTo, todayIso);
+            const effectiveBusinessDays = countBusinessDaysInclusive(effectiveBucketFrom, effectiveToForCapacity);
+            const capacityHours = row.memberCount * toNumber(effectiveBusinessDays) * 8;
             const idleHours = Math.max(
               0,
               capacityHours - (sample.clientHours + sample.internalHours + sample.ptoHours)
