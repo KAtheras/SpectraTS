@@ -3822,6 +3822,21 @@ body[data-theme="dark"] .audit-detail-col {
   align-items: start;
 }
 
+#clients-page .catalog-item-project {
+  position: relative;
+}
+
+#clients-page .catalog-item-project .catalog-project-edit-corner {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 1;
+}
+
+#clients-page .catalog-item-project.has-top-edit .catalog-project-title-wrap {
+  padding-right: 84px;
+}
+
 #clients-page .catalog-item-project .catalog-project-title-wrap {
   display: grid;
   gap: 4px;

@@ -243,9 +243,23 @@
 
               return `
               <article
-                class="catalog-item catalog-item-project${projectIsActive ? "" : " is-inactive"}"
+                class="catalog-item catalog-item-project${projectIsActive ? "" : " is-inactive"}${
+                  showEditProjectAction ? " has-top-edit" : ""
+                }"
                 data-project="${escapeHtml(project)}"
               >
+                ${
+                  showEditProjectAction
+                    ? `<button
+                    type="button"
+                    class="catalog-edit catalog-edit-inline catalog-project-edit-corner"
+                    aria-label="Edit ${escapeHtml(project)}"
+                    data-edit-project="${escapeHtml(project)}"
+                  >
+                    Edit
+                  </button>`
+                    : ""
+                }
                 <span class="catalog-item-copy">
                   <span class="catalog-project-top">
                     <span class="catalog-card-head">
@@ -255,18 +269,6 @@
                           `${projectHours(selectedClient, project).toFixed(2)}h logged`
                         )}</small>
                       </span>
-                      ${
-                        showEditProjectAction
-                          ? `<button
-                          type="button"
-                          class="catalog-edit catalog-edit-inline"
-                          aria-label="Edit ${escapeHtml(project)}"
-                          data-edit-project="${escapeHtml(project)}"
-                        >
-                          Edit
-                        </button>`
-                          : ""
-                      }
                     </span>
                   </span>
                   <span class="catalog-project-meta-bar">
