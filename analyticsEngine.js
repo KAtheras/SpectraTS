@@ -234,6 +234,24 @@
   }
 
   function resolveMemberTitle(user, levelLabels) {
+    const profileTitle = safeText(
+      user?.profileTitle ||
+        user?.member_profile_title ||
+        user?.memberProfileTitle
+    );
+    if (profileTitle) return profileTitle;
+
+    const profileBlob = safeText(user?.memberProfile || user?.member_profile);
+    if (profileBlob) {
+      const lines = profileBlob.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+      const titledLine = lines.find((line) => /^title\s*:/i.test(line));
+      if (titledLine) {
+        const [, rawTitle] = titledLine.split(/:/, 2);
+        const parsed = safeText(rawTitle);
+        if (parsed) return parsed;
+      }
+    }
+
     const explicitTitle = safeText(
       user?.title ||
         user?.jobTitle ||
@@ -242,6 +260,13 @@
         user?.member_title
     );
     if (explicitTitle) return explicitTitle;
+
+    const level = Number(user?.level);
+    if (Number.isFinite(level) && levelLabels && typeof levelLabels === "object") {
+      const levelTitle = safeText(levelLabels[level]?.label);
+      if (levelTitle) return levelTitle;
+    }
+
     return "Unassigned";
   }
 
