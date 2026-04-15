@@ -699,7 +699,7 @@
 
     chart.setOption({
       animation: false,
-      grid: { left: 172, right: 40, top: 26, bottom: 26, containLabel: true },
+      grid: { left: 118, right: 22, top: 26, bottom: 28, containLabel: false },
       tooltip: {
         trigger: "axis",
         axisPointer: { type: "shadow" },
@@ -746,6 +746,8 @@
         data: labels,
         axisTick: { show: false },
         axisLabel: {
+          width: 146,
+          overflow: "truncate",
           formatter: (value, index) => {
             const row = rows[index];
             const prefix = safeText(row?.key) === selectedKey ? "● " : "";
