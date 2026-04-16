@@ -26,6 +26,25 @@
       const sliced = raw.slice(0, 10);
       return isValidIsoDate(sliced) ? sliced : "";
     }
+    const usDateMatch = raw.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2}|\d{4})$/);
+    if (usDateMatch) {
+      const month = Number(usDateMatch[1]);
+      const day = Number(usDateMatch[2]);
+      const yearValue = Number(usDateMatch[3]);
+      const year = usDateMatch[3].length === 2 ? (yearValue >= 70 ? 1900 + yearValue : 2000 + yearValue) : yearValue;
+      if (month >= 1 && month <= 12 && day >= 1 && day <= 31 && year >= 1900 && year <= 9999) {
+        const candidate = `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+        const parsed = new Date(`${candidate}T00:00:00`);
+        if (
+          Number.isFinite(parsed.getTime()) &&
+          parsed.getFullYear() === year &&
+          parsed.getMonth() + 1 === month &&
+          parsed.getDate() === day
+        ) {
+          return candidate;
+        }
+      }
+    }
     return "";
   }
 
@@ -124,15 +143,13 @@
   }
 
   function entryDate(entry) {
-    const date = safeText(entry?.date);
-    return isValidIsoDate(date) ? date : "";
+    return normalizeIsoDateValue(entry?.date);
   }
 
   function expenseDate(expense) {
-    const primary = safeText(expense?.expenseDate || expense?.expense_date);
-    if (isValidIsoDate(primary)) return primary;
-    const fallback = safeText(expense?.date);
-    return isValidIsoDate(fallback) ? fallback : "";
+    const primary = normalizeIsoDateValue(expense?.expenseDate || expense?.expense_date);
+    if (primary) return primary;
+    return normalizeIsoDateValue(expense?.date);
   }
 
   function isDeletedRecord(record) {
