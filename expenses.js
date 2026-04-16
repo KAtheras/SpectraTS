@@ -312,13 +312,13 @@
 
     if (fromField?.value.trim() && !parsedFrom) {
       if (showErrors) {
-        feedback("From date must be in MM/DD/YYYY format.", true);
+        feedback("From date must be in MM/DD/YY format.", true);
       }
       return false;
     }
     if (toField?.value.trim() && !parsedTo) {
       if (showErrors) {
-        feedback("To date must be in MM/DD/YYYY format.", true);
+        feedback("To date must be in MM/DD/YY format.", true);
       }
       return false;
     }

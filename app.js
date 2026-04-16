@@ -5713,7 +5713,7 @@
     }
 
     const [year, month, day] = value.split("-");
-    return `${month}/${day}/${year}`;
+    return `${month}/${day}/${year.slice(-2)}`;
   }
 
   function formatDisplayDateShort(value) {
@@ -5747,13 +5747,13 @@
     if (!digits) {
       return "";
     }
-    if (digits.length !== 8) {
+    if (digits.length !== 8 && digits.length !== 6) {
       return null;
     }
 
     const month = digits.slice(0, 2);
     const day = digits.slice(2, 4);
-    const year = digits.slice(4);
+    const year = digits.length === 8 ? digits.slice(4) : `20${digits.slice(4)}`;
     const iso = `${year}-${month}-${day}`;
 
     return isValidDateString(iso) ? iso : null;
@@ -9396,7 +9396,7 @@
         const suggestedDate = new Date().toISOString().slice(0, 10);
         const dialog = await appDialog({
           title: `Terminate ${user.displayName}`,
-          message: "Termination date (YYYY-MM-DD)",
+          message: "Termination date (MM/DD/YY)",
           input: true,
           inputType: "date",
           defaultValue: suggestedDate,
@@ -9406,7 +9406,7 @@
         if (!dialog.confirmed) return;
         const terminationDate = String(dialog.value || "").trim();
         if (!/^\d{4}-\d{2}-\d{2}$/.test(terminationDate)) {
-          setUserFeedback("Termination date is required (YYYY-MM-DD).", true);
+          setUserFeedback("Termination date is required (MM/DD/YY).", true);
           return;
         }
         const activeFrom = String(user.activeFrom || "").trim();
@@ -10403,14 +10403,14 @@
 
     if (fromField.value.trim() && !parsedFrom) {
       if (showErrors) {
-        feedback("From date must be in MM/DD/YYYY format.", true);
+        feedback("From date must be in MM/DD/YY format.", true);
       }
       return false;
     }
 
     if (toField.value.trim() && !parsedTo) {
       if (showErrors) {
-        feedback("To date must be in MM/DD/YYYY format.", true);
+        feedback("To date must be in MM/DD/YY format.", true);
       }
       return false;
     }

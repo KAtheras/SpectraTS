@@ -55,9 +55,7 @@
   if (!inputs.length) return;
 
   function formatDisplay(date) {
-    return date
-      ? date.toLocaleDateString(undefined, { month: '2-digit', day: '2-digit', year: 'numeric' })
-      : '';
+    return formatDisplayShort(date);
   }
 
   function formatDisplayShort(date) {
