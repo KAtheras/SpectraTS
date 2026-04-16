@@ -174,6 +174,22 @@ async function ensureSchema(sql) {
   `;
   await sql`
     INSERT INTO permission_capabilities (key, label, category, is_active)
+    VALUES ('view_department_leads_settings', 'View department leads settings', 'settings', TRUE)
+    ON CONFLICT (key) DO UPDATE SET
+      label = EXCLUDED.label,
+      category = EXCLUDED.category,
+      is_active = EXCLUDED.is_active
+  `;
+  await sql`
+    INSERT INTO permission_capabilities (key, label, category, is_active)
+    VALUES ('edit_department_leads_settings', 'Edit department leads settings', 'settings', TRUE)
+    ON CONFLICT (key) DO UPDATE SET
+      label = EXCLUDED.label,
+      category = EXCLUDED.category,
+      is_active = EXCLUDED.is_active
+  `;
+  await sql`
+    INSERT INTO permission_capabilities (key, label, category, is_active)
     VALUES ('manage_messaging_rules', 'Manage messaging rules', 'settings', TRUE)
     ON CONFLICT (key) DO UPDATE SET
       label = EXCLUDED.label,
@@ -491,6 +507,24 @@ async function ensureSchema(sql) {
     JOIN permission_capabilities pc ON pc.key = 'view_all_entries'
     JOIN permission_scopes ps ON ps.key = 'all_offices'
     WHERE pr.key IN ('admin', 'superuser')
+    ON CONFLICT (role_id, capability_id, scope_id) DO NOTHING
+  `;
+  await sql`
+    INSERT INTO role_permissions (role_id, capability_id, scope_id, allowed)
+    SELECT pr.id, pc.id, ps.id, TRUE
+    FROM permission_roles pr
+    JOIN permission_capabilities pc ON pc.key = 'view_department_leads_settings'
+    JOIN permission_scopes ps ON ps.key = 'all_offices'
+    WHERE pr.key = 'superuser'
+    ON CONFLICT (role_id, capability_id, scope_id) DO NOTHING
+  `;
+  await sql`
+    INSERT INTO role_permissions (role_id, capability_id, scope_id, allowed)
+    SELECT pr.id, pc.id, ps.id, TRUE
+    FROM permission_roles pr
+    JOIN permission_capabilities pc ON pc.key = 'edit_department_leads_settings'
+    JOIN permission_scopes ps ON ps.key = 'all_offices'
+    WHERE pr.key = 'superuser'
     ON CONFLICT (role_id, capability_id, scope_id) DO NOTHING
   `;
 
@@ -1169,6 +1203,17 @@ async function ensureSchema(sql) {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS department_lead_assignments (
+      id TEXT PRIMARY KEY,
+      account_id UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      office_id TEXT NOT NULL REFERENCES office_locations(id) ON DELETE CASCADE,
+      department_id TEXT NOT NULL REFERENCES departments(id) ON DELETE CASCADE,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
 
   await sql`
     CREATE TABLE IF NOT EXISTS expenses (
@@ -1211,6 +1256,14 @@ async function ensureSchema(sql) {
   await sql`
     CREATE UNIQUE INDEX IF NOT EXISTS dept_office_targets_account_office_department_uidx
       ON department_office_target_realizations(account_id, office_id, department_id)
+  `;
+  await sql`
+    CREATE INDEX IF NOT EXISTS department_lead_assignments_account_idx
+      ON department_lead_assignments(account_id, office_id, department_id)
+  `;
+  await sql`
+    CREATE UNIQUE INDEX IF NOT EXISTS department_lead_assignments_account_office_department_uidx
+      ON department_lead_assignments(account_id, office_id, department_id)
   `;
   await sql`
     CREATE UNIQUE INDEX IF NOT EXISTS project_expense_categories_account_name_ci_idx
@@ -3393,6 +3446,19 @@ async function listTargetRealizations(sql, accountId) {
   `;
 }
 
+async function listDepartmentLeadAssignments(sql, accountId) {
+  return sql`
+    SELECT
+      id,
+      office_id AS "officeId",
+      department_id AS "departmentId",
+      user_id AS "userId"
+    FROM department_lead_assignments
+    WHERE account_id = ${accountId}::uuid
+    ORDER BY office_id, department_id
+  `;
+}
+
 async function updateTargetRealizations(sql, payload, accountId) {
   const rawRows = Array.isArray(payload?.targetRealizations) ? payload.targetRealizations : [];
   const normalizedRows = [];
@@ -4258,6 +4324,15 @@ async function loadSettingsMetadata(sql, currentUser) {
       actorUserId: normalizedUser?.id ?? null,
       ...ctx,
     });
+  const canViewDepartmentLeadsSettings =
+    canCap("view_department_leads_settings", {
+      resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+      actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+    }) ||
+    canCap("edit_department_leads_settings", {
+      resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+      actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+    });
 
   const canUseDepartmentsForMembers =
     canCap("manage_departments", {
@@ -4287,7 +4362,8 @@ async function loadSettingsMetadata(sql, currentUser) {
     canCap("see_assigned_clients_projects", {
       resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
       actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
-    });
+    }) ||
+    canViewDepartmentLeadsSettings;
   const departments = canUseDepartmentsForMembers
     ? await listDepartments(sql, accountUuid)
     : [];
@@ -4336,7 +4412,8 @@ async function loadSettingsMetadata(sql, currentUser) {
     canCap("edit_projects_all_modal", {
       resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
       actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
-    });
+    }) ||
+    canViewDepartmentLeadsSettings;
   const officeLocations = canUseOfficeLocationsForMembers
     ? await listOfficeLocations(sql, accountUuid)
     : [];
@@ -4354,6 +4431,9 @@ async function loadSettingsMetadata(sql, currentUser) {
       targetRealizations = [];
     }
   }
+  const departmentLeadAssignments = canViewDepartmentLeadsSettings
+    ? await listDepartmentLeadAssignments(sql, accountUuid)
+    : [];
 
   const notificationRules = await listNotificationRules(sql, accountUuid);
   const myDelegations = normalizedUser
@@ -4367,6 +4447,7 @@ async function loadSettingsMetadata(sql, currentUser) {
     departments,
     officeLocations,
     targetRealizations,
+    departmentLeadAssignments,
     notificationRules,
     myDelegations,
     delegationCandidates,
@@ -4439,6 +4520,19 @@ async function loadState(sql, currentUser) {
     resourceOfficeId: normalizedUser?.officeId ?? null,
     actorOfficeId: normalizedUser?.officeId ?? null,
   });
+  const canViewDepartmentLeadsSettings =
+    canCap("view_department_leads_settings", {
+      resourceOfficeId: normalizedUser?.officeId ?? null,
+      actorOfficeId: normalizedUser?.officeId ?? null,
+    }) ||
+    canCap("edit_department_leads_settings", {
+      resourceOfficeId: normalizedUser?.officeId ?? null,
+      actorOfficeId: normalizedUser?.officeId ?? null,
+    });
+  const canEditDepartmentLeadsSettings = canCap("edit_department_leads_settings", {
+    resourceOfficeId: normalizedUser?.officeId ?? null,
+    actorOfficeId: normalizedUser?.officeId ?? null,
+  });
   const manageDepartments = canCap("manage_departments", {
     resourceOfficeId: normalizedUser?.officeId ?? null,
     actorOfficeId: normalizedUser?.officeId ?? null,
@@ -4472,7 +4566,8 @@ async function loadState(sql, currentUser) {
     canCap("edit_projects_all_modal", {
       resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
       actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
-    });
+    }) ||
+    canViewDepartmentLeadsSettings;
   const canUseOfficeLocationsForMembers =
     manageLocations ||
     canCap("view_members", {
@@ -4514,7 +4609,8 @@ async function loadState(sql, currentUser) {
     canCap("edit_projects_all_modal", {
       resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
       actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
-    });
+    }) ||
+    canViewDepartmentLeadsSettings;
   const departments = canUseDepartmentsForMembers
     ? await listDepartments(sql, accountUuid)
     : [];
@@ -4547,6 +4643,8 @@ async function loadState(sql, currentUser) {
     manageCategories ||
     manageLocations ||
     editPermissionMatrix ||
+    canViewDepartmentLeadsSettings ||
+    canEditDepartmentLeadsSettings ||
     canCap("can_delegate", {
       resourceOfficeId: normalizedUser?.officeId ?? null,
       actorOfficeId: normalizedUser?.officeId ?? null,
@@ -5455,6 +5553,12 @@ async function loadState(sql, currentUser) {
         visibleUserIds.add(userId);
       }
     });
+    if (canViewDepartmentLeadsSettings || canEditDepartmentLeadsSettings) {
+      allUsers.forEach((user) => {
+        const id = normalizeText(user?.id);
+        if (id) visibleUserIds.add(id);
+      });
+    }
     delegatorUserIds.forEach((id) => {
       const normalizedId = normalizeText(id);
       if (normalizedId) {
@@ -5544,6 +5648,10 @@ async function loadState(sql, currentUser) {
       targetRealizations = [];
     }
   }
+  const departmentLeadAssignments =
+    canViewDepartmentLeadsSettings || canEditDepartmentLeadsSettings
+      ? await listDepartmentLeadAssignments(sql, accountUuid)
+      : [];
   const corporateFunctionGroups = await listCorporateFunctionGroups(sql, accountUuid);
   const corporateFunctionCategories = await listCorporateFunctionCategories(sql, accountUuid);
   const assignments = {
@@ -5657,6 +5765,8 @@ async function loadState(sql, currentUser) {
       manageCategories,
       manageLocations,
       editPermissionMatrix,
+      viewDepartmentLeadsSettings: canViewDepartmentLeadsSettings,
+      editDepartmentLeadsSettings: canEditDepartmentLeadsSettings,
     },
     account: { id: accountUuid, name: accountRow?.name || null },
     users,
@@ -5673,6 +5783,7 @@ async function loadState(sql, currentUser) {
     projectExpenseCategories,
     projectPlannedExpenses,
     targetRealizations,
+    departmentLeadAssignments,
     corporateFunctionCategories,
     assignments,
     levelLabels,
@@ -5844,6 +5955,7 @@ module.exports = {
   listDepartments,
   listOfficeLocations,
   listTargetRealizations,
+  listDepartmentLeadAssignments,
   listInboxItems,
   listNotificationRules,
   listLevelLabels,

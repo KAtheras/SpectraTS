@@ -24,6 +24,7 @@ const {
   listLevelLabels,
   listProjectExpenseCategories,
   listTargetRealizations,
+  listDepartmentLeadAssignments,
   createProjectExpenseCategory,
   createProjectPlannedExpense,
   updateProjectPlannedExpense,
@@ -1388,6 +1389,116 @@ async function snapshotProjectById(sql, projectId, accountId) {
   };
 }
 
+async function setDepartmentLeadAssignment(sql, payload, accountId) {
+  const officeId = normalizeText(payload?.officeId || payload?.office_id);
+  const departmentId = normalizeText(payload?.departmentId || payload?.department_id);
+  const userId = normalizeText(payload?.userId || payload?.user_id);
+  if (!officeId || !departmentId) {
+    throw new Error("Office and department are required.");
+  }
+
+  const officeRows = await sql`
+    SELECT id
+    FROM office_locations
+    WHERE account_id = ${accountId}::uuid
+      AND id = ${officeId}
+    LIMIT 1
+  `;
+  if (!officeRows[0]) {
+    throw new Error("Office location is invalid.");
+  }
+
+  const departmentRows = await sql`
+    SELECT id
+    FROM departments
+    WHERE account_id = ${accountId}::uuid
+      AND id = ${departmentId}
+    LIMIT 1
+  `;
+  if (!departmentRows[0]) {
+    throw new Error("Department is invalid.");
+  }
+
+  if (!userId) {
+    await sql`
+      DELETE FROM department_lead_assignments
+      WHERE account_id = ${accountId}::uuid
+        AND office_id = ${officeId}
+        AND department_id = ${departmentId}
+    `;
+    return {
+      officeId,
+      departmentId,
+      userId: null,
+    };
+  }
+
+  const userRows = await sql`
+    SELECT
+      id,
+      office_id,
+      department_id,
+      role,
+      level,
+      is_active,
+      status
+    FROM users
+    WHERE account_id = ${accountId}::uuid
+      AND id = ${userId}
+    LIMIT 1
+  `;
+  const user = userRows[0];
+  if (!user) {
+    throw new Error("Member is invalid.");
+  }
+  if (user.is_active === false || normalizeText(user.status).toLowerCase() === "terminated") {
+    throw new Error("Member must be active.");
+  }
+  if (normalizeText(user.office_id) !== officeId || normalizeText(user.department_id) !== departmentId) {
+    throw new Error("Member must belong to the selected office and department.");
+  }
+  const userGroup = permissionGroupForUser({
+    role: normalizeText(user.role).toLowerCase(),
+    level: normalizeLevel(user.level),
+    permissionGroup:
+      requestLevelLabels?.[normalizeLevel(user.level)]?.permissionGroup || normalizeText(user.role).toLowerCase(),
+  });
+  if (!["executive", "admin", "superuser"].includes(userGroup)) {
+    throw new Error("Member must be Executive or above.");
+  }
+
+  await sql`
+    INSERT INTO department_lead_assignments (
+      id,
+      account_id,
+      office_id,
+      department_id,
+      user_id,
+      created_at,
+      updated_at
+    )
+    VALUES (
+      ${randomId()},
+      ${accountId}::uuid,
+      ${officeId},
+      ${departmentId},
+      ${userId},
+      NOW(),
+      NOW()
+    )
+    ON CONFLICT (account_id, office_id, department_id)
+    DO UPDATE SET
+      user_id = EXCLUDED.user_id,
+      updated_at = NOW()
+  `;
+
+  return {
+    officeId,
+    departmentId,
+    userId,
+  };
+}
+
 function buildPermissionsPayload(currentUser, permissionIndex) {
   const can = (capability, ctx = {}) =>
     permissions.can(currentUser, capability, {
@@ -1401,6 +1512,9 @@ function buildPermissionsPayload(currentUser, permissionIndex) {
   const canManageCorporateFunctions = can("manage_corporate_functions");
   const canManageTargetRealizations = can("manage_target_realizations");
   const canManageMessagingRules = can("manage_messaging_rules") || can("manage_settings_access");
+  const canViewDepartmentLeadsSettings =
+    can("view_department_leads_settings") || can("edit_department_leads_settings");
+  const canEditDepartmentLeadsSettings = can("edit_department_leads_settings");
   const actorOfficeId = currentUser?.officeId ?? currentUser?.office_id ?? null;
   const globalScopeProbeOfficeId = actorOfficeId
     ? `__outside_office__${String(actorOfficeId)}`
@@ -1459,6 +1573,8 @@ function buildPermissionsPayload(currentUser, permissionIndex) {
     manage_corporate_functions: canManageCorporateFunctions,
     manage_office_locations: can("manage_office_locations"),
     manage_target_realizations: canManageTargetRealizations,
+    view_department_leads_settings: canViewDepartmentLeadsSettings,
+    edit_department_leads_settings: canEditDepartmentLeadsSettings,
     manage_messaging_rules: canManageMessagingRules,
     can_upload_data: can("can_upload_data"),
     manage_settings_access: canManageSettingsAccess,
@@ -1502,6 +1618,8 @@ function buildPermissionsPayload(currentUser, permissionIndex) {
     permissionsPayload.manage_corporate_functions ||
     permissionsPayload.manage_office_locations ||
     permissionsPayload.manage_target_realizations ||
+    permissionsPayload.view_department_leads_settings ||
+    permissionsPayload.edit_department_leads_settings ||
     permissionsPayload.manage_messaging_rules ||
     permissionsPayload.can_upload_data ||
     permissionsPayload.manage_settings_access ||
@@ -7107,6 +7225,29 @@ exports.handler = async function handler(event) {
           runMutation: () => updateTargetRealizations(sql, request.payload || {}, accountId),
           getSnapshot: async () => ({
             targetRealizations: await listTargetRealizations(sql, accountId),
+          }),
+        });
+        break;
+      }
+      case "set_department_lead_assignment": {
+        if (!can("edit_department_leads_settings", { resourceOfficeId: context.currentUser?.officeId || null })) {
+          return errorResponse(403, "Access denied.");
+        }
+        const officeId = normalizeText(request.payload?.officeId || request.payload?.office_id);
+        const departmentId = normalizeText(request.payload?.departmentId || request.payload?.department_id);
+        if (!officeId || !departmentId) {
+          return errorResponse(400, "Office and department are required.");
+        }
+        mutationResult = await runMutationWithAudit({
+          sql,
+          accountId,
+          context,
+          entityType: "department_lead_assignment",
+          entityId: `${officeId}::${departmentId}`,
+          action: "update",
+          runMutation: () => setDepartmentLeadAssignment(sql, request.payload || {}, accountId),
+          getSnapshot: async () => ({
+            departmentLeadAssignments: await listDepartmentLeadAssignments(sql, accountId),
           }),
         });
         break;

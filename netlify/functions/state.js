@@ -101,6 +101,15 @@ exports.handler = async function handler(event) {
     const canManageMessagingRules =
       can(currentUser, "manage_messaging_rules", {}, permissionIndex) ||
       can(currentUser, "manage_settings_access", {}, permissionIndex);
+    const canViewDepartmentLeadsSettings =
+      can(currentUser, "view_department_leads_settings", {}, permissionIndex) ||
+      can(currentUser, "edit_department_leads_settings", {}, permissionIndex);
+    const canEditDepartmentLeadsSettings = can(
+      currentUser,
+      "edit_department_leads_settings",
+      {},
+      permissionIndex
+    );
     const actorOfficeId = currentUser?.officeId ?? currentUser?.office_id ?? null;
     const globalScopeProbeOfficeId = actorOfficeId
       ? `__outside_office__${String(actorOfficeId)}`
@@ -184,6 +193,8 @@ exports.handler = async function handler(event) {
       manage_corporate_functions: canManageCorporateFunctions,
       manage_office_locations: can(currentUser, "manage_office_locations", {}, permissionIndex),
       manage_target_realizations: canManageTargetRealizations,
+      view_department_leads_settings: canViewDepartmentLeadsSettings,
+      edit_department_leads_settings: canEditDepartmentLeadsSettings,
       manage_messaging_rules: canManageMessagingRules,
       can_upload_data: can(currentUser, "can_upload_data", {}, permissionIndex),
       manage_settings_access: canManageSettingsAccess,
@@ -243,6 +254,8 @@ exports.handler = async function handler(event) {
       permissions.manage_corporate_functions ||
       permissions.manage_office_locations ||
       permissions.manage_target_realizations ||
+      permissions.view_department_leads_settings ||
+      permissions.edit_department_leads_settings ||
       permissions.manage_messaging_rules ||
       permissions.can_upload_data ||
       permissions.manage_settings_access ||

@@ -457,6 +457,8 @@
     addDepartment: document.getElementById("add-department"),
     targetRealizationsForm: document.getElementById("target-realizations-form"),
     targetRealizationsMatrix: document.getElementById("target-realizations-matrix"),
+    departmentLeadsForm: document.getElementById("department-leads-form"),
+    departmentLeadsMatrix: document.getElementById("department-leads-matrix"),
     dialog: document.getElementById("app-dialog"),
     dialogTitle: document.getElementById("dialog-title"),
     dialogMessage: document.getElementById("dialog-message"),
@@ -2883,6 +2885,37 @@
 
     refs.targetRealizationsForm = document.getElementById("target-realizations-form");
     refs.targetRealizationsMatrix = document.getElementById("target-realizations-matrix");
+
+    let departmentLeadsButton = settingsTabs.querySelector('[data-settings-tab-button="department_leads"]');
+    if (!departmentLeadsButton) {
+      departmentLeadsButton = document.createElement("button");
+      departmentLeadsButton.type = "button";
+      departmentLeadsButton.className = "settings-tab";
+      departmentLeadsButton.dataset.settingsTabButton = "department_leads";
+      departmentLeadsButton.setAttribute("role", "tab");
+      departmentLeadsButton.setAttribute("aria-selected", "false");
+      departmentLeadsButton.textContent = "Department leads";
+      settingsTabs.appendChild(departmentLeadsButton);
+    }
+
+    let departmentLeadsForm = document.querySelector('[data-settings-tab="department_leads"]');
+    if (!departmentLeadsForm) {
+      departmentLeadsForm = document.createElement("form");
+      departmentLeadsForm.id = "department-leads-form";
+      departmentLeadsForm.className = "level-labels-form";
+      departmentLeadsForm.dataset.settingsTab = "department_leads";
+      departmentLeadsForm.hidden = true;
+      departmentLeadsForm.innerHTML = `
+        <div class="level-labels-inner">
+          <h3>Department Leads</h3>
+          <div id="department-leads-matrix"></div>
+        </div>
+      `;
+      (settingsPanels || settingsBody).appendChild(departmentLeadsForm);
+    }
+
+    refs.departmentLeadsForm = document.getElementById("department-leads-form");
+    refs.departmentLeadsMatrix = document.getElementById("department-leads-matrix");
   }
 
   ensureDepartmentSettingsUI();
@@ -2961,6 +2994,7 @@
     departments: [],
     departmentsSnapshot: [],
     targetRealizations: [],
+    departmentLeadAssignments: [],
     account: null,
     settingsAccess: {},
     notificationRules: [],
@@ -3641,6 +3675,16 @@
         }))
         .filter((item) => item.officeId && item.departmentId);
     }
+    if (Array.isArray(data?.departmentLeadAssignments)) {
+      state.departmentLeadAssignments = data.departmentLeadAssignments
+        .map((item) => ({
+          id: String(item?.id || "").trim(),
+          officeId: String(item?.officeId || item?.office_id || "").trim(),
+          departmentId: String(item?.departmentId || item?.department_id || "").trim(),
+          userId: String(item?.userId || item?.user_id || "").trim(),
+        }))
+        .filter((item) => item.officeId && item.departmentId);
+    }
     state.bootstrapRequired = Boolean(data?.bootstrapRequired);
     state.catalog = normalizeCatalog(data?.catalog || {}, false);
     state.clients = Array.isArray(data?.clients)
@@ -3807,7 +3851,8 @@
       Array.isArray(data?.notificationRules) ||
       Array.isArray(data?.myDelegations) ||
       Array.isArray(data?.delegationCandidates) ||
-      Array.isArray(data?.targetRealizations)
+      Array.isArray(data?.targetRealizations) ||
+      Array.isArray(data?.departmentLeadAssignments)
     ) {
       state.settingsMetadataLoaded = true;
       state.settingsMetadataLoading = false;
@@ -3863,6 +3908,7 @@
     state.projectExpenseCategories = [];
     state.projectPlannedExpenses = [];
     state.targetRealizations = [];
+    state.departmentLeadAssignments = [];
     state.account = null;
     state.visibleClientIds = [];
     state.visibleProjectIds = [];
@@ -4067,6 +4113,7 @@
         state.catalog = normalizeCatalog(DEFAULT_CLIENT_PROJECTS, true);
         state.projects = [];
         state.notificationRules = [];
+        state.departmentLeadAssignments = [];
         state.inboxItems = [];
         state.inboxFilter = "all";
         state.inboxSelectedIds = [];
@@ -4139,6 +4186,9 @@
         targetRealizations: Array.isArray(payload?.targetRealizations)
           ? payload.targetRealizations
           : state.targetRealizations,
+        departmentLeadAssignments: Array.isArray(payload?.departmentLeadAssignments)
+          ? payload.departmentLeadAssignments
+          : state.departmentLeadAssignments,
         corporateFunctionGroups: Array.isArray(payload?.corporateFunctionGroups)
           ? payload.corporateFunctionGroups
           : state.corporateFunctionGroups,
@@ -10272,6 +10322,9 @@
       }
       if (window.settingsAdmin?.renderTargetRealizations) {
         window.settingsAdmin.renderTargetRealizations();
+      }
+      if (window.settingsAdmin?.renderDepartmentLeads) {
+        window.settingsAdmin.renderDepartmentLeads();
       }
       renderSettingsTabs?.();
       postHeight();

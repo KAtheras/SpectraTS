@@ -8,6 +8,7 @@
     "rates",
     "messaging_rules",
     "departments",
+    "department_leads",
     "target_realizations",
     "delegations",
     "bulk_upload",
@@ -93,6 +94,9 @@
     }
     if (state.permissions?.manage_messaging_rules && !isMobileLayout) tabs.push("messaging_rules");
     if (state.permissions?.manage_departments) tabs.push("departments");
+    if (state.permissions?.view_department_leads_settings || state.permissions?.edit_department_leads_settings) {
+      tabs.push("department_leads");
+    }
     if (state.permissions?.manage_target_realizations) tabs.push("target_realizations");
     if (state.permissions?.can_delegate) tabs.push("delegations");
     if (state.permissions?.can_upload_data && !isMobileLayout) tabs.push("bulk_upload");
@@ -192,7 +196,7 @@
     if (!settingsPage) return;
     const sectionPanels = Array.from(
       settingsPage.querySelectorAll(
-        '[data-settings-tab="levels"], [data-settings-tab="categories"], [data-settings-tab="corporate_functions"], [data-settings-tab="locations"], [data-settings-tab="rates"], [data-settings-tab="messaging_rules"], [data-settings-tab="departments"], [data-settings-tab="target_realizations"], [data-settings-tab="delegations"], [data-settings-tab="bulk_upload"], [data-settings-tab="permissions"]'
+        '[data-settings-tab="levels"], [data-settings-tab="categories"], [data-settings-tab="corporate_functions"], [data-settings-tab="locations"], [data-settings-tab="rates"], [data-settings-tab="messaging_rules"], [data-settings-tab="departments"], [data-settings-tab="department_leads"], [data-settings-tab="target_realizations"], [data-settings-tab="delegations"], [data-settings-tab="bulk_upload"], [data-settings-tab="permissions"]'
       )
     );
 
@@ -291,6 +295,7 @@
       rates: "Member information",
       messaging_rules: "Messaging Rules",
       departments: "Practice departments",
+      department_leads: "Department Leads",
       target_realizations: "Target realizations",
       delegations: "Delegations",
       bulk_upload: "Data Upload",
@@ -298,7 +303,7 @@
     };
     const settingsTabGroups = [
       { key: "people", label: "PEOPLE", tabs: ["rates", "levels", "permissions", "delegations"] },
-      { key: "organization", label: "ORGANIZATION", tabs: ["departments", "target_realizations", "locations"] },
+      { key: "organization", label: "ORGANIZATION", tabs: ["departments", "department_leads", "target_realizations", "locations"] },
       { key: "configuration", label: "CONFIGURATION", tabs: ["categories", "corporate_functions", "messaging_rules"] },
       { key: "tools", label: "TOOLS", tabs: ["bulk_upload"] },
     ];
@@ -3343,6 +3348,8 @@
           { cap: "manage_settings_access", label: "Manage access settings", indent: false },
           { cap: "can_delegate", label: "Can delegate access", indent: false },
           { cap: "manage_departments", label: "Manage practice departments", indent: false },
+          { cap: "view_department_leads_settings", label: "View department leads settings", indent: false },
+          { cap: "edit_department_leads_settings", label: "Edit department leads settings", indent: false },
           { cap: "manage_target_realizations", label: "Manage target realizations", indent: false },
           { cap: "manage_office_locations", label: "Manage office locations", indent: false },
           { cap: "manage_expense_categories", label: "Manage expense categories", indent: false },
@@ -3955,6 +3962,212 @@
         </table>
       </div>
     `;
+  }
+
+  function renderDepartmentLeads() {
+    const { refs, state, escapeHtml, mutatePersistentState, feedback, permissionGroupForUser } = deps();
+    const panel = document.querySelector('[data-settings-tab="department_leads"]');
+    if (!panel || !refs.departmentLeadsMatrix) return;
+    if (!document.getElementById("department-leads-matrix-style")) {
+      const style = document.createElement("style");
+      style.id = "department-leads-matrix-style";
+      style.textContent = `
+        .department-leads-table-wrap { overflow-x: auto; }
+        .department-leads-table { width: max-content; min-width: auto; table-layout: fixed; }
+        .department-leads-table th, .department-leads-table td { white-space: nowrap; vertical-align: middle; }
+        .department-leads-table thead th { padding-bottom: 10px; }
+        .department-leads-table thead th span {
+          font-family: var(--font-head);
+          font-size: .74rem;
+          font-weight: 700;
+          color: var(--muted);
+          text-transform: uppercase;
+          letter-spacing: .06em;
+        }
+        .department-leads-table tbody tr:first-child td { padding-top: 10px; }
+        .department-leads-table th:first-child, .department-leads-table td:first-child { min-width: 240px; }
+        .department-leads-table td { width: 196px; }
+      `;
+      document.head.appendChild(style);
+    }
+
+    const canView = Boolean(
+      state.permissions?.view_department_leads_settings || state.permissions?.edit_department_leads_settings
+    );
+    const editable = Boolean(state.permissions?.edit_department_leads_settings);
+    if (!canView) {
+      refs.departmentLeadsMatrix.innerHTML = `<div class="level-empty-note">Access denied.</div>`;
+      return;
+    }
+
+    const departments = Array.isArray(state.departments)
+      ? state.departments
+          .map((item) => ({ id: `${item?.id || ""}`.trim(), name: `${item?.name || ""}`.trim() }))
+          .filter((item) => item.id && item.name)
+      : [];
+    const offices = Array.isArray(state.officeLocations)
+      ? state.officeLocations
+          .map((item) => ({ id: `${item?.id || ""}`.trim(), name: `${item?.name || ""}`.trim() }))
+          .filter((item) => item.id && item.name)
+      : [];
+
+    if (!departments.length || !offices.length) {
+      refs.departmentLeadsMatrix.innerHTML = `
+        <div class="level-empty-note">
+          ${!departments.length ? "Add at least one department to assign leads." : "Add at least one office location to assign leads."}
+        </div>
+      `;
+      return;
+    }
+
+    const activeUsers = Array.isArray(state.users)
+      ? state.users.filter((user) => {
+          const isActive = user?.isActive !== false && `${user?.status || ""}`.trim().toLowerCase() !== "terminated";
+          if (!isActive) return false;
+          let group = "staff";
+          try {
+            group = `${permissionGroupForUser?.(user) || "staff"}`.trim().toLowerCase();
+          } catch (error) {
+            group = "staff";
+          }
+          return group === "executive" || group === "admin" || group === "superuser";
+        })
+      : [];
+    const usersByOfficeDepartment = new Map();
+    activeUsers.forEach((user) => {
+      const officeId = `${user?.officeId || user?.office_id || ""}`.trim();
+      const departmentId = `${user?.departmentId || user?.department_id || ""}`.trim();
+      const userId = `${user?.id || ""}`.trim();
+      if (!officeId || !departmentId || !userId) return;
+      const key = `${officeId}::${departmentId}`;
+      if (!usersByOfficeDepartment.has(key)) usersByOfficeDepartment.set(key, []);
+      usersByOfficeDepartment.get(key).push({
+        id: userId,
+        name: `${user?.displayName || user?.username || ""}`.trim() || "Unnamed member",
+      });
+    });
+    usersByOfficeDepartment.forEach((list) => {
+      list.sort((a, b) => a.name.localeCompare(b.name));
+    });
+
+    const assignmentByKey = new Map();
+    (Array.isArray(state.departmentLeadAssignments) ? state.departmentLeadAssignments : []).forEach((item) => {
+      const officeId = `${item?.officeId || item?.office_id || ""}`.trim();
+      const departmentId = `${item?.departmentId || item?.department_id || ""}`.trim();
+      const userId = `${item?.userId || item?.user_id || ""}`.trim();
+      if (!officeId || !departmentId) return;
+      assignmentByKey.set(`${officeId}::${departmentId}`, userId);
+    });
+
+    const headCells = departments.map((dept) => `<th scope="col"><span>${escapeHtml(dept.name)}</span></th>`).join("");
+    const bodyRows = offices
+      .map((office) => {
+        const cells = departments
+          .map((dept) => {
+            const key = `${office.id}::${dept.id}`;
+            const assignedUserId = assignmentByKey.get(key) || "";
+            const options = usersByOfficeDepartment.get(key) || [];
+            const optionsHtml = [
+              `<option value="">None</option>`,
+              ...options.map(
+                (item) =>
+                  `<option value="${escapeHtml(item.id)}"${item.id === assignedUserId ? " selected" : ""}>${escapeHtml(item.name)}</option>`
+              ),
+            ].join("");
+            return `
+              <td>
+                <select
+                  class="settings-field"
+                  data-department-lead-select
+                  data-department-lead-office-id="${escapeHtml(office.id)}"
+                  data-department-lead-department-id="${escapeHtml(dept.id)}"
+                  ${editable ? "" : "disabled"}
+                >
+                  ${optionsHtml}
+                </select>
+              </td>
+            `;
+          })
+          .join("");
+        return `
+          <tr>
+            <th scope="row"><span>${escapeHtml(office.name)}</span></th>
+            ${cells}
+          </tr>
+        `;
+      })
+      .join("");
+
+    refs.departmentLeadsMatrix.innerHTML = `
+      <div class="department-leads-table-wrap">
+        <table class="data-table department-leads-table">
+          <thead>
+            <tr>
+              <th scope="col"><span>Office \\ Department</span></th>
+              ${headCells}
+            </tr>
+          </thead>
+          <tbody>
+            ${bodyRows}
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    if (!panel.dataset.departmentLeadsBound) {
+      panel.dataset.departmentLeadsBound = "true";
+      panel.addEventListener("change", async function (event) {
+        const select = event.target.closest("[data-department-lead-select]");
+        if (!select) return;
+        if (!deps().state.permissions?.edit_department_leads_settings) {
+          feedback("Access denied.", true);
+          renderDepartmentLeads();
+          return;
+        }
+        const officeId = `${select.dataset.departmentLeadOfficeId || ""}`.trim();
+        const departmentId = `${select.dataset.departmentLeadDepartmentId || ""}`.trim();
+        const userId = `${select.value || ""}`.trim();
+        if (!officeId || !departmentId) return;
+        try {
+          await mutatePersistentState(
+            "set_department_lead_assignment",
+            {
+              officeId,
+              departmentId,
+              userId: userId || null,
+            },
+            {
+              skipHydrate: true,
+              returnState: false,
+              skipSettingsMetadataReload: true,
+              refreshState: false,
+            }
+          );
+          const next = Array.isArray(deps().state.departmentLeadAssignments)
+            ? deps().state.departmentLeadAssignments
+            : [];
+          const filtered = next.filter(
+            (item) =>
+              `${item?.officeId || item?.office_id || ""}`.trim() !== officeId ||
+              `${item?.departmentId || item?.department_id || ""}`.trim() !== departmentId
+          );
+          if (userId) {
+            filtered.push({
+              id: `${officeId}::${departmentId}`,
+              officeId,
+              departmentId,
+              userId,
+            });
+          }
+          deps().state.departmentLeadAssignments = filtered;
+          feedback("Department lead updated.", false);
+          renderDepartmentLeads();
+        } catch (error) {
+          feedback(error?.message || "Unable to update department lead.", true);
+          renderDepartmentLeads();
+        }
+      });
+    }
   }
 
   function renderUsersList() {
@@ -4885,6 +5098,7 @@
     renderCorporateFunctionCategories,
     renderOfficeLocations,
     renderDepartments,
+    renderDepartmentLeads,
     renderTargetRealizations,
     renderSettingsTabs,
     sortedLevels,
