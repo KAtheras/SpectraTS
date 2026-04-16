@@ -254,6 +254,110 @@
     return (clientHours / capacityHours) * 100;
   }
 
+  function resolvePermissionGroupForUser(user, levelLabels) {
+    const explicitGroup = safeText(
+      user?.permissionGroup ||
+      user?.permission_group ||
+      user?.permissiongroup
+    ).toLowerCase();
+    if (explicitGroup) return explicitGroup;
+    const explicitRole = safeText(user?.role).toLowerCase();
+    if (explicitRole) return explicitRole === "global_admin" ? "superuser" : explicitRole;
+    const level = Number(user?.level);
+    if (Number.isFinite(level)) {
+      const levelGroup = safeText(
+        levelLabels?.[level]?.permissionGroup ||
+        levelLabels?.[level]?.permission_group
+      ).toLowerCase();
+      if (levelGroup) return levelGroup;
+    }
+    return "staff";
+  }
+
+  function getUtilizationVisibilityScope(currentUser, context) {
+    const levelLabels = context?.levelLabels && typeof context.levelLabels === "object" ? context.levelLabels : {};
+    const departmentLeadAssignments = Array.isArray(context?.departmentLeadAssignments)
+      ? context.departmentLeadAssignments
+      : [];
+    const userId = safeText(currentUser?.id || currentUser?.userId || currentUser?.user_id);
+    const officeId = safeText(currentUser?.officeId || currentUser?.office_id);
+    const departmentId = safeText(currentUser?.departmentId || currentUser?.department_id);
+    const group = resolvePermissionGroupForUser(currentUser || {}, levelLabels);
+
+    if (group === "superuser") {
+      return { type: "all", userId, officeId: "", departmentId: "" };
+    }
+    if (group === "admin") {
+      if (officeId) {
+        return { type: "office", userId, officeId, departmentId: "" };
+      }
+      return { type: "self", userId, officeId: "", departmentId: "" };
+    }
+    const isDepartmentHead = Boolean(
+      userId &&
+      officeId &&
+      departmentId &&
+      departmentLeadAssignments.some((row) => {
+        const rowUserId = safeText(row?.userId || row?.user_id);
+        const rowOfficeId = safeText(row?.officeId || row?.office_id);
+        const rowDepartmentId = safeText(row?.departmentId || row?.department_id);
+        return rowUserId === userId && rowOfficeId === officeId && rowDepartmentId === departmentId;
+      })
+    );
+    if (isDepartmentHead) {
+      return { type: "office_department", userId, officeId, departmentId };
+    }
+    return { type: "self", userId, officeId, departmentId: "" };
+  }
+
+  function normalizeUtilizationScope(scope) {
+    const type = safeText(scope?.type).toLowerCase();
+    if (!type) return null;
+    if (!["all", "office", "office_department", "self"].includes(type)) return null;
+    return {
+      type,
+      userId: safeText(scope?.userId),
+      officeId: safeText(scope?.officeId),
+      departmentId: safeText(scope?.departmentId),
+    };
+  }
+
+  function isUserInUtilizationScope(user, scope) {
+    const userId = safeText(user?.id || user?.userId || user?.user_id);
+    if (!userId) return false;
+    if (scope?.type === "all") return true;
+    if (scope?.type === "office") {
+      const userOfficeId = safeText(user?.officeId || user?.office_id);
+      return Boolean(scope.officeId && userOfficeId && scope.officeId === userOfficeId);
+    }
+    if (scope?.type === "office_department") {
+      const userOfficeId = safeText(user?.officeId || user?.office_id);
+      const userDepartmentId = safeText(user?.departmentId || user?.department_id);
+      return Boolean(
+        scope.officeId &&
+        scope.departmentId &&
+        userOfficeId &&
+        userDepartmentId &&
+        scope.officeId === userOfficeId &&
+        scope.departmentId === userDepartmentId
+      );
+    }
+    return Boolean(scope?.userId && scope.userId === userId);
+  }
+
+  function resolveMemberOrgMeta(user, officesById, departmentsById) {
+    const officeId = safeText(user?.officeId || user?.office_id);
+    const departmentId = safeText(user?.departmentId || user?.department_id);
+    const office = officeId ? officesById.get(officeId) : null;
+    const department = departmentId ? departmentsById.get(departmentId) : null;
+    return {
+      officeId,
+      departmentId,
+      officeName: safeText(office?.name),
+      departmentName: safeText(department?.name),
+    };
+  }
+
   function resolveMemberActivePeriod(user) {
     const activeFrom = normalizeIsoDateValue(user?.activeFrom ?? user?.active_from);
     if (!activeFrom) {
@@ -542,6 +646,10 @@
   function computeUtilizationAnalytics(input) {
     const entries = Array.isArray(input?.entries) ? input.entries : [];
     const users = Array.isArray(input?.users) ? input.users : [];
+    const currentUser = input?.currentUser && typeof input.currentUser === "object" ? input.currentUser : null;
+    const departmentLeadAssignments = Array.isArray(input?.departmentLeadAssignments)
+      ? input.departmentLeadAssignments
+      : [];
     const projects = Array.isArray(input?.projects) ? input.projects : [];
     const clients = Array.isArray(input?.clients) ? input.clients : [];
     const offices = Array.isArray(input?.offices) ? input.offices : [];
@@ -566,6 +674,16 @@
     const officesById = buildLookupMap(offices, (row) => safeText(row?.id));
     const departmentsById = buildLookupMap(departments, (row) => safeText(row?.id));
     const corporateCategoryById = buildCorporateCategoryIndex(corporateFunctionCategories);
+    const utilizationScope =
+      normalizeUtilizationScope(input?.utilizationScope) ||
+      getUtilizationVisibilityScope(currentUser, {
+        levelLabels,
+        departmentLeadAssignments,
+      });
+    const scopedUsers = users.filter((user) => isUserInUtilizationScope(user, utilizationScope));
+    const scopedUserById = buildUserIndex(scopedUsers);
+    const scopedUserIds = new Set(Array.from(scopedUserById.keys()).filter(Boolean));
+    const scopedUsersByUniqueName = buildUniqueUserNameIndex(scopedUsers);
 
     const businessDays = countBusinessDaysInclusive(fromDate, toDate);
     const timeBucketMeta = buildUtilizationTimeBuckets(period, fromDate, toDate);
@@ -579,6 +697,24 @@
     let totalClientHours = 0;
     let totalInternalHours = 0;
     let totalPtoHours = 0;
+
+    scopedUsers.forEach((user) => {
+      const userId = safeText(user?.id || user?.userId || user?.user_id);
+      if (!userId) return;
+      const memberKey = userId;
+      if (!memberMetaByKey.has(memberKey)) {
+        memberMetaByKey.set(memberKey, resolveMemberActivePeriod(user));
+      }
+      if (!memberCapacityByKey.has(memberKey)) {
+        const memberMeta = memberMetaByKey.get(memberKey) || { useLifecycle: false };
+        const tenureBusinessDays = memberBusinessDaysInRange(memberMeta, fromDate, toDate);
+        memberCapacityByKey.set(
+          memberKey,
+          memberMeta.useLifecycle ? tenureBusinessDays * 8 : defaultMemberCapacityHours
+        );
+      }
+      globalMemberKeys.add(memberKey);
+    });
 
     entries.forEach((entry) => {
       if (!entry || isDeletedRecord(entry)) return;
@@ -598,15 +734,25 @@
         officesById,
         departmentsById
       );
-      if (officeFilterId && safeText(scopeMeta.officeId) !== officeFilterId) return;
-      if (departmentFilterId && safeText(scopeMeta.departmentId) !== departmentFilterId) return;
+      const entryUserId = safeText(entry?.userId || entry?.user_id);
+      const userName = safeText(entry?.user).toLowerCase();
+      const scopedUser =
+        (entryUserId ? scopedUserById.get(entryUserId) : null) ||
+        (scopeMeta?.user ? scopedUserById.get(safeText(scopeMeta.user?.id)) : null) ||
+        (userName ? scopedUsersByUniqueName.get(userName) : null) ||
+        null;
+      if (!scopedUser) return;
+      const memberOrgMeta = resolveMemberOrgMeta(scopedUser, officesById, departmentsById);
+      if (officeFilterId && memberOrgMeta.officeId !== officeFilterId) return;
+      if (departmentFilterId && memberOrgMeta.departmentId !== departmentFilterId) return;
 
-      const userId = safeText(entry?.userId || entry?.user_id);
-      const memberName = safeText(scopeMeta.user?.displayName || scopeMeta.user?.username || entry?.user) || "Unassigned";
-      const memberKey = userId || `name::${memberName.toLowerCase()}`;
-      const memberTitle = resolveMemberTitle(scopeMeta.user || {}, levelLabels);
+      const userId = safeText(scopedUser?.id || scopedUser?.userId || scopedUser?.user_id);
+      if (!userId || !scopedUserIds.has(userId)) return;
+      const memberName = safeText(scopedUser?.displayName || scopedUser?.display_name || scopedUser?.username || entry?.user) || "Unassigned";
+      const memberKey = userId;
+      const memberTitle = resolveMemberTitle(scopedUser || {}, levelLabels);
       if (!memberMetaByKey.has(memberKey)) {
-        memberMetaByKey.set(memberKey, resolveMemberActivePeriod(scopeMeta.user || null));
+        memberMetaByKey.set(memberKey, resolveMemberActivePeriod(scopedUser || null));
       }
       if (!memberCapacityByKey.has(memberKey)) {
         const memberMeta = memberMetaByKey.get(memberKey) || { useLifecycle: false };
@@ -625,11 +771,11 @@
       if (bucket === "pto") totalPtoHours += hours;
 
       const row = {
-        memberId: userId || safeText(scopeMeta.user?.id),
+        memberId: userId,
         memberName,
         memberTitle,
-        officeName: scopeMeta.officeName,
-        departmentName: scopeMeta.departmentName,
+        officeName: memberOrgMeta.officeName,
+        departmentName: memberOrgMeta.departmentName,
       };
       const identity = utilizationGroupIdentity(groupBy, row, levelLabels);
       if (!grouped.has(identity.key)) {
@@ -771,6 +917,7 @@
         categoryMapping:
           "Client = billable external project time; Internal = internal/corporate time plus non-billable external time, excluding PTO; PTO = internal time matching PTO keywords (vacation/sick/holiday/leave).",
       },
+      visibilityScope: utilizationScope,
     };
   }
 
@@ -1368,6 +1515,52 @@
     };
   }
 
+  function listUtilizationScopeOptions(input) {
+    const offices = Array.isArray(input?.offices) ? input.offices : [];
+    const departments = Array.isArray(input?.departments) ? input.departments : [];
+    const users = Array.isArray(input?.users) ? input.users : [];
+    const levelLabels = input?.levelLabels && typeof input.levelLabels === "object" ? input.levelLabels : {};
+    const departmentLeadAssignments = Array.isArray(input?.departmentLeadAssignments)
+      ? input.departmentLeadAssignments
+      : [];
+    const scope =
+      normalizeUtilizationScope(input?.utilizationScope) ||
+      getUtilizationVisibilityScope(input?.currentUser || null, {
+        levelLabels,
+        departmentLeadAssignments,
+      });
+    const scopedUsers = users.filter((user) => isUserInUtilizationScope(user, scope));
+    const officeLookup = buildLookupMap(offices, (row) => safeText(row?.id));
+    const departmentLookup = buildLookupMap(departments, (row) => safeText(row?.id));
+    const officeIds = new Set();
+    const departmentIds = new Set();
+
+    scopedUsers.forEach((user) => {
+      const officeId = safeText(user?.officeId || user?.office_id);
+      const departmentId = safeText(user?.departmentId || user?.department_id);
+      if (officeId) officeIds.add(officeId);
+      if (departmentId) departmentIds.add(departmentId);
+    });
+    if (scope.type === "office" && scope.officeId) officeIds.add(scope.officeId);
+    if (scope.type === "office_department" && scope.officeId) officeIds.add(scope.officeId);
+    if (scope.type === "office_department" && scope.departmentId) departmentIds.add(scope.departmentId);
+
+    const officeOptions = Array.from(officeIds)
+      .map((id) => ({ id, name: safeText(officeLookup.get(id)?.name) || id }))
+      .filter((item) => item.id)
+      .sort((a, b) => a.name.localeCompare(b.name));
+    const departmentOptions = Array.from(departmentIds)
+      .map((id) => ({ id, name: safeText(departmentLookup.get(id)?.name) || id }))
+      .filter((item) => item.id)
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    return {
+      offices: officeOptions,
+      departments: departmentOptions,
+      scope,
+    };
+  }
+
   function listClientProjectOptions(input) {
     const projects = Array.isArray(input?.projects) ? input.projects : [];
     const clientsById = new Map((Array.isArray(input?.clients) ? input.clients : []).map((c) => [safeText(c?.id), c]));
@@ -1402,6 +1595,8 @@
     computeUtilizationAnalytics,
     computeRealizationAnalytics,
     listScopeOptions,
+    listUtilizationScopeOptions,
     listClientProjectOptions,
+    getUtilizationVisibilityScope,
   };
 })();

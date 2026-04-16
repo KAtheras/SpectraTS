@@ -1386,9 +1386,14 @@
 
     const profitabilityData = excludeInternalAnalyticsData(appState);
     const utilizationData = {
-      entries: Array.isArray(appState?.entries) ? appState.entries : [],
+      entries: Array.isArray(appState?.utilizationEntries)
+        ? appState.utilizationEntries
+        : (Array.isArray(appState?.entries) ? appState.entries : []),
       users: Array.isArray(appState?.users) || Array.isArray(appState?.inactiveUsers)
-        ? Array.from(
+        ? (
+          Array.isArray(appState?.utilizationUsers) && appState.utilizationUsers.length
+            ? appState.utilizationUsers
+            : Array.from(
             new Map(
               [...(Array.isArray(appState?.users) ? appState.users : []), ...(Array.isArray(appState?.inactiveUsers) ? appState.inactiveUsers : [])]
                 .filter(Boolean)
@@ -1396,6 +1401,7 @@
                 .filter((pair) => safeText(pair[0]))
             ).values()
           )
+        )
         : [],
       projects: Array.isArray(appState?.projects) ? appState.projects : [],
       clients: Array.isArray(appState?.clients) ? appState.clients : [],
@@ -1615,15 +1621,38 @@
       uiState.utilizationMemberTitle = normalizeUtilizationMemberTitle(uiState.utilizationMemberTitle);
 
       const periodRange = utilizationPeriodRange(uiState.utilizationPeriod, new Date());
-      const scopeOptions = engine.listScopeOptions({
-        offices: appState.officeLocations,
-        departments: appState.departments,
-      });
+      const scopeOptions = typeof engine.listUtilizationScopeOptions === "function"
+        ? engine.listUtilizationScopeOptions({
+            currentUser: appState.currentUser,
+            utilizationScope: appState.utilizationScope,
+            users: utilizationData.users,
+            offices: appState.officeLocations,
+            departments: appState.departments,
+            levelLabels: appState.levelLabels,
+            departmentLeadAssignments: appState.departmentLeadAssignments,
+          })
+        : engine.listScopeOptions({
+            offices: appState.officeLocations,
+            departments: appState.departments,
+          });
+      const allowedOfficeIds = new Set((scopeOptions.offices || []).map((item) => safeText(item?.id)).filter(Boolean));
+      const allowedDepartmentIds = new Set(
+        (scopeOptions.departments || []).map((item) => safeText(item?.id)).filter(Boolean)
+      );
+      if (uiState.utilizationOfficeId && !allowedOfficeIds.has(uiState.utilizationOfficeId)) {
+        uiState.utilizationOfficeId = "";
+      }
+      if (uiState.utilizationDepartmentId && !allowedDepartmentIds.has(uiState.utilizationDepartmentId)) {
+        uiState.utilizationDepartmentId = "";
+      }
       const groupByLabel =
         UTILIZATION_GROUP_BY_OPTIONS.find((item) => item.id === uiState.utilizationGroupBy)?.name || "Group";
       const utilization = engine.computeUtilizationAnalytics({
         entries: utilizationData.entries,
         users: utilizationData.users,
+        currentUser: appState.currentUser,
+        utilizationScope: appState.utilizationScope,
+        departmentLeadAssignments: appState.departmentLeadAssignments,
         projects: utilizationData.projects,
         clients: utilizationData.clients,
         offices: appState.officeLocations,

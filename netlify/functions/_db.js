@@ -2066,6 +2066,63 @@ function isStaff(user, levelLabels) {
   return permissionGroupForUser(user, levelLabels) === "staff";
 }
 
+function resolveUtilizationScopeForUser(currentUser, levelLabels, departmentLeadAssignments) {
+  const userId = normalizeText(currentUser?.id);
+  const officeId = normalizeText(currentUser?.officeId ?? currentUser?.office_id);
+  const departmentId = normalizeText(currentUser?.departmentId ?? currentUser?.department_id);
+  const group = permissionGroupForUser(currentUser, levelLabels);
+
+  if (group === "superuser") {
+    return { type: "all", userId, officeId: "", departmentId: "" };
+  }
+  if (group === "admin") {
+    if (officeId) {
+      return { type: "office", userId, officeId, departmentId: "" };
+    }
+    return { type: "self", userId, officeId: "", departmentId: "" };
+  }
+
+  const rows = Array.isArray(departmentLeadAssignments) ? departmentLeadAssignments : [];
+  const isDepartmentHead = Boolean(
+    userId &&
+    officeId &&
+    departmentId &&
+    rows.some((row) => {
+      const rowUserId = normalizeText(row?.userId || row?.user_id);
+      const rowOfficeId = normalizeText(row?.officeId || row?.office_id);
+      const rowDepartmentId = normalizeText(row?.departmentId || row?.department_id);
+      return rowUserId === userId && rowOfficeId === officeId && rowDepartmentId === departmentId;
+    })
+  );
+  if (isDepartmentHead) {
+    return { type: "office_department", userId, officeId, departmentId };
+  }
+  return { type: "self", userId, officeId: "", departmentId: "" };
+}
+
+function userMatchesUtilizationScope(user, scope) {
+  const userId = normalizeText(user?.id || user?.userId || user?.user_id);
+  if (!userId) return false;
+  if (scope?.type === "all") return true;
+  if (scope?.type === "office") {
+    const userOfficeId = normalizeText(user?.officeId ?? user?.office_id);
+    return Boolean(scope.officeId && userOfficeId && scope.officeId === userOfficeId);
+  }
+  if (scope?.type === "office_department") {
+    const userOfficeId = normalizeText(user?.officeId ?? user?.office_id);
+    const userDepartmentId = normalizeText(user?.departmentId ?? user?.department_id);
+    return Boolean(
+      scope.officeId &&
+      scope.departmentId &&
+      userOfficeId &&
+      userDepartmentId &&
+      scope.officeId === userOfficeId &&
+      scope.departmentId === userDepartmentId
+    );
+  }
+  return Boolean(scope?.userId && scope.userId === userId);
+}
+
 function randomId() {
   return crypto.randomUUID();
 }
@@ -4863,6 +4920,43 @@ async function loadState(sql, currentUser) {
         })
       : [];
   const allUsers = normalizedUser ? await listUsers(sql, accountUuid, { includeInactive: true }) : [];
+  const allDepartmentLeadAssignments = normalizedUser
+    ? await listDepartmentLeadAssignments(sql, accountUuid)
+    : [];
+  const utilizationScope = normalizedUser
+    ? resolveUtilizationScopeForUser(normalizedUser, levelLabels, allDepartmentLeadAssignments)
+    : { type: "self", userId: "", officeId: "", departmentId: "" };
+  const utilizationUsers = normalizedUser
+    ? allUsers
+        .filter((user) => userMatchesUtilizationScope(user, utilizationScope))
+        .map((user) => ({
+          id: user?.id || null,
+          username: user?.username || null,
+          displayName: user?.displayName || user?.display_name || null,
+          display_name: user?.displayName || user?.display_name || null,
+          role: user?.role || null,
+          level: user?.level ?? null,
+          permissionGroup: user?.permissionGroup || user?.permission_group || null,
+          permission_group: user?.permissionGroup || user?.permission_group || null,
+          officeId: user?.officeId ?? user?.office_id ?? null,
+          office_id: user?.officeId ?? user?.office_id ?? null,
+          departmentId: user?.departmentId ?? user?.department_id ?? null,
+          department_id: user?.departmentId ?? user?.department_id ?? null,
+          activeFrom: user?.activeFrom ?? user?.active_from ?? null,
+          active_from: user?.activeFrom ?? user?.active_from ?? null,
+          activeTo: user?.activeTo ?? user?.active_to ?? null,
+          active_to: user?.activeTo ?? user?.active_to ?? null,
+          isActive: user?.isActive !== false,
+          status: user?.status || null,
+        }))
+    : [];
+  const utilizationUserIds = Array.from(
+    new Set(
+      utilizationUsers
+        .map((user) => normalizeText(user?.id))
+        .filter(Boolean)
+    )
+  );
   const canViewInternalRecords = isAdminFlag;
   const currentUserId = normalizeText(normalizedUser?.id || "");
   const currentUserDisplayName = normalizeText(normalizedUser?.displayName || "").toLowerCase();
@@ -5331,6 +5425,73 @@ async function loadState(sql, currentUser) {
     });
   }
 
+  let utilizationEntries = [];
+  if (utilizationUserIds.length) {
+    const scopedEntries = await sql`
+      SELECT
+        entries.id,
+        entries.user_name AS "user",
+        u.id AS "userId",
+        TO_CHAR(entries.entry_date, 'YYYY-MM-DD') AS date,
+        CASE
+          WHEN entries.charge_center_id IS NOT NULL THEN 'Internal'
+          ELSE COALESCE(clients.name, entries.client_name, 'Internal')
+        END AS client,
+        CASE
+          WHEN entries.charge_center_id IS NOT NULL
+            THEN COALESCE(NULLIF(TRIM(CONCAT_WS(' / ', NULLIF(TRIM(cfg.name), ''), NULLIF(TRIM(cfc.name), ''))), ''), NULLIF(TRIM(entries.project_name), ''), 'Internal')
+          ELSE COALESCE(projects.name, NULLIF(TRIM(entries.project_name), ''), 'Internal')
+        END AS project,
+        entries.project_id AS "projectId",
+        entries.charge_center_id AS "chargeCenterId",
+        entries.task,
+        entries.hours::FLOAT8 AS hours,
+        entries.notes,
+        entries.billable,
+        entries.status,
+        entries.created_at AS "createdAt",
+        entries.updated_at AS "updatedAt"
+      FROM entries
+      JOIN users u
+        ON (u.id = entries.user_id OR LOWER(u.display_name) = LOWER(entries.user_name))
+       AND u.account_id = ${accountUuid}::uuid
+      LEFT JOIN clients
+        ON LOWER(clients.name) = LOWER(entries.client_name)
+       AND clients.account_id = ${accountUuid}::uuid
+      LEFT JOIN projects
+        ON projects.id = entries.project_id
+        OR (
+          entries.project_id IS NULL
+          AND projects.client_id = clients.id
+          AND LOWER(projects.name) = LOWER(entries.project_name)
+        )
+      LEFT JOIN corporate_function_categories cfc
+        ON cfc.id = entries.charge_center_id
+       AND cfc.account_id = ${accountUuid}::uuid
+      LEFT JOIN corporate_function_groups cfg
+        ON cfg.id = cfc.group_id
+       AND cfg.account_id = ${accountUuid}::uuid
+      WHERE entries.account_id = ${accountUuid}::uuid
+        AND entries.deleted_at IS NULL
+        AND u.id = ANY(${utilizationUserIds})
+      ORDER BY entries.entry_date DESC, entries.created_at DESC
+    `;
+    const scopedEntryById = new Map();
+    scopedEntries.forEach((item) => {
+      const id = normalizeText(item?.id);
+      if (!id) return;
+      scopedEntryById.set(id, item);
+    });
+    utilizationEntries = Array.from(scopedEntryById.values()).sort((a, b) => {
+      const leftDate = `${a?.date || ""}`;
+      const rightDate = `${b?.date || ""}`;
+      if (leftDate === rightDate) {
+        return `${b?.createdAt || ""}`.localeCompare(`${a?.createdAt || ""}`);
+      }
+      return rightDate.localeCompare(leftDate);
+    });
+  }
+
   let expenses = [];
   if (canViewAllEntries || canViewOfficeEntries || hasAssignedProjectEntryVisibility) {
     expenses = await sql`
@@ -5650,7 +5811,7 @@ async function loadState(sql, currentUser) {
   }
   const departmentLeadAssignments =
     canViewDepartmentLeadsSettings || canEditDepartmentLeadsSettings
-      ? await listDepartmentLeadAssignments(sql, accountUuid)
+      ? allDepartmentLeadAssignments
       : [];
   const corporateFunctionGroups = await listCorporateFunctionGroups(sql, accountUuid);
   const corporateFunctionCategories = await listCorporateFunctionCategories(sql, accountUuid);
@@ -5776,6 +5937,9 @@ async function loadState(sql, currentUser) {
     clients,
     catalog,
     entries,
+    utilizationEntries,
+    utilizationUsers,
+    utilizationScope,
     expenses,
     projects,
     corporateFunctionGroups,
