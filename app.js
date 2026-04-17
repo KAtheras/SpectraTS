@@ -1272,23 +1272,11 @@
       const leadNameById = new Map(
         activeUsers.map((user) => [String(user.id || "").trim(), String(user.displayName || "").trim()])
       );
+      const managerEligibleUsers = activeUsers.filter((user) => isManager(user));
       const currentLeadName =
         leadNameById.get(currentLeadId) ||
         String(options?.projectLeadName || "").trim() ||
         "";
-      const viewerOfficeId = String(state.currentUser?.officeId || state.currentUser?.office_id || "").trim();
-      const viewerDepartmentId = String(
-        state.currentUser?.departmentId || state.currentUser?.department_id || ""
-      ).trim();
-      const sameOfficeDepartmentUsers =
-        viewerOfficeId && viewerDepartmentId
-          ? activeUsers.filter((user) => {
-              const officeId = String(user?.officeId || user?.office_id || "").trim();
-              const departmentId = String(user?.departmentId || user?.department_id || "").trim();
-              return officeId === viewerOfficeId && departmentId === viewerDepartmentId;
-            })
-          : [];
-      const scopedDefaultLeadMap = new Map();
       const searchableLeadMap = new Map();
       const registerLeadUser = (targetMap, user) => {
         const id = String(user?.id || "").trim();
@@ -1296,16 +1284,8 @@
         if (!id || !name || targetMap.has(id)) return;
         targetMap.set(id, { id, name, label: name });
       };
-      sameOfficeDepartmentUsers.forEach((user) => registerLeadUser(scopedDefaultLeadMap, user));
       activeUsers.forEach((user) => registerLeadUser(searchableLeadMap, user));
       if (currentLeadId && currentLeadName) {
-        if (!scopedDefaultLeadMap.has(currentLeadId)) {
-          scopedDefaultLeadMap.set(currentLeadId, {
-            id: currentLeadId,
-            name: currentLeadName,
-            label: `${currentLeadName} (Current)`,
-          });
-        }
         if (!searchableLeadMap.has(currentLeadId)) {
           searchableLeadMap.set(currentLeadId, {
             id: currentLeadId,
@@ -1314,9 +1294,6 @@
           });
         }
       }
-      const defaultLeadChoicesBase = [{ id: "", name: "Unassigned", label: "Unassigned" }].concat(
-        Array.from(scopedDefaultLeadMap.values()).sort((a, b) => a.name.localeCompare(b.name))
-      );
       const searchableLeadChoicesBase = [{ id: "", name: "Unassigned", label: "Unassigned" }].concat(
         Array.from(searchableLeadMap.values()).sort((a, b) => a.name.localeCompare(b.name))
       );
@@ -1339,7 +1316,6 @@
             : explicitLabel || itemName || "Unassigned";
           return { id: itemId, name: itemName, label };
         });
-      const defaultLeadChoices = normalizeLeadChoices(defaultLeadChoicesBase);
       const searchableLeadChoices = normalizeLeadChoices(searchableLeadChoicesBase);
       const departmentOptions = ['<option value="">No practice department</option>']
         .concat(
@@ -1507,13 +1483,11 @@
       const errorNode = form.querySelector("[data-project-dialog-error]");
       const dialogCard = refs.dialog?.querySelector(".dialog-card");
       const leadChoiceById = new Map(
-        searchableLeadChoices
-          .concat(defaultLeadChoices)
-          .map((item) => [String(item.id || "").trim(), item])
+        searchableLeadChoices.map((item) => [String(item.id || "").trim(), item])
       );
       const leadIdByLabel = new Map();
       const leadIdsByName = new Map();
-      searchableLeadChoices.concat(defaultLeadChoices).forEach((item) => {
+      searchableLeadChoices.forEach((item) => {
         const labelKey = String(item?.label || "").trim().toLowerCase();
         const nameKey = String(item?.name || "").trim().toLowerCase();
         const itemId = String(item?.id || "").trim();
@@ -1576,10 +1550,36 @@
         if (!next.valid) return;
         setLeadSelectionById(next.id);
       };
+      const buildScopedDefaultLeadChoices = () => {
+        const selectedOfficeId = String(officeSelect?.value || currentProjectOfficeId || "").trim();
+        const selectedDepartmentId = String(departmentSelect?.value || currentProjectDepartmentId || "").trim();
+        const scopedDefaultLeadMap = new Map();
+        if (selectedOfficeId && selectedDepartmentId) {
+          managerEligibleUsers.forEach((user) => {
+            const officeId = String(user?.officeId || user?.office_id || "").trim();
+            const departmentId = String(user?.departmentId || user?.department_id || "").trim();
+            if (officeId === selectedOfficeId && departmentId === selectedDepartmentId) {
+              registerLeadUser(scopedDefaultLeadMap, user);
+            }
+          });
+        }
+        if (currentLeadId && currentLeadName && !scopedDefaultLeadMap.has(currentLeadId)) {
+          scopedDefaultLeadMap.set(currentLeadId, {
+            id: currentLeadId,
+            name: currentLeadName,
+            label: `${currentLeadName} (Current)`,
+          });
+        }
+        return normalizeLeadChoices(
+          [{ id: "", name: "Unassigned", label: "Unassigned" }].concat(
+            Array.from(scopedDefaultLeadMap.values()).sort((a, b) => a.name.localeCompare(b.name))
+          )
+        );
+      };
       const renderLeadMenu = (showAll) => {
         if (!leadMenu) return;
         const query = showAll ? "" : String(leadSearchInput?.value || "").trim().toLowerCase();
-        const source = query ? searchableLeadChoices : defaultLeadChoices;
+        const source = query ? searchableLeadChoices : buildScopedDefaultLeadChoices();
         const filtered = source.filter((item) => {
           if (!query) return true;
           const label = String(item?.label || "").trim().toLowerCase();
@@ -1645,6 +1645,11 @@
         if (!leadCombobox) return;
         if (leadCombobox.contains(event.target)) return;
         closeLeadMenu();
+      };
+      const onLeadScopeChange = () => {
+        if (leadMenu && !leadMenu.hidden) {
+          renderLeadMenu(true);
+        }
       };
       const projectHasExplicitTechAdminOverride = currentTechAdminFeePctOverride !== null;
       let techAdminFeeTouched = false;
@@ -1841,6 +1846,8 @@
       departmentSelect?.addEventListener("change", syncTargetRealizationDefault);
       officeSelect?.addEventListener("change", syncTargetRealizationDefault);
       departmentSelect?.addEventListener("change", syncTechAdminFeeOverrideDefault);
+      departmentSelect?.addEventListener("change", onLeadScopeChange);
+      officeSelect?.addEventListener("change", onLeadScopeChange);
       techAdminFeeOverrideInput?.addEventListener("input", onTechAdminFeeInput);
       leadSearchInput?.addEventListener("input", onLeadSearchInput);
       leadSearchInput?.addEventListener("change", onLeadSearchInput);
@@ -1878,6 +1885,8 @@
         departmentSelect?.removeEventListener("change", syncTargetRealizationDefault);
         officeSelect?.removeEventListener("change", syncTargetRealizationDefault);
         departmentSelect?.removeEventListener("change", syncTechAdminFeeOverrideDefault);
+        departmentSelect?.removeEventListener("change", onLeadScopeChange);
+        officeSelect?.removeEventListener("change", onLeadScopeChange);
         techAdminFeeOverrideInput?.removeEventListener("input", onTechAdminFeeInput);
         leadSearchInput?.removeEventListener("input", onLeadSearchInput);
         leadSearchInput?.removeEventListener("change", onLeadSearchInput);
