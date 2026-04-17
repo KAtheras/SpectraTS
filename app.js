@@ -881,27 +881,47 @@
     const topRow = form.querySelector(".client-editor-row-fields-top");
     if (!topRow) return;
 
-    let leadField = topRow.querySelector('[name="client_lead_id"]')?.closest(".client-editor-field");
+    let leadField = topRow.querySelector("[data-client-lead-field]");
     if (!leadField) {
       leadField = document.createElement("label");
       leadField.className = "client-editor-field";
+      leadField.setAttribute("data-client-lead-field", "1");
       leadField.innerHTML = `
         <span>Client Lead</span>
-        <select name="client_lead_id"></select>
+        <div data-client-lead-combobox style="position:relative;display:flex;align-items:center;">
+          <input type="text" name="client_lead_search" autocomplete="off" placeholder="Search client lead" aria-autocomplete="list" aria-expanded="false" aria-haspopup="listbox" />
+          <button type="button" data-client-lead-toggle aria-label="Show client lead options" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);border:0;background:transparent;color:var(--muted);font-size:12px;cursor:pointer;padding:4px;">▾</button>
+          <div data-client-lead-menu role="listbox" hidden style="position:absolute;left:0;right:0;top:calc(100% + 4px);max-height:220px;overflow:auto;z-index:50;background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 10px 24px rgba(15,23,42,.12);"></div>
+        </div>
+        <input type="hidden" name="client_lead_id" value="" />
       `;
       topRow.appendChild(leadField);
     }
 
-    const leadSelect = leadField.querySelector('select[name="client_lead_id"]');
-    if (!leadSelect) return;
+    if (typeof leadField.__clientLeadComboboxCleanup === "function") {
+      leadField.__clientLeadComboboxCleanup();
+      delete leadField.__clientLeadComboboxCleanup;
+    }
+
+    const leadCombobox = leadField.querySelector("[data-client-lead-combobox]");
+    const leadSearchInput = leadField.querySelector('input[name="client_lead_search"]');
+    const leadValueInput = leadField.querySelector('input[name="client_lead_id"]');
+    const leadMenu = leadField.querySelector("[data-client-lead-menu]");
+    const leadToggleButton = leadField.querySelector("[data-client-lead-toggle]");
+    if (!leadSearchInput || !leadValueInput || !leadMenu || !leadToggleButton || !leadCombobox) return;
+
+    const officeSelect = form.querySelector('[name="office_id"]');
 
     const selectedLeadId =
       String(
-        leadSelect.value ||
+        leadValueInput.value ||
           state.clientEditor?.values?.clientLeadId ||
           state.clientEditor?.values?.client_lead_id ||
           ""
       ).trim();
+    const selectedOfficeId = String(
+      officeSelect?.value || state.clientEditor?.values?.officeId || state.clientEditor?.values?.office_id || ""
+    ).trim();
     const allActiveUsers = (state.users || [])
       .filter((user) => user && user.isActive !== false && user.displayName)
       .sort((a, b) => String(a.displayName || "").localeCompare(String(b.displayName || "")));
@@ -909,33 +929,201 @@
       const group = String(permissionGroupForUser(user) || "").toLowerCase();
       return group === "executive" || group === "admin" || group === "superuser";
     });
-    const eligibleIdSet = new Set(executiveEligibleUsers.map((user) => String(user.id || "").trim()));
     const currentSelectedUser = allActiveUsers.find((user) => String(user.id || "").trim() === selectedLeadId) || null;
-
-    const options = ['<option value="">Unassigned</option>']
-      .concat(
-        executiveEligibleUsers.map((user) => {
-          const id = String(user.id || "").trim();
-          const selected = id && id === selectedLeadId ? "selected" : "";
-          return `<option value="${escapeHtml(id)}" ${selected}>${escapeHtml(
-            String(user.displayName || "")
-          )}</option>`;
-        })
-      )
-      .concat(
-        selectedLeadId && !eligibleIdSet.has(selectedLeadId) && currentSelectedUser
-          ? [
-              `<option value="${escapeHtml(selectedLeadId)}" selected>${escapeHtml(
-                `${String(currentSelectedUser.displayName || "").trim()} (Current)`
-              )}</option>`,
-            ]
-          : []
-      )
-      .join("");
-    leadSelect.innerHTML = options;
-    if (selectedLeadId) {
-      leadSelect.value = selectedLeadId;
+    const searchableLeadMap = new Map();
+    const scopedLeadMap = new Map();
+    const registerLead = (map, user) => {
+      const id = String(user?.id || "").trim();
+      const name = String(user?.displayName || "").trim();
+      if (!id || !name || map.has(id)) return;
+      map.set(id, { id, name, label: name });
+    };
+    executiveEligibleUsers.forEach((user) => registerLead(searchableLeadMap, user));
+    if (selectedOfficeId) {
+      executiveEligibleUsers.forEach((user) => {
+        const officeId = String(user?.officeId || user?.office_id || "").trim();
+        if (officeId === selectedOfficeId) {
+          registerLead(scopedLeadMap, user);
+        }
+      });
     }
+    if (selectedLeadId && currentSelectedUser) {
+      if (!searchableLeadMap.has(selectedLeadId)) {
+        searchableLeadMap.set(selectedLeadId, {
+          id: selectedLeadId,
+          name: String(currentSelectedUser.displayName || "").trim(),
+          label: `${String(currentSelectedUser.displayName || "").trim()} (Current)`,
+        });
+      }
+      if (!scopedLeadMap.has(selectedLeadId)) {
+        scopedLeadMap.set(selectedLeadId, {
+          id: selectedLeadId,
+          name: String(currentSelectedUser.displayName || "").trim(),
+          label: `${String(currentSelectedUser.displayName || "").trim()} (Current)`,
+        });
+      }
+    }
+    const searchableLeadChoicesBase = [{ id: "", name: "Unassigned", label: "Unassigned" }].concat(
+      Array.from(searchableLeadMap.values()).sort((a, b) => a.name.localeCompare(b.name))
+    );
+    const scopedLeadChoicesBase = [{ id: "", name: "Unassigned", label: "Unassigned" }].concat(
+      Array.from(scopedLeadMap.values()).sort((a, b) => a.name.localeCompare(b.name))
+    );
+    const leadNameCounts = new Map();
+    searchableLeadChoicesBase.forEach((item) => {
+      const key = String(item?.name || "").trim().toLowerCase();
+      if (!key) return;
+      leadNameCounts.set(key, (leadNameCounts.get(key) || 0) + 1);
+    });
+    const normalizeChoices = (choices) =>
+      choices.map((item) => {
+        const id = String(item?.id || "").trim();
+        const name = String(item?.name || "").trim();
+        const explicitLabel = String(item?.label || "").trim();
+        const duplicateCount = leadNameCounts.get(name.toLowerCase()) || 0;
+        const needsDisambiguation = id && duplicateCount > 1 && !/\(current\)\s*$/i.test(explicitLabel);
+        const label = needsDisambiguation ? `${name} (${id})` : explicitLabel || name || "Unassigned";
+        return { id, name, label };
+      });
+    const searchableLeadChoices = normalizeChoices(searchableLeadChoicesBase);
+    const scopedLeadChoices = normalizeChoices(scopedLeadChoicesBase);
+    const leadChoiceById = new Map(
+      searchableLeadChoices.concat(scopedLeadChoices).map((item) => [String(item.id || "").trim(), item])
+    );
+    const leadIdByLabel = new Map();
+    const leadIdsByName = new Map();
+    searchableLeadChoices.concat(scopedLeadChoices).forEach((item) => {
+      const labelKey = String(item?.label || "").trim().toLowerCase();
+      const nameKey = String(item?.name || "").trim().toLowerCase();
+      const itemId = String(item?.id || "").trim();
+      if (labelKey) {
+        leadIdByLabel.set(labelKey, itemId);
+      }
+      if (nameKey) {
+        const existing = leadIdsByName.get(nameKey) || [];
+        leadIdsByName.set(nameKey, existing.concat(itemId));
+      }
+    });
+    const labelForLeadId = (leadId) => {
+      const normalizedId = String(leadId || "").trim();
+      const direct = leadChoiceById.get(normalizedId);
+      if (direct) return direct.label;
+      if (!normalizedId) return "Unassigned";
+      return String(getUserById(normalizedId)?.displayName || normalizedId).trim();
+    };
+    const setLeadSelectionById = (leadId) => {
+      const normalizedId = String(leadId || "").trim();
+      leadValueInput.value = normalizedId;
+      leadSearchInput.value = labelForLeadId(normalizedId);
+    };
+    const resolveLeadSelectionFromInput = (strict) => {
+      const raw = String(leadSearchInput.value || "").trim();
+      const normalized = raw.toLowerCase();
+      if (!raw || normalized === "unassigned") {
+        return { valid: true, id: "" };
+      }
+      if (leadIdByLabel.has(normalized)) {
+        return { valid: true, id: String(leadIdByLabel.get(normalized) || "").trim() };
+      }
+      const byName = leadIdsByName.get(normalized) || [];
+      if (byName.length === 1) {
+        return { valid: true, id: String(byName[0] || "").trim() };
+      }
+      if (!strict) {
+        return { valid: true, id: String(leadValueInput.value || "").trim() };
+      }
+      return { valid: false, id: "" };
+    };
+    const renderLeadMenu = (showAll) => {
+      const query = showAll ? "" : String(leadSearchInput.value || "").trim().toLowerCase();
+      const source = query ? searchableLeadChoices : scopedLeadChoices;
+      const filtered = source.filter((item) => {
+        if (!query) return true;
+        const label = String(item?.label || "").trim().toLowerCase();
+        const name = String(item?.name || "").trim().toLowerCase();
+        return label.includes(query) || name.includes(query);
+      });
+      if (!filtered.length) {
+        leadMenu.innerHTML = '<div style="padding:8px 10px;color:var(--muted);font-size:.86rem;">No matches</div>';
+        return;
+      }
+      const selectedId = String(leadValueInput.value || "").trim();
+      const heading = query
+        ? '<div style="padding:6px 10px;color:var(--muted);font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.03em;">Company matches</div>'
+        : '<div style="padding:6px 10px;color:var(--muted);font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.03em;">Scoped defaults</div>';
+      leadMenu.innerHTML =
+        heading +
+        filtered
+          .map((item) => {
+            const itemId = String(item?.id || "").trim();
+            const itemLabel = String(item?.label || "").trim();
+            const isSelected = itemId === selectedId;
+            return `<button type="button" data-client-lead-option-id="${escapeHtml(itemId)}" style="display:block;width:100%;text-align:left;border:0;background:${isSelected ? "rgba(47,111,237,.08)" : "transparent"};padding:8px 10px;cursor:pointer;font:inherit;">${escapeHtml(itemLabel)}</button>`;
+          })
+          .join("");
+    };
+    const openLeadMenu = (showAll) => {
+      renderLeadMenu(Boolean(showAll));
+      leadMenu.hidden = false;
+      leadSearchInput.setAttribute("aria-expanded", "true");
+    };
+    const closeLeadMenu = () => {
+      leadMenu.hidden = true;
+      leadSearchInput.setAttribute("aria-expanded", "false");
+    };
+    const onLeadSearchInput = () => {
+      const next = resolveLeadSelectionFromInput(false);
+      if (next.valid) {
+        leadValueInput.value = next.id;
+      }
+      openLeadMenu(false);
+    };
+    const onLeadSearchBlur = () => {
+      const next = resolveLeadSelectionFromInput(false);
+      if (!next.valid) return;
+      setLeadSelectionById(next.id);
+    };
+    const onLeadMenuClick = (event) => {
+      const option = event.target.closest("[data-client-lead-option-id]");
+      if (!option) return;
+      const nextId = String(option.dataset.clientLeadOptionId || "").trim();
+      setLeadSelectionById(nextId);
+      closeLeadMenu();
+      leadSearchInput.focus();
+    };
+    const onLeadToggleClick = (event) => {
+      event.preventDefault();
+      if (leadMenu.hidden) {
+        openLeadMenu(true);
+        leadSearchInput.focus();
+      } else {
+        closeLeadMenu();
+      }
+    };
+    const onLeadSearchFocus = () => {
+      openLeadMenu(true);
+    };
+    const onLeadComboboxOutsidePointer = (event) => {
+      if (leadCombobox.contains(event.target)) return;
+      closeLeadMenu();
+    };
+    setLeadSelectionById(selectedLeadId);
+    leadSearchInput.addEventListener("input", onLeadSearchInput);
+    leadSearchInput.addEventListener("change", onLeadSearchInput);
+    leadSearchInput.addEventListener("focus", onLeadSearchFocus);
+    leadSearchInput.addEventListener("blur", onLeadSearchBlur);
+    leadMenu.addEventListener("click", onLeadMenuClick);
+    leadToggleButton.addEventListener("click", onLeadToggleClick);
+    document.addEventListener("mousedown", onLeadComboboxOutsidePointer);
+    leadField.__clientLeadComboboxCleanup = () => {
+      leadSearchInput.removeEventListener("input", onLeadSearchInput);
+      leadSearchInput.removeEventListener("change", onLeadSearchInput);
+      leadSearchInput.removeEventListener("focus", onLeadSearchFocus);
+      leadSearchInput.removeEventListener("blur", onLeadSearchBlur);
+      leadMenu.removeEventListener("click", onLeadMenuClick);
+      leadToggleButton.removeEventListener("click", onLeadToggleClick);
+      document.removeEventListener("mousedown", onLeadComboboxOutsidePointer);
+    };
   }
 
   async function ensureOfficeLocationsLoadedForClientEditor() {
@@ -1284,7 +1472,7 @@
         if (!id || !name || targetMap.has(id)) return;
         targetMap.set(id, { id, name, label: name });
       };
-      activeUsers.forEach((user) => registerLeadUser(searchableLeadMap, user));
+      managerEligibleUsers.forEach((user) => registerLeadUser(searchableLeadMap, user));
       if (currentLeadId && currentLeadName) {
         if (!searchableLeadMap.has(currentLeadId)) {
           searchableLeadMap.set(currentLeadId, {
@@ -13481,6 +13669,9 @@
       if (!form) return;
       if (event.target.matches("[data-billing-same-as-business]")) {
         syncBillingContactFromBusiness(form);
+      }
+      if (event.target.matches('[name="office_id"]')) {
+        syncClientEditorLeadField();
       }
     });
 
