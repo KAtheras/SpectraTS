@@ -527,6 +527,25 @@
             max-width:100%;
             min-width:0;
           }
+          #settings-page [data-settings-tab="bulk_download"] .bulk-download-toggle{
+            display:flex;
+            align-items:center;
+            justify-content:space-between;
+            gap:10px;
+            font-size:.92rem;
+            line-height:1.2;
+          }
+          #settings-page [data-settings-tab="bulk_download"] .bulk-download-toggle input[type="checkbox"]{
+            width:42px;
+            height:24px;
+            margin:0;
+          }
+          #settings-page [data-settings-tab="bulk_download"] .bulk-download-toggle.is-select-all{
+            margin-bottom:8px;
+            padding-bottom:8px;
+            border-bottom:1px solid var(--group-border);
+            font-weight:700;
+          }
           #settings-page [data-settings-tab="bulk_upload"] #bulk-upload-preview{
             overflow:hidden;
           }
@@ -1724,7 +1743,8 @@
       const rows = items
         .map(
           (item) => `
-            <label style="display:flex;align-items:center;gap:8px;">
+            <label class="bulk-download-toggle">
+              <span>${escapeHtml(item)}</span>
               <input
                 type="checkbox"
                 data-bulk-download-option
@@ -1732,7 +1752,6 @@
                 value="${escapeHtml(item)}"
                 checked
               />
-              <span>${escapeHtml(item)}</span>
             </label>
           `
         )
@@ -1740,14 +1759,14 @@
       return `
         <fieldset style="border:1px solid var(--group-border);border-radius:10px;padding:10px;min-width:0;">
           <legend class="settings-section-subtitle" style="padding:0 6px;margin:0;">${escapeHtml(label)}</legend>
-          <label style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+          <label class="bulk-download-toggle is-select-all">
+            <span>Select all</span>
             <input
               type="checkbox"
               data-bulk-download-select-all
               data-filter-group="${escapeHtml(groupKey)}"
               checked
             />
-            <span style="font-weight:700;">Select all</span>
           </label>
           <div style="display:grid;gap:6px;max-height:180px;overflow:auto;padding-right:4px;">
             ${rows || `<span class="settings-section-subtitle">No options</span>`}
