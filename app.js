@@ -1272,7 +1272,6 @@
       const leadNameById = new Map(
         activeUsers.map((user) => [String(user.id || "").trim(), String(user.displayName || "").trim()])
       );
-      const managerEligibleUsers = activeUsers.filter((user) => isManager(user));
       const currentLeadName =
         leadNameById.get(currentLeadId) ||
         String(options?.projectLeadName || "").trim() ||
@@ -1297,7 +1296,6 @@
         if (!id || !name || targetMap.has(id)) return;
         targetMap.set(id, { id, name, label: name });
       };
-      managerEligibleUsers.forEach((user) => registerLeadUser(scopedDefaultLeadMap, user));
       sameOfficeDepartmentUsers.forEach((user) => registerLeadUser(scopedDefaultLeadMap, user));
       activeUsers.forEach((user) => registerLeadUser(searchableLeadMap, user));
       if (currentLeadId && currentLeadName) {
