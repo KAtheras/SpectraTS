@@ -1273,42 +1273,76 @@
         activeUsers.map((user) => [String(user.id || "").trim(), String(user.displayName || "").trim()])
       );
       const managerEligibleUsers = activeUsers.filter((user) => isManager(user));
-      const managerEligibleIdSet = new Set(
-        managerEligibleUsers.map((user) => String(user.id || "").trim())
+      const currentLeadName =
+        leadNameById.get(currentLeadId) ||
+        String(options?.projectLeadName || "").trim() ||
+        "";
+      const viewerOfficeId = String(state.currentUser?.officeId || state.currentUser?.office_id || "").trim();
+      const viewerDepartmentId = String(
+        state.currentUser?.departmentId || state.currentUser?.department_id || ""
+      ).trim();
+      const sameOfficeDepartmentUsers =
+        viewerOfficeId && viewerDepartmentId
+          ? activeUsers.filter((user) => {
+              const officeId = String(user?.officeId || user?.office_id || "").trim();
+              const departmentId = String(user?.departmentId || user?.department_id || "").trim();
+              return officeId === viewerOfficeId && departmentId === viewerDepartmentId;
+            })
+          : [];
+      const scopedDefaultLeadMap = new Map();
+      const searchableLeadMap = new Map();
+      const registerLeadUser = (targetMap, user) => {
+        const id = String(user?.id || "").trim();
+        const name = String(user?.displayName || "").trim();
+        if (!id || !name || targetMap.has(id)) return;
+        targetMap.set(id, { id, name, label: name });
+      };
+      managerEligibleUsers.forEach((user) => registerLeadUser(scopedDefaultLeadMap, user));
+      sameOfficeDepartmentUsers.forEach((user) => registerLeadUser(scopedDefaultLeadMap, user));
+      activeUsers.forEach((user) => registerLeadUser(searchableLeadMap, user));
+      if (currentLeadId && currentLeadName) {
+        if (!scopedDefaultLeadMap.has(currentLeadId)) {
+          scopedDefaultLeadMap.set(currentLeadId, {
+            id: currentLeadId,
+            name: currentLeadName,
+            label: `${currentLeadName} (Current)`,
+          });
+        }
+        if (!searchableLeadMap.has(currentLeadId)) {
+          searchableLeadMap.set(currentLeadId, {
+            id: currentLeadId,
+            name: currentLeadName,
+            label: `${currentLeadName} (Current)`,
+          });
+        }
+      }
+      const defaultLeadChoicesBase = [{ id: "", name: "Unassigned", label: "Unassigned" }].concat(
+        Array.from(scopedDefaultLeadMap.values()).sort((a, b) => a.name.localeCompare(b.name))
       );
-      const currentLeadName = leadNameById.get(currentLeadId) || "";
-      const leadChoices = [{ id: "", name: "Unassigned", label: "Unassigned" }]
-        .concat(
-          managerEligibleUsers.map((user) => ({
-            id: String(user.id || "").trim(),
-            name: String(user.displayName || "").trim(),
-            label: String(user.displayName || "").trim(),
-          }))
-        )
-        .concat(
-          currentLeadId && !managerEligibleIdSet.has(currentLeadId) && currentLeadName
-            ? [{ id: currentLeadId, name: currentLeadName, label: `${currentLeadName} (Current)` }]
-            : []
-        )
-        .filter((item) => item && item.name);
+      const searchableLeadChoicesBase = [{ id: "", name: "Unassigned", label: "Unassigned" }].concat(
+        Array.from(searchableLeadMap.values()).sort((a, b) => a.name.localeCompare(b.name))
+      );
       const leadNameCounts = new Map();
-      leadChoices.forEach((item) => {
+      searchableLeadChoicesBase.forEach((item) => {
         const key = String(item?.name || "").trim().toLowerCase();
         if (!key) return;
         leadNameCounts.set(key, (leadNameCounts.get(key) || 0) + 1);
       });
-      const normalizedLeadChoices = leadChoices.map((item) => {
-        const itemId = String(item?.id || "").trim();
-        const itemName = String(item?.name || "").trim();
-        const explicitLabel = String(item?.label || "").trim();
-        const duplicateCount = leadNameCounts.get(itemName.toLowerCase()) || 0;
-        const needsDisambiguation =
-          itemId && duplicateCount > 1 && !/\(current\)\s*$/i.test(explicitLabel);
-        const label = needsDisambiguation
-          ? `${itemName} (${itemId})`
-          : explicitLabel || itemName || "Unassigned";
-        return { id: itemId, name: itemName, label };
-      });
+      const normalizeLeadChoices = (choices) =>
+        choices.map((item) => {
+          const itemId = String(item?.id || "").trim();
+          const itemName = String(item?.name || "").trim();
+          const explicitLabel = String(item?.label || "").trim();
+          const duplicateCount = leadNameCounts.get(itemName.toLowerCase()) || 0;
+          const needsDisambiguation =
+            itemId && duplicateCount > 1 && !/\(current\)\s*$/i.test(explicitLabel);
+          const label = needsDisambiguation
+            ? `${itemName} (${itemId})`
+            : explicitLabel || itemName || "Unassigned";
+          return { id: itemId, name: itemName, label };
+        });
+      const defaultLeadChoices = normalizeLeadChoices(defaultLeadChoicesBase);
+      const searchableLeadChoices = normalizeLeadChoices(searchableLeadChoicesBase);
       const departmentOptions = ['<option value="">No practice department</option>']
         .concat(
           (Array.isArray(state.departments) ? state.departments : [])
@@ -1475,11 +1509,13 @@
       const errorNode = form.querySelector("[data-project-dialog-error]");
       const dialogCard = refs.dialog?.querySelector(".dialog-card");
       const leadChoiceById = new Map(
-        normalizedLeadChoices.map((item) => [String(item.id || "").trim(), item])
+        searchableLeadChoices
+          .concat(defaultLeadChoices)
+          .map((item) => [String(item.id || "").trim(), item])
       );
       const leadIdByLabel = new Map();
       const leadIdsByName = new Map();
-      normalizedLeadChoices.forEach((item) => {
+      searchableLeadChoices.concat(defaultLeadChoices).forEach((item) => {
         const labelKey = String(item?.label || "").trim().toLowerCase();
         const nameKey = String(item?.name || "").trim().toLowerCase();
         const itemId = String(item?.id || "").trim();
@@ -1545,7 +1581,8 @@
       const renderLeadMenu = (showAll) => {
         if (!leadMenu) return;
         const query = showAll ? "" : String(leadSearchInput?.value || "").trim().toLowerCase();
-        const filtered = normalizedLeadChoices.filter((item) => {
+        const source = query ? searchableLeadChoices : defaultLeadChoices;
+        const filtered = source.filter((item) => {
           if (!query) return true;
           const label = String(item?.label || "").trim().toLowerCase();
           const name = String(item?.name || "").trim().toLowerCase();
@@ -1556,14 +1593,19 @@
           leadMenu.innerHTML = '<div style="padding:8px 10px;color:var(--muted);font-size:.86rem;">No matches</div>';
           return;
         }
-        leadMenu.innerHTML = filtered
-          .map((item) => {
+        const heading = query
+          ? '<div style="padding:6px 10px;color:var(--muted);font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.03em;">Company matches</div>'
+          : '<div style="padding:6px 10px;color:var(--muted);font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.03em;">Scoped defaults</div>';
+        leadMenu.innerHTML =
+          heading +
+          filtered
+            .map((item) => {
             const itemId = String(item?.id || "").trim();
             const itemLabel = String(item?.label || "").trim();
             const isSelected = itemId === selectedId;
             return `<button type="button" data-project-lead-option-id="${escapeHtml(itemId)}" style="display:block;width:100%;text-align:left;border:0;background:${isSelected ? "rgba(47,111,237,.08)" : "transparent"};padding:8px 10px;cursor:pointer;font:inherit;">${escapeHtml(itemLabel)}</button>`;
-          })
-          .join("");
+            })
+            .join("");
       };
       const openLeadMenu = (showAll) => {
         if (!leadMenu) return;
