@@ -12,6 +12,7 @@
     "target_realizations",
     "delegations",
     "bulk_upload",
+    "bulk_download",
     "permissions",
   ];
   const SETTINGS_TAB_STORAGE_KEY = "timesheet-studio.settings-tab.v1";
@@ -100,6 +101,7 @@
     if (state.permissions?.manage_target_realizations) tabs.push("target_realizations");
     if (state.permissions?.can_delegate) tabs.push("delegations");
     if (state.permissions?.can_upload_data && !isMobileLayout) tabs.push("bulk_upload");
+    if (state.permissions?.can_upload_data && !isMobileLayout) tabs.push("bulk_download");
     if (state.permissions?.manage_settings_access && !isMobileLayout) tabs.push("permissions");
     return tabs;
   }
@@ -196,7 +198,7 @@
     if (!settingsPage) return;
     const sectionPanels = Array.from(
       settingsPage.querySelectorAll(
-        '[data-settings-tab="levels"], [data-settings-tab="categories"], [data-settings-tab="corporate_functions"], [data-settings-tab="locations"], [data-settings-tab="rates"], [data-settings-tab="messaging_rules"], [data-settings-tab="departments"], [data-settings-tab="department_leads"], [data-settings-tab="target_realizations"], [data-settings-tab="delegations"], [data-settings-tab="bulk_upload"], [data-settings-tab="permissions"]'
+        '[data-settings-tab="levels"], [data-settings-tab="categories"], [data-settings-tab="corporate_functions"], [data-settings-tab="locations"], [data-settings-tab="rates"], [data-settings-tab="messaging_rules"], [data-settings-tab="departments"], [data-settings-tab="department_leads"], [data-settings-tab="target_realizations"], [data-settings-tab="delegations"], [data-settings-tab="bulk_upload"], [data-settings-tab="bulk_download"], [data-settings-tab="permissions"]'
       )
     );
 
@@ -299,13 +301,14 @@
       target_realizations: "Target realizations",
       delegations: "Delegations",
       bulk_upload: "Data Upload",
+      bulk_download: "Data Downloads",
       permissions: "Member access levels",
     };
     const settingsTabGroups = [
       { key: "people", label: "PEOPLE", tabs: ["rates", "levels", "permissions", "delegations"] },
       { key: "organization", label: "ORGANIZATION", tabs: ["departments", "department_leads", "target_realizations", "locations"] },
       { key: "configuration", label: "CONFIGURATION", tabs: ["categories", "corporate_functions", "messaging_rules"] },
-      { key: "tools", label: "TOOLS", tabs: ["bulk_upload"] },
+      { key: "tools", label: "TOOLS", tabs: ["bulk_upload", "bulk_download"] },
     ];
     const allowedSet = new Set(allowedTabs());
     const regroupSettingsTabButtons = function () {
@@ -517,7 +520,9 @@
           #settings-page [data-settings-tab="bulk_upload"] .settings-section-content,
           #settings-page [data-settings-tab="bulk_upload"] #bulk-upload-rows,
           #settings-page [data-settings-tab="bulk_upload"] #bulk-upload-preview,
-          #settings-page [data-settings-tab="bulk_upload"] #bulk-upload-preview-table-wrap{
+          #settings-page [data-settings-tab="bulk_upload"] #bulk-upload-preview-table-wrap,
+          #settings-page [data-settings-tab="bulk_download"] .settings-section-content,
+          #settings-page [data-settings-tab="bulk_download"] #bulk-download-rows{
             width:100%;
             max-width:100%;
             min-width:0;
@@ -1364,6 +1369,26 @@
           bulkPanel.className = "settings-panel";
           panelsContainer.appendChild(bulkPanel);
         }
+        let bulkDownloadBtn = tabsContainer.querySelector('[data-settings-tab-button="bulk_download"]');
+        if (!bulkDownloadBtn) {
+          bulkDownloadBtn = document.createElement("button");
+          bulkDownloadBtn.className = "settings-tab catalog-item";
+          bulkDownloadBtn.type = "button";
+          bulkDownloadBtn.dataset.settingsTabButton = "bulk_download";
+          bulkDownloadBtn.textContent = "Data Downloads";
+          tabsContainer.appendChild(bulkDownloadBtn);
+          bulkDownloadBtn.addEventListener("click", function (event) {
+            event.preventDefault();
+            setActiveSettingsTab("bulk_download", { fromUser: true });
+          });
+        }
+        let bulkDownloadPanel = panelsContainer.querySelector('[data-settings-tab="bulk_download"]');
+        if (!bulkDownloadPanel) {
+          bulkDownloadPanel = document.createElement("div");
+          bulkDownloadPanel.dataset.settingsTab = "bulk_download";
+          bulkDownloadPanel.className = "settings-panel";
+          panelsContainer.appendChild(bulkDownloadPanel);
+        }
       }
     }
 
@@ -1432,6 +1457,7 @@
     initSettingsTabs();
     renderDelegationsTab();
     renderBulkUploadTab();
+    renderBulkDownloadTab();
     renderCorporateFunctionCategories();
     renderPermissionsMatrix();
     renderExpenseCategories();
@@ -1599,6 +1625,237 @@
       }
       renderCorporateFunctionCategories();
     };
+  }
+
+  function renderBulkDownloadTab() {
+    const panel = document.querySelector('[data-settings-tab="bulk_download"]');
+    const { state, escapeHtml, levelLabel } = deps();
+    if (!panel || !state.permissions?.can_upload_data) return;
+
+    const users = Array.isArray(state.users) ? state.users.slice() : [];
+    const offices = Array.isArray(state.officeLocations) ? state.officeLocations : [];
+    const departments = Array.isArray(state.departments) ? state.departments : [];
+    const officeNameById = new Map(
+      offices.map((row) => [`${row?.id || ""}`.trim(), `${row?.name || ""}`.trim()]).filter(([id]) => Boolean(id))
+    );
+    const departmentNameById = new Map(
+      departments
+        .map((row) => [`${row?.id || ""}`.trim(), `${row?.name || ""}`.trim()])
+        .filter(([id]) => Boolean(id))
+    );
+    const normalizeText = function (value) {
+      return `${value ?? ""}`.trim();
+    };
+    const resolveTitle = function (user) {
+      const userLevel = normalizeText(user?.level || user?.levelKey || "");
+      if (typeof levelLabel === "function" && userLevel) {
+        const label = normalizeText(levelLabel(userLevel));
+        if (label) return label;
+      }
+      return normalizeText(user?.levelTitle || user?.title || userLevel || "Unassigned");
+    };
+    const resolveOffice = function (user) {
+      const officeId = normalizeText(user?.officeId || user?.office_id || "");
+      const fromState = officeId ? normalizeText(officeNameById.get(officeId)) : "";
+      return fromState || normalizeText(user?.office || "Unassigned");
+    };
+    const resolveDepartment = function (user) {
+      const departmentId = normalizeText(user?.departmentId || user?.department_id || "");
+      const fromState = departmentId ? normalizeText(departmentNameById.get(departmentId)) : "";
+      return fromState || normalizeText(user?.department || "Unassigned");
+    };
+    const toDisplayBoolean = function (value) {
+      if (value === true) return "Yes";
+      if (value === false) return "No";
+      return "";
+    };
+    const exportRows = users
+      .map((user) => {
+        const username = normalizeText(user?.username || user?.userId || "");
+        const firstName = normalizeText(user?.firstName || user?.first_name || "");
+        const lastName = normalizeText(user?.lastName || user?.last_name || "");
+        const displayName =
+          normalizeText(user?.displayName || user?.name || "") ||
+          `${firstName} ${lastName}`.trim() ||
+          username;
+        const certificationsRaw = user?.certifications;
+        const certifications = Array.isArray(certificationsRaw)
+          ? certificationsRaw.map((item) => normalizeText(item)).filter(Boolean).join(" | ")
+          : normalizeText(certificationsRaw || "");
+        return {
+          user_id: username,
+          employee_id: normalizeText(user?.employeeId || user?.employee_id || ""),
+          first_name: firstName,
+          last_name: lastName,
+          display_name: displayName,
+          email: normalizeText(user?.email || ""),
+          title: resolveTitle(user),
+          office: resolveOffice(user),
+          department: resolveDepartment(user),
+          level: normalizeText(user?.level || user?.levelKey || ""),
+          active_from: normalizeText(user?.activeFrom || user?.active_from || ""),
+          is_active: toDisplayBoolean(user?.active !== false),
+          is_exempt: toDisplayBoolean(
+            user?.isExempt === true || user?.is_exempt === true
+              ? true
+              : user?.isExempt === false || user?.is_exempt === false
+              ? false
+              : ""
+          ),
+          cost_rate: normalizeText(user?.costRate || user?.cost_rate || ""),
+          base_rate: normalizeText(user?.baseRate || user?.base_rate || ""),
+          certifications,
+          member_profile: normalizeText(user?.memberProfile || user?.member_profile || ""),
+        };
+      })
+      .filter((row) => Boolean(row.user_id));
+    const sortValues = function (values) {
+      return Array.from(new Set(values.filter(Boolean))).sort((a, b) => a.localeCompare(b));
+    };
+    const titleOptions = sortValues(exportRows.map((row) => row.title));
+    const officeOptions = sortValues(exportRows.map((row) => row.office));
+    const departmentOptions = sortValues(exportRows.map((row) => row.department));
+    const selectOptionsHtml = function (items, allLabel) {
+      const options = ['<option value="">All</option>'];
+      items.forEach((item) => {
+        options.push(`<option value="${escapeHtml(item)}">${escapeHtml(item)}</option>`);
+      });
+      return `
+        <option value="">${escapeHtml(allLabel)}</option>
+        ${options.slice(1).join("")}
+      `;
+    };
+
+    panel.innerHTML = `
+      <div class="settings-section-header">
+        <div class="settings-section-left">
+          <h3>Data Downloads</h3>
+        </div>
+        <div class="settings-section-right"></div>
+      </div>
+      <div class="settings-section-content">
+        <p id="bulk-download-description">Download filtered member data. You can combine title, office, and department filters.</p>
+        <div class="level-rows" id="bulk-download-rows">
+          <div class="level-row settings-structured-row settings-structured-row-no-label" data-bulk-download-kind="members">
+            <div class="settings-row-main">
+              <span class="settings-row-label">Member Uploads</span>
+              <div class="bulk-download-filter-grid" style="display:grid;grid-template-columns:repeat(3,minmax(120px,1fr));gap:8px;margin-top:10px;">
+                <label style="display:grid;gap:6px;">
+                  <span class="settings-section-subtitle">Title</span>
+                  <select class="settings-field" id="bulk-download-title-filter">
+                    ${selectOptionsHtml(titleOptions, "All titles")}
+                  </select>
+                </label>
+                <label style="display:grid;gap:6px;">
+                  <span class="settings-section-subtitle">Office</span>
+                  <select class="settings-field" id="bulk-download-office-filter">
+                    ${selectOptionsHtml(officeOptions, "All offices")}
+                  </select>
+                </label>
+                <label style="display:grid;gap:6px;">
+                  <span class="settings-section-subtitle">Department</span>
+                  <select class="settings-field" id="bulk-download-department-filter">
+                    ${selectOptionsHtml(departmentOptions, "All departments")}
+                  </select>
+                </label>
+              </div>
+            </div>
+            <div class="settings-row-actions">
+              <button type="button" class="button" id="bulk-download-members-export">Download File</button>
+            </div>
+          </div>
+        </div>
+        <p id="bulk-download-selection" class="settings-section-subtitle" style="margin:0;"></p>
+        <p id="bulk-download-feedback" class="feedback" hidden></p>
+      </div>
+    `;
+
+    const titleFilter = panel.querySelector("#bulk-download-title-filter");
+    const officeFilter = panel.querySelector("#bulk-download-office-filter");
+    const departmentFilter = panel.querySelector("#bulk-download-department-filter");
+    const selectionLabel = panel.querySelector("#bulk-download-selection");
+    const feedbackEl = panel.querySelector("#bulk-download-feedback");
+    const downloadBtn = panel.querySelector("#bulk-download-members-export");
+    const toCsvCell = function (value) {
+      const text = `${value ?? ""}`;
+      if (/[",\n\r]/.test(text)) return `"${text.replace(/"/g, '""')}"`;
+      return text;
+    };
+    const filteredRows = function () {
+      const title = normalizeText(titleFilter?.value || "");
+      const office = normalizeText(officeFilter?.value || "");
+      const department = normalizeText(departmentFilter?.value || "");
+      return exportRows.filter((row) => {
+        if (title && row.title !== title) return false;
+        if (office && row.office !== office) return false;
+        if (department && row.department !== department) return false;
+        return true;
+      });
+    };
+    const showFeedback = function (message, isError) {
+      if (!feedbackEl) return;
+      feedbackEl.hidden = !message;
+      feedbackEl.textContent = message || "";
+      feedbackEl.classList.toggle("error", Boolean(isError));
+    };
+    const syncSelectionLabel = function () {
+      const rows = filteredRows();
+      if (selectionLabel) {
+        const count = rows.length;
+        selectionLabel.textContent = `${count} member${count === 1 ? "" : "s"} selected`;
+      }
+      if (downloadBtn) {
+        downloadBtn.disabled = rows.length <= 0;
+      }
+      showFeedback("", false);
+    };
+    [titleFilter, officeFilter, departmentFilter].forEach((input) => {
+      if (!input) return;
+      input.addEventListener("change", syncSelectionLabel);
+    });
+    syncSelectionLabel();
+
+    downloadBtn?.addEventListener("click", function () {
+      const rows = filteredRows();
+      if (!rows.length) {
+        showFeedback("No members match the selected filters.", true);
+        return;
+      }
+      const columns = [
+        "user_id",
+        "employee_id",
+        "first_name",
+        "last_name",
+        "display_name",
+        "email",
+        "title",
+        "office",
+        "department",
+        "level",
+        "active_from",
+        "is_active",
+        "is_exempt",
+        "cost_rate",
+        "base_rate",
+        "certifications",
+        "member_profile",
+      ];
+      const lines = [columns.join(",")];
+      rows.forEach((row) => {
+        lines.push(columns.map((key) => toCsvCell(row[key])).join(","));
+      });
+      const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      const dateToken = new Date().toISOString().slice(0, 10);
+      anchor.href = url;
+      anchor.download = `member-download-${dateToken}.csv`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      URL.revokeObjectURL(url);
+      showFeedback(`Downloaded ${rows.length} member row${rows.length === 1 ? "" : "s"}.`, false);
+    });
   }
 
   function renderBulkUploadTab() {
