@@ -1476,6 +1476,7 @@
       const targetRealizationInput = form.querySelector('input[name="target_realization_pct"]');
       const techAdminFeeOverrideInput = form.querySelector('input[name="tech_admin_fee_pct_override"]');
       const openPlanningButton = form.querySelector("[data-project-open-planning]");
+      const projectSaveButton = form.querySelector("[data-project-save]");
       const projectCancelButton = form.querySelector("[data-project-cancel]");
       const teamManagersList = form.querySelector('[data-project-team-list="managers"]');
       const teamStaffList = form.querySelector('[data-project-team-list="staff"]');
@@ -1979,7 +1980,7 @@
         };
       };
 
-      const finalize = () => {
+      const finalize = async () => {
         const payload = buildProjectDialogPayload();
         if (!payload) return;
         const clientNameForValidation = String(
@@ -2011,6 +2012,30 @@
           cleanup();
           resolve(payload);
           return;
+        }
+        if (typeof options?.onSubmitAdd === "function") {
+          setError("");
+          const originalSaveText = projectSaveButton?.textContent || finalConfirmText;
+          if (projectSaveButton) {
+            projectSaveButton.disabled = true;
+            projectSaveButton.textContent = "Saving...";
+          }
+          if (projectCancelButton) {
+            projectCancelButton.disabled = true;
+          }
+          try {
+            await options.onSubmitAdd(payload);
+          } catch (error) {
+            setError(error?.message || "Unable to add project.");
+            if (projectSaveButton) {
+              projectSaveButton.disabled = false;
+              projectSaveButton.textContent = originalSaveText;
+            }
+            if (projectCancelButton) {
+              projectCancelButton.disabled = false;
+            }
+            return;
+          }
         }
         cleanup();
         resolve({
@@ -2144,9 +2169,9 @@
       };
       openPlanningButton?.addEventListener("click", onOpenProjectPlanning);
 
-      const onSubmit = (event) => {
+      const onSubmit = async (event) => {
         event.preventDefault();
-        finalize();
+        await finalize();
       };
       const onCancel = () => {
         cleanup();
@@ -2176,8 +2201,10 @@
       return;
     }
 
+    const selectedClientName = String(state.selectedCatalogClient || "").trim();
     const projectDialog = await openProjectDialog({
       mode: "add",
+      clientName: selectedClientName,
       projectName: "",
       budgetAmount: null,
       contractAmount: null,
@@ -2187,6 +2214,29 @@
       staffUserIds: [],
       projectLeadId: null,
       clientOfficeId: String(selectedClientRow?.officeId || selectedClientRow?.office_id || "").trim() || null,
+      onSubmitAdd: async (payload) => {
+        await mutatePersistentState("add_project", {
+          clientName: selectedClientName,
+          projectName: payload.projectName,
+          budgetAmount: payload.budgetAmount,
+          contractAmount: payload.contractAmount,
+          pricingModel: payload.pricingModel,
+          overheadPercent: payload.overheadPercent,
+          targetRealizationPct: payload.targetRealizationPct,
+          techAdminFeePctOverride: payload.techAdminFeePctOverride,
+          project_lead_id: payload.projectLeadId,
+          project_department_id: payload.projectDepartmentId,
+          office_id: payload.projectOfficeId,
+        });
+        await persistProjectTeamAssignments({
+          clientName: selectedClientName,
+          projectName: payload.projectName,
+          initialManagerUserIds: [],
+          initialStaffUserIds: [],
+          nextManagerUserIds: payload.managerUserIds,
+          nextStaffUserIds: payload.staffUserIds,
+        });
+      },
     });
     if (!projectDialog) {
       return;
@@ -2195,32 +2245,6 @@
     const filterUserField = field(refs.filterForm, "user");
     const filterClientField = field(refs.filterForm, "client");
     const filterProjectField = field(refs.filterForm, "project");
-    try {
-      await mutatePersistentState("add_project", {
-        clientName: state.selectedCatalogClient,
-        projectName: projectDialog.projectName,
-        budgetAmount: projectDialog.budgetAmount,
-        contractAmount: projectDialog.contractAmount,
-        pricingModel: projectDialog.pricingModel,
-        overheadPercent: projectDialog.overheadPercent,
-        targetRealizationPct: projectDialog.targetRealizationPct,
-        techAdminFeePctOverride: projectDialog.techAdminFeePctOverride,
-        project_lead_id: projectDialog.projectLeadId,
-        project_department_id: projectDialog.projectDepartmentId,
-        office_id: projectDialog.projectOfficeId,
-      });
-      await persistProjectTeamAssignments({
-        clientName: state.selectedCatalogClient,
-        projectName: projectDialog.projectName,
-        initialManagerUserIds: [],
-        initialStaffUserIds: [],
-        nextManagerUserIds: projectDialog.managerUserIds,
-        nextStaffUserIds: projectDialog.staffUserIds,
-      });
-    } catch (error) {
-      feedback(error.message || "Unable to add project.", true);
-      return;
-    }
 
     syncFilterCatalogsUI({
       user: filterUserField?.value || "",
