@@ -1638,6 +1638,7 @@
       const scopeType = safeText(utilizationScope?.type).toLowerCase();
       const isSelfOnlyScope = scopeType === "self";
       const isAdminOfficeScope = scopeType === "office";
+      const isDepartmentHeadScope = scopeType === "office_department";
       if (isSelfOnlyScope) {
         uiState.utilizationGroupBy = "member";
         uiState.utilizationOfficeId = "";
@@ -1661,9 +1662,24 @@
           uiState.utilizationOfficeId = scopedOfficeId;
         }
       }
-      const utilizationGroupByOptions = isAdminOfficeScope
-        ? UTILIZATION_GROUP_BY_OPTIONS.filter((item) => safeText(item?.id) !== "office")
-        : UTILIZATION_GROUP_BY_OPTIONS;
+      if (isDepartmentHeadScope) {
+        const scopedOfficeId = safeText(utilizationScope?.officeId);
+        const scopedDepartmentId = safeText(utilizationScope?.departmentId);
+        if (scopedOfficeId) {
+          uiState.utilizationOfficeId = scopedOfficeId;
+        }
+        if (scopedDepartmentId) {
+          uiState.utilizationDepartmentId = scopedDepartmentId;
+        }
+      }
+      const utilizationGroupByOptions = isDepartmentHeadScope
+        ? UTILIZATION_GROUP_BY_OPTIONS.filter((item) => {
+            const id = safeText(item?.id);
+            return id !== "office" && id !== "department";
+          })
+        : isAdminOfficeScope
+          ? UTILIZATION_GROUP_BY_OPTIONS.filter((item) => safeText(item?.id) !== "office")
+          : UTILIZATION_GROUP_BY_OPTIONS;
       if (!utilizationGroupByOptions.some((item) => item.id === uiState.utilizationGroupBy)) {
         uiState.utilizationGroupBy = "member";
       }
@@ -1753,13 +1769,19 @@
       const adminOfficeName = isAdminOfficeScope
         ? safeText((scopeOptions.offices || [])[0]?.name || utilizationScope?.officeName || "")
         : "";
+      const departmentHeadOfficeName = isDepartmentHeadScope
+        ? safeText((scopeOptions.offices || [])[0]?.name || utilizationScope?.officeName || "")
+        : "";
+      const departmentHeadDepartmentName = isDepartmentHeadScope
+        ? safeText((scopeOptions.departments || [])[0]?.name || utilizationScope?.departmentName || "")
+        : "";
       const officeControlHtml = isSelfOnlyScope
         ? ""
-        : isAdminOfficeScope
+        : (isAdminOfficeScope || isDepartmentHeadScope)
           ? `<label>
               <span>Office</span>
               <div class="analytics-util-select" style="display:flex;align-items:center;min-height:34px;padding:0 10px;background:#fff;border:1px solid var(--line);border-radius:8px;">${escapeHtml(
-                adminOfficeName || "Assigned office"
+                (isDepartmentHeadScope ? departmentHeadOfficeName : adminOfficeName) || "Assigned office"
               )}</div>
             </label>`
         : `<label>
@@ -1775,6 +1797,13 @@
             </label>`;
       const departmentControlHtml = isSelfOnlyScope
         ? ""
+        : isDepartmentHeadScope
+          ? `<label>
+              <span>Department</span>
+              <div class="analytics-util-select" style="display:flex;align-items:center;min-height:34px;padding:0 10px;background:#fff;border:1px solid var(--line);border-radius:8px;">${escapeHtml(
+                departmentHeadDepartmentName || "Assigned department"
+              )}</div>
+            </label>`
         : `<label>
               <span>Department</span>
               <span class="analytics-util-select-wrap">
@@ -1901,10 +1930,14 @@
             uiState.utilizationGroupBy = normalizeUtilizationGroupBy(utilizationFilterForm.elements.groupBy?.value);
             if (utilizationFilterForm.elements.officeId) {
               uiState.utilizationOfficeId = safeText(utilizationFilterForm.elements.officeId?.value);
-            } else if (isAdminOfficeScope) {
+            } else if (isAdminOfficeScope || isDepartmentHeadScope) {
               uiState.utilizationOfficeId = safeText(utilizationScope?.officeId);
             }
-            uiState.utilizationDepartmentId = safeText(utilizationFilterForm.elements.departmentId?.value);
+            if (utilizationFilterForm.elements.departmentId) {
+              uiState.utilizationDepartmentId = safeText(utilizationFilterForm.elements.departmentId?.value);
+            } else if (isDepartmentHeadScope) {
+              uiState.utilizationDepartmentId = safeText(utilizationScope?.departmentId);
+            }
           }
           renderAnalyticsPage(options);
         });
