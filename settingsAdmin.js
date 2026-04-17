@@ -1715,14 +1715,44 @@
     const titleOptions = sortValues(exportRows.map((row) => row.title));
     const officeOptions = sortValues(exportRows.map((row) => row.office));
     const departmentOptions = sortValues(exportRows.map((row) => row.department));
-    const selectOptionsHtml = function (items, allLabel) {
-      const options = ['<option value="">All</option>'];
-      items.forEach((item) => {
-        options.push(`<option value="${escapeHtml(item)}">${escapeHtml(item)}</option>`);
-      });
+    const filterGroups = {
+      title: titleOptions,
+      office: officeOptions,
+      department: departmentOptions,
+    };
+    const toggleGroupHtml = function (groupKey, label, items) {
+      const rows = items
+        .map(
+          (item) => `
+            <label style="display:flex;align-items:center;gap:8px;">
+              <input
+                type="checkbox"
+                data-bulk-download-option
+                data-filter-group="${escapeHtml(groupKey)}"
+                value="${escapeHtml(item)}"
+                checked
+              />
+              <span>${escapeHtml(item)}</span>
+            </label>
+          `
+        )
+        .join("");
       return `
-        <option value="">${escapeHtml(allLabel)}</option>
-        ${options.slice(1).join("")}
+        <fieldset style="border:1px solid var(--group-border);border-radius:10px;padding:10px;min-width:0;">
+          <legend class="settings-section-subtitle" style="padding:0 6px;margin:0;">${escapeHtml(label)}</legend>
+          <label style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+            <input
+              type="checkbox"
+              data-bulk-download-select-all
+              data-filter-group="${escapeHtml(groupKey)}"
+              checked
+            />
+            <span style="font-weight:700;">Select all</span>
+          </label>
+          <div style="display:grid;gap:6px;max-height:180px;overflow:auto;padding-right:4px;">
+            ${rows || `<span class="settings-section-subtitle">No options</span>`}
+          </div>
+        </fieldset>
       `;
     };
 
@@ -1739,25 +1769,10 @@
           <div class="level-row settings-structured-row settings-structured-row-no-label" data-bulk-download-kind="members">
             <div class="settings-row-main">
               <span class="settings-row-label">Member Uploads</span>
-              <div class="bulk-download-filter-grid" style="display:grid;grid-template-columns:repeat(3,minmax(120px,1fr));gap:8px;margin-top:10px;">
-                <label style="display:grid;gap:6px;">
-                  <span class="settings-section-subtitle">Title</span>
-                  <select class="settings-field" id="bulk-download-title-filter">
-                    ${selectOptionsHtml(titleOptions, "All titles")}
-                  </select>
-                </label>
-                <label style="display:grid;gap:6px;">
-                  <span class="settings-section-subtitle">Office</span>
-                  <select class="settings-field" id="bulk-download-office-filter">
-                    ${selectOptionsHtml(officeOptions, "All offices")}
-                  </select>
-                </label>
-                <label style="display:grid;gap:6px;">
-                  <span class="settings-section-subtitle">Department</span>
-                  <select class="settings-field" id="bulk-download-department-filter">
-                    ${selectOptionsHtml(departmentOptions, "All departments")}
-                  </select>
-                </label>
+              <div class="bulk-download-filter-grid" style="display:grid;grid-template-columns:repeat(3,minmax(180px,1fr));gap:10px;margin-top:10px;">
+                ${toggleGroupHtml("title", "Title", titleOptions)}
+                ${toggleGroupHtml("office", "Office", officeOptions)}
+                ${toggleGroupHtml("department", "Department", departmentOptions)}
               </div>
             </div>
             <div class="settings-row-actions">
@@ -1770,25 +1785,52 @@
       </div>
     `;
 
-    const titleFilter = panel.querySelector("#bulk-download-title-filter");
-    const officeFilter = panel.querySelector("#bulk-download-office-filter");
-    const departmentFilter = panel.querySelector("#bulk-download-department-filter");
     const selectionLabel = panel.querySelector("#bulk-download-selection");
     const feedbackEl = panel.querySelector("#bulk-download-feedback");
     const downloadBtn = panel.querySelector("#bulk-download-members-export");
+    const optionInputs = Array.from(panel.querySelectorAll("[data-bulk-download-option]"));
+    const selectAllInputs = Array.from(panel.querySelectorAll("[data-bulk-download-select-all]"));
     const toCsvCell = function (value) {
       const text = `${value ?? ""}`;
       if (/[",\n\r]/.test(text)) return `"${text.replace(/"/g, '""')}"`;
       return text;
     };
+    const selectedValuesByGroup = function () {
+      return {
+        title: new Set(
+          optionInputs
+            .filter((input) => input.dataset.filterGroup === "title" && input.checked)
+            .map((input) => normalizeText(input.value))
+            .filter(Boolean)
+        ),
+        office: new Set(
+          optionInputs
+            .filter((input) => input.dataset.filterGroup === "office" && input.checked)
+            .map((input) => normalizeText(input.value))
+            .filter(Boolean)
+        ),
+        department: new Set(
+          optionInputs
+            .filter((input) => input.dataset.filterGroup === "department" && input.checked)
+            .map((input) => normalizeText(input.value))
+            .filter(Boolean)
+        ),
+      };
+    };
+    const syncSelectAllForGroup = function (groupKey) {
+      const allInput = selectAllInputs.find((input) => input.dataset.filterGroup === groupKey);
+      if (!allInput) return;
+      const groupOptions = optionInputs.filter((input) => input.dataset.filterGroup === groupKey);
+      const allSelected = groupOptions.length > 0 && groupOptions.every((input) => input.checked);
+      allInput.checked = allSelected;
+      allInput.indeterminate = !allSelected && groupOptions.some((input) => input.checked);
+    };
     const filteredRows = function () {
-      const title = normalizeText(titleFilter?.value || "");
-      const office = normalizeText(officeFilter?.value || "");
-      const department = normalizeText(departmentFilter?.value || "");
+      const selected = selectedValuesByGroup();
       return exportRows.filter((row) => {
-        if (title && row.title !== title) return false;
-        if (office && row.office !== office) return false;
-        if (department && row.department !== department) return false;
+        if (!selected.title.size || !selected.title.has(row.title)) return false;
+        if (!selected.office.size || !selected.office.has(row.office)) return false;
+        if (!selected.department.size || !selected.department.has(row.department)) return false;
         return true;
       });
     };
@@ -1809,10 +1851,29 @@
       }
       showFeedback("", false);
     };
-    [titleFilter, officeFilter, departmentFilter].forEach((input) => {
-      if (!input) return;
-      input.addEventListener("change", syncSelectionLabel);
+    selectAllInputs.forEach((input) => {
+      input.addEventListener("change", function () {
+        const groupKey = `${input.dataset.filterGroup || ""}`.trim();
+        if (!groupKey || !Object.prototype.hasOwnProperty.call(filterGroups, groupKey)) return;
+        const nextState = input.checked;
+        optionInputs
+          .filter((option) => option.dataset.filterGroup === groupKey)
+          .forEach((option) => {
+            option.checked = nextState;
+          });
+        syncSelectAllForGroup(groupKey);
+        syncSelectionLabel();
+      });
     });
+    optionInputs.forEach((input) => {
+      input.addEventListener("change", function () {
+        const groupKey = `${input.dataset.filterGroup || ""}`.trim();
+        if (!groupKey) return;
+        syncSelectAllForGroup(groupKey);
+        syncSelectionLabel();
+      });
+    });
+    ["title", "office", "department"].forEach(syncSelectAllForGroup);
     syncSelectionLabel();
 
     downloadBtn?.addEventListener("click", function () {
