@@ -1635,7 +1635,9 @@
             departments: appState.departments,
           });
       const utilizationScope = scopeOptions?.scope || appState?.utilizationScope || {};
-      const isSelfOnlyScope = safeText(utilizationScope?.type).toLowerCase() === "self";
+      const scopeType = safeText(utilizationScope?.type).toLowerCase();
+      const isSelfOnlyScope = scopeType === "self";
+      const isAdminOfficeScope = scopeType === "office";
       if (isSelfOnlyScope) {
         uiState.utilizationGroupBy = "member";
         uiState.utilizationOfficeId = "";
@@ -1653,8 +1655,20 @@
       if (uiState.utilizationDepartmentId && !allowedDepartmentIds.has(uiState.utilizationDepartmentId)) {
         uiState.utilizationDepartmentId = "";
       }
+      if (isAdminOfficeScope) {
+        const scopedOfficeId = safeText(utilizationScope?.officeId);
+        if (scopedOfficeId) {
+          uiState.utilizationOfficeId = scopedOfficeId;
+        }
+      }
+      const utilizationGroupByOptions = isAdminOfficeScope
+        ? UTILIZATION_GROUP_BY_OPTIONS.filter((item) => safeText(item?.id) !== "office")
+        : UTILIZATION_GROUP_BY_OPTIONS;
+      if (!utilizationGroupByOptions.some((item) => item.id === uiState.utilizationGroupBy)) {
+        uiState.utilizationGroupBy = "member";
+      }
       const groupByLabel =
-        UTILIZATION_GROUP_BY_OPTIONS.find((item) => item.id === uiState.utilizationGroupBy)?.name || "Group";
+        utilizationGroupByOptions.find((item) => item.id === uiState.utilizationGroupBy)?.name || "Group";
       const utilization = engine.computeUtilizationAnalytics({
         entries: utilizationData.entries,
         users: utilizationData.users,
@@ -1730,14 +1744,24 @@
               <span>Group By</span>
               <span class="analytics-util-select-wrap">
                 <select name="groupBy" class="analytics-util-select">${renderOptions(
-                  UTILIZATION_GROUP_BY_OPTIONS,
+                  utilizationGroupByOptions,
                   uiState.utilizationGroupBy
                 )}</select>
                 <span class="analytics-member-title-chevron" aria-hidden="true">▾</span>
               </span>
             </label>`;
+      const adminOfficeName = isAdminOfficeScope
+        ? safeText((scopeOptions.offices || [])[0]?.name || utilizationScope?.officeName || "")
+        : "";
       const officeControlHtml = isSelfOnlyScope
         ? ""
+        : isAdminOfficeScope
+          ? `<label>
+              <span>Office</span>
+              <div class="analytics-util-select" style="display:flex;align-items:center;min-height:34px;padding:0 10px;background:#fff;border:1px solid var(--line);border-radius:8px;">${escapeHtml(
+                adminOfficeName || "Assigned office"
+              )}</div>
+            </label>`
         : `<label>
               <span>Office</span>
               <span class="analytics-util-select-wrap">
@@ -1875,7 +1899,11 @@
           uiState.utilizationPeriod = normalizeUtilizationPeriod(utilizationFilterForm.elements.period?.value);
           if (!isSelfOnlyScope) {
             uiState.utilizationGroupBy = normalizeUtilizationGroupBy(utilizationFilterForm.elements.groupBy?.value);
-            uiState.utilizationOfficeId = safeText(utilizationFilterForm.elements.officeId?.value);
+            if (utilizationFilterForm.elements.officeId) {
+              uiState.utilizationOfficeId = safeText(utilizationFilterForm.elements.officeId?.value);
+            } else if (isAdminOfficeScope) {
+              uiState.utilizationOfficeId = safeText(utilizationScope?.officeId);
+            }
             uiState.utilizationDepartmentId = safeText(utilizationFilterForm.elements.departmentId?.value);
           }
           renderAnalyticsPage(options);
