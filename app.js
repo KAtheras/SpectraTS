@@ -1277,24 +1277,40 @@
         managerEligibleUsers.map((user) => String(user.id || "").trim())
       );
       const currentLeadName = leadNameById.get(currentLeadId) || "";
-      const leadOptions = ['<option value="">Unassigned</option>']
+      const leadChoices = [{ id: "", name: "Unassigned", label: "Unassigned" }]
         .concat(
-          managerEligibleUsers.map(
-            (user) =>
-              `<option value="${escapeHtml(String(user.id || ""))}">${escapeHtml(
-                String(user.displayName || "")
-              )}</option>`
-          )
+          managerEligibleUsers.map((user) => ({
+            id: String(user.id || "").trim(),
+            name: String(user.displayName || "").trim(),
+            label: String(user.displayName || "").trim(),
+          }))
         )
         .concat(
           currentLeadId && !managerEligibleIdSet.has(currentLeadId) && currentLeadName
-            ? [
-                `<option value="${escapeHtml(currentLeadId)}">${escapeHtml(
-                  `${currentLeadName} (Current)`
-                )}</option>`,
-              ]
+            ? [{ id: currentLeadId, name: currentLeadName, label: `${currentLeadName} (Current)` }]
             : []
         )
+        .filter((item) => item && item.name);
+      const leadNameCounts = new Map();
+      leadChoices.forEach((item) => {
+        const key = String(item?.name || "").trim().toLowerCase();
+        if (!key) return;
+        leadNameCounts.set(key, (leadNameCounts.get(key) || 0) + 1);
+      });
+      const normalizedLeadChoices = leadChoices.map((item) => {
+        const itemId = String(item?.id || "").trim();
+        const itemName = String(item?.name || "").trim();
+        const explicitLabel = String(item?.label || "").trim();
+        const duplicateCount = leadNameCounts.get(itemName.toLowerCase()) || 0;
+        const needsDisambiguation =
+          itemId && duplicateCount > 1 && !/\(current\)\s*$/i.test(explicitLabel);
+        const label = needsDisambiguation
+          ? `${itemName} (${itemId})`
+          : explicitLabel || itemName || "Unassigned";
+        return { id: itemId, name: itemName, label };
+      });
+      const leadDatalistOptions = normalizedLeadChoices
+        .map((item) => `<option value="${escapeHtml(item.label)}"></option>`)
         .join("");
       const departmentOptions = ['<option value="">No practice department</option>']
         .concat(
@@ -1344,7 +1360,9 @@
             </label>
             <label class="project-dialog-field">
               <span>Project Lead</span>
-              <select name="project_lead_id">${leadOptions}</select>
+              <input type="text" name="project_lead_search" list="project-lead-options" autocomplete="off" placeholder="Search project lead" />
+              <datalist id="project-lead-options">${leadDatalistOptions}</datalist>
+              <input type="hidden" name="project_lead_id" value="" />
             </label>
           </div>
           <div class="project-dialog-core-row project-dialog-econ-row" style="grid-template-columns: repeat(4, minmax(0, 1fr));">
@@ -1435,7 +1453,8 @@
       const nameInput = form.querySelector('input[name="project_name"]');
       const contractAmountInput = form.querySelector('input[name="contract_amount"]');
       const contractAmountHelper = form.querySelector("[data-contract-amount-helper]");
-      const leadSelect = form.querySelector('select[name="project_lead_id"]');
+      const leadSearchInput = form.querySelector('input[name="project_lead_search"]');
+      const leadValueInput = form.querySelector('input[name="project_lead_id"]');
       const departmentSelect = form.querySelector('select[name="project_department_id"]');
       const officeSelect = form.querySelector('select[name="project_office_id"]');
       const pricingModelInput = form.querySelector('[name="pricing_model"]');
@@ -1452,6 +1471,73 @@
       const addMemberButton = form.querySelector("[data-project-team-add-member]");
       const errorNode = form.querySelector("[data-project-dialog-error]");
       const dialogCard = refs.dialog?.querySelector(".dialog-card");
+      const leadChoiceById = new Map(
+        normalizedLeadChoices.map((item) => [String(item.id || "").trim(), item])
+      );
+      const leadIdByLabel = new Map();
+      const leadIdsByName = new Map();
+      normalizedLeadChoices.forEach((item) => {
+        const labelKey = String(item?.label || "").trim().toLowerCase();
+        const nameKey = String(item?.name || "").trim().toLowerCase();
+        const itemId = String(item?.id || "").trim();
+        if (labelKey) {
+          leadIdByLabel.set(labelKey, itemId);
+        }
+        if (nameKey) {
+          const existing = leadIdsByName.get(nameKey) || [];
+          if (itemId || nameKey === "unassigned") {
+            leadIdsByName.set(nameKey, existing.concat(itemId));
+          }
+        }
+      });
+      const labelForLeadId = (leadId) => {
+        const normalizedId = String(leadId || "").trim();
+        const direct = leadChoiceById.get(normalizedId);
+        if (direct) return direct.label;
+        if (!normalizedId) return "Unassigned";
+        return String(leadNameById.get(normalizedId) || normalizedId).trim();
+      };
+      const setLeadSelectionById = (leadId) => {
+        const normalizedId = String(leadId || "").trim();
+        if (leadValueInput) {
+          leadValueInput.value = normalizedId;
+        }
+        if (leadSearchInput) {
+          leadSearchInput.value = labelForLeadId(normalizedId);
+        }
+      };
+      const resolveLeadSelectionFromInput = (strict) => {
+        const raw = String(leadSearchInput?.value || "").trim();
+        const normalized = raw.toLowerCase();
+        if (!raw || normalized === "unassigned") {
+          return { valid: true, id: "" };
+        }
+        if (leadIdByLabel.has(normalized)) {
+          return { valid: true, id: String(leadIdByLabel.get(normalized) || "").trim() };
+        }
+        const byName = leadIdsByName.get(normalized) || [];
+        if (byName.length === 1) {
+          return { valid: true, id: String(byName[0] || "").trim() };
+        }
+        if (!strict) {
+          return {
+            valid: true,
+            id: String(leadValueInput?.value || "").trim(),
+          };
+        }
+        return { valid: false, id: "" };
+      };
+      const onLeadSearchInput = () => {
+        const next = resolveLeadSelectionFromInput(false);
+        if (next.valid && leadValueInput) {
+          leadValueInput.value = next.id;
+        }
+      };
+      const onLeadSearchBlur = () => {
+        const next = resolveLeadSelectionFromInput(false);
+        if (!next.valid) return;
+        setLeadSelectionById(next.id);
+      };
       const projectHasExplicitTechAdminOverride = currentTechAdminFeePctOverride !== null;
       let techAdminFeeTouched = false;
       const onTechAdminFeeInput = () => {
@@ -1637,9 +1723,7 @@
         techAdminFeeOverrideInput.value =
           currentTechAdminFeePctOverride !== null ? String(currentTechAdminFeePctOverride) : "";
       }
-      if (leadSelect) {
-        leadSelect.value = currentLeadId;
-      }
+      setLeadSelectionById(currentLeadId);
       if (departmentSelect) {
         departmentSelect.value = currentProjectDepartmentId;
       }
@@ -1650,6 +1734,9 @@
       officeSelect?.addEventListener("change", syncTargetRealizationDefault);
       departmentSelect?.addEventListener("change", syncTechAdminFeeOverrideDefault);
       techAdminFeeOverrideInput?.addEventListener("input", onTechAdminFeeInput);
+      leadSearchInput?.addEventListener("input", onLeadSearchInput);
+      leadSearchInput?.addEventListener("change", onLeadSearchInput);
+      leadSearchInput?.addEventListener("blur", onLeadSearchBlur);
       syncTechAdminFeeOverrideDefault();
 
       refs.dialogTitle.textContent = title;
@@ -1680,6 +1767,9 @@
         officeSelect?.removeEventListener("change", syncTargetRealizationDefault);
         departmentSelect?.removeEventListener("change", syncTechAdminFeeOverrideDefault);
         techAdminFeeOverrideInput?.removeEventListener("input", onTechAdminFeeInput);
+        leadSearchInput?.removeEventListener("input", onLeadSearchInput);
+        leadSearchInput?.removeEventListener("change", onLeadSearchInput);
+        leadSearchInput?.removeEventListener("blur", onLeadSearchBlur);
         pricingModelToggleButtons.forEach((button) =>
           button.removeEventListener("click", onPricingModelToggleClick)
         );
@@ -1731,6 +1821,17 @@
           techAdminFeeOverrideInput?.focus();
           return null;
         }
+        const resolvedLead = resolveLeadSelectionFromInput(true);
+        if (!resolvedLead.valid) {
+          setError("Select a valid project lead from the list.");
+          leadSearchInput?.focus();
+          leadSearchInput?.select();
+          return null;
+        }
+        if (leadValueInput) {
+          leadValueInput.value = resolvedLead.id;
+        }
+        setLeadSelectionById(resolvedLead.id);
         return {
           projectName: nextName,
           budgetAmount: currentBudget,
@@ -1747,7 +1848,7 @@
               : parsedTechAdminFeeOverride.value,
           managerUserIds: [...pendingManagerUserIds],
           staffUserIds: [...pendingStaffUserIds],
-          projectLeadId: String(leadSelect?.value || "").trim() || null,
+          projectLeadId: String(leadValueInput?.value || "").trim() || null,
           projectDepartmentId: String(departmentSelect?.value || "").trim() || null,
           projectOfficeId: String(officeSelect?.value || "").trim() || null,
         };
