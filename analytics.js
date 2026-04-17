@@ -1620,7 +1620,6 @@
       uiState.utilizationMemberSort = normalizeUtilizationMemberSort(uiState.utilizationMemberSort);
       uiState.utilizationMemberTitle = normalizeUtilizationMemberTitle(uiState.utilizationMemberTitle);
 
-      const periodRange = utilizationPeriodRange(uiState.utilizationPeriod, new Date());
       const scopeOptions = typeof engine.listUtilizationScopeOptions === "function"
         ? engine.listUtilizationScopeOptions({
             currentUser: appState.currentUser,
@@ -1635,6 +1634,15 @@
             offices: appState.officeLocations,
             departments: appState.departments,
           });
+      const utilizationScope = scopeOptions?.scope || appState?.utilizationScope || {};
+      const isSelfOnlyScope = safeText(utilizationScope?.type).toLowerCase() === "self";
+      if (isSelfOnlyScope) {
+        uiState.utilizationGroupBy = "member";
+        uiState.utilizationOfficeId = "";
+        uiState.utilizationDepartmentId = "";
+      }
+
+      const periodRange = utilizationPeriodRange(uiState.utilizationPeriod, new Date());
       const allowedOfficeIds = new Set((scopeOptions.offices || []).map((item) => safeText(item?.id)).filter(Boolean));
       const allowedDepartmentIds = new Set(
         (scopeOptions.departments || []).map((item) => safeText(item?.id)).filter(Boolean)
@@ -1703,7 +1711,7 @@
         uiState.utilizationGroupBy,
         uiState.utilizationMemberSort
       );
-      const showMemberSortControl = isMemberGrouping;
+      const showMemberSortControl = isMemberGrouping && !isSelfOnlyScope;
       const availableKeys = new Set(utilizationRows.map((row) => safeText(row?.key)).filter(Boolean));
       const preferredSelectedKey = safeText(uiState.utilizationSelectedKey);
       if (!preferredSelectedKey || !availableKeys.has(preferredSelectedKey)) {
@@ -1716,23 +1724,15 @@
           ? utilization.timeSeriesByKey[selectedRow.key]
           : []
         : [];
-
-      body.innerHTML = `
-        <div class="analytics-panel" data-analytics-root>
-          ${subTabsHtml}
-
-          <form class="analytics-util-filters" data-analytics-utilization-filters>
-            <label>
-              <span>Period</span>
-              <span class="analytics-util-select-wrap">
-                <select name="period" class="analytics-util-select">${renderOptions(
-                  UTILIZATION_PERIODS,
-                  uiState.utilizationPeriod
-                )}</select>
-                <span class="analytics-member-title-chevron" aria-hidden="true">▾</span>
-              </span>
-            </label>
-            <label>
+      const selfBreakdown = selectedRow || {
+        clientHours: utilization?.kpis?.clientHours,
+        internalHours: utilization?.kpis?.internalHours,
+        ptoHours: utilization?.kpis?.ptoHours,
+        idleHours: utilization?.kpis?.idleHours,
+      };
+      const groupByControlHtml = isSelfOnlyScope
+        ? ""
+        : `<label>
               <span>Group By</span>
               <span class="analytics-util-select-wrap">
                 <select name="groupBy" class="analytics-util-select">${renderOptions(
@@ -1741,8 +1741,10 @@
                 )}</select>
                 <span class="analytics-member-title-chevron" aria-hidden="true">▾</span>
               </span>
-            </label>
-            <label>
+            </label>`;
+      const officeControlHtml = isSelfOnlyScope
+        ? ""
+        : `<label>
               <span>Office</span>
               <span class="analytics-util-select-wrap">
                 <select name="officeId" class="analytics-util-select">${renderOptions(
@@ -1752,8 +1754,10 @@
                 )}</select>
                 <span class="analytics-member-title-chevron" aria-hidden="true">▾</span>
               </span>
-            </label>
-            <label>
+            </label>`;
+      const departmentControlHtml = isSelfOnlyScope
+        ? ""
+        : `<label>
               <span>Department</span>
               <span class="analytics-util-select-wrap">
                 <select name="departmentId" class="analytics-util-select">${renderOptions(
@@ -1763,34 +1767,32 @@
                 )}</select>
                 <span class="analytics-member-title-chevron" aria-hidden="true">▾</span>
               </span>
-            </label>
-          </form>
-
-          <section class="analytics-kpis">
-            <article class="analytics-kpi"><div class="analytics-kpi-label">Avg Utilization %</div><div class="analytics-kpi-value">${escapeHtml(
-              formatPercent(utilization.kpis.avgUtilizationPct)
-            )}</div></article>
-            <article class="analytics-kpi"><div class="analytics-kpi-label">Client Hours</div><div class="analytics-kpi-value">${escapeHtml(
-              formatHours(utilization.kpis.clientHours)
-            )}</div></article>
-            <article class="analytics-kpi"><div class="analytics-kpi-label">Internal Hours</div><div class="analytics-kpi-value">${escapeHtml(
-              formatHours(utilization.kpis.internalHours)
-            )}</div></article>
-            <article class="analytics-kpi"><div class="analytics-kpi-label">PTO Hours</div><div class="analytics-kpi-value">${escapeHtml(
-              formatHours(utilization.kpis.ptoHours)
-            )}</div></article>
-            <article class="analytics-kpi"><div class="analytics-kpi-label">Idle Hours</div><div class="analytics-kpi-value">${escapeHtml(
-              formatHours(utilization.kpis.idleHours)
-            )}</div></article>
+            </label>`;
+      const utilizationMainHtml = isSelfOnlyScope
+        ? `
+          <section class="analytics-chart-wrap">
+            <div class="analytics-chart-head">
+              <strong>${escapeHtml(selectedRow ? `${selectedRow.name} Utilization Over Time` : "My Utilization Over Time")}</strong>
+            </div>
+            <div data-analytics-utilization-right-host></div>
           </section>
 
-          <section class="analytics-util-shared-legend" aria-label="Utilization legend">
-            <span class="analytics-util-legend-item"><span class="analytics-util-legend-swatch" style="background:#2f9988;"></span>Client</span>
-            <span class="analytics-util-legend-item"><span class="analytics-util-legend-swatch" style="background:#2f6fed;"></span>Internal</span>
-            <span class="analytics-util-legend-item"><span class="analytics-util-legend-swatch" style="background:#9a78d1;"></span>PTO</span>
-            <span class="analytics-util-legend-item"><span class="analytics-util-legend-swatch" style="background:#b8bdc7;"></span>Idle</span>
+          <section class="analytics-kpis" style="grid-template-columns:repeat(4,minmax(120px,1fr));">
+            <article class="analytics-kpi"><div class="analytics-kpi-label">Client</div><div class="analytics-kpi-value">${escapeHtml(
+              formatHours(selfBreakdown.clientHours)
+            )}</div></article>
+            <article class="analytics-kpi"><div class="analytics-kpi-label">Internal</div><div class="analytics-kpi-value">${escapeHtml(
+              formatHours(selfBreakdown.internalHours)
+            )}</div></article>
+            <article class="analytics-kpi"><div class="analytics-kpi-label">PTO</div><div class="analytics-kpi-value">${escapeHtml(
+              formatHours(selfBreakdown.ptoHours)
+            )}</div></article>
+            <article class="analytics-kpi"><div class="analytics-kpi-label">Idle</div><div class="analytics-kpi-value">${escapeHtml(
+              formatHours(selfBreakdown.idleHours)
+            )}</div></article>
           </section>
-
+        `
+        : `
           <section class="analytics-util-grid">
             <article class="analytics-util-card">
               <div class="analytics-chart-head">
@@ -1833,6 +1835,54 @@
               <div data-analytics-utilization-right-host></div>
             </article>
           </section>
+        `;
+
+      body.innerHTML = `
+        <div class="analytics-panel" data-analytics-root>
+          ${subTabsHtml}
+
+          <form class="analytics-util-filters" data-analytics-utilization-filters>
+            <label>
+              <span>Period</span>
+              <span class="analytics-util-select-wrap">
+                <select name="period" class="analytics-util-select">${renderOptions(
+                  UTILIZATION_PERIODS,
+                  uiState.utilizationPeriod
+                )}</select>
+                <span class="analytics-member-title-chevron" aria-hidden="true">▾</span>
+              </span>
+            </label>
+            ${groupByControlHtml}
+            ${officeControlHtml}
+            ${departmentControlHtml}
+          </form>
+
+          <section class="analytics-kpis">
+            <article class="analytics-kpi"><div class="analytics-kpi-label">Avg Utilization %</div><div class="analytics-kpi-value">${escapeHtml(
+              formatPercent(utilization.kpis.avgUtilizationPct)
+            )}</div></article>
+            <article class="analytics-kpi"><div class="analytics-kpi-label">Client Hours</div><div class="analytics-kpi-value">${escapeHtml(
+              formatHours(utilization.kpis.clientHours)
+            )}</div></article>
+            <article class="analytics-kpi"><div class="analytics-kpi-label">Internal Hours</div><div class="analytics-kpi-value">${escapeHtml(
+              formatHours(utilization.kpis.internalHours)
+            )}</div></article>
+            <article class="analytics-kpi"><div class="analytics-kpi-label">PTO Hours</div><div class="analytics-kpi-value">${escapeHtml(
+              formatHours(utilization.kpis.ptoHours)
+            )}</div></article>
+            <article class="analytics-kpi"><div class="analytics-kpi-label">Idle Hours</div><div class="analytics-kpi-value">${escapeHtml(
+              formatHours(utilization.kpis.idleHours)
+            )}</div></article>
+          </section>
+
+          <section class="analytics-util-shared-legend" aria-label="Utilization legend">
+            <span class="analytics-util-legend-item"><span class="analytics-util-legend-swatch" style="background:#2f9988;"></span>Client</span>
+            <span class="analytics-util-legend-item"><span class="analytics-util-legend-swatch" style="background:#2f6fed;"></span>Internal</span>
+            <span class="analytics-util-legend-item"><span class="analytics-util-legend-swatch" style="background:#9a78d1;"></span>PTO</span>
+            <span class="analytics-util-legend-item"><span class="analytics-util-legend-swatch" style="background:#b8bdc7;"></span>Idle</span>
+          </section>
+
+          ${utilizationMainHtml}
 
           <p class="analytics-footnote">${escapeHtml(utilization.assumptions.capacity)}</p>
           <p class="analytics-footnote">${escapeHtml(utilization.assumptions.categoryMapping)}</p>
@@ -1844,36 +1894,40 @@
       if (utilizationFilterForm) {
         utilizationFilterForm.addEventListener("change", () => {
           uiState.utilizationPeriod = normalizeUtilizationPeriod(utilizationFilterForm.elements.period?.value);
-          uiState.utilizationGroupBy = normalizeUtilizationGroupBy(utilizationFilterForm.elements.groupBy?.value);
-          uiState.utilizationOfficeId = safeText(utilizationFilterForm.elements.officeId?.value);
-          uiState.utilizationDepartmentId = safeText(utilizationFilterForm.elements.departmentId?.value);
+          if (!isSelfOnlyScope) {
+            uiState.utilizationGroupBy = normalizeUtilizationGroupBy(utilizationFilterForm.elements.groupBy?.value);
+            uiState.utilizationOfficeId = safeText(utilizationFilterForm.elements.officeId?.value);
+            uiState.utilizationDepartmentId = safeText(utilizationFilterForm.elements.departmentId?.value);
+          }
           renderAnalyticsPage(options);
         });
       }
-      const memberSortToggle = body.querySelector("[data-analytics-member-sort-toggle]");
-      if (memberSortToggle) {
-        memberSortToggle.addEventListener("click", () => {
-          uiState.utilizationMemberSort = nextUtilizationMemberSort(uiState.utilizationMemberSort);
-          renderAnalyticsPage(options);
+      if (!isSelfOnlyScope) {
+        const memberSortToggle = body.querySelector("[data-analytics-member-sort-toggle]");
+        if (memberSortToggle) {
+          memberSortToggle.addEventListener("click", () => {
+            uiState.utilizationMemberSort = nextUtilizationMemberSort(uiState.utilizationMemberSort);
+            renderAnalyticsPage(options);
+          });
+        }
+        const memberTitleSelect = body.querySelector("[data-analytics-member-title]");
+        if (memberTitleSelect) {
+          memberTitleSelect.addEventListener("change", () => {
+            uiState.utilizationMemberTitle = normalizeUtilizationMemberTitle(memberTitleSelect.value);
+            renderAnalyticsPage(options);
+          });
+        }
+        renderUtilizationOverviewChart({
+          container: body.querySelector("[data-analytics-utilization-left-host]"),
+          rows: utilizationRows,
+          groupByLabel,
+          selectedKey: uiState.utilizationSelectedKey,
+          onSelect: (nextKey) => {
+            uiState.utilizationSelectedKey = safeText(nextKey);
+            renderAnalyticsPage(options);
+          },
         });
       }
-      const memberTitleSelect = body.querySelector("[data-analytics-member-title]");
-      if (memberTitleSelect) {
-        memberTitleSelect.addEventListener("change", () => {
-          uiState.utilizationMemberTitle = normalizeUtilizationMemberTitle(memberTitleSelect.value);
-          renderAnalyticsPage(options);
-        });
-      }
-      renderUtilizationOverviewChart({
-        container: body.querySelector("[data-analytics-utilization-left-host]"),
-        rows: utilizationRows,
-        groupByLabel,
-        selectedKey: uiState.utilizationSelectedKey,
-        onSelect: (nextKey) => {
-          uiState.utilizationSelectedKey = safeText(nextKey);
-          renderAnalyticsPage(options);
-        },
-      });
       renderUtilizationDetailChart({
         container: body.querySelector("[data-analytics-utilization-right-host]"),
         seriesRows: selectedSeries,
