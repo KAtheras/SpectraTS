@@ -1309,9 +1309,6 @@
           : explicitLabel || itemName || "Unassigned";
         return { id: itemId, name: itemName, label };
       });
-      const leadDatalistOptions = normalizedLeadChoices
-        .map((item) => `<option value="${escapeHtml(item.label)}"></option>`)
-        .join("");
       const departmentOptions = ['<option value="">No practice department</option>']
         .concat(
           (Array.isArray(state.departments) ? state.departments : [])
@@ -1360,8 +1357,11 @@
             </label>
             <label class="project-dialog-field">
               <span>Project Lead</span>
-              <input type="text" name="project_lead_search" list="project-lead-options" autocomplete="off" placeholder="Search project lead" />
-              <datalist id="project-lead-options">${leadDatalistOptions}</datalist>
+              <div data-project-lead-combobox style="position:relative;display:flex;align-items:center;">
+                <input type="text" name="project_lead_search" autocomplete="off" placeholder="Search project lead" aria-autocomplete="list" aria-expanded="false" aria-haspopup="listbox" />
+                <button type="button" data-project-lead-toggle aria-label="Show project lead options" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);border:0;background:transparent;color:var(--muted);font-size:12px;cursor:pointer;padding:4px;">▾</button>
+                <div data-project-lead-menu role="listbox" hidden style="position:absolute;left:0;right:0;top:calc(100% + 4px);max-height:220px;overflow:auto;z-index:50;background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 10px 24px rgba(15,23,42,.12);"></div>
+              </div>
               <input type="hidden" name="project_lead_id" value="" />
             </label>
           </div>
@@ -1453,8 +1453,11 @@
       const nameInput = form.querySelector('input[name="project_name"]');
       const contractAmountInput = form.querySelector('input[name="contract_amount"]');
       const contractAmountHelper = form.querySelector("[data-contract-amount-helper]");
+      const leadCombobox = form.querySelector("[data-project-lead-combobox]");
       const leadSearchInput = form.querySelector('input[name="project_lead_search"]');
       const leadValueInput = form.querySelector('input[name="project_lead_id"]');
+      const leadMenu = form.querySelector("[data-project-lead-menu]");
+      const leadToggleButton = form.querySelector("[data-project-lead-toggle]");
       const departmentSelect = form.querySelector('select[name="project_department_id"]');
       const officeSelect = form.querySelector('select[name="project_office_id"]');
       const pricingModelInput = form.querySelector('[name="pricing_model"]');
@@ -1532,11 +1535,76 @@
         if (next.valid && leadValueInput) {
           leadValueInput.value = next.id;
         }
+        openLeadMenu(false);
       };
       const onLeadSearchBlur = () => {
         const next = resolveLeadSelectionFromInput(false);
         if (!next.valid) return;
         setLeadSelectionById(next.id);
+      };
+      const renderLeadMenu = (showAll) => {
+        if (!leadMenu) return;
+        const query = showAll ? "" : String(leadSearchInput?.value || "").trim().toLowerCase();
+        const filtered = normalizedLeadChoices.filter((item) => {
+          if (!query) return true;
+          const label = String(item?.label || "").trim().toLowerCase();
+          const name = String(item?.name || "").trim().toLowerCase();
+          return label.includes(query) || name.includes(query);
+        });
+        const selectedId = String(leadValueInput?.value || "").trim();
+        if (!filtered.length) {
+          leadMenu.innerHTML = '<div style="padding:8px 10px;color:var(--muted);font-size:.86rem;">No matches</div>';
+          return;
+        }
+        leadMenu.innerHTML = filtered
+          .map((item) => {
+            const itemId = String(item?.id || "").trim();
+            const itemLabel = String(item?.label || "").trim();
+            const isSelected = itemId === selectedId;
+            return `<button type="button" data-project-lead-option-id="${escapeHtml(itemId)}" style="display:block;width:100%;text-align:left;border:0;background:${isSelected ? "rgba(47,111,237,.08)" : "transparent"};padding:8px 10px;cursor:pointer;font:inherit;">${escapeHtml(itemLabel)}</button>`;
+          })
+          .join("");
+      };
+      const openLeadMenu = (showAll) => {
+        if (!leadMenu) return;
+        renderLeadMenu(Boolean(showAll));
+        leadMenu.hidden = false;
+        if (leadSearchInput) {
+          leadSearchInput.setAttribute("aria-expanded", "true");
+        }
+      };
+      const closeLeadMenu = () => {
+        if (!leadMenu) return;
+        leadMenu.hidden = true;
+        if (leadSearchInput) {
+          leadSearchInput.setAttribute("aria-expanded", "false");
+        }
+      };
+      const onLeadMenuClick = (event) => {
+        const option = event.target.closest("[data-project-lead-option-id]");
+        if (!option) return;
+        const nextId = String(option.dataset.projectLeadOptionId || "").trim();
+        setLeadSelectionById(nextId);
+        closeLeadMenu();
+        leadSearchInput?.focus();
+      };
+      const onLeadToggleClick = (event) => {
+        event.preventDefault();
+        if (!leadMenu) return;
+        if (leadMenu.hidden) {
+          openLeadMenu(true);
+          leadSearchInput?.focus();
+        } else {
+          closeLeadMenu();
+        }
+      };
+      const onLeadSearchFocus = () => {
+        openLeadMenu(true);
+      };
+      const onLeadComboboxOutsidePointer = (event) => {
+        if (!leadCombobox) return;
+        if (leadCombobox.contains(event.target)) return;
+        closeLeadMenu();
       };
       const projectHasExplicitTechAdminOverride = currentTechAdminFeePctOverride !== null;
       let techAdminFeeTouched = false;
@@ -1736,7 +1804,11 @@
       techAdminFeeOverrideInput?.addEventListener("input", onTechAdminFeeInput);
       leadSearchInput?.addEventListener("input", onLeadSearchInput);
       leadSearchInput?.addEventListener("change", onLeadSearchInput);
+      leadSearchInput?.addEventListener("focus", onLeadSearchFocus);
       leadSearchInput?.addEventListener("blur", onLeadSearchBlur);
+      leadMenu?.addEventListener("click", onLeadMenuClick);
+      leadToggleButton?.addEventListener("click", onLeadToggleClick);
+      document.addEventListener("mousedown", onLeadComboboxOutsidePointer);
       syncTechAdminFeeOverrideDefault();
 
       refs.dialogTitle.textContent = title;
@@ -1769,7 +1841,11 @@
         techAdminFeeOverrideInput?.removeEventListener("input", onTechAdminFeeInput);
         leadSearchInput?.removeEventListener("input", onLeadSearchInput);
         leadSearchInput?.removeEventListener("change", onLeadSearchInput);
+        leadSearchInput?.removeEventListener("focus", onLeadSearchFocus);
         leadSearchInput?.removeEventListener("blur", onLeadSearchBlur);
+        leadMenu?.removeEventListener("click", onLeadMenuClick);
+        leadToggleButton?.removeEventListener("click", onLeadToggleClick);
+        document.removeEventListener("mousedown", onLeadComboboxOutsidePointer);
         pricingModelToggleButtons.forEach((button) =>
           button.removeEventListener("click", onPricingModelToggleClick)
         );
