@@ -826,6 +826,7 @@
         }
         await ensureOfficeLocationsLoadedForClientEditor();
         openClientEditor({ mode: "create", clientName: "" });
+        syncClientEditorLeadField();
       });
     }
 
