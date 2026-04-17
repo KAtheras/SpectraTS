@@ -1637,15 +1637,98 @@ function isCurrentUserProjectLeadForProject(currentUser, project) {
   return Boolean(currentUserId && projectLeadId && currentUserId === projectLeadId);
 }
 
+function actorRoleKey(currentUser) {
+  return permissions.roleKeyFromUser(currentUser) || "";
+}
+
+function actorOfficeId(currentUser) {
+  return normalizeText(currentUser?.officeId || currentUser?.office_id) || null;
+}
+
+function actorDepartmentId(currentUser) {
+  return normalizeText(currentUser?.departmentId || currentUser?.department_id) || null;
+}
+
+function canManageClientsLifecycleForOffice({ can, currentUser, targetOfficeId }) {
+  const role = actorRoleKey(currentUser);
+  if (role === "superuser") return true;
+  const hasCapability = can("manage_clients_lifecycle", { resourceOfficeId: targetOfficeId || null });
+  if (!hasCapability) return false;
+  if (role === "admin" || role === "executive") {
+    return Boolean(actorOfficeId(currentUser) && targetOfficeId && actorOfficeId(currentUser) === targetOfficeId);
+  }
+  return true;
+}
+
+function canManageProjectsLifecycleForTarget({
+  can,
+  currentUser,
+  targetOfficeId,
+  targetDepartmentId,
+  projectId = null,
+  actorProjectIds = [],
+}) {
+  const role = actorRoleKey(currentUser);
+  if (role === "superuser") return true;
+  const hasCapability = can("manage_projects_lifecycle", {
+    resourceOfficeId: targetOfficeId || null,
+    projectId,
+    actorProjectIds,
+  });
+  if (!hasCapability) return false;
+  if (role === "admin") {
+    return Boolean(actorOfficeId(currentUser) && targetOfficeId && actorOfficeId(currentUser) === targetOfficeId);
+  }
+  if (role === "executive") {
+    const officeMatches = Boolean(
+      actorOfficeId(currentUser) && targetOfficeId && actorOfficeId(currentUser) === targetOfficeId
+    );
+    if (!officeMatches) return false;
+    const actorDept = actorDepartmentId(currentUser);
+    return !actorDept || Boolean(targetDepartmentId && actorDept === targetDepartmentId);
+  }
+  return true;
+}
+
+function canEditClientsForOffice({ can, currentUser, targetOfficeId }) {
+  const role = actorRoleKey(currentUser);
+  if (role === "superuser") return true;
+  const hasCapability = can("edit_clients", { resourceOfficeId: targetOfficeId || null });
+  if (!hasCapability) return false;
+  if (role === "admin" || role === "executive") {
+    return Boolean(actorOfficeId(currentUser) && targetOfficeId && actorOfficeId(currentUser) === targetOfficeId);
+  }
+  return true;
+}
+
 function canEditProjectModalForTarget({ can, currentUser, targetProject, actorProjectIds = [] }) {
   if (!targetProject) return false;
   const projectId = targetProject.id ? String(targetProject.id) : null;
+  const targetOfficeId = normalizeText(targetProject.office_id || targetProject.officeId) || null;
+  const targetDepartmentId =
+    normalizeText(targetProject.project_department_id || targetProject.projectDepartmentId) || null;
   const context = {
-    resourceOfficeId: targetProject.office_id || targetProject.officeId || null,
+    resourceOfficeId: targetOfficeId,
     projectId,
     actorProjectIds,
   };
-  if (can("edit_projects_all_modal", context)) {
+  const role = actorRoleKey(currentUser);
+  const hasModalCapability = can("edit_projects_all_modal", context);
+  if (role === "superuser" || hasModalCapability) {
+    if (
+      role === "admin" &&
+      !Boolean(actorOfficeId(currentUser) && targetOfficeId && actorOfficeId(currentUser) === targetOfficeId)
+    ) {
+      return false;
+    }
+    if (role === "executive") {
+      const officeMatches = Boolean(
+        actorOfficeId(currentUser) && targetOfficeId && actorOfficeId(currentUser) === targetOfficeId
+      );
+      if (!officeMatches) return false;
+      const actorDept = actorDepartmentId(currentUser);
+      if (actorDept && (!targetDepartmentId || actorDept !== targetDepartmentId)) return false;
+    }
     return true;
   }
   return isCurrentUserProjectLeadForProject(currentUser, targetProject);
@@ -1654,12 +1737,31 @@ function canEditProjectModalForTarget({ can, currentUser, targetProject, actorPr
 function canEditProjectPlanningForTarget({ can, currentUser, targetProject, actorProjectIds = [] }) {
   if (!targetProject) return false;
   const projectId = targetProject.id ? String(targetProject.id) : null;
+  const targetOfficeId = normalizeText(targetProject.office_id || targetProject.officeId) || null;
+  const targetDepartmentId =
+    normalizeText(targetProject.project_department_id || targetProject.projectDepartmentId) || null;
   const context = {
-    resourceOfficeId: targetProject.office_id || targetProject.officeId || null,
+    resourceOfficeId: targetOfficeId,
     projectId,
     actorProjectIds,
   };
-  if (can("edit_project_planning", context)) {
+  const role = actorRoleKey(currentUser);
+  const hasPlanningCapability = can("edit_project_planning", context);
+  if (role === "superuser" || hasPlanningCapability) {
+    if (
+      role === "admin" &&
+      !Boolean(actorOfficeId(currentUser) && targetOfficeId && actorOfficeId(currentUser) === targetOfficeId)
+    ) {
+      return false;
+    }
+    if (role === "executive") {
+      const officeMatches = Boolean(
+        actorOfficeId(currentUser) && targetOfficeId && actorOfficeId(currentUser) === targetOfficeId
+      );
+      if (!officeMatches) return false;
+      const actorDept = actorDepartmentId(currentUser);
+      if (actorDept && (!targetDepartmentId || actorDept !== targetDepartmentId)) return false;
+    }
     return true;
   }
   return isCurrentUserProjectLeadForProject(currentUser, targetProject);
@@ -5567,7 +5669,11 @@ exports.handler = async function handler(event) {
           normalizeText(request.payload?.officeId) ||
           normalizeText(request.payload?.office_id) ||
           null;
-        if (!can("manage_clients_lifecycle", { resourceOfficeId: targetOfficeId })) {
+        if (!canManageClientsLifecycleForOffice({
+          can,
+          currentUser: context.currentUser,
+          targetOfficeId,
+        })) {
           return errorResponse(403, "Access denied.");
         }
         mutationResult = await addClient(sql, request.payload || {}, accountId);
@@ -5588,14 +5694,30 @@ exports.handler = async function handler(event) {
         break;
       }
       case "add_project": {
-        const targetOfficeId =
+        const clientName = normalizeText(request.payload?.clientName);
+        const targetClient = await findClient(sql, clientName, accountId);
+        if (!targetClient) {
+          return errorResponse(404, "Client not found.");
+        }
+        const payloadOfficeId =
           normalizeText(request.payload?.officeId) ||
           normalizeText(request.payload?.office_id) ||
           null;
-        if (!can("manage_projects_lifecycle", { resourceOfficeId: targetOfficeId })) {
+        const targetOfficeId = payloadOfficeId || normalizeText(targetClient.office_id) || null;
+        const targetDepartmentId =
+          normalizeText(request.payload?.projectDepartmentId) ||
+          normalizeText(request.payload?.project_department_id) ||
+          null;
+        if (
+          !canManageProjectsLifecycleForTarget({
+            can,
+            currentUser: context.currentUser,
+            targetOfficeId,
+            targetDepartmentId,
+          })
+        ) {
           return errorResponse(403, "Access denied.");
         }
-        const clientName = normalizeText(request.payload?.clientName);
         const projectName = normalizeText(request.payload?.projectName);
         mutationResult = await addProject(
           sql,
@@ -5624,8 +5746,10 @@ exports.handler = async function handler(event) {
         if (!targetClient) {
           return errorResponse(404, "Client not found.");
         }
-        const canRename = can("edit_clients", {
-          resourceOfficeId: targetClient.office_id || null,
+        const canRename = canEditClientsForOffice({
+          can,
+          currentUser: context.currentUser,
+          targetOfficeId: normalizeText(targetClient.office_id) || null,
         });
         if (!canRename) {
           return errorResponse(403, "Access denied.");
@@ -5655,8 +5779,10 @@ exports.handler = async function handler(event) {
         const hasClientLeadField =
           Object.prototype.hasOwnProperty.call(request.payload || {}, "clientLeadId") ||
           Object.prototype.hasOwnProperty.call(request.payload || {}, "client_lead_id");
-        const canEdit = can("edit_clients", {
-          resourceOfficeId: targetClient.office_id || null,
+        const canEdit = canEditClientsForOffice({
+          can,
+          currentUser: context.currentUser,
+          targetOfficeId: normalizeText(targetClient.office_id) || null,
         });
         const canEditClientLeadBypass = isSuperuserActor && hasClientLeadField;
         if (!canEdit && !canEditClientLeadBypass) {
@@ -6021,10 +6147,23 @@ exports.handler = async function handler(event) {
         }
         const roleIdByKey = new Map(roles.map((r) => [r.key, r.id]));
         const capIdByKey = new Map(caps.map((c) => [c.key, c.id]));
-        const scopeKeyForCapability = (capabilityKey) =>
-          capabilityKey === "see_all_clients_projects" || capabilityKey === "view_all_entries"
-            ? "all_offices"
-            : "own_office";
+        const scopeKeyForCapability = (roleKey, capabilityKey) => {
+          const cap = normalizeText(capabilityKey);
+          if (cap === "see_all_clients_projects" || cap === "view_all_entries") {
+            return "all_offices";
+          }
+          if (
+            roleKey === "superuser" &&
+            (cap === "manage_clients_lifecycle" ||
+              cap === "manage_projects_lifecycle" ||
+              cap === "edit_clients" ||
+              cap === "edit_projects_all_modal" ||
+              cap === "edit_project_planning")
+          ) {
+            return "all_offices";
+          }
+          return "own_office";
+        };
 
         // Normalize matrix-managed capabilities by clearing prior scope rows first.
         if (roleKeysAll.length && capKeysAll.length) {
@@ -6044,7 +6183,7 @@ exports.handler = async function handler(event) {
         for (const { role, capability, allowed } of filtered) {
           const roleId = roleIdByKey.get(role);
           const capId = capIdByKey.get(capability);
-          const scopeId = scopeIdByKey.get(scopeKeyForCapability(capability));
+          const scopeId = scopeIdByKey.get(scopeKeyForCapability(role, capability));
           if (!roleId || !capId || !scopeId) continue;
           await sql`
             INSERT INTO role_permissions (role_id, capability_id, scope_id, allowed)
@@ -6148,11 +6287,11 @@ exports.handler = async function handler(event) {
         if (!targetClient) {
           return errorResponse(404, "Client not found.");
         }
-        if (
-          !can("manage_clients_lifecycle", {
-            resourceOfficeId: targetClient.office_id || null,
-          })
-        ) {
+        if (!canManageClientsLifecycleForOffice({
+          can,
+          currentUser: context.currentUser,
+          targetOfficeId: normalizeText(targetClient.office_id) || null,
+        })) {
           return errorResponse(403, "Access denied.");
         }
         mutationResult = await runMutationWithAudit({
@@ -6173,11 +6312,11 @@ exports.handler = async function handler(event) {
         if (!targetClient) {
           return errorResponse(404, "Client not found.");
         }
-        if (
-          !can("manage_clients_lifecycle", {
-            resourceOfficeId: targetClient.office_id || null,
-          })
-        ) {
+        if (!canManageClientsLifecycleForOffice({
+          can,
+          currentUser: context.currentUser,
+          targetOfficeId: normalizeText(targetClient.office_id) || null,
+        })) {
           return errorResponse(403, "Access denied.");
         }
         mutationResult = await runMutationWithAudit({
@@ -6198,11 +6337,11 @@ exports.handler = async function handler(event) {
         if (!targetClient) {
           return errorResponse(404, "Client not found.");
         }
-        if (
-          !can("manage_clients_lifecycle", {
-            resourceOfficeId: targetClient.office_id || null,
-          })
-        ) {
+        if (!canManageClientsLifecycleForOffice({
+          can,
+          currentUser: context.currentUser,
+          targetOfficeId: normalizeText(targetClient.office_id) || null,
+        })) {
           return errorResponse(403, "Access denied.");
         }
         mutationResult = await runMutationWithAudit({
@@ -6231,8 +6370,12 @@ exports.handler = async function handler(event) {
           targetProject.client_id,
           accountId
         );
-        const canArchiveProject = can("manage_projects_lifecycle", {
-          resourceOfficeId: targetProject.office_id || null,
+        const canArchiveProject = canManageProjectsLifecycleForTarget({
+          can,
+          currentUser: context.currentUser,
+          targetOfficeId: normalizeText(targetProject.office_id || targetProject.officeId) || null,
+          targetDepartmentId:
+            normalizeText(targetProject.project_department_id || targetProject.projectDepartmentId) || null,
           projectId: targetProject.id ? String(targetProject.id) : null,
           actorProjectIds,
         });
@@ -6266,8 +6409,12 @@ exports.handler = async function handler(event) {
           targetProject.client_id,
           accountId
         );
-        const canArchiveProject = can("manage_projects_lifecycle", {
-          resourceOfficeId: targetProject.office_id || null,
+        const canArchiveProject = canManageProjectsLifecycleForTarget({
+          can,
+          currentUser: context.currentUser,
+          targetOfficeId: normalizeText(targetProject.office_id || targetProject.officeId) || null,
+          targetDepartmentId:
+            normalizeText(targetProject.project_department_id || targetProject.projectDepartmentId) || null,
           projectId: targetProject.id ? String(targetProject.id) : null,
           actorProjectIds,
         });
@@ -6301,8 +6448,12 @@ exports.handler = async function handler(event) {
           targetProject.client_id,
           accountId
         );
-        const canArchiveProject = can("manage_projects_lifecycle", {
-          resourceOfficeId: targetProject.office_id || null,
+        const canArchiveProject = canManageProjectsLifecycleForTarget({
+          can,
+          currentUser: context.currentUser,
+          targetOfficeId: normalizeText(targetProject.office_id || targetProject.officeId) || null,
+          targetDepartmentId:
+            normalizeText(targetProject.project_department_id || targetProject.projectDepartmentId) || null,
           projectId: targetProject.id ? String(targetProject.id) : null,
           actorProjectIds,
         });
