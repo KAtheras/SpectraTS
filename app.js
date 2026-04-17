@@ -2995,6 +2995,9 @@
     departmentsSnapshot: [],
     targetRealizations: [],
     departmentLeadAssignments: [],
+    utilizationScope: null,
+    utilizationUsers: [],
+    utilizationEntries: [],
     account: null,
     settingsAccess: {},
     notificationRules: [],
@@ -3694,6 +3697,22 @@
     state.expenses = Array.isArray(data?.expenses)
       ? data.expenses.map(normalizeExpense).filter(Boolean)
       : [];
+    if (Object.prototype.hasOwnProperty.call(data || {}, "utilizationScope")) {
+      state.utilizationScope =
+        data?.utilizationScope && typeof data.utilizationScope === "object"
+          ? { ...data.utilizationScope }
+          : null;
+    }
+    if (Object.prototype.hasOwnProperty.call(data || {}, "utilizationUsers")) {
+      state.utilizationUsers = Array.isArray(data?.utilizationUsers)
+        ? data.utilizationUsers.map(normalizeUser).filter(Boolean)
+        : [];
+    }
+    if (Object.prototype.hasOwnProperty.call(data || {}, "utilizationEntries")) {
+      state.utilizationEntries = Array.isArray(data?.utilizationEntries)
+        ? data.utilizationEntries.map(normalizeEntry).filter(Boolean)
+        : [];
+    }
     state.assignments = normalizeAssignments(data?.assignments);
     const hasVisibilitySnapshot =
       Array.isArray(data?.visibleClientIds) && Array.isArray(data?.visibleProjectIds);
@@ -3909,6 +3928,9 @@
     state.projectPlannedExpenses = [];
     state.targetRealizations = [];
     state.departmentLeadAssignments = [];
+    state.utilizationScope = null;
+    state.utilizationUsers = [];
+    state.utilizationEntries = [];
     state.account = null;
     state.visibleClientIds = [];
     state.visibleProjectIds = [];
@@ -4114,6 +4136,9 @@
         state.projects = [];
         state.notificationRules = [];
         state.departmentLeadAssignments = [];
+        state.utilizationScope = null;
+        state.utilizationUsers = [];
+        state.utilizationEntries = [];
         state.inboxItems = [];
         state.inboxFilter = "all";
         state.inboxSelectedIds = [];
@@ -4189,6 +4214,15 @@
         departmentLeadAssignments: Array.isArray(payload?.departmentLeadAssignments)
           ? payload.departmentLeadAssignments
           : state.departmentLeadAssignments,
+        utilizationScope: Object.prototype.hasOwnProperty.call(payload || {}, "utilizationScope")
+          ? payload.utilizationScope
+          : state.utilizationScope,
+        utilizationUsers: Object.prototype.hasOwnProperty.call(payload || {}, "utilizationUsers")
+          ? payload.utilizationUsers
+          : state.utilizationUsers,
+        utilizationEntries: Object.prototype.hasOwnProperty.call(payload || {}, "utilizationEntries")
+          ? payload.utilizationEntries
+          : state.utilizationEntries,
         corporateFunctionGroups: Array.isArray(payload?.corporateFunctionGroups)
           ? payload.corporateFunctionGroups
           : state.corporateFunctionGroups,
@@ -7390,6 +7424,16 @@
       const current = inputsTimeRowFields(row);
       const existingId = `${row.dataset.entryId || ""}`.trim();
       const existingCreatedAt = `${row.dataset.createdAt || ""}`.trim();
+      const existingEntries = Array.isArray(state.entries) ? state.entries : [];
+      const previousEntry = existingId
+        ? existingEntries.find((item) => String(item?.id || "").trim() === existingId) || null
+        : null;
+      const preservedUserId = wasEditingSavedRow
+        ? `${previousEntry?.userId || previousEntry?.user_id || ""}`.trim()
+        : "";
+      const preservedUserName = wasEditingSavedRow
+        ? `${previousEntry?.user || ""}`.trim()
+        : "";
       const selection = readInputsComboSelectionMeta(current.clientProject);
       const isCorporate = selection.type === "corporate";
       const [clientName, projectName] = isCorporate
@@ -7404,7 +7448,8 @@
       const actingAsUserId = resolveActingAsUserId();
       const nextEntry = {
         id: existingId || crypto.randomUUID(),
-        user: state.currentUser?.displayName || "",
+        user: preservedUserName || state.currentUser?.displayName || "",
+        userId: preservedUserId || state.currentUser?.id || "",
         date: parseInputsTimeDateValue(current.date?.value || ""),
         client: isCorporate ? "Internal" : clientName || "",
         project: isCorporate ? "" : projectName || "",
@@ -7431,10 +7476,6 @@
       }
 
       const nextEntryId = String(nextEntry.id || "").trim();
-      const existingEntries = Array.isArray(state.entries) ? state.entries : [];
-      const previousEntry = nextEntryId
-        ? existingEntries.find((item) => String(item?.id || "").trim() === nextEntryId) || null
-        : null;
       if (nextEntryId) {
         const preservedEntries = existingEntries.filter(
           (item) => String(item?.id || "").trim() !== nextEntryId
@@ -7937,6 +7978,13 @@
       const current = inputsExpenseRowFields(row);
       const existingId = `${row.dataset.entryId || ""}`.trim();
       const existingCreatedAt = `${row.dataset.createdAt || ""}`.trim();
+      const existingExpenses = Array.isArray(state.expenses) ? state.expenses : [];
+      const previousExpense = existingId
+        ? existingExpenses.find((item) => String(item?.id || "").trim() === existingId) || null
+        : null;
+      const preservedExpenseUserId = wasEditingSavedRow
+        ? `${previousExpense?.userId || previousExpense?.user_id || ""}`.trim()
+        : "";
       const selection = readInputsComboSelectionMeta(current.clientProject);
       const isCorporate = selection.type === "corporate";
       const [clientName, projectName] = isCorporate
@@ -7945,7 +7993,7 @@
       const actingAsUserId = resolveActingAsUserId();
       const nextExpense = {
         id: existingId || crypto.randomUUID(),
-        userId: state.currentUser?.id || "",
+        userId: preservedExpenseUserId || state.currentUser?.id || "",
         clientName: isCorporate ? "Internal" : clientName || "",
         projectName: isCorporate
           ? (() => {
@@ -7978,10 +8026,6 @@
       }
 
       const nextExpenseId = String(nextExpense.id || "").trim();
-      const existingExpenses = Array.isArray(state.expenses) ? state.expenses : [];
-      const previousExpense = nextExpenseId
-        ? existingExpenses.find((item) => String(item?.id || "").trim() === nextExpenseId) || null
-        : null;
       feedback("Expense saved.", false);
       if (nextExpenseId) {
         const preservedExpenses = existingExpenses.filter(
