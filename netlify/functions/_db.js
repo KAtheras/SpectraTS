@@ -3125,6 +3125,8 @@ async function getSessionContext(sql, event, request) {
           level: normalizeLevel(rows[0].level),
           permissionGroup: rows[0].permissionGroup,
           officeId: rows[0].officeId,
+          departmentId: rows[0].departmentId,
+          departmentName: rows[0].departmentName,
         }
       : null,
   };
@@ -4525,6 +4527,7 @@ async function loadState(sql, currentUser) {
           currentUser.permissionGroup || currentUser.permission_group || currentUser.permissiongroup,
         level: normalizeLevel(currentUser.level),
         officeId: currentUser.officeId ?? null,
+        departmentId: currentUser.departmentId ?? currentUser.department_id ?? null,
         baseRate:
           currentUser.baseRate ?? currentUser.base_rate ?? null,
         costRate:

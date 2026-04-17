@@ -1724,12 +1724,6 @@
           ? utilization.timeSeriesByKey[selectedRow.key]
           : []
         : [];
-      const selfBreakdown = selectedRow || {
-        clientHours: utilization?.kpis?.clientHours,
-        internalHours: utilization?.kpis?.internalHours,
-        ptoHours: utilization?.kpis?.ptoHours,
-        idleHours: utilization?.kpis?.idleHours,
-      };
       const groupByControlHtml = isSelfOnlyScope
         ? ""
         : `<label>
@@ -1775,21 +1769,6 @@
               <strong>${escapeHtml(selectedRow ? `${selectedRow.name} Utilization Over Time` : "My Utilization Over Time")}</strong>
             </div>
             <div data-analytics-utilization-right-host></div>
-          </section>
-
-          <section class="analytics-kpis" style="grid-template-columns:repeat(4,minmax(120px,1fr));">
-            <article class="analytics-kpi"><div class="analytics-kpi-label">Client</div><div class="analytics-kpi-value">${escapeHtml(
-              formatHours(selfBreakdown.clientHours)
-            )}</div></article>
-            <article class="analytics-kpi"><div class="analytics-kpi-label">Internal</div><div class="analytics-kpi-value">${escapeHtml(
-              formatHours(selfBreakdown.internalHours)
-            )}</div></article>
-            <article class="analytics-kpi"><div class="analytics-kpi-label">PTO</div><div class="analytics-kpi-value">${escapeHtml(
-              formatHours(selfBreakdown.ptoHours)
-            )}</div></article>
-            <article class="analytics-kpi"><div class="analytics-kpi-label">Idle</div><div class="analytics-kpi-value">${escapeHtml(
-              formatHours(selfBreakdown.idleHours)
-            )}</div></article>
           </section>
         `
         : `
