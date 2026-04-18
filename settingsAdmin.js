@@ -1778,7 +1778,7 @@
     panel.innerHTML = `
       <div class="settings-section-header">
         <div class="settings-section-left">
-          <h3>Data Downloads</h3>
+          <h3>Member Download</h3>
         </div>
         <div class="settings-section-right">
           <button type="button" class="button" id="bulk-download-members-export">Download File</button>
