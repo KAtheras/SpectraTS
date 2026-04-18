@@ -301,7 +301,7 @@
       target_realizations: "Target realizations",
       delegations: "Delegations",
       bulk_upload: "Data Upload",
-      bulk_download: "Data Downloads",
+      bulk_download: "Member Download",
       permissions: "Member access levels",
     };
     const settingsTabGroups = [
@@ -1394,7 +1394,7 @@
           bulkDownloadBtn.className = "settings-tab catalog-item";
           bulkDownloadBtn.type = "button";
           bulkDownloadBtn.dataset.settingsTabButton = "bulk_download";
-          bulkDownloadBtn.textContent = "Data Downloads";
+          bulkDownloadBtn.textContent = "Member Download";
           tabsContainer.appendChild(bulkDownloadBtn);
           bulkDownloadBtn.addEventListener("click", function (event) {
             event.preventDefault();
@@ -1757,8 +1757,8 @@
         )
         .join("");
       return `
-        <fieldset style="border:1px solid var(--group-border);border-radius:10px;padding:10px;min-width:0;">
-          <legend class="settings-section-subtitle" style="padding:0 6px;margin:0;">${escapeHtml(label)}</legend>
+        <div style="min-width:0;">
+          <div class="settings-section-subtitle" style="margin:0 0 8px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;">${escapeHtml(label)}</div>
           <label class="bulk-download-toggle is-select-all">
             <span>Select all</span>
             <input
@@ -1771,7 +1771,7 @@
           <div style="display:grid;gap:6px;max-height:180px;overflow:auto;padding-right:4px;">
             ${rows || `<span class="settings-section-subtitle">No options</span>`}
           </div>
-        </fieldset>
+        </div>
       `;
     };
 
@@ -1780,23 +1780,16 @@
         <div class="settings-section-left">
           <h3>Data Downloads</h3>
         </div>
-        <div class="settings-section-right"></div>
+        <div class="settings-section-right">
+          <button type="button" class="button" id="bulk-download-members-export">Download File</button>
+        </div>
       </div>
       <div class="settings-section-content">
-        <p id="bulk-download-description">Download filtered member data. You can combine title, office, and department filters.</p>
-        <div class="level-rows" id="bulk-download-rows">
-          <div class="level-row settings-structured-row settings-structured-row-no-label" data-bulk-download-kind="members">
-            <div class="settings-row-main">
-              <span class="settings-row-label">Member Uploads</span>
-              <div class="bulk-download-filter-grid" style="display:grid;grid-template-columns:repeat(3,minmax(180px,1fr));gap:10px;margin-top:10px;">
-                ${toggleGroupHtml("title", "Title", titleOptions)}
-                ${toggleGroupHtml("office", "Office", officeOptions)}
-                ${toggleGroupHtml("department", "Department", departmentOptions)}
-              </div>
-            </div>
-            <div class="settings-row-actions">
-              <button type="button" class="button" id="bulk-download-members-export">Download File</button>
-            </div>
+        <div id="bulk-download-rows">
+          <div class="bulk-download-filter-grid" style="display:grid;grid-template-columns:repeat(3,minmax(180px,1fr));gap:10px;">
+            ${toggleGroupHtml("title", "Title", titleOptions)}
+            ${toggleGroupHtml("office", "Office", officeOptions)}
+            ${toggleGroupHtml("department", "Department", departmentOptions)}
           </div>
         </div>
         <p id="bulk-download-selection" class="settings-section-subtitle" style="margin:0;"></p>
