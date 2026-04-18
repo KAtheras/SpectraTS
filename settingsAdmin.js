@@ -16,6 +16,7 @@
     "permissions",
   ];
   const SETTINGS_TAB_STORAGE_KEY = "timesheet-studio.settings-tab.v1";
+  const SETTINGS_TAB_GROUPS_COLLAPSE_STORAGE_KEY = "timesheet-studio.settings-tab-groups-collapsed.v1";
   function loadPersistedSettingsTab() {
     try {
       const raw = window.localStorage.getItem(SETTINGS_TAB_STORAGE_KEY);
@@ -33,7 +34,29 @@
       return;
     }
   }
+  function loadPersistedCollapsedSettingsGroups() {
+    try {
+      const raw = window.localStorage.getItem(SETTINGS_TAB_GROUPS_COLLAPSE_STORAGE_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return new Set();
+      return new Set(parsed.map((item) => `${item || ""}`.trim()).filter(Boolean));
+    } catch (error) {
+      return null;
+    }
+  }
+  function persistCollapsedSettingsGroups(groupKeys) {
+    try {
+      const values = Array.from(groupKeys || [])
+        .map((item) => `${item || ""}`.trim())
+        .filter(Boolean);
+      window.localStorage.setItem(SETTINGS_TAB_GROUPS_COLLAPSE_STORAGE_KEY, JSON.stringify(values));
+    } catch (error) {
+      return;
+    }
+  }
   let activeSettingsTab = loadPersistedSettingsTab() || "levels";
+  let collapsedSettingsGroupKeys = loadPersistedCollapsedSettingsGroups();
   let tabsInitialized = false;
   let mobileSettingsMode = "list";
   let collapsedCorporateGroupIds = new Set();
@@ -310,7 +333,33 @@
       { key: "configuration", label: "CONFIGURATION", tabs: ["categories", "corporate_functions", "messaging_rules"] },
       { key: "tools", label: "TOOLS", tabs: ["bulk_upload", "bulk_download"] },
     ];
+    if (!(collapsedSettingsGroupKeys instanceof Set)) {
+      collapsedSettingsGroupKeys = new Set(settingsTabGroups.map((group) => group.key));
+      persistCollapsedSettingsGroups(collapsedSettingsGroupKeys);
+    }
     const allowedSet = new Set(allowedTabs());
+    const syncSettingsGroupSectionState = function (section, groupKey) {
+      if (!section) return;
+      const collapsed = collapsedSettingsGroupKeys.has(groupKey);
+      section.classList.toggle("is-collapsed", collapsed);
+      const toggle = section.querySelector("[data-settings-group-toggle]");
+      if (!toggle) return;
+      toggle.setAttribute("aria-expanded", collapsed ? "false" : "true");
+      const chevron = toggle.querySelector(".settings-tab-group-chevron");
+      if (chevron) chevron.textContent = collapsed ? "▸" : "▾";
+    };
+    const toggleSettingsGroup = function (groupKey) {
+      const key = `${groupKey || ""}`.trim();
+      if (!key) return;
+      if (collapsedSettingsGroupKeys.has(key)) {
+        collapsedSettingsGroupKeys.delete(key);
+      } else {
+        collapsedSettingsGroupKeys.add(key);
+      }
+      persistCollapsedSettingsGroups(collapsedSettingsGroupKeys);
+      const section = document.querySelector(`#settings-page .settings-tab-group[data-settings-group="${key}"]`);
+      syncSettingsGroupSectionState(section, key);
+    };
     const regroupSettingsTabButtons = function () {
       const tabsContainer = document.querySelector("#settings-page .settings-tabs");
       if (!tabsContainer) return;
@@ -326,19 +375,37 @@
         const section = document.createElement("div");
         section.className = "settings-tab-group";
         section.dataset.settingsGroup = group.key;
-        const label = document.createElement("div");
-        label.className = "settings-tab-group-label";
-        label.textContent = group.label;
+        const label = document.createElement("button");
+        label.type = "button";
+        label.className = "settings-tab-group-label settings-tab-group-toggle";
+        label.dataset.settingsGroupToggle = group.key;
+        label.setAttribute("aria-controls", `settings-tab-group-body-${group.key}`);
+        const labelText = document.createElement("span");
+        labelText.textContent = group.label;
+        const chevron = document.createElement("span");
+        chevron.className = "settings-tab-group-chevron";
+        chevron.setAttribute("aria-hidden", "true");
+        chevron.textContent = "▾";
+        label.appendChild(labelText);
+        label.appendChild(chevron);
+        label.addEventListener("click", function () {
+          toggleSettingsGroup(group.key);
+        });
         section.appendChild(label);
+        const groupBody = document.createElement("div");
+        groupBody.className = "settings-tab-group-body";
+        groupBody.id = `settings-tab-group-body-${group.key}`;
         let hasVisibleButton = false;
         group.tabs.forEach((tabKey) => {
           if (!allowedSet.has(tabKey)) return;
           const btn = buttonByTab.get(tabKey);
           if (!btn) return;
-          section.appendChild(btn);
+          groupBody.appendChild(btn);
           hasVisibleButton = true;
         });
+        section.appendChild(groupBody);
         section.hidden = !hasVisibleButton;
+        syncSettingsGroupSectionState(section, group.key);
         tabsContainer.appendChild(section);
       });
     };
@@ -444,6 +511,33 @@
             text-transform:uppercase;
             color:var(--muted);
             padding:0 2px;
+          }
+          #settings-page .settings-tab-group-toggle{
+            width:100%;
+            display:flex;
+            align-items:center;
+            justify-content:space-between;
+            gap:8px;
+            border:0;
+            background:transparent;
+            cursor:pointer;
+          }
+          #settings-page .settings-tab-group-toggle:hover,
+          #settings-page .settings-tab-group-toggle:focus-visible{
+            color:var(--ink);
+            outline:none;
+          }
+          #settings-page .settings-tab-group-chevron{
+            color:var(--muted);
+            font-size:.78rem;
+            line-height:1;
+          }
+          #settings-page .settings-tab-group-body{
+            display:grid;
+            gap:10px;
+          }
+          #settings-page .settings-tab-group.is-collapsed .settings-tab-group-body{
+            display:none;
           }
           #settings-page .settings-tab{
             width:100%;
@@ -1688,15 +1782,26 @@
       if (value === false) return "No";
       return "";
     };
+    const deriveNameParts = function (displayName) {
+      const normalized = normalizeText(displayName || "");
+      if (!normalized) return { firstName: "", lastName: "" };
+      const parts = normalized.split(/\s+/).filter(Boolean);
+      if (!parts.length) return { firstName: "", lastName: "" };
+      return {
+        firstName: parts[0] || "",
+        lastName: parts.slice(1).join(" "),
+      };
+    };
     const exportRows = users
       .map((user) => {
         const username = normalizeText(user?.username || user?.userId || "");
-        const firstName = normalizeText(user?.firstName || user?.first_name || "");
-        const lastName = normalizeText(user?.lastName || user?.last_name || "");
         const displayName =
           normalizeText(user?.displayName || user?.name || "") ||
-          `${firstName} ${lastName}`.trim() ||
+          `${normalizeText(user?.firstName || user?.first_name || "")} ${normalizeText(user?.lastName || user?.last_name || "")}`.trim() ||
           username;
+        const derived = deriveNameParts(displayName);
+        const firstName = normalizeText(user?.firstName || user?.first_name || "") || derived.firstName;
+        const lastName = normalizeText(user?.lastName || user?.last_name || "") || derived.lastName;
         const certificationsRaw = user?.certifications;
         const certifications = Array.isArray(certificationsRaw)
           ? certificationsRaw.map((item) => normalizeText(item)).filter(Boolean).join(" | ")
