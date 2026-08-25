@@ -56,6 +56,39 @@ assert.deepStrictEqual(Array.from(options.projects, (item) => item.id), ["p1"]);
 assert.deepStrictEqual(Array.from(options.projectsByClient.get("c1"), (item) => item.id), ["p1"]);
 assert.strictEqual(options.projectsByClient.has("c2"), false);
 
+const memberScopedOptions = engineWindow.analyticsEngine.listClientProjectOptions({
+  clients: [{ id: "c1", name: "Alpha" }, { id: "c2", name: "Beta" }],
+  projects: [
+    { id: "p1", clientId: "c1", name: "Advisory" },
+    { id: "p2", clientId: "c2", name: "Tax" },
+  ],
+  entries: [
+    { projectId: "p1", date: "2026-08-10", userId: "u1" },
+    { projectId: "p2", date: "2026-08-11", userId: "u2" },
+  ],
+  users: [
+    { id: "u1", displayName: "Alex", title: "Manager" },
+    { id: "u2", displayName: "Blair", title: "Staff" },
+  ],
+  filters: { fromDate: "2026-08-01", toDate: "2026-08-31", scope: "member", scopeId: "u1" },
+});
+assert.deepStrictEqual(Array.from(memberScopedOptions.projects, (item) => item.id), ["p1"]);
+
+const titleScopedOptions = engineWindow.analyticsEngine.listClientProjectOptions({
+  clients: [{ id: "c1", name: "Alpha" }, { id: "c2", name: "Beta" }],
+  projects: [
+    { id: "p1", clientId: "c1", name: "Advisory" },
+    { id: "p2", clientId: "c2", name: "Tax" },
+  ],
+  entries: [
+    { projectId: "p1", date: "2026-08-10", userId: "u1" },
+    { projectId: "p2", date: "2026-08-11", userId: "u2" },
+  ],
+  users: [{ id: "u1", title: "Manager" }, { id: "u2", title: "Staff" }],
+  filters: { fromDate: "2026-08-01", toDate: "2026-08-31", scope: "title", scopeId: "Staff" },
+});
+assert.deepStrictEqual(Array.from(titleScopedOptions.projects, (item) => item.id), ["p2"]);
+
 console.log("✔ analytics client/project options preserve IDs and cascade by period and scope");
 
 const realization = engineWindow.analyticsEngine.computeRealizationAnalytics({
@@ -105,3 +138,34 @@ assert.strictEqual(excludedRealization.kpis.projectCount, 0);
 assert.strictEqual(excludedRealization.rows.length, 0);
 
 console.log("✔ realization uses completion-period cohorts with lifetime project economics");
+
+const openForecast = engineWindow.analyticsEngine.computeRealizationAnalytics({
+  clients: [{ id: "c1", name: "Alpha" }],
+  projects: [{
+    id: "p-open",
+    clientId: "c1",
+    client: "Alpha",
+    name: "Open Project",
+    isActive: true,
+    pricingModel: "fixed_fee",
+    contractAmount: 1000,
+    planningStatus: "approved",
+  }],
+  users: [{ id: "u1", baseRate: 100 }],
+  entries: [{ projectId: "p-open", userId: "u1", date: "2026-08-10", hours: 5 }],
+  expenses: [],
+  projectMemberBudgets: [{ projectId: "p-open", userId: "u1", budgetHours: 10 }],
+  filters: {
+    fromDate: "2026-01-01",
+    toDate: "2026-12-31",
+    groupBy: "project",
+    statusMode: "open",
+  },
+});
+assert.strictEqual(openForecast.kpis.actualRevenue, 1000);
+assert.strictEqual(openForecast.kpis.standardRevenue, 1000);
+assert.strictEqual(openForecast.kpis.avgRealizationPct, 100);
+assert.strictEqual(openForecast.kpis.projectCount, 1);
+assert.strictEqual(openForecast.kpis.limitedForecastCount, 0);
+
+console.log("✔ open realization forecasts completion economics from project plans");

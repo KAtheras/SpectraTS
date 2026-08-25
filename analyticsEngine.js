@@ -980,6 +980,7 @@
     const offices = Array.isArray(input?.offices) ? input.offices : [];
     const departments = Array.isArray(input?.departments) ? input.departments : [];
     const assignments = input?.assignments || {};
+    const projectMemberBudgets = Array.isArray(input?.projectMemberBudgets) ? input.projectMemberBudgets : [];
     const levelLabels = input?.levelLabels && typeof input.levelLabels === "object" ? input.levelLabels : {};
     const filters = input?.filters || {};
     const fromDate = safeText(filters?.fromDate);
@@ -989,6 +990,11 @@
     const departmentFilterId = safeText(filters?.departmentId);
     const clientFilterId = safeText(filters?.clientId);
     const projectFilterId = safeText(filters?.projectId);
+    const memberFilterId = safeText(filters?.memberId);
+    const titleFilter = safeText(filters?.memberTitle).toLowerCase();
+    const statusMode = ["open", "closed", "combined"].includes(safeText(filters?.statusMode).toLowerCase())
+      ? safeText(filters.statusMode).toLowerCase()
+      : "closed";
 
     const usersById = buildUserIndex(users);
     const usersByUniqueName = buildUniqueUserNameIndex(users);
@@ -1013,6 +1019,9 @@
     const fixedProjectActivity = new Map();
     const includedProjectIds = new Set();
     const lastActivityByProject = new Map();
+    const activityInPeriodProjectIds = new Set();
+    const projectActuals = new Map();
+    const forecastQualityByProject = new Map();
 
     // Projects do not currently store a completion date. Treat their final recorded
     // activity as the completion-period proxy, then calculate the selected cohort
@@ -1020,20 +1029,38 @@
     [...entries, ...expenses].forEach((record) => {
       if (!record || isDeletedRecord(record)) return;
       const project = resolveProjectForRecord(record, projectIndex);
-      if (!isCompletedProject(project)) return;
       const projectId = safeText(project?.id || record?.projectId || record?.project_id);
       const date = entryDate(record) || expenseDate(record);
       if (!projectId || !date) return;
+      if (inDateRange(date, fromDate, toDate)) activityInPeriodProjectIds.add(projectId);
       const previous = lastActivityByProject.get(projectId) || "";
       if (!previous || date > previous) lastActivityByProject.set(projectId, date);
     });
 
     const projectIsInCohort = (project) => {
       const projectId = safeText(project?.id);
-      if (!projectId || !isCompletedProject(project)) return false;
+      if (!projectId) return false;
       if (projectFilterId && projectId !== projectFilterId) return false;
       if (clientFilterId && safeText(project?.clientId || project?.client_id) !== clientFilterId) return false;
-      return inDateRange(lastActivityByProject.get(projectId), fromDate, toDate);
+      const closed = isCompletedProject(project);
+      const closedEligible = closed && inDateRange(lastActivityByProject.get(projectId), fromDate, toDate);
+      const openEligible = !closed && activityInPeriodProjectIds.has(projectId);
+      if (statusMode === "closed") return closedEligible;
+      if (statusMode === "open") return openEligible;
+      return closedEligible || openEligible;
+    };
+
+    const trackProjectMetric = (rowContext, monthKey, actualRevenue, standardRevenue) => {
+      const projectId = safeText(rowContext?.projectId);
+      if (!projectId) return;
+      if (!projectActuals.has(projectId)) {
+        projectActuals.set(projectId, { actualRevenue: 0, standardRevenue: 0, rowContext, monthKey: "" });
+      }
+      const target = projectActuals.get(projectId);
+      target.actualRevenue += toNumber(actualRevenue);
+      target.standardRevenue += toNumber(standardRevenue);
+      if (monthKey && (!target.monthKey || monthKey > target.monthKey)) target.monthKey = monthKey;
+      target.rowContext = rowContext || target.rowContext;
     };
 
     const ensureGroup = (rowContext) => {
@@ -1088,6 +1115,8 @@
       );
       if (officeFilterId && safeText(scopeMeta.officeId) !== officeFilterId) return;
       if (departmentFilterId && safeText(scopeMeta.departmentId) !== departmentFilterId) return;
+      if (memberFilterId && safeText(scopeMeta.user?.id || scopeMeta.user?.userId || scopeMeta.user?.user_id) !== memberFilterId) return;
+      if (titleFilter && resolveMemberTitle(scopeMeta.user || {}, levelLabels).toLowerCase() !== titleFilter) return;
 
       const hours = toNumber(entry?.hours);
       if (hours <= 0) return;
@@ -1107,6 +1136,7 @@
         departmentName: scopeMeta.departmentName,
       };
       addGroupMetric(rowContext, monthKey, actualRevenue, standardRevenue);
+      trackProjectMetric(rowContext, monthKey, actualRevenue, standardRevenue);
 
       if (projectType === "fixed") {
         const projectId = safeText(project?.id || entry?.projectId || entry?.project_id);
@@ -1137,6 +1167,8 @@
       );
       if (officeFilterId && safeText(scopeMeta.officeId) !== officeFilterId) return;
       if (departmentFilterId && safeText(scopeMeta.departmentId) !== departmentFilterId) return;
+      if (memberFilterId && safeText(scopeMeta.user?.id || scopeMeta.user?.userId || scopeMeta.user?.user_id) !== memberFilterId) return;
+      if (titleFilter && resolveMemberTitle(scopeMeta.user || {}, levelLabels).toLowerCase() !== titleFilter) return;
 
       const amount = toNumber(expense?.amount);
       if (amount <= 0) return;
@@ -1155,6 +1187,7 @@
         departmentName: scopeMeta.departmentName,
       };
       addGroupMetric(rowContext, monthKey, actualRevenue, standardRevenue);
+      trackProjectMetric(rowContext, monthKey, actualRevenue, standardRevenue);
 
       if (projectType === "fixed") {
         const projectId = safeText(project?.id || expense?.projectId || expense?.project_id);
@@ -1170,10 +1203,66 @@
 
     fixedProjectActivity.forEach((activity, projectId) => {
       const project = projectIndex.byId.get(projectId) || null;
-      if (!isCompletedProject(project)) return;
+      if (!projectIsInCohort(project)) return;
       const contractAmount = toNullableNumber(project?.contractAmount ?? project?.contract_amount);
       if (!Number.isFinite(contractAmount) || contractAmount <= 0) return;
       addGroupMetric(activity.rowContext || {}, activity.monthKey, contractAmount, 0);
+      trackProjectMetric(activity.rowContext || {}, activity.monthKey, contractAmount, 0);
+    });
+
+    const planByProject = new Map();
+    projectMemberBudgets.forEach((budgetRow) => {
+      const projectId = safeText(budgetRow?.projectId || budgetRow?.project_id);
+      const userId = safeText(budgetRow?.userId || budgetRow?.user_id);
+      const project = projectIndex.byId.get(projectId) || null;
+      if (!projectId || !projectIsInCohort(project)) return;
+      if (memberFilterId && userId !== memberFilterId) return;
+      const user = usersById.get(userId) || null;
+      if (titleFilter && resolveMemberTitle(user || {}, levelLabels).toLowerCase() !== titleFilter) return;
+      const hours = toNumber(budgetRow?.budgetHours ?? budgetRow?.budget_hours);
+      if (hours <= 0) return;
+      const baseRate = toNumber(user?.baseRate ?? user?.base_rate);
+      const chargeRate = toNumber(budgetRow?.rateOverride ?? budgetRow?.rate_override ?? baseRate);
+      if (!planByProject.has(projectId)) planByProject.set(projectId, { standardRevenue: 0, plannedRevenue: 0 });
+      const plan = planByProject.get(projectId);
+      plan.standardRevenue += hours * baseRate;
+      plan.plannedRevenue += hours * chargeRate;
+    });
+
+    projectActuals.forEach((actual, projectId) => {
+      const project = projectIndex.byId.get(projectId) || null;
+      if (!project || isCompletedProject(project)) {
+        forecastQualityByProject.set(projectId, "final");
+        return;
+      }
+      const plan = planByProject.get(projectId) || null;
+      const planningStatus = safeText(project?.planningStatus || project?.planning_status).toLowerCase();
+      const percentComplete = toNullableNumber(project?.percentComplete ?? project?.percent_complete);
+      const projectBudget = toNullableNumber(project?.budget);
+      let forecastStandard = actual.standardRevenue;
+      let quality = "limited";
+      if (plan && plan.standardRevenue > 0) {
+        forecastStandard = Math.max(actual.standardRevenue, plan.standardRevenue);
+        quality = planningStatus === "approved" ? "approved_plan" : "working_plan";
+      } else if (Number.isFinite(percentComplete) && percentComplete > 0 && percentComplete < 100) {
+        forecastStandard = actual.standardRevenue / (percentComplete / 100);
+        quality = "percent_complete";
+      } else if (Number.isFinite(projectBudget) && projectBudget > 0) {
+        forecastStandard = Math.max(actual.standardRevenue, projectBudget);
+        quality = "project_budget";
+      }
+      const projectType = resolveProjectType(project);
+      const contractAmount = toNullableNumber(project?.contractAmount ?? project?.contract_amount);
+      const forecastRevenue = projectType === "fixed"
+        ? (Number.isFinite(contractAmount) && contractAmount > 0 ? contractAmount : toNumber(projectBudget))
+        : Math.max(actual.actualRevenue, toNumber(plan?.plannedRevenue));
+      addGroupMetric(
+        actual.rowContext || {},
+        actual.monthKey,
+        forecastRevenue - actual.actualRevenue,
+        forecastStandard - actual.standardRevenue
+      );
+      forecastQualityByProject.set(projectId, quality);
     });
 
     const rows = Array.from(grouped.values()).map((row) => ({
@@ -1221,6 +1310,7 @@
         standardRevenue: totals.standardRevenue,
         variance: totals.actualRevenue - totals.standardRevenue,
         projectCount: includedProjectIds.size,
+        limitedForecastCount: Array.from(forecastQualityByProject.values()).filter((quality) => quality === "limited" || quality === "project_budget").length,
       },
       rows: rows.map((row) => ({
         key: row.key,
@@ -1604,6 +1694,7 @@
     const expenses = Array.isArray(input?.expenses) ? input.expenses : [];
     const users = Array.isArray(input?.users) ? input.users : [];
     const filters = input?.filters || {};
+    const levelLabels = input?.levelLabels && typeof input.levelLabels === "object" ? input.levelLabels : {};
     const clientsById = new Map(inputClients.map((client) => [safeText(client?.id), client]));
     const projectIndex = buildProjectIndex(projects);
     const usersById = buildUserIndex(users);
@@ -1627,6 +1718,15 @@
         officesById,
         departmentsById
       );
+      const requestedScope = safeText(filters?.scope).toLowerCase();
+      if (requestedScope === "member") {
+        const memberId = safeText(scopeMeta.user?.id || scopeMeta.user?.userId || scopeMeta.user?.user_id);
+        if (safeText(filters?.scopeId) && memberId !== safeText(filters.scopeId)) return;
+      }
+      if (requestedScope === "title") {
+        const memberTitle = resolveMemberTitle(scopeMeta.user || {}, levelLabels).toLowerCase();
+        if (safeText(filters?.scopeId) && memberTitle !== safeText(filters.scopeId).toLowerCase()) return;
+      }
       if (!applyScopeFilter(scopeMeta, filters)) return;
       eligibleProjectIds.add(projectId);
     };
