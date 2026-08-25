@@ -6031,7 +6031,7 @@ async function listAuditLogs(sql, accountId, filters = {}) {
   };
 }
 
-async function logAudit(
+function buildAuditQuery(
   sql,
   {
     accountId,
@@ -6048,7 +6048,7 @@ async function logAudit(
     changedFieldsJson,
   }
 ) {
-  await sql`
+  return sql`
     INSERT INTO audit_log (
       account_id,
       entity_type,
@@ -6078,6 +6078,10 @@ async function logAudit(
       ${changedFieldsJson ? JSON.stringify(changedFieldsJson) : null}::jsonb
     )
   `;
+}
+
+async function logAudit(sql, details) {
+  await buildAuditQuery(sql, details);
 }
 
 module.exports = {
@@ -6130,6 +6134,7 @@ module.exports = {
   loadState,
   loadSettingsMetadata,
   listAuditLogs,
+  buildAuditQuery,
   logAudit,
   normalizeLevel,
   normalizeText,

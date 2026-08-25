@@ -8,7 +8,6 @@ const {
   deactivateUser,
   terminateUser,
   reactivateUser,
-  ensureSchema,
   ensureNotificationRulesForAccount,
   errorResponse,
   findClient,
@@ -44,6 +43,7 @@ const {
   updateUserRecord,
   verifyPassword,
   randomId,
+  buildAuditQuery,
   logAudit,
 } = require("./_db");
 const permissions = require("./permissions");
@@ -347,16 +347,36 @@ async function completePasswordSetup(sql, payload) {
 
   const tokenHash = hashSetupToken(token);
   const nowIso = new Date().toISOString();
-  const claimedRows = await sql`
-    UPDATE password_setup_tokens
-    SET used_at = ${nowIso}
-    WHERE token_hash = ${tokenHash}
-      AND used_at IS NULL
-      AND expires_at > NOW()
-    RETURNING id, user_id, account_id
+  const passwordHash = hashPassword(password);
+  const updatedUsers = await sql`
+    WITH claimed AS (
+      UPDATE password_setup_tokens AS setup_token
+      SET used_at = ${nowIso}
+      WHERE setup_token.token_hash = ${tokenHash}
+        AND setup_token.used_at IS NULL
+        AND setup_token.expires_at > NOW()
+        AND EXISTS (
+          SELECT 1
+          FROM users
+          WHERE users.id = setup_token.user_id
+            AND users.account_id = setup_token.account_id
+        )
+      RETURNING setup_token.user_id, setup_token.account_id
+    ), updated AS (
+      UPDATE users
+      SET
+        password_hash = ${passwordHash},
+        must_change_password = FALSE,
+        updated_at = ${nowIso}
+      FROM claimed
+      WHERE users.id = claimed.user_id
+        AND users.account_id = claimed.account_id
+      RETURNING users.id
+    )
+    SELECT id FROM updated
   `;
-  const claimed = claimedRows[0];
-  if (!claimed) {
+  const updatedUser = updatedUsers[0];
+  if (!updatedUser) {
     const rows = await sql`
       SELECT expires_at, used_at
       FROM password_setup_tokens
@@ -376,26 +396,7 @@ async function completePasswordSetup(sql, payload) {
     return errorResponse(400, "Invalid setup token.");
   }
 
-  const updatedUsers = await sql`
-    UPDATE users
-    SET
-      password_hash = ${hashPassword(password)},
-      must_change_password = FALSE,
-      updated_at = ${nowIso}
-    WHERE id = ${claimed.user_id}
-      AND account_id = ${claimed.account_id}::uuid
-    RETURNING id
-  `;
-  if (!updatedUsers[0]) {
-    await sql`
-      UPDATE password_setup_tokens
-      SET used_at = NULL
-      WHERE id = ${claimed.id}
-    `;
-    return errorResponse(400, "Invalid setup token.");
-  }
-
-  const session = await createSession(sql, claimed.user_id);
+  const session = await createSession(sql, updatedUser.id);
   return { ok: true, sessionToken: session?.token || null };
 }
 
@@ -3288,7 +3289,7 @@ async function createExpense(sql, payload, currentUser, accountId) {
   const isBillable =
     isCorporateExpense || expense.isBillable === false || expense.isBillable === 0 ? 0 : 1;
 
-  await sql`
+  const writeQuery = sql`
     INSERT INTO expenses (
       id,
       account_id,
@@ -3340,7 +3341,7 @@ async function createExpense(sql, payload, currentUser, accountId) {
     afterSnapshot.bulkUpload = true;
   }
 
-  await logAudit(sql, {
+  const auditQuery = buildAuditQuery(sql, {
     accountId,
     entityType: "expense",
     entityId: id,
@@ -3354,6 +3355,7 @@ async function createExpense(sql, payload, currentUser, accountId) {
     afterJson: afterSnapshot,
     changedFieldsJson: diffKeys({}, afterSnapshot || {}),
   });
+  await sql.transaction([writeQuery, auditQuery]);
 
   await dispatchNotificationEvent(sql, {
     accountId,
@@ -3550,7 +3552,7 @@ async function updateExpense(sql, payload, currentUser, accountId) {
     category: safeExpense.category,
   });
 
-  await sql`
+  const writeQuery = sql`
     UPDATE expenses
     SET
       user_id = ${targetUser.id},
@@ -3568,7 +3570,7 @@ async function updateExpense(sql, payload, currentUser, accountId) {
       AND account_id = ${accountId}::uuid
   `;
 
-  await logAudit(sql, {
+  const auditQuery = buildAuditQuery(sql, {
     accountId,
     entityType: "expense",
     entityId: id,
@@ -3582,6 +3584,7 @@ async function updateExpense(sql, payload, currentUser, accountId) {
     afterJson: afterSnapshot,
     changedFieldsJson: diffKeys(beforeSnapshot || {}, afterSnapshot || {}),
   });
+  await sql.transaction([writeQuery, auditQuery]);
 
   if (previousBillable !== nextBillable) {
     const actorUserId = normalizeText(currentUser?.id);
@@ -3705,7 +3708,7 @@ async function deleteExpense(sql, payload, currentUser, accountId) {
   });
 
   const deletedAt = new Date().toISOString();
-  await sql`
+  const deleteQuery = sql`
     UPDATE expenses
     SET deleted_at = ${deletedAt},
         deleted_by_user_id = ${currentUser.id},
@@ -3715,7 +3718,7 @@ async function deleteExpense(sql, payload, currentUser, accountId) {
       AND deleted_at IS NULL
   `;
 
-  await logAudit(sql, {
+  const auditQuery = buildAuditQuery(sql, {
     accountId,
     entityType: "expense",
     entityId: id,
@@ -3729,6 +3732,7 @@ async function deleteExpense(sql, payload, currentUser, accountId) {
     afterJson: null,
     changedFieldsJson: diffKeys(beforeSnapshot || {}, {}),
   });
+  await sql.transaction([deleteQuery, auditQuery]);
 
   return null;
 }
@@ -3936,7 +3940,7 @@ async function toggleExpenseStatus(sql, payload, currentUser, accountId) {
   });
   const afterSnapshot = { ...beforeSnapshot, status: nextStatus };
 
-  await sql`
+  const writeQuery = sql`
     UPDATE expenses
     SET status = ${nextStatus},
         approved_at = ${approvedAt},
@@ -3945,7 +3949,7 @@ async function toggleExpenseStatus(sql, payload, currentUser, accountId) {
       AND account_id = ${accountId}::uuid
   `;
 
-  await logAudit(sql, {
+  const auditQuery = buildAuditQuery(sql, {
     accountId,
     entityType: "expense",
     entityId: expense.id,
@@ -3959,6 +3963,7 @@ async function toggleExpenseStatus(sql, payload, currentUser, accountId) {
     afterJson: afterSnapshot,
     changedFieldsJson: diffKeys(beforeSnapshot || {}, afterSnapshot || {}),
   });
+  await sql.transaction([writeQuery, auditQuery]);
 
   if (nextStatus === "approved") {
     await dispatchNotificationEvent(sql, {
@@ -4819,7 +4824,7 @@ async function saveEntry(sql, payload, currentUser, accountId) {
     ? normalizeText(entry.updatedAt)
     : new Date().toISOString();
 
-  await sql`
+  const writeQuery = sql`
     INSERT INTO entries (
       id,
       user_id,
@@ -4907,7 +4912,7 @@ async function saveEntry(sql, payload, currentUser, accountId) {
     afterSnapshot.bulkUpload = true;
   }
 
-  await logAudit(sql, {
+  const auditQuery = buildAuditQuery(sql, {
     accountId,
     entityType: "time_entry",
     entityId: normalizeText(entry.id),
@@ -4921,6 +4926,7 @@ async function saveEntry(sql, payload, currentUser, accountId) {
     afterJson: afterSnapshot,
     changedFieldsJson: diffKeys(beforeSnapshot || {}, afterSnapshot || {}),
   });
+  await sql.transaction([writeQuery, auditQuery]);
 
   if (!existing) {
     await dispatchNotificationEvent(sql, {
@@ -5090,7 +5096,7 @@ async function approveEntry(sql, payload, currentUser, accountId) {
   });
   const afterSnapshot = { ...beforeSnapshot, status: "approved" };
 
-  await sql`
+  const writeQuery = sql`
     UPDATE entries
     SET status = 'approved',
         approved_at = NOW(),
@@ -5100,7 +5106,7 @@ async function approveEntry(sql, payload, currentUser, accountId) {
       AND account_id = ${accountId}::uuid
   `;
 
-  await logAudit(sql, {
+  const auditQuery = buildAuditQuery(sql, {
     accountId,
     entityType: "time_entry",
     entityId: entry.id,
@@ -5114,6 +5120,7 @@ async function approveEntry(sql, payload, currentUser, accountId) {
     afterJson: afterSnapshot,
     changedFieldsJson: diffKeys(beforeSnapshot || {}, afterSnapshot || {}),
   });
+  await sql.transaction([writeQuery, auditQuery]);
 
   await dispatchNotificationEvent(sql, {
     accountId,
@@ -5245,7 +5252,7 @@ async function unapproveEntry(sql, payload, currentUser, accountId) {
   });
   const afterSnapshot = { ...beforeSnapshot, status: "pending" };
 
-  await sql`
+  const writeQuery = sql`
     UPDATE entries
     SET status = 'pending',
         approved_at = NULL,
@@ -5255,7 +5262,7 @@ async function unapproveEntry(sql, payload, currentUser, accountId) {
       AND account_id = ${accountId}::uuid
   `;
 
-  await logAudit(sql, {
+  const auditQuery = buildAuditQuery(sql, {
     accountId,
     entityType: "time_entry",
     entityId: entry.id,
@@ -5269,6 +5276,7 @@ async function unapproveEntry(sql, payload, currentUser, accountId) {
     afterJson: afterSnapshot,
     changedFieldsJson: diffKeys(beforeSnapshot || {}, afterSnapshot || {}),
   });
+  await sql.transaction([writeQuery, auditQuery]);
 
   return null;
 }
@@ -5398,7 +5406,7 @@ async function deleteEntry(sql, payload, currentUser, accountId) {
   });
 
   const deletedAt = new Date().toISOString();
-  await sql`
+  const deleteQuery = sql`
     UPDATE entries
     SET deleted_at = ${deletedAt},
         deleted_by_user_id = ${currentUser.id},
@@ -5408,7 +5416,7 @@ async function deleteEntry(sql, payload, currentUser, accountId) {
       AND deleted_at IS NULL
   `;
 
-  await logAudit(sql, {
+  const auditQuery = buildAuditQuery(sql, {
     accountId,
     entityType: "time_entry",
     entityId: id,
@@ -5422,6 +5430,7 @@ async function deleteEntry(sql, payload, currentUser, accountId) {
     afterJson: null,
     changedFieldsJson: diffKeys(beforeSnapshot || {}, {}),
   });
+  await sql.transaction([deleteQuery, auditQuery]);
   return null;
 }
 
@@ -5628,7 +5637,6 @@ exports.handler = async function handler(event) {
 
   try {
     const sql = await getSql();
-    await ensureSchema(sql);
     if (request.action === "validate_setup_token") {
       const result = await validateSetupToken(sql, request.payload || {});
       return json(200, result);

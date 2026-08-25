@@ -5,7 +5,6 @@ const {
   createSession,
   createUserRecord,
   ensureDefaultAccount,
-  ensureSchema,
   errorResponse,
   getSessionContext,
   getSql,
@@ -28,7 +27,6 @@ exports.handler = async function handler(event) {
 
   try {
     const sql = await getSql();
-    await ensureSchema(sql);
     const context = await getSessionContext(sql, event, request);
 
     const ensureCurrentUserRole = (state, fallbackUser) => {

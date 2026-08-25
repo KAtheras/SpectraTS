@@ -1,6 +1,5 @@
 const { Resend } = require("resend");
 const {
-  ensureSchema,
   errorResponse,
   getSessionContext,
   getSql,
@@ -36,7 +35,6 @@ exports.handler = async function handler(event) {
 
   try {
     const sql = await getSql();
-    await ensureSchema(sql);
     const context = await getSessionContext(sql, event);
     const authError = requireAuth(context);
     if (authError) {

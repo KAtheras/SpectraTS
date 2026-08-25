@@ -186,10 +186,10 @@ function roleKeyFromUser(user) {
   if (!user) return null;
   const rawRole =
     user.permission_role_key ||
-    user.role ||
     user.permissionGroup ||
     user.permission_group ||
     user.permissionRoleKey ||
+    user.role ||
     null;
   const raw = rawRole;
   if (!raw) return null;
@@ -282,7 +282,7 @@ function can(user, capabilityKey, ctx, permissionIndex) {
 const canFromWindow = function can(user, capability, context = {}) {
   if (!user || !capability) return false;
 
-  const role = user.role || user.permissionGroup;
+  const role = roleKeyFromUser(user);
   if (!role) return false;
 
   const permissionData =

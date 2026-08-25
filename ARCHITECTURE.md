@@ -43,7 +43,7 @@ Netlify Functions:
 - `auth.js`: login/bootstrap/session auth endpoints
 - `state.js`: canonical full-state payload for authenticated app
 - `mutate.js`: all state-changing actions (CRUD + settings updates)
-- `_db.js`: schema management + data access/business helpers
+- `_db.js`: data access/business helpers and baseline migration implementation
 - `permissions.js`: DB-backed capability evaluation
 - `send-email.js`: Resend email function (setup/reset links)
 
@@ -91,7 +91,7 @@ Important:
 ## 5) Database Layer (`_db.js`)
 
 `_db.js` responsibilities:
-- Idempotent schema setup (`ensureSchema`)
+- Baseline schema implementation used by the explicit migration runner
 - Query helpers for users, clients, projects, assignments, settings entities
 - Full-state aggregation (`loadState`)
 - Security helpers:
@@ -168,20 +168,24 @@ Utility scripts in `scripts/` support seeding, diagnosis, and normalization task
 ### Prerequisites
 - Node.js (current LTS recommended)
 - Access to the project database
-- Netlify function runtime compatibility (local via `npm run dev`)
+- Netlify function runtime compatibility (local via `npm run dev:netlify`)
 
 ### Install and run
 1. Install deps:
    - `npm install`
-2. Start app:
-   - `npm run dev`
-3. Open the local URL printed by `server.js` (typically `http://localhost:3000`).
+2. Apply database migrations:
+   - `npm run db:migrate`
+3. Start the full app:
+   - `npm run dev:netlify`
+4. Use `npm run dev` only for the static preview at `http://localhost:4173`.
 
 ### Required environment variables
 Set these before running in environments that need backend/database/email behavior:
 - `NETLIFY_DATABASE_URL` (Postgres/Neon connection)
 - `RESEND_API_KEY` (email sending)
 - `EMAIL_FROM` (verified sender domain/address for Resend)
+
+Run `npm run db:migrate` before deploying code that expects a newer schema. Request handlers do not run database DDL.
 
 ### First places to look when debugging
 - Auth/session/bootstrap:

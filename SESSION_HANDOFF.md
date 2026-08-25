@@ -1,3 +1,21 @@
+# Session Handoff (2026-08-25 - Stabilization)
+
+## Completed this session
+
+- Corrected permission role resolution so normalized permission groups take precedence over legacy raw roles.
+- Removed request-time schema DDL and added the explicit `npm run db:migrate` workflow with a migration ledger.
+- Made time/expense create, update, delete, approve, and unapprove writes atomic with their audit records.
+- Made password setup token consumption and password update a single atomic SQL statement.
+- Added `npm test`, repository-wide syntax checks, separate integration-test execution, and GitHub Actions CI.
+- Extracted theme preferences from `app.js` into `themePreferences.js`.
+- Pinned ECharts and added Netlify browser security headers compatible with iframe embedding.
+
+## Deployment requirement
+
+Run `npm run db:migrate` against the target database before deploying these application changes. The migration could not be applied from the workspace because outbound access to Neon was unavailable.
+
+---
+
 # Session Handoff (2026-04-06)
 
 ## Completed this session

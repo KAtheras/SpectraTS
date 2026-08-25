@@ -24,10 +24,10 @@
     function roleKey(user) {
       const raw =
         user?.permission_role_key ||
-        user?.role ||
         user?.permissionGroup ||
         user?.permission_group ||
         user?.permissionRoleKey ||
+        user?.role ||
         null;
       if (!raw) return null;
       const val = String(raw).toLowerCase();

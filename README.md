@@ -21,6 +21,15 @@ Full-stack (Netlify Functions + Postgres) timesheet and expenses app, still embe
 
 ## Local preview
 
+Apply pending database migrations before starting the full Netlify-backed app:
+
+```bash
+npm run db:migrate
+npm run dev:netlify
+```
+
+The lightweight static-only preview remains available with:
+
 ```bash
 npm run dev
 ```
@@ -31,10 +40,25 @@ Then open `http://localhost:4173`.
 
 1. Push this folder to GitHub.
 2. Create a new Netlify site from that repo.
-3. Leave the publish directory as the project root.
-4. Deploy.
+3. Configure the required environment variables.
+4. Run `npm run db:migrate` against the target database before deploying application code.
+5. Leave the publish directory as the project root and deploy.
 
 This project already includes [netlify.toml](/Users/kaprelozsolak/Timesheet/netlify.toml).
+
+## Tests
+
+```bash
+npm test
+```
+
+This runs repository-wide JavaScript syntax checks and the database-independent permission suite. Database mutation tests are intentionally separate because they create and remove records in a dedicated test account:
+
+```bash
+TEST_ACCOUNT_ID=<dedicated-test-account-uuid> npm run test:integration
+```
+
+The integration suite refuses to run against known protected accounts. CI runs `npm test` on every pull request and push to `main`.
 
 ## Embed in WordPress
 
@@ -58,10 +82,11 @@ Use an iframe block or HTML block with your deployed Netlify URL:
 
 ## Notes & limitations
 
-- Backend: Netlify Functions in `netlify/functions/` expect a Postgres-compatible `sql` client (see `_db.js`) and run without transactions (`sql.begin` not used). Ensure env vars match your DB.
+- Backend: Netlify Functions in `netlify/functions/` expect a Postgres-compatible `sql` client (see `_db.js`). Schema changes are applied explicitly with `npm run db:migrate`, never from request handlers.
 - Audit Log is append-only; no UI to edit/delete entries.
 - Filters currently fetch latest audit rows and also filter client-side; keep datasets modest or add pagination if needed.
 - Light/dark themes supported; dropdown ordering: Settings, Audit Log (admins), Dark/Light, Change Password, Log out.
+- Netlify applies CSP, transport, MIME-sniffing, referrer, and browser-feature headers. The CSP intentionally permits framing because WordPress embedding is supported.
 
 ## Current team and catalog setup
 

@@ -3,10 +3,15 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "check": "node scripts/check-syntax.js",
     "dev": "node server.js",
     "dev:netlify": "netlify dev",
     "dev:offline": "HOME=/tmp XDG_CONFIG_HOME=/tmp netlify dev --offline",
     "start": "node server.js",
+    "db:migrate": "node --env-file-if-exists=.env scripts/migrate.js",
+    "test": "npm run check && npm run test:unit",
+    "test:unit": "node tests/permissions.test.js && node tests/themePreferences.test.js",
+    "test:integration": "node --env-file-if-exists=.env tests/mutations.test.js",
     "version:assets": "node scripts/update-asset-version.js",
     "build": "npm run version:assets"
   },

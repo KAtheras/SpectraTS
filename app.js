@@ -1,6 +1,4 @@
 (function () {
-  const THEME_STORAGE_KEY = "timesheet-studio.theme.v1";
-  const THEME_EXPLICIT_STORAGE_KEY = "timesheet-studio.theme.explicit.v1";
   const VIEW_STORAGE_KEY = "timesheet-studio.view.v1";
   const PROJECT_PLANNING_ID_STORAGE_KEY = "timesheet-studio.project-planning-id.v1";
   const LAST_INPUTS_COMBO_STORAGE_KEY = "timesheet-studio.inputs.last-client-project.v1";
@@ -140,7 +138,6 @@
     return;
   }
   const embedded = window.self !== window.top || window.location.search.includes("embed=1");
-  const themeMedia = window.matchMedia("(prefers-color-scheme: dark)");
   const {
     AUTH_API_PATH,
     STATE_API_PATH,
@@ -595,6 +592,15 @@
     auditTableBody: document.getElementById("audit-table-body"),
     appTopbar: document.querySelector(".app-topbar"),
   };
+
+  const {
+    media: themeMedia,
+    loadThemePreference,
+    saveThemePreference,
+    clearThemePreference,
+    resolveTheme,
+    applyTheme,
+  } = window.themePreferences.create({ body, toggle: refs.themeToggle });
 
   function createHiddenFilterTarget() {
     return {
@@ -3596,61 +3602,6 @@
 
   if (embedded) {
     body.classList.add("is-embedded");
-  }
-
-  function loadThemePreference() {
-    try {
-      const raw = window.localStorage.getItem(THEME_STORAGE_KEY);
-      const explicit = window.localStorage.getItem(THEME_EXPLICIT_STORAGE_KEY) === "1";
-      if (!explicit) {
-        return null;
-      }
-      return raw === "light" || raw === "dark" ? raw : null;
-    } catch (error) {
-      return null;
-    }
-  }
-
-
-  function saveThemePreference(theme) {
-    try {
-      window.localStorage.setItem(THEME_STORAGE_KEY, theme);
-      window.localStorage.setItem(THEME_EXPLICIT_STORAGE_KEY, "1");
-    } catch (error) {
-      return;
-    }
-  }
-
-  function clearThemePreference() {
-    try {
-      window.localStorage.removeItem(THEME_STORAGE_KEY);
-      window.localStorage.removeItem(THEME_EXPLICIT_STORAGE_KEY);
-    } catch (error) {
-      return;
-    }
-  }
-
-  function resolveTheme() {
-    const savedTheme = loadThemePreference();
-    if (savedTheme === "light" || savedTheme === "dark") {
-      return savedTheme;
-    }
-    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    return prefersDark ? "dark" : "light";
-  }
-
-  function applyTheme(theme) {
-    body.dataset.theme = theme;
-    body.style.colorScheme = theme;
-
-    if (!refs.themeToggle) {
-      return;
-    }
-
-    const nextLabel = theme === "dark" ? "Light mode" : "Dark mode";
-    refs.themeToggle.textContent = "Dark/Light";
-    refs.themeToggle.setAttribute("aria-pressed", theme === "dark" ? "true" : "false");
-    refs.themeToggle.setAttribute("aria-label", nextLabel);
   }
 
   function availableUsers() {
