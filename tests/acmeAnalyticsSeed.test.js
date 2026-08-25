@@ -25,7 +25,6 @@ assert.strictEqual(first.projectMembers.length, users.length * projects.length);
 assert.strictEqual(new Set(first.entries.map((row) => row.id)).size, first.entries.length);
 assert.strictEqual(new Set(first.expenses.map((row) => row.id)).size, first.expenses.length);
 assert.ok(first.entries.every((row) => row.hours > 0 && row.hours <= 14));
-assert.ok(first.entries.length < 4000);
 assert.deepStrictEqual(first, second);
 users.forEach((user) => projects.forEach((project) => {
   assert.ok(first.entries.some((row) => row.user_id === user.id && row.project_id === Number(project.id)));

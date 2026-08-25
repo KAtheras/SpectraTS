@@ -244,9 +244,7 @@ function buildScenarioData(tenant, options) {
         status, approved_at: approvedAt, approved_by_user_id: status === "approved" ? approver.id : null,
         created_at: `${dateIso}T17:00:00.000Z`, updated_at: `${dateIso}T20:00:00.000Z` });
       addProjectHours(project, user, clientHours);
-      const internalHours = date.getUTCDay() === 5
-        ? round(Math.max(0, profile.internalHours * 5 - Math.max(0, clientHours - profile.clientHours)), 2)
-        : 0;
+      const internalHours = round(Math.max(0, profile.internalHours - Math.max(0, clientHours - profile.clientHours)), 2);
       if (internalHours > 0) {
         const category = chooseInternalCategory(tenant.internalCategories, userIndex, date.getUTCMonth(), false);
         entries.push({ id: deterministicUuid(options.seed, `internal:${user.id}:${dateIso}:${category.id}`), user_id: user.id,
