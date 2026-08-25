@@ -158,7 +158,7 @@ function projectSort(left, right) {
 
 function utilizationProfile(userIndex) {
   if (userIndex % 9 === 0) return { key: "underutilized", clientHours: 4.4, internalHours: 1, totalHours: 5.4 };
-  if (userIndex % 11 === 0) return { key: "overutilized", clientHours: 8.7, internalHours: 0, totalHours: 8.7 };
+  if (userIndex % 11 === 0) return { key: "overutilized", clientHours: 7.8, internalHours: 0.2, totalHours: 8 };
   if (userIndex % 7 === 0) return { key: "high", clientHours: 7.5, internalHours: 0.5, totalHours: 8 };
   return { key: "healthy", clientHours: 6.6 + (userIndex % 3) * 0.2, internalHours: 1.4 - (userIndex % 3) * 0.2, totalHours: 8 };
 }
