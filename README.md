@@ -77,3 +77,4 @@ The integration suite refuses to run against known protected accounts. CI runs `
 ## Session handoff
 
 - Latest handoff notes: [`SESSION_HANDOFF.md`](/Users/kaprelozsolak/Timesheet/SESSION_HANDOFF.md)
+- Deferred technical backlog: [`FUTURE_TODOS.md`](/Users/kaprelozsolak/Timesheet/FUTURE_TODOS.md)

@@ -14,6 +14,10 @@
 
 Run `npm run db:migrate` against the target database before deploying these application changes. The migration could not be applied from the workspace because outbound access to Neon was unavailable.
 
+## Deferred work
+
+Production validation, integration testing, observability, further module extraction, and cookie-based session hardening are tracked in `FUTURE_TODOS.md`.
+
 ---
 
 # Session Handoff (2026-04-06)
