@@ -66,8 +66,8 @@
         background: transparent;
         align-items: end;
       }
-      .analytics-filters label { display: grid; gap: 4px; font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
-      .analytics-filters select, .analytics-filters input { min-height: 34px; background: #fff; }
+      .analytics-filters label { display: grid; gap: 4px; min-width: 0; font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+      .analytics-filters select, .analytics-filters input { width: 100%; min-width: 0; min-height: 34px; background: #fff; }
       .analytics-filter-range { min-width: 0; }
       .analytics-kpis { display: grid; grid-template-columns: repeat(5, minmax(140px, 1fr)); gap: 10px; }
       .analytics-kpi {
@@ -89,8 +89,8 @@
         gap: 8px;
         align-items: end;
       }
-      .analytics-util-filters label { display: grid; gap: 4px; font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
-      .analytics-util-filters select { min-height: 34px; background: #fff; }
+      .analytics-util-filters label { display: grid; gap: 4px; min-width: 0; font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+      .analytics-util-filters select, .analytics-util-filters input { width: 100%; min-width: 0; min-height: 34px; background: #fff; }
       .analytics-util-grid {
         display: grid;
         grid-template-columns: minmax(320px, 2fr) minmax(420px, 3fr);
@@ -343,9 +343,16 @@
     { id: "ytd", name: "YTD" },
     { id: "last_year", name: "Last Year" },
   ];
-  const PROFITABILITY_PERIODS = [
+  const UTILIZATION_PERIOD_OPTIONS = [
     ...UTILIZATION_PERIODS,
     { id: "custom", name: "Custom" },
+  ];
+  const PROFITABILITY_PERIODS = UTILIZATION_PERIOD_OPTIONS;
+  const PROFITABILITY_CHART_VIEWS = [
+    { id: "composition", name: "Composition" },
+    { id: "revenue", name: "Revenue" },
+    { id: "cost", name: "Cost" },
+    { id: "profit", name: "Profit" },
   ];
 
   const UTILIZATION_GROUP_BY_OPTIONS = [
@@ -384,12 +391,25 @@
 
   function normalizeUtilizationPeriod(value) {
     const key = safeText(value).toLowerCase();
-    return UTILIZATION_PERIODS.some((item) => item.id === key) ? key : "this_month";
+    return UTILIZATION_PERIOD_OPTIONS.some((item) => item.id === key) ? key : "this_month";
   }
 
   function normalizeProfitabilityPeriod(value) {
     const key = safeText(value).toLowerCase();
     return PROFITABILITY_PERIODS.some((item) => item.id === key) ? key : "this_month";
+  }
+
+  function normalizeProfitabilityChartView(value) {
+    const key = safeText(value).toLowerCase();
+    return PROFITABILITY_CHART_VIEWS.some((item) => item.id === key) ? key : "composition";
+  }
+
+  function profitabilityChartTitle(view) {
+    const normalized = normalizeProfitabilityChartView(view);
+    if (normalized === "revenue") return "Revenue trend";
+    if (normalized === "cost") return "Cost trend";
+    if (normalized === "profit") return "Profit trend";
+    return "Revenue composition: Cost + Profit";
   }
 
   function normalizeUtilizationGroupBy(value) {
@@ -709,9 +729,11 @@
       scopeId: "",
       clientId: "",
       projectId: "",
-      trendMetric: "revenue",
+      trendMetric: "composition",
       profitabilityPeriod: "this_month",
       utilizationPeriod: "this_month",
+      utilizationFromDate: "",
+      utilizationToDate: "",
       utilizationGroupBy: "member",
       utilizationOfficeId: "",
       utilizationDepartmentId: "",
@@ -838,12 +860,76 @@
     const accent = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#2f6fed";
     const areaCostColor = "rgba(64, 120, 192, 0.78)";
     const areaProfitColor = "rgba(74, 180, 132, 0.78)";
-    const selectedMetric = safeText(focusMetric || "revenue");
-    const seriesOpacity = (metricKey) => (selectedMetric === metricKey ? 1 : 0.68);
+    const selectedView = normalizeProfitabilityChartView(focusMetric);
+    const metricDefinitions = {
+      revenue: { name: "Revenue", data: revenueValues, color: accent },
+      cost: { name: "Cost", data: costValues, color: areaCostColor },
+      profit: { name: "Profit", data: profitValues, color: areaProfitColor },
+    };
+    const singleMetric = metricDefinitions[selectedView] || null;
+    const series = singleMetric
+      ? [
+          {
+            name: singleMetric.name,
+            data: singleMetric.data,
+            type: "line",
+            smooth: false,
+            symbol: "circle",
+            symbolSize: 7,
+            lineStyle: { width: 3, color: singleMetric.color },
+            itemStyle: { color: singleMetric.color },
+            areaStyle: { color: singleMetric.color, opacity: 0.14 },
+            emphasis: { focus: "series" },
+          },
+        ]
+      : [
+          {
+            name: "Cost",
+            data: costValues,
+            type: "line",
+            stack: "total",
+            smooth: false,
+            symbol: "none",
+            lineStyle: { width: 1.6, color: areaCostColor },
+            itemStyle: { color: areaCostColor },
+            areaStyle: { color: "rgba(64, 120, 192, 0.30)" },
+            emphasis: { focus: "series" },
+          },
+          {
+            name: "Profit",
+            data: profitValues,
+            type: "line",
+            stack: "total",
+            smooth: false,
+            symbol: "none",
+            lineStyle: { width: 1.6, color: areaProfitColor },
+            itemStyle: { color: areaProfitColor },
+            areaStyle: { color: "rgba(74, 180, 132, 0.28)" },
+            emphasis: { focus: "series" },
+          },
+          {
+            name: "Revenue",
+            data: revenueValues,
+            type: "line",
+            smooth: false,
+            symbol: "circle",
+            symbolSize: 7,
+            lineStyle: { width: 3, color: accent },
+            itemStyle: { color: accent },
+            emphasis: { focus: "series" },
+          },
+        ];
 
     chart.setOption({
       animation: false,
-      grid: { left: 44, right: 18, top: 18, bottom: 34 },
+      grid: { left: 44, right: 18, top: singleMetric ? 18 : 46, bottom: 34 },
+      legend: singleMetric
+        ? { show: false }
+        : {
+            show: true,
+            top: 0,
+            data: ["Cost", "Profit", "Revenue"],
+          },
       tooltip: {
         trigger: "axis",
         formatter: (params) => {
@@ -851,12 +937,10 @@
           const first = rows[0];
           const label = first?.axisValueLabel || "";
           const byName = (name) => rows.find((row) => row?.seriesName === name)?.value ?? 0;
-          return [
-            label,
-            `Revenue: ${formatMoney(byName("Revenue"))}`,
-            `Cost: ${formatMoney(byName("Cost"))}`,
-            `Profit: ${formatMoney(byName("Profit"))}`,
-          ].join("<br/>");
+          if (singleMetric) {
+            return [label, `${singleMetric.name}: ${formatMoney(byName(singleMetric.name))}`].join("<br/>");
+          }
+          return [label, `Revenue: ${formatMoney(byName("Revenue"))}`, `Cost: ${formatMoney(byName("Cost"))}`, `Profit: ${formatMoney(byName("Profit"))}`].join("<br/>");
         },
       },
       xAxis: {
@@ -876,43 +960,7 @@
         },
         splitLine: { lineStyle: { color: "rgba(128,128,128,0.25)" } },
       },
-      series: [
-        {
-          name: "Cost",
-          data: costValues,
-          type: "line",
-          stack: "total",
-          smooth: false,
-          symbol: "none",
-          lineStyle: { width: 1.6, color: areaCostColor, opacity: seriesOpacity("cost") },
-          itemStyle: { color: areaCostColor, opacity: seriesOpacity("cost") },
-          areaStyle: { color: "rgba(64, 120, 192, 0.30)", opacity: seriesOpacity("cost") },
-          emphasis: { focus: "series" },
-        },
-        {
-          name: "Profit",
-          data: profitValues,
-          type: "line",
-          stack: "total",
-          smooth: false,
-          symbol: "none",
-          lineStyle: { width: 1.6, color: areaProfitColor, opacity: seriesOpacity("profit") },
-          itemStyle: { color: areaProfitColor, opacity: seriesOpacity("profit") },
-          areaStyle: { color: "rgba(74, 180, 132, 0.28)", opacity: seriesOpacity("profit") },
-          emphasis: { focus: "series" },
-        },
-        {
-          name: "Revenue",
-          data: revenueValues,
-          type: "line",
-          smooth: false,
-          symbol: "circle",
-          symbolSize: 7,
-          lineStyle: { width: selectedMetric === "revenue" ? 3 : 2.5, color: accent, opacity: seriesOpacity("revenue") },
-          itemStyle: { color: accent, opacity: seriesOpacity("revenue") },
-          emphasis: { focus: "series" },
-        },
-      ],
+      series,
     });
   }
 
@@ -1655,7 +1703,13 @@
         uiState.utilizationDepartmentId = "";
       }
 
-      const periodRange = utilizationPeriodRange(uiState.utilizationPeriod, new Date());
+      const defaultUtilizationRange = utilizationPeriodRange("this_month", new Date());
+      const periodRange = uiState.utilizationPeriod === "custom"
+        ? {
+            fromDate: safeText(uiState.utilizationFromDate) || defaultUtilizationRange.fromDate,
+            toDate: safeText(uiState.utilizationToDate) || defaultUtilizationRange.toDate,
+          }
+        : utilizationPeriodRange(uiState.utilizationPeriod, new Date());
       const allowedOfficeIds = new Set((scopeOptions.offices || []).map((item) => safeText(item?.id)).filter(Boolean));
       const allowedDepartmentIds = new Set(
         (scopeOptions.departments || []).map((item) => safeText(item?.id)).filter(Boolean)
@@ -1825,6 +1879,10 @@
                 <span class="analytics-member-title-chevron" aria-hidden="true">▾</span>
               </span>
             </label>`;
+      const utilizationFilterColumnCount =
+        1 +
+        (uiState.utilizationPeriod === "custom" ? 1 : 0) +
+        (isSelfOnlyScope ? 0 : 3);
       const utilizationMainHtml = isSelfOnlyScope
         ? `
           <section class="analytics-chart-wrap">
@@ -1883,17 +1941,27 @@
         <div class="analytics-panel" data-analytics-root>
           ${subTabsHtml}
 
-          <form class="analytics-util-filters" data-analytics-utilization-filters>
+          <form class="analytics-util-filters" data-analytics-utilization-filters style="grid-template-columns:repeat(${utilizationFilterColumnCount},minmax(0,1fr));">
             <label>
               <span>Period</span>
               <span class="analytics-util-select-wrap">
                 <select name="period" class="analytics-util-select">${renderOptions(
-                  UTILIZATION_PERIODS,
+                  UTILIZATION_PERIOD_OPTIONS,
                   uiState.utilizationPeriod
                 )}</select>
                 <span class="analytics-member-title-chevron" aria-hidden="true">▾</span>
               </span>
             </label>
+            ${
+              uiState.utilizationPeriod === "custom"
+                ? `<label class="analytics-filter-range">
+                    <span>Date range</span>
+                    <input type="text" name="dateRange" value="" readonly autocomplete="off" />
+                    <input type="hidden" name="fromDate" value="${escapeHtml(periodRange.fromDate)}" />
+                    <input type="hidden" name="toDate" value="${escapeHtml(periodRange.toDate)}" />
+                  </label>`
+                : ""
+            }
             ${groupByControlHtml}
             ${officeControlHtml}
             ${departmentControlHtml}
@@ -1934,8 +2002,24 @@
       bindAnalyticsSubTabEvents(body, uiState, options);
       const utilizationFilterForm = body.querySelector("[data-analytics-utilization-filters]");
       if (utilizationFilterForm) {
+        wireAnalyticsDateRangePicker(utilizationFilterForm);
         utilizationFilterForm.addEventListener("change", () => {
-          uiState.utilizationPeriod = normalizeUtilizationPeriod(utilizationFilterForm.elements.period?.value);
+          const previousPeriod = uiState.utilizationPeriod;
+          const nextPeriod = normalizeUtilizationPeriod(utilizationFilterForm.elements.period?.value);
+          if (nextPeriod === "custom") {
+            const previousRange = previousPeriod === "custom"
+              ? periodRange
+              : utilizationPeriodRange(previousPeriod, new Date());
+            const fromInput = utilizationFilterForm.elements.fromDate;
+            const toInput = utilizationFilterForm.elements.toDate;
+            uiState.utilizationFromDate = safeText(
+              fromInput?.dataset?.dpCanonical || fromInput?.value || previousRange.fromDate
+            );
+            uiState.utilizationToDate = safeText(
+              toInput?.dataset?.dpCanonical || toInput?.value || previousRange.toDate
+            );
+          }
+          uiState.utilizationPeriod = nextPeriod;
           if (!isSelfOnlyScope) {
             uiState.utilizationGroupBy = normalizeUtilizationGroupBy(utilizationFilterForm.elements.groupBy?.value);
             if (utilizationFilterForm.elements.officeId) {
@@ -2055,11 +2139,15 @@
             <span>${escapeHtml(scopeLabel)}</span>
             <select name="scopeId">${renderOptions(scopeItems, uiState.scopeId, "All")}</select>
           </label>`;
+    const profitabilityFilterColumnCount =
+      5 +
+      (uiState.profitabilityPeriod === "custom" ? 1 : 0) +
+      (uiState.scope === "company" ? 0 : 1);
 
     body.innerHTML = `
       <div class="analytics-panel" data-analytics-root>
         ${subTabsHtml}
-        <form class="analytics-filters" data-analytics-filters>
+        <form class="analytics-filters" data-analytics-filters style="grid-template-columns:repeat(${profitabilityFilterColumnCount},minmax(0,1fr));">
           <label>
             <span>Period</span>
             <select name="profitabilityPeriod">${renderOptions(
@@ -2096,11 +2184,9 @@
             <select name="projectId">${renderOptions(projectItems, uiState.projectId, "All")}</select>
           </label>
           <label>
-            <span>Trend metric</span>
+            <span>Chart view</span>
             <select name="trendMetric">
-              <option value="revenue" ${uiState.trendMetric === "revenue" ? "selected" : ""}>Revenue</option>
-              <option value="cost" ${uiState.trendMetric === "cost" ? "selected" : ""}>Cost</option>
-              <option value="profit" ${uiState.trendMetric === "profit" ? "selected" : ""}>Profit</option>
+              ${renderOptions(PROFITABILITY_CHART_VIEWS, normalizeProfitabilityChartView(uiState.trendMetric))}
             </select>
           </label>
         </form>
@@ -2115,7 +2201,7 @@
 
         <section class="analytics-chart-wrap">
           <div class="analytics-chart-head">
-            <strong>Revenue vs Cost + Profit trend</strong>
+            <strong>${escapeHtml(profitabilityChartTitle(uiState.trendMetric))}</strong>
           </div>
           <div data-analytics-chart-host></div>
         </section>
@@ -2143,7 +2229,7 @@
       uiState.scopeId = safeText(filterForm.elements.scopeId?.value);
       uiState.clientId = safeText(filterForm.elements.clientId?.value);
       uiState.projectId = safeText(filterForm.elements.projectId?.value);
-      uiState.trendMetric = safeText(filterForm.elements.trendMetric?.value || "revenue");
+      uiState.trendMetric = normalizeProfitabilityChartView(filterForm.elements.trendMetric?.value);
       uiState.profitabilityPeriod = normalizeProfitabilityPeriod(
         filterForm.elements.profitabilityPeriod?.value
       );
