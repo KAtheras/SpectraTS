@@ -57,3 +57,51 @@ assert.deepStrictEqual(Array.from(options.projectsByClient.get("c1"), (item) => 
 assert.strictEqual(options.projectsByClient.has("c2"), false);
 
 console.log("✔ analytics client/project options preserve IDs and cascade by period and scope");
+
+const realization = engineWindow.analyticsEngine.computeRealizationAnalytics({
+  clients: [{ id: "c1", name: "Alpha" }],
+  projects: [{
+    id: "p1",
+    clientId: "c1",
+    client: "Alpha",
+    name: "Fixed Project",
+    isActive: false,
+    pricingModel: "fixed_fee",
+    contractAmount: 1500,
+  }],
+  users: [{ id: "u1", baseRate: 100 }],
+  entries: [
+    { projectId: "p1", userId: "u1", date: "2026-06-10", hours: 10 },
+    { projectId: "p1", userId: "u1", date: "2026-08-10", hours: 10 },
+  ],
+  expenses: [],
+  filters: {
+    fromDate: "2026-08-01",
+    toDate: "2026-08-31",
+    groupBy: "project",
+  },
+});
+
+assert.strictEqual(realization.kpis.actualRevenue, 1500);
+assert.strictEqual(realization.kpis.standardRevenue, 2000);
+assert.strictEqual(realization.kpis.variance, -500);
+assert.strictEqual(realization.kpis.projectCount, 1);
+assert.strictEqual(realization.kpis.avgRealizationPct, 75);
+const realizationRowKey = realization.rows[0].key;
+assert.deepStrictEqual(
+  Array.from(realization.monthlyByKey[realizationRowKey], (row) => row.standardRevenue),
+  [1000, 1000, 2000]
+);
+
+const excludedRealization = engineWindow.analyticsEngine.computeRealizationAnalytics({
+  clients: [{ id: "c1", name: "Alpha" }],
+  projects: [{ id: "p1", clientId: "c1", name: "Fixed Project", isActive: false, contractAmount: 1500 }],
+  users: [{ id: "u1", baseRate: 100 }],
+  entries: [{ projectId: "p1", userId: "u1", date: "2026-07-31", hours: 10 }],
+  expenses: [],
+  filters: { fromDate: "2026-08-01", toDate: "2026-08-31", groupBy: "project" },
+});
+assert.strictEqual(excludedRealization.kpis.projectCount, 0);
+assert.strictEqual(excludedRealization.rows.length, 0);
+
+console.log("✔ realization uses completion-period cohorts with lifetime project economics");

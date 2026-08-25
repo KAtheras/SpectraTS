@@ -987,6 +987,8 @@
     const groupBy = safeText(filters?.groupBy || "client").toLowerCase();
     const officeFilterId = safeText(filters?.officeId);
     const departmentFilterId = safeText(filters?.departmentId);
+    const clientFilterId = safeText(filters?.clientId);
+    const projectFilterId = safeText(filters?.projectId);
 
     const usersById = buildUserIndex(users);
     const usersByUniqueName = buildUniqueUserNameIndex(users);
@@ -1009,6 +1011,30 @@
     const grouped = new Map();
     const totals = { actualRevenue: 0, standardRevenue: 0 };
     const fixedProjectActivity = new Map();
+    const includedProjectIds = new Set();
+    const lastActivityByProject = new Map();
+
+    // Projects do not currently store a completion date. Treat their final recorded
+    // activity as the completion-period proxy, then calculate the selected cohort
+    // using full-lifetime economics rather than partial-period economics.
+    [...entries, ...expenses].forEach((record) => {
+      if (!record || isDeletedRecord(record)) return;
+      const project = resolveProjectForRecord(record, projectIndex);
+      if (!isCompletedProject(project)) return;
+      const projectId = safeText(project?.id || record?.projectId || record?.project_id);
+      const date = entryDate(record) || expenseDate(record);
+      if (!projectId || !date) return;
+      const previous = lastActivityByProject.get(projectId) || "";
+      if (!previous || date > previous) lastActivityByProject.set(projectId, date);
+    });
+
+    const projectIsInCohort = (project) => {
+      const projectId = safeText(project?.id);
+      if (!projectId || !isCompletedProject(project)) return false;
+      if (projectFilterId && projectId !== projectFilterId) return false;
+      if (clientFilterId && safeText(project?.clientId || project?.client_id) !== clientFilterId) return false;
+      return inDateRange(lastActivityByProject.get(projectId), fromDate, toDate);
+    };
 
     const ensureGroup = (rowContext) => {
       const identity = groupKeyForDimension(groupBy, rowContext, levelLabels);
@@ -1031,6 +1057,8 @@
       const target = ensureGroup(rowContext);
       target.actualRevenue += actual;
       target.standardRevenue += standard;
+      const projectId = safeText(rowContext?.projectId);
+      if (projectId) includedProjectIds.add(projectId);
       totals.actualRevenue += actual;
       totals.standardRevenue += standard;
       if (monthKey) {
@@ -1046,10 +1074,8 @@
     entries.forEach((entry) => {
       if (!entry || isDeletedRecord(entry)) return;
       const date = entryDate(entry);
-      if (!inDateRange(date, fromDate, toDate)) return;
-
       const project = resolveProjectForRecord(entry, projectIndex);
-      if (!isCompletedProject(project)) return;
+      if (!projectIsInCohort(project)) return;
       const projectType = resolveProjectType(project);
       const scopeMeta = resolveScopeMeta(
         entry,
@@ -1097,10 +1123,8 @@
     expenses.forEach((expense) => {
       if (!expense || isDeletedRecord(expense)) return;
       const date = expenseDate(expense);
-      if (!inDateRange(date, fromDate, toDate)) return;
-
       const project = resolveProjectForRecord(expense, projectIndex);
-      if (!isCompletedProject(project)) return;
+      if (!projectIsInCohort(project)) return;
       const projectType = resolveProjectType(project);
       const scopeMeta = resolveScopeMeta(
         expense,
@@ -1169,13 +1193,23 @@
 
     const monthlyByKey = {};
     rows.forEach((row) => {
-      monthlyByKey[row.key] = buckets.map((bucket) => {
+      const activeMonths = Array.from(row.byMonth.keys()).sort();
+      if (!activeMonths.length) {
+        monthlyByKey[row.key] = [];
+        return;
+      }
+      const lifetimeBuckets = buildMonthlyBuckets(activeMonths[0], activeMonths[activeMonths.length - 1]);
+      let cumulativeActual = 0;
+      let cumulativeStandard = 0;
+      monthlyByKey[row.key] = lifetimeBuckets.map((bucket) => {
         const monthSample = row.byMonth.get(bucket.key) || { actualRevenue: 0, standardRevenue: 0 };
+        cumulativeActual += monthSample.actualRevenue;
+        cumulativeStandard += monthSample.standardRevenue;
         return {
           month: bucket.month,
-          actualRevenue: monthSample.actualRevenue,
-          standardRevenue: monthSample.standardRevenue,
-          realizationPct: realizationPct(monthSample.actualRevenue, monthSample.standardRevenue),
+          actualRevenue: cumulativeActual,
+          standardRevenue: cumulativeStandard,
+          realizationPct: realizationPct(cumulativeActual, cumulativeStandard),
         };
       });
     });
@@ -1185,6 +1219,8 @@
         avgRealizationPct: realizationPct(totals.actualRevenue, totals.standardRevenue),
         actualRevenue: totals.actualRevenue,
         standardRevenue: totals.standardRevenue,
+        variance: totals.actualRevenue - totals.standardRevenue,
+        projectCount: includedProjectIds.size,
       },
       rows: rows.map((row) => ({
         key: row.key,

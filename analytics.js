@@ -256,6 +256,15 @@
     );
   }
 
+  function formatCompactMoney(value) {
+    return new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency: "USD",
+      notation: "compact",
+      maximumFractionDigits: 1,
+    }).format(toNumber(value));
+  }
+
   function formatPercent(value) {
     if (!Number.isFinite(value)) return "—";
     return `${toNumber(value).toFixed(1)}%`;
@@ -367,17 +376,7 @@
     { id: "low_to_high", name: "Low → High" },
   ];
   const UTILIZATION_MEMBER_TITLE_ALL = "__all_titles__";
-  const REALIZATION_LAYER_OPTIONS = [
-    { id: "completed", name: "Completed" },
-    { id: "open", name: "Open" },
-    { id: "combined", name: "Combined" },
-  ];
-  const REALIZATION_PERIODS = [
-    { id: "this_quarter", name: "This Quarter" },
-    { id: "last_quarter", name: "Last Quarter" },
-    { id: "ytd", name: "YTD" },
-    { id: "last_year", name: "Last Year" },
-  ];
+  const REALIZATION_PERIODS = UTILIZATION_PERIOD_OPTIONS;
   const REALIZATION_GROUP_BY_OPTIONS = [
     { id: "client", name: "Client" },
     { id: "project", name: "Project" },
@@ -512,14 +511,9 @@
     return { fromDate: toIsoDate(startOfMonth(todayDate)), toDate: toIsoDate(endOfMonth(todayDate)) };
   }
 
-  function normalizeRealizationLayer(value) {
-    const key = safeText(value).toLowerCase();
-    return REALIZATION_LAYER_OPTIONS.some((item) => item.id === key) ? key : "completed";
-  }
-
   function normalizeRealizationPeriod(value) {
     const key = safeText(value).toLowerCase();
-    return REALIZATION_PERIODS.some((item) => item.id === key) ? key : "this_quarter";
+    return REALIZATION_PERIODS.some((item) => item.id === key) ? key : "this_month";
   }
 
   function normalizeRealizationGroupBy(value) {
@@ -537,25 +531,7 @@
   }
 
   function realizationPeriodRange(periodId, nowDate) {
-    const now = nowDate instanceof Date ? nowDate : new Date();
-    const todayDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const period = normalizeRealizationPeriod(periodId);
-    if (period === "this_quarter") {
-      return { fromDate: toIsoDate(startOfQuarter(todayDate)), toDate: toIsoDate(endOfQuarter(todayDate)) };
-    }
-    if (period === "last_quarter") {
-      const startThisQuarter = startOfQuarter(todayDate);
-      const anyLastQuarterDate = new Date(startThisQuarter.getFullYear(), startThisQuarter.getMonth() - 1, 1);
-      return { fromDate: toIsoDate(startOfQuarter(anyLastQuarterDate)), toDate: toIsoDate(endOfQuarter(anyLastQuarterDate)) };
-    }
-    if (period === "ytd") {
-      return { fromDate: `${todayDate.getFullYear()}-01-01`, toDate: toIsoDate(todayDate) };
-    }
-    if (period === "last_year") {
-      const year = todayDate.getFullYear() - 1;
-      return { fromDate: `${year}-01-01`, toDate: `${year}-12-31` };
-    }
-    return { fromDate: toIsoDate(startOfQuarter(todayDate)), toDate: toIsoDate(endOfQuarter(todayDate)) };
+    return utilizationPeriodRange(periodId, nowDate);
   }
 
   function sortRealizationRows(rows, sortOrder) {
@@ -663,7 +639,7 @@
     input.value = "Select date range";
   }
 
-  function wireAnalyticsDateRangePicker(filterForm) {
+  function wireAnalyticsDateRangePicker(filterForm, openImmediately = false) {
     const rangeInput = filterForm?.elements?.dateRange;
     const fromInput = filterForm?.elements?.fromDate;
     const toInput = filterForm?.elements?.toDate;
@@ -690,6 +666,11 @@
     if (picker && typeof picker.register === "function" && rangeInput.dataset.dpBound !== "true") {
       picker.register(rangeInput);
       setRangeDisplayValue(rangeInput, safeText(fromInput.value), safeText(toInput.value));
+    }
+    if (openImmediately) {
+      window.setTimeout(() => {
+        if (rangeInput.isConnected) rangeInput.click();
+      }, 0);
     }
   }
 
@@ -731,17 +712,25 @@
       projectId: "",
       trendMetric: "composition",
       profitabilityPeriod: "this_month",
+      profitabilityOpenCustomPicker: false,
       utilizationPeriod: "this_month",
       utilizationFromDate: "",
       utilizationToDate: "",
+      utilizationOpenCustomPicker: false,
       utilizationGroupBy: "member",
       utilizationOfficeId: "",
       utilizationDepartmentId: "",
       utilizationSelectedKey: "",
       utilizationMemberSort: "high_to_low",
       utilizationMemberTitle: UTILIZATION_MEMBER_TITLE_ALL,
-      realizationLayer: "completed",
-      realizationPeriod: "this_quarter",
+      realizationPeriod: "this_month",
+      realizationFromDate: "",
+      realizationToDate: "",
+      realizationOpenCustomPicker: false,
+      realizationScope: "company",
+      realizationScopeId: "",
+      realizationClientId: "",
+      realizationProjectId: "",
       realizationOfficeId: "",
       realizationDepartmentId: "",
       realizationGroupBy: "client",
@@ -1330,6 +1319,13 @@
             fontWeight: 700,
             formatter: (params) => formatPercent(rows[Number(params?.dataIndex)]?.realizationPct),
           },
+          markLine: {
+            silent: true,
+            symbol: "none",
+            lineStyle: { color: "#596274", width: 1.5, type: "dashed" },
+            label: { show: true, formatter: "100% target", color: "#596274" },
+            data: [{ xAxis: 100 }],
+          },
         },
       ],
     });
@@ -1378,24 +1374,29 @@
       const date = new Date(Number(year), Number(mm) - 1, 1);
       return date.toLocaleDateString(undefined, { month: "short", year: "numeric" });
     });
-    const values = seriesRows.map((row) => (Number.isFinite(Number(row?.realizationPct)) ? Number(row.realizationPct) : 0));
-    const maxValue = Math.max(100, ...values);
+    const actualValues = seriesRows.map((row) => Number(row?.actualRevenue) || 0);
+    const standardValues = seriesRows.map((row) => Number(row?.standardRevenue) || 0);
 
     chart.setOption({
       animation: false,
-      grid: { left: 50, right: 20, top: 24, bottom: 52 },
+      legend: {
+        top: 4,
+        data: ["Modeled Revenue", "Standard Value"],
+        textStyle: { color: "#596274", fontSize: 11 },
+      },
+      grid: { left: 58, right: 20, top: 44, bottom: 52 },
       tooltip: {
         trigger: "axis",
-        axisPointer: { type: "shadow" },
+        axisPointer: { type: "line" },
         formatter: (params) => {
           const first = Array.isArray(params) ? params[0] : params;
           const idx = Number(first?.dataIndex);
           const row = Number.isInteger(idx) ? seriesRows[idx] : null;
           return [
             safeText(first?.axisValueLabel),
-            `Realization: ${formatPercent(row?.realizationPct)}`,
-            `Actual: ${formatMoney(row?.actualRevenue)}`,
-            `Standard: ${formatMoney(row?.standardRevenue)}`,
+            `Cumulative realization: ${formatPercent(row?.realizationPct)}`,
+            `Modeled revenue: ${formatMoney(row?.actualRevenue)}`,
+            `Standard value: ${formatMoney(row?.standardRevenue)}`,
           ].join("<br/>");
         },
       },
@@ -1406,26 +1407,26 @@
       },
       yAxis: {
         type: "value",
-        max: maxValue * 1.12,
-        axisLabel: { formatter: (value) => `${Math.round(value)}%` },
+        axisLabel: { formatter: (value) => formatCompactMoney(value) },
         splitLine: { lineStyle: { color: "rgba(128,128,128,0.25)" } },
       },
       series: [
         {
-          name: "Realization %",
-          type: "bar",
-          barWidth: 22,
-          data: values,
-          itemStyle: { color: "#2f6fed", borderRadius: [4, 4, 0, 0] },
-          label: {
-            show: true,
-            position: "top",
-            distance: 4,
-            color: "#283142",
-            fontSize: 11,
-            fontWeight: 700,
-            formatter: (params) => formatPercent(seriesRows[Number(params?.dataIndex)]?.realizationPct),
-          },
+          name: "Modeled Revenue",
+          type: "line",
+          data: actualValues,
+          symbol: "circle",
+          symbolSize: 6,
+          lineStyle: { width: 3, color: "#2f6fed" },
+          itemStyle: { color: "#2f6fed" },
+          areaStyle: { color: "rgba(47,111,237,.08)" },
+        },
+        {
+          name: "Standard Value",
+          type: "line",
+          data: standardValues,
+          symbol: "none",
+          lineStyle: { width: 2, color: "#596274", type: "dashed" },
         },
       ],
     });
@@ -1477,7 +1478,6 @@
     const subTabsHtml = renderAnalyticsSubTabHtml(uiState.activeTab);
 
     if (uiState.activeTab === ANALYTICS_SUB_TAB_REALIZATION) {
-      uiState.realizationLayer = normalizeRealizationLayer(uiState.realizationLayer);
       uiState.realizationPeriod = normalizeRealizationPeriod(uiState.realizationPeriod);
       uiState.realizationGroupBy = normalizeRealizationGroupBy(uiState.realizationGroupBy);
       uiState.realizationSort = normalizeRealizationSort(uiState.realizationSort);
@@ -1485,10 +1485,49 @@
         offices: appState.officeLocations,
         departments: appState.departments,
       });
-      const periodRange = realizationPeriodRange(uiState.realizationPeriod, new Date());
-      const isCompletedLayer = uiState.realizationLayer === "completed";
+      if (uiState.realizationPeriod !== "custom") {
+        const presetRange = realizationPeriodRange(uiState.realizationPeriod, new Date());
+        uiState.realizationFromDate = presetRange.fromDate;
+        uiState.realizationToDate = presetRange.toDate;
+      }
+      const periodRange = {
+        fromDate: uiState.realizationFromDate,
+        toDate: uiState.realizationToDate,
+      };
+      const completedProjects = profitabilityData.projects.filter((project) => {
+        if (project?.isActive === false || project?.is_active === false) return true;
+        const status = safeText(project?.status || project?.projectStatus || project?.project_status).toLowerCase();
+        return status === "completed" || status === "inactive" || status === "deactivated";
+      });
+      const clientProjectOptions = engine.listClientProjectOptions({
+        clients: profitabilityData.clients,
+        projects: completedProjects,
+        entries: profitabilityData.entries,
+        expenses: profitabilityData.expenses,
+        users: appState.users,
+        offices: appState.officeLocations,
+        departments: appState.departments,
+        filters: {
+          fromDate: periodRange.fromDate,
+          toDate: periodRange.toDate,
+          scope: uiState.realizationScope,
+          scopeId: uiState.realizationScopeId,
+        },
+      });
+      const availableClientIds = new Set(clientProjectOptions.clients.map((item) => safeText(item?.id)));
+      if (uiState.realizationClientId && !availableClientIds.has(uiState.realizationClientId)) {
+        uiState.realizationClientId = "";
+        uiState.realizationProjectId = "";
+      }
+      const realizationProjectItems = uiState.realizationClientId
+        ? clientProjectOptions.projectsByClient.get(uiState.realizationClientId) || []
+        : clientProjectOptions.projects || [];
+      const availableProjectIds = new Set(realizationProjectItems.map((item) => safeText(item?.id)));
+      if (uiState.realizationProjectId && !availableProjectIds.has(uiState.realizationProjectId)) {
+        uiState.realizationProjectId = "";
+      }
       const realizationComputed =
-        isCompletedLayer && typeof engine.computeRealizationAnalytics === "function"
+        typeof engine.computeRealizationAnalytics === "function"
           ? engine.computeRealizationAnalytics({
               entries: profitabilityData.entries,
               expenses: profitabilityData.expenses,
@@ -1503,8 +1542,10 @@
                 fromDate: periodRange.fromDate,
                 toDate: periodRange.toDate,
                 groupBy: uiState.realizationGroupBy,
-                officeId: uiState.realizationOfficeId,
-                departmentId: uiState.realizationDepartmentId,
+                officeId: uiState.realizationScope === "office" ? uiState.realizationScopeId : "",
+                departmentId: uiState.realizationScope === "department" ? uiState.realizationScopeId : "",
+                clientId: uiState.realizationClientId,
+                projectId: uiState.realizationProjectId,
               },
             })
           : { kpis: {}, rows: [], monthlyByKey: {} };
@@ -1524,74 +1565,67 @@
           : [];
       const groupByLabel =
         REALIZATION_GROUP_BY_OPTIONS.find((item) => item.id === uiState.realizationGroupBy)?.name || "Client";
+      const scopeItems = uiState.realizationScope === "office" ? scopeOptions.offices : scopeOptions.departments;
+      const scopeLabel = uiState.realizationScope === "office" ? "Office" : "Department";
+      const scopeSelectorHtml = uiState.realizationScope === "company" ? "" : `<label>
+        <span>${escapeHtml(scopeLabel)}</span>
+        <select name="scopeId">${renderOptions(scopeItems, uiState.realizationScopeId, "All")}</select>
+      </label>`;
+      const filterColumnCount = 5 + (uiState.realizationPeriod === "custom" ? 1 : 0) +
+        (uiState.realizationScope === "company" ? 0 : 1);
+      const selectedDetailTitle = selectedRow
+        ? `${selectedRow.name}: Actual vs Standard Value`
+        : "Selected Item: Actual vs Standard Value";
 
       body.innerHTML = `
         <div class="analytics-panel" data-analytics-root>
           ${subTabsHtml}
-          <form class="analytics-realization-controls" data-analytics-realization-controls>
-            <div class="analytics-realization-layer" role="group" aria-label="Realization layer">
-              ${REALIZATION_LAYER_OPTIONS.map((item) => {
-                const active = uiState.realizationLayer === item.id;
-                const enabled = item.id !== "combined";
-                return `<button type="button" data-analytics-realization-layer="${escapeHtml(item.id)}" ${
-                  enabled ? "" : "disabled"
-                } class="${active ? "is-active" : ""}">${escapeHtml(item.name)}</button>`;
-              }).join("")}
-            </div>
+          <form class="analytics-filters" data-analytics-realization-controls style="grid-template-columns:repeat(${filterColumnCount},minmax(0,1fr));">
             <label>
               <span>Period</span>
-              <span class="analytics-util-select-wrap">
-                <select name="realizationPeriod" class="analytics-util-select">${renderOptions(
-                  REALIZATION_PERIODS,
-                  uiState.realizationPeriod
-                )}</select>
-                <span class="analytics-member-title-chevron" aria-hidden="true">▾</span>
-              </span>
+              <select name="period">${renderOptions(REALIZATION_PERIODS, uiState.realizationPeriod)}</select>
+            </label>
+            ${uiState.realizationPeriod === "custom" ? `<label class="analytics-filter-range">
+              <span>Date range</span><input type="text" name="dateRange" readonly autocomplete="off" />
+              <input type="hidden" name="fromDate" value="${escapeHtml(periodRange.fromDate)}" />
+              <input type="hidden" name="toDate" value="${escapeHtml(periodRange.toDate)}" />
+            </label>` : `<input type="hidden" name="fromDate" value="${escapeHtml(periodRange.fromDate)}" />
+              <input type="hidden" name="toDate" value="${escapeHtml(periodRange.toDate)}" />`}
+            <label>
+              <span>Scope</span><select name="scope">
+                <option value="company" ${uiState.realizationScope === "company" ? "selected" : ""}>Company</option>
+                <option value="office" ${uiState.realizationScope === "office" ? "selected" : ""}>Office</option>
+                <option value="department" ${uiState.realizationScope === "department" ? "selected" : ""}>Department</option>
+              </select>
+            </label>
+            ${scopeSelectorHtml}
+            <label>
+              <span>Client</span><select name="clientId">${renderOptions(clientProjectOptions.clients, uiState.realizationClientId, "All")}</select>
             </label>
             <label>
-              <span>Office</span>
-              <span class="analytics-util-select-wrap">
-                <select name="realizationOfficeId" class="analytics-util-select">${renderOptions(
-                  scopeOptions.offices,
-                  uiState.realizationOfficeId,
-                  "All"
-                )}</select>
-                <span class="analytics-member-title-chevron" aria-hidden="true">▾</span>
-              </span>
+              <span>Project</span><select name="projectId">${renderOptions(realizationProjectItems, uiState.realizationProjectId, "All")}</select>
             </label>
             <label>
-              <span>Department</span>
-              <span class="analytics-util-select-wrap">
-                <select name="realizationDepartmentId" class="analytics-util-select">${renderOptions(
-                  scopeOptions.departments,
-                  uiState.realizationDepartmentId,
-                  "All"
-                )}</select>
-                <span class="analytics-member-title-chevron" aria-hidden="true">▾</span>
-              </span>
+              <span>Group By</span><select name="groupBy">${renderOptions(REALIZATION_GROUP_BY_OPTIONS, uiState.realizationGroupBy)}</select>
             </label>
           </form>
 
-          <section class="analytics-kpis" style="grid-template-columns:repeat(3,minmax(140px,1fr));">
-            <article class="analytics-kpi"><div class="analytics-kpi-label">Avg Realization %</div><div class="analytics-kpi-value">${escapeHtml(
-              isCompletedLayer ? formatPercent(realizationComputed.kpis.avgRealizationPct) : "—"
-            )}</div></article>
-            <article class="analytics-kpi"><div class="analytics-kpi-label">Actual Revenue</div><div class="analytics-kpi-value">${escapeHtml(
-              isCompletedLayer ? formatMoney(realizationComputed.kpis.actualRevenue) : "—"
-            )}</div></article>
-            <article class="analytics-kpi"><div class="analytics-kpi-label">Standard Revenue</div><div class="analytics-kpi-value">${escapeHtml(
-              isCompletedLayer ? formatMoney(realizationComputed.kpis.standardRevenue) : "—"
-            )}</div></article>
+          <section class="analytics-kpis">
+            <article class="analytics-kpi"><div class="analytics-kpi-label">Realization %</div><div class="analytics-kpi-value">${escapeHtml(formatPercent(realizationComputed.kpis.avgRealizationPct))}</div></article>
+            <article class="analytics-kpi"><div class="analytics-kpi-label">Modeled Revenue</div><div class="analytics-kpi-value">${escapeHtml(formatMoney(realizationComputed.kpis.actualRevenue))}</div></article>
+            <article class="analytics-kpi"><div class="analytics-kpi-label">Standard Value</div><div class="analytics-kpi-value">${escapeHtml(formatMoney(realizationComputed.kpis.standardRevenue))}</div></article>
+            <article class="analytics-kpi"><div class="analytics-kpi-label">Variance</div><div class="analytics-kpi-value">${escapeHtml(formatMoney(realizationComputed.kpis.variance))}</div></article>
+            <article class="analytics-kpi"><div class="analytics-kpi-label">Completed Projects</div><div class="analytics-kpi-value">${escapeHtml(String(realizationComputed.kpis.projectCount || 0))}</div></article>
           </section>
 
-          <section class="analytics-chart-wrap">
-            <div class="analytics-chart-head">
-              <span class="analytics-util-select-wrap" style="max-width:220px;">
-                <select name="realizationGroupBy" data-analytics-realization-groupby class="analytics-util-select">
-                  ${renderOptions(REALIZATION_GROUP_BY_OPTIONS, uiState.realizationGroupBy)}
-                </select>
-                <span class="analytics-member-title-chevron" aria-hidden="true">▾</span>
-              </span>
+          <section class="analytics-util-shared-legend" aria-label="Realization legend">
+            <span class="analytics-util-legend-item"><span class="analytics-util-legend-swatch" style="background:#2f6fed;"></span>Realization</span>
+            <span class="analytics-util-legend-item"><span class="analytics-util-legend-swatch" style="height:2px;background:#596274;"></span>100% target</span>
+          </section>
+
+          <section class="analytics-util-grid">
+            <article class="analytics-util-card">
+              <div class="analytics-chart-head"><strong>Realization by ${escapeHtml(groupByLabel)}</strong>
               <button
                 type="button"
                 data-analytics-realization-sort-toggle
@@ -1600,49 +1634,38 @@
                 Sort: ${escapeHtml(
                   REALIZATION_SORT_OPTIONS.find((item) => item.id === uiState.realizationSort)?.name || "High → Low"
                 )}
-              </button>
-            </div>
-            ${
-              isCompletedLayer
-                ? '<div data-analytics-realization-primary-host></div>'
-                : '<div class="analytics-chart-empty">In-progress realization coming soon</div>'
-            }
+              </button></div>
+              <div class="analytics-util-left-scroll"><div data-analytics-realization-primary-host></div></div>
+            </article>
+            <article class="analytics-util-card">
+              <div class="analytics-chart-head"><strong>${escapeHtml(selectedDetailTitle)}</strong></div>
+              <div data-analytics-realization-trend-host></div>
+            </article>
           </section>
 
-          <section class="analytics-chart-wrap">
-            <div class="analytics-chart-head">
-              <strong>${escapeHtml(selectedRow ? `${selectedRow.name} Monthly Realization` : "Monthly Realization Trend")}</strong>
-            </div>
-            ${
-              isCompletedLayer
-                ? '<div data-analytics-realization-trend-host></div>'
-                : '<div class="analytics-chart-empty">In-progress realization coming soon</div>'
-            }
-          </section>
+          <p class="analytics-footnote">Completed projects are assigned to a period using their last recorded activity date, then calculated using full-lifetime activity. Modeled revenue is contract value for fixed-fee work and billable value for T&amp;M work; it is not invoiced or collected revenue.</p>
         </div>
       `;
       bindAnalyticsSubTabEvents(body, uiState, options);
       const realizationControls = body.querySelector("[data-analytics-realization-controls]");
       if (realizationControls) {
-        realizationControls.addEventListener("click", (event) => {
-          const button = event.target.closest("[data-analytics-realization-layer]");
-          if (!button || button.disabled) return;
-          const nextLayer = normalizeRealizationLayer(button.dataset.analyticsRealizationLayer);
-          if (nextLayer === uiState.realizationLayer) return;
-          uiState.realizationLayer = nextLayer;
-          renderAnalyticsPage(options);
-        });
+        wireAnalyticsDateRangePicker(realizationControls, uiState.realizationOpenCustomPicker);
+        uiState.realizationOpenCustomPicker = false;
         realizationControls.addEventListener("change", () => {
-          uiState.realizationPeriod = normalizeRealizationPeriod(realizationControls.elements.realizationPeriod?.value);
-          uiState.realizationOfficeId = safeText(realizationControls.elements.realizationOfficeId?.value);
-          uiState.realizationDepartmentId = safeText(realizationControls.elements.realizationDepartmentId?.value);
-          renderAnalyticsPage(options);
-        });
-      }
-      const realizationGroupBy = body.querySelector("[data-analytics-realization-groupby]");
-      if (realizationGroupBy) {
-        realizationGroupBy.addEventListener("change", () => {
-          uiState.realizationGroupBy = normalizeRealizationGroupBy(realizationGroupBy.value);
+          const previousPeriod = uiState.realizationPeriod;
+          const nextPeriod = normalizeRealizationPeriod(realizationControls.elements.period?.value);
+          if (nextPeriod === "custom") {
+            const fallback = previousPeriod === "custom" ? periodRange : realizationPeriodRange(previousPeriod, new Date());
+            uiState.realizationFromDate = safeText(realizationControls.elements.fromDate?.dataset?.dpCanonical || realizationControls.elements.fromDate?.value || fallback.fromDate);
+            uiState.realizationToDate = safeText(realizationControls.elements.toDate?.dataset?.dpCanonical || realizationControls.elements.toDate?.value || fallback.toDate);
+          }
+          if (nextPeriod === "custom" && previousPeriod !== "custom") uiState.realizationOpenCustomPicker = true;
+          uiState.realizationPeriod = nextPeriod;
+          uiState.realizationScope = safeText(realizationControls.elements.scope?.value || "company");
+          uiState.realizationScopeId = safeText(realizationControls.elements.scopeId?.value);
+          uiState.realizationClientId = safeText(realizationControls.elements.clientId?.value);
+          uiState.realizationProjectId = safeText(realizationControls.elements.projectId?.value);
+          uiState.realizationGroupBy = normalizeRealizationGroupBy(realizationControls.elements.groupBy?.value);
           renderAnalyticsPage(options);
         });
       }
@@ -1653,8 +1676,7 @@
           renderAnalyticsPage(options);
         });
       }
-      if (isCompletedLayer) {
-        renderRealizationPrimaryChart({
+      renderRealizationPrimaryChart({
           container: body.querySelector("[data-analytics-realization-primary-host]"),
           rows: realizationRows,
           groupByLabel,
@@ -1664,11 +1686,10 @@
             renderAnalyticsPage(options);
           },
         });
-        renderRealizationTrendChart({
+      renderRealizationTrendChart({
           container: body.querySelector("[data-analytics-realization-trend-host]"),
           seriesRows: selectedSeries,
-        });
-      }
+      });
       return;
     }
 
@@ -2002,7 +2023,8 @@
       bindAnalyticsSubTabEvents(body, uiState, options);
       const utilizationFilterForm = body.querySelector("[data-analytics-utilization-filters]");
       if (utilizationFilterForm) {
-        wireAnalyticsDateRangePicker(utilizationFilterForm);
+        wireAnalyticsDateRangePicker(utilizationFilterForm, uiState.utilizationOpenCustomPicker);
+        uiState.utilizationOpenCustomPicker = false;
         utilizationFilterForm.addEventListener("change", () => {
           const previousPeriod = uiState.utilizationPeriod;
           const nextPeriod = normalizeUtilizationPeriod(utilizationFilterForm.elements.period?.value);
@@ -2018,6 +2040,9 @@
             uiState.utilizationToDate = safeText(
               toInput?.dataset?.dpCanonical || toInput?.value || previousRange.toDate
             );
+          }
+          if (nextPeriod === "custom" && previousPeriod !== "custom") {
+            uiState.utilizationOpenCustomPicker = true;
           }
           uiState.utilizationPeriod = nextPeriod;
           if (!isSelfOnlyScope) {
@@ -2213,7 +2238,8 @@
     bindAnalyticsSubTabEvents(body, uiState, options);
     const filterForm = body.querySelector("[data-analytics-filters]");
     if (!filterForm) return;
-    wireAnalyticsDateRangePicker(filterForm);
+    wireAnalyticsDateRangePicker(filterForm, uiState.profitabilityOpenCustomPicker);
+    uiState.profitabilityOpenCustomPicker = false;
     renderTrendChart(
       body.querySelector("[data-analytics-chart-host]"),
       computed.trend,
@@ -2237,7 +2263,15 @@
 
     filterForm.addEventListener("change", (event) => {
       const targetName = safeText(event?.target?.name);
+      const previousProfitabilityPeriod = uiState.profitabilityPeriod;
       syncUiStateFromForm();
+      if (
+        targetName === "profitabilityPeriod" &&
+        uiState.profitabilityPeriod === "custom" &&
+        previousProfitabilityPeriod !== "custom"
+      ) {
+        uiState.profitabilityOpenCustomPicker = true;
+      }
       if (targetName === "scope") {
         uiState.scopeId = "";
       }
