@@ -1,6 +1,6 @@
 # Timesheet Studio
 
-Full-stack (Netlify Functions + Postgres) timesheet and expenses app, still embeddable in WordPress via `iframe`.
+Full-stack timesheet and expenses app built with Netlify Functions and Postgres.
 
 ## Current capabilities
 
@@ -60,33 +60,13 @@ TEST_ACCOUNT_ID=<dedicated-test-account-uuid> npm run test:integration
 
 The integration suite refuses to run against known protected accounts. CI runs `npm test` on every pull request and push to `main`.
 
-## Embed in WordPress
-
-Use an iframe block or HTML block with your deployed Netlify URL:
-
-```html
-<iframe
-  id="timesheet-studio-frame"
-  src="https://your-site.netlify.app/?embed=1"
-  style="width:100%;min-height:900px;border:0;overflow:hidden;"
-  loading="lazy"
-></iframe>
-<script>
-  window.addEventListener("message", function (event) {
-    if (!event.data || event.data.type !== "timesheet-studio:resize") return;
-    var frame = document.getElementById("timesheet-studio-frame");
-    if (frame) frame.style.height = event.data.height + "px";
-  });
-</script>
-```
-
 ## Notes & limitations
 
 - Backend: Netlify Functions in `netlify/functions/` expect a Postgres-compatible `sql` client (see `_db.js`). Schema changes are applied explicitly with `npm run db:migrate`, never from request handlers.
 - Audit Log is append-only; no UI to edit/delete entries.
 - Filters currently fetch latest audit rows and also filter client-side; keep datasets modest or add pagination if needed.
 - Light/dark themes supported; dropdown ordering: Settings, Audit Log (admins), Dark/Light, Change Password, Log out.
-- Netlify applies CSP, transport, MIME-sniffing, referrer, and browser-feature headers. The CSP intentionally permits framing because WordPress embedding is supported.
+- Netlify applies CSP, transport, MIME-sniffing, referrer, and browser-feature headers. The CSP blocks all iframe embedding to reduce clickjacking risk.
 
 ## Current team and catalog setup
 

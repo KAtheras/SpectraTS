@@ -8,7 +8,7 @@
 - Made password setup token consumption and password update a single atomic SQL statement.
 - Added `npm test`, repository-wide syntax checks, separate integration-test execution, and GitHub Actions CI.
 - Extracted theme preferences from `app.js` into `themePreferences.js`.
-- Pinned ECharts and added Netlify browser security headers compatible with iframe embedding.
+- Pinned ECharts and added Netlify browser security headers; iframe embedding is blocked.
 
 ## Deployment requirement
 
