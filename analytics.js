@@ -343,6 +343,10 @@
     { id: "ytd", name: "YTD" },
     { id: "last_year", name: "Last Year" },
   ];
+  const PROFITABILITY_PERIODS = [
+    ...UTILIZATION_PERIODS,
+    { id: "custom", name: "Custom" },
+  ];
 
   const UTILIZATION_GROUP_BY_OPTIONS = [
     { id: "member", name: "Member" },
@@ -381,6 +385,11 @@
   function normalizeUtilizationPeriod(value) {
     const key = safeText(value).toLowerCase();
     return UTILIZATION_PERIODS.some((item) => item.id === key) ? key : "this_month";
+  }
+
+  function normalizeProfitabilityPeriod(value) {
+    const key = safeText(value).toLowerCase();
+    return PROFITABILITY_PERIODS.some((item) => item.id === key) ? key : "this_month";
   }
 
   function normalizeUtilizationGroupBy(value) {
@@ -701,6 +710,7 @@
       clientId: "",
       projectId: "",
       trendMetric: "revenue",
+      profitabilityPeriod: "this_month",
       utilizationPeriod: "this_month",
       utilizationGroupBy: "member",
       utilizationOfficeId: "",
@@ -1979,15 +1989,41 @@
       offices: appState.officeLocations,
       departments: appState.departments,
     });
+    uiState.profitabilityPeriod = normalizeProfitabilityPeriod(uiState.profitabilityPeriod);
+    if (uiState.profitabilityPeriod !== "custom") {
+      const profitabilityRange = utilizationPeriodRange(uiState.profitabilityPeriod, new Date());
+      uiState.fromDate = profitabilityRange.fromDate;
+      uiState.toDate = profitabilityRange.toDate;
+    }
     const clientProjectOptions = engine.listClientProjectOptions({
       clients: profitabilityData.clients,
       projects: profitabilityData.projects,
+      entries: profitabilityData.entries,
+      expenses: profitabilityData.expenses,
+      users: appState.users,
+      offices: appState.officeLocations,
+      departments: appState.departments,
+      filters: {
+        fromDate: uiState.fromDate,
+        toDate: uiState.toDate,
+        scope: uiState.scope,
+        scopeId: uiState.scopeId,
+      },
     });
 
+    const availableClientIds = new Set(clientProjectOptions.clients.map((item) => safeText(item?.id)));
+    if (uiState.clientId && !availableClientIds.has(uiState.clientId)) {
+      uiState.clientId = "";
+      uiState.projectId = "";
+    }
     const selectedClientId = uiState.clientId;
     const projectItems = selectedClientId
       ? clientProjectOptions.projectsByClient.get(selectedClientId) || []
-      : [];
+      : clientProjectOptions.projects || [];
+    const availableProjectIds = new Set(projectItems.map((item) => safeText(item?.id)));
+    if (uiState.projectId && !availableProjectIds.has(uiState.projectId)) {
+      uiState.projectId = "";
+    }
 
     const computed = engine.computeAnalytics({
       entries: profitabilityData.entries,
@@ -2023,17 +2059,25 @@
     body.innerHTML = `
       <div class="analytics-panel" data-analytics-root>
         ${subTabsHtml}
-        <section class="analytics-subtab-shell">
-          <h3>Profitability</h3>
-          <p>Revenue, cost, and profit performance across the selected scope.</p>
-        </section>
         <form class="analytics-filters" data-analytics-filters>
-          <label class="analytics-filter-range">
-            <span>Date range</span>
-            <input type="text" name="dateRange" value="" readonly autocomplete="off" />
-            <input type="hidden" name="fromDate" value="${escapeHtml(uiState.fromDate)}" />
-            <input type="hidden" name="toDate" value="${escapeHtml(uiState.toDate)}" />
+          <label>
+            <span>Period</span>
+            <select name="profitabilityPeriod">${renderOptions(
+              PROFITABILITY_PERIODS,
+              uiState.profitabilityPeriod
+            )}</select>
           </label>
+          ${
+            uiState.profitabilityPeriod === "custom"
+              ? `<label class="analytics-filter-range">
+                  <span>Date range</span>
+                  <input type="text" name="dateRange" value="" readonly autocomplete="off" />
+                  <input type="hidden" name="fromDate" value="${escapeHtml(uiState.fromDate)}" />
+                  <input type="hidden" name="toDate" value="${escapeHtml(uiState.toDate)}" />
+                </label>`
+              : `<input type="hidden" name="fromDate" value="${escapeHtml(uiState.fromDate)}" />
+                 <input type="hidden" name="toDate" value="${escapeHtml(uiState.toDate)}" />`
+          }
           <label>
             <span>Scope</span>
             <select name="scope">
@@ -2100,6 +2144,9 @@
       uiState.clientId = safeText(filterForm.elements.clientId?.value);
       uiState.projectId = safeText(filterForm.elements.projectId?.value);
       uiState.trendMetric = safeText(filterForm.elements.trendMetric?.value || "revenue");
+      uiState.profitabilityPeriod = normalizeProfitabilityPeriod(
+        filterForm.elements.profitabilityPeriod?.value
+      );
     };
 
     filterForm.addEventListener("change", (event) => {

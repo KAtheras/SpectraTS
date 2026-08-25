@@ -1563,10 +1563,46 @@
 
   function listClientProjectOptions(input) {
     const projects = Array.isArray(input?.projects) ? input.projects : [];
-    const clientsById = new Map((Array.isArray(input?.clients) ? input.clients : []).map((c) => [safeText(c?.id), c]));
+    const inputClients = Array.isArray(input?.clients) ? input.clients : [];
+    const entries = Array.isArray(input?.entries) ? input.entries : [];
+    const expenses = Array.isArray(input?.expenses) ? input.expenses : [];
+    const users = Array.isArray(input?.users) ? input.users : [];
+    const filters = input?.filters || {};
+    const clientsById = new Map(inputClients.map((client) => [safeText(client?.id), client]));
+    const projectIndex = buildProjectIndex(projects);
+    const usersById = buildUserIndex(users);
+    const usersByUniqueName = buildUniqueUserNameIndex(users);
+    const officesById = buildLookupMap(input?.offices, (row) => safeText(row?.id));
+    const departmentsById = buildLookupMap(input?.departments, (row) => safeText(row?.id));
+    const hasActivityInput = Array.isArray(input?.entries) || Array.isArray(input?.expenses);
+    const eligibleProjectIds = new Set();
+
+    const collectEligibleProject = (record, date) => {
+      if (!record || isDeletedRecord(record) || !inDateRange(date, filters.fromDate, filters.toDate)) return;
+      const project = resolveProjectForRecord(record, projectIndex);
+      const projectId = safeText(project?.id);
+      if (!projectId) return;
+      const scopeMeta = resolveScopeMeta(
+        record,
+        project,
+        usersById,
+        usersByUniqueName,
+        clientsById,
+        officesById,
+        departmentsById
+      );
+      if (!applyScopeFilter(scopeMeta, filters)) return;
+      eligibleProjectIds.add(projectId);
+    };
+
+    entries.forEach((entry) => collectEligibleProject(entry, entryDate(entry)));
+    expenses.forEach((expense) => collectEligibleProject(expense, expenseDate(expense)));
+    const eligibleProjects = hasActivityInput
+      ? projects.filter((project) => eligibleProjectIds.has(safeText(project?.id)))
+      : projects;
 
     const clientsMap = new Map();
-    projects.forEach((project) => {
+    eligibleProjects.forEach((project) => {
       const clientId = safeText(project?.clientId || project?.client_id);
       const clientName = safeText(project?.client || clientsById.get(clientId)?.name);
       if (clientId && clientName) clientsMap.set(clientId, clientName);
@@ -1577,7 +1613,7 @@
       .sort((a, b) => a.name.localeCompare(b.name));
 
     const projectsByClient = new Map();
-    projects.forEach((project) => {
+    eligibleProjects.forEach((project) => {
       const id = safeText(project?.id);
       const name = safeText(project?.name || project?.project);
       const clientId = safeText(project?.clientId || project?.client_id);
@@ -1587,7 +1623,21 @@
     });
     projectsByClient.forEach((items) => items.sort((a, b) => a.name.localeCompare(b.name)));
 
-    return { clients, projectsByClient };
+    const projectOptions = eligibleProjects
+      .map((project) => {
+        const id = safeText(project?.id);
+        const name = safeText(project?.name || project?.project);
+        const clientId = safeText(project?.clientId || project?.client_id);
+        const clientName = safeText(project?.client || clientsById.get(clientId)?.name);
+        return {
+          id,
+          name: clientName ? `${clientName} — ${name}` : name,
+        };
+      })
+      .filter((item) => item.id && item.name)
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    return { clients, projects: projectOptions, projectsByClient };
   }
 
   window.analyticsEngine = {

@@ -10,7 +10,7 @@
     "start": "node server.js",
     "db:migrate": "node --env-file-if-exists=.env scripts/migrate.js",
     "test": "npm run check && npm run test:unit",
-    "test:unit": "node tests/permissions.test.js && node tests/themePreferences.test.js",
+    "test:unit": "node tests/permissions.test.js && node tests/themePreferences.test.js && node tests/analyticsOptions.test.js",
     "test:integration": "node --env-file-if-exists=.env tests/mutations.test.js",
     "version:assets": "node scripts/update-asset-version.js",
     "build": "npm run version:assets"

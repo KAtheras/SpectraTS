@@ -180,6 +180,13 @@
             : project.office_id !== undefined && project.office_id !== null
               ? project.office_id
               : "";
+        const clientIdRaw =
+          project.clientId !== undefined && project.clientId !== null
+            ? project.clientId
+            : project.client_id !== undefined && project.client_id !== null
+              ? project.client_id
+              : "";
+        const clientId = clientIdRaw ? String(clientIdRaw).trim() : "";
         const projectDepartmentIdRaw =
           project.projectDepartmentId !== undefined && project.projectDepartmentId !== null
             ? project.projectDepartmentId
@@ -237,6 +244,8 @@
         return {
           id: project.id || "",
           client,
+          clientId,
+          client_id: clientId,
           name,
           createdBy: project.createdBy || "",
           budget: Number.isFinite(budgetRaw) ? budgetRaw : null,
