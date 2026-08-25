@@ -1458,7 +1458,7 @@
 
     const profitabilityData = excludeInternalAnalyticsData(appState);
     const utilizationData = {
-      entries: Array.isArray(appState?.utilizationEntries)
+      entries: Array.isArray(appState?.utilizationEntries) && appState.utilizationEntries.length
         ? appState.utilizationEntries
         : (Array.isArray(appState?.entries) ? appState.entries : []),
       users: Array.isArray(appState?.users) || Array.isArray(appState?.inactiveUsers)

@@ -5429,7 +5429,7 @@ async function loadState(sql, currentUser) {
   }
 
   let utilizationEntries = [];
-  if (utilizationUserIds.length) {
+  if (utilizationUserIds.length && !canViewAllEntries) {
     const scopedEntries = await sql`
       SELECT
         entries.id,
