@@ -3407,6 +3407,8 @@
     clients: [],
     entries: [],
     expenses: [],
+    inputsEntries: [],
+    inputsExpenses: [],
     recordPages: { entries: null, expenses: null },
     recordsLoading: { entries: false, expenses: false },
     recordsErrors: { entries: "", expenses: "" },
@@ -4304,6 +4306,8 @@
     state.clients = [];
     state.entries = [];
     state.expenses = [];
+    state.inputsEntries = [];
+    state.inputsExpenses = [];
     state.projects = [];
     state.clientEditor = null;
     state.entriesSelectionMode = false;
@@ -4531,6 +4535,8 @@
         state.inactiveUsers = [];
         state.clients = [];
         state.entries = [];
+        state.inputsEntries = [];
+        state.inputsExpenses = [];
         state.deletedEntries = [];
         state.deletedExpenses = [];
         state.deletedFilters = {
@@ -4574,6 +4580,8 @@
 
   const recordRequestControllers = { entries: null, expenses: null };
   const recordRequestKeys = { entries: "", expenses: "" };
+  const inputsRecordRequestControllers = { entries: null, expenses: null };
+  const inputsRecordRequestKeys = { entries: "", expenses: "" };
 
   async function loadVisibleRecords(type, options = {}) {
     if (!state.currentUser || !window.api?.RECORDS_API_PATH) return;
@@ -4637,6 +4645,54 @@
         state.recordsLoading[recordType] = false;
         recordRequestControllers[recordType] = null;
         if (state.currentView === "entries" || state.currentView === "inputs") render();
+      }
+    }
+  }
+
+  async function loadInputsRecords(type, options = {}) {
+    if (!state.currentUser || !window.api?.RECORDS_API_PATH) return;
+    const recordType = type === "expenses" ? "expenses" : "entries";
+    const userId = String(state.currentUser.id || "").trim();
+    if (!userId) return;
+    const currentYear = new Date().getFullYear();
+    const from = `${currentYear}-01-01`;
+    const to = today;
+    const requestKey = `${recordType}:${userId}:${from}:${to}`;
+    if (!options.force && inputsRecordRequestKeys[recordType] === requestKey) return;
+
+    inputsRecordRequestControllers[recordType]?.abort();
+    const controller = new AbortController();
+    inputsRecordRequestControllers[recordType] = controller;
+    const collected = [];
+    const seenCursors = new Set();
+    let cursor = "";
+    try {
+      do {
+        const params = new URLSearchParams({ type: recordType, from, to, user: userId, limit: "250" });
+        if (cursor) params.set("cursor", cursor);
+        const payload = await requestJson(`${window.api.RECORDS_API_PATH}?${params}`, {
+          method: "GET",
+          signal: controller.signal,
+        });
+        const rows = (Array.isArray(payload?.items) ? payload.items : [])
+          .map(recordType === "expenses" ? normalizeExpense : normalizeEntry)
+          .filter(Boolean);
+        collected.push(...rows);
+        const nextCursor = payload?.page?.hasMore ? String(payload.page.nextCursor || "") : "";
+        if (!nextCursor || seenCursors.has(nextCursor)) break;
+        seenCursors.add(nextCursor);
+        cursor = nextCursor;
+      } while (cursor);
+
+      if (recordType === "expenses") state.inputsExpenses = collected;
+      else state.inputsEntries = collected;
+      inputsRecordRequestKeys[recordType] = requestKey;
+      if (state.currentView === "inputs") render();
+    } catch (error) {
+      if (error?.name !== "AbortError") feedback(error.message || `Unable to load your ${recordType}.`, true);
+    } finally {
+      if (inputsRecordRequestControllers[recordType] === controller) {
+        inputsRecordRequestControllers[recordType] = null;
       }
     }
   }
@@ -4886,6 +4942,11 @@
           })
           .catch(() => {});
       }
+    }
+    if (state.currentView === "inputs" && /entry|expense/.test(String(action || ""))) {
+      const recordType = state.inputSubtab === "expenses" ? "expenses" : "entries";
+      inputsRecordRequestKeys[recordType] = "";
+      await loadInputsRecords(recordType, { force: true });
     }
     logSaveTrace(action, "completed", startedAt);
     return result;
@@ -5806,7 +5867,7 @@
     if (view === "entries") {
       loadVisibleRecords(state.entriesSubtab === "expenses" ? "expenses" : "entries");
     } else if (view === "inputs") {
-      loadVisibleRecords(state.inputSubtab === "expenses" ? "expenses" : "entries");
+      loadInputsRecords(state.inputSubtab === "expenses" ? "expenses" : "entries");
     }
     if ((view === "settings" || view === "members") && previousView !== view && !state.settingsMetadataLoaded) {
       loadSettingsMetadata(true, { deferRender: true });
@@ -6464,14 +6525,7 @@
   function getInputsTimeUserDateBounds() {
     const currentUserId = `${state.currentUser?.id || ""}`.trim();
     const currentUserName = `${state.currentUser?.displayName || ""}`.trim();
-    const canonicalEntries = currentEntries({
-      user: "",
-      client: "",
-      project: "",
-      from: "",
-      to: "",
-      search: "",
-    });
+    const canonicalEntries = state.inputsEntries || [];
     let minDate = "";
     let maxDate = "";
 
@@ -6497,7 +6551,7 @@
     let minDate = "";
     let maxDate = "";
 
-    (state.expenses || []).forEach((expense) => {
+    (state.inputsExpenses || []).forEach((expense) => {
       if (!expense) return;
       const expenseUserId = `${expense.userId || ""}`.trim();
       const expenseUserName = `${expense.userName || expense.user || userNameById(expense.userId) || ""}`.trim();
@@ -6615,14 +6669,7 @@
   function buildInputsTimeCalendarData() {
     const dates = getInputsTimeCalendarDates();
     const dateSet = new Set(dates.map((item) => item.iso));
-    const canonicalEntries = currentEntries({
-      user: "",
-      client: "",
-      project: "",
-      from: "",
-      to: "",
-      search: "",
-    });
+    const canonicalEntries = state.inputsEntries || [];
     const perProject = new Map();
     const totalsByDate = Object.create(null);
     const currentUserId = `${state.currentUser?.id || ""}`.trim();
@@ -6946,7 +6993,7 @@
       totalsByDate[item.iso] = 0;
     });
 
-    (state.expenses || []).forEach((expense) => {
+    (state.inputsExpenses || []).forEach((expense) => {
       if (!expense) return;
       const expenseUserId = `${expense.userId || ""}`.trim();
       const expenseUserName = `${expense.userName || expense.user || userNameById(expense.userId) || ""}`.trim();
@@ -11694,7 +11741,7 @@
   if (refs.inputsSwitchAction) {
     refs.inputsSwitchAction.addEventListener("click", function () {
       state.inputSubtab = state.inputSubtab === "expenses" ? "time" : "expenses";
-      loadVisibleRecords(state.inputSubtab === "expenses" ? "expenses" : "entries");
+      loadInputsRecords(state.inputSubtab === "expenses" ? "expenses" : "entries");
       render();
     });
   }
