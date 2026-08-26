@@ -4621,6 +4621,10 @@
         if (metrics?.path?.endsWith("/records")) {
           metrics.renderMs = Number((performance.now() - renderStartedAt).toFixed(1));
           metrics.rowCount = normalized.length;
+          metrics.budgetExceeded = window.performanceBudgets?.evaluate(metrics)?.exceeded || [];
+          if (metrics.budgetExceeded.length) {
+            window.dispatchEvent(new CustomEvent("timesheet:performance-budget-exceeded", { detail: metrics }));
+          }
         }
       }
     } catch (error) {

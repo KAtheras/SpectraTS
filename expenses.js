@@ -393,6 +393,39 @@
     return user?.displayName || "";
   }
 
+  function virtualExpenseWindow(rows, refs, isSelectionMode) {
+    const wrapper = refs.expensesBody?.closest(".table-wrap, .table-wrapper");
+    if (!wrapper || rows.length <= 120) {
+      wrapper?.classList.remove("virtual-table-scroll");
+      return { rows, before: "", after: "" };
+    }
+    wrapper.classList.add("virtual-table-scroll");
+    if (wrapper.dataset.virtualExpensesBound !== "true") {
+      wrapper.dataset.virtualExpensesBound = "true";
+      let frame = 0;
+      wrapper.addEventListener("scroll", () => {
+        if (frame) return;
+        frame = window.requestAnimationFrame(() => {
+          frame = 0;
+          renderExpenses(currentExpenses());
+        });
+      }, { passive: true });
+    }
+    const rowHeight = 54;
+    const windowState = window.virtualTable?.windowFor({
+      total: rows.length,
+      scrollTop: wrapper.scrollTop,
+      viewportHeight: wrapper.clientHeight || 600,
+      rowHeight,
+      overscan: 8,
+    }) || { start: 0, end: Math.min(rows.length, 32), beforeHeight: 0, afterHeight: Math.max(0, rows.length - 32) * rowHeight };
+    const colspan = isSelectionMode ? 11 : 10;
+    const spacer = (height) => height > 0
+      ? `<tr class="virtual-table-spacer" aria-hidden="true"><td colspan="${colspan}" style="height:${height}px"></td></tr>`
+      : "";
+    return { rows: rows.slice(windowState.start, windowState.end), before: spacer(windowState.beforeHeight), after: spacer(windowState.afterHeight) };
+  }
+
   function renderExpenses(filtered) {
     const { refs, state, escapeHtml, formatDisplayDateShort } = deps();
     if (!refs.expensesBody) return;
@@ -429,7 +462,8 @@
       return;
     }
 
-    refs.expensesBody.innerHTML = expenses
+    const virtual = virtualExpenseWindow(expenses, refs, isSelectionMode);
+    refs.expensesBody.innerHTML = virtual.before + virtual.rows
       .map((expense) => {
         const billable = expense.isBillable !== false;
         const clientName = `${expense.clientName || ""}`.trim();
@@ -509,7 +543,7 @@
           </tr>
         `;
       })
-      .join("");
+      .join("") + virtual.after;
   }
 
   function expenseFromForm() {

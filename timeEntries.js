@@ -198,6 +198,39 @@
     return canApproveEntry(entry);
   }
 
+  function virtualEntryWindow(rows, refs, isSelectionMode) {
+    const wrapper = refs.entriesBody?.closest(".table-wrap, .table-wrapper");
+    if (!wrapper || rows.length <= 120) {
+      wrapper?.classList.remove("virtual-table-scroll");
+      return { rows, before: "", after: "" };
+    }
+    wrapper.classList.add("virtual-table-scroll");
+    if (wrapper.dataset.virtualEntriesBound !== "true") {
+      wrapper.dataset.virtualEntriesBound = "true";
+      let frame = 0;
+      wrapper.addEventListener("scroll", () => {
+        if (frame) return;
+        frame = window.requestAnimationFrame(() => {
+          frame = 0;
+          renderTable(currentEntries());
+        });
+      }, { passive: true });
+    }
+    const rowHeight = 54;
+    const windowState = window.virtualTable?.windowFor({
+      total: rows.length,
+      scrollTop: wrapper.scrollTop,
+      viewportHeight: wrapper.clientHeight || 600,
+      rowHeight,
+      overscan: 8,
+    }) || { start: 0, end: Math.min(rows.length, 32), beforeHeight: 0, afterHeight: Math.max(0, rows.length - 32) * rowHeight };
+    const colspan = isSelectionMode ? 10 : 9;
+    const spacer = (height) => height > 0
+      ? `<tr class="virtual-table-spacer" aria-hidden="true"><td colspan="${colspan}" style="height:${height}px"></td></tr>`
+      : "";
+    return { rows: rows.slice(windowState.start, windowState.end), before: spacer(windowState.beforeHeight), after: spacer(windowState.afterHeight) };
+  }
+
   function renderTable(filteredEntries) {
     const { refs, state, escapeHtml, formatDisplayDateShort } = deps();
     const isSelectionMode = Boolean(state.entriesSelectionMode);
@@ -232,7 +265,8 @@
       return;
     }
 
-    refs.entriesBody.innerHTML = filteredEntries
+    const virtual = virtualEntryWindow(filteredEntries, refs, isSelectionMode);
+    refs.entriesBody.innerHTML = virtual.before + virtual.rows
       .map((entry) => {
         const internalEntryRow = isInternalEntry(entry);
         const clientLabel = `${entry.client || ""}`.trim() || (internalEntryRow ? "Internal" : "");
@@ -323,7 +357,7 @@
           </tr>
         `;
       })
-      .join("");
+      .join("") + virtual.after;
   }
 
   function resetForm() {

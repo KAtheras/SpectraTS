@@ -4097,6 +4097,25 @@ body[data-theme="dark"] .audit-detail-col {
   max-width: 100%;
 }
 
+.virtual-table-scroll {
+  max-height: min(70vh, 760px);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.virtual-table-scroll .entries-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--surface);
+}
+
+.virtual-table-spacer td {
+  padding: 0 !important;
+  border: 0 !important;
+  pointer-events: none;
+}
+
 .entries-table {
   width: 100%;
   border-collapse: collapse;

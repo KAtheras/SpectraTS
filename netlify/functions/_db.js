@@ -1093,6 +1093,8 @@ async function ensureSchema(sql) {
   await sql`CREATE INDEX IF NOT EXISTS entries_account_date_cursor_idx ON entries(account_id, entry_date DESC, created_at DESC, id DESC) WHERE deleted_at IS NULL`;
   await sql`CREATE INDEX IF NOT EXISTS entries_account_user_date_idx ON entries(account_id, user_id, entry_date DESC) WHERE deleted_at IS NULL`;
   await sql`CREATE INDEX IF NOT EXISTS entries_account_charge_center_idx ON entries(account_id, charge_center_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS entries_account_status_date_idx ON entries(account_id, status, entry_date DESC) WHERE deleted_at IS NULL`;
+  await sql`CREATE INDEX IF NOT EXISTS entries_account_names_date_idx ON entries(account_id, LOWER(client_name), LOWER(project_name), entry_date DESC) WHERE deleted_at IS NULL`;
   await sql`
     UPDATE entries
     SET user_id = users.id
@@ -1241,6 +1243,8 @@ async function ensureSchema(sql) {
   await sql`ALTER TABLE expenses ADD COLUMN IF NOT EXISTS deleted_by_user_id TEXT REFERENCES users(id)`;
   await sql`CREATE INDEX IF NOT EXISTS expenses_account_date_cursor_idx ON expenses(account_id, expense_date DESC, created_at DESC, id DESC) WHERE deleted_at IS NULL`;
   await sql`CREATE INDEX IF NOT EXISTS expenses_account_user_date_idx ON expenses(account_id, user_id, expense_date DESC) WHERE deleted_at IS NULL`;
+  await sql`CREATE INDEX IF NOT EXISTS expenses_account_names_date_idx ON expenses(account_id, LOWER(client_name), LOWER(project_name), expense_date DESC) WHERE deleted_at IS NULL`;
+  await sql`CREATE INDEX IF NOT EXISTS expenses_account_status_date_idx ON expenses(account_id, status, expense_date DESC) WHERE deleted_at IS NULL`;
   await sql`
     CREATE INDEX IF NOT EXISTS expense_categories_account_idx
       ON expense_categories(account_uuid)
