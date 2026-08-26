@@ -3410,6 +3410,10 @@
     recordPages: { entries: null, expenses: null },
     recordsLoading: { entries: false, expenses: false },
     recordsErrors: { entries: "", expenses: "" },
+    analyticsResults: {},
+    analyticsLoading: {},
+    analyticsErrors: {},
+    analyticsErrorKeys: {},
     filters: {
       user: "",
       client: "",
@@ -4332,6 +4336,10 @@
     state.utilizationScope = null;
     state.utilizationUsers = [];
     state.utilizationEntries = [];
+    state.analyticsResults = {};
+    state.analyticsLoading = {};
+    state.analyticsErrors = {};
+    state.analyticsErrorKeys = {};
     state.account = null;
     state.visibleClientIds = [];
     state.visibleProjectIds = [];
@@ -4646,6 +4654,51 @@
   }
 
   window.loadVisibleRecords = loadVisibleRecords;
+
+  const analyticsRequestControllers = {};
+  async function loadAnalyticsReport(report, filters = {}) {
+    if (!state.currentUser || !window.api?.ANALYTICS_API_PATH) return;
+    const reportKey = ["profitability", "utilization", "realization"].includes(report) ? report : "";
+    if (!reportKey) return;
+    const params = new URLSearchParams({
+      report: reportKey,
+      from: String(filters.fromDate || ""),
+      to: String(filters.toDate || ""),
+      scope: String(filters.scope || "company"),
+    });
+    ["scopeId", "clientId", "projectId", "period", "groupBy", "officeId", "departmentId", "memberId", "memberTitle", "statusMode"].forEach((key) => {
+      const value = String(filters[key] || "").trim();
+      if (value) params.set(key, value);
+    });
+    const requestKey = params.toString();
+    const filterKey = JSON.stringify(filters);
+    if (state.analyticsResults?.[reportKey]?.requestKey === requestKey) return;
+    if (state.analyticsErrorKeys?.[reportKey] === requestKey) return;
+    analyticsRequestControllers[reportKey]?.abort();
+    const controller = new AbortController();
+    analyticsRequestControllers[reportKey] = controller;
+    state.analyticsLoading[reportKey] = true;
+    state.analyticsErrors[reportKey] = "";
+    state.analyticsErrorKeys[reportKey] = "";
+    try {
+      const payload = await requestJson(`${window.api.ANALYTICS_API_PATH}?${requestKey}`, {
+        method: "GET",
+        signal: controller.signal,
+      });
+      state.analyticsResults[reportKey] = { requestKey, filterKey, data: payload?.data || null };
+    } catch (error) {
+      if (error?.name !== "AbortError") {
+        state.analyticsErrors[reportKey] = error.message || "Unable to load analytics.";
+        state.analyticsErrorKeys[reportKey] = requestKey;
+      }
+    } finally {
+      if (analyticsRequestControllers[reportKey] === controller) {
+        state.analyticsLoading[reportKey] = false;
+        analyticsRequestControllers[reportKey] = null;
+        if (state.currentView === "analytics") render();
+      }
+    }
+  }
 
   async function loadSettingsMetadata(force = false, options = {}) {
     if (!state.currentUser) return;
@@ -10228,6 +10281,7 @@
         analyticsRenderer({
           container: refs.analyticsPage,
           state,
+          loadAnalyticsReport,
         });
       }
       postHeight();

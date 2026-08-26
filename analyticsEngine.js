@@ -1776,7 +1776,7 @@
     return { clients, projects: projectOptions, projectsByClient };
   }
 
-  window.analyticsEngine = {
+  const analyticsEngine = {
     computeAnalytics,
     computeUtilizationAnalytics,
     computeRealizationAnalytics,
@@ -1785,4 +1785,6 @@
     listClientProjectOptions,
     getUtilizationVisibilityScope,
   };
+  if (typeof window !== "undefined") window.analyticsEngine = analyticsEngine;
+  if (typeof module !== "undefined" && module.exports) module.exports = analyticsEngine;
 })();

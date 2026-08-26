@@ -1532,8 +1532,8 @@
       const clientProjectOptions = engine.listClientProjectOptions({
         clients: profitabilityData.clients,
         projects: realizationProjects,
-        entries: profitabilityData.entries,
-        expenses: profitabilityData.expenses,
+        entries: typeof options?.loadAnalyticsReport === "function" ? undefined : profitabilityData.entries,
+        expenses: typeof options?.loadAnalyticsReport === "function" ? undefined : profitabilityData.expenses,
         users: appState.users,
         offices: appState.officeLocations,
         departments: appState.departments,
@@ -1557,8 +1557,28 @@
       if (uiState.realizationProjectId && !availableProjectIds.has(uiState.realizationProjectId)) {
         uiState.realizationProjectId = "";
       }
-      const realizationComputed =
-        typeof engine.computeRealizationAnalytics === "function"
+      const realizationFilters = {
+        fromDate: periodRange.fromDate,
+        toDate: periodRange.toDate,
+        period: uiState.realizationPeriod,
+        groupBy: uiState.realizationGroupBy,
+        officeId: uiState.realizationScope === "office" ? uiState.realizationScopeId : "",
+        departmentId: uiState.realizationScope === "department" ? uiState.realizationScopeId : "",
+        memberId: uiState.realizationScope === "member" ? uiState.realizationScopeId : "",
+        memberTitle: uiState.realizationScope === "title" ? uiState.realizationScopeId : "",
+        clientId: uiState.realizationClientId,
+        projectId: uiState.realizationProjectId,
+        statusMode: uiState.realizationStatus,
+      };
+      if (typeof options?.loadAnalyticsReport === "function") {
+        options.loadAnalyticsReport("realization", realizationFilters);
+      }
+      const realizationSnapshot = appState.analyticsResults?.realization;
+      const serverRealization = realizationSnapshot?.filterKey === JSON.stringify(realizationFilters)
+        ? realizationSnapshot.data
+        : null;
+      const realizationComputed = serverRealization ||
+        (typeof engine.computeRealizationAnalytics === "function"
           ? engine.computeRealizationAnalytics({
               entries: profitabilityData.entries,
               expenses: profitabilityData.expenses,
@@ -1570,20 +1590,9 @@
               assignments: appState.assignments,
               projectMemberBudgets: appState.projectMemberBudgets,
               levelLabels: appState.levelLabels,
-              filters: {
-                fromDate: periodRange.fromDate,
-                toDate: periodRange.toDate,
-                groupBy: uiState.realizationGroupBy,
-                officeId: uiState.realizationScope === "office" ? uiState.realizationScopeId : "",
-                departmentId: uiState.realizationScope === "department" ? uiState.realizationScopeId : "",
-                memberId: uiState.realizationScope === "member" ? uiState.realizationScopeId : "",
-                memberTitle: uiState.realizationScope === "title" ? uiState.realizationScopeId : "",
-                clientId: uiState.realizationClientId,
-                projectId: uiState.realizationProjectId,
-                statusMode: uiState.realizationStatus,
-              },
+              filters: realizationFilters,
             })
-          : { kpis: {}, rows: [], monthlyByKey: {} };
+          : { kpis: {}, rows: [], monthlyByKey: {} });
       const realizationRows = sortRealizationRows(realizationComputed.rows, uiState.realizationSort);
       const availableKeys = new Set(realizationRows.map((row) => safeText(row?.key)).filter(Boolean));
       const selectedKey = safeText(uiState.realizationSelectedKey);
@@ -1637,6 +1646,8 @@
       body.innerHTML = `
         <div class="analytics-panel" data-analytics-root>
           ${subTabsHtml}
+          ${appState.analyticsLoading?.realization ? '<p class="analytics-footnote">Refreshing server analytics…</p>' : ""}
+          ${appState.analyticsErrors?.realization ? `<p class="feedback error">${escapeHtml(appState.analyticsErrors.realization)}</p>` : ""}
           <form class="analytics-filters" data-analytics-realization-controls style="grid-template-columns:repeat(${filterColumnCount},minmax(0,1fr));">
             <label>
               <span>Project Status</span>
@@ -1850,7 +1861,22 @@
       }
       const groupByLabel =
         utilizationGroupByOptions.find((item) => item.id === uiState.utilizationGroupBy)?.name || "Group";
-      const utilization = engine.computeUtilizationAnalytics({
+      const utilizationFilters = {
+        fromDate: periodRange.fromDate,
+        toDate: periodRange.toDate,
+        period: uiState.utilizationPeriod,
+        groupBy: uiState.utilizationGroupBy,
+        officeId: uiState.utilizationOfficeId,
+        departmentId: uiState.utilizationDepartmentId,
+      };
+      if (typeof options?.loadAnalyticsReport === "function") {
+        options.loadAnalyticsReport("utilization", utilizationFilters);
+      }
+      const utilizationSnapshot = appState.analyticsResults?.utilization;
+      const serverUtilization = utilizationSnapshot?.filterKey === JSON.stringify(utilizationFilters)
+        ? utilizationSnapshot.data
+        : null;
+      const utilization = serverUtilization || engine.computeUtilizationAnalytics({
         entries: utilizationData.entries,
         users: utilizationData.users,
         currentUser: appState.currentUser,
@@ -1862,14 +1888,7 @@
         departments: appState.departments,
         corporateFunctionCategories: appState.corporateFunctionCategories,
         levelLabels: appState.levelLabels,
-        filters: {
-          fromDate: periodRange.fromDate,
-          toDate: periodRange.toDate,
-          period: uiState.utilizationPeriod,
-          groupBy: uiState.utilizationGroupBy,
-          officeId: uiState.utilizationOfficeId,
-          departmentId: uiState.utilizationDepartmentId,
-        },
+        filters: utilizationFilters,
       });
       const rawUtilizationRows = Array.isArray(utilization?.rows) ? utilization.rows : [];
       const isMemberGrouping = uiState.utilizationGroupBy === "member";
@@ -2041,6 +2060,8 @@
       body.innerHTML = `
         <div class="analytics-panel" data-analytics-root>
           ${subTabsHtml}
+          ${appState.analyticsLoading?.utilization ? '<p class="analytics-footnote">Refreshing server analytics…</p>' : ""}
+          ${appState.analyticsErrors?.utilization ? `<p class="feedback error">${escapeHtml(appState.analyticsErrors.utilization)}</p>` : ""}
 
           <form class="analytics-util-filters" data-analytics-utilization-filters style="grid-template-columns:repeat(${utilizationFilterColumnCount},minmax(0,1fr));">
             <label>
@@ -2190,8 +2211,8 @@
     const clientProjectOptions = engine.listClientProjectOptions({
       clients: profitabilityData.clients,
       projects: profitabilityData.projects,
-      entries: profitabilityData.entries,
-      expenses: profitabilityData.expenses,
+      entries: typeof options?.loadAnalyticsReport === "function" ? undefined : profitabilityData.entries,
+      expenses: typeof options?.loadAnalyticsReport === "function" ? undefined : profitabilityData.expenses,
       users: appState.users,
       offices: appState.officeLocations,
       departments: appState.departments,
@@ -2217,7 +2238,23 @@
       uiState.projectId = "";
     }
 
-    const computed = engine.computeAnalytics({
+    const profitabilityFilters = {
+      fromDate: uiState.fromDate,
+      toDate: uiState.toDate,
+      scope: uiState.scope,
+      scopeId: uiState.scopeId,
+      clientId: uiState.clientId,
+      projectId: uiState.projectId,
+      groupBy: "client",
+    };
+    if (typeof options?.loadAnalyticsReport === "function") {
+      options.loadAnalyticsReport("profitability", profitabilityFilters);
+    }
+    const serverSnapshot = appState.analyticsResults?.profitability;
+    const serverComputed = serverSnapshot?.filterKey === JSON.stringify(profitabilityFilters)
+      ? serverSnapshot.data
+      : null;
+    const computed = serverComputed || engine.computeAnalytics({
       entries: profitabilityData.entries,
       expenses: profitabilityData.expenses,
       users: appState.users,
@@ -2227,15 +2264,7 @@
       departments: appState.departments,
       assignments: appState.assignments,
       levelLabels: appState.levelLabels,
-      filters: {
-        fromDate: uiState.fromDate,
-        toDate: uiState.toDate,
-        scope: uiState.scope,
-        scopeId: uiState.scopeId,
-        clientId: uiState.clientId,
-        projectId: uiState.projectId,
-        groupBy: "client",
-      },
+      filters: profitabilityFilters,
     });
 
     const scopeItems = uiState.scope === "office" ? scopeOptions.offices : scopeOptions.departments;
@@ -2255,6 +2284,8 @@
     body.innerHTML = `
       <div class="analytics-panel" data-analytics-root>
         ${subTabsHtml}
+        ${appState.analyticsLoading?.profitability ? '<p class="analytics-footnote">Refreshing server analytics…</p>' : ""}
+        ${appState.analyticsErrors?.profitability ? `<p class="feedback error">${escapeHtml(appState.analyticsErrors.profitability)}</p>` : ""}
         <form class="analytics-filters" data-analytics-filters style="grid-template-columns:repeat(${profitabilityFilterColumnCount},minmax(0,1fr));">
           <label>
             <span>Period</span>

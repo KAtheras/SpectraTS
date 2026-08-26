@@ -6,6 +6,7 @@
   const STATE_API_PATH = isLocalHost ? "/api/state" : "/.netlify/functions/state";
   const MUTATE_API_PATH = isLocalHost ? "/api/mutate" : "/.netlify/functions/mutate";
   const RECORDS_API_PATH = isLocalHost ? "/api/records" : "/.netlify/functions/records";
+  const ANALYTICS_API_PATH = isLocalHost ? "/api/analytics" : "/.netlify/functions/analytics";
 
   function loadSessionToken() {
     const key = "timesheet-studio.session-token.v1";
@@ -110,6 +111,7 @@
     STATE_API_PATH,
     MUTATE_API_PATH,
     RECORDS_API_PATH,
+    ANALYTICS_API_PATH,
     loadSessionToken,
     saveSessionToken,
     requestJson,

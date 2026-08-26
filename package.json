@@ -10,8 +10,9 @@
     "start": "node server.js",
     "db:migrate": "node --env-file-if-exists=.env scripts/migrate.js",
     "db:seed:acme-analytics": "node --env-file-if-exists=.env scripts/seed-acme-analytics.js",
+    "verify:analytics": "node --env-file-if-exists=.env scripts/verifyAnalyticsParity.js",
     "test": "npm run check && npm run test:unit",
-    "test:unit": "node tests/permissions.test.js && node tests/themePreferences.test.js && node tests/analyticsOptions.test.js && node tests/acmeAnalyticsSeed.test.js && node tests/recordsPagination.test.js",
+    "test:unit": "node tests/permissions.test.js && node tests/themePreferences.test.js && node tests/analyticsOptions.test.js && node tests/acmeAnalyticsSeed.test.js && node tests/recordsPagination.test.js && node tests/analyticsApi.test.js && node tests/analyticsUtilization.test.js && node tests/analyticsRealization.test.js",
     "test:integration": "node --env-file-if-exists=.env tests/mutations.test.js",
     "version:assets": "node scripts/update-asset-version.js",
     "build": "npm run version:assets"
