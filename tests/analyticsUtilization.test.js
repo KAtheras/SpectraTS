@@ -3,6 +3,7 @@
 const assert = require("assert");
 const {
   buildBuckets,
+  buildUtilizationResult,
   businessDays,
   capacityHours,
 } = require("../netlify/functions/_analyticsUtilization");
@@ -17,4 +18,17 @@ assert.deepStrictEqual(
   ["m::2026-07-01", "m::2026-08-01", "m::2026-09-01"]
 );
 
-console.log("✔ utilization aggregates use bounded buckets and lifecycle capacity");
+(async () => {
+  const emptySql = async () => [];
+  const result = await buildUtilizationResult(emptySql, {
+    accountId: "test-account",
+    filters: { from: "2026-08-01", to: "2026-08-31", period: "this_month", groupBy: "member", officeId: "", departmentId: "" },
+    shell: { utilizationUsers: [], officeLocations: [], departments: [], levelLabels: {}, utilizationScope: { type: "company" } },
+  });
+  assert.ok(result.assumptions.capacity);
+  assert.ok(result.assumptions.categoryMapping);
+  console.log("✔ utilization aggregates use bounded buckets, lifecycle capacity, and a render-complete response contract");
+})().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});

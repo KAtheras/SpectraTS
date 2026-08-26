@@ -218,6 +218,12 @@ async function buildUtilizationResult(sql, details) {
     rows: resultRows,
     timeBuckets: buckets.map(({ key, label }) => ({ key, label })),
     timeSeriesByKey,
+    assumptions: {
+      capacity:
+        "Capacity uses business days × 8 hours per member, prorated to each member's active period (active_from/active_to) when available; members without active_from use legacy full-period capacity behavior.",
+      categoryMapping:
+        "Client = billable external project time; Internal = internal/corporate time plus non-billable external time, excluding PTO; PTO = internal time matching PTO keywords (vacation/sick/holiday/leave).",
+    },
     visibilityScope: shell.utilizationScope,
   };
 }

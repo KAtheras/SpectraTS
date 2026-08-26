@@ -1882,7 +1882,8 @@
         ? utilizationSnapshot.data
         : null;
       if (!serverUtilization && typeof options?.loadAnalyticsReport === "function") {
-        body.innerHTML = `${subTabsHtml}<div class="analytics-chart-empty">Loading utilization analytics…</div>`;
+        const message = appState.analyticsErrors?.utilization || "Loading utilization analytics…";
+        body.innerHTML = `${subTabsHtml}<div class="analytics-chart-empty">${escapeHtml(message)}</div>`;
         bindAnalyticsSubTabEvents(body, uiState, options);
         return;
       }
@@ -2126,8 +2127,8 @@
 
           ${utilizationMainHtml}
 
-          <p class="analytics-footnote">${escapeHtml(utilization.assumptions.capacity)}</p>
-          <p class="analytics-footnote">${escapeHtml(utilization.assumptions.categoryMapping)}</p>
+          <p class="analytics-footnote">${escapeHtml(utilization.assumptions?.capacity || "")}</p>
+          <p class="analytics-footnote">${escapeHtml(utilization.assumptions?.categoryMapping || "")}</p>
         </div>
       `;
 
