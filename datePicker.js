@@ -20,6 +20,14 @@
       toInput: document.querySelector('#expense-filter-form input[name="to"]'),
     },
     {
+      input: document.getElementById('deleted-filter-date-range'),
+      anchor: document.querySelector('[data-deleted-filter-date="range"]'),
+      body: '#deleted-items-body',
+      range: true,
+      fromInput: document.querySelector('#deleted-filter-form input[name="from"]'),
+      toInput: document.querySelector('#deleted-filter-form input[name="to"]'),
+    },
+    {
       input: document.getElementById('audit-filter-date'),
       anchor: document.getElementById('audit-filter-date'),
       body: '#audit-table-body',

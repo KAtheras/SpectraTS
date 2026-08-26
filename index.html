@@ -621,12 +621,13 @@
                     <button class="button button-ghost entries-inline-switch" id="entries-switch-active-from-deleted" type="button">
                       Active Entries
                     </button>
-                    <button class="button button-ghost entries-inline-switch" id="entries-switch-time-from-deleted" type="button">
-                      Deleted Time
-                    </button>
-                    <button class="button button-ghost entries-inline-switch" id="entries-switch-expenses-from-deleted" type="button">
-                      Deleted Expenses
-                    </button>
+                    <label class="entries-type-filter">
+                      <span class="sr-only">Deleted entry type</span>
+                      <select id="deleted-entry-type" aria-label="Deleted entry type">
+                        <option value="time" selected>Time</option>
+                        <option value="expense">Expenses</option>
+                      </select>
+                    </label>
                   </h2>
                 </div>
                 <div class="panel-head-actions">
@@ -646,27 +647,36 @@
               </div>
 
               <form id="deleted-filter-form" class="filters">
-                <label>
+                <label class="entries-filter-period">
+                  <span>Period</span>
+                  <select name="period">
+                    <option value="this_week">This Week</option><option value="last_week">Last Week</option>
+                    <option value="this_month" selected>This Month</option><option value="last_month">Last Month</option>
+                    <option value="this_quarter">This Quarter</option><option value="last_quarter">Last Quarter</option>
+                    <option value="ytd">YTD</option><option value="last_year">Last Year</option><option value="custom">Custom</option>
+                  </select>
+                </label>
+                <label class="span-2 entries-filter-date">
+                  <span>Date Range</span>
+                  <input type="text" name="from" hidden />
+                  <input type="text" name="to" hidden />
+                  <div class="wheel-date-picker wheel-date-picker--compact" data-deleted-filter-date="range">
+                    <input id="deleted-filter-date-range" type="text" class="filter-date-range-input" value="Select date range" readonly aria-label="Date range" />
+                  </div>
+                </label>
+                <label class="entries-filter-user">
                   <span>User</span>
                   <select name="user" id="deleted-filter-user"></select>
                 </label>
-                <label>
+                <label class="entries-filter-client">
                   <span>Client</span>
                   <select name="client" id="deleted-filter-client"></select>
                 </label>
-                <label>
+                <label class="entries-filter-project">
                   <span>Project</span>
                   <select name="project" id="deleted-filter-project"></select>
                 </label>
-                <label>
-                  <span>From</span>
-                  <input type="date" name="from" id="deleted-filter-from" />
-                </label>
-                <label>
-                  <span>To</span>
-                  <input type="date" name="to" id="deleted-filter-to" />
-                </label>
-                <label>
+                <label class="entries-filter-search">
                   <span>Search</span>
                   <input
                     type="search"
@@ -675,6 +685,7 @@
                     placeholder="Project, category, or notes"
                   />
                 </label>
+                <button class="button entries-filter-apply" type="submit">Apply</button>
               </form>
 
               <div id="deleted-active-filters" class="active-filters" hidden></div>

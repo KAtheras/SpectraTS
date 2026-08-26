@@ -432,8 +432,7 @@
     entriesSwitchDeletedFromTime: document.getElementById("entries-switch-deleted-from-time"),
     entriesSwitchDeletedFromExpenses: document.getElementById("entries-switch-deleted-from-expenses"),
     entriesSwitchActiveFromDeleted: document.getElementById("entries-switch-active-from-deleted"),
-    entriesSwitchTimeFromDeleted: document.getElementById("entries-switch-time-from-deleted"),
-    entriesSwitchExpensesFromDeleted: document.getElementById("entries-switch-expenses-from-deleted"),
+    deletedEntryType: document.getElementById("deleted-entry-type"),
     entriesPanelTime: document.getElementById("entries-panel-time"),
     entriesPanelExpenses: document.getElementById("entries-panel-expenses"),
     entriesPanelDeleted: document.getElementById("entries-panel-deleted"),
@@ -549,8 +548,7 @@
     deletedFilterUser: document.getElementById("deleted-filter-user"),
     deletedFilterClient: document.getElementById("deleted-filter-client"),
     deletedFilterProject: document.getElementById("deleted-filter-project"),
-    deletedFilterFrom: document.getElementById("deleted-filter-from"),
-    deletedFilterTo: document.getElementById("deleted-filter-to"),
+    deletedFilterDateRange: document.getElementById("deleted-filter-date-range"),
     deletedFilterSearch: document.getElementById("deleted-filter-search"),
     deletedActiveFilters: document.getElementById("deleted-active-filters"),
     deletedRestoreSelected: document.getElementById("deleted-restore-selected"),
@@ -3501,6 +3499,7 @@
     deletedExpenses: [],
     deletedItemsView: "time", // "time" | "expense" | "all"
     deletedFilters: {
+      period: "this_month",
       user: "",
       client: "",
       project: "",
@@ -4322,6 +4321,7 @@
     state.deletedExpenses = [];
     state.deletedItemsView = "time";
     state.deletedFilters = {
+      period: "this_month",
       user: "",
       client: "",
       project: "",
@@ -4550,6 +4550,7 @@
         state.deletedEntries = [];
         state.deletedExpenses = [];
         state.deletedFilters = {
+          period: "this_month",
           user: "",
           client: "",
           project: "",
@@ -5381,6 +5382,7 @@
   function normalizeDeletedFilterState(input) {
     const base = input && typeof input === "object" ? input : {};
     return {
+      period: `${base.period || "this_month"}`.trim(),
       user: `${base.user || ""}`.trim(),
       client: `${base.client || ""}`.trim(),
       project: `${base.project || ""}`.trim(),
@@ -5388,6 +5390,22 @@
       to: isValidDateString(base.to) ? base.to : "",
       search: `${base.search || ""}`.trim(),
     };
+  }
+
+  function ensureDeletedFilterPeriodRange() {
+    const filters = normalizeDeletedFilterState(state.deletedFilters);
+    if (filters.from && filters.to) {
+      state.deletedFilters = filters;
+      return;
+    }
+    const period = filters.period === "custom" ? "this_month" : filters.period;
+    const range = window.analyticsFeature?.periodRange?.(period, new Date());
+    state.deletedFilters = normalizeDeletedFilterState({
+      ...filters,
+      period,
+      from: range?.fromDate || "",
+      to: range?.toDate || "",
+    });
   }
 
   function deletedItemUserName(item) {
@@ -5507,11 +5525,16 @@
     if (!refs.deletedFilterForm) return false;
     const showErrors = (options && options.showErrors) !== false;
     const user = `${field(refs.deletedFilterForm, "user")?.value || ""}`.trim();
+    const period = `${field(refs.deletedFilterForm, "period")?.value || "custom"}`.trim();
     const client = `${field(refs.deletedFilterForm, "client")?.value || ""}`.trim();
     const project = `${field(refs.deletedFilterForm, "project")?.value || ""}`.trim();
     const fromRaw = getDateInputIsoValue(field(refs.deletedFilterForm, "from"));
     const toRaw = getDateInputIsoValue(field(refs.deletedFilterForm, "to"));
     const search = `${field(refs.deletedFilterForm, "search")?.value || ""}`.trim();
+    if (!fromRaw || !toRaw) {
+      if (showErrors) feedback("Select a date period before loading deleted entries.", true);
+      return false;
+    }
     if (fromRaw && !isValidDateString(fromRaw)) {
       if (showErrors) feedback("From date is invalid.", true);
       return false;
@@ -5526,14 +5549,18 @@
     }
     state.deletedFilters = normalizeDeletedFilterState({
       user,
+      period,
       client,
       project,
       from: fromRaw,
       to: toRaw,
       search,
     });
-    setDateInputIsoValue(refs.deletedFilterFrom, state.deletedFilters.from);
-    setDateInputIsoValue(refs.deletedFilterTo, state.deletedFilters.to);
+    syncEntriesDateRangeField(
+      refs.deletedFilterDateRange,
+      state.deletedFilters.from,
+      state.deletedFilters.to
+    );
     feedback("", false);
     render();
     return true;
@@ -11079,12 +11106,16 @@
             }
           });
         }
+        ensureDeletedFilterPeriodRange();
         syncDeletedFilterOptions();
+        if (refs.deletedEntryType) {
+          refs.deletedEntryType.value = state.deletedItemsView === "expense" ? "expense" : "time";
+        }
         if (refs.deletedFilterUser) refs.deletedFilterUser.value = state.deletedFilters.user || "";
         if (refs.deletedFilterClient) refs.deletedFilterClient.value = state.deletedFilters.client || "";
         if (refs.deletedFilterProject) refs.deletedFilterProject.value = state.deletedFilters.project || "";
-        setDateInputIsoValue(refs.deletedFilterFrom, state.deletedFilters.from || "");
-        setDateInputIsoValue(refs.deletedFilterTo, state.deletedFilters.to || "");
+        if (field(refs.deletedFilterForm, "period")) field(refs.deletedFilterForm, "period").value = state.deletedFilters.period || "this_month";
+        syncEntriesDateRangeField(refs.deletedFilterDateRange, state.deletedFilters.from, state.deletedFilters.to);
         if (refs.deletedFilterSearch) refs.deletedFilterSearch.value = state.deletedFilters.search || "";
         renderDeletedItemsTable();
       } else {
@@ -12013,6 +12044,7 @@
       state.deletedItemsView = "time";
       state.deletedSelectionMode = false;
       state.selectedDeletedKeys = new Set();
+      ensureDeletedFilterPeriodRange();
       await loadDeletedItems();
       render();
     });
@@ -12023,24 +12055,16 @@
       state.deletedItemsView = "expense";
       state.deletedSelectionMode = false;
       state.selectedDeletedKeys = new Set();
+      ensureDeletedFilterPeriodRange();
       await loadDeletedItems();
       render();
     });
   }
-  if (refs.entriesSwitchTimeFromDeleted) {
-    refs.entriesSwitchTimeFromDeleted.addEventListener("click", function () {
-      state.entriesSubtab = "deleted";
-      state.deletedItemsView = "time";
-      render();
-    });
-  }
-  if (refs.entriesSwitchExpensesFromDeleted) {
-    refs.entriesSwitchExpensesFromDeleted.addEventListener("click", function () {
-      state.entriesSubtab = "deleted";
-      state.deletedItemsView = "expense";
-      render();
-    });
-  }
+  refs.deletedEntryType?.addEventListener("change", function () {
+    state.deletedItemsView = refs.deletedEntryType.value === "expense" ? "expense" : "time";
+    syncDeletedFilterOptions();
+    render();
+  });
   if (refs.entriesSwitchActiveFromDeleted) {
     refs.entriesSwitchActiveFromDeleted.addEventListener("click", function () {
       state.entriesSubtab = state.deletedItemsView === "expense" ? "expenses" : "time";
@@ -12459,39 +12483,15 @@
     });
   }
 
-  if (refs.deletedFilterFrom) {
-    bindCustomDateInput(refs.deletedFilterFrom, state.deletedFilters.from || "");
-    refs.deletedFilterFrom.addEventListener("change", function () {
-      applyDeletedFiltersFromForm({ showErrors: false });
-    });
-  }
-  if (refs.deletedFilterTo) {
-    bindCustomDateInput(refs.deletedFilterTo, state.deletedFilters.to || "");
-    refs.deletedFilterTo.addEventListener("change", function () {
-      applyDeletedFiltersFromForm({ showErrors: false });
-    });
-  }
-  if (refs.deletedFilterUser) {
-    refs.deletedFilterUser.addEventListener("change", function () {
-      applyDeletedFiltersFromForm();
-    });
-  }
-  if (refs.deletedFilterClient) {
-    refs.deletedFilterClient.addEventListener("change", function () {
-      syncDeletedFilterOptions();
-      applyDeletedFiltersFromForm();
-    });
-  }
-  if (refs.deletedFilterProject) {
-    refs.deletedFilterProject.addEventListener("change", function () {
-      applyDeletedFiltersFromForm();
-    });
-  }
-  if (refs.deletedFilterSearch) {
-    refs.deletedFilterSearch.addEventListener("input", function () {
-      applyDeletedFiltersFromForm({ showErrors: false });
-    });
-  }
+  field(refs.deletedFilterForm, "period")?.addEventListener("change", function () {
+    applyEntriesPeriodPreset(refs.deletedFilterForm, refs.deletedFilterDateRange);
+  });
+  refs.deletedFilterDateRange?.addEventListener("change", function () {
+    const periodField = field(refs.deletedFilterForm, "period");
+    if (periodField) periodField.value = "custom";
+  });
+  refs.deletedFilterUser?.addEventListener("change", syncDeletedFilterOptions);
+  refs.deletedFilterClient?.addEventListener("change", syncDeletedFilterOptions);
   if (refs.deletedFilterForm) {
     refs.deletedFilterForm.addEventListener("submit", function (event) {
       event.preventDefault();
@@ -12533,6 +12533,7 @@
       refs.deletedFilterForm.reset();
     }
     state.deletedFilters = {
+      period: "this_month",
       user: "",
       client: "",
       project: "",
@@ -12540,8 +12541,12 @@
       to: "",
       search: "",
     };
-    setDateInputIsoValue(refs.deletedFilterFrom, "");
-    setDateInputIsoValue(refs.deletedFilterTo, "");
+    ensureDeletedFilterPeriodRange();
+    syncEntriesDateRangeField(
+      refs.deletedFilterDateRange,
+      state.deletedFilters.from,
+      state.deletedFilters.to
+    );
     render();
   });
 
