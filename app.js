@@ -507,6 +507,8 @@
     expensesBody: document.getElementById("expenses-body"),
     entriesResults: document.getElementById("entries-body")?.closest(".table-wrap"),
     expensesResults: document.getElementById("expenses-body")?.closest(".table-wrapper"),
+    entriesResultsActions: document.getElementById("entries-results-actions"),
+    expensesResultsActions: document.getElementById("expenses-results-actions"),
     entriesPageControls: document.getElementById("entries-page-controls"),
     entriesPageStatus: document.getElementById("entries-page-status"),
     entriesLoadMore: document.getElementById("entries-load-more"),
@@ -561,6 +563,7 @@
     deletedSelectAllVisible: document.getElementById("deleted-select-all-visible"),
     deletedItemsBody: document.getElementById("deleted-items-body"),
     deletedResults: document.getElementById("deleted-items-body")?.closest(".table-wrapper"),
+    deletedResultsActions: document.getElementById("deleted-results-actions"),
     expenseFilterUser: document.getElementById("expense-filter-user"),
     expenseFilterClient: document.getElementById("expense-filter-client"),
     expenseFilterProject: document.getElementById("expense-filter-project"),
@@ -1402,7 +1405,6 @@
         savedProjectName = nextName;
         savedManagerUserIds = [...payload.managerUserIds];
         savedStaffUserIds = [...payload.staffUserIds];
-        feedback("Project updated.", false);
       },
     });
     if (!projectDialog || projectDialog.openProjectPlanning) return;
@@ -10989,8 +10991,13 @@
     if (refs.entriesPanelExpenses) {
       refs.entriesPanelExpenses.hidden = entriesSubtab !== "expenses";
     }
-    if (refs.entriesTypeTime) refs.entriesTypeTime.value = entriesSubtab === "expenses" ? "expenses" : "time";
-    if (refs.entriesTypeExpenses) refs.entriesTypeExpenses.value = entriesSubtab === "expenses" ? "expenses" : "time";
+    [refs.entriesTypeTime, refs.entriesTypeExpenses].filter(Boolean).forEach((toggle) => {
+      toggle.querySelectorAll("[data-entry-type]").forEach((button) => {
+        const selected = button.dataset.entryType === (entriesSubtab === "expenses" ? "expenses" : "time");
+        button.classList.toggle("is-selected", selected);
+        button.setAttribute("aria-pressed", selected ? "true" : "false");
+      });
+    });
     if (refs.entriesPanelDeleted) {
       refs.entriesPanelDeleted.hidden = entriesSubtab !== "deleted";
     }
@@ -11104,6 +11111,7 @@
     if (view === "entries") {
       if (entriesSubtab === "expenses") {
         if (refs.expensesResults) refs.expensesResults.hidden = !state.resultsApplied.expenses;
+        if (refs.expensesResultsActions) refs.expensesResultsActions.hidden = !state.resultsApplied.expenses;
         if (state.entriesSelectionMode) {
           setEntriesSelectionMode(false);
         }
@@ -11122,6 +11130,7 @@
         syncEntriesUndoUi();
       } else if (entriesSubtab === "deleted") {
         if (refs.deletedResults) refs.deletedResults.hidden = !state.resultsApplied.deleted;
+        if (refs.deletedResultsActions) refs.deletedResultsActions.hidden = !state.resultsApplied.deleted;
         if (state.entriesSelectionMode) {
           setEntriesSelectionMode(false);
         }
@@ -11140,7 +11149,11 @@
         ensureDeletedFilterPeriodRange();
         syncDeletedFilterOptions();
         if (refs.deletedEntryType) {
-          refs.deletedEntryType.value = state.deletedItemsView === "expense" ? "expense" : "time";
+          refs.deletedEntryType.querySelectorAll("[data-deleted-entry-type]").forEach((button) => {
+            const selected = button.dataset.deletedEntryType === state.deletedItemsView;
+            button.classList.toggle("is-selected", selected);
+            button.setAttribute("aria-pressed", selected ? "true" : "false");
+          });
         }
         if (refs.deletedFilterUser) refs.deletedFilterUser.value = state.deletedFilters.user || "";
         if (refs.deletedFilterClient) refs.deletedFilterClient.value = state.deletedFilters.client || "";
@@ -11151,6 +11164,7 @@
         renderDeletedItemsTable();
       } else {
         if (refs.entriesResults) refs.entriesResults.hidden = !state.resultsApplied.entries;
+        if (refs.entriesResultsActions) refs.entriesResultsActions.hidden = !state.resultsApplied.entries;
         if (state.expensesSelectionMode) {
           setExpensesSelectionMode(false);
         }
@@ -12057,9 +12071,11 @@
       }
     });
   }
-  [refs.entriesTypeTime, refs.entriesTypeExpenses].filter(Boolean).forEach(function (select) {
-    select.addEventListener("change", function () {
-      const nextType = select.value === "expenses" ? "expenses" : "time";
+  [refs.entriesTypeTime, refs.entriesTypeExpenses].filter(Boolean).forEach(function (toggle) {
+    toggle.addEventListener("click", function (event) {
+      const button = event.target.closest("[data-entry-type]");
+      if (!button) return;
+      const nextType = button.dataset.entryType === "expenses" ? "expenses" : "time";
       if (nextType === "time") {
         syncSharedEntriesFiltersFromExpense();
         if (state.expensesSelectionMode) setExpensesSelectionMode(false);
@@ -12093,8 +12109,10 @@
       render();
     });
   }
-  refs.deletedEntryType?.addEventListener("change", function () {
-    state.deletedItemsView = refs.deletedEntryType.value === "expense" ? "expense" : "time";
+  refs.deletedEntryType?.addEventListener("click", function (event) {
+    const button = event.target.closest("[data-deleted-entry-type]");
+    if (!button) return;
+    state.deletedItemsView = button.dataset.deletedEntryType === "expense" ? "expense" : "time";
     syncDeletedFilterOptions();
     render();
   });

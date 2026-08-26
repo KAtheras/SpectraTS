@@ -4359,21 +4359,43 @@ body[data-theme="dark"] .audit-detail-col {
   }
 }
 
-.entries-view .entries-type-filter {
-  display: inline-flex;
-  margin-left: 10px;
-  vertical-align: middle;
+.entries-view .entries-mode-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
-.entries-view .entries-type-filter select {
-  min-width: 120px;
-  min-height: 36px;
-  padding: 6px 30px 6px 10px;
+.entries-view .entries-type-toggle {
+  display: inline-flex;
   border: 1px solid var(--control-border);
   border-radius: 8px;
-  background: var(--surface);
-  color: var(--ink);
+  background: color-mix(in srgb, var(--surface-strong) 88%, var(--surface));
+  overflow: hidden;
+  vertical-align: middle;
+  font-size: 0.9rem;
+}
+
+.entries-view .entries-type-toggle button {
+  min-width: 92px;
+  min-height: 36px;
+  padding: 6px 14px;
+  border: 0;
+  border-right: 1px solid var(--control-border);
+  background: transparent;
+  color: var(--muted);
   font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.entries-view .entries-type-toggle button:last-child {
+  border-right: 0;
+}
+
+.entries-view .entries-type-toggle button.is-selected,
+.entries-view .entries-type-toggle button[aria-pressed="true"] {
+  background: var(--accent);
+  color: #fff;
 }
 
 .entries-view .filters .wheel-date-picker[data-filter-date="range"],

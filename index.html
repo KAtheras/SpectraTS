@@ -351,23 +351,19 @@
             <section class="panel" id="time-entries-review-panel">
               <div class="panel-head panel-head-logged">
                 <div class="panel-head-title-row">
-                  <h2>
-                    Entries
-                    <label class="entries-type-filter">
-                      <span class="sr-only">Entry type</span>
-                      <select id="entries-type-time" aria-label="Entry type">
-                        <option value="time" selected>Time</option>
-                        <option value="expenses">Expenses</option>
-                      </select>
-                    </label>
+                  <div class="entries-mode-controls">
+                    <div class="entries-type-toggle" id="entries-type-time" role="group" aria-label="Entry type">
+                      <button type="button" data-entry-type="time" aria-pressed="true">Time</button>
+                      <button type="button" data-entry-type="expenses" aria-pressed="false">Expenses</button>
+                    </div>
                     <button class="button button-ghost entries-inline-switch" id="entries-switch-deleted-from-time" type="button">
                       Deleted
                     </button>
-                  </h2>
+                  </div>
                   <div class="filter-total" id="filter-total-hours">Total hours: 0.00</div>
                 </div>
 
-                <div class="panel-head-actions">
+                <div class="panel-head-actions" id="entries-results-actions" hidden>
                   <button class="button button-ghost" type="button" id="clear-filters">
                     Clear
                   </button>
@@ -480,22 +476,18 @@
             <section class="panel panel-table" id="expense-entries-review-panel">
               <div class="panel-head panel-head-logged">
                 <div class="panel-head-title-row">
-                  <h2>
-                    Entries
-                    <label class="entries-type-filter">
-                      <span class="sr-only">Entry type</span>
-                      <select id="entries-type-expenses" aria-label="Entry type">
-                        <option value="time">Time</option>
-                        <option value="expenses" selected>Expenses</option>
-                      </select>
-                    </label>
+                  <div class="entries-mode-controls">
+                    <div class="entries-type-toggle" id="entries-type-expenses" role="group" aria-label="Entry type">
+                      <button type="button" data-entry-type="time" aria-pressed="false">Time</button>
+                      <button type="button" data-entry-type="expenses" aria-pressed="true">Expenses</button>
+                    </div>
                     <button class="button button-ghost entries-inline-switch" id="entries-switch-deleted-from-expenses" type="button">
                       Deleted
                     </button>
-                  </h2>
+                  </div>
                   <div class="filter-total" id="expense-filter-total">Total amount: $0.00</div>
                 </div>
-                <div class="panel-head-actions">
+                <div class="panel-head-actions" id="expenses-results-actions" hidden>
                   <button class="button button-ghost" type="button" id="expense-clear-filters">
                     Clear
                   </button>
@@ -621,16 +613,13 @@
                     <button class="button button-ghost entries-inline-switch" id="entries-switch-active-from-deleted" type="button">
                       Active Entries
                     </button>
-                    <label class="entries-type-filter">
-                      <span class="sr-only">Deleted entry type</span>
-                      <select id="deleted-entry-type" aria-label="Deleted entry type">
-                        <option value="time" selected>Time</option>
-                        <option value="expense">Expenses</option>
-                      </select>
-                    </label>
+                    <span class="entries-type-toggle" id="deleted-entry-type" role="group" aria-label="Deleted entry type">
+                      <button type="button" data-deleted-entry-type="time" aria-pressed="true">Time</button>
+                      <button type="button" data-deleted-entry-type="expense" aria-pressed="false">Expenses</button>
+                    </span>
                   </h2>
                 </div>
-                <div class="panel-head-actions">
+                <div class="panel-head-actions" id="deleted-results-actions" hidden>
                   <button class="button button-ghost" type="button" id="deleted-clear-filters">
                     Clear
                   </button>
