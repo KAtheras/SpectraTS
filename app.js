@@ -2187,10 +2187,26 @@
           staffUserIds: [...(payload?.staffUserIds || [])].sort(),
         });
       let savedPayloadSignature = "";
+      const projectDraftSignature = () =>
+        JSON.stringify({
+          fields: Array.from(new FormData(form).entries()),
+          managerUserIds: [...pendingManagerUserIds].sort(),
+          staffUserIds: [...pendingStaffUserIds].sort(),
+        });
+      let savedDraftSignature = "";
+      let projectSaveInProgress = false;
+      const syncProjectSaveButtonState = () => {
+        if (!isProjectEditDialog || !projectSaveButton) return;
+        projectSaveButton.disabled =
+          projectSaveInProgress || projectDraftSignature() === savedDraftSignature;
+      };
 
       const persistEditedProject = async (payload, button, successText = "Saved") => {
         if (typeof options?.onSubmitEdit !== "function") return false;
         const originalText = button?.textContent || "Save";
+        const draftSignatureAtSave = projectDraftSignature();
+        projectSaveInProgress = true;
+        syncProjectSaveButtonState();
         setError("");
         if (button) {
           button.disabled = true;
@@ -2200,23 +2216,26 @@
         try {
           await options.onSubmitEdit(payload);
           savedPayloadSignature = projectPayloadSignature(payload);
+          savedDraftSignature = draftSignatureAtSave;
           if (button) button.textContent = successText;
           if (projectCancelButton) projectCancelButton.textContent = "Close";
           window.setTimeout(() => {
             if (button?.isConnected) {
-              button.disabled = false;
               button.textContent = originalText;
+              syncProjectSaveButtonState();
             }
           }, 900);
           return true;
         } catch (error) {
           setError(error?.message || "Unable to update project.");
           if (button) {
-            button.disabled = false;
             button.textContent = originalText;
+            syncProjectSaveButtonState();
           }
           return false;
         } finally {
+          projectSaveInProgress = false;
+          syncProjectSaveButtonState();
           if (projectCancelButton) projectCancelButton.disabled = false;
         }
       };
@@ -2320,7 +2339,7 @@
         const payload = buildProjectDialogPayload();
         if (!payload) return;
         setError("");
-        const hasUnsavedChanges = projectPayloadSignature(payload) !== savedPayloadSignature;
+        const hasUnsavedChanges = projectDraftSignature() !== savedDraftSignature;
         if (hasUnsavedChanges) {
           const saved = await persistEditedProject(payload, openPlanningButton, "Opening...");
           if (!saved) return;
@@ -2357,6 +2376,13 @@
       form.addEventListener("submit", onSubmit);
       const initialPayload = buildProjectDialogPayload();
       savedPayloadSignature = initialPayload ? projectPayloadSignature(initialPayload) : "";
+      savedDraftSignature = projectDraftSignature();
+      if (isProjectEditDialog) {
+        form.addEventListener("input", syncProjectSaveButtonState);
+        form.addEventListener("change", syncProjectSaveButtonState);
+        form.addEventListener("click", () => window.setTimeout(syncProjectSaveButtonState, 0));
+        syncProjectSaveButtonState();
+      }
       setError("");
       nameInput?.focus();
       nameInput?.select();
