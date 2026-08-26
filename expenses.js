@@ -302,6 +302,7 @@
     const settings = options || {};
     const showErrors = settings.showErrors !== false;
     const userField = field(refs.expenseFilterForm, "user");
+    const periodField = field(refs.expenseFilterForm, "period");
     const clientField = field(refs.expenseFilterForm, "client");
     const projectField = field(refs.expenseFilterForm, "project");
     const fromField = field(refs.expenseFilterForm, "from");
@@ -328,8 +329,13 @@
       }
       return false;
     }
+    if (!parsedFrom || !parsedTo) {
+      if (showErrors) feedback("Select a date period before loading expenses.", true);
+      return false;
+    }
 
     state.expenseFilters = {
+      period: periodField?.value || "custom",
       user: userField?.value || "",
       client: clientField?.value || "",
       project: projectField?.value || "",

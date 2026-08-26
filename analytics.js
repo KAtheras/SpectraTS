@@ -2425,6 +2425,8 @@
   }
 
   window.analyticsFeature = {
+    periodOptions: UTILIZATION_PERIOD_OPTIONS,
+    periodRange: utilizationPeriodRange,
     renderAnalyticsPage,
   };
 })();

@@ -352,10 +352,14 @@
               <div class="panel-head panel-head-logged">
                 <div class="panel-head-title-row">
                   <h2>
-                    Logged time
-                    <button class="button button-ghost entries-inline-switch" id="entries-switch-expenses" type="button">
-                      Expenses
-                    </button>
+                    Entries
+                    <label class="entries-type-filter">
+                      <span class="sr-only">Entry type</span>
+                      <select id="entries-type-time" aria-label="Entry type">
+                        <option value="time" selected>Time</option>
+                        <option value="expenses">Expenses</option>
+                      </select>
+                    </label>
                     <button class="button button-ghost entries-inline-switch" id="entries-switch-deleted-from-time" type="button">
                       Deleted
                     </button>
@@ -388,6 +392,15 @@
               </div>
 
               <form id="filter-form" class="filters">
+                  <label>
+                    <span>Period</span>
+                    <select name="period">
+                      <option value="this_week">This Week</option><option value="last_week">Last Week</option>
+                      <option value="this_month" selected>This Month</option><option value="last_month">Last Month</option>
+                      <option value="this_quarter">This Quarter</option><option value="last_quarter">Last Quarter</option>
+                      <option value="ytd">YTD</option><option value="last_year">Last Year</option><option value="custom">Custom</option>
+                    </select>
+                  </label>
                   <label>
                     <span>User</span>
                     <select name="user" id="filter-user"></select>
@@ -424,6 +437,7 @@
                       placeholder="Project or notes"
                     />
                   </label>
+                  <button class="button entries-filter-apply" type="submit">Apply</button>
               </form>
 
               <p id="feedback" class="feedback" aria-live="polite"></p>
@@ -467,10 +481,14 @@
               <div class="panel-head panel-head-logged">
                 <div class="panel-head-title-row">
                   <h2>
-                    Submitted expenses
-                    <button class="button button-ghost entries-inline-switch" id="entries-switch-time" type="button">
-                      Time
-                    </button>
+                    Entries
+                    <label class="entries-type-filter">
+                      <span class="sr-only">Entry type</span>
+                      <select id="entries-type-expenses" aria-label="Entry type">
+                        <option value="time">Time</option>
+                        <option value="expenses" selected>Expenses</option>
+                      </select>
+                    </label>
                     <button class="button button-ghost entries-inline-switch" id="entries-switch-deleted-from-expenses" type="button">
                       Deleted
                     </button>
@@ -502,6 +520,15 @@
               </div>
 
               <form id="expense-filter-form" class="filters">
+                <label>
+                  <span>Period</span>
+                  <select name="period">
+                    <option value="this_week">This Week</option><option value="last_week">Last Week</option>
+                    <option value="this_month" selected>This Month</option><option value="last_month">Last Month</option>
+                    <option value="this_quarter">This Quarter</option><option value="last_quarter">Last Quarter</option>
+                    <option value="ytd">YTD</option><option value="last_year">Last Year</option><option value="custom">Custom</option>
+                  </select>
+                </label>
                 <label>
                   <span>User</span>
                   <select name="user" id="expense-filter-user"></select>
@@ -538,6 +565,7 @@
                     placeholder="Project, category, or notes"
                   />
                 </label>
+                <button class="button entries-filter-apply" type="submit">Apply</button>
               </form>
 
               <div id="expense-active-filters" class="active-filters" hidden></div>

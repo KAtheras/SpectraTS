@@ -4307,6 +4307,28 @@ body[data-theme="dark"] .audit-detail-col {
   border-radius: 10px;
 }
 
+.entries-view .entries-filter-apply {
+  align-self: end;
+  min-height: 42px;
+}
+
+.entries-view .entries-type-filter {
+  display: inline-flex;
+  margin-left: 10px;
+  vertical-align: middle;
+}
+
+.entries-view .entries-type-filter select {
+  min-width: 120px;
+  min-height: 36px;
+  padding: 6px 30px 6px 10px;
+  border: 1px solid var(--control-border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+}
+
 .entries-view .filters .wheel-date-picker[data-filter-date="range"],
 .entries-view .filters .wheel-date-picker[data-expense-filter-date="range"] {
   border-radius: 10px;

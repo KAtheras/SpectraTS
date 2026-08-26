@@ -427,8 +427,8 @@
     entriesViewTitle: document.getElementById("entries-view-title"),
     entriesSubtabTime: document.getElementById("entries-subtab-time"),
     entriesSubtabExpenses: document.getElementById("entries-subtab-expenses"),
-    entriesSwitchExpenses: document.getElementById("entries-switch-expenses"),
-    entriesSwitchTime: document.getElementById("entries-switch-time"),
+    entriesTypeTime: document.getElementById("entries-type-time"),
+    entriesTypeExpenses: document.getElementById("entries-type-expenses"),
     entriesSwitchDeletedFromTime: document.getElementById("entries-switch-deleted-from-time"),
     entriesSwitchDeletedFromExpenses: document.getElementById("entries-switch-deleted-from-expenses"),
     entriesSwitchActiveFromDeleted: document.getElementById("entries-switch-active-from-deleted"),
@@ -3417,6 +3417,7 @@
     analyticsErrors: {},
     analyticsErrorKeys: {},
     filters: {
+      period: "this_month",
       user: "",
       client: "",
       project: "",
@@ -3425,6 +3426,7 @@
       search: "",
     },
     expenseFilters: {
+      period: "this_month",
       user: "",
       client: "",
       project: "",
@@ -4373,12 +4375,15 @@
   }
 
   function resetFilters() {
+    const period = "this_month";
+    const range = window.analyticsFeature?.periodRange?.(period, new Date()) || { fromDate: `${new Date().getFullYear()}-01-01`, toDate: today };
     const nextFilters = {
+      period,
       user: defaultFilterUser(state, isStaff),
       client: "",
       project: "",
-      from: "",
-      to: "",
+      from: range.fromDate,
+      to: range.toDate,
       search: "",
     };
     state.filters = nextFilters;
@@ -4391,6 +4396,7 @@
   function cloneEntriesFilterState(source) {
     const next = source || {};
     return {
+      period: String(next.period || "this_month"),
       user: String(next.user || ""),
       client: String(next.client || ""),
       project: String(next.project || ""),
@@ -4442,12 +4448,14 @@
     const expenseFilters = cloneEntriesFilterState(state.expenseFilters);
     if (refs.filterForm) {
       const userField = field(refs.filterForm, "user");
+      const periodField = field(refs.filterForm, "period");
       const clientField = field(refs.filterForm, "client");
       const projectField = field(refs.filterForm, "project");
       const fromField = field(refs.filterForm, "from");
       const toField = field(refs.filterForm, "to");
       const searchField = field(refs.filterForm, "search");
       syncFilterCatalogsUI(timeFilters);
+      if (periodField) periodField.value = timeFilters.period;
       if (userField) userField.value = timeFilters.user;
       if (clientField) clientField.value = timeFilters.client;
       if (projectField) projectField.value = timeFilters.project;
@@ -4460,12 +4468,14 @@
     }
     if (refs.expenseFilterForm) {
       const userField = field(refs.expenseFilterForm, "user");
+      const periodField = field(refs.expenseFilterForm, "period");
       const clientField = field(refs.expenseFilterForm, "client");
       const projectField = field(refs.expenseFilterForm, "project");
       const fromField = field(refs.expenseFilterForm, "from");
       const toField = field(refs.expenseFilterForm, "to");
       const searchField = field(refs.expenseFilterForm, "search");
       syncExpenseFilterCatalogsUI(expenseFilters);
+      if (periodField) periodField.value = expenseFilters.period;
       if (userField) userField.value = expenseFilters.user;
       if (clientField) clientField.value = expenseFilters.client;
       if (projectField) projectField.value = expenseFilters.project;
@@ -4605,6 +4615,10 @@
     recordRequestControllers[recordType]?.abort();
     const controller = new AbortController();
     recordRequestControllers[recordType] = controller;
+    if (!append) {
+      state[recordType] = [];
+      state.recordPages[recordType] = null;
+    }
     state.recordsLoading[recordType] = true;
     state.recordsErrors[recordType] = "";
     if (!append && !state[recordType].length && (state.currentView === "entries" || state.currentView === "inputs")) render();
@@ -5865,9 +5879,7 @@
     }
     state.currentView = view;
     persistCurrentView(view);
-    if (view === "entries") {
-      loadVisibleRecords(state.entriesSubtab === "expenses" ? "expenses" : "entries");
-    } else if (view === "inputs") {
+    if (view === "inputs") {
       loadInputsRecords(state.inputSubtab === "expenses" ? "expenses" : "entries");
     }
     if ((view === "settings" || view === "members") && previousView !== view && !state.settingsMetadataLoaded) {
@@ -10921,6 +10933,8 @@
     if (refs.entriesPanelExpenses) {
       refs.entriesPanelExpenses.hidden = entriesSubtab !== "expenses";
     }
+    if (refs.entriesTypeTime) refs.entriesTypeTime.value = entriesSubtab === "expenses" ? "expenses" : "time";
+    if (refs.entriesTypeExpenses) refs.entriesTypeExpenses.value = entriesSubtab === "expenses" ? "expenses" : "time";
     if (refs.entriesPanelDeleted) {
       refs.entriesPanelDeleted.hidden = entriesSubtab !== "deleted";
     }
@@ -11102,6 +11116,7 @@
     const settings = options || {};
     const showErrors = settings.showErrors !== false;
     const userField = field(refs.filterForm, "user");
+    const periodField = field(refs.filterForm, "period");
     const clientField = field(refs.filterForm, "client");
     const projectField = field(refs.filterForm, "project");
     const fromField = field(refs.filterForm, "from");
@@ -11123,8 +11138,13 @@
       }
       return false;
     }
+    if (!parsedFrom || !parsedTo) {
+      if (showErrors) feedback("Select a date period before loading entries.", true);
+      return false;
+    }
 
     state.filters = {
+      period: periodField?.value || "custom",
       user: userField.value,
       client: clientField.value,
       project: projectField.value,
@@ -11141,6 +11161,18 @@
     loadVisibleRecords(state.entriesSubtab === "expenses" ? "expenses" : "entries");
     render();
     return true;
+  }
+
+  function applyEntriesPeriodPreset(form, dateRangeInput) {
+    const period = String(field(form, "period")?.value || "this_month");
+    if (period === "custom") return;
+    const range = window.analyticsFeature?.periodRange?.(period, new Date());
+    if (!range) return;
+    const fromField = field(form, "from");
+    const toField = field(form, "to");
+    if (fromField) fromField.value = formatDisplayDate(range.fromDate);
+    if (toField) toField.value = formatDisplayDate(range.toDate);
+    syncEntriesDateRangeField(dateRangeInput, range.fromDate, range.toDate);
   }
 
   function postHeight() {
@@ -11556,6 +11588,7 @@
     const filters = filtersPayload && typeof filtersPayload === "object" ? filtersPayload : null;
     if (!filters) return;
     const normalized = {
+      period: String(filters.period || "custom").trim(),
       user: String(filters.user || "").trim(),
       client: String(filters.client || "").trim(),
       project: String(filters.project || "").trim(),
@@ -11954,17 +11987,20 @@
       }
     });
   }
-  if (refs.entriesSwitchTime) {
-    refs.entriesSwitchTime.addEventListener("click", function () {
-      syncSharedEntriesFiltersFromExpense();
-      if (state.expensesSelectionMode) {
-        setExpensesSelectionMode(false);
+  [refs.entriesTypeTime, refs.entriesTypeExpenses].filter(Boolean).forEach(function (select) {
+    select.addEventListener("change", function () {
+      const nextType = select.value === "expenses" ? "expenses" : "time";
+      if (nextType === "time") {
+        syncSharedEntriesFiltersFromExpense();
+        if (state.expensesSelectionMode) setExpensesSelectionMode(false);
+      } else {
+        syncSharedEntriesFiltersFromTime();
+        if (state.entriesSelectionMode) setEntriesSelectionMode(false);
       }
-      state.entriesSubtab = "time";
-      loadVisibleRecords("entries");
+      state.entriesSubtab = nextType;
       render();
     });
-  }
+  });
   if (refs.entriesSwitchDeletedFromTime) {
     refs.entriesSwitchDeletedFromTime.addEventListener("click", async function () {
       state.entriesSubtab = "deleted";
@@ -12002,17 +12038,6 @@
   if (refs.entriesSwitchActiveFromDeleted) {
     refs.entriesSwitchActiveFromDeleted.addEventListener("click", function () {
       state.entriesSubtab = state.deletedItemsView === "expense" ? "expenses" : "time";
-      render();
-    });
-  }
-  if (refs.entriesSwitchExpenses) {
-    refs.entriesSwitchExpenses.addEventListener("click", function () {
-      syncSharedEntriesFiltersFromTime();
-      if (state.entriesSelectionMode) {
-        setEntriesSelectionMode(false);
-      }
-      state.entriesSubtab = "expenses";
-      loadVisibleRecords("expenses");
       render();
     });
   }
@@ -12326,7 +12351,8 @@
       input.addEventListener("change", function () {
         const iso = input.value;
         hidden.value = iso ? formatDisplayDate(iso) : "";
-        applyFiltersFromForm({ showErrors: false });
+        const periodField = field(refs.filterForm, "period");
+        if (periodField) periodField.value = "custom";
       });
     }
 
@@ -12344,7 +12370,8 @@
       input.addEventListener("change", function () {
         const iso = input.value;
         hidden.value = iso ? formatDisplayDate(iso) : "";
-        applyExpenseFiltersFromForm({ showErrors: false });
+        const periodField = field(refs.expenseFilterForm, "period");
+        if (periodField) periodField.value = "custom";
       });
     }
 
@@ -12360,7 +12387,6 @@
       client: clientField.value,
       project: "",
     });
-    applyFiltersFromForm();
   });
 
   field(refs.expenseFilterForm, "client")?.addEventListener("change", function () {
@@ -12371,11 +12397,6 @@
       client: clientField?.value || "",
       project: "",
     });
-    applyExpenseFiltersFromForm();
-  });
-
-  field(refs.expenseFilterForm, "project")?.addEventListener("change", function () {
-    applyExpenseFiltersFromForm();
   });
 
   field(refs.expenseFilterForm, "user")?.addEventListener("change", function () {
@@ -12386,15 +12407,6 @@
       client: clientField?.value || "",
       project: field(refs.expenseFilterForm, "project")?.value || "",
     });
-    applyExpenseFiltersFromForm();
-  });
-
-  let expenseSearchDebounceId = null;
-  field(refs.expenseFilterForm, "search")?.addEventListener("input", function () {
-    window.clearTimeout(expenseSearchDebounceId);
-    expenseSearchDebounceId = window.setTimeout(function () {
-      applyExpenseFiltersFromForm({ showErrors: false });
-    }, 300);
   });
 
   refs.expenseFilterForm?.addEventListener("submit", function (event) {
@@ -12404,16 +12416,14 @@
 
   ["user", "project"].forEach(function (name) {
     field(refs.filterForm, name).addEventListener("change", function () {
-      applyFiltersFromForm();
+      if (name === "user") {
+        syncFilterCatalogsUI({
+          user: field(refs.filterForm, "user").value,
+          client: field(refs.filterForm, "client").value,
+          project: field(refs.filterForm, "project").value,
+        });
+      }
     });
-  });
-
-  let entrySearchDebounceId = null;
-  field(refs.filterForm, "search").addEventListener("input", function () {
-    window.clearTimeout(entrySearchDebounceId);
-    entrySearchDebounceId = window.setTimeout(function () {
-      applyFiltersFromForm({ showErrors: false });
-    }, 300);
   });
 
   refs.filterForm.addEventListener("submit", function (event) {
@@ -12421,15 +12431,25 @@
     applyFiltersFromForm();
   });
 
+  field(refs.filterForm, "period")?.addEventListener("change", function () {
+    applyEntriesPeriodPreset(refs.filterForm, refs.filterDateRange);
+  });
+
+  field(refs.expenseFilterForm, "period")?.addEventListener("change", function () {
+    applyEntriesPeriodPreset(refs.expenseFilterForm, refs.expenseFilterDateRange);
+  });
+
   if (refs.filterDateRange) {
     refs.filterDateRange.addEventListener("change", function () {
-      applyFiltersFromForm({ showErrors: false });
+      const periodField = field(refs.filterForm, "period");
+      if (periodField) periodField.value = "custom";
     });
   }
 
   if (refs.expenseFilterDateRange) {
     refs.expenseFilterDateRange.addEventListener("change", function () {
-      applyExpenseFiltersFromForm({ showErrors: false });
+      const periodField = field(refs.expenseFilterForm, "period");
+      if (periodField) periodField.value = "custom";
     });
   }
 
@@ -12476,7 +12496,10 @@
   refs.clearFilters.addEventListener("click", function () {
     refs.filterForm.reset();
     resetFilters();
+    state.entries = [];
+    recordRequestKeys.entries = "";
     syncFilterCatalogsUI(state.filters);
+    syncSharedEntriesFilterForms();
     render();
   });
 
@@ -12484,26 +12507,17 @@
 
   refs.expenseClearFilters?.addEventListener("click", function () {
     refs.expenseFilterForm?.reset();
-    syncExpenseFilterCatalogsUI({
-      user: "",
-      client: "",
-      project: "",
-    });
-    state.expenseFilters = {
-      user: "",
-      client: "",
-      project: "",
-      from: "",
-      to: "",
-      search: "",
-    };
+    resetFilters();
+    state.expenses = [];
+    recordRequestKeys.expenses = "";
     ["from", "to"].forEach(function (name) {
       const refsForKind = expenseFilterDateRefs(name);
       if (refsForKind.month) refsForKind.month.value = "";
       if (refsForKind.day) refsForKind.day.value = "";
       if (refsForKind.year) refsForKind.year.value = "";
     });
-    applyExpenseFiltersFromForm({ showErrors: false });
+    syncSharedEntriesFilterForms();
+    render();
   });
 
   refs.expenseExportCsv?.addEventListener("click", exportExpensesCsv);
@@ -15337,8 +15351,6 @@
     render();
     if (state.currentView === "inputs") {
       loadInputsRecords(state.inputSubtab === "expenses" ? "expenses" : "entries");
-    } else if (state.currentView === "entries") {
-      loadVisibleRecords(state.entriesSubtab === "expenses" ? "expenses" : "entries");
     }
   }
 
