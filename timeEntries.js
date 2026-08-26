@@ -109,7 +109,7 @@
     const chips = [];
     const totalHours = filteredEntries.reduce((sum, entry) => sum + entry.hours, 0);
     if (state.filters.user) {
-      chips.push(`User: ${state.filters.user}`);
+      chips.push(`Member: ${state.filters.user}`);
     }
     if (state.filters.client) {
       chips.push(`Client: ${state.filters.client}`);

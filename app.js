@@ -3641,6 +3641,10 @@
     return [];
   }
 
+  function availableUserRecords() {
+    return Array.isArray(state.users) ? state.users.filter(Boolean) : [];
+  }
+
   function persistCurrentView(view) {
     const normalized = `${view || ""}`.trim();
     if (!normalized) return;
@@ -5500,7 +5504,7 @@
       select.value = values.includes(current) ? current : "";
     };
 
-    writeOptions(refs.deletedFilterUser, users, "All users");
+    writeOptions(refs.deletedFilterUser, users, "All members");
     writeOptions(refs.deletedFilterClient, clients, "All clients");
     writeOptions(refs.deletedFilterProject, projects, "All projects");
   }
@@ -5509,7 +5513,7 @@
     if (!refs.deletedActiveFilters) return;
     const filters = normalizeDeletedFilterState(state.deletedFilters);
     const chips = [];
-    if (filters.user) chips.push(`User: ${filters.user}`);
+    if (filters.user) chips.push(`Member: ${filters.user}`);
     if (filters.client) chips.push(`Client: ${filters.client}`);
     if (filters.project) chips.push(`Project: ${filters.project}`);
     if (filters.from || filters.to) {
@@ -10946,7 +10950,7 @@
 
     const inputSubtab = state.inputSubtab === "expenses" ? "expenses" : "time";
     if (refs.inputsViewTitle) {
-      refs.inputsViewTitle.textContent = inputSubtab === "expenses" ? "Enter Expenses" : "Enter Time";
+      refs.inputsViewTitle.textContent = "Inputs";
     }
     if (refs.inputsTimeSummary) {
       refs.inputsTimeSummary.hidden = true;
@@ -10955,8 +10959,11 @@
       refs.inputsExpenseSummary.hidden = true;
     }
     if (refs.inputsSwitchAction) {
-      refs.inputsSwitchAction.textContent =
-        inputSubtab === "expenses" ? "Enter Time" : "Enter Expenses";
+      refs.inputsSwitchAction.querySelectorAll("[data-input-type]").forEach((button) => {
+        const selected = button.dataset.inputType === inputSubtab;
+        button.classList.toggle("is-selected", selected);
+        button.setAttribute("aria-pressed", selected ? "true" : "false");
+      });
     }
     if (refs.inputsPanelTime) {
       refs.inputsPanelTime.hidden = inputSubtab !== "time";
@@ -11773,7 +11780,7 @@
     }
 
     const rows = [
-      ["Date", "User", "Client", "Project", "Hours", "Notes"],
+      ["Date", "Member", "Client", "Project", "Hours", "Notes"],
       ...entries.map((entry) => [
         entry.date,
         entry.user,
@@ -11809,7 +11816,7 @@
     }
 
     const rows = [
-      ["Date", "User", "Client", "Project", "Category", "Amount", "Billable", "Notes", "Status"],
+      ["Date", "Member", "Client", "Project", "Category", "Amount", "Billable", "Notes", "Status"],
       ...expenses.map((expense) => [
         expense.expenseDate,
         userNameById(expense.userId),
@@ -11859,8 +11866,10 @@
     });
   }
   if (refs.inputsSwitchAction) {
-    refs.inputsSwitchAction.addEventListener("click", function () {
-      state.inputSubtab = state.inputSubtab === "expenses" ? "time" : "expenses";
+    refs.inputsSwitchAction.addEventListener("click", function (event) {
+      const button = event.target.closest("[data-input-type]");
+      if (!button) return;
+      state.inputSubtab = button.dataset.inputType === "expenses" ? "expenses" : "time";
       loadInputsRecords(state.inputSubtab === "expenses" ? "expenses" : "entries");
       render();
     });
@@ -15280,7 +15289,7 @@
     populateSelect,
     syncFilterCatalogs,
     isManager,
-    availableUsers,
+    availableUsers: availableUserRecords,
     expenseClientOptions: visibleExpenseClientOptions,
     defaultFilterUser,
     effectiveScopeUser,

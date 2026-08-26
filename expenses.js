@@ -272,7 +272,7 @@
     const chips = [];
     const totalAmount = filteredExpenses.reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
     if (state.expenseFilters.user) {
-      chips.push(`User: ${userNameById(state.expenseFilters.user) || state.expenseFilters.user}`);
+      chips.push(`Member: ${userNameById(state.expenseFilters.user) || state.expenseFilters.user}`);
     }
     if (state.expenseFilters.client) {
       chips.push(`Client: ${state.expenseFilters.client}`);

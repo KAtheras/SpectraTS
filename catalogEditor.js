@@ -598,10 +598,12 @@
           ...(typeof availableUsers === "function" ? availableUsers() : []).map((user) => user?.id).filter(Boolean),
           scopeUser?.id || "",
         ]
-      ).map((id) => ({
-        label: getUserById?.(id)?.displayName || id,
-        value: id,
-      }));
+      )
+        .map((id) => ({
+          label: getUserById?.(id)?.displayName || id,
+          value: id,
+        }))
+        .sort((a, b) => a.label.localeCompare(b.label));
       const userIds = users.map((item) => item.value);
       const nextSelectedUserBase = userIds.includes(selectedUserId) ? selectedUserId : "";
       const nextSelectedUser =
@@ -611,7 +613,7 @@
         refs.expenseFilterUser,
         users,
         nextSelectedUser,
-        "All users"
+        "All members"
       );
       selection = {
         ...(selection || {}),

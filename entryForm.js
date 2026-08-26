@@ -299,7 +299,7 @@
   }
 
   function defaultFilterUser(state, isStaff) {
-    return "";
+    return `${state?.currentUser?.displayName || ""}`.trim();
   }
 
   function syncFormCatalogs(deps, selection) {
@@ -505,7 +505,7 @@
         scopeUser?.displayName || "",
       ]
     );
-    const userOptions = entryUsers;
+    const userOptions = entryUsers.sort((a, b) => a.localeCompare(b));
     const defaultUser = defaultFilterUser(state, isStaff);
     const requestedUser = selection?.user ?? userField?.value ?? defaultUser;
     const nextUser =
@@ -561,7 +561,7 @@
     const nextProject =
       !nextProjectBase && allowedProjects.length === 1 ? allowedProjects[0] : nextProjectBase;
 
-    populateSelect(deps, userField, userOptions, "All users", nextUser);
+    populateSelect(deps, userField, userOptions, "All members", nextUser);
     populateSelect(deps, clientField, allowedClients, "All clients", nextClient);
     populateSelect(
       deps,

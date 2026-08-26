@@ -187,10 +187,11 @@
       <section class="page-view inputs-view" id="inputs-view" hidden aria-labelledby="inputs-view-title">
         <div class="input-shell">
         <div class="input-header">
-          <h2 id="inputs-view-title">Enter Time</h2>
-          <button class="button button-ghost input-switch-action" id="inputs-switch-action" type="button">
-            Enter Expenses
-          </button>
+          <h2 id="inputs-view-title" class="sr-only">Inputs</h2>
+          <div class="inputs-type-toggle" id="inputs-switch-action" role="group" aria-label="Input type">
+            <button type="button" data-input-type="time" aria-pressed="true">Enter Time</button>
+            <button type="button" data-input-type="expenses" aria-pressed="false">Enter Expenses</button>
+          </div>
         </div>
         <p id="inputs-feedback" class="feedback" aria-live="polite"></p>
 
@@ -360,7 +361,6 @@
                       Deleted
                     </button>
                   </div>
-                  <div class="filter-total" id="filter-total-hours">Total hours: 0.00</div>
                 </div>
 
                 <div class="panel-head-actions" id="entries-results-actions" hidden>
@@ -398,7 +398,7 @@
                     </select>
                   </label>
                   <label class="entries-filter-user">
-                    <span>User</span>
+                    <span>Member</span>
                     <select name="user" id="filter-user"></select>
                   </label>
                   <label class="entries-filter-client">
@@ -433,6 +433,7 @@
                       placeholder="Project or notes"
                     />
                   </label>
+                  <div class="filter-total entries-filter-total" id="filter-total-hours">Total hours: 0.00</div>
                   <button class="button entries-filter-apply" type="submit">Apply</button>
               </form>
 
@@ -452,7 +453,7 @@
                         />
                       </th>
                       <th>Date</th>
-                      <th>User</th>
+                      <th>Member</th>
                       <th>Client</th>
                       <th>Project</th>
                       <th>Hours</th>
@@ -485,7 +486,6 @@
                       Deleted
                     </button>
                   </div>
-                  <div class="filter-total" id="expense-filter-total">Total amount: $0.00</div>
                 </div>
                 <div class="panel-head-actions" id="expenses-results-actions" hidden>
                   <button class="button button-ghost" type="button" id="expense-clear-filters">
@@ -522,7 +522,7 @@
                   </select>
                 </label>
                 <label class="entries-filter-user">
-                  <span>User</span>
+                  <span>Member</span>
                   <select name="user" id="expense-filter-user"></select>
                 </label>
                 <label class="entries-filter-client">
@@ -557,6 +557,7 @@
                     placeholder="Project, category, or notes"
                   />
                 </label>
+                <div class="filter-total entries-filter-total" id="expense-filter-total">Total amount: $0.00</div>
                 <button class="button entries-filter-apply" type="submit">Apply</button>
               </form>
 
@@ -574,7 +575,7 @@
                         />
                       </th>
                       <th>Date</th>
-                      <th>User</th>
+                      <th>Member</th>
                       <th>Client</th>
                       <th>Project</th>
                       <th>Category</th>
@@ -654,7 +655,7 @@
                   </div>
                 </label>
                 <label class="entries-filter-user">
-                  <span>User</span>
+                  <span>Member</span>
                   <select name="user" id="deleted-filter-user"></select>
                 </label>
                 <label class="entries-filter-client">
@@ -693,7 +694,7 @@
                       </th>
                       <th>Type</th>
                       <th>Date</th>
-                      <th>User</th>
+                      <th>Member</th>
                       <th>Client</th>
                       <th>Project</th>
                       <th>Description</th>
