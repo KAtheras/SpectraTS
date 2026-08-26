@@ -1577,6 +1577,11 @@
       const serverRealization = realizationSnapshot?.filterKey === JSON.stringify(realizationFilters)
         ? realizationSnapshot.data
         : null;
+      if (!serverRealization && typeof options?.loadAnalyticsReport === "function") {
+        body.innerHTML = `${subTabsHtml}<div class="analytics-chart-empty">Loading realization analytics…</div>`;
+        bindAnalyticsSubTabEvents(body, uiState, options);
+        return;
+      }
       const realizationComputed = serverRealization ||
         (typeof engine.computeRealizationAnalytics === "function"
           ? engine.computeRealizationAnalytics({
@@ -1876,6 +1881,11 @@
       const serverUtilization = utilizationSnapshot?.filterKey === JSON.stringify(utilizationFilters)
         ? utilizationSnapshot.data
         : null;
+      if (!serverUtilization && typeof options?.loadAnalyticsReport === "function") {
+        body.innerHTML = `${subTabsHtml}<div class="analytics-chart-empty">Loading utilization analytics…</div>`;
+        bindAnalyticsSubTabEvents(body, uiState, options);
+        return;
+      }
       const utilization = serverUtilization || engine.computeUtilizationAnalytics({
         entries: utilizationData.entries,
         users: utilizationData.users,
@@ -2254,6 +2264,11 @@
     const serverComputed = serverSnapshot?.filterKey === JSON.stringify(profitabilityFilters)
       ? serverSnapshot.data
       : null;
+    if (!serverComputed && typeof options?.loadAnalyticsReport === "function") {
+      body.innerHTML = `${subTabsHtml}<div class="analytics-chart-empty">Loading profitability analytics…</div>`;
+      bindAnalyticsSubTabEvents(body, uiState, options);
+      return;
+    }
     const computed = serverComputed || engine.computeAnalytics({
       entries: profitabilityData.entries,
       expenses: profitabilityData.expenses,

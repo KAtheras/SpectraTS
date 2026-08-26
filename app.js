@@ -4660,6 +4660,7 @@
   window.loadVisibleRecords = loadVisibleRecords;
 
   const analyticsRequestControllers = {};
+  const analyticsRequestKeys = {};
   async function loadAnalyticsReport(report, filters = {}) {
     if (!state.currentUser || !window.api?.ANALYTICS_API_PATH) return;
     const reportKey = ["profitability", "utilization", "realization"].includes(report) ? report : "";
@@ -4678,9 +4679,11 @@
     const filterKey = JSON.stringify(filters);
     if (state.analyticsResults?.[reportKey]?.requestKey === requestKey) return;
     if (state.analyticsErrorKeys?.[reportKey] === requestKey) return;
+    if (analyticsRequestControllers[reportKey] && analyticsRequestKeys[reportKey] === requestKey) return;
     analyticsRequestControllers[reportKey]?.abort();
     const controller = new AbortController();
     analyticsRequestControllers[reportKey] = controller;
+    analyticsRequestKeys[reportKey] = requestKey;
     state.analyticsLoading[reportKey] = true;
     state.analyticsErrors[reportKey] = "";
     state.analyticsErrorKeys[reportKey] = "";
@@ -4699,6 +4702,7 @@
       if (analyticsRequestControllers[reportKey] === controller) {
         state.analyticsLoading[reportKey] = false;
         analyticsRequestControllers[reportKey] = null;
+        analyticsRequestKeys[reportKey] = "";
         if (state.currentView === "analytics") render();
       }
     }
