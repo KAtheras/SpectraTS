@@ -504,6 +504,12 @@
     entriesUndoAction: document.getElementById("entries-undo-action"),
     entriesBody: document.getElementById("entries-body"),
     expensesBody: document.getElementById("expenses-body"),
+    entriesPageControls: document.getElementById("entries-page-controls"),
+    entriesPageStatus: document.getElementById("entries-page-status"),
+    entriesLoadMore: document.getElementById("entries-load-more"),
+    expensesPageControls: document.getElementById("expenses-page-controls"),
+    expensesPageStatus: document.getElementById("expenses-page-status"),
+    expensesLoadMore: document.getElementById("expenses-load-more"),
     clientList: document.getElementById("client-list"),
     clientEditor: document.getElementById("client-editor"),
     projectList: document.getElementById("project-list"),
@@ -3401,6 +3407,9 @@
     clients: [],
     entries: [],
     expenses: [],
+    recordPages: { entries: null, expenses: null },
+    recordsLoading: { entries: false, expenses: false },
+    recordsErrors: { entries: "", expenses: "" },
     filters: {
       user: "",
       client: "",
@@ -4083,10 +4092,12 @@
     state.clients = Array.isArray(data?.clients)
       ? data.clients.map(normalizeClient).filter(Boolean)
       : [];
-    state.entries = Array.isArray(data?.entries) ? data.entries.map(normalizeEntry).filter(Boolean) : [];
-    state.expenses = Array.isArray(data?.expenses)
-      ? data.expenses.map(normalizeExpense).filter(Boolean)
-      : [];
+    if (Array.isArray(data?.entries)) {
+      state.entries = data.entries.map(normalizeEntry).filter(Boolean);
+    }
+    if (Array.isArray(data?.expenses)) {
+      state.expenses = data.expenses.map(normalizeExpense).filter(Boolean);
+    }
     if (Object.prototype.hasOwnProperty.call(data || {}, "utilizationScope")) {
       state.utilizationScope =
         data?.utilizationScope && typeof data.utilizationScope === "object"
@@ -4552,6 +4563,89 @@
       throw error;
     }
   }
+
+  const recordRequestControllers = { entries: null, expenses: null };
+  const recordRequestKeys = { entries: "", expenses: "" };
+
+  async function loadVisibleRecords(type, options = {}) {
+    if (!state.currentUser || !window.api?.RECORDS_API_PATH) return;
+    const recordType = type === "expenses" ? "expenses" : "entries";
+    const filters = recordType === "expenses" ? state.expenseFilters : state.filters;
+    const currentYear = new Date().getFullYear();
+    const from = filters?.from || `${currentYear}-01-01`;
+    const to = filters?.to || today;
+    const append = Boolean(options.append);
+    const cursor = append ? state.recordPages?.[recordType]?.nextCursor : "";
+    if (append && !cursor) return;
+    const params = new URLSearchParams({ type: recordType, from, to, limit: "250" });
+    ["user", "client", "project", "search"].forEach((key) => {
+      const value = String(filters?.[key] || "").trim();
+      if (value) params.set(key, value);
+    });
+    const baseRequestKey = params.toString();
+    if (!append && recordRequestKeys[recordType] === baseRequestKey) return;
+    if (cursor) params.set("cursor", cursor);
+    const requestKey = params.toString();
+    recordRequestControllers[recordType]?.abort();
+    const controller = new AbortController();
+    recordRequestControllers[recordType] = controller;
+    state.recordsLoading[recordType] = true;
+    state.recordsErrors[recordType] = "";
+    if (!append && !state[recordType].length && (state.currentView === "entries" || state.currentView === "inputs")) render();
+    try {
+      const payload = await requestJson(`${window.api.RECORDS_API_PATH}?${requestKey}`, {
+        method: "GET",
+        signal: controller.signal,
+      });
+      const normalized = (Array.isArray(payload?.items) ? payload.items : [])
+        .map(recordType === "expenses" ? normalizeExpense : normalizeEntry)
+        .filter(Boolean);
+      const existing = append ? state[recordType] : [];
+      const byId = new Map(existing.map((item) => [item.id, item]));
+      normalized.forEach((item) => byId.set(item.id, item));
+      state[recordType] = Array.from(byId.values());
+      state.recordPages[recordType] = payload?.page || null;
+      recordRequestKeys[recordType] = baseRequestKey;
+      if (state.currentView === "entries" || state.currentView === "inputs") {
+        const renderStartedAt = performance.now();
+        render();
+        const metrics = window.__timesheetPerformance?.at(-1);
+        if (metrics?.path?.endsWith("/records")) {
+          metrics.renderMs = Number((performance.now() - renderStartedAt).toFixed(1));
+          metrics.rowCount = normalized.length;
+        }
+      }
+    } catch (error) {
+      if (error?.name !== "AbortError") {
+        state.recordsErrors[recordType] = error.message || `Unable to load ${recordType}.`;
+        feedback(state.recordsErrors[recordType], true);
+      }
+    } finally {
+      if (recordRequestControllers[recordType] === controller) {
+        state.recordsLoading[recordType] = false;
+        recordRequestControllers[recordType] = null;
+        if (state.currentView === "entries" || state.currentView === "inputs") render();
+      }
+    }
+  }
+
+  function syncRecordPageControls(type) {
+    const recordType = type === "expenses" ? "expenses" : "entries";
+    const controls = recordType === "expenses" ? refs.expensesPageControls : refs.entriesPageControls;
+    const status = recordType === "expenses" ? refs.expensesPageStatus : refs.entriesPageStatus;
+    const button = recordType === "expenses" ? refs.expensesLoadMore : refs.entriesLoadMore;
+    if (!controls || !status || !button) return;
+    const page = state.recordPages?.[recordType];
+    const loading = Boolean(state.recordsLoading?.[recordType]);
+    const count = state[recordType]?.length || 0;
+    controls.hidden = !loading && !page;
+    status.textContent = loading ? `Loading ${recordType}…` : `${count} ${recordType} loaded`;
+    button.hidden = !page?.hasMore;
+    button.disabled = loading;
+    button.textContent = loading ? "Loading…" : "Load more";
+  }
+
+  window.loadVisibleRecords = loadVisibleRecords;
 
   async function loadSettingsMetadata(force = false, options = {}) {
     if (!state.currentUser) return;
@@ -5639,6 +5733,11 @@
     }
     state.currentView = view;
     persistCurrentView(view);
+    if (view === "entries") {
+      loadVisibleRecords(state.entriesSubtab === "expenses" ? "expenses" : "entries");
+    } else if (view === "inputs") {
+      loadVisibleRecords(state.inputSubtab === "expenses" ? "expenses" : "entries");
+    }
     if ((view === "settings" || view === "members") && previousView !== view && !state.settingsMetadataLoaded) {
       loadSettingsMetadata(true, { deferRender: true });
       return;
@@ -10825,6 +10924,7 @@
         const filteredExpenses = currentExpenses();
         syncExpenseSelectionControls(filteredExpenses);
         renderExpenses(filteredExpenses);
+        syncRecordPageControls("expenses");
         syncExpenseSelectionControls(filteredExpenses);
         renderExpenseFilterState(filteredExpenses);
         syncEntriesUndoUi();
@@ -10866,6 +10966,7 @@
         syncEntriesSelectionControls(filteredEntries);
         renderFilterState(filteredEntries);
         renderTable(filteredEntries);
+        syncRecordPageControls("entries");
         syncEntriesSelectionControls(filteredEntries);
         syncEntriesUndoUi();
       }
@@ -10916,6 +11017,7 @@
     toField.value = formatDisplayDate(state.filters.to);
     syncEntriesDateRangeField(refs.filterDateRange, state.filters.from, state.filters.to);
     feedback("", false);
+    loadVisibleRecords(state.entriesSubtab === "expenses" ? "expenses" : "entries");
     render();
     return true;
   }
@@ -11521,6 +11623,7 @@
   if (refs.inputsSwitchAction) {
     refs.inputsSwitchAction.addEventListener("click", function () {
       state.inputSubtab = state.inputSubtab === "expenses" ? "time" : "expenses";
+      loadVisibleRecords(state.inputSubtab === "expenses" ? "expenses" : "entries");
       render();
     });
   }
@@ -11737,6 +11840,7 @@
         setExpensesSelectionMode(false);
       }
       state.entriesSubtab = "time";
+      loadVisibleRecords("entries");
       render();
     });
   }
@@ -11787,9 +11891,16 @@
         setEntriesSelectionMode(false);
       }
       state.entriesSubtab = "expenses";
+      loadVisibleRecords("expenses");
       render();
     });
   }
+  refs.entriesLoadMore?.addEventListener("click", function () {
+    loadVisibleRecords("entries", { append: true });
+  });
+  refs.expensesLoadMore?.addEventListener("click", function () {
+    loadVisibleRecords("expenses", { append: true });
+  });
   if (refs.entriesSelectToggle) {
     refs.entriesSelectToggle.addEventListener("click", function () {
       if (state.entriesSubtab !== "time") return;
@@ -12157,8 +12268,12 @@
     applyExpenseFiltersFromForm();
   });
 
+  let expenseSearchDebounceId = null;
   field(refs.expenseFilterForm, "search")?.addEventListener("input", function () {
-    applyExpenseFiltersFromForm({ showErrors: false });
+    window.clearTimeout(expenseSearchDebounceId);
+    expenseSearchDebounceId = window.setTimeout(function () {
+      applyExpenseFiltersFromForm({ showErrors: false });
+    }, 300);
   });
 
   refs.expenseFilterForm?.addEventListener("submit", function (event) {
@@ -12172,8 +12287,12 @@
     });
   });
 
+  let entrySearchDebounceId = null;
   field(refs.filterForm, "search").addEventListener("input", function () {
-    applyFiltersFromForm({ showErrors: false });
+    window.clearTimeout(entrySearchDebounceId);
+    entrySearchDebounceId = window.setTimeout(function () {
+      applyFiltersFromForm({ showErrors: false });
+    }, 300);
   });
 
   refs.filterForm.addEventListener("submit", function (event) {

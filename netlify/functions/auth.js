@@ -52,7 +52,7 @@ exports.handler = async function handler(event) {
         });
       }
 
-      let state = await loadState(sql, context.currentUser);
+      let state = await loadState(sql, context.currentUser, { includeRecords: false });
       state = ensureCurrentUserRole(state, context.currentUser);
       return json(200, {
         ...state,
@@ -88,7 +88,7 @@ exports.handler = async function handler(event) {
         costRate: user.costRate ?? user.cost_rate ?? null,
         mustChangePassword: user.mustChangePassword ?? user.must_change_password ?? false,
         accountId,
-      });
+      }, { includeRecords: false });
       state = ensureCurrentUserRole(state, {
         id: user.id,
         role: user.role,
@@ -163,7 +163,7 @@ exports.handler = async function handler(event) {
         costRate: user.cost_rate ?? null,
         mustChangePassword: user.must_change_password ?? false,
         accountId: user.account_id,
-      });
+      }, { includeRecords: false });
       state = ensureCurrentUserRole(state, {
         id: user.id,
         role: user.role,

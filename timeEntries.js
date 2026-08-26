@@ -217,12 +217,14 @@
       refs.entriesBody.dataset.rangeMax = dates[dates.length - 1] || "";
     }
     if (!filteredEntries.length) {
+      const loading = Boolean(state.recordsLoading?.entries);
+      const error = String(state.recordsErrors?.entries || "");
       refs.entriesBody.innerHTML = `
         <tr>
           <td colspan="${isSelectionMode ? 10 : 9}" class="empty-row">
             <div class="empty-state-panel">
-              <strong>No entries match the current filters.</strong>
-              <span>Clear the filters or add a new entry to get started.</span>
+              <strong>${loading ? "Loading entries…" : error ? "Entries could not be loaded." : "No entries match the current filters."}</strong>
+              <span>${loading ? "Fetching the first page." : error ? escapeHtml(error) : "Clear the filters or add a new entry to get started."}</span>
             </div>
           </td>
         </tr>

@@ -1090,6 +1090,8 @@ async function ensureSchema(sql) {
   await sql`ALTER TABLE entries ADD COLUMN IF NOT EXISTS charge_center_id TEXT REFERENCES corporate_function_categories(id) ON DELETE SET NULL`;
   await sql`CREATE INDEX IF NOT EXISTS entries_account_user_idx ON entries(account_id, user_id)`;
   await sql`CREATE INDEX IF NOT EXISTS entries_account_project_idx ON entries(account_id, project_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS entries_account_date_cursor_idx ON entries(account_id, entry_date DESC, created_at DESC, id DESC) WHERE deleted_at IS NULL`;
+  await sql`CREATE INDEX IF NOT EXISTS entries_account_user_date_idx ON entries(account_id, user_id, entry_date DESC) WHERE deleted_at IS NULL`;
   await sql`CREATE INDEX IF NOT EXISTS entries_account_charge_center_idx ON entries(account_id, charge_center_id)`;
   await sql`
     UPDATE entries
@@ -1237,6 +1239,8 @@ async function ensureSchema(sql) {
   `;
   await sql`ALTER TABLE expenses ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`;
   await sql`ALTER TABLE expenses ADD COLUMN IF NOT EXISTS deleted_by_user_id TEXT REFERENCES users(id)`;
+  await sql`CREATE INDEX IF NOT EXISTS expenses_account_date_cursor_idx ON expenses(account_id, expense_date DESC, created_at DESC, id DESC) WHERE deleted_at IS NULL`;
+  await sql`CREATE INDEX IF NOT EXISTS expenses_account_user_date_idx ON expenses(account_id, user_id, expense_date DESC) WHERE deleted_at IS NULL`;
   await sql`
     CREATE INDEX IF NOT EXISTS expense_categories_account_idx
       ON expense_categories(account_uuid)
@@ -4513,7 +4517,10 @@ async function loadSettingsMetadata(sql, currentUser) {
   };
 }
 
-async function loadState(sql, currentUser) {
+async function loadState(sql, currentUser, options = {}) {
+  // Historical rows are intentionally optional. Bootstrap callers should use
+  // includeRecords: false and fetch bounded date ranges from dedicated APIs.
+  const includeRecords = options.includeRecords !== false;
   const normalizedUser = currentUser
     ? {
         ...currentUser,
@@ -5064,7 +5071,7 @@ async function loadState(sql, currentUser) {
   };
 
   let entries = [];
-  if (canViewAllEntries || canViewOfficeEntries || hasAssignedProjectEntryVisibility) {
+  if (includeRecords && (canViewAllEntries || canViewOfficeEntries || hasAssignedProjectEntryVisibility)) {
     entries = await sql`
       SELECT
         entries.id,
@@ -5120,7 +5127,7 @@ async function loadState(sql, currentUser) {
     }
   }
 
-  if (delegatorUserIds.length) {
+  if (includeRecords && delegatorUserIds.length) {
     const delegatorRowsById = new Map(
       allUsers.map((item) => [`${item?.id || ""}`.trim(), item])
     );
@@ -5360,7 +5367,7 @@ async function loadState(sql, currentUser) {
   if (!canViewInternalRecords) {
     entries = entries.filter((entry) => !isInternalEntryRecord(entry) || isOwnEntryRecord(entry));
   }
-  if (normalizedUser) {
+  if (includeRecords && normalizedUser) {
     const ownEntries = await sql`
       SELECT
         entries.id,
@@ -5429,7 +5436,7 @@ async function loadState(sql, currentUser) {
   }
 
   let utilizationEntries = [];
-  if (utilizationUserIds.length && !canViewAllEntries) {
+  if (includeRecords && utilizationUserIds.length && !canViewAllEntries) {
     const scopedEntries = await sql`
       SELECT
         entries.id,
@@ -5496,7 +5503,7 @@ async function loadState(sql, currentUser) {
   }
 
   let expenses = [];
-  if (canViewAllEntries || canViewOfficeEntries || hasAssignedProjectEntryVisibility) {
+  if (includeRecords && (canViewAllEntries || canViewOfficeEntries || hasAssignedProjectEntryVisibility)) {
     expenses = await sql`
       SELECT
         id,
@@ -5524,7 +5531,7 @@ async function loadState(sql, currentUser) {
     }
   }
 
-  if (delegatorUserIds.length) {
+  if (includeRecords && delegatorUserIds.length) {
     const delegatorRowsById = new Map(
       allUsers.map((item) => [`${item?.id || ""}`.trim(), item])
     );
@@ -5661,7 +5668,7 @@ async function loadState(sql, currentUser) {
   if (!canViewInternalRecords) {
     expenses = expenses.filter((expense) => !isInternalExpenseRecord(expense) || isOwnExpenseRecord(expense));
   }
-  if (normalizedUser) {
+  if (includeRecords && normalizedUser) {
     const ownExpenses = await sql`
       SELECT
         id,
@@ -5939,11 +5946,9 @@ async function loadState(sql, currentUser) {
     officeLocations,
     clients,
     catalog,
-    entries,
-    utilizationEntries,
+    ...(includeRecords ? { entries, utilizationEntries, expenses } : {}),
     utilizationUsers,
     utilizationScope,
-    expenses,
     projects,
     corporateFunctionGroups,
     expenseCategories,

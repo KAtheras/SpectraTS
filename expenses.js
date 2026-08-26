@@ -338,6 +338,7 @@
       search: searchField?.value || "",
     };
 
+    window.loadVisibleRecords?.("expenses");
     const filtered = currentExpenses();
     renderExpenses(filtered);
     renderExpenseFilterState(filtered);
@@ -413,12 +414,14 @@
     renderExpenseFilterState(expenses);
 
     if (!expenses.length) {
+      const loading = Boolean(state.recordsLoading?.expenses);
+      const error = String(state.recordsErrors?.expenses || "");
       refs.expensesBody.innerHTML = `
         <tr>
           <td colspan="${isSelectionMode ? 11 : 10}" class="empty-row">
             <div class="empty-state-panel">
-              <strong>No expenses yet.</strong>
-              <span>Add an expense to get started.</span>
+              <strong>${loading ? "Loading expenses…" : error ? "Expenses could not be loaded." : "No expenses match the current filters."}</strong>
+              <span>${loading ? "Fetching the first page." : error ? escapeHtml(error) : "Clear the filters or add an expense to get started."}</span>
             </div>
           </td>
         </tr>

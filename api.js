@@ -5,6 +5,7 @@
   const AUTH_API_PATH = isLocalHost ? "/api/auth" : "/.netlify/functions/auth";
   const STATE_API_PATH = isLocalHost ? "/api/state" : "/.netlify/functions/state";
   const MUTATE_API_PATH = isLocalHost ? "/api/mutate" : "/.netlify/functions/mutate";
+  const RECORDS_API_PATH = isLocalHost ? "/api/records" : "/.netlify/functions/records";
 
   function loadSessionToken() {
     const key = "timesheet-studio.session-token.v1";
@@ -48,6 +49,7 @@
     const sessionToken = settings.sessionToken || loadSessionToken();
     const targetUrl = new URL(url, window.location.origin);
 
+    const startedAt = performance.now();
     const response = await fetch(targetUrl.toString(), {
       method: settings.method || "GET",
       credentials: "same-origin",
@@ -58,10 +60,28 @@
         ...(settings.headers || {}),
       },
       body: settings.body,
+      signal: settings.signal,
     });
 
+    const responseAt = performance.now();
     const text = await response.text();
+    const parseStartedAt = performance.now();
     const payload = text ? JSON.parse(text) : {};
+    const completedAt = performance.now();
+    const metrics = {
+      path: targetUrl.pathname,
+      status: response.status,
+      responseBytes: new Blob([text]).size,
+      networkMs: Number((responseAt - startedAt).toFixed(1)),
+      parseMs: Number((completedAt - parseStartedAt).toFixed(1)),
+      totalMs: Number((completedAt - startedAt).toFixed(1)),
+      serverTiming: response.headers.get("server-timing") || "",
+      measuredAt: new Date().toISOString(),
+    };
+    window.__timesheetPerformance = window.__timesheetPerformance || [];
+    window.__timesheetPerformance.push(metrics);
+    if (window.__timesheetPerformance.length > 50) window.__timesheetPerformance.shift();
+    settings.onMetrics?.(metrics);
 
     if (!response.ok) {
       const error = new Error(payload?.error || "Request failed.");
@@ -89,6 +109,7 @@
     AUTH_API_PATH,
     STATE_API_PATH,
     MUTATE_API_PATH,
+    RECORDS_API_PATH,
     loadSessionToken,
     saveSessionToken,
     requestJson,

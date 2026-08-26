@@ -18,6 +18,11 @@
   status = 200
 
 [[redirects]]
+  from = "/api/records"
+  to = "/.netlify/functions/records"
+  status = 200
+
+[[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200

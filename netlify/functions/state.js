@@ -18,6 +18,7 @@ exports.handler = async function handler(event) {
   }
 
   try {
+    const startedAt = Date.now();
     const sql = await getSql();
     const context = await getSessionContext(sql, event);
     const authError = requireAuth(context);
@@ -32,7 +33,7 @@ exports.handler = async function handler(event) {
       const settingsMeta = await loadSettingsMetadata(sql, context.currentUser);
       return json(200, settingsMeta);
     }
-    const state = await loadState(sql, context.currentUser);
+    const state = await loadState(sql, context.currentUser, { includeRecords: false });
     state.projectExpenseCategories = await listProjectExpenseCategories(
       sql,
       state?.account?.id || null
@@ -274,10 +275,18 @@ exports.handler = async function handler(event) {
       visibleClientIds: Array.isArray(state?.visibleClientIds) ? state.visibleClientIds : [],
       visibleProjectIds: Array.isArray(state?.visibleProjectIds) ? state.visibleProjectIds : [],
       projectMemberBudgets: Array.isArray(projectMemberBudgets) ? projectMemberBudgets : [],
+      summaryCounts: {
+        clients: Array.isArray(state.clients) ? state.clients.length : 0,
+        projects: Array.isArray(state.projects) ? state.projects.length : 0,
+        members: Array.isArray(state.users) ? state.users.length : 0,
+        unreadInbox: Array.isArray(state.inboxItems)
+          ? state.inboxItems.filter((item) => !item?.isRead).length
+          : 0,
+      },
       permissions,
       permissionRoles,
       rolePermissions: canManageSettingsAccess ? permissionRows : [],
-    });
+    }, { "Server-Timing": `app;dur=${Date.now() - startedAt}` });
   } catch (error) {
     return errorResponse(500, error.message || "Unable to load database state.");
   }

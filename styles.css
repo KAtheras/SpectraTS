@@ -4331,6 +4331,20 @@ body[data-theme="dark"] .audit-detail-col {
   border-color: color-mix(in srgb, var(--danger) 28%, var(--line));
 }
 
+.records-page-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 14px 16px 4px;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.records-page-controls[hidden] {
+  display: none;
+}
+
 .entries-view .entries-billable-toggle {
   width: 42px;
   height: 24px;

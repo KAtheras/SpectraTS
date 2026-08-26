@@ -6200,7 +6200,7 @@ exports.handler = async function handler(event) {
           `;
         }
 
-        mutationResult = await loadState(sql, context.currentUser);
+        mutationResult = await loadState(sql, context.currentUser, { includeRecords: false });
         const afterSnapshot = {
           permissions: await snapshotRolePermissions(sql, accountId),
         };
@@ -6539,7 +6539,7 @@ exports.handler = async function handler(event) {
           return errorResponse(403, "Access denied.");
         }
         if (!baseRateChanged && !costRateChanged) {
-          mutationResult = await loadState(sql, context.currentUser);
+          mutationResult = await loadState(sql, context.currentUser, { includeRecords: false });
           break;
         }
         const now = new Date().toISOString();
@@ -6553,7 +6553,7 @@ exports.handler = async function handler(event) {
         if (!result[0]) {
           return errorResponse(404, "User not found.");
         }
-        mutationResult = await loadState(sql, context.currentUser);
+        mutationResult = await loadState(sql, context.currentUser, { includeRecords: false });
         break;
       }
       case "save_entry":
@@ -7439,7 +7439,7 @@ exports.handler = async function handler(event) {
       return json(200, { ok: true });
     }
 
-    const state = await loadState(sql, context.currentUser);
+    const state = await loadState(sql, context.currentUser, { includeRecords: false });
     const freshPermissionRows = await permissions.loadPermissionsFromDb(sql);
     const freshPermissionIndex = permissions.buildIndex({ permissions: freshPermissionRows });
     const { permissions: permissionsPayload, canManageSettingsAccess } =
