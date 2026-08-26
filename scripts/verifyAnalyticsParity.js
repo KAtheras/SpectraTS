@@ -59,10 +59,13 @@ async function main() {
     levelLabels: full.levelLabels,
     filters: utilizationFilters,
   });
+  const utilizationShellStartedAt = Date.now();
+  const utilizationShell = await db.loadUtilizationAnalyticsShell(sql, users[0]);
+  const utilizationShellMs = Date.now() - utilizationShellStartedAt;
   const utilizationStartedAt = Date.now();
   const serverUtilization = await utilization.buildUtilizationResult(sql, {
     accountId: full.account.id,
-    shell: full,
+    shell: utilizationShell,
     filters: { from, to, period: "this_month", groupBy: "member", officeId: "", departmentId: "" },
   });
   const utilizationMs = Date.now() - utilizationStartedAt;
@@ -115,6 +118,7 @@ async function main() {
       utilizationEntries: full.utilizationEntries,
     }),
     utilization: {
+      shellMs: utilizationShellMs,
       queryMs: utilizationMs,
       legacyBytes: bytes(legacyUtilization),
       serverBytes: bytes(serverUtilization),
@@ -151,6 +155,7 @@ async function main() {
     ...Object.values(report.realization.kpiDiffs),
   ];
   const exceedsPerformanceBudget =
+    report.utilization.shellMs > 2000 ||
     report.utilization.queryMs > 2000 ||
     report.realization.queryMs > 2000 ||
     report.utilization.serverBytes > 250000 ||

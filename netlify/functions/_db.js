@@ -2131,6 +2131,28 @@ function userMatchesUtilizationScope(user, scope) {
   return Boolean(scope?.userId && scope.userId === userId);
 }
 
+async function loadUtilizationAnalyticsShell(sql, currentUser) {
+  const accountId = normalizeText(currentUser?.accountId || currentUser?.account_id);
+  if (!accountId) throw new Error("Account context is required.");
+  const [levelLabels, allUsers, departmentLeadAssignments, officeLocations, departments] = await Promise.all([
+    listLevelLabels(sql, accountId),
+    listUsers(sql, accountId, { includeInactive: true }),
+    listDepartmentLeadAssignments(sql, accountId),
+    listOfficeLocations(sql, accountId),
+    listDepartments(sql, accountId),
+  ]);
+  const utilizationScope = resolveUtilizationScopeForUser(currentUser, levelLabels, departmentLeadAssignments);
+  const utilizationUsers = allUsers.filter((user) => userMatchesUtilizationScope(user, utilizationScope));
+  return {
+    account: { id: accountId },
+    levelLabels,
+    officeLocations,
+    departments,
+    utilizationScope,
+    utilizationUsers,
+  };
+}
+
 function randomId() {
   return crypto.randomUUID();
 }
@@ -6140,6 +6162,7 @@ module.exports = {
   listNotificationRules,
   listLevelLabels,
   listUsers,
+  loadUtilizationAnalyticsShell,
   loadState,
   loadSettingsMetadata,
   listAuditLogs,

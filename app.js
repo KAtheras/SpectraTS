@@ -4687,6 +4687,11 @@
     state.analyticsLoading[reportKey] = true;
     state.analyticsErrors[reportKey] = "";
     state.analyticsErrorKeys[reportKey] = "";
+    let requestTimedOut = false;
+    const timeoutId = window.setTimeout(() => {
+      requestTimedOut = true;
+      controller.abort();
+    }, 20000);
     try {
       const payload = await requestJson(`${window.api.ANALYTICS_API_PATH}?${requestKey}`, {
         method: "GET",
@@ -4694,11 +4699,15 @@
       });
       state.analyticsResults[reportKey] = { requestKey, filterKey, data: payload?.data || null };
     } catch (error) {
-      if (error?.name !== "AbortError") {
+      if (requestTimedOut) {
+        state.analyticsErrors[reportKey] = "Analytics took too long to load. Refresh the page to retry.";
+        state.analyticsErrorKeys[reportKey] = requestKey;
+      } else if (error?.name !== "AbortError") {
         state.analyticsErrors[reportKey] = error.message || "Unable to load analytics.";
         state.analyticsErrorKeys[reportKey] = requestKey;
       }
     } finally {
+      window.clearTimeout(timeoutId);
       if (analyticsRequestControllers[reportKey] === controller) {
         state.analyticsLoading[reportKey] = false;
         analyticsRequestControllers[reportKey] = null;

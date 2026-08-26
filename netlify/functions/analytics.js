@@ -5,6 +5,7 @@ const {
   getSessionContext,
   getSql,
   json,
+  loadUtilizationAnalyticsShell,
   loadState,
   requireAuth,
 } = require("./_db");
@@ -67,15 +68,17 @@ exports.handler = async function handler(event) {
       return errorResponse(403, "Access denied.");
     }
 
-    const shell = await loadState(sql, context.currentUser, { includeRecords: false });
-    const accountId = shell.account.id;
     if (filters.report === "utilization") {
+      const shell = await loadUtilizationAnalyticsShell(sql, context.currentUser);
+      const accountId = shell.account.id;
       const data = await buildUtilizationResult(sql, { accountId, filters, shell });
       return json(200, { report: filters.report, filters, data }, {
         "Server-Timing": `app;dur=${Date.now() - startedAt}`,
         "X-Result-Count": String(data.rows.length),
       });
     }
+    const shell = await loadState(sql, context.currentUser, { includeRecords: false });
+    const accountId = shell.account.id;
     if (filters.report === "realization") {
       const data = await buildRealizationResult(sql, {
         accountId,
