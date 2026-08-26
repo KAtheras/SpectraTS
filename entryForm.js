@@ -475,6 +475,7 @@
       formatDisplayDate,
       syncFilterDatePicker,
       currentEntries,
+      escapeHtml,
     } = deps;
     const userField = field(refs.filterForm, "user");
     const clientField = field(refs.filterForm, "client");
@@ -561,7 +562,22 @@
     const nextProject =
       !nextProjectBase && allowedProjects.length === 1 ? allowedProjects[0] : nextProjectBase;
 
-    populateSelect(deps, userField, userOptions, "All members", nextUser);
+    if (userField) {
+      const currentMemberName = `${scopeUser?.displayName || ""}`.trim();
+      const scopedMemberNames = userOptions.filter((name) => name !== currentMemberName);
+      userField.innerHTML = [
+        currentMemberName
+          ? `<option value="${escapeHtml(currentMemberName)}">${escapeHtml(currentMemberName)}</option>`
+          : "",
+        '<option value="">All members</option>',
+        scopedMemberNames.length
+          ? `<optgroup label="Members in scope">${scopedMemberNames
+              .map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`)
+              .join("")}</optgroup>`
+          : "",
+      ].join("");
+      userField.value = nextUser;
+    }
     populateSelect(deps, clientField, allowedClients, "All clients", nextClient);
     populateSelect(
       deps,

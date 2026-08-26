@@ -604,17 +604,35 @@
           value: id,
         }))
         .sort((a, b) => a.label.localeCompare(b.label));
+      const currentMemberId = String(scopeUser?.id || "").trim();
+      if (currentMemberId && !users.some((item) => item.value === currentMemberId)) {
+        users.unshift({
+          label: scopeUser?.displayName || currentMemberId,
+          value: currentMemberId,
+        });
+      }
       const userIds = users.map((item) => item.value);
       const nextSelectedUserBase = userIds.includes(selectedUserId) ? selectedUserId : "";
       const nextSelectedUser =
         !nextSelectedUserBase && users.length === 1 ? users[0].value : nextSelectedUserBase;
-      setSelectOptionsWithPlaceholder(
-        { escapeHtml },
-        refs.expenseFilterUser,
-        users,
-        nextSelectedUser,
-        "All members"
-      );
+      const scopedMembers = users.filter((item) => item.value !== currentMemberId);
+      refs.expenseFilterUser.innerHTML = [
+        currentMemberId
+          ? `<option value="${escapeHtml(currentMemberId)}">${escapeHtml(
+              scopeUser?.displayName || currentMemberId
+            )}</option>`
+          : "",
+        '<option value="">All members</option>',
+        scopedMembers.length
+          ? `<optgroup label="Members in scope">${scopedMembers
+              .map(
+                (item) =>
+                  `<option value="${escapeHtml(item.value)}">${escapeHtml(item.label)}</option>`
+              )
+              .join("")}</optgroup>`
+          : "",
+      ].join("");
+      refs.expenseFilterUser.value = nextSelectedUser;
       selection = {
         ...(selection || {}),
         user: nextSelectedUser,
