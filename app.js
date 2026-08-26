@@ -6915,7 +6915,7 @@
       const total = dayEntries.reduce((sum, entry) => sum + Number(entry?.hours || 0), 0);
       const ratio = Math.max(0, Math.min(1, total / 8));
       const hue = Math.round(ratio * 125);
-      const light = Math.round(93 - ratio * 11);
+      const light = Math.round(88 - ratio * 10);
       const selected = selectedIso === iso;
       cells.push(`<button type="button" class="inputs-month-day${selected ? " is-selected" : ""}" data-inputs-month-day="${escapeHtml(iso)}" style="--heat-hue:${hue};--heat-light:${light}%" aria-label="${escapeHtml(
         `${weekdayNames[cellIndex % 7]} ${dayNumber}, ${formatSummaryHours(total)}`
@@ -6953,7 +6953,10 @@
     refs.inputsTimeMonthDetails.innerHTML = `
       <header class="inputs-month-details-head">
         <div><span>Selected day</span><strong>${escapeHtml(selectedDate.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", timeZone: "UTC" }))}</strong></div>
-        <strong>${escapeHtml(formatSummaryHours(selectedTotal))}</strong>
+        <div class="inputs-month-details-head-actions">
+          <strong>${escapeHtml(formatSummaryHours(selectedTotal))}</strong>
+          <button type="button" class="button" data-inputs-month-enter-time="${escapeHtml(selectedIso)}">Enter Time</button>
+        </div>
       </header>
       <div class="inputs-month-details-body">${detailsHtml || '<div class="inputs-month-empty">No hours entered for this day.</div>'}</div>
     `;
@@ -12008,6 +12011,28 @@
       state.inputsTimeSelectedDate = `${dayButton.dataset.inputsMonthDay || ""}`.trim();
       renderInputsTimeMonthExperiment();
       postHeight();
+      return;
+    }
+    const enterTimeButton = event.target.closest("[data-inputs-month-enter-time]");
+    if (enterTimeButton) {
+      const selectedDate = `${enterTimeButton.dataset.inputsMonthEnterTime || ""}`.trim();
+      if (!isValidDateString(selectedDate)) return;
+      const container = refs.inputsTimeForm?.parentElement;
+      const rows = Array.from(container?.querySelectorAll("form.input-row.input-row-body") || []);
+      let targetRow =
+        [...rows].reverse().find(
+          (row) => row.dataset.rowState !== "saved" && isInputsTimeRowBlank(row)
+        ) || [...rows].reverse().find((row) => row.dataset.rowState !== "saved") || null;
+      if (!targetRow && refs.inputsTimeForm) {
+        targetRow = addInputsTimeRowFrom(refs.inputsTimeForm, inputsTimeComboOptions());
+      }
+      const dateInput = inputsTimeRowFields(targetRow || refs.inputsTimeForm).date;
+      if (dateInput) {
+        dateInput.value = selectedDate;
+        dateInput.dispatchEvent(new Event("change", { bubbles: true }));
+        (targetRow || refs.inputsTimeForm)?.scrollIntoView({ behavior: "smooth", block: "center" });
+        window.setTimeout(() => dateInput.focus(), 250);
+      }
       return;
     }
     const editButton = event.target.closest("[data-inputs-month-edit]");
