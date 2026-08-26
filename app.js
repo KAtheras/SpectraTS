@@ -4654,9 +4654,10 @@
     const recordType = type === "expenses" ? "expenses" : "entries";
     const userId = String(state.currentUser.id || "").trim();
     if (!userId) return;
-    const currentYear = new Date().getFullYear();
-    const from = `${currentYear}-01-01`;
     const to = today;
+    const fromDate = new Date(`${to}T00:00:00.000Z`);
+    fromDate.setUTCFullYear(fromDate.getUTCFullYear() - 1);
+    const from = fromDate.toISOString().slice(0, 10);
     const requestKey = `${recordType}:${userId}:${from}:${to}`;
     if (!options.force && inputsRecordRequestKeys[recordType] === requestKey) return;
 
@@ -6610,6 +6611,7 @@
       const dateLabel = date.toLocaleDateString(undefined, {
         month: "2-digit",
         day: "2-digit",
+        year: "numeric",
       });
       dates.push({ iso, dayLabel, dateLabel });
       if (iso === startDate) break;
@@ -6631,6 +6633,7 @@
       const dateLabel = date.toLocaleDateString(undefined, {
         month: "2-digit",
         day: "2-digit",
+        year: "numeric",
       });
       dates.push({ iso, dayLabel, dateLabel });
       if (iso === startDate) break;
