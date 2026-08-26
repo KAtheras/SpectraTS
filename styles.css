@@ -6217,26 +6217,31 @@ input[type="checkbox"]:disabled {
 
 #inputs-view .inputs-month-experiment-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1.65fr) minmax(300px, 1fr);
+  grid-template-columns: minmax(0, 1.5fr) minmax(300px, 1fr);
   gap: 16px;
   align-items: stretch;
 }
 
 #inputs-view .inputs-month-calendar-column {
   min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--ink) 6%, transparent);
 }
 
 #inputs-view .inputs-month-calendar {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  grid-template-rows: repeat(6, minmax(82px, 1fr));
-  gap: 7px;
+  grid-template-rows: repeat(var(--calendar-weeks, 5), minmax(74px, 1fr));
+  gap: 6px;
 }
 
 #inputs-view .inputs-month-day {
   min-width: 0;
-  min-height: 82px;
-  padding: 9px;
+  min-height: 74px;
+  padding: 8px;
   border: 1px solid color-mix(in srgb, hsl(var(--heat-hue) 72% var(--heat-light)) 76%, var(--line));
   border-radius: 10px;
   background: hsl(var(--heat-hue) 72% var(--heat-light));
@@ -6284,10 +6289,24 @@ input[type="checkbox"]:disabled {
   font-weight: 800;
 }
 
+#inputs-view .inputs-month-day-load {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+#inputs-view .inputs-month-day-percent {
+  font-family: var(--font-head);
+  font-size: 0.76rem;
+  font-weight: 800;
+  opacity: 0.72;
+}
+
 #inputs-view .inputs-month-details {
   min-width: 0;
-  min-height: 573px;
-  max-height: 573px;
+  min-height: var(--calendar-height, 464px);
+  max-height: var(--calendar-height, 464px);
   border: 1px solid var(--line);
   border-radius: 12px;
   background: var(--panel);
@@ -6357,6 +6376,14 @@ input[type="checkbox"]:disabled {
   gap: 8px;
 }
 
+#inputs-view .inputs-month-detail-controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 #inputs-view .inputs-month-detail-heading strong {
   min-width: 0;
   overflow: hidden;
@@ -6371,7 +6398,7 @@ input[type="checkbox"]:disabled {
 }
 
 #inputs-view .inputs-month-detail-actions {
-  justify-content: flex-end;
+  justify-content: flex-start;
 }
 
 #inputs-view .inputs-month-detail-actions .button {
@@ -6397,12 +6424,12 @@ body[data-theme="dark"] #inputs-view .inputs-month-day {
   }
 
   #inputs-view .inputs-month-calendar {
-    grid-template-rows: repeat(6, minmax(76px, 1fr));
+    grid-template-rows: repeat(var(--calendar-weeks, 5), minmax(68px, 1fr));
   }
 
   #inputs-view .inputs-month-day {
-    min-height: 76px;
-    padding: 7px;
+    min-height: 68px;
+    padding: 6px;
   }
 
   #inputs-view .inputs-month-details {

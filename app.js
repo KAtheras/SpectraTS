@@ -6880,6 +6880,10 @@
     const firstOfMonth = new Date(Date.UTC(year, month - 1, 1));
     const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
     const mondayOffset = (firstOfMonth.getUTCDay() + 6) % 7;
+    const calendarWeeks = Math.ceil((mondayOffset + daysInMonth) / 7);
+    const calendarCellCount = calendarWeeks * 7;
+    refs.inputsTimeMonthExperiment.style.setProperty("--calendar-weeks", String(calendarWeeks));
+    refs.inputsTimeMonthExperiment.style.setProperty("--calendar-height", `${64 + 80 * calendarWeeks}px`);
     const entries = (state.inputsEntries || []).filter(
       (entry) => `${entry?.date || ""}`.slice(0, 7) === monthKey
     );
@@ -6904,7 +6908,7 @@
     state.inputsTimeSelectedDate = selectedIso;
     const weekdayNames = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
     const cells = [];
-    for (let cellIndex = 0; cellIndex < 42; cellIndex += 1) {
+    for (let cellIndex = 0; cellIndex < calendarCellCount; cellIndex += 1) {
       const dayNumber = cellIndex - mondayOffset + 1;
       if (dayNumber < 1 || dayNumber > daysInMonth) {
         cells.push('<div class="inputs-month-day is-outside" aria-hidden="true"></div>');
@@ -6914,6 +6918,7 @@
       const dayEntries = entriesByDate.get(iso) || [];
       const total = dayEntries.reduce((sum, entry) => sum + Number(entry?.hours || 0), 0);
       const ratio = Math.max(0, Math.min(1, total / 8));
+      const percentage = Math.round((total / 8) * 100);
       const hue = Math.round(ratio * 125);
       const light = Math.round(88 - ratio * 10);
       const selected = selectedIso === iso;
@@ -6921,7 +6926,10 @@
         `${weekdayNames[cellIndex % 7]} ${dayNumber}, ${formatSummaryHours(total)}`
       )}">
         <span class="inputs-month-day-date"><span>${weekdayNames[cellIndex % 7]}</span><strong>${dayNumber}</strong></span>
-        <span class="inputs-month-day-hours">${escapeHtml(formatSummaryHours(total))}</span>
+        <span class="inputs-month-day-load">
+          <span class="inputs-month-day-hours">${escapeHtml(formatSummaryHours(total))}</span>
+          <span class="inputs-month-day-percent">${percentage}%</span>
+        </span>
       </button>`);
     }
     refs.inputsTimeMonthCalendar.innerHTML = cells.join("");
@@ -6938,14 +6946,14 @@
             <strong>${escapeHtml(`${entry?.client || "Internal"} / ${entry?.project || "Internal"}`)}</strong>
             <span>${escapeHtml(formatSummaryHours(Number(entry?.hours || 0)))}</span>
           </div>
-          <div class="inputs-month-detail-meta">
+          <p>${escapeHtml(entry?.notes || "No note")}</p>
+          <div class="inputs-month-detail-controls">
             <span class="inputs-time-calendar-detail-chip inputs-time-calendar-detail-chip-status inputs-time-calendar-detail-chip-status-${status}">${status === "approved" ? "Approved" : "Pending"}</span>
             <span class="billable-pill ${billable ? "is-billable" : "is-nonbillable"}">${billable ? "Billable" : "Non-billable"}</span>
-          </div>
-          <p>${escapeHtml(entry?.notes || "No note")}</p>
-          <div class="inputs-month-detail-actions">
-            <button type="button" class="button button-ghost" data-inputs-month-edit="${escapeHtml(entry?.id || "")}">Edit</button>
-            <button type="button" class="button button-ghost button-danger" data-inputs-month-delete="${escapeHtml(entry?.id || "")}">Delete</button>
+            <div class="inputs-month-detail-actions">
+              <button type="button" class="button button-ghost" data-inputs-month-edit="${escapeHtml(entry?.id || "")}">Edit</button>
+              <button type="button" class="button button-ghost button-danger" data-inputs-month-delete="${escapeHtml(entry?.id || "")}">Delete</button>
+            </div>
           </div>
         </article>`;
       })
