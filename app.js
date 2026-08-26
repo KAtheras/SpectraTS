@@ -229,9 +229,11 @@
   function applyExpenseFiltersFromForm(options) {
     const applied = applyExpenseFiltersFromFormBase ? applyExpenseFiltersFromFormBase(options) : false;
     if (applied) {
+      state.resultsApplied.expenses = true;
       syncSharedEntriesFiltersFromExpense();
       const filteredExpenses = currentExpenses();
       syncExpenseSelectionControls(filteredExpenses);
+      render();
     }
     return applied;
   }
@@ -503,6 +505,8 @@
     entriesUndoAction: document.getElementById("entries-undo-action"),
     entriesBody: document.getElementById("entries-body"),
     expensesBody: document.getElementById("expenses-body"),
+    entriesResults: document.getElementById("entries-body")?.closest(".table-wrap"),
+    expensesResults: document.getElementById("expenses-body")?.closest(".table-wrapper"),
     entriesPageControls: document.getElementById("entries-page-controls"),
     entriesPageStatus: document.getElementById("entries-page-status"),
     entriesLoadMore: document.getElementById("entries-load-more"),
@@ -556,6 +560,7 @@
     deletedSelectHeader: document.getElementById("deleted-select-header"),
     deletedSelectAllVisible: document.getElementById("deleted-select-all-visible"),
     deletedItemsBody: document.getElementById("deleted-items-body"),
+    deletedResults: document.getElementById("deleted-items-body")?.closest(".table-wrapper"),
     expenseFilterUser: document.getElementById("expense-filter-user"),
     expenseFilterClient: document.getElementById("expense-filter-client"),
     expenseFilterProject: document.getElementById("expense-filter-project"),
@@ -3410,6 +3415,7 @@
     recordPages: { entries: null, expenses: null },
     recordsLoading: { entries: false, expenses: false },
     recordsErrors: { entries: "", expenses: "" },
+    resultsApplied: { entries: false, expenses: false, deleted: false },
     analyticsResults: {},
     analyticsLoading: {},
     analyticsErrors: {},
@@ -4320,6 +4326,7 @@
     state.deletedEntries = [];
     state.deletedExpenses = [];
     state.deletedItemsView = "time";
+    state.resultsApplied = { entries: false, expenses: false, deleted: false };
     state.deletedFilters = {
       period: "this_month",
       user: "",
@@ -5556,6 +5563,7 @@
       to: toRaw,
       search,
     });
+    state.resultsApplied.deleted = true;
     syncEntriesDateRangeField(
       refs.deletedFilterDateRange,
       state.deletedFilters.from,
@@ -11074,6 +11082,7 @@
 
     if (view === "entries") {
       if (entriesSubtab === "expenses") {
+        if (refs.expensesResults) refs.expensesResults.hidden = !state.resultsApplied.expenses;
         if (state.entriesSelectionMode) {
           setEntriesSelectionMode(false);
         }
@@ -11091,6 +11100,7 @@
         renderExpenseFilterState(filteredExpenses);
         syncEntriesUndoUi();
       } else if (entriesSubtab === "deleted") {
+        if (refs.deletedResults) refs.deletedResults.hidden = !state.resultsApplied.deleted;
         if (state.entriesSelectionMode) {
           setEntriesSelectionMode(false);
         }
@@ -11119,6 +11129,7 @@
         if (refs.deletedFilterSearch) refs.deletedFilterSearch.value = state.deletedFilters.search || "";
         renderDeletedItemsTable();
       } else {
+        if (refs.entriesResults) refs.entriesResults.hidden = !state.resultsApplied.entries;
         if (state.expensesSelectionMode) {
           setExpensesSelectionMode(false);
         }
@@ -11183,6 +11194,7 @@
       to: parsedTo || "",
       search: searchField.value,
     };
+    state.resultsApplied.entries = true;
     syncSharedEntriesFiltersFromTime();
 
     fromField.value = formatDisplayDate(state.filters.from);
@@ -12504,6 +12516,7 @@
     resetFilters();
     state.entries = [];
     recordRequestKeys.entries = "";
+    state.resultsApplied.entries = false;
     syncFilterCatalogsUI(state.filters);
     syncSharedEntriesFilterForms();
     render();
@@ -12516,6 +12529,7 @@
     resetFilters();
     state.expenses = [];
     recordRequestKeys.expenses = "";
+    state.resultsApplied.expenses = false;
     ["from", "to"].forEach(function (name) {
       const refsForKind = expenseFilterDateRefs(name);
       if (refsForKind.month) refsForKind.month.value = "";
@@ -12541,6 +12555,7 @@
       to: "",
       search: "",
     };
+    state.resultsApplied.deleted = false;
     ensureDeletedFilterPeriodRange();
     syncEntriesDateRangeField(
       refs.deletedFilterDateRange,
