@@ -497,9 +497,11 @@
       typeof deps.effectiveScopeUser === "function"
         ? deps.effectiveScopeUser()
         : state.currentUser;
+    const availableUserRows = typeof deps.availableUsers === "function" ? deps.availableUsers() : [];
     const entryUsers = uniqueValues(
       [
         ...scopeRows.map((entry) => entry.user).filter(Boolean),
+        ...availableUserRows.map((user) => user?.displayName).filter(Boolean),
         scopeUser?.displayName || "",
       ]
     );
@@ -513,12 +515,19 @@
           ? requestedUser
           : userOptions[0] || "";
     const requestedClient = selection?.client ?? clientField?.value ?? "";
+    const selectedUserRecord = availableUserRows.find((user) =>
+      `${user?.displayName || ""}`.trim() === `${nextUser || ""}`.trim()
+    ) || scopeUser;
     const userScopedRows = nextUser
       ? scopeRows.filter((entry) => entry.user === nextUser)
       : scopeRows;
-    const entryClients = uniqueValues(
-      userScopedRows.map((entry) => entry.client).filter(Boolean)
-    );
+    const referenceClients = nextUser && typeof deps.allowedClientsForUser === "function"
+      ? deps.allowedClientsForUser(selectedUserRecord)
+      : typeof deps.clientNames === "function" ? deps.clientNames() : [];
+    const entryClients = uniqueValues([
+      ...referenceClients,
+      ...userScopedRows.map((entry) => entry.client).filter(Boolean),
+    ]);
     const hasInternalRows = userScopedRows.some((entry) => isInternalFilterEntry(entry));
     const allowedClients = [
       ...entryClients
@@ -531,8 +540,12 @@
       !nextClientBase && allowedClients.length === 1 ? allowedClients[0] : nextClientBase;
     const requestedProject = selection?.project ?? projectField?.value ?? "";
     const isInternalClient = nextClient === "Internal";
-    const entryProjects = uniqueValues(
-      userScopedRows
+    const referenceProjects = nextClient && typeof deps.allowedProjectsForClient === "function"
+      ? deps.allowedProjectsForClient(selectedUserRecord, nextClient)
+      : nextClient && typeof deps.projectNames === "function" ? deps.projectNames(nextClient) : [];
+    const entryProjects = uniqueValues([
+      ...referenceProjects,
+      ...userScopedRows
         .filter((entry) => {
           if (!nextClient) return false;
           if (isInternalClient) return isInternalFilterEntry(entry);
@@ -541,8 +554,8 @@
         .map((entry) =>
           isInternalClient ? resolveInternalProjectLabel(entry, state) : `${entry.project || ""}`.trim()
         )
-        .filter(Boolean)
-    );
+        .filter(Boolean),
+    ]);
     const allowedProjects = entryProjects;
     const nextProjectBase = allowedProjects.includes(requestedProject) ? requestedProject : "";
     const nextProject =

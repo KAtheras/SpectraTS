@@ -11165,7 +11165,13 @@
 
   function applyEntriesPeriodPreset(form, dateRangeInput) {
     const period = String(field(form, "period")?.value || "this_month");
-    if (period === "custom") return;
+    if (period === "custom") {
+      window.setTimeout(function () {
+        if (dateRangeInput?.isConnected) dateRangeInput.click();
+      }, 0);
+      return;
+    }
+    if (typeof window.datePicker?.close === "function") window.datePicker.close();
     const range = window.analyticsFeature?.periodRange?.(period, new Date());
     if (!range) return;
     const fromField = field(form, "from");

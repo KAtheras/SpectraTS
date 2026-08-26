@@ -568,6 +568,11 @@
       currentExpenses,
       uniqueValues,
       effectiveScopeUser,
+      allowedClientsForUser,
+      allowedProjectsForClient,
+      clientNames,
+      projectNames,
+      availableUsers,
     } = deps();
     const selectedUserId = selection?.user || "";
     const selectedClient = selection?.client || "";
@@ -590,6 +595,7 @@
       const users = uniqueValues(
         [
           ...expenseRows.map((row) => row.userId).filter(Boolean),
+          ...(typeof availableUsers === "function" ? availableUsers() : []).map((user) => user?.id).filter(Boolean),
           scopeUser?.id || "",
         ]
       ).map((id) => ({
@@ -617,7 +623,14 @@
     const userScopedRows = selectedUser
       ? expenseRows.filter((row) => row.userId === selectedUser)
       : expenseRows;
-    const clientsRaw = uniqueValues(userScopedRows.map((row) => row.clientName).filter(Boolean));
+    const selectedUserRecord = getUserById?.(selectedUser) || scopeUser;
+    const referenceClients = selectedUser && typeof allowedClientsForUser === "function"
+      ? allowedClientsForUser(selectedUserRecord)
+      : typeof clientNames === "function" ? clientNames() : [];
+    const clientsRaw = uniqueValues([
+      ...referenceClients,
+      ...userScopedRows.map((row) => row.clientName).filter(Boolean),
+    ]);
     const clients = [
       ...clientsRaw
         .filter((client) => client !== "Internal")
@@ -640,12 +653,16 @@
 
     if (refs.expenseFilterProject) {
       const allowProjectSelection = Boolean(nextSelectedClient);
-      const projects = uniqueValues(
-        userScopedRows
+      const referenceProjects = allowProjectSelection && typeof allowedProjectsForClient === "function"
+        ? allowedProjectsForClient(selectedUserRecord, nextSelectedClient)
+        : allowProjectSelection && typeof projectNames === "function" ? projectNames(nextSelectedClient) : [];
+      const projects = uniqueValues([
+        ...referenceProjects,
+        ...userScopedRows
           .filter((row) => allowProjectSelection && row.clientName === nextSelectedClient)
           .map((row) => row.projectName)
-          .filter(Boolean)
-      );
+          .filter(Boolean),
+      ]);
       const nextSelectedProjectBase = projects.includes(selectedProject) ? selectedProject : "";
       const nextSelectedProject =
         !nextSelectedProjectBase && projects.length === 1 ? projects[0] : nextSelectedProjectBase;
