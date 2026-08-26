@@ -6399,6 +6399,7 @@ input[type="checkbox"]:disabled {
 
 #inputs-view .inputs-month-detail-actions {
   justify-content: flex-start;
+  margin-left: auto;
 }
 
 #inputs-view .inputs-month-detail-actions .button {

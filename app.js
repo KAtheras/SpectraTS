@@ -12036,10 +12036,8 @@
       }
       const dateInput = inputsTimeRowFields(targetRow || refs.inputsTimeForm).date;
       if (dateInput) {
-        dateInput.value = selectedDate;
-        dateInput.dispatchEvent(new Event("change", { bubbles: true }));
+        setDateInputIsoValue(dateInput, selectedDate);
         (targetRow || refs.inputsTimeForm)?.scrollIntoView({ behavior: "smooth", block: "center" });
-        window.setTimeout(() => dateInput.focus(), 250);
       }
       return;
     }
