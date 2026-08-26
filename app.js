@@ -11257,7 +11257,10 @@
       return;
     }
     if (typeof window.datePicker?.close === "function") window.datePicker.close();
-    const range = window.analyticsFeature?.periodRange?.(period, new Date());
+    const range =
+      period === "all"
+        ? { fromDate: "1900-01-01", toDate: today }
+        : window.analyticsFeature?.periodRange?.(period, new Date());
     if (!range) return;
     const fromField = field(form, "from");
     const toField = field(form, "to");
@@ -14412,22 +14415,30 @@
     const viewTimeButton = event.target.closest("[data-view-time-project]");
     if (viewTimeButton) {
       const projectName = viewTimeButton.dataset.viewTimeProject;
+      state.filters.period = "all";
+      state.filters.from = "1900-01-01";
+      state.filters.to = today;
       state.filters.client = state.selectedCatalogClient;
       state.filters.project = projectName;
       syncSharedEntriesFiltersFromTime();
       state.entriesSubtab = "time";
       setView("entries");
+      applyFiltersFromForm();
       return;
     }
 
     const viewExpensesButton = event.target.closest("[data-view-expenses-project]");
     if (viewExpensesButton) {
       const projectName = viewExpensesButton.dataset.viewExpensesProject;
+      state.expenseFilters.period = "all";
+      state.expenseFilters.from = "1900-01-01";
+      state.expenseFilters.to = today;
       state.expenseFilters.client = state.selectedCatalogClient;
       state.expenseFilters.project = projectName;
       syncSharedEntriesFiltersFromExpense();
       state.entriesSubtab = "expenses";
       setView("entries");
+      applyExpenseFiltersFromForm();
       return;
     }
 
