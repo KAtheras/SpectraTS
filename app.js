@@ -15335,6 +15335,11 @@
     syncFilterCatalogsUI(state.filters);
     resetForm();
     render();
+    if (state.currentView === "inputs") {
+      loadInputsRecords(state.inputSubtab === "expenses" ? "expenses" : "entries");
+    } else if (state.currentView === "entries") {
+      loadVisibleRecords(state.entriesSubtab === "expenses" ? "expenses" : "entries");
+    }
   }
 
   initApp();
