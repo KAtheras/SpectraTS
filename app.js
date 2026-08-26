@@ -1351,6 +1351,9 @@
     })();
     const managerUserIds = projectScopedManagerIdsForProject(normalizedClient, normalizedProject);
     const staffUserIds = staffIdsForProject(normalizedClient, normalizedProject);
+    let savedProjectName = normalizedProject;
+    let savedManagerUserIds = [...managerUserIds];
+    let savedStaffUserIds = [...staffUserIds];
     const projectDialog = await openProjectDialog({
       mode: "edit",
       projectId: String(projectRow?.id || "").trim() || null,
@@ -1369,47 +1372,40 @@
       managerUserIds,
       staffUserIds,
       allowOpenPlanning: canEditProjectPlanning(normalizedClient, normalizedProject),
+      onSubmitEdit: async (payload) => {
+        const nextName = String(payload.projectName || "").trim();
+        await mutatePersistentState("update_project", {
+          clientName: normalizedClient,
+          projectName: savedProjectName,
+          nextName,
+          contractAmount: payload.contractAmount,
+          pricingModel: payload.pricingModel,
+          overheadPercent: payload.overheadPercent,
+          targetRealizationPct: payload.targetRealizationPct,
+          techAdminFeePctOverride: payload.techAdminFeePctOverride,
+          project_lead_id: payload.projectLeadId,
+          project_department_id: payload.projectDepartmentId,
+          office_id: payload.projectOfficeId,
+        });
+        await persistProjectTeamAssignments({
+          clientName: normalizedClient,
+          projectName: nextName,
+          initialManagerUserIds: savedManagerUserIds,
+          initialStaffUserIds: savedStaffUserIds,
+          nextManagerUserIds: payload.managerUserIds,
+          nextStaffUserIds: payload.staffUserIds,
+        });
+        if (state.filters.client === normalizedClient && state.filters.project === savedProjectName) {
+          state.filters.project = nextName;
+          syncFilterCatalogsUI(state.filters);
+        }
+        savedProjectName = nextName;
+        savedManagerUserIds = [...payload.managerUserIds];
+        savedStaffUserIds = [...payload.staffUserIds];
+        feedback("Project updated.", false);
+      },
     });
-    if (!projectDialog) {
-      return;
-    }
-    if (projectDialog.openProjectPlanning) {
-      return;
-    }
-    const nextName = projectDialog.projectName;
-    try {
-      await mutatePersistentState("update_project", {
-        clientName: normalizedClient,
-        projectName: normalizedProject,
-        nextName,
-        contractAmount: projectDialog.contractAmount,
-        pricingModel: projectDialog.pricingModel,
-        overheadPercent: projectDialog.overheadPercent,
-        targetRealizationPct: projectDialog.targetRealizationPct,
-        techAdminFeePctOverride: projectDialog.techAdminFeePctOverride,
-        project_lead_id: projectDialog.projectLeadId,
-        project_department_id: projectDialog.projectDepartmentId,
-        office_id: projectDialog.projectOfficeId,
-      });
-      await persistProjectTeamAssignments({
-        clientName: normalizedClient,
-        projectName: nextName,
-        initialManagerUserIds: managerUserIds,
-        initialStaffUserIds: staffUserIds,
-        nextManagerUserIds: projectDialog.managerUserIds,
-        nextStaffUserIds: projectDialog.staffUserIds,
-      });
-    } catch (error) {
-      feedback(error?.message || "Unable to update project.", true);
-      return;
-    }
-    if (state.filters.client === normalizedClient && state.filters.project === normalizedProject) {
-      state.filters.project = nextName.trim();
-      syncFilterCatalogsUI(state.filters);
-    }
-    feedback("Project updated.", false);
-    render();
-    loadPersistentStateInBackground();
+    if (!projectDialog || projectDialog.openProjectPlanning) return;
   }
 
   async function openProjectDialog(options) {
@@ -2184,6 +2180,47 @@
         };
       };
 
+      const projectPayloadSignature = (payload) =>
+        JSON.stringify({
+          ...payload,
+          managerUserIds: [...(payload?.managerUserIds || [])].sort(),
+          staffUserIds: [...(payload?.staffUserIds || [])].sort(),
+        });
+      let savedPayloadSignature = "";
+
+      const persistEditedProject = async (payload, button, successText = "Saved") => {
+        if (typeof options?.onSubmitEdit !== "function") return false;
+        const originalText = button?.textContent || "Save";
+        setError("");
+        if (button) {
+          button.disabled = true;
+          button.textContent = "Saving...";
+        }
+        if (projectCancelButton) projectCancelButton.disabled = true;
+        try {
+          await options.onSubmitEdit(payload);
+          savedPayloadSignature = projectPayloadSignature(payload);
+          if (button) button.textContent = successText;
+          if (projectCancelButton) projectCancelButton.textContent = "Close";
+          window.setTimeout(() => {
+            if (button?.isConnected) {
+              button.disabled = false;
+              button.textContent = originalText;
+            }
+          }, 900);
+          return true;
+        } catch (error) {
+          setError(error?.message || "Unable to update project.");
+          if (button) {
+            button.disabled = false;
+            button.textContent = originalText;
+          }
+          return false;
+        } finally {
+          if (projectCancelButton) projectCancelButton.disabled = false;
+        }
+      };
+
       const finalize = async () => {
         const payload = buildProjectDialogPayload();
         if (!payload) return;
@@ -2213,8 +2250,17 @@
           }
         }
         if (isProjectEditDialog) {
-          cleanup();
-          resolve(payload);
+          if (projectPayloadSignature(payload) === savedPayloadSignature) {
+            if (projectSaveButton) {
+              projectSaveButton.textContent = "Saved";
+              window.setTimeout(() => {
+                if (projectSaveButton?.isConnected) projectSaveButton.textContent = finalConfirmText;
+              }, 900);
+            }
+            if (projectCancelButton) projectCancelButton.textContent = "Close";
+            return;
+          }
+          await persistEditedProject(payload, projectSaveButton);
           return;
         }
         if (typeof options?.onSubmitAdd === "function") {
@@ -2274,93 +2320,19 @@
         const payload = buildProjectDialogPayload();
         if (!payload) return;
         setError("");
-        const originalButtonText = openPlanningButton?.textContent || "Open Project Planner";
-        if (openPlanningButton) {
+        const hasUnsavedChanges = projectPayloadSignature(payload) !== savedPayloadSignature;
+        if (hasUnsavedChanges) {
+          const saved = await persistEditedProject(payload, openPlanningButton, "Opening...");
+          if (!saved) return;
+        } else if (openPlanningButton) {
           openPlanningButton.disabled = true;
-          openPlanningButton.textContent = "Saving...";
-        }
-        try {
-          await mutatePersistentState(
-            "update_project",
-            {
-              clientName: String(options?.clientName || "").trim(),
-              projectName: String(options?.projectName || "").trim(),
-              nextName: payload.projectName,
-              contractAmount: payload.contractAmount,
-              pricingModel: payload.pricingModel,
-              overheadPercent: payload.overheadPercent,
-              targetRealizationPct: payload.targetRealizationPct,
-              techAdminFeePctOverride: payload.techAdminFeePctOverride,
-              project_lead_id: payload.projectLeadId,
-              project_department_id: payload.projectDepartmentId,
-              office_id: payload.projectOfficeId,
-            },
-            { skipHydrate: true, refreshState: false, returnState: false }
-          );
-          await persistProjectTeamAssignments({
-            clientName: String(options?.clientName || "").trim(),
-            projectName: payload.projectName,
-            initialManagerUserIds: initialManagerUserIds,
-            initialStaffUserIds: initialStaffUserIds,
-            nextManagerUserIds: payload.managerUserIds,
-            nextStaffUserIds: payload.staffUserIds,
-          });
-        } catch (error) {
-          setError(error?.message || "Unable to update project.");
-          if (openPlanningButton) {
-            openPlanningButton.disabled = false;
-            openPlanningButton.textContent = originalButtonText;
-          }
-          return;
-        }
-        const originalClientName = String(options?.clientName || "").trim();
-        const originalProjectName = String(options?.projectName || "").trim();
-        const nextProjectName = String(payload.projectName || "").trim();
-        if (originalClientName && originalProjectName && nextProjectName) {
-          if (state.filters.client === originalClientName && state.filters.project === originalProjectName) {
-            state.filters.project = nextProjectName;
-          }
-          state.projects = (state.projects || []).map((item) => {
-            if (!item) return item;
-            const itemClient = String(item.client || "").trim();
-            const itemName = String(item.name || "").trim().toLowerCase();
-            if (itemClient !== originalClientName || itemName !== originalProjectName.toLowerCase()) {
-              return item;
-            }
-            const nextLeadId = payload.projectLeadId || null;
-            const nextLeadName = nextLeadId ? leadNameById.get(nextLeadId) || "" : "";
-            return {
-              ...item,
-              name: nextProjectName,
-              project: nextProjectName,
-              contractAmount: payload.contractAmount,
-              contract_amount: payload.contractAmount,
-              pricingModel: payload.pricingModel,
-              pricing_model: payload.pricingModel,
-              overheadPercent: payload.overheadPercent,
-              overhead_percent: payload.overheadPercent,
-              targetRealizationPct: payload.targetRealizationPct,
-              target_realization_pct: payload.targetRealizationPct,
-              techAdminFeePctOverride: payload.techAdminFeePctOverride,
-              tech_admin_fee_pct_override: payload.techAdminFeePctOverride,
-              projectLeadId: nextLeadId,
-              project_lead_id: nextLeadId,
-              projectLeadName: nextLeadName,
-              projectDepartmentId: payload.projectDepartmentId,
-              project_department_id: payload.projectDepartmentId,
-              officeId: payload.projectOfficeId,
-              office_id: payload.projectOfficeId,
-            };
-          });
-          if (state.catalog?.[originalClientName]) {
-            state.catalog[originalClientName] = state.catalog[originalClientName].map((name) =>
-              String(name || "").trim().toLowerCase() === originalProjectName.toLowerCase()
-                ? nextProjectName
-                : name
-            );
-          }
+          openPlanningButton.textContent = "Opening...";
         }
         state.currentProjectPlanningId = projectIdForPlanning;
+        state.projectPlanningReturnContext = {
+          projectId: projectIdForPlanning,
+          clientName: String(options?.clientName || "").trim(),
+        };
         persistProjectPlanningId(projectIdForPlanning);
         cleanup();
         resolve({
@@ -2368,8 +2340,7 @@
           projectId: projectIdForPlanning,
         });
         setView("project_planning");
-        feedback("Project updated.", false);
-        loadPersistentStateInBackground();
+        return;
       };
       openPlanningButton?.addEventListener("click", onOpenProjectPlanning);
 
@@ -2384,6 +2355,9 @@
 
       projectCancelButton?.addEventListener("click", onCancel);
       form.addEventListener("submit", onSubmit);
+      const initialPayload = buildProjectDialogPayload();
+      savedPayloadSignature = initialPayload ? projectPayloadSignature(initialPayload) : "";
+      setError("");
       nameInput?.focus();
       nameInput?.select();
     });
@@ -3477,6 +3451,7 @@
     projectMemberBudgets: [],
     currentView: "inputs", // "inputs" | "entries" | "inbox" | "clients" | "members" | "analytics" | "settings" | "audit" | "project_planning"
     currentProjectPlanningId: "",
+    projectPlanningReturnContext: null,
     mobileClientsView: "list", // "list" | "detail"
     mobileMembersView: "list", // "list" | "detail"
     inputSubtab: "time", // "time" | "expenses"
@@ -10430,7 +10405,27 @@
             container: refs.mainFrame,
             canEdit: Boolean(canEditPlanning),
             onBack: function () {
+              const returnContext = state.projectPlanningReturnContext;
+              state.projectPlanningReturnContext = null;
+              const returnProject = returnContext?.projectId
+                ? (state.projects || []).find(
+                    (item) => String(item?.id || "").trim() === String(returnContext.projectId).trim()
+                  ) || null
+                : null;
+              if (returnProject) {
+                state.selectedCatalogClient = String(
+                  returnProject.client || returnContext.clientName || ""
+                ).trim();
+              }
               setView("clients");
+              if (returnProject) {
+                window.setTimeout(() => {
+                  openProjectEditDialogFlow(
+                    String(returnProject.client || returnContext.clientName || "").trim(),
+                    String(returnProject.name || returnProject.project || "").trim()
+                  );
+                }, 0);
+              }
             },
             onSave: async function (payload) {
               if (!canEditPlanning) {
