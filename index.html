@@ -237,6 +237,12 @@
               </form>
             </div>
 
+            <div class="inputs-history-experiment-switch">
+              <button class="button button-ghost" id="inputs-time-history-mode" type="button">
+                Try month calendar
+              </button>
+            </div>
+
             <section class="inputs-time-summary" id="inputs-time-summary">
               <div class="inputs-time-summary-metrics">
                 <div class="inputs-time-summary-metric">
@@ -265,6 +271,18 @@
                 </button>
               </div>
               <div class="inputs-time-calendar-grid" id="inputs-time-calendar-grid"></div>
+            </section>
+
+            <section class="inputs-month-experiment" id="inputs-time-month-experiment" hidden>
+              <div class="inputs-month-experiment-controls">
+                <button type="button" class="button button-ghost" data-inputs-month-shift="-1" aria-label="Previous month">←</button>
+                <strong id="inputs-time-month-label"></strong>
+                <button type="button" class="button button-ghost" data-inputs-month-shift="1" aria-label="Next month">→</button>
+              </div>
+              <div class="inputs-month-experiment-layout">
+                <div class="inputs-month-calendar" id="inputs-time-month-calendar"></div>
+                <aside class="inputs-month-details" id="inputs-time-month-details"></aside>
+              </div>
             </section>
           </section>
 

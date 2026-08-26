@@ -400,6 +400,11 @@
     inputsTimeCalendarNext: document.getElementById("inputs-time-calendar-next"),
     inputsTimeCalendarRange: document.getElementById("inputs-time-calendar-range"),
     inputsTimeCalendarGrid: document.getElementById("inputs-time-calendar-grid"),
+    inputsTimeHistoryMode: document.getElementById("inputs-time-history-mode"),
+    inputsTimeMonthExperiment: document.getElementById("inputs-time-month-experiment"),
+    inputsTimeMonthLabel: document.getElementById("inputs-time-month-label"),
+    inputsTimeMonthCalendar: document.getElementById("inputs-time-month-calendar"),
+    inputsTimeMonthDetails: document.getElementById("inputs-time-month-details"),
     inputsExpenseSummary: document.getElementById("inputs-expense-summary"),
     inputsExpenseSummaryTotal: document.getElementById("inputs-expense-summary-total"),
     inputsExpenseSummaryToday: document.getElementById("inputs-expense-summary-today"),
@@ -3484,6 +3489,8 @@
     mobileMembersView: "list", // "list" | "detail"
     inputSubtab: "time", // "time" | "expenses"
     inputsTimeCalendarExpanded: false,
+    inputsTimeHistoryMode: "legacy",
+    inputsTimeMonth: today.slice(0, 7),
     inputsTimeShowAllDays: false,
     inputsTimeCalendarEndDate: today,
     inputsTimeSelectedDate: today,
@@ -6861,6 +6868,95 @@
       refs.inputsTimeCalendarNext.disabled = !bounds.hasData || currentEndDate >= bounds.maxEndDate;
       refs.inputsTimeCalendarNext.hidden = true;
     }
+  }
+
+  function renderInputsTimeMonthExperiment() {
+    if (!refs.inputsTimeMonthExperiment || !refs.inputsTimeMonthCalendar || !refs.inputsTimeMonthDetails) return;
+    const monthKey = /^\d{4}-\d{2}$/.test(state.inputsTimeMonth || "")
+      ? state.inputsTimeMonth
+      : today.slice(0, 7);
+    state.inputsTimeMonth = monthKey;
+    const [year, month] = monthKey.split("-").map(Number);
+    const firstOfMonth = new Date(Date.UTC(year, month - 1, 1));
+    const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+    const mondayOffset = (firstOfMonth.getUTCDay() + 6) % 7;
+    const entries = (state.inputsEntries || []).filter(
+      (entry) => `${entry?.date || ""}`.slice(0, 7) === monthKey
+    );
+    const entriesByDate = new Map();
+    entries.forEach((entry) => {
+      const iso = `${entry?.date || ""}`.trim();
+      if (!isValidDateString(iso)) return;
+      if (!entriesByDate.has(iso)) entriesByDate.set(iso, []);
+      entriesByDate.get(iso).push(entry);
+    });
+    if (refs.inputsTimeMonthLabel) {
+      refs.inputsTimeMonthLabel.textContent = firstOfMonth.toLocaleDateString(undefined, {
+        month: "long",
+        year: "numeric",
+        timeZone: "UTC",
+      });
+    }
+    const selectedIso = isValidDateString(state.inputsTimeSelectedDate)
+      && state.inputsTimeSelectedDate.startsWith(monthKey)
+      ? state.inputsTimeSelectedDate
+      : `${monthKey}-01`;
+    state.inputsTimeSelectedDate = selectedIso;
+    const weekdayNames = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
+    const cells = [];
+    for (let cellIndex = 0; cellIndex < 42; cellIndex += 1) {
+      const dayNumber = cellIndex - mondayOffset + 1;
+      if (dayNumber < 1 || dayNumber > daysInMonth) {
+        cells.push('<div class="inputs-month-day is-outside" aria-hidden="true"></div>');
+        continue;
+      }
+      const iso = `${monthKey}-${String(dayNumber).padStart(2, "0")}`;
+      const dayEntries = entriesByDate.get(iso) || [];
+      const total = dayEntries.reduce((sum, entry) => sum + Number(entry?.hours || 0), 0);
+      const ratio = Math.max(0, Math.min(1, total / 8));
+      const hue = Math.round(ratio * 125);
+      const light = Math.round(93 - ratio * 11);
+      const selected = selectedIso === iso;
+      cells.push(`<button type="button" class="inputs-month-day${selected ? " is-selected" : ""}" data-inputs-month-day="${escapeHtml(iso)}" style="--heat-hue:${hue};--heat-light:${light}%" aria-label="${escapeHtml(
+        `${weekdayNames[cellIndex % 7]} ${dayNumber}, ${formatSummaryHours(total)}`
+      )}">
+        <span class="inputs-month-day-date"><span>${weekdayNames[cellIndex % 7]}</span><strong>${dayNumber}</strong></span>
+        <span class="inputs-month-day-hours">${escapeHtml(formatSummaryHours(total))}</span>
+      </button>`);
+    }
+    refs.inputsTimeMonthCalendar.innerHTML = cells.join("");
+
+    const selectedEntries = entriesByDate.get(selectedIso) || [];
+    const selectedTotal = selectedEntries.reduce((sum, entry) => sum + Number(entry?.hours || 0), 0);
+    const selectedDate = new Date(`${selectedIso}T12:00:00Z`);
+    const detailsHtml = selectedEntries
+      .map((entry) => {
+        const status = entry?.status === "approved" ? "approved" : "pending";
+        const billable = entry?.billable !== false;
+        return `<article class="inputs-month-detail-row">
+          <div class="inputs-month-detail-heading">
+            <strong>${escapeHtml(`${entry?.client || "Internal"} / ${entry?.project || "Internal"}`)}</strong>
+            <span>${escapeHtml(formatSummaryHours(Number(entry?.hours || 0)))}</span>
+          </div>
+          <div class="inputs-month-detail-meta">
+            <span class="inputs-time-calendar-detail-chip inputs-time-calendar-detail-chip-status inputs-time-calendar-detail-chip-status-${status}">${status === "approved" ? "Approved" : "Pending"}</span>
+            <span class="billable-pill ${billable ? "is-billable" : "is-nonbillable"}">${billable ? "Billable" : "Non-billable"}</span>
+          </div>
+          <p>${escapeHtml(entry?.notes || "No note")}</p>
+          <div class="inputs-month-detail-actions">
+            <button type="button" class="button button-ghost" data-inputs-month-edit="${escapeHtml(entry?.id || "")}">Edit</button>
+            <button type="button" class="button button-ghost button-danger" data-inputs-month-delete="${escapeHtml(entry?.id || "")}">Delete</button>
+          </div>
+        </article>`;
+      })
+      .join("");
+    refs.inputsTimeMonthDetails.innerHTML = `
+      <header class="inputs-month-details-head">
+        <div><span>Selected day</span><strong>${escapeHtml(selectedDate.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", timeZone: "UTC" }))}</strong></div>
+        <strong>${escapeHtml(formatSummaryHours(selectedTotal))}</strong>
+      </header>
+      <div class="inputs-month-details-body">${detailsHtml || '<div class="inputs-month-empty">No hours entered for this day.</div>'}</div>
+    `;
   }
 
   function renderInputsTimeCalendar() {
@@ -11104,8 +11200,17 @@
     if (view === "inputs") {
       if (state.inputSubtab === "time") {
         syncInputsTimeRow();
-        if (refs.inputsTimeCalendarView) refs.inputsTimeCalendarView.hidden = false;
-        renderInputsTimeCalendar();
+        const useMonthExperiment = state.inputsTimeHistoryMode === "month";
+        if (refs.inputsTimeHistoryMode) {
+          refs.inputsTimeHistoryMode.textContent = useMonthExperiment
+            ? "Use current history view"
+            : "Try month calendar";
+        }
+        if (refs.inputsTimeSummary) refs.inputsTimeSummary.hidden = useMonthExperiment;
+        if (refs.inputsTimeCalendarView) refs.inputsTimeCalendarView.hidden = useMonthExperiment;
+        if (refs.inputsTimeMonthExperiment) refs.inputsTimeMonthExperiment.hidden = !useMonthExperiment;
+        if (useMonthExperiment) renderInputsTimeMonthExperiment();
+        else renderInputsTimeCalendar();
       } else {
         syncInputsExpenseRow();
         if (refs.inputsExpenseCalendarView) refs.inputsExpenseCalendarView.hidden = false;
@@ -11883,6 +11988,76 @@
       render();
     });
   }
+  refs.inputsTimeHistoryMode?.addEventListener("click", function () {
+    state.inputsTimeHistoryMode = state.inputsTimeHistoryMode === "month" ? "legacy" : "month";
+    render();
+  });
+  refs.inputsTimeMonthExperiment?.addEventListener("click", async function (event) {
+    const shiftButton = event.target.closest("[data-inputs-month-shift]");
+    if (shiftButton) {
+      const delta = Number(shiftButton.dataset.inputsMonthShift || 0);
+      const [year, month] = state.inputsTimeMonth.split("-").map(Number);
+      const shifted = new Date(Date.UTC(year, month - 1 + delta, 1));
+      state.inputsTimeMonth = `${shifted.getUTCFullYear()}-${String(shifted.getUTCMonth() + 1).padStart(2, "0")}`;
+      renderInputsTimeMonthExperiment();
+      postHeight();
+      return;
+    }
+    const dayButton = event.target.closest("[data-inputs-month-day]");
+    if (dayButton) {
+      state.inputsTimeSelectedDate = `${dayButton.dataset.inputsMonthDay || ""}`.trim();
+      renderInputsTimeMonthExperiment();
+      postHeight();
+      return;
+    }
+    const editButton = event.target.closest("[data-inputs-month-edit]");
+    if (editButton) {
+      const id = `${editButton.dataset.inputsMonthEdit || ""}`.trim();
+      const entry = [...(state.entries || []), ...(state.inputsEntries || [])].find(
+        (item) => `${item?.id || ""}`.trim() === id
+      );
+      if (!entry) return;
+      if (hasDeactivatedOrRemovedClientProject(entry)) {
+        await showDeactivatedClientProjectPrompt();
+        return;
+      }
+      if (!(state.entries || []).some((item) => `${item?.id || ""}`.trim() === id)) {
+        state.entries = [...(state.entries || []), entry];
+      }
+      state.pendingInputsTimeEditId = id;
+      render();
+      return;
+    }
+    const deleteButton = event.target.closest("[data-inputs-month-delete]");
+    if (deleteButton) {
+      const id = `${deleteButton.dataset.inputsMonthDelete || ""}`.trim();
+      if (!id) return;
+      const entry = [...(state.entries || []), ...(state.inputsEntries || [])].find(
+        (item) => `${item?.id || ""}`.trim() === id
+      );
+      if (hasDeactivatedOrRemovedClientProject(entry)) {
+        await showDeactivatedClientProjectPrompt();
+        return;
+      }
+      const confirmDelete = await appDialog({
+        title: "Delete entry",
+        message: "Are you sure you want to delete this entry?",
+        confirmText: "Delete",
+        cancelText: "Cancel",
+      });
+      if (!confirmDelete?.confirmed) return;
+      try {
+        await mutatePersistentState("delete_entry", { id });
+        state.inputsEntries = (state.inputsEntries || []).filter(
+          (item) => `${item?.id || ""}`.trim() !== id
+        );
+        feedback("Entry deleted.", false);
+        render();
+      } catch (error) {
+        feedback(error.message || "Unable to delete entry.", true);
+      }
+    }
+  });
   if (refs.inputsTimeCalendarPrev) {
     refs.inputsTimeCalendarPrev.addEventListener("click", function () {
       const bounds = getInputsTimeCalendarBounds();
