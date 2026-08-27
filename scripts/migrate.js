@@ -5,6 +5,7 @@ const { getSql } = require("../netlify/functions/_db");
 const migrations = [
   require("../migrations/001_baseline"),
   require("../migrations/002_office_overhead_percent"),
+  require("../migrations/003_analytics_permissions"),
 ];
 
 async function run() {
