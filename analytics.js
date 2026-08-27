@@ -217,6 +217,58 @@
         width: 100%;
         height: 380px;
       }
+      .analytics-view-toggle {
+        border: 1px solid var(--control-border);
+        border-radius: 8px;
+        background: var(--surface-soft);
+        color: var(--ink);
+        min-height: 30px;
+        padding: 5px 10px;
+        font: 650 .76rem/1 var(--font-head);
+        cursor: pointer;
+      }
+      .analytics-view-toggle:hover {
+        background: var(--surface-hover);
+        border-color: var(--control-hover);
+      }
+      .analytics-table-wrap {
+        max-height: 380px;
+        overflow: auto;
+        border: 1px solid var(--line);
+        border-radius: 9px;
+      }
+      .analytics-data-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: .82rem;
+      }
+      .analytics-data-table th,
+      .analytics-data-table td {
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--line);
+        text-align: right;
+        white-space: nowrap;
+      }
+      .analytics-data-table th:first-child,
+      .analytics-data-table td:first-child {
+        text-align: left;
+      }
+      .analytics-data-table th {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        background: var(--surface-strong);
+        color: var(--muted);
+        font-size: .7rem;
+        letter-spacing: .04em;
+        text-transform: uppercase;
+      }
+      .analytics-data-table tbody tr:last-child td { border-bottom: 0; }
+      .analytics-data-table tbody tr:hover { background: var(--surface-hover); }
+      .analytics-data-table .analytics-table-primary {
+        color: var(--ink);
+        font-weight: 700;
+      }
       .analytics-realization-controls {
         display: grid;
         grid-template-columns: auto repeat(3, minmax(0, 1fr));
@@ -765,6 +817,7 @@
       utilizationOfficeId: "",
       utilizationDepartmentId: "",
       utilizationSelectedKey: "",
+      utilizationDetailView: "chart",
       utilizationMemberSort: "high_to_low",
       utilizationMemberTitle: UTILIZATION_MEMBER_TITLE_ALL,
       realizationStatus: "open",
@@ -1287,6 +1340,41 @@
         },
       ],
     });
+  }
+
+  function renderUtilizationDetailTable(container, seriesRows) {
+    if (!container) return;
+    const rows = Array.isArray(seriesRows) ? seriesRows : [];
+    if (!rows.length) {
+      container.innerHTML = '<div class="analytics-chart-empty">No time-bucket utilization data for the selected item.</div>';
+      return;
+    }
+    const body = rows
+      .map((row) => {
+        const client = toNumber(row?.clientHours);
+        const internal = toNumber(row?.internalHours);
+        const pto = toNumber(row?.ptoHours);
+        const idle = toNumber(row?.idleHours);
+        const capacity = toNumber(row?.capacityHours) || client + internal + pto + idle;
+        return `<tr>
+          <td>${escapeHtml(safeText(row?.label) || "—")}</td>
+          <td class="analytics-table-primary">${escapeHtml(formatPercent(row?.utilizationPct))}</td>
+          <td>${escapeHtml(formatHours(client))}</td>
+          <td>${escapeHtml(formatHours(internal))}</td>
+          <td>${escapeHtml(formatHours(pto))}</td>
+          <td>${escapeHtml(formatHours(idle))}</td>
+          <td>${escapeHtml(formatHours(capacity))}</td>
+        </tr>`;
+      })
+      .join("");
+    container.innerHTML = `<div class="analytics-table-wrap">
+      <table class="analytics-data-table">
+        <thead><tr>
+          <th>Period</th><th>Utilization</th><th>Client</th><th>Internal</th><th>PTO</th><th>Idle</th><th>Capacity</th>
+        </tr></thead>
+        <tbody>${body}</tbody>
+      </table>
+    </div>`;
   }
 
   function renderRealizationPrimaryChart(options) {
@@ -2071,11 +2159,14 @@
         1 +
         (uiState.utilizationPeriod === "custom" ? 1 : 0) +
         (isSelfOnlyScope ? 0 : 3);
+      const utilizationDetailIsTable = uiState.utilizationDetailView === "table";
+      const utilizationDetailToggleLabel = utilizationDetailIsTable ? "View Chart" : "View Table";
       const utilizationMainHtml = isSelfOnlyScope
         ? `
           <section class="analytics-chart-wrap">
             <div class="analytics-chart-head">
               <strong>${escapeHtml(selectedRow ? `${selectedRow.name} Utilization Over Time` : "My Utilization Over Time")}</strong>
+              <button type="button" class="analytics-view-toggle" data-analytics-utilization-detail-toggle>${utilizationDetailToggleLabel}</button>
             </div>
             <div data-analytics-utilization-right-host></div>
           </section>
@@ -2119,6 +2210,7 @@
             <article class="analytics-util-card">
               <div class="analytics-chart-head">
                 <strong>${escapeHtml(selectedRow ? `${selectedRow.name} Over Time` : "Utilization Over Time")}</strong>
+                <button type="button" class="analytics-view-toggle" data-analytics-utilization-detail-toggle>${utilizationDetailToggleLabel}</button>
               </div>
               <div data-analytics-utilization-right-host></div>
             </article>
@@ -2259,10 +2351,22 @@
           },
         });
       }
-      renderUtilizationDetailChart({
-        container: body.querySelector("[data-analytics-utilization-right-host]"),
-        seriesRows: selectedSeries,
-      });
+      const utilizationDetailToggle = body.querySelector("[data-analytics-utilization-detail-toggle]");
+      if (utilizationDetailToggle) {
+        utilizationDetailToggle.addEventListener("click", () => {
+          uiState.utilizationDetailView = utilizationDetailIsTable ? "chart" : "table";
+          renderAnalyticsPage(options);
+        });
+      }
+      const utilizationDetailHost = body.querySelector("[data-analytics-utilization-right-host]");
+      if (utilizationDetailIsTable) {
+        renderUtilizationDetailTable(utilizationDetailHost, selectedSeries);
+      } else {
+        renderUtilizationDetailChart({
+          container: utilizationDetailHost,
+          seriesRows: selectedSeries,
+        });
+      }
       return;
     }
 
