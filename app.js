@@ -6883,7 +6883,7 @@
     const calendarWeeks = Math.ceil((mondayOffset + daysInMonth) / 7);
     const calendarCellCount = calendarWeeks * 7;
     refs.inputsTimeMonthExperiment.style.setProperty("--calendar-weeks", String(calendarWeeks));
-    refs.inputsTimeMonthExperiment.style.setProperty("--calendar-height", `${64 + 80 * calendarWeeks}px`);
+    refs.inputsTimeMonthExperiment.style.setProperty("--calendar-height", `${61 + 68 * calendarWeeks}px`);
     const entries = (state.inputsEntries || []).filter(
       (entry) => `${entry?.date || ""}`.slice(0, 7) === monthKey
     );
@@ -8124,6 +8124,30 @@
     return next;
   }
 
+  function trimInputsTimeDisplayRows(container, latestSavedRow) {
+    if (!container || !latestSavedRow) return;
+    const rows = Array.from(container.querySelectorAll("form.input-row.input-row-body"));
+    const unsavedRows = rows.filter((candidate) => candidate.dataset.rowState !== "saved");
+    const blankRow =
+      [...unsavedRows].reverse().find((candidate) => isInputsTimeRowBlank(candidate)) ||
+      unsavedRows[unsavedRows.length - 1] ||
+      null;
+    const rowsToKeep = new Set([latestSavedRow, blankRow].filter(Boolean));
+    rows.forEach((candidate) => {
+      if (!rowsToKeep.has(candidate)) candidate.remove();
+    });
+    const remainingRows = Array.from(
+      container.querySelectorAll("form.input-row.input-row-body")
+    );
+    remainingRows.forEach((candidate) => candidate.removeAttribute("id"));
+    const templateRow = blankRow?.isConnected ? blankRow : latestSavedRow;
+    if (templateRow) {
+      templateRow.id = "inputs-time-form";
+      refs.inputsTimeForm = templateRow;
+    }
+    syncInputsTimeRowInteractivity(remainingRows);
+  }
+
   function bindInputsTimeFormRow(row) {
     if (!row || row.dataset.boundHandlers === "true") return;
     const fields = inputsTimeRowFields(row);
@@ -8272,7 +8296,9 @@
         { skipHydrate: true, refreshState: false, returnState: false }
       )
         .then(() => {
+          trimInputsTimeDisplayRows(container, row);
           feedback("Entry saved.", false);
+          postHeight();
         })
         .catch((error) => {
           if (nextEntryId) {
