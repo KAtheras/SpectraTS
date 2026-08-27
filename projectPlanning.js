@@ -894,7 +894,21 @@
         usersById.get(String(project?.projectLeadId || project?.project_lead_id || "").trim())?.displayName ||
         "Unassigned"
     );
-    const overheadValue = toNullableNumber(project?.overheadPercent ?? project?.overhead_percent);
+    const projectClient = (state?.clients || []).find(
+      (client) => String(client?.name || "").trim() === String(project?.client || "").trim()
+    );
+    const projectOfficeId = String(
+      project?.officeId || project?.office_id || projectClient?.officeId || projectClient?.office_id || ""
+    ).trim();
+    const officeOverheadValue = toNullableNumber(
+      (state?.officeLocations || []).find(
+        (office) => String(office?.id || "").trim() === projectOfficeId
+      )?.overheadPercent
+    );
+    const legacyProjectOverheadValue = toNullableNumber(
+      project?.overheadPercent ?? project?.overhead_percent
+    );
+    const overheadValue = officeOverheadValue ?? legacyProjectOverheadValue;
     let contractAmountValue = toNullableNumber(project?.contractAmount ?? project?.contract_amount);
     const pricingModel = String(project?.pricingModel ?? project?.pricing_model ?? "").trim().toLowerCase();
     let contractType = pricingModel === "time_and_materials" ? "tm" : "fixed";

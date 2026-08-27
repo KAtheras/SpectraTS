@@ -65,17 +65,9 @@
   let memberInfoMobileMode = "list";
   let memberInfoMobileSelectedUserId = "";
   let delegationsSelectedDelegateId = "";
-  let delegationsSaveInFlight = false;
-  let delegationsSaveQueued = false;
-  let permissionsSaveInFlight = false;
-  let permissionsSaveQueued = false;
-  let permissionsQueuedSnapshot = null;
-  let expenseCategoriesSaveInFlight = false;
-  let expenseCategoriesSaveQueued = false;
   let projectExpenseCategoriesDraft = [];
   let projectExpenseCategoriesDraftDirty = false;
   let expenseCategoriesEnhancementsWired = false;
-  const settingsAutoSubmitTimers = new Map();
   const delegationsDraftCapabilitiesByDelegateId = new Map();
   const SETTINGS_DELETE_ICON = `
     <svg viewBox="0 -960 960 960" aria-hidden="true">
@@ -1061,6 +1053,9 @@
             gap:10px;
             align-items:center;
           }
+          #settings-page [data-settings-tab="locations"] .settings-row-main-split{
+            grid-template-columns:minmax(0,1fr) minmax(160px,230px) minmax(110px,140px);
+          }
           #settings-page .settings-row-actions{
             display:flex;
             justify-content:flex-end;
@@ -1413,7 +1408,7 @@
               padding-right:0;
             }
             #settings-page [data-settings-tab="locations"] .settings-row-main-split{
-              grid-template-columns:minmax(0,1fr) minmax(94px,126px);
+              grid-template-columns:minmax(0,1fr) minmax(94px,126px) minmax(82px,110px);
               gap:4px;
             }
             #settings-page [data-settings-tab="locations"] .settings-row-actions{
@@ -3681,10 +3676,12 @@
     if (form) {
       form.onsubmit = async function (event) {
         event.preventDefault();
-        if (delegationsSaveInFlight) {
-          delegationsSaveQueued = true;
+        if (!deps().state?.permissions?.can_delegate) {
+          deps().feedback("Access denied.", true);
           return;
         }
+        if (!(window.settingsAutosave?.begin("delegations-form") ?? true)) return;
+        let autosaveOk = false;
         let delegateUserId = `${selectedDelegateIdInput?.value || ""}`.trim();
         if (!delegateUserId && searchInput) {
           const typed = `${searchInput.value || ""}`.trim().toLowerCase();
@@ -3697,12 +3694,12 @@
         }
         if (!delegateUserId) {
           deps().feedback("Delegate is required.", true);
+          window.settingsAutosave?.finish("delegations-form", { ok: false });
           return;
         }
         const selectedCaps = Array.from(
           panel.querySelectorAll('input[data-delegation-capability]:checked')
         ).map((input) => `${input.value || ""}`.trim());
-        delegationsSaveInFlight = true;
         try {
           const result = await deps().mutatePersistentState(
             "save_delegate_capabilities",
@@ -3737,14 +3734,15 @@
           }
           delegationsDraftCapabilitiesByDelegateId.delete(delegateUserId);
           deps().feedback(selectedCaps.length ? "Delegation saved." : "Delegation removed.", false);
+          autosaveOk = true;
         } catch (error) {
           deps().feedback(error.message || "Unable to save delegation.", true);
         } finally {
-          delegationsSaveInFlight = false;
-          if (delegationsSaveQueued) {
-            delegationsSaveQueued = false;
-            scheduleSettingsFormSubmit("delegations-form", 0);
-          } else {
+          const hadQueuedEdit = Boolean(
+            window.settingsAutosave?.snapshot("delegations-form")?.queued
+          );
+          window.settingsAutosave?.finish("delegations-form", { ok: autosaveOk });
+          if (autosaveOk && !hadQueuedEdit) {
             renderDelegationsTab();
             setActiveSettingsTab("delegations");
           }
@@ -3998,20 +3996,14 @@
     };
 
     const schedulePermissionsSave = function () {
+      if (!deps().state?.permissions?.manage_settings_access) {
+        deps().feedback("Access denied.", true);
+        return;
+      }
       const livePanel = document.querySelector('[data-settings-tab="permissions"]');
       if (!livePanel) return;
-      const timerKey = "permissions";
-      const existing = settingsAutoSubmitTimers.get(timerKey);
-      if (existing) {
-        clearTimeout(existing);
-      }
-      const timer = setTimeout(async () => {
+      window.settingsAutosave?.scheduleTask("permissions-matrix", async () => {
         const next = collectPermissionsSnapshotFromInputs();
-        if (permissionsSaveInFlight) {
-          permissionsQueuedSnapshot = next;
-          permissionsSaveQueued = true;
-          return;
-        }
         const liveRolePerms = Array.isArray(deps().state?.rolePermissions)
           ? deps().state.rolePermissions
           : [];
@@ -4035,9 +4027,8 @@
           updateClientsGroupWarningFromRows(collectPermissionsSnapshotFromInputs());
           return;
         }
-        permissionsSaveInFlight = true;
         try {
-          await deps().mutatePersistentState(
+          const result = await deps().mutatePersistentState(
             "update_role_permissions",
             { rolePermissions: next },
             {
@@ -4074,7 +4065,9 @@
               allowed: true,
             }))
             .filter((row) => row.role_key && row.capability_key);
-          deps().state.rolePermissions = [...preservedRows, ...matrixAllowedRows];
+          deps().state.rolePermissions = Array.isArray(result?.rolePermissions)
+            ? result.rolePermissions
+            : [...preservedRows, ...matrixAllowedRows];
           const warningMessage = updateClientsGroupWarningFromRows(
             collectPermissionsSnapshotFromInputs()
           );
@@ -4086,32 +4079,9 @@
         } catch (error) {
           setClientsGroupWarning(error.message || "Unable to save access.", true);
           deps().feedback(error.message || "Unable to save access.", true);
-          permissionsQueuedSnapshot = null;
-        } finally {
-          permissionsSaveInFlight = false;
-          if (permissionsSaveQueued) {
-            permissionsSaveQueued = false;
-            const queuedSnapshot = Array.isArray(permissionsQueuedSnapshot)
-              ? permissionsQueuedSnapshot
-              : null;
-            permissionsQueuedSnapshot = null;
-            if (queuedSnapshot) {
-              const livePanelNow = document.querySelector('[data-settings-tab="permissions"]');
-              if (livePanelNow) {
-                queuedSnapshot.forEach((row) => {
-                  const selector = `[data-perm-role="${row.role}"][data-perm-cap="${row.capability}"]`;
-                  const input = livePanelNow.querySelector(selector);
-                  if (input && input.dataset.permLocked !== "true") {
-                    input.checked = Boolean(row.allowed);
-                  }
-                });
-              }
-            }
-            schedulePermissionsSave();
-          }
+          throw error;
         }
       }, 450);
-      settingsAutoSubmitTimers.set(timerKey, timer);
     };
 
     if (!panel.dataset.permissionsHandlersBound) {
@@ -4163,18 +4133,7 @@
   }
 
   function scheduleSettingsFormSubmit(formId, delayMs = 700) {
-    const timerKey = String(formId || "").trim();
-    if (!timerKey) return;
-    const existing = settingsAutoSubmitTimers.get(timerKey);
-    if (existing) {
-      clearTimeout(existing);
-    }
-    const timer = setTimeout(() => {
-      const form = document.getElementById(timerKey);
-      if (!form || typeof form.requestSubmit !== "function") return;
-      form.requestSubmit();
-    }, delayMs);
-    settingsAutoSubmitTimers.set(timerKey, timer);
+    window.settingsAutosave?.scheduleForm(formId, delayMs);
   }
 
   function renderDepartments() {
@@ -4551,7 +4510,7 @@
 
     if (!panel.dataset.departmentLeadsBound) {
       panel.dataset.departmentLeadsBound = "true";
-      panel.addEventListener("change", async function (event) {
+      panel.addEventListener("change", function (event) {
         const select = event.target.closest("[data-department-lead-select]");
         if (!select) return;
         if (!deps().state.permissions?.edit_department_leads_settings) {
@@ -4561,46 +4520,51 @@
         }
         const officeId = `${select.dataset.departmentLeadOfficeId || ""}`.trim();
         const departmentId = `${select.dataset.departmentLeadDepartmentId || ""}`.trim();
-        const userId = `${select.value || ""}`.trim();
         if (!officeId || !departmentId) return;
-        try {
-          await mutatePersistentState(
-            "set_department_lead_assignment",
-            {
-              officeId,
-              departmentId,
-              userId: userId || null,
-            },
-            {
-              skipHydrate: true,
-              returnState: false,
-              skipSettingsMetadataReload: true,
-              refreshState: false,
+        window.settingsAutosave?.scheduleTask(
+          `department-lead:${officeId}:${departmentId}`,
+          async function () {
+            const liveSelect = panel.querySelector(
+              `[data-department-lead-select][data-department-lead-office-id="${officeId}"][data-department-lead-department-id="${departmentId}"]`
+            );
+            const userId = `${liveSelect?.value || ""}`.trim();
+            try {
+              const result = await mutatePersistentState(
+                "set_department_lead_assignment",
+                { officeId, departmentId, userId: userId || null },
+                {
+                  skipHydrate: true,
+                  returnState: false,
+                  skipSettingsMetadataReload: true,
+                  refreshState: false,
+                }
+              );
+              const next = Array.isArray(deps().state.departmentLeadAssignments)
+                ? deps().state.departmentLeadAssignments
+                : [];
+              const filtered = next.filter(
+                (item) =>
+                  `${item?.officeId || item?.office_id || ""}`.trim() !== officeId ||
+                  `${item?.departmentId || item?.department_id || ""}`.trim() !== departmentId
+              );
+              if (result?.userId) {
+                filtered.push({
+                  id: result.id || `${officeId}::${departmentId}`,
+                  officeId: result.officeId || officeId,
+                  departmentId: result.departmentId || departmentId,
+                  userId: result.userId,
+                });
+              }
+              deps().state.departmentLeadAssignments = filtered;
+              feedback("Department lead updated.", false);
+            } catch (error) {
+              feedback(error?.message || "Unable to update department lead.", true);
+              renderDepartmentLeads();
+              throw error;
             }
-          );
-          const next = Array.isArray(deps().state.departmentLeadAssignments)
-            ? deps().state.departmentLeadAssignments
-            : [];
-          const filtered = next.filter(
-            (item) =>
-              `${item?.officeId || item?.office_id || ""}`.trim() !== officeId ||
-              `${item?.departmentId || item?.department_id || ""}`.trim() !== departmentId
-          );
-          if (userId) {
-            filtered.push({
-              id: `${officeId}::${departmentId}`,
-              officeId,
-              departmentId,
-              userId,
-            });
-          }
-          deps().state.departmentLeadAssignments = filtered;
-          feedback("Department lead updated.", false);
-          renderDepartmentLeads();
-        } catch (error) {
-          feedback(error?.message || "Unable to update department lead.", true);
-          renderDepartmentLeads();
-        }
+          },
+          350
+        );
       });
     }
   }
@@ -5209,14 +5173,11 @@
       async function (event) {
         event.preventDefault();
         event.stopImmediatePropagation();
-        if (expenseCategoriesSaveInFlight) {
-          expenseCategoriesSaveQueued = true;
-          return;
-        }
-        expenseCategoriesSaveInFlight = true;
+        if (!(window.settingsAutosave?.begin("expense-categories-form") ?? true)) return;
+        let autosaveOk = false;
+        try {
         if (!state.permissions?.manage_expense_categories) {
           feedback("Access denied.", true);
-          expenseCategoriesSaveInFlight = false;
           return;
         }
 
@@ -5291,14 +5252,16 @@
           projectExpenseCategoriesDraftDirty = false;
           renderExpenseCategories();
           feedback("Expense categories updated.", false);
+          autosaveOk = true;
         } catch (error) {
           feedback(error.message || "Unable to update expense categories.", true);
+          renderExpenseCategories();
         } finally {
-          expenseCategoriesSaveInFlight = false;
-          if (expenseCategoriesSaveQueued) {
-            expenseCategoriesSaveQueued = false;
-            scheduleSettingsFormSubmit("expense-categories-form", 0);
-          }
+          // The shared controller is finalized by the outer block so validation
+          // failures and request failures cannot leave this form stuck in-flight.
+        }
+        } finally {
+          window.settingsAutosave?.finish("expense-categories-form", { ok: autosaveOk });
         }
       },
       true
@@ -5338,6 +5301,11 @@
             <div class="settings-row-main settings-row-main-split">
               <input class="settings-field" type="text" value="${escapeHtml(item.name)}" data-office-name placeholder="Location name" />
               <select class="settings-field" data-office-lead>${leadOptions}</select>
+              <input class="settings-field" type="number" min="0" step="0.01" value="${
+                item.overheadPercent === null || item.overheadPercent === undefined
+                  ? ""
+                  : escapeHtml(String(item.overheadPercent))
+              }" data-office-overhead placeholder="Overhead %" aria-label="Office overhead percent" />
             </div>
             <div class="settings-row-actions office-actions">
               <button type="button" class="settings-row-delete-icon" data-office-delete aria-label="Delete location">
@@ -5353,6 +5321,7 @@
         <div class="settings-row-main settings-row-main-split">
           <span>OFFICE</span>
           <span>OFFICE LEAD</span>
+          <span>OVERHEAD %</span>
         </div>
         <div class="settings-row-actions"></div>
       </div>

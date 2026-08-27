@@ -511,6 +511,87 @@ async function deleteDepartment(sql, payload, accountId) {
   return null;
 }
 
+async function updateDepartments(sql, payload, accountId, context) {
+  const requested = Array.isArray(payload?.departments) ? payload.departments : [];
+  if (!requested.length) return errorResponse(400, "Add at least one department.");
+
+  const seenNames = new Set();
+  const normalized = [];
+  for (const item of requested) {
+    const name = normalizeText(item?.name);
+    const nameKey = name.toLowerCase();
+    const rawPct = item?.techAdminFeePct ?? item?.tech_admin_fee_pct;
+    const hasPct = rawPct !== null && rawPct !== undefined && `${rawPct}`.trim() !== "";
+    const techAdminFeePct = hasPct ? Number(rawPct) : null;
+    if (!name) return errorResponse(400, "Department name is required.");
+    if (seenNames.has(nameKey)) return errorResponse(400, "Department names must be unique.");
+    if (hasPct && (!Number.isFinite(techAdminFeePct) || techAdminFeePct < 0)) {
+      return errorResponse(400, "Tech/Admin fee % must be a non-negative number.");
+    }
+    seenNames.add(nameKey);
+    const requestedId = normalizeText(item?.id);
+    normalized.push({
+      id: !requestedId || requestedId.startsWith("temp-dept-") ? randomId() : requestedId,
+      requestedId,
+      name,
+      techAdminFeePct,
+    });
+  }
+
+  const beforeRows = await sql`
+    SELECT id, name, tech_admin_fee_pct AS "techAdminFeePct"
+    FROM departments
+    WHERE account_id = ${accountId}::uuid
+    ORDER BY LOWER(name), id
+  `;
+  const existingIds = new Set(beforeRows.map((row) => normalizeText(row.id)));
+  const invalidId = normalized.find(
+    (item) => item.requestedId && !item.requestedId.startsWith("temp-dept-") && !existingIds.has(item.id)
+  );
+  if (invalidId) return errorResponse(404, "Department not found.");
+
+  const now = new Date().toISOString();
+  const queries = normalized.map((item) =>
+    existingIds.has(item.id)
+      ? sql`
+          UPDATE departments
+          SET name = ${item.name}, tech_admin_fee_pct = ${item.techAdminFeePct}, updated_at = ${now}
+          WHERE id = ${item.id} AND account_id = ${accountId}::uuid
+        `
+      : sql`
+          INSERT INTO departments (id, account_id, name, tech_admin_fee_pct, created_at, updated_at)
+          VALUES (${item.id}, ${accountId}::uuid, ${item.name}, ${item.techAdminFeePct}, ${now}, ${now})
+        `
+  );
+  const desiredIds = normalized.map((item) => item.id);
+  queries.push(sql`
+    DELETE FROM departments
+    WHERE account_id = ${accountId}::uuid
+      AND id <> ALL(${desiredIds}::text[])
+  `);
+
+  const afterSnapshot = normalized.map(({ id, name, techAdminFeePct }) => ({
+    id,
+    name,
+    techAdminFeePct,
+  }));
+  queries.push(
+    buildAuditQuery(sql, {
+      accountId,
+      entityType: "department",
+      entityId: "all",
+      action: "update",
+      changedByUserId: context.currentUser?.id || null,
+      changedByNameSnapshot: context.currentUser?.displayName || "",
+      beforeJson: beforeRows,
+      afterJson: afterSnapshot,
+      changedFieldsJson: diffKeys({ departments: beforeRows }, { departments: afterSnapshot }),
+    })
+  );
+  await sql.transaction(queries);
+  return { departments: afterSnapshot };
+}
+
 async function setUserDepartment(sql, payload, accountId) {
   const userId = normalizeText(payload.userId);
   const departmentId = payload.departmentId ? normalizeText(payload.departmentId) : null;
@@ -1059,7 +1140,14 @@ async function updateNotificationRule(sql, payload, accountId) {
   if (!rows[0]) {
     return errorResponse(404, "Notification rule not found.");
   }
-  return null;
+  return {
+    notificationRule: {
+      eventType,
+      inboxEnabled,
+      emailEnabled,
+      enabled: inboxEnabled || emailEnabled,
+    },
+  };
 }
 
 function diffKeys(before, after) {
@@ -2399,15 +2487,23 @@ async function updateOfficeLocations(sql, payload, accountId) {
     const id = normalizeText(item.id) || randomId();
     const name = normalizeText(item.name);
     const officeLeadUserId = normalizeText(item.officeLeadUserId) || null;
+    const overheadRaw = item.overheadPercent ?? item.overhead_percent;
+    const overheadPercent =
+      overheadRaw === null || overheadRaw === undefined || String(overheadRaw).trim() === ""
+        ? null
+        : Number(overheadRaw);
     if (!name) {
       return errorResponse(400, "Location name cannot be blank.");
+    }
+    if (overheadPercent !== null && (!Number.isFinite(overheadPercent) || overheadPercent < 0)) {
+      return errorResponse(400, "Office overhead must be a non-negative number.");
     }
     const key = name.toLowerCase();
     if (seen.has(key)) {
       return errorResponse(400, "Location names must be unique.");
     }
     seen.add(key);
-    cleaned.push({ id, name, officeLeadUserId });
+    cleaned.push({ id, name, officeLeadUserId, overheadPercent });
   }
 
   const existing = await sql`
@@ -2470,15 +2566,16 @@ async function updateOfficeLocations(sql, payload, accountId) {
 
   for (const item of cleaned) {
     await sql`
-      INSERT INTO office_locations (id, account_id, name, office_lead_user_id)
-      VALUES (${item.id}, ${accountId}::uuid, ${item.name}, ${item.officeLeadUserId})
+      INSERT INTO office_locations (id, account_id, name, office_lead_user_id, overhead_percent)
+      VALUES (${item.id}, ${accountId}::uuid, ${item.name}, ${item.officeLeadUserId}, ${item.overheadPercent})
       ON CONFLICT (id) DO UPDATE SET
         name = EXCLUDED.name,
-        office_lead_user_id = EXCLUDED.office_lead_user_id
+        office_lead_user_id = EXCLUDED.office_lead_user_id,
+        overhead_percent = EXCLUDED.overhead_percent
     `;
   }
 
-  return null;
+  return { locations: cleaned };
 }
 async function addClient(sql, payload, accountId) {
   const clientName = normalizeText(payload.clientName);
@@ -5983,6 +6080,13 @@ exports.handler = async function handler(event) {
         });
         break;
       }
+      case "update_departments": {
+        if (!can("manage_departments")) {
+          return errorResponse(403, "Access denied.");
+        }
+        mutationResult = await updateDepartments(sql, request.payload || {}, accountId, context);
+        break;
+      }
       case "rename_department": {
         if (!can("manage_departments")) {
           return errorResponse(403, "Access denied.");
@@ -6174,15 +6278,16 @@ exports.handler = async function handler(event) {
         };
 
         // Normalize matrix-managed capabilities by clearing prior scope rows first.
+        const permissionQueries = [];
         if (roleKeysAll.length && capKeysAll.length) {
-          await sql`
+          permissionQueries.push(sql`
             DELETE FROM role_permissions rp
             USING permission_roles pr, permission_capabilities pc
             WHERE rp.role_id = pr.id
               AND rp.capability_id = pc.id
               AND pr.key = ANY(${roleKeysAll})
               AND pc.key = ANY(${capKeysAll})
-          `;
+          `);
         }
 
         // Persist both checked and unchecked rows.
@@ -6193,14 +6298,14 @@ exports.handler = async function handler(event) {
           const capId = capIdByKey.get(capability);
           const scopeId = scopeIdByKey.get(scopeKeyForCapability(role, capability));
           if (!roleId || !capId || !scopeId) continue;
-          await sql`
+          permissionQueries.push(sql`
             INSERT INTO role_permissions (role_id, capability_id, scope_id, allowed)
             VALUES (${roleId}, ${capId}, ${scopeId}, ${allowed ? true : false})
             ON CONFLICT (role_id, capability_id, scope_id) DO UPDATE SET allowed = EXCLUDED.allowed
-          `;
+          `);
         }
+        if (permissionQueries.length) await sql.transaction(permissionQueries);
 
-        mutationResult = await loadState(sql, context.currentUser, { includeRecords: false });
         const afterSnapshot = {
           permissions: await snapshotRolePermissions(sql, accountId),
         };
@@ -6213,6 +6318,9 @@ exports.handler = async function handler(event) {
           beforeSnapshot,
           afterSnapshot,
         });
+        mutationResult = {
+          rolePermissions: await permissions.loadPermissionsFromDb(sql),
+        };
         break;
       }
       case "create_delegation": {

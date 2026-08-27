@@ -4,6 +4,7 @@ const assert = require("assert");
 const path = require("path");
 const perms = require("../netlify/functions/permissions");
 const db = require("../netlify/functions/_db");
+const fs = require("fs");
 
 const workbookPath = path.join(__dirname, "..", "final_permission_spec_clean.xlsx");
 const records = perms.parseWorkbook(workbookPath);
@@ -173,6 +174,48 @@ test("admin can view member rates only in own office", () => {
 test("staff cannot view settings shell", () => {
   const allowed = perms.can(users.staffA, "view_settings_shell", ctx({ resourceOfficeId: "A", actorOfficeId: "A" }));
   assert.strictEqual(allowed, false);
+});
+
+test("settings autosave handlers use the matching granular capabilities", () => {
+  const appSource = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
+  const adminSource = fs.readFileSync(path.join(__dirname, "..", "settingsAdmin.js"), "utf8");
+  const mutationSource = fs.readFileSync(
+    path.join(__dirname, "..", "netlify", "functions", "mutate.js"),
+    "utf8"
+  );
+  assert.match(appSource, /departmentsForm[\s\S]*?permissions\?\.manage_departments/);
+  assert.match(appSource, /targetRealizationsForm[\s\S]*?permissions\?\.manage_target_realizations/);
+  assert.match(adminSource, /permissions\?\.can_delegate[\s\S]*?settingsAutosave\?\.begin\("delegations-form"\)/);
+  assert.match(adminSource, /schedulePermissionsSave[\s\S]*?permissions\?\.manage_settings_access/);
+  assert.match(
+    mutationSource,
+    /case "update_departments":[\s\S]*?can\("manage_departments"\)[\s\S]*?updateDepartments/
+  );
+});
+
+test("department settings are persisted by one database transaction", () => {
+  const appSource = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
+  const mutationSource = fs.readFileSync(
+    path.join(__dirname, "..", "netlify", "functions", "mutate.js"),
+    "utf8"
+  );
+  assert.match(appSource, /mutatePersistentState\(\s*"update_departments"/);
+  assert.match(mutationSource, /async function updateDepartments[\s\S]*?sql\.transaction\(queries\)/);
+});
+
+test("specialized settings controls use shared sequencing and granular capabilities", () => {
+  const appSource = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
+  const adminSource = fs.readFileSync(path.join(__dirname, "..", "settingsAdmin.js"), "utf8");
+  const mutationSource = fs.readFileSync(
+    path.join(__dirname, "..", "netlify", "functions", "mutate.js"),
+    "utf8"
+  );
+  assert.match(appSource, /permissions\?\.manage_messaging_rules[\s\S]*?scheduleTask\(\s*`messaging-rule:/);
+  assert.match(adminSource, /permissions\?\.edit_department_leads_settings[\s\S]*?scheduleTask\(\s*`department-lead:/);
+  assert.match(adminSource, /permissions\?\.manage_settings_access[\s\S]*?scheduleTask\("permissions-matrix"/);
+  assert.match(mutationSource, /case "update_notification_rule":[\s\S]*?manage_messaging_rules/);
+  assert.match(mutationSource, /case "set_department_lead_assignment":[\s\S]*?edit_department_leads_settings/);
+  assert.match(mutationSource, /case "update_user_rates":[\s\S]*?edit_member_rates/);
 });
 
 test("staff cannot view projects", () => {
