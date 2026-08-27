@@ -685,7 +685,7 @@
     const scopedUserIds = new Set(Array.from(scopedUserById.keys()).filter(Boolean));
     const scopedUsersByUniqueName = buildUniqueUserNameIndex(scopedUsers);
 
-    const businessDays = countBusinessDaysInclusive(fromDate, toDate);
+    const businessDays = countBusinessDaysInclusive(fromDate, minIsoDate(toDate, todayIso));
     const timeBucketMeta = buildUtilizationTimeBuckets(period, fromDate, toDate);
     const timeBuckets = timeBucketMeta.buckets;
     const defaultMemberCapacityHours = businessDays * 8;
@@ -707,7 +707,9 @@
       }
       if (!memberCapacityByKey.has(memberKey)) {
         const memberMeta = memberMetaByKey.get(memberKey) || { useLifecycle: false };
-        const tenureBusinessDays = memberBusinessDaysInRange(memberMeta, fromDate, toDate);
+        const tenureBusinessDays = memberBusinessDaysInRange(memberMeta, fromDate, toDate, {
+          capToDate: todayIso,
+        });
         memberCapacityByKey.set(
           memberKey,
           memberMeta.useLifecycle ? tenureBusinessDays * 8 : defaultMemberCapacityHours
@@ -756,7 +758,9 @@
       }
       if (!memberCapacityByKey.has(memberKey)) {
         const memberMeta = memberMetaByKey.get(memberKey) || { useLifecycle: false };
-        const tenureBusinessDays = memberBusinessDaysInRange(memberMeta, fromDate, toDate);
+        const tenureBusinessDays = memberBusinessDaysInRange(memberMeta, fromDate, toDate, {
+          capToDate: todayIso,
+        });
         memberCapacityByKey.set(
           memberKey,
           memberMeta.useLifecycle ? tenureBusinessDays * 8 : defaultMemberCapacityHours
@@ -913,7 +917,7 @@
       timeSeriesByKey,
       assumptions: {
         capacity:
-          "Capacity uses business days × 8 hours per member, prorated to each member's active period (active_from/active_to) when available; members without active_from use legacy full-period capacity behavior.",
+          "Capacity uses business days through today × 8 hours per member, prorated to each member's active period (active_from/active_to) when available.",
         categoryMapping:
           "Client = billable external project time; Internal = internal/corporate time plus non-billable external time, excluding PTO; PTO = internal time matching PTO keywords (vacation/sick/holiday/leave).",
       },

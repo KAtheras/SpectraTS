@@ -192,7 +192,7 @@ async function buildUtilizationResult(sql, details) {
   const timeSeriesByKey = {};
   const resultRows = Array.from(groups.values()).map((group) => {
     const groupUsers = Array.from(group.users.values());
-    const capacity = capacityHours(filters.from, filters.to, groupUsers);
+    const capacity = capacityHours(filters.from, filters.to, groupUsers, today);
     timeSeriesByKey[group.key] = buckets.map((bucket) => {
       const sample = group.buckets.get(bucket.key) || { clientHours: 0, internalHours: 0, ptoHours: 0 };
       const bucketCapacity = capacityHours(bucket.from < filters.from ? filters.from : bucket.from, bucket.to > filters.to ? filters.to : bucket.to, groupUsers, today);
@@ -216,7 +216,7 @@ async function buildUtilizationResult(sql, details) {
     };
   }).filter((row) => filters.groupBy !== "member" || row.capacityHours > 0);
   resultRows.sort((a, b) => (b.utilizationPct ?? -1) - (a.utilizationPct ?? -1) || b.clientHours - a.clientHours || a.name.localeCompare(b.name));
-  const totalCapacity = capacityHours(filters.from, filters.to, users);
+  const totalCapacity = capacityHours(filters.from, filters.to, users, today);
   return {
     kpis: {
       avgUtilizationPct: totalCapacity > 0 ? (totals.clientHours / totalCapacity) * 100 : null,
@@ -228,7 +228,7 @@ async function buildUtilizationResult(sql, details) {
     timeSeriesByKey,
     assumptions: {
       capacity:
-        "Capacity uses business days × 8 hours per member, prorated to each member's active period (active_from/active_to) when available; members without active_from use legacy full-period capacity behavior.",
+        "Capacity uses business days through today × 8 hours per member, prorated to each member's active period (active_from/active_to) when available.",
       categoryMapping:
         "Client = billable external project time; Internal = internal/corporate time plus non-billable external time, excluding PTO; PTO = internal time matching PTO keywords (vacation/sick/holiday/leave).",
     },

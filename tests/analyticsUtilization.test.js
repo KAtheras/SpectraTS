@@ -11,6 +11,11 @@ const {
 assert.strictEqual(businessDays("2026-08-24", "2026-08-30"), 5);
 assert.strictEqual(capacityHours("2026-08-24", "2026-08-28", [{ id: "a" }]), 40);
 assert.strictEqual(capacityHours("2026-08-24", "2026-08-28", [{ id: "a", activeFrom: "2026-08-26" }]), 24);
+assert.strictEqual(
+  capacityHours("2026-08-24", "2026-08-31", [{ id: "a" }], "2026-08-27"),
+  32,
+  "capacity should exclude future business days"
+);
 assert.strictEqual(buildBuckets("this_week", "2026-08-24", "2026-08-30").length, 7);
 assert.strictEqual(buildBuckets("this_month", "2026-08-01", "2026-08-31").length, 6);
 assert.deepStrictEqual(
