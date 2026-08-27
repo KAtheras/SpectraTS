@@ -1186,6 +1186,32 @@
     const toAddStaff = nextStaff.filter((id) => !initialStaff.includes(id));
     const toRemoveStaff = initialStaff.filter((id) => !nextStaff.includes(id));
 
+    const targetProject = (state.projects || []).find(
+      (item) =>
+        String(item?.client || "").trim() === clientName &&
+        String(item?.name || item?.project || "").trim() === projectName
+    );
+    const targetProjectId = String(targetProject?.id || "").trim();
+    const assignmentMatchesProject = (row) => {
+      const rowProjectId = String(row?.projectId || row?.project_id || "").trim();
+      if (targetProjectId && rowProjectId === targetProjectId) return true;
+      const rowClient = String(row?.client || row?.clientName || row?.client_name || "").trim();
+      const rowProject = String(row?.project || row?.projectName || row?.project_name || "").trim();
+      return rowClient === clientName && rowProject === projectName;
+    };
+    const directManagerIds = new Set(
+      (state.assignments?.managerProjects || [])
+        .filter(assignmentMatchesProject)
+        .map((row) => String(row?.managerId || row?.manager_id || "").trim())
+        .filter(Boolean)
+    );
+    const projectMemberIds = new Set(
+      (state.assignments?.projectMembers || [])
+        .filter(assignmentMatchesProject)
+        .map((row) => String(row?.userId || row?.user_id || "").trim())
+        .filter(Boolean)
+    );
+
     const mutationOptions = { skipHydrate: true, refreshState: false, returnState: false };
     for (const managerId of toAddManagers) {
       await mutatePersistentState(
@@ -1195,11 +1221,20 @@
       );
     }
     for (const managerId of toRemoveManagers) {
-      await mutatePersistentState(
-        "unassign_manager_project",
-        { managerId, clientName, projectName },
-        mutationOptions
-      );
+      if (directManagerIds.has(managerId) || !projectMemberIds.has(managerId)) {
+        await mutatePersistentState(
+          "unassign_manager_project",
+          { managerId, clientName, projectName },
+          mutationOptions
+        );
+      }
+      if (projectMemberIds.has(managerId)) {
+        await mutatePersistentState(
+          "remove_project_member",
+          { userId: managerId, clientName, projectName },
+          mutationOptions
+        );
+      }
     }
     for (const userId of toAddStaff) {
       await mutatePersistentState(
