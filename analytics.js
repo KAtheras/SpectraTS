@@ -450,6 +450,7 @@
     { id: "this_quarter", name: "This Quarter" },
     { id: "last_quarter", name: "Last Quarter" },
     { id: "ytd", name: "YTD" },
+    { id: "last_12_months", name: "Last 12 Months" },
     { id: "last_year", name: "Last Year" },
   ];
   const UTILIZATION_PERIOD_OPTIONS = [
@@ -608,6 +609,14 @@
     }
     if (period === "ytd") {
       return { fromDate: `${todayDate.getFullYear()}-01-01`, toDate: toIsoDate(todayDate) };
+    }
+    if (period === "last_12_months") {
+      const fromDate = new Date(
+        todayDate.getFullYear() - 1,
+        todayDate.getMonth(),
+        todayDate.getDate()
+      );
+      return { fromDate: toIsoDate(fromDate), toDate: toIsoDate(todayDate) };
     }
     if (period === "last_year") {
       const year = todayDate.getFullYear() - 1;
@@ -846,7 +855,8 @@
       realizationProjectId: "",
       realizationOfficeId: "",
       realizationDepartmentId: "",
-      realizationGroupBy: "client",
+      realizationGroupBy: "office",
+      realizationGroupByIsManual: false,
       realizationSort: "high_to_low",
       realizationSelectedKey: "",
     };
@@ -1802,6 +1812,17 @@
       if (uiState.realizationProjectId && !availableProjectIds.has(uiState.realizationProjectId)) {
         uiState.realizationProjectId = "";
       }
+      if (!uiState.realizationGroupByIsManual && typeof engine.defaultRealizationGroupBy === "function") {
+        const automaticGroupBy = engine.defaultRealizationGroupBy({
+          scope: uiState.realizationScope,
+          clientId: uiState.realizationClientId,
+          projectId: uiState.realizationProjectId,
+        });
+        if (automaticGroupBy !== uiState.realizationGroupBy) {
+          uiState.realizationGroupBy = automaticGroupBy;
+          uiState.realizationSelectedKey = "";
+        }
+      }
       const realizationFilters = {
         fromDate: periodRange.fromDate,
         toDate: periodRange.toDate,
@@ -1873,6 +1894,21 @@
           : uiState.realizationScope === "member"
             ? "Member"
             : "Title";
+      const selectedScopeItem = scopeItems.find(
+        (item) => safeText(item?.id) === safeText(uiState.realizationScopeId)
+      );
+      const selectedClientItem = clientProjectOptions.clients.find(
+        (item) => safeText(item?.id) === safeText(uiState.realizationClientId)
+      );
+      const selectedProjectItem = realizationProjectItems.find(
+        (item) => safeText(item?.id) === safeText(uiState.realizationProjectId)
+      );
+      const realizationContextLabel = safeText(
+        selectedProjectItem?.name ||
+        selectedClientItem?.name ||
+        selectedScopeItem?.name ||
+        (uiState.realizationScope === "company" ? "Company" : scopeLabel)
+      );
       const scopeSelectorHtml = uiState.realizationScope === "company" ? "" : `<label>
         <span>${escapeHtml(scopeLabel)}</span>
         <select name="scopeId">${renderOptions(scopeItems, uiState.realizationScopeId, "All")}</select>
@@ -1889,8 +1925,14 @@
         : uiState.realizationStatus === "combined"
           ? "Portfolio Revenue vs Standard Value"
           : "Modeled Final Revenue vs Standard Value";
+      const specificContextLabel = safeText(
+        selectedProjectItem?.name || selectedClientItem?.name || selectedScopeItem?.name
+      );
+      const detailContextSuffix = specificContextLabel && specificContextLabel !== safeText(selectedRow?.name)
+        ? ` — ${specificContextLabel}`
+        : "";
       const selectedDetailTitle = selectedRow
-        ? `${selectedRow.name}: ${detailComparisonLabel}`
+        ? `${selectedRow.name}${detailContextSuffix}: ${detailComparisonLabel}`
         : `Selected Item: ${detailComparisonLabel}`;
 
       body.innerHTML = `
@@ -1949,7 +1991,7 @@
 
           <section class="analytics-util-grid">
             <article class="analytics-util-card">
-              <div class="analytics-chart-head"><strong>Realization by ${escapeHtml(groupByLabel)}</strong>
+              <div class="analytics-chart-head"><strong>${escapeHtml(realizationContextLabel)} Realization by ${escapeHtml(groupByLabel)}</strong>
               <button
                 type="button"
                 data-analytics-realization-sort-toggle
@@ -2004,7 +2046,11 @@
           uiState.realizationScope = nextScope;
           uiState.realizationClientId = safeText(realizationControls.elements.clientId?.value);
           uiState.realizationProjectId = safeText(realizationControls.elements.projectId?.value);
-          uiState.realizationGroupBy = normalizeRealizationGroupBy(realizationControls.elements.groupBy?.value);
+          if (safeText(event?.target?.name) === "groupBy") {
+            uiState.realizationGroupBy = normalizeRealizationGroupBy(realizationControls.elements.groupBy?.value);
+            uiState.realizationGroupByIsManual = true;
+            uiState.realizationSelectedKey = "";
+          }
           renderAnalyticsPage(options);
         });
       }

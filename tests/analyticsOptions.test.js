@@ -19,7 +19,28 @@ const normalizedProjects = utilsWindow.utils.normalizeProjects([
 assert.strictEqual(normalizedProjects[0].clientId, "c1");
 assert.strictEqual(normalizedProjects[0].client_id, "c1");
 
+const analyticsWindow = loadBrowserScript("analytics.js");
+assert.ok(
+  analyticsWindow.analyticsFeature.periodOptions.some((item) => item.id === "last_12_months"),
+  "analytics period dropdowns should include Last 12 Months"
+);
+assert.deepStrictEqual(
+  JSON.parse(JSON.stringify(analyticsWindow.analyticsFeature.periodRange("last_12_months", new Date(2026, 7, 27)))),
+  { fromDate: "2025-08-27", toDate: "2026-08-27" }
+);
+
 const engineWindow = loadBrowserScript("analyticsEngine.js");
+assert.strictEqual(engineWindow.analyticsEngine.defaultRealizationGroupBy({ scope: "company" }), "office");
+assert.strictEqual(engineWindow.analyticsEngine.defaultRealizationGroupBy({ scope: "office" }), "department");
+assert.strictEqual(engineWindow.analyticsEngine.defaultRealizationGroupBy({ scope: "department" }), "client");
+assert.strictEqual(
+  engineWindow.analyticsEngine.defaultRealizationGroupBy({ scope: "company", clientId: "c1" }),
+  "project"
+);
+assert.strictEqual(
+  engineWindow.analyticsEngine.defaultRealizationGroupBy({ scope: "office", projectId: "p1" }),
+  "project"
+);
 const options = engineWindow.analyticsEngine.listClientProjectOptions({
   clients: [
     { id: "c1", name: "Alpha", officeId: "o1" },

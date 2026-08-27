@@ -14,6 +14,16 @@
     return value === null || value === undefined ? "" : String(value).trim();
   }
 
+  function defaultRealizationGroupBy(input = {}) {
+    if (safeText(input.projectId)) return "project";
+    if (safeText(input.clientId)) return "project";
+    const scope = safeText(input.scope).toLowerCase();
+    if (scope === "company") return "office";
+    if (scope === "office") return "department";
+    if (scope === "department") return "client";
+    return "client";
+  }
+
   function isValidIsoDate(value) {
     return /^\d{4}-\d{2}-\d{2}$/.test(String(value || ""));
   }
@@ -1788,6 +1798,7 @@
     listUtilizationScopeOptions,
     listClientProjectOptions,
     getUtilizationVisibilityScope,
+    defaultRealizationGroupBy,
   };
   if (typeof window !== "undefined") window.analyticsEngine = analyticsEngine;
   if (typeof module !== "undefined" && module.exports) module.exports = analyticsEngine;
