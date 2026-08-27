@@ -448,6 +448,13 @@ body.modal-open {
   flex-wrap: wrap;
 }
 
+.project-dialog-actions .button:disabled,
+.project-dialog-actions .button:disabled:hover {
+  cursor: not-allowed;
+  opacity: 0.42;
+  transform: none;
+}
+
 @media (max-width: 980px) {
   .project-dialog-core-row,
   .project-dialog-team-grid {

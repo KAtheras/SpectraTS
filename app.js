@@ -1680,7 +1680,7 @@
             <div style="display:flex;gap:8px;flex-wrap:wrap;"></div>
             <div style="display:flex;gap:10px;align-items:center;">
               <button type="button" class="button button-ghost" data-project-cancel>Cancel</button>
-              <button type="submit" class="button" data-project-save>${escapeHtml(finalConfirmText)}</button>
+              <button type="submit" class="button" data-project-save${isProjectEditDialog ? " disabled" : ""}>${escapeHtml(finalConfirmText)}</button>
               ${
                 canOpenPlanningFromDialog
                   ? '<button type="button" class="button button-ghost" data-project-open-planning>Open Project Planner</button>'
