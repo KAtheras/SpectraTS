@@ -6180,22 +6180,11 @@ input[type="checkbox"]:disabled {
   background: transparent;
 }
 
-#inputs-view .inputs-history-experiment-switch {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 8px;
-}
-
-#inputs-view .inputs-history-experiment-switch .button {
-  min-height: 34px;
-  font-size: 0.78rem;
-}
-
-#inputs-view .inputs-month-experiment {
+#inputs-view .inputs-month-history {
   margin-top: 12px;
 }
 
-#inputs-view .inputs-month-experiment-controls {
+#inputs-view .inputs-month-history-controls {
   display: grid;
   grid-template-columns: 40px 1fr 40px;
   align-items: center;
@@ -6203,19 +6192,19 @@ input[type="checkbox"]:disabled {
   margin-bottom: 10px;
 }
 
-#inputs-view .inputs-month-experiment-controls strong {
+#inputs-view .inputs-month-history-controls strong {
   text-align: center;
   font-family: var(--font-head);
   font-size: 1.05rem;
 }
 
-#inputs-view .inputs-month-experiment-controls .button {
+#inputs-view .inputs-month-history-controls .button {
   min-width: 40px;
   min-height: 36px;
   padding: 0;
 }
 
-#inputs-view .inputs-month-experiment-layout {
+#inputs-view .inputs-month-history-layout {
   display: grid;
   grid-template-columns: minmax(0, 1.3fr) minmax(300px, 1fr);
   gap: 16px;
@@ -6265,9 +6254,8 @@ input[type="checkbox"]:disabled {
 }
 
 #inputs-view .inputs-month-day.is-outside {
-  border-style: dashed;
-  border-color: color-mix(in srgb, var(--line) 55%, transparent);
-  background: color-mix(in srgb, var(--surface-soft) 60%, transparent);
+  border-color: transparent;
+  background: color-mix(in srgb, var(--surface-soft) 82%, var(--line));
 }
 
 #inputs-view .inputs-month-day-date {
@@ -6420,7 +6408,7 @@ body[data-theme="dark"] #inputs-view .inputs-month-day {
 }
 
 @media (max-width: 980px) {
-  #inputs-view .inputs-month-experiment-layout {
+  #inputs-view .inputs-month-history-layout {
     grid-template-columns: 1fr;
   }
 
@@ -6719,85 +6707,6 @@ body[data-theme="dark"] #inputs-view .inputs-drilldown-item.is-active .inputs-dr
   padding: 12px;
 }
 
-#inputs-view .inputs-time-calendar-row {
-  display: grid;
-  grid-template-columns: 2.5fr repeat(7, 1fr);
-  min-height: 44px;
-}
-
-#inputs-view .inputs-time-calendar-cell {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  overflow: visible;
-  padding: 0 8px;
-  border-right: 1px solid var(--line);
-  border-bottom: 1px solid var(--line);
-  color: var(--ink);
-  font-size: 0.85rem;
-  line-height: 1.2;
-}
-
-#inputs-view .inputs-time-calendar-cell-detail {
-  cursor: default;
-}
-
-#inputs-view .inputs-time-calendar-cell-detail:focus-visible {
-  outline: 2px solid #9fb4d9;
-  outline-offset: -2px;
-}
-
-#inputs-view .inputs-time-calendar-detail {
-  position: absolute;
-  left: 50%;
-  top: calc(100% + 6px);
-  transform: translateX(-50%);
-  min-width: 620px;
-  max-width: min(900px, calc(100vw - 16px));
-  display: none;
-  flex-direction: column;
-  gap: 4px;
-  padding: 8px;
-  border: 1px solid var(--panel-border);
-  border-radius: 8px;
-  background: var(--panel);
-  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.16);
-  z-index: 8;
-}
-
-#inputs-view .inputs-time-calendar-cell-detail[data-detail-align="left"] .inputs-time-calendar-detail {
-  left: 0;
-  right: auto;
-  transform: none;
-}
-
-#inputs-view .inputs-time-calendar-cell-detail[data-detail-align="right"] .inputs-time-calendar-detail {
-  left: auto;
-  right: 0;
-  transform: none;
-}
-
-#inputs-view .inputs-time-calendar-cell-detail:hover .inputs-time-calendar-detail,
-#inputs-view .inputs-time-calendar-cell-detail:focus .inputs-time-calendar-detail,
-#inputs-view .inputs-time-calendar-cell-detail:focus-within .inputs-time-calendar-detail {
-  display: flex;
-}
-
-#inputs-view .inputs-time-calendar-detail-row {
-  display: grid;
-  grid-template-columns: 44px 70px 82px minmax(0, 1fr);
-  align-items: center;
-  gap: 0;
-  color: var(--ink);
-  font-size: 0.76rem;
-  line-height: 1.3;
-}
-
-#inputs-view .inputs-expense-calendar-detail-row {
-  grid-template-columns: 50px 70px 82px 74px minmax(0, 1fr);
-}
-
 #inputs-view .inputs-time-calendar-detail-chip {
   display: inline-flex;
   align-items: center;
@@ -6839,23 +6748,6 @@ body[data-theme="dark"] #inputs-view .inputs-time-calendar-detail-chip-status-pe
   background: color-mix(in srgb, #8a6a13 22%, var(--surface));
 }
 
-#inputs-view .inputs-time-calendar-detail-hours {
-  color: var(--ink);
-  font-weight: 600;
-  white-space: nowrap;
-  min-width: 0;
-}
-
-#inputs-view .inputs-time-calendar-detail-notes {
-  color: var(--muted);
-  text-align: left;
-  flex: 1 1 auto;
-  min-width: 0;
-  white-space: normal;
-  word-break: normal;
-  overflow-wrap: anywhere;
-}
-
 #inputs-view .inputs-time-calendar-detail-category {
   color: var(--muted);
   white-space: nowrap;
@@ -6864,59 +6756,6 @@ body[data-theme="dark"] #inputs-view .inputs-time-calendar-detail-chip-status-pe
 #inputs-view .inputs-time-calendar-detail-category.is-empty {
   color: var(--muted);
   font-style: italic;
-}
-
-#inputs-view .inputs-time-calendar-detail-notes.is-empty {
-  color: var(--muted);
-  font-style: italic;
-}
-
-#inputs-view .inputs-time-calendar-row .inputs-time-calendar-cell:last-child {
-  border-right: none;
-}
-
-#inputs-view .inputs-time-calendar-project {
-  justify-content: flex-start;
-  font-weight: 600;
-  color: var(--ink);
-}
-
-#inputs-view .inputs-time-calendar-head-row .inputs-time-calendar-cell {
-  background: #4b5563;
-  color: #ffffff;
-  font-weight: 600;
-  min-height: 40px;
-}
-
-#inputs-view .inputs-time-calendar-head-row .inputs-time-calendar-project {
-  color: #ffffff;
-}
-
-#inputs-view .inputs-time-calendar-head-cell {
-  display: grid;
-  justify-items: center;
-  align-content: center;
-  gap: 2px;
-}
-
-#inputs-view .inputs-time-calendar-day {
-  font-size: 0.72rem;
-  line-height: 1;
-  opacity: 0.9;
-}
-
-#inputs-view .inputs-time-calendar-date {
-  font-size: 0.8rem;
-  line-height: 1;
-}
-
-#inputs-view .inputs-time-calendar-empty-row .inputs-time-calendar-cell {
-  color: var(--muted);
-}
-
-#inputs-view .inputs-time-calendar-total-row .inputs-time-calendar-cell {
-  background: var(--surface);
-  font-weight: 700;
 }
 
 @media (max-width: 980px) {

@@ -390,18 +390,7 @@
     inputsSwitchAction: document.getElementById("inputs-switch-action"),
     inputsPanelTime: document.getElementById("inputs-panel-time"),
     inputsPanelExpenses: document.getElementById("inputs-panel-expenses"),
-    inputsTimeSummary: document.getElementById("inputs-time-summary"),
-    inputsTimeSummaryTotal: document.getElementById("inputs-time-summary-total"),
-    inputsTimeSummaryToday: document.getElementById("inputs-time-summary-today"),
-    inputsTimeSummarySignal: document.getElementById("inputs-time-summary-signal"),
-    inputsTimeSummaryToggle: document.getElementById("inputs-time-summary-toggle"),
-    inputsTimeCalendarView: document.getElementById("inputs-time-calendar-view"),
-    inputsTimeCalendarPrev: document.getElementById("inputs-time-calendar-prev"),
-    inputsTimeCalendarNext: document.getElementById("inputs-time-calendar-next"),
-    inputsTimeCalendarRange: document.getElementById("inputs-time-calendar-range"),
-    inputsTimeCalendarGrid: document.getElementById("inputs-time-calendar-grid"),
-    inputsTimeHistoryMode: document.getElementById("inputs-time-history-mode"),
-    inputsTimeMonthExperiment: document.getElementById("inputs-time-month-experiment"),
+    inputsTimeMonthHistory: document.getElementById("inputs-time-month-history"),
     inputsTimeMonthLabel: document.getElementById("inputs-time-month-label"),
     inputsTimeMonthCalendar: document.getElementById("inputs-time-month-calendar"),
     inputsTimeMonthDetails: document.getElementById("inputs-time-month-details"),
@@ -3488,13 +3477,8 @@
     mobileClientsView: "list", // "list" | "detail"
     mobileMembersView: "list", // "list" | "detail"
     inputSubtab: "time", // "time" | "expenses"
-    inputsTimeCalendarExpanded: false,
-    inputsTimeHistoryMode: "legacy",
     inputsTimeMonth: today.slice(0, 7),
-    inputsTimeShowAllDays: false,
-    inputsTimeCalendarEndDate: today,
     inputsTimeSelectedDate: today,
-    inputsTimeSelectedClientProject: "",
     inputsTimeSelectedCorporateCategoryId: "",
     inputsExpenseCalendarExpanded: false,
     inputsExpenseShowAllDays: false,
@@ -6584,29 +6568,6 @@
     return formatDate(date);
   }
 
-  function getInputsTimeUserDateBounds() {
-    const currentUserId = `${state.currentUser?.id || ""}`.trim();
-    const currentUserName = `${state.currentUser?.displayName || ""}`.trim();
-    const canonicalEntries = state.inputsEntries || [];
-    let minDate = "";
-    let maxDate = "";
-
-    canonicalEntries.forEach((entry) => {
-      if (!entry || !isValidDateString(entry.date)) return;
-      const entryUserId = `${entry.userId || ""}`.trim();
-      const entryUserName = `${entry.user || ""}`.trim();
-      const isCurrentUserEntry =
-        (currentUserId && entryUserId && entryUserId === currentUserId) ||
-        (!entryUserId && currentUserName && entryUserName === currentUserName);
-      if (!isCurrentUserEntry) return;
-      if (!minDate || entry.date < minDate) minDate = entry.date;
-      if (!maxDate || entry.date > maxDate) maxDate = entry.date;
-    });
-
-    if (!minDate || !maxDate) return null;
-    return { minDate, maxDate };
-  }
-
   function getInputsExpenseUserDateBounds() {
     const currentUserId = `${state.currentUser?.id || ""}`.trim();
     const currentUserName = `${state.currentUser?.displayName || ""}`.trim();
@@ -6635,18 +6596,6 @@
     return { minDate, maxDate };
   }
 
-  function getInputsTimeCalendarBounds() {
-    const dateBounds = getInputsTimeUserDateBounds();
-    if (!dateBounds) {
-      return { hasData: false, minEndDate: today, maxEndDate: today };
-    }
-    return {
-      hasData: true,
-      minEndDate: dateBounds.minDate,
-      maxEndDate: today,
-    };
-  }
-
   function getInputsExpenseCalendarBounds() {
     const dateBounds = getInputsExpenseUserDateBounds();
     if (!dateBounds) {
@@ -6657,28 +6606,6 @@
       minEndDate: dateBounds.minDate,
       maxEndDate: today,
     };
-  }
-
-  function getInputsTimeCalendarDates() {
-    const dateBounds = getInputsTimeUserDateBounds();
-    if (!dateBounds) return [];
-    const endDate = dateBounds.maxDate || today;
-    const startDate = dateBounds.minDate || endDate;
-    const dates = [];
-    let iso = endDate;
-    while (isValidDateString(iso) && iso >= startDate) {
-      const date = new Date(`${iso}T00:00:00`);
-      const dayLabel = date.toLocaleDateString(undefined, { weekday: "short" });
-      const dateLabel = date.toLocaleDateString(undefined, {
-        month: "2-digit",
-        day: "2-digit",
-        year: "numeric",
-      });
-      dates.push({ iso, dayLabel, dateLabel });
-      if (iso === startDate) break;
-      iso = shiftIsoDate(iso, -1);
-    }
-    return dates;
   }
 
   function getInputsExpenseCalendarDates() {
@@ -6703,11 +6630,6 @@
     return dates;
   }
 
-  function formatCalendarHours(value) {
-    if (!Number.isFinite(value) || value <= 0) return "";
-    return value.toFixed(2).replace(/\.00$/, "");
-  }
-
   function formatSummaryHours(value) {
     const numeric = Number(value);
     if (!Number.isFinite(numeric) || numeric <= 0) return "0h";
@@ -6730,148 +6652,8 @@
     return `$${amount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
   }
 
-  function buildInputsTimeCalendarData() {
-    const dates = getInputsTimeCalendarDates();
-    const dateSet = new Set(dates.map((item) => item.iso));
-    const canonicalEntries = state.inputsEntries || [];
-    const perProject = new Map();
-    const totalsByDate = Object.create(null);
-    const currentUserId = `${state.currentUser?.id || ""}`.trim();
-    const currentUserName = `${state.currentUser?.displayName || ""}`.trim();
-
-    dates.forEach((item) => {
-      totalsByDate[item.iso] = 0;
-    });
-
-    canonicalEntries.forEach((entry) => {
-      if (!entry) return;
-      const entryUserId = `${entry.userId || ""}`.trim();
-      const entryUserName = `${entry.user || ""}`.trim();
-      const isCurrentUserEntry =
-        (currentUserId && entryUserId && entryUserId === currentUserId) ||
-        (!entryUserId && currentUserName && entryUserName === currentUserName);
-      if (!isCurrentUserEntry) return;
-      if (!entry || !dateSet.has(entry.date)) return;
-      const hours = Number(entry.hours);
-      if (!Number.isFinite(hours) || hours <= 0) return;
-      const chargeCenterId = `${entry.chargeCenterId || entry.charge_center_id || ""}`.trim();
-      const projectId = `${entry.projectId || entry.project_id || ""}`.trim();
-      const isCorporateEntry =
-        (Boolean(chargeCenterId) && !projectId) ||
-        (`${entry.client || ""}`.trim().toLowerCase() === "internal" && !projectId);
-      const client = `${entry.client || ""}`.trim() || (isCorporateEntry ? "Internal" : "");
-      const project = `${entry.project || ""}`.trim()
-        || (isCorporateEntry ? corporateFunctionCategoryDisplayLabelById(chargeCenterId) || "Internal" : "");
-      if (!client || !project) return;
-      const projectKeyValue = isCorporateEntry
-        ? `corporate|||${chargeCenterId || project}`
-        : `${client}|||${project}`;
-      if (!perProject.has(projectKeyValue)) {
-        perProject.set(projectKeyValue, {
-          client,
-          project,
-          byDate: Object.create(null),
-          byDateEntries: Object.create(null),
-        });
-      }
-      const row = perProject.get(projectKeyValue);
-      row.byDate[entry.date] = (row.byDate[entry.date] || 0) + hours;
-      if (!row.byDateEntries[entry.date]) {
-        row.byDateEntries[entry.date] = [];
-      }
-      row.byDateEntries[entry.date].push({
-        id: `${entry.id || ""}`.trim(),
-        hours,
-        notes: typeof entry.notes === "string" ? entry.notes.trim() : "",
-        billable: entry.billable !== false,
-        status: entry.status === "approved" ? "approved" : "pending",
-        isCorporate: isCorporateEntry,
-      });
-      totalsByDate[entry.date] += hours;
-    });
-
-    const projectRows = Array.from(perProject.values()).sort((a, b) => {
-      const left = `${a.client} / ${a.project}`.toLowerCase();
-      const right = `${b.client} / ${b.project}`.toLowerCase();
-      return left.localeCompare(right);
-    });
-
-    const weekTotal = dates.reduce((sum, item) => sum + Number(totalsByDate[item.iso] || 0), 0);
-    const todayTotal = Number(totalsByDate[today] || 0);
-    let peakDay = null;
-    dates.forEach((item) => {
-      const total = Number(totalsByDate[item.iso] || 0);
-      if (!peakDay || total > peakDay.total) {
-        peakDay = {
-          iso: item.iso,
-          dayLabel: item.dayLabel,
-          total,
-        };
-      }
-    });
-    return {
-      dates,
-      totalsByDate,
-      projectRows,
-      weekTotal,
-      todayTotal,
-      peakDay,
-    };
-  }
-
-  function renderInputsTimeSummaryAndCalendarMeta() {
-    const { dates, weekTotal, todayTotal, peakDay } = buildInputsTimeCalendarData();
-    const bounds = getInputsTimeCalendarBounds();
-    const currentEndDate = dates[dates.length - 1]?.iso || state.inputsTimeCalendarEndDate || today;
-    if (refs.inputsTimeSummaryTotal) {
-      refs.inputsTimeSummaryTotal.textContent = formatSummaryHours(weekTotal);
-    }
-    if (refs.inputsTimeSummaryToday) {
-      refs.inputsTimeSummaryToday.textContent = formatSummaryHours(todayTotal);
-    }
-    if (refs.inputsTimeSummarySignal) {
-      if (!peakDay || peakDay.total <= 0) {
-        refs.inputsTimeSummarySignal.textContent = "Peak: --";
-      } else {
-        refs.inputsTimeSummarySignal.textContent = `Peak: ${peakDay.dayLabel} ${formatSummaryHours(
-          peakDay.total
-        )}`;
-      }
-    }
-    if (refs.inputsTimeSummaryToggle) {
-      refs.inputsTimeSummaryToggle.textContent = state.inputsTimeCalendarExpanded
-        ? "Hide week ▲"
-        : "View week ▼";
-      refs.inputsTimeSummaryToggle.setAttribute(
-        "aria-expanded",
-        state.inputsTimeCalendarExpanded ? "true" : "false"
-      );
-    }
-    if (refs.inputsTimeCalendarView) {
-      refs.inputsTimeCalendarView.hidden = !state.inputsTimeCalendarExpanded;
-      refs.inputsTimeCalendarView.classList.add("inputs-drilldown-mode");
-    }
-    if (refs.inputsTimeCalendarRange) {
-      const firstDate = dates[0]?.iso || "";
-      const lastDate = dates[dates.length - 1]?.iso || "";
-      refs.inputsTimeCalendarRange.textContent =
-        firstDate && lastDate
-          ? `${formatDisplayDateShort(firstDate)} - ${formatDisplayDateShort(lastDate)}`
-          : "";
-      refs.inputsTimeCalendarRange.hidden = true;
-    }
-    if (refs.inputsTimeCalendarPrev) {
-      refs.inputsTimeCalendarPrev.disabled = !bounds.hasData || currentEndDate <= bounds.minEndDate;
-      refs.inputsTimeCalendarPrev.hidden = true;
-    }
-    if (refs.inputsTimeCalendarNext) {
-      refs.inputsTimeCalendarNext.disabled = !bounds.hasData || currentEndDate >= bounds.maxEndDate;
-      refs.inputsTimeCalendarNext.hidden = true;
-    }
-  }
-
-  function renderInputsTimeMonthExperiment() {
-    if (!refs.inputsTimeMonthExperiment || !refs.inputsTimeMonthCalendar || !refs.inputsTimeMonthDetails) return;
+  function renderInputsTimeMonthHistory() {
+    if (!refs.inputsTimeMonthHistory || !refs.inputsTimeMonthCalendar || !refs.inputsTimeMonthDetails) return;
     const monthKey = /^\d{4}-\d{2}$/.test(state.inputsTimeMonth || "")
       ? state.inputsTimeMonth
       : today.slice(0, 7);
@@ -6882,8 +6664,8 @@
     const mondayOffset = (firstOfMonth.getUTCDay() + 6) % 7;
     const calendarWeeks = Math.ceil((mondayOffset + daysInMonth) / 7);
     const calendarCellCount = calendarWeeks * 7;
-    refs.inputsTimeMonthExperiment.style.setProperty("--calendar-weeks", String(calendarWeeks));
-    refs.inputsTimeMonthExperiment.style.setProperty("--calendar-height", `${61 + 68 * calendarWeeks}px`);
+    refs.inputsTimeMonthHistory.style.setProperty("--calendar-weeks", String(calendarWeeks));
+    refs.inputsTimeMonthHistory.style.setProperty("--calendar-height", `${61 + 68 * calendarWeeks}px`);
     const entries = (state.inputsEntries || []).filter(
       (entry) => `${entry?.date || ""}`.slice(0, 7) === monthKey
     );
@@ -6968,181 +6750,6 @@
       </header>
       <div class="inputs-month-details-body">${detailsHtml || '<div class="inputs-month-empty">No hours entered for this day.</div>'}</div>
     `;
-  }
-
-  function renderInputsTimeCalendar() {
-    if (!refs.inputsTimeCalendarGrid) return;
-    const { dates, totalsByDate, projectRows } = buildInputsTimeCalendarData();
-    if (!dates.length) {
-      refs.inputsTimeCalendarGrid.innerHTML = "";
-      if (refs.inputsTimeCalendarRange) {
-        refs.inputsTimeCalendarRange.textContent = "";
-      }
-      return;
-    }
-    const selectableDays = dates
-      .filter((item) => Number(totalsByDate[item.iso] || 0) > 0)
-      .map((item) => item.iso);
-    const selectableDaySet = new Set(selectableDays);
-    if (!selectableDaySet.has(state.inputsTimeSelectedDate)) {
-      state.inputsTimeSelectedDate = selectableDaySet.has(today) ? today : selectableDays[0] || "";
-    }
-    const selectedDay = state.inputsTimeSelectedDate;
-
-    const projectOptions = projectRows
-      .map((row) => {
-        const total = Number(row.byDate[selectedDay] || 0);
-        if (!Number.isFinite(total) || total <= 0) return null;
-        return {
-          key: encodeInputsTimeCombo(row.client, row.project),
-          label: `${row.client} / ${row.project}`,
-          total,
-          entries: Array.isArray(row.byDateEntries?.[selectedDay]) ? row.byDateEntries[selectedDay] : [],
-        };
-      })
-      .filter(Boolean);
-
-    const projectOptionKeys = new Set(projectOptions.map((item) => item.key));
-    if (!projectOptionKeys.has(state.inputsTimeSelectedClientProject)) {
-      state.inputsTimeSelectedClientProject = projectOptions[0]?.key || "";
-    }
-    const selectedProject = projectOptions.find(
-      (item) => item.key === state.inputsTimeSelectedClientProject
-    ) || null;
-    const selectedEntries = selectedProject ? selectedProject.entries : [];
-
-    const allDays = dates.map((item) => {
-      const total = Number(totalsByDate[item.iso] || 0);
-      const hasEntries = Number.isFinite(total) && total > 0;
-      return {
-        ...item,
-        total,
-        hasEntries,
-      };
-    });
-    const showAllDays = state.inputsTimeShowAllDays === true;
-    const daysToRender = showAllDays
-      ? allDays
-      : allDays.filter((day) => day.hasEntries);
-
-    const dayRowsHtml = daysToRender
-      .map((item) => {
-        const total = Number(item.total || 0);
-        const isActive = item.iso === selectedDay;
-        const isZero = !item.hasEntries;
-        return `<button type="button" class="inputs-drilldown-item${isActive ? " is-active" : ""}${isZero ? " is-zero" : ""}" data-action="inputs-time-day" data-day="${escapeHtml(item.iso)}"${
-          isZero ? ' disabled aria-disabled="true" tabindex="-1"' : ""
-        }>
-          <span class="inputs-drilldown-item-label">${escapeHtml(item.dayLabel)} ${escapeHtml(item.dateLabel)}</span>
-          <span class="inputs-drilldown-item-value">${escapeHtml(isZero ? "—" : formatSummaryHours(total))}</span>
-        </button>`;
-      })
-      .join("");
-
-    const projectRowsHtml =
-      projectOptions
-        .map((item) => {
-          const isActive = item.key === state.inputsTimeSelectedClientProject;
-          return `<button type="button" class="inputs-drilldown-item${isActive ? " is-active" : ""}" data-action="inputs-time-project" data-project="${escapeHtml(item.key)}">
-            <span class="inputs-drilldown-item-label">${escapeHtml(item.label)}</span>
-            <span class="inputs-drilldown-item-value">${escapeHtml(formatSummaryHours(item.total))}</span>
-          </button>`;
-        })
-        .join("") || `<div class="inputs-drilldown-empty">No client/project entries for this day.</div>`;
-
-    const detailRowsHtml =
-      selectedEntries
-        .map((detail) => {
-          const noteText = detail.notes ? escapeHtml(detail.notes) : "No note";
-          const statusText = detail.status === "approved" ? "Approved" : "Pending";
-          const billableText = detail.billable ? "Billable" : "Non-billable";
-          const statusMarkup = detail.isCorporate
-            ? ""
-            : `<span class="inputs-time-calendar-detail-chip inputs-time-calendar-detail-chip-status inputs-time-calendar-detail-chip-status-${
-                detail.status === "approved" ? "approved" : "pending"
-              }">${escapeHtml(statusText)}</span>`;
-          return `<div class="inputs-drilldown-detail-row">
-            <div class="inputs-drilldown-detail-main">
-              <div class="inputs-drilldown-detail-meta">
-                <span class="inputs-drilldown-detail-value">${escapeHtml(formatSummaryHours(detail.hours))}</span>
-                ${statusMarkup}
-                <span class="billable-pill ${
-                  detail.billable ? "is-billable" : "is-nonbillable"
-                }">${escapeHtml(billableText)}</span>
-              </div>
-              <div class="inputs-drilldown-detail-actions">
-                <button type="button" class="button button-ghost" data-action="inputs-time-detail-edit" data-id="${escapeHtml(
-                  detail.id
-                )}">Edit</button>
-                <button type="button" class="button button-ghost button-danger" data-action="inputs-time-detail-delete" data-id="${escapeHtml(
-                  detail.id
-                )}">Delete</button>
-              </div>
-            </div>
-            <div class="inputs-drilldown-detail-notes">${noteText}</div>
-          </div>`;
-        })
-        .join("") || `<div class="inputs-drilldown-empty">Select a client/project to view details.</div>`;
-
-    refs.inputsTimeCalendarGrid.innerHTML = `
-      <div class="inputs-drilldown-layout">
-        <section class="inputs-drilldown-col">
-          <header class="inputs-drilldown-col-head" style="position:relative;"><span>Days</span><button type="button" data-action="inputs-time-toggle-days" aria-label="${showAllDays ? "Collapse days" : "Expand days"}" title="${showAllDays ? "Show only days with entries" : "Show all days"}" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);margin:0;padding:0;border:0;background:transparent;appearance:none;-webkit-appearance:none;min-height:0;line-height:1;color:var(--muted);font-family:inherit;font-size:.74rem;font-weight:600;letter-spacing:0;text-transform:none;cursor:pointer;">${showAllDays ? "Collapse −" : "Expand +"}</button></header>
-          <div class="inputs-drilldown-col-body">${dayRowsHtml}</div>
-        </section>
-        <section class="inputs-drilldown-col">
-          <header class="inputs-drilldown-col-head">Client / Project</header>
-          <div class="inputs-drilldown-col-body">${projectRowsHtml}</div>
-        </section>
-        <section class="inputs-drilldown-col">
-          <header class="inputs-drilldown-col-head">Details</header>
-          <div class="inputs-drilldown-col-body">${detailRowsHtml}</div>
-        </section>
-      </div>
-    `;
-  }
-
-  function bindInputsCalendarHoverAlignment(grid, cellSelector, panelSelector) {
-    if (!grid) return;
-    const alignCalendarHoverDetail = function (cell) {
-      if (!cell) return;
-      const panel = cell.querySelector(panelSelector);
-      if (!panel) return;
-      const previousDisplay = panel.style.display;
-      const previousVisibility = panel.style.visibility;
-
-      panel.style.display = "flex";
-      panel.style.visibility = "hidden";
-
-      const viewportPadding = 8;
-      const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
-      const cellRect = cell.getBoundingClientRect();
-      const panelRect = panel.getBoundingClientRect();
-      const panelWidth = panelRect.width;
-      const centeredLeft = cellRect.left + (cellRect.width / 2) - (panelWidth / 2);
-      const centeredRight = centeredLeft + panelWidth;
-
-      cell.dataset.detailAlign = "center";
-      if (centeredRight > viewportWidth - viewportPadding) {
-        cell.dataset.detailAlign = "right";
-      } else if (centeredLeft < viewportPadding) {
-        cell.dataset.detailAlign = "left";
-      }
-
-      panel.style.display = previousDisplay;
-      panel.style.visibility = previousVisibility;
-    };
-
-    grid
-      .querySelectorAll(cellSelector)
-      .forEach((cell) => {
-        cell.addEventListener("mouseenter", function () {
-          alignCalendarHoverDetail(cell);
-        });
-        cell.addEventListener("focusin", function () {
-          alignCalendarHoverDetail(cell);
-        });
-      });
   }
 
   function buildInputsExpenseCalendarData() {
@@ -7425,11 +7032,7 @@
   function refreshInputsDrilldownAfterLocalMutation(kind) {
     if (state.currentView !== "inputs") return;
     if (kind === "time") {
-      const previousHidden = refs.inputsTimeCalendarView ? refs.inputsTimeCalendarView.hidden : true;
-      renderInputsTimeCalendar();
-      if (refs.inputsTimeCalendarView) {
-        refs.inputsTimeCalendarView.hidden = previousHidden;
-      }
+      renderInputsTimeMonthHistory();
       return;
     }
     if (kind === "expenses") {
@@ -11085,9 +10688,6 @@
     if (refs.inputsViewTitle) {
       refs.inputsViewTitle.textContent = "Inputs";
     }
-    if (refs.inputsTimeSummary) {
-      refs.inputsTimeSummary.hidden = true;
-    }
     if (refs.inputsExpenseSummary) {
       refs.inputsExpenseSummary.hidden = true;
     }
@@ -11104,10 +10704,6 @@
     if (refs.inputsPanelExpenses) {
       refs.inputsPanelExpenses.hidden = inputSubtab !== "expenses";
     }
-    if (refs.inputsTimeCalendarView && inputSubtab !== "time") {
-      refs.inputsTimeCalendarView.hidden = true;
-    }
-
     const entriesSubtab =
       state.entriesSubtab === "expenses"
         ? "expenses"
@@ -11237,17 +10833,7 @@
     if (view === "inputs") {
       if (state.inputSubtab === "time") {
         syncInputsTimeRow();
-        const useMonthExperiment = state.inputsTimeHistoryMode === "month";
-        if (refs.inputsTimeHistoryMode) {
-          refs.inputsTimeHistoryMode.textContent = useMonthExperiment
-            ? "Use current history view"
-            : "Try month calendar";
-        }
-        if (refs.inputsTimeSummary) refs.inputsTimeSummary.hidden = useMonthExperiment;
-        if (refs.inputsTimeCalendarView) refs.inputsTimeCalendarView.hidden = useMonthExperiment;
-        if (refs.inputsTimeMonthExperiment) refs.inputsTimeMonthExperiment.hidden = !useMonthExperiment;
-        if (useMonthExperiment) renderInputsTimeMonthExperiment();
-        else renderInputsTimeCalendar();
+        renderInputsTimeMonthHistory();
       } else {
         syncInputsExpenseRow();
         if (refs.inputsExpenseCalendarView) refs.inputsExpenseCalendarView.hidden = false;
@@ -12019,31 +11605,21 @@
       render();
     });
   }
-  if (refs.inputsTimeSummaryToggle) {
-    refs.inputsTimeSummaryToggle.addEventListener("click", function () {
-      state.inputsTimeCalendarExpanded = !state.inputsTimeCalendarExpanded;
-      render();
-    });
-  }
-  refs.inputsTimeHistoryMode?.addEventListener("click", function () {
-    state.inputsTimeHistoryMode = state.inputsTimeHistoryMode === "month" ? "legacy" : "month";
-    render();
-  });
-  refs.inputsTimeMonthExperiment?.addEventListener("click", async function (event) {
+  refs.inputsTimeMonthHistory?.addEventListener("click", async function (event) {
     const shiftButton = event.target.closest("[data-inputs-month-shift]");
     if (shiftButton) {
       const delta = Number(shiftButton.dataset.inputsMonthShift || 0);
       const [year, month] = state.inputsTimeMonth.split("-").map(Number);
       const shifted = new Date(Date.UTC(year, month - 1 + delta, 1));
       state.inputsTimeMonth = `${shifted.getUTCFullYear()}-${String(shifted.getUTCMonth() + 1).padStart(2, "0")}`;
-      renderInputsTimeMonthExperiment();
+      renderInputsTimeMonthHistory();
       postHeight();
       return;
     }
     const dayButton = event.target.closest("[data-inputs-month-day]");
     if (dayButton) {
       state.inputsTimeSelectedDate = `${dayButton.dataset.inputsMonthDay || ""}`.trim();
-      renderInputsTimeMonthExperiment();
+      renderInputsTimeMonthHistory();
       postHeight();
       return;
     }
@@ -12115,103 +11691,6 @@
       }
     }
   });
-  if (refs.inputsTimeCalendarPrev) {
-    refs.inputsTimeCalendarPrev.addEventListener("click", function () {
-      const bounds = getInputsTimeCalendarBounds();
-      const currentEnd = isValidDateString(state.inputsTimeCalendarEndDate)
-        ? state.inputsTimeCalendarEndDate
-        : today;
-      if (!bounds.hasData || currentEnd <= bounds.minEndDate) return;
-      state.inputsTimeCalendarEndDate = shiftIsoDate(state.inputsTimeCalendarEndDate || today, -7);
-      if (state.currentView === "inputs" && state.inputSubtab === "time") {
-        renderInputsTimeSummaryAndCalendarMeta();
-        renderInputsTimeCalendar();
-        postHeight();
-      }
-    });
-  }
-  if (refs.inputsTimeCalendarNext) {
-    refs.inputsTimeCalendarNext.addEventListener("click", function () {
-      const bounds = getInputsTimeCalendarBounds();
-      const currentEnd = isValidDateString(state.inputsTimeCalendarEndDate)
-        ? state.inputsTimeCalendarEndDate
-        : today;
-      if (!bounds.hasData || currentEnd >= bounds.maxEndDate) return;
-      state.inputsTimeCalendarEndDate = shiftIsoDate(state.inputsTimeCalendarEndDate || today, 7);
-      if (state.currentView === "inputs" && state.inputSubtab === "time") {
-        renderInputsTimeSummaryAndCalendarMeta();
-        renderInputsTimeCalendar();
-        postHeight();
-      }
-    });
-  }
-  if (refs.inputsTimeCalendarGrid) {
-    refs.inputsTimeCalendarGrid.addEventListener("click", async function (event) {
-      const actionEl = event.target.closest("[data-action]");
-      if (!actionEl) return;
-      const action = `${actionEl.dataset.action || ""}`.trim();
-      if (action === "inputs-time-toggle-days") {
-        state.inputsTimeShowAllDays = !state.inputsTimeShowAllDays;
-        renderInputsTimeCalendar();
-        postHeight();
-        return;
-      }
-      if (action === "inputs-time-day") {
-        if (actionEl.classList.contains("is-zero") || actionEl.getAttribute("aria-disabled") === "true") {
-          return;
-        }
-        const day = `${actionEl.dataset.day || ""}`.trim();
-        if (isValidDateString(day)) {
-          state.inputsTimeSelectedDate = day;
-          state.inputsTimeSelectedClientProject = "";
-          renderInputsTimeCalendar();
-          postHeight();
-        }
-        return;
-      }
-      if (action === "inputs-time-project") {
-        state.inputsTimeSelectedClientProject = `${actionEl.dataset.project || ""}`.trim();
-        renderInputsTimeCalendar();
-        postHeight();
-        return;
-      }
-      if (action === "inputs-time-detail-edit") {
-        const id = `${actionEl.dataset.id || ""}`.trim();
-        if (!id) return;
-        const entry = (state.entries || []).find((item) => `${item?.id || ""}`.trim() === id);
-        if (hasDeactivatedOrRemovedClientProject(entry)) {
-          await showDeactivatedClientProjectPrompt();
-          return;
-        }
-        state.pendingInputsTimeEditId = id;
-        state.inputSubtab = "time";
-        setView("inputs");
-        return;
-      }
-      if (action === "inputs-time-detail-delete") {
-        const id = `${actionEl.dataset.id || ""}`.trim();
-        if (!id) return;
-        const entry = (state.entries || []).find((item) => `${item?.id || ""}`.trim() === id);
-        if (hasDeactivatedOrRemovedClientProject(entry)) {
-          await showDeactivatedClientProjectPrompt();
-          return;
-        }
-        const confirmDelete = await appDialog({
-          title: "Delete entry",
-          message: "Are you sure you want to delete this entry?",
-          confirmText: "Delete",
-          cancelText: "Cancel",
-        });
-        if (!confirmDelete?.confirmed) return;
-        try {
-          await mutatePersistentState("delete_entry", { id });
-          feedback("Entry deleted.", false);
-        } catch (error) {
-          feedback(error.message || "Unable to delete entry.", true);
-        }
-      }
-    });
-  }
   if (refs.inputsExpenseSummaryToggle) {
     refs.inputsExpenseSummaryToggle.addEventListener("click", function () {
       state.inputsExpenseCalendarExpanded = !state.inputsExpenseCalendarExpanded;
