@@ -1193,8 +1193,13 @@ async function ensureSchema(sql) {
       account_id UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
       name TEXT NOT NULL,
       office_lead_user_id TEXT NULL REFERENCES users(id) ON DELETE SET NULL,
+      overhead_percent NUMERIC(6,2) NULL,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
+  `;
+  await sql`
+    ALTER TABLE office_locations
+    ADD COLUMN IF NOT EXISTS overhead_percent NUMERIC(6,2) NULL
   `;
   await sql`
     CREATE TABLE IF NOT EXISTS department_office_target_realizations (
@@ -3643,6 +3648,7 @@ async function listOfficeLocations(sql, accountId) {
       ol.id,
       ol.name,
       ol.office_lead_user_id AS "officeLeadUserId",
+      ol.overhead_percent AS "overheadPercent",
       u.display_name AS "officeLeadUserName"
     FROM office_locations ol
     LEFT JOIN users u
