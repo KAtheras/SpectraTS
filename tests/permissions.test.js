@@ -239,6 +239,11 @@ test("specialized settings controls use shared sequencing and granular capabilit
   assert.match(adminSource, /permissions\?\.manage_settings_access[\s\S]*?scheduleTask\("permissions-matrix"/);
   assert.match(mutationSource, /case "update_notification_rule":[\s\S]*?manage_messaging_rules/);
   assert.match(mutationSource, /case "set_department_lead_assignment":[\s\S]*?edit_department_leads_settings/);
+  assert.match(
+    mutationSource,
+    /const userLevel = normalizeLevel\(user\.level\);[\s\S]*?\!\[1, 2, 3\]\.includes\(userLevel\)/,
+    "department leads should be globally eligible by Level 1/2/3"
+  );
   assert.match(mutationSource, /case "update_user_rates":[\s\S]*?edit_member_rates/);
 });
 

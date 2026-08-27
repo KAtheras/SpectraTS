@@ -1555,17 +1555,9 @@ async function setDepartmentLeadAssignment(sql, payload, accountId) {
   if (user.is_active === false || normalizeText(user.status).toLowerCase() === "terminated") {
     throw new Error("Member must be active.");
   }
-  if (normalizeText(user.office_id) !== officeId || normalizeText(user.department_id) !== departmentId) {
-    throw new Error("Member must belong to the selected office and department.");
-  }
-  const userGroup = permissionGroupForUser({
-    role: normalizeText(user.role).toLowerCase(),
-    level: normalizeLevel(user.level),
-    permissionGroup:
-      requestLevelLabels?.[normalizeLevel(user.level)]?.permissionGroup || normalizeText(user.role).toLowerCase(),
-  });
-  if (!["executive", "admin", "superuser"].includes(userGroup)) {
-    throw new Error("Member must be Executive or above.");
+  const userLevel = normalizeLevel(user.level);
+  if (![1, 2, 3].includes(userLevel)) {
+    throw new Error("Department lead must be a Level 1, Level 2, or Level 3 member.");
   }
 
   await sql`

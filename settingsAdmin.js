@@ -4359,7 +4359,7 @@
   }
 
   function renderDepartmentLeads() {
-    const { refs, state, escapeHtml, mutatePersistentState, feedback, permissionGroupForUser } = deps();
+    const { refs, state, escapeHtml, mutatePersistentState, feedback } = deps();
     const panel = document.querySelector('[data-settings-tab="department_leads"]');
     if (!panel || !refs.departmentLeadsMatrix) return;
     if (!document.getElementById("department-leads-matrix-style")) {
@@ -4417,32 +4417,17 @@
     const activeUsers = Array.isArray(state.users)
       ? state.users.filter((user) => {
           const isActive = user?.isActive !== false && `${user?.status || ""}`.trim().toLowerCase() !== "terminated";
-          if (!isActive) return false;
-          let group = "staff";
-          try {
-            group = `${permissionGroupForUser?.(user) || "staff"}`.trim().toLowerCase();
-          } catch (error) {
-            group = "staff";
-          }
-          return group === "executive" || group === "admin" || group === "superuser";
+          const level = Number(user?.level);
+          return isActive && (level === 1 || level === 2 || level === 3);
         })
       : [];
-    const usersByOfficeDepartment = new Map();
-    activeUsers.forEach((user) => {
-      const officeId = `${user?.officeId || user?.office_id || ""}`.trim();
-      const departmentId = `${user?.departmentId || user?.department_id || ""}`.trim();
-      const userId = `${user?.id || ""}`.trim();
-      if (!officeId || !departmentId || !userId) return;
-      const key = `${officeId}::${departmentId}`;
-      if (!usersByOfficeDepartment.has(key)) usersByOfficeDepartment.set(key, []);
-      usersByOfficeDepartment.get(key).push({
-        id: userId,
+    const leadOptions = activeUsers
+      .map((user) => ({
+        id: `${user?.id || ""}`.trim(),
         name: `${user?.displayName || user?.username || ""}`.trim() || "Unnamed member",
-      });
-    });
-    usersByOfficeDepartment.forEach((list) => {
-      list.sort((a, b) => a.name.localeCompare(b.name));
-    });
+      }))
+      .filter((user) => user.id)
+      .sort((a, b) => a.name.localeCompare(b.name));
 
     const assignmentByKey = new Map();
     (Array.isArray(state.departmentLeadAssignments) ? state.departmentLeadAssignments : []).forEach((item) => {
@@ -4460,10 +4445,9 @@
           .map((dept) => {
             const key = `${office.id}::${dept.id}`;
             const assignedUserId = assignmentByKey.get(key) || "";
-            const options = usersByOfficeDepartment.get(key) || [];
             const optionsHtml = [
               `<option value="">None</option>`,
-              ...options.map(
+              ...leadOptions.map(
                 (item) =>
                   `<option value="${escapeHtml(item.id)}"${item.id === assignedUserId ? " selected" : ""}>${escapeHtml(item.name)}</option>`
               ),
