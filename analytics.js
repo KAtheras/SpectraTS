@@ -93,7 +93,7 @@
       .analytics-util-filters select, .analytics-util-filters input { width: 100%; min-width: 0; min-height: 34px; background: #fff; }
       .analytics-util-grid {
         display: grid;
-        grid-template-columns: minmax(320px, 2fr) minmax(420px, 3fr);
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 10px;
         align-items: stretch;
       }
