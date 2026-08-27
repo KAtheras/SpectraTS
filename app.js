@@ -1427,6 +1427,7 @@
           nextRateOverrides: payload.teamRateOverrides,
         });
         await loadPersistentState();
+        renderCatalogAside();
         if (state.filters.client === normalizedClient && state.filters.project === savedProjectName) {
           state.filters.project = nextName;
           syncFilterCatalogsUI(state.filters);
@@ -2499,6 +2500,7 @@
           nextRateOverrides: payload.teamRateOverrides,
         });
         await loadPersistentState();
+        renderCatalogAside();
       },
     });
     if (!projectDialog) {
