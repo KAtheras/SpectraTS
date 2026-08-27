@@ -1493,6 +1493,12 @@ body[data-theme="dark"] .mobile-tabbar {
   margin: 0;
 }
 
+#inputs-view .input-header .inputs-header-feedback {
+  margin: 0;
+  min-width: 0;
+  font-size: 0.9rem;
+}
+
 .input-switch-action {
   margin-left: 0;
   white-space: nowrap;
@@ -4377,7 +4383,7 @@ body[data-theme="dark"] .audit-detail-col {
 }
 
 .entries-view .entries-type-toggle,
-.inputs-view .inputs-type-toggle {
+#inputs-view .inputs-type-toggle {
   display: inline-flex;
   border: 1px solid var(--control-border);
   border-radius: 8px;
@@ -4388,7 +4394,7 @@ body[data-theme="dark"] .audit-detail-col {
 }
 
 .entries-view .entries-type-toggle button,
-.inputs-view .inputs-type-toggle button {
+#inputs-view .inputs-type-toggle button {
   min-width: 92px;
   min-height: 36px;
   padding: 6px 14px;
@@ -4402,14 +4408,14 @@ body[data-theme="dark"] .audit-detail-col {
 }
 
 .entries-view .entries-type-toggle button:last-child,
-.inputs-view .inputs-type-toggle button:last-child {
+#inputs-view .inputs-type-toggle button:last-child {
   border-right: 0;
 }
 
 .entries-view .entries-type-toggle button.is-selected,
 .entries-view .entries-type-toggle button[aria-pressed="true"],
-.inputs-view .inputs-type-toggle button.is-selected,
-.inputs-view .inputs-type-toggle button[aria-pressed="true"] {
+#inputs-view .inputs-type-toggle button.is-selected,
+#inputs-view .inputs-type-toggle button[aria-pressed="true"] {
   background: var(--accent);
   color: #fff;
 }
@@ -6123,6 +6129,12 @@ input[type="checkbox"]:disabled {
 #inputs-view .inputs-month-day.inputs-month-day-expense.has-value {
   border-color: color-mix(in srgb, var(--accent) 24%, var(--line));
   background: color-mix(in srgb, var(--accent-soft) 38%, var(--surface));
+}
+
+#inputs-view .inputs-month-day-expense .inputs-month-day-hours {
+  color: var(--muted);
+  font-size: 1.05rem;
+  font-weight: 600;
 }
 
 #inputs-view .inputs-month-day.is-selected {
