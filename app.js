@@ -3424,6 +3424,15 @@
     });
   }
 
+  const DEFAULT_LEVEL_DEFS = {
+    1: { label: "Staff", permissionGroup: "staff" },
+    2: { label: "Senior", permissionGroup: "staff" },
+    3: { label: "Manager", permissionGroup: "manager" },
+    4: { label: "Director", permissionGroup: "manager" },
+    5: { label: "Partner", permissionGroup: "admin" },
+    6: { label: "Admin", permissionGroup: "admin" },
+  };
+
   const US_STATES = [
     "AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI",
     "MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT",
@@ -14723,6 +14732,7 @@
     roleKey,
     permissionGroupForUser,
     canViewUserByRole,
+    DEFAULT_LEVEL_DEFS,
     usersSyncUserManagementControls,
     isMobileDrilldown: isMobileDrilldownViewport,
     mobileMembersView: state.mobileMembersView,

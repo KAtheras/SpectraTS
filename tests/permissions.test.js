@@ -27,12 +27,12 @@ function indexFromRows(rows) {
 
 // Users used in tests
 const users = {
-  superuser: { id: "su", permissionGroup: "superuser", office_id: "A" },
-  adminA: { id: "admA", permissionGroup: "admin", office_id: "A" },
-  execA: { id: "execA", permissionGroup: "executive", office_id: "A" },
-  managerA: { id: "mgrA", permissionGroup: "manager", office_id: "A" },
-  staffA: { id: "stfA", permissionGroup: "staff", office_id: "A" },
-  adminB: { id: "admB", permissionGroup: "admin", office_id: "B" },
+  superuser: { id: "su", role: "superuser", office_id: "A" },
+  adminA: { id: "admA", role: "admin", office_id: "A" },
+  execA: { id: "execA", role: "executive", office_id: "A" },
+  managerA: { id: "mgrA", role: "manager", office_id: "A" },
+  staffA: { id: "stfA", role: "staff", office_id: "A" },
+  adminB: { id: "admB", role: "admin", office_id: "B" },
 };
 
 function test(name, fn) {
@@ -245,13 +245,13 @@ test("admin can view projects in own office", () => {
 });
 
 test("roleKeyFromUser normalizes global_admin to superuser", () => {
-  const user = { permissionGroup: "global_admin" };
+  const user = { role: "global_admin" };
   assert.strictEqual(perms.roleKeyFromUser(user), "superuser");
 });
 
 test("can() grants global_admin same superuser access for member deactivation", () => {
   const allowed = perms.can(
-    { id: "ga", permissionGroup: "global_admin", office_id: "A" },
+    { id: "ga", role: "global_admin", office_id: "A" },
     "deactivate_member",
     ctx({ resourceOfficeId: "B", actorOfficeId: "A", targetUserId: "target-1" })
   );
@@ -259,14 +259,14 @@ test("can() grants global_admin same superuser access for member deactivation", 
 });
 
 test("roleKeyFromUser prefers normalized permission group over raw role", () => {
-  const userWithGroup = { role: "stale", permission_group: "admin", level: 6 };
+  const userWithGroup = { role: "staff", permission_group: "admin", level: 6 };
   assert.strictEqual(perms.roleKeyFromUser(userWithGroup), "admin");
   const userWithOnlyGroup = { permission_group: "admin" };
   assert.strictEqual(perms.roleKeyFromUser(userWithOnlyGroup), "admin");
 });
 
 test("can() uses normalized permission group from currentUser session payload", () => {
-  const currentUser = { role: "stale", permission_group: "admin", office_id: "A" };
+  const currentUser = { role: "staff", permission_group: "admin", office_id: "A" };
   const allowed = perms.can(currentUser, "view_clients", ctx({ resourceOfficeId: "A", actorOfficeId: "A" }));
   assert.strictEqual(allowed, true);
   const denied = perms.can(currentUser, "view_clients", ctx({ resourceOfficeId: "B", actorOfficeId: "A" }));
