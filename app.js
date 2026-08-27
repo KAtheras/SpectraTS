@@ -1961,7 +1961,9 @@
         const removeButton = event.target.closest("[data-project-team-remove]");
         if (!removeButton) return;
         if (removeButton.dataset.projectTeamLeadProtected === "true") {
-          setError("This member is the Project Lead. Assign a new Project Lead before removing this member from the project.");
+          window.alert(
+            "This member is the Project Lead. Assign a new Project Lead before removing this member from the project."
+          );
           return;
         }
         const userId = String(removeButton.dataset.projectTeamUserId || "").trim();

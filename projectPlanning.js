@@ -2338,13 +2338,8 @@
       button.addEventListener("click", async () => {
         if (!canEdit) return;
         if (button.dataset.projectLeadProtected === "true") {
-          await confirmAction(
-            "This member is the Project Lead. Assign a new Project Lead before removing this member from the project.",
-            {
-              title: "Project Lead Cannot Be Removed",
-              confirmText: "OK",
-              cancelText: "Close",
-            }
+          window.alert(
+            "This member is the Project Lead. Assign a new Project Lead before removing this member from the project."
           );
           return;
         }
