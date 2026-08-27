@@ -2565,17 +2565,25 @@ async function updateOfficeLocations(sql, payload, accountId) {
       const previousLeadId = normalizeText(existingById.get(item.id)?.officeLeadUserId);
       if (item.officeLeadUserId !== previousLeadId) {
         const eligibleLead = await sql`
-          SELECT id
+          SELECT users.id
           FROM users
-          WHERE account_id = ${accountId}::uuid
-            AND id = ${item.officeLeadUserId}
-            AND is_active = TRUE
-            AND office_id = ${item.id}
-            AND level IN (1, 2)
+          JOIN level_labels
+            ON level_labels.account_id = users.account_id
+           AND level_labels.level = users.level
+          WHERE users.account_id = ${accountId}::uuid
+            AND users.id = ${item.officeLeadUserId}
+            AND users.is_active = TRUE
+            AND (
+              LOWER(level_labels.permission_group) = 'superuser'
+              OR (users.office_id = ${item.id} AND users.level IN (1, 2))
+            )
           LIMIT 1
         `;
         if (!eligibleLead.length) {
-          return errorResponse(400, "Office lead must be an active Level 1 or Level 2 member assigned to that office.");
+          return errorResponse(
+            400,
+            "Office lead must be an active Superuser or an active Level 1 or Level 2 member assigned to that office."
+          );
         }
       }
     }

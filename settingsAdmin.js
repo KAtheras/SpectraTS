@@ -5269,7 +5269,7 @@
   }
 
   function renderOfficeLocations() {
-    const { refs, state, escapeHtml } = deps();
+    const { refs, state, escapeHtml, permissionGroupForUser } = deps();
     if (!refs.officeRows) return;
 
     const usersById = new Map((state.users || []).map((u) => [u.id, u]));
@@ -5279,7 +5279,8 @@
         const active = user?.isActive !== false && `${user?.status || ""}`.trim().toLowerCase() !== "terminated";
         const assignedToOffice = `${user?.officeId || ""}`.trim() === `${officeId || ""}`.trim();
         const level = Number(user?.level);
-        return active && assignedToOffice && (level === 1 || level === 2);
+        const isSuperuser = permissionGroupForUser?.(user) === "superuser";
+        return active && (isSuperuser || (assignedToOffice && (level === 1 || level === 2)));
       });
 
     const rowsHtml = (state.officeLocations || [])
