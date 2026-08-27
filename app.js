@@ -298,7 +298,7 @@
 
     event.preventDefault();
     if (!beginSettingsAutoSave("level-labels-form")) return;
-    let autosaveOk = false;
+
     try {
       const { feedback } = deps();
       if (!state.permissions?.edit_user_profile) {
@@ -322,9 +322,8 @@
 
       await mutatePersistentState("update_level_labels", { levels }, settingsSaveFastOptions());
       feedback("Levels updated.", false);
-      autosaveOk = true;
     } finally {
-      finishSettingsAutoSave("level-labels-form", { ok: autosaveOk });
+      finishSettingsAutoSave("level-labels-form");
     }
   });
 
@@ -1330,6 +1329,11 @@
     )
       ? Number(projectRow.contractAmount ?? projectRow.contract_amount)
       : null;
+    const currentOverheadPercent = Number.isFinite(
+      Number(projectRow.overheadPercent ?? projectRow.overhead_percent)
+    )
+      ? Number(projectRow.overheadPercent ?? projectRow.overhead_percent)
+      : null;
     const currentPricingModelRaw = String(
       projectRow.pricingModel ?? projectRow.pricing_model ?? ""
     )
@@ -1387,6 +1391,7 @@
       projectName: normalizedProject,
       contractAmount: currentContractAmount,
       pricingModel: currentPricingModel,
+      overheadPercent: currentOverheadPercent,
       targetRealizationPct: currentTargetRealizationPct,
       techAdminFeePctOverride: currentTechAdminFeePctOverride,
       defaultTargetRealizationPct,
@@ -1406,6 +1411,7 @@
           nextName,
           contractAmount: payload.contractAmount,
           pricingModel: payload.pricingModel,
+          overheadPercent: payload.overheadPercent,
           targetRealizationPct: payload.targetRealizationPct,
           techAdminFeePctOverride: payload.techAdminFeePctOverride,
           project_lead_id: payload.projectLeadId,
@@ -1453,6 +1459,9 @@
       const currentPricingModelRaw = String(options?.pricingModel || "").trim();
       const currentPricingModel =
         currentPricingModelRaw === "time_and_materials" ? "time_and_materials" : "fixed_fee";
+      const currentOverheadPercent = Number.isFinite(Number(options?.overheadPercent))
+        ? Number(options.overheadPercent)
+        : null;
       const currentTargetRealizationPctRaw = options?.targetRealizationPct;
       const currentTargetRealizationPct =
         currentTargetRealizationPctRaw === null ||
@@ -1632,6 +1641,10 @@
                 <input type="text" name="target_realization_pct" inputmode="decimal" placeholder="e.g. 72.5" />
               </label>
               <label class="project-dialog-field">
+                <span>Overhead %</span>
+                <input type="text" name="overhead_percent" inputmode="decimal" placeholder="e.g. 12.5" />
+              </label>
+              <label class="project-dialog-field">
                 <span>Tech/Admin Fee %</span>
                 <input type="text" name="tech_admin_fee_pct_override" inputmode="decimal" placeholder="Optional (uses department default when blank)" />
               </label>
@@ -1693,6 +1706,7 @@
       const pricingModelToggleButtons = Array.from(
         form.querySelectorAll("[data-pricing-model-value]")
       );
+      const overheadPercentInput = form.querySelector('input[name="overhead_percent"]');
       const targetRealizationInput = form.querySelector('input[name="target_realization_pct"]');
       const techAdminFeeOverrideInput = form.querySelector('input[name="tech_admin_fee_pct_override"]');
       const openPlanningButton = form.querySelector("[data-project-open-planning]");
@@ -2062,6 +2076,10 @@
       pricingModelToggleButtons.forEach((button) =>
         button.addEventListener("click", onPricingModelToggleClick)
       );
+      if (overheadPercentInput) {
+        overheadPercentInput.value =
+          currentOverheadPercent !== null ? String(currentOverheadPercent) : "";
+      }
       if (targetRealizationInput) {
         const seedTarget = currentTargetRealizationPct !== null ? currentTargetRealizationPct : defaultTargetRealizationPct;
         targetRealizationInput.value = seedTarget !== null ? String(seedTarget) : "";
@@ -2162,6 +2180,12 @@
           contractAmountInput?.focus();
           return null;
         }
+        const parsedOverheadPercent = parseProjectBudgetAmount(overheadPercentInput?.value || "");
+        if (!parsedOverheadPercent.ok) {
+          setError("Overhead % must be a non-negative number.");
+          overheadPercentInput?.focus();
+          return null;
+        }
         const parsedTargetRealization = parseProjectBudgetAmount(targetRealizationInput?.value || "");
         if (!parsedTargetRealization.ok) {
           setError("Target realization % must be a non-negative number.");
@@ -2193,6 +2217,7 @@
             String(pricingModelInput?.value || "fixed_fee").trim() === "time_and_materials"
               ? "time_and_materials"
               : "fixed_fee",
+          overheadPercent: parsedOverheadPercent.value,
           targetRealizationPct: parsedTargetRealization.value,
           techAdminFeePctOverride:
             !projectHasExplicitTechAdminOverride && !techAdminFeeTouched
@@ -2346,6 +2371,7 @@
           budgetAmount: payload.budgetAmount,
           contractAmount: payload.contractAmount,
           pricingModel: payload.pricingModel,
+          overheadPercent: payload.overheadPercent,
           targetRealizationPct: payload.targetRealizationPct,
           techAdminFeePctOverride: payload.techAdminFeePctOverride,
           managerUserIds: payload.managerUserIds,
@@ -2446,6 +2472,7 @@
       budgetAmount: null,
       contractAmount: null,
       pricingModel: "fixed_fee",
+      overheadPercent: null,
       managerUserIds: [],
       staffUserIds: [],
       projectLeadId: null,
@@ -2457,6 +2484,7 @@
           budgetAmount: payload.budgetAmount,
           contractAmount: payload.contractAmount,
           pricingModel: payload.pricingModel,
+          overheadPercent: payload.overheadPercent,
           targetRealizationPct: payload.targetRealizationPct,
           techAdminFeePctOverride: payload.techAdminFeePctOverride,
           project_lead_id: payload.projectLeadId,
@@ -4199,13 +4227,8 @@
             const name = (item.name || "").trim();
             const officeLeadUserId = item.officeLeadUserId || item.office_lead_user_id || "";
             const officeLeadUserName = item.officeLeadUserName || item.office_lead_user_name || "";
-            const overheadRaw = item.overheadPercent ?? item.overhead_percent;
-            const overheadPercent =
-              overheadRaw === null || overheadRaw === undefined || String(overheadRaw).trim() === ""
-                ? null
-                : Number(overheadRaw);
             if (!name) return null;
-            return { id, name, officeLeadUserId, officeLeadUserName, overheadPercent };
+            return { id, name, officeLeadUserId, officeLeadUserName };
           })
           .filter(Boolean)
       : null;
@@ -11843,48 +11866,25 @@
     });
   }
   if (refs.messagingRulesRows) {
-    refs.messagingRulesRows.addEventListener("change", function (event) {
+    refs.messagingRulesRows.addEventListener("change", async function (event) {
       const inboxToggle = event.target.closest("[data-rule-inbox]");
       const emailToggle = event.target.closest("[data-rule-email]");
       const toggle = inboxToggle || emailToggle;
       if (!toggle) return;
-      if (!state.permissions?.manage_messaging_rules) {
-        feedback("Access denied.", true);
-        renderMessagingRules();
-        return;
-      }
       const eventType = toggle.dataset.ruleInbox || toggle.dataset.ruleEmail;
-      window.settingsAutosave?.scheduleTask(
-        `messaging-rule:${eventType}`,
-        async function () {
-          const inboxInput = refs.messagingRulesRows?.querySelector(`[data-rule-inbox="${eventType}"]`);
-          const emailInput = refs.messagingRulesRows?.querySelector(`[data-rule-email="${eventType}"]`);
-          try {
-            const result = await mutatePersistentState(
-              "update_notification_rule",
-              {
-                eventType,
-                inboxEnabled: Boolean(inboxInput?.checked),
-                ...(emailInput ? { emailEnabled: Boolean(emailInput.checked) } : {}),
-              },
-              settingsSaveFastOptions()
-            );
-            const savedRule = result?.notificationRule;
-            if (savedRule) {
-              state.notificationRules = [
-                ...(state.notificationRules || []).filter((rule) => rule.eventType !== eventType),
-                savedRule,
-              ];
-            }
-            feedback("Messaging rule updated.", false);
-          } catch (error) {
-            feedback(error.message || "Unable to update messaging rule.", true);
-            renderMessagingRules();
-            throw error;
-          }
-        },
-        350
-      );
+      const inboxEnabled = inboxToggle ? inboxToggle.checked : undefined;
+      const emailEnabled = emailToggle ? emailToggle.checked : undefined;
+      try {
+        await mutatePersistentState("update_notification_rule", {
+          eventType,
+          inboxEnabled,
+          emailEnabled,
+        }, { refreshState: true, returnState: false });
+        feedback("Messaging rule updated.", false);
+      } catch (error) {
+        feedback(error.message || "Unable to update messaging rule.", true);
+        renderMessagingRules();
+      }
     });
   }
   if (refs.logoutButton) {
@@ -12565,13 +12565,26 @@
     });
   }
   if (refs.addLevel) {
-    refs.addLevel.addEventListener("click", function () {
+    refs.addLevel.addEventListener("click", async function () {
+      handleAddLevel();
       if (!state.permissions?.edit_user_profile) {
-        feedback("Access denied.", true);
         return;
       }
-      handleAddLevel();
-      scheduleSettingsFormAutoSubmit("level-labels-form");
+      const levels = getLevelDefinitions()
+        .map((item) => ({
+          level: Number(item.level),
+          label: String(item.label || "").trim(),
+          permissionGroup: String(item.permissionGroup || "staff").trim(),
+        }))
+        .sort((a, b) => a.level - b.level);
+      try {
+        await mutatePersistentState("update_level_labels", { levels }, settingsSaveFastOptions());
+        refreshSettingsTabInBackground("levels");
+        feedback("Level added.", false);
+      } catch (error) {
+        refreshSettingsTabInBackground("levels");
+        feedback(error.message || "Unable to add level.", true);
+      }
     });
   }
 
@@ -12605,14 +12618,54 @@
       });
   }
 
-  function beginSettingsAutoSave(formId) {
-    return window.settingsAutosave?.begin(formId) ?? true;
+  const settingsAutoSubmitTimers = new Map();
+  const settingsAutoSaveStateByFormId = new Map();
+  function getSettingsAutoSaveState(formId) {
+    const key = String(formId || "").trim();
+    if (!key) return null;
+    if (!settingsAutoSaveStateByFormId.has(key)) {
+      settingsAutoSaveStateByFormId.set(key, { inFlight: false, queued: false });
+    }
+    return settingsAutoSaveStateByFormId.get(key);
   }
-  function finishSettingsAutoSave(formId, options) {
-    window.settingsAutosave?.finish(formId, options);
+  function beginSettingsAutoSave(formId) {
+    const entry = getSettingsAutoSaveState(formId);
+    if (!entry) return true;
+    if (entry.inFlight) {
+      entry.queued = true;
+      return false;
+    }
+    entry.inFlight = true;
+    entry.queued = false;
+    return true;
+  }
+  function finishSettingsAutoSave(formId) {
+    const entry = getSettingsAutoSaveState(formId);
+    if (!entry) return;
+    entry.inFlight = false;
+    if (entry.queued) {
+      entry.queued = false;
+      scheduleSettingsFormAutoSubmit(formId, 0);
+    }
   }
   function scheduleSettingsFormAutoSubmit(formId, delayMs = 700) {
-    window.settingsAutosave?.scheduleForm(formId, delayMs);
+    const key = String(formId || "").trim();
+    if (!key) return;
+    const saveState = getSettingsAutoSaveState(key);
+    if (saveState?.inFlight) {
+      saveState.queued = true;
+      return;
+    }
+    const existing = settingsAutoSubmitTimers.get(key);
+    if (existing) {
+      clearTimeout(existing);
+    }
+    const timer = setTimeout(() => {
+      const form = document.getElementById(key);
+      if (!form || typeof form.requestSubmit !== "function") return;
+      form.requestSubmit();
+    }, delayMs);
+    settingsAutoSubmitTimers.set(key, timer);
   }
 
   function nextCorporateFunctionGroupSortOrder() {
@@ -12706,24 +12759,65 @@
     );
   }
 
+  if (refs.expenseCategoriesForm) {
+    refs.expenseCategoriesForm.addEventListener("submit", async function (event) {
+      event.preventDefault();
+      if (!beginSettingsAutoSave("expense-categories-form")) return;
+      try {
+        if (!state.permissions?.manage_expense_categories) {
+          feedback("Access denied.", true);
+          return;
+        }
+        const rows = Array.from(refs.expenseRows?.querySelectorAll(".level-row") || []);
+        if (!rows.length) {
+          feedback("Add at least one category.", true);
+          return;
+        }
+        const seen = new Set();
+        const categories = [];
+        for (const row of rows) {
+          const id = (row.dataset.expenseId || "").trim();
+          const nameInput = row.querySelector("[data-expense-name]");
+          const name = (nameInput?.value || "").trim();
+          if (!name) {
+            feedback("Category name cannot be blank.", true);
+            return;
+          }
+          const key = name.toLowerCase();
+          if (seen.has(key)) {
+            feedback("Category names must be unique.", true);
+            return;
+          }
+          seen.add(key);
+          categories.push({ id: id || null, name });
+        }
+        try {
+          await mutatePersistentState("update_expense_categories", { categories }, settingsSaveFastOptions());
+          feedback("Expense categories updated.", false);
+        } catch (error) {
+          feedback(error.message || "Unable to update expense categories.", true);
+        }
+      } finally {
+        finishSettingsAutoSave("expense-categories-form");
+      }
+    });
+  }
+
   async function saveOfficeLocations(locations) {
     if (!state.permissions?.manage_office_locations) {
       feedback("Access denied.", true);
-      return false;
+      return;
     }
     try {
-      const result = await mutatePersistentState(
-        "update_office_locations",
-        { locations },
-        settingsSaveFastOptions()
-      );
-      const savedLocations = Array.isArray(result?.locations) ? result.locations : locations;
       try {
-        window.localStorage.setItem("timesheet.offices", JSON.stringify(savedLocations));
+        window.localStorage.setItem("timesheet.offices", JSON.stringify(locations));
       } catch (e) {}
+      await mutatePersistentState("update_office_locations", { locations }, settingsSaveFastOptions());
       feedback("Office locations updated.", false);
-      return { ok: true, locations: savedLocations };
     } catch (error) {
+      try {
+        window.localStorage.setItem("timesheet.offices", JSON.stringify(locations));
+      } catch (e) {}
       if ((error?.message || "").includes("Cannot Remove Office")) {
         const blockedBody = String(error.message || "").replace(/^Cannot Remove Office\s*\n?/, "").trim();
         await appDialog({
@@ -12732,10 +12826,9 @@
           cancelText: "Cancel",
           hideConfirm: true,
         });
-        return { ok: false, locations: null };
+        return;
       }
       feedback(error.message || "Unable to update office locations.", true);
-      return { ok: false, locations: null };
     }
   }
 
@@ -12743,10 +12836,6 @@
     refs.officeLocationsForm.addEventListener("submit", async function (event) {
       event.preventDefault();
       if (!beginSettingsAutoSave("office-locations-form")) return;
-      const previousLocations = Array.isArray(state.officeLocations)
-        ? state.officeLocations.map((item) => ({ ...item }))
-        : [];
-      let autosaveOk = false;
       try {
         const rows = Array.from(refs.officeRows?.querySelectorAll(".office-row") || []);
         const seen = new Set();
@@ -12755,11 +12844,8 @@
           const id = (row.dataset.officeId || "").trim();
           const nameInput = row.querySelector("[data-office-name]");
           const leadSelect = row.querySelector("[data-office-lead]");
-          const overheadInput = row.querySelector("[data-office-overhead]");
           const name = (nameInput?.value || "").trim();
           const officeLeadUserId = (leadSelect?.value || "").trim();
-          const overheadRaw = String(overheadInput?.value || "").trim();
-          const overheadPercent = overheadRaw === "" ? null : Number(overheadRaw);
           if (!name) {
             feedback("Location name is required.", true);
             return;
@@ -12769,21 +12855,15 @@
             feedback("Location names must be unique.", true);
             return;
           }
-          if (overheadPercent !== null && (!Number.isFinite(overheadPercent) || overheadPercent < 0)) {
-            feedback("Office overhead must be a non-negative number.", true);
-            return;
-          }
           seen.add(key);
-          locations.push({ id: id || null, name, officeLeadUserId, overheadPercent });
+          locations.push({ id: id || null, name, officeLeadUserId });
         }
         state.officeLocations = locations;
-        const saveResult = await saveOfficeLocations(locations);
-        autosaveOk = Boolean(saveResult?.ok);
-        state.officeLocations = autosaveOk ? saveResult.locations : previousLocations;
+        await saveOfficeLocations(locations);
         renderOfficeLocations();
-        if (autosaveOk) window.settingsAdmin?.renderTargetRealizations?.();
+        window.settingsAdmin?.renderTargetRealizations?.();
       } finally {
-        finishSettingsAutoSave("office-locations-form", { ok: autosaveOk });
+        finishSettingsAutoSave("office-locations-form");
       }
     });
   }
@@ -12798,7 +12878,6 @@
         id: `temp-office-${Date.now()}-${Math.random().toString(16).slice(2)}`,
         name: "",
         officeLeadUserId: "",
-        overheadPercent: null,
       };
       state.officeLocations = [...state.officeLocations, newItem];
       renderOfficeLocations();
@@ -12851,8 +12930,10 @@
         if (!confirmation.confirmed) {
           return;
         }
-        row.remove();
-        scheduleSettingsFormAutoSubmit("office-locations-form", 0);
+        state.officeLocations = state.officeLocations.filter((item) => item.id !== id);
+        renderOfficeLocations();
+        window.settingsAdmin?.renderTargetRealizations?.();
+        await saveOfficeLocations(state.officeLocations);
       }
     });
   }
@@ -12868,8 +12949,39 @@
       const row = deleteBtn.closest(".expense-row");
       if (!row) return;
 
-      row.remove();
-      scheduleSettingsFormAutoSubmit("expense-categories-form", 0);
+      // Build categories from current rows excluding the one being deleted
+      const rows = Array.from(refs.expenseRows.querySelectorAll(".expense-row")).filter((r) => r !== row);
+      const categories = [];
+      const seen = new Set();
+      for (const r of rows) {
+        const id = (r.dataset.expenseId || "").trim();
+        const nameInput = r.querySelector("[data-expense-name]");
+        const name = (nameInput?.value || "").trim();
+        if (!name) {
+          feedback("Category name cannot be blank.", true);
+          return;
+        }
+        const key = name.toLowerCase();
+        if (seen.has(key)) {
+          feedback("Category names must be unique.", true);
+          return;
+        }
+        seen.add(key);
+        categories.push({ id: id || null, name });
+      }
+
+      const previous = [...state.expenseCategories];
+      state.expenseCategories = categories;
+      renderExpenseCategories();
+      try {
+        await mutatePersistentState("update_expense_categories", { categories }, settingsSaveFastOptions());
+        refreshSettingsTabInBackground("categories");
+        feedback("Category deleted.", false);
+      } catch (error) {
+        state.expenseCategories = previous;
+        renderExpenseCategories();
+        feedback(error.message || "Unable to delete category.", true);
+      }
     });
   }
 
@@ -13041,7 +13153,6 @@
       if (corporateFunctionsForm) {
         event.preventDefault();
         if (!beginSettingsAutoSave("corporate-functions-form")) return;
-        let autosaveOk = false;
         try {
           if (!state.permissions?.manage_corporate_functions) {
             feedback("Access denied.", true);
@@ -13058,12 +13169,11 @@
               settingsSaveFastOptions()
             );
             feedback("Corporate functions updated.", false);
-            autosaveOk = true;
           } catch (error) {
             feedback(error.message || "Unable to update corporate functions.", true);
           }
         } finally {
-          finishSettingsAutoSave("corporate-functions-form", { ok: autosaveOk });
+          finishSettingsAutoSave("corporate-functions-form");
         }
         return;
       }
@@ -13072,9 +13182,8 @@
       if (departmentsForm) {
         event.preventDefault();
         if (!beginSettingsAutoSave("departments-form")) return;
-        let autosaveOk = false;
         try {
-          if (!state.permissions?.manage_departments) {
+          if (!state.permissions?.manage_target_realizations) {
             feedback("Access denied.", true);
             return;
           }
@@ -13084,8 +13193,14 @@
             feedback("Add at least one department.", true);
             return;
           }
+          const existingMap = new Map(
+            (state.departmentsSnapshot || []).map((d) => [String(d.id || ""), d])
+          );
           const seen = new Set();
-          const departments = [];
+          const createOps = [];
+          const renameOps = [];
+          const deleteOps = [];
+          const remainingIds = new Set();
 
           for (const row of rows) {
             const id = String((row.dataset.departmentId || "").trim());
@@ -13112,35 +13227,83 @@
               return;
             }
             seen.add(key);
-            departments.push({ id, name, techAdminFeePct });
+
+            if (!id || id.startsWith("temp-dept-")) {
+              createOps.push({ tempId: id, name, techAdminFeePct });
+              continue;
+            }
+            remainingIds.add(id);
+            const prev = existingMap.get(id) || {};
+            const prevTechAdminFeePctRaw = prev.techAdminFeePct ?? prev.tech_admin_fee_pct;
+            const prevTechAdminFeePct =
+              prevTechAdminFeePctRaw === null || prevTechAdminFeePctRaw === undefined || `${prevTechAdminFeePctRaw}`.trim() === ""
+                ? null
+                : Number(prevTechAdminFeePctRaw);
+            if (prev.name !== name || prevTechAdminFeePct !== techAdminFeePct) {
+              renameOps.push({ id, name, techAdminFeePct });
+            }
+          }
+
+          for (const [id] of existingMap.entries()) {
+            if (!id || !remainingIds.has(id)) {
+              deleteOps.push({ id });
+            }
           }
 
           try {
-            const result = await mutatePersistentState(
-              "update_departments",
-              { departments },
-              settingsSaveFastOptions()
-            );
-            const nextDepartments = Array.isArray(result?.departments)
-              ? result.departments.map((item) => ({
-                  id: `${item?.id || ""}`.trim(),
-                  name: `${item?.name || ""}`.trim(),
-                  techAdminFeePct:
-                    item?.techAdminFeePct === null || item?.techAdminFeePct === undefined
-                      ? null
-                      : Number(item.techAdminFeePct),
-                }))
-              : departments;
+            const createdByTempId = new Map();
+            for (const op of createOps) {
+              const created = await mutatePersistentState(
+                "create_department",
+                { name: op.name, techAdminFeePct: op.techAdminFeePct },
+                settingsSaveFastOptions()
+              );
+              const createdId = `${created?.id || ""}`.trim();
+              if (op.tempId && createdId) {
+                createdByTempId.set(op.tempId, createdId);
+              }
+            }
+            for (const op of renameOps) {
+              await mutatePersistentState(
+                "rename_department",
+                { id: op.id, name: op.name, techAdminFeePct: op.techAdminFeePct },
+                settingsSaveFastOptions()
+              );
+            }
+            for (const op of deleteOps) {
+              await mutatePersistentState("delete_department", { id: op.id }, settingsSaveFastOptions());
+            }
+            const nextDepartments = rows
+              .map((row) => {
+                const rawId = String((row.dataset.departmentId || "").trim());
+                const resolvedId =
+                  createdByTempId.get(rawId) ||
+                  (rawId && !rawId.startsWith("temp-dept-") ? rawId : "");
+                const nameInput = row.querySelector("[data-department-name]");
+                const techAdminFeeInput = row.querySelector("[data-department-tech-admin-fee-pct]");
+                const name = (nameInput?.value || "").trim();
+                const rawTechAdminFeePct = `${techAdminFeeInput?.value || ""}`.trim();
+                const techAdminFeePct =
+                  rawTechAdminFeePct === ""
+                    ? null
+                    : Number(rawTechAdminFeePct);
+                if (!name) return null;
+                return {
+                  id: resolvedId || `temp-dept-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+                  name,
+                  techAdminFeePct,
+                };
+              })
+              .filter(Boolean);
             state.departments = nextDepartments;
             state.departmentsSnapshot = nextDepartments.slice();
             window.settingsAdmin?.renderTargetRealizations?.();
             feedback("Departments updated.", false);
-            autosaveOk = true;
           } catch (error) {
             feedback(error.message || "Unable to update departments.", true);
           }
         } finally {
-          finishSettingsAutoSave("departments-form", { ok: autosaveOk });
+          finishSettingsAutoSave("departments-form");
         }
         return;
       }
@@ -13149,9 +13312,8 @@
       if (targetRealizationsForm) {
         event.preventDefault();
         if (!beginSettingsAutoSave("target-realizations-form")) return;
-        let autosaveOk = false;
         try {
-          if (!state.permissions?.manage_target_realizations) {
+          if (!state.permissions?.manage_departments) {
             feedback("Access denied.", true);
             return;
           }
@@ -13173,29 +13335,23 @@
             payloadRows.push({ officeId, departmentId, targetRealizationPct });
           }
           try {
-            const result = await mutatePersistentState(
+            await mutatePersistentState(
               "update_target_realizations",
               { targetRealizations: payloadRows },
               settingsSaveFastOptions()
             );
-            const savedRows = Array.isArray(result?.targetRealizations)
-              ? result.targetRealizations
-              : payloadRows;
-            state.targetRealizations = savedRows.map((item) => ({
-              id: `${item?.id || `${item?.officeId || item?.office_id}::${item?.departmentId || item?.department_id}`}`,
-              officeId: `${item?.officeId || item?.office_id || ""}`,
-              departmentId: `${item?.departmentId || item?.department_id || ""}`,
-              targetRealizationPct: Number(
-                item?.targetRealizationPct ?? item?.target_realization_pct ?? 0
-              ),
+            state.targetRealizations = payloadRows.map((item) => ({
+              id: `${item.officeId}::${item.departmentId}`,
+              officeId: item.officeId,
+              departmentId: item.departmentId,
+              targetRealizationPct: item.targetRealizationPct,
             }));
             feedback("Target realizations updated.", false);
-            autosaveOk = true;
           } catch (error) {
             feedback(error.message || "Unable to update target realizations.", true);
           }
         } finally {
-          finishSettingsAutoSave("target-realizations-form", { ok: autosaveOk });
+          finishSettingsAutoSave("target-realizations-form");
         }
       }
     });
@@ -13273,8 +13429,14 @@
         return;
       }
 
-      row.remove();
-      scheduleSettingsFormAutoSubmit("level-labels-form", 0);
+      try {
+        await mutatePersistentState("update_level_labels", { levels }, settingsSaveFastOptions());
+        refreshSettingsTabInBackground("levels");
+        feedback("Level deleted.", false);
+      } catch (error) {
+        refreshSettingsTabInBackground("levels");
+        feedback(error.message || "Unable to delete level.", true);
+      }
     });
   }
 
@@ -13310,7 +13472,7 @@
       scheduleSettingsFormAutoSubmit("office-locations-form");
     };
     refs.officeRows.addEventListener("input", function (event) {
-      const input = event.target.closest("[data-office-name], [data-office-overhead]");
+      const input = event.target.closest("[data-office-name]");
       if (!input) return;
       scheduleOfficeAutoSave();
     });

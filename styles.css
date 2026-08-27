@@ -1740,22 +1740,6 @@ input[name="cost_rate"] {
   border-color: color-mix(in srgb, var(--accent) 55%, var(--panel-border));
 }
 
-.settings-autosave-status {
-  min-height: 20px;
-  padding: 4px 10px 0;
-  color: var(--muted);
-  font-size: 0.82rem;
-  text-align: right;
-}
-
-.settings-autosave-status[data-status="saving"] {
-  color: var(--accent);
-}
-
-.settings-autosave-status[data-status="error"] {
-  color: var(--danger, #b2362e);
-}
-
 .level-labels-inner {
   padding: var(--space-24) var(--space-24) var(--space-32);
   display: grid;
