@@ -5269,18 +5269,16 @@
   }
 
   function renderOfficeLocations() {
-    const { refs, state, escapeHtml, permissionGroupForUser } = deps();
+    const { refs, state, escapeHtml } = deps();
     if (!refs.officeRows) return;
 
     const usersById = new Map((state.users || []).map((u) => [u.id, u]));
 
-    const eligibleOfficeLeads = (officeId) =>
+    const eligibleOfficeLeads = () =>
       (state.users || []).filter((user) => {
         const active = user?.isActive !== false && `${user?.status || ""}`.trim().toLowerCase() !== "terminated";
-        const assignedToOffice = `${user?.officeId || ""}`.trim() === `${officeId || ""}`.trim();
         const level = Number(user?.level);
-        const isSuperuser = permissionGroupForUser?.(user) === "superuser";
-        return active && (isSuperuser || (assignedToOffice && (level === 1 || level === 2)));
+        return active && (level === 1 || level === 2);
       });
 
     const rowsHtml = (state.officeLocations || [])
@@ -5293,10 +5291,10 @@
             : null);
         const leadOptions = [
           `<option value="">No lead</option>`,
-          ...eligibleOfficeLeads(item.id).map((u) =>
+          ...eligibleOfficeLeads().map((u) =>
             `<option value="${escapeHtml(u.id)}"${u.id === leadUserId ? " selected" : ""}>${escapeHtml(u.displayName)}</option>`
           ),
-          ...(leadUser && !eligibleOfficeLeads(item.id).some((user) => user.id === leadUserId)
+          ...(leadUser && !eligibleOfficeLeads().some((user) => user.id === leadUserId)
             ? [
                 `<option value="${escapeHtml(leadUser.id)}" data-ineligible-current selected>${escapeHtml(
                   `${leadUser.displayName} (current)`

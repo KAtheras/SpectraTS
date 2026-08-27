@@ -97,8 +97,8 @@ const waitForTimers = () => new Promise((resolve) => setTimeout(resolve, 10));
   assert.match(officeSnapshotSource, /overhead_percent/);
   assert.match(
     mutateSource,
-    /LOWER\(level_labels\.permission_group\) = 'superuser'[\s\S]*users\.office_id = \$\{item\.id\}[\s\S]*users\.level IN \(1, 2\)/,
-    "office lead validation should allow global superusers or same-office Level 1/2 members"
+    /users\.is_active = TRUE[\s\S]*users\.level IN \(1, 2\)/,
+    "office lead validation should allow active Level 1/2 members"
   );
 
   console.log("settings autosave tests passed");
