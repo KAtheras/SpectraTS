@@ -494,7 +494,11 @@ body.modal-open {
 }
 
 .notice-dialog-overlay {
-  z-index: 260;
+  z-index: 320;
+}
+
+.notice-dialog-overlay p {
+  white-space: pre-line;
 }
 
 .auth-shell {

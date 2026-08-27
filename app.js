@@ -6295,6 +6295,42 @@
     });
   }
 
+  function showChoiceDialog({ title, message, confirmText = "Confirm", cancelText = "Cancel" }) {
+    return new Promise((resolve) => {
+      const overlay = document.createElement("div");
+      overlay.className = "dialog-overlay notice-dialog-overlay";
+      overlay.innerHTML = `
+        <div class="dialog-card" role="alertdialog" aria-modal="true">
+          <h3></h3>
+          <p></p>
+          <div class="dialog-actions">
+            <button type="button" class="button button-ghost" data-choice-cancel></button>
+            <button type="button" class="button" data-choice-confirm></button>
+          </div>
+        </div>
+      `;
+      const cancelButton = overlay.querySelector("[data-choice-cancel]");
+      const confirmButton = overlay.querySelector("[data-choice-confirm]");
+      const finish = (confirmed) => {
+        document.removeEventListener("keydown", onKeyDown);
+        overlay.remove();
+        resolve({ confirmed });
+      };
+      const onKeyDown = (event) => {
+        if (event.key === "Escape") finish(false);
+      };
+      overlay.querySelector("h3").textContent = String(title || "Confirm");
+      overlay.querySelector("p").textContent = String(message || "");
+      cancelButton.textContent = String(cancelText || "Cancel");
+      confirmButton.textContent = String(confirmText || "Confirm");
+      cancelButton.addEventListener("click", () => finish(false), { once: true });
+      confirmButton.addEventListener("click", () => finish(true), { once: true });
+      document.addEventListener("keydown", onKeyDown);
+      document.body.appendChild(overlay);
+      confirmButton.focus();
+    });
+  }
+
   function showNoteModal(entry) {
     return new Promise((resolve) => {
       if (!refs.dialog || !refs.dialogCancel || !refs.dialogConfirm || !refs.dialogTextarea) {
@@ -14377,10 +14413,8 @@
         }
       }
 
-      const isPlannerAddMemberFlow =
-        mode === "project-add-member" &&
-        typeof memberModalState.interceptSelection !== "function";
-      if (isPlannerAddMemberFlow) {
+      const isAddMemberFlow = mode === "project-add-member";
+      if (isAddMemberFlow) {
         const aboveBaseRate = selected
           .map((userId) => {
             const user = getUserById(userId);
@@ -14412,7 +14446,7 @@
                 `${item.name}: project rate $${item.projectRate.toFixed(2)}; base rate $${item.baseRate.toFixed(2)}`
             )
             .join("\n");
-          const result = await appDialog({
+          const result = await showChoiceDialog({
             title: "Project Rate Above Base Rate",
             message: `The following project rate exceeds the member's base rate:\n\n${rateLines}\n\nDo you want to use the higher project rate?`,
             confirmText: "Use Rate",
