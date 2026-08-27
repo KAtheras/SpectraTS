@@ -190,6 +190,13 @@
       body[data-theme="dark"] .analytics-util-select-wrap .analytics-member-title-chevron {
         color: #d8e2ed;
       }
+      body[data-theme="dark"] .analytics-chart-head [data-analytics-member-sort-toggle],
+      body[data-theme="dark"] .analytics-chart-head [data-analytics-realization-sort-toggle] {
+        color: #c4cfdd !important;
+      }
+      body[data-theme="dark"] .analytics-util-legend-item {
+        color: #c4cfdd;
+      }
       .analytics-util-card {
         border: 1px solid var(--line);
         border-radius: 10px;
@@ -842,6 +849,13 @@
     });
   }
 
+  function analyticsChartColors() {
+    const dark = document.body?.dataset?.theme === "dark";
+    return dark
+      ? { text: "#c4cfdd", strong: "#e7edf5", grid: "rgba(196, 207, 221, 0.20)", target: "#b7c4d4" }
+      : { text: "#596274", strong: "#283142", grid: "rgba(128,128,128,0.25)", target: "#596274" };
+  }
+
   function renderTrendChart(container, trend, focusMetric) {
     if (!container) return;
     const echarts = window.echarts;
@@ -949,6 +963,7 @@
 
     chart.setOption({
       animation: false,
+      textStyle: { color: analyticsChartColors().text },
       grid: { left: 44, right: 18, top: singleMetric ? 18 : 46, bottom: 34 },
       legend: singleMetric
         ? { show: false }
@@ -974,10 +989,12 @@
         type: "category",
         data: labels,
         axisTick: { show: false },
+        axisLabel: { color: analyticsChartColors().text },
       },
       yAxis: {
         type: "value",
         axisLabel: {
+          color: analyticsChartColors().text,
           formatter: (value) => {
             const abs = Math.abs(value);
             if (abs >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
@@ -985,7 +1002,7 @@
             return String(Math.round(value));
           },
         },
-        splitLine: { lineStyle: { color: "rgba(128,128,128,0.25)" } },
+        splitLine: { lineStyle: { color: analyticsChartColors().grid } },
       },
       series,
     });
@@ -1044,6 +1061,7 @@
 
     chart.setOption({
       animation: false,
+      textStyle: { color: analyticsChartColors().text },
       grid: { left: 118, right: 22, top: 26, bottom: 28, containLabel: false },
       tooltip: {
         trigger: "axis",
@@ -1080,11 +1098,12 @@
           return maxValue * 1.08;
         },
         axisLabel: {
+          color: analyticsChartColors().text,
           formatter: (value) => `${Math.round(value)}`,
           margin: 10,
           hideOverlap: true,
         },
-        splitLine: { lineStyle: { color: "rgba(128,128,128,0.25)" } },
+        splitLine: { lineStyle: { color: analyticsChartColors().grid } },
       },
       yAxis: {
         type: "category",
@@ -1092,6 +1111,7 @@
         data: labels,
         axisTick: { show: false },
         axisLabel: {
+          color: analyticsChartColors().text,
           width: 168,
           lineHeight: 18,
           formatter: (value, index) => {
@@ -1118,7 +1138,7 @@
             show: true,
             position: "right",
             distance: 6,
-            color: "#283142",
+            color: analyticsChartColors().strong,
             fontSize: 12,
             fontWeight: 700,
             formatter: (params) => safeText(utilizationLabelByIndex[Number(params?.dataIndex)]),
@@ -1136,6 +1156,7 @@
     // Keep left chart labels visible in dense lists by preferring display over animation interpolation.
     chart.setOption({
       animation: false,
+      textStyle: { color: analyticsChartColors().text },
       series: [
         {},
         {},
@@ -1225,6 +1246,7 @@
         type: "category",
         data: labels,
         axisTick: { show: false },
+        axisLabel: { color: analyticsChartColors().text },
       },
       yAxis: {
         type: "value",
@@ -1233,8 +1255,8 @@
           if (maxValue <= 0) return 1;
           return maxValue * 1.12;
         },
-        axisLabel: { formatter: (value) => `${Math.round(value)}` },
-        splitLine: { lineStyle: { color: "rgba(128,128,128,0.25)" } },
+        axisLabel: { color: analyticsChartColors().text, formatter: (value) => `${Math.round(value)}` },
+        splitLine: { lineStyle: { color: analyticsChartColors().grid } },
       },
       series: [
         { name: "Client", type: "bar", stack: "hours", data: client, itemStyle: { color: "#2f9988" } },
@@ -1253,7 +1275,7 @@
             show: true,
             position: "top",
             distance: 4,
-            color: "#283142",
+            color: analyticsChartColors().strong,
             fontSize: 11,
             fontWeight: 700,
             formatter: (params) => safeText(utilizationLabelByIndex[Number(params?.dataIndex)]),
@@ -1313,6 +1335,7 @@
 
     chart.setOption({
       animation: false,
+      textStyle: { color: analyticsChartColors().text },
       grid: { left: 180, right: 24, top: 22, bottom: 28 },
       tooltip: {
         trigger: "item",
@@ -1329,8 +1352,8 @@
       xAxis: {
         type: "value",
         max: maxValue * 1.12,
-        axisLabel: { formatter: (value) => `${Math.round(value)}%` },
-        splitLine: { lineStyle: { color: "rgba(128,128,128,0.25)" } },
+        axisLabel: { color: analyticsChartColors().text, formatter: (value) => `${Math.round(value)}%` },
+        splitLine: { lineStyle: { color: analyticsChartColors().grid } },
       },
       yAxis: {
         type: "category",
@@ -1338,6 +1361,7 @@
         data: labels,
         axisTick: { show: false },
         axisLabel: {
+          color: analyticsChartColors().text,
           width: 160,
           lineHeight: 17,
           formatter: (value) => wrapTwoLineLabel(value, 24),
@@ -1353,7 +1377,7 @@
             show: true,
             position: "right",
             distance: 6,
-            color: "#283142",
+            color: analyticsChartColors().strong,
             fontSize: 12,
             fontWeight: 700,
             formatter: (params) => formatPercent(rows[Number(params?.dataIndex)]?.realizationPct),
@@ -1361,8 +1385,8 @@
           markLine: {
             silent: true,
             symbol: "none",
-            lineStyle: { color: "#596274", width: 1.5, type: "dashed" },
-            label: { show: true, formatter: "100% target", color: "#596274" },
+            lineStyle: { color: analyticsChartColors().target, width: 1.5, type: "dashed" },
+            label: { show: true, formatter: "100% target", color: analyticsChartColors().target },
             data: [{ xAxis: 100 }],
           },
         },
@@ -1419,10 +1443,11 @@
 
     chart.setOption({
       animation: false,
+      textStyle: { color: analyticsChartColors().text },
       legend: {
         top: 4,
         data: [revenueLabel, "Standard Value"],
-        textStyle: { color: "#596274", fontSize: 11 },
+        textStyle: { color: analyticsChartColors().text, fontSize: 11 },
       },
       grid: { left: 58, right: 20, top: 44, bottom: 52 },
       tooltip: {
@@ -1444,11 +1469,12 @@
         type: "category",
         data: labels,
         axisTick: { show: false },
+        axisLabel: { color: analyticsChartColors().text },
       },
       yAxis: {
         type: "value",
-        axisLabel: { formatter: (value) => formatCompactMoney(value) },
-        splitLine: { lineStyle: { color: "rgba(128,128,128,0.25)" } },
+        axisLabel: { color: analyticsChartColors().text, formatter: (value) => formatCompactMoney(value) },
+        splitLine: { lineStyle: { color: analyticsChartColors().grid } },
       },
       series: [
         {
@@ -1466,7 +1492,7 @@
           type: "line",
           data: standardValues,
           symbol: "none",
-          lineStyle: { width: 2, color: "#596274", type: "dashed" },
+          lineStyle: { width: 2, color: analyticsChartColors().target, type: "dashed" },
         },
       ],
     });
