@@ -839,6 +839,7 @@
     onPersistExpenseField,
     onDeleteExpenseRow,
     onConfirmDialog,
+    onNotice,
     canEdit = true,
   }) {
     ensurePlanningStyles();
@@ -2338,9 +2339,15 @@
       button.addEventListener("click", async () => {
         if (!canEdit) return;
         if (button.dataset.projectLeadProtected === "true") {
-          window.alert(
-            "This member is the Project Lead. Assign a new Project Lead before removing this member from the project."
-          );
+          const notice = {
+            title: "Project Lead Cannot Be Removed",
+            message: "This member is the Project Lead. Assign a new Project Lead before removing this member from the project.",
+          };
+          if (typeof onNotice === "function") {
+            await onNotice(notice);
+          } else {
+            window.alert(notice.message);
+          }
           return;
         }
         const rowId = String(button.dataset.rowDelete || "").trim();

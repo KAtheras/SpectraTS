@@ -485,6 +485,10 @@ body.modal-open {
   display: none !important;
 }
 
+.notice-dialog-overlay {
+  z-index: 260;
+}
+
 .auth-shell {
   min-height: 100vh;
   display: grid;

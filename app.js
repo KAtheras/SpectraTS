@@ -1961,7 +1961,7 @@
         const removeButton = event.target.closest("[data-project-team-remove]");
         if (!removeButton) return;
         if (removeButton.dataset.projectTeamLeadProtected === "true") {
-          window.alert(
+          void showNoticeDialog(
             "This member is the Project Lead. Assign a new Project Lead before removing this member from the project."
           );
           return;
@@ -6260,6 +6260,39 @@
     });
   }
 
+  function showNoticeDialog(message, title = "Project Lead Cannot Be Removed") {
+    return new Promise((resolve) => {
+      const overlay = document.createElement("div");
+      overlay.className = "dialog-overlay notice-dialog-overlay";
+      overlay.innerHTML = `
+        <div class="dialog-card" role="alertdialog" aria-modal="true">
+          <h3></h3>
+          <p></p>
+          <div class="dialog-actions">
+            <button type="button" class="button">OK</button>
+          </div>
+        </div>
+      `;
+      const heading = overlay.querySelector("h3");
+      const messageNode = overlay.querySelector("p");
+      const okButton = overlay.querySelector("button");
+      const close = () => {
+        document.removeEventListener("keydown", onKeyDown);
+        overlay.remove();
+        resolve();
+      };
+      const onKeyDown = (event) => {
+        if (event.key === "Escape" || event.key === "Enter") close();
+      };
+      heading.textContent = String(title || "Notice");
+      messageNode.textContent = String(message || "");
+      okButton.addEventListener("click", close, { once: true });
+      document.addEventListener("keydown", onKeyDown);
+      document.body.appendChild(overlay);
+      okButton.focus();
+    });
+  }
+
   function showNoteModal(entry) {
     return new Promise((resolve) => {
       if (!refs.dialog || !refs.dialogCancel || !refs.dialogConfirm || !refs.dialogTextarea) {
@@ -10217,6 +10250,9 @@
                 cancelText,
               });
               return result?.confirmed === true;
+            },
+            onNotice: function (payload) {
+              return showNoticeDialog(payload?.message, payload?.title);
             },
             onDeleteMember: async function (payload) {
               if (!canEditPlanning) {
