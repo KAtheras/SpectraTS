@@ -1252,38 +1252,6 @@
     }
   }
 
-  function projectScopedManagerIdsForProject(clientName, projectName) {
-    const normalizedClient = String(clientName || "").trim().toLowerCase();
-    const normalizedProject = String(projectName || "").trim().toLowerCase();
-    if (!normalizedClient || !normalizedProject) return [];
-    const targetProject = (state.projects || []).find(
-      (item) =>
-        String(item?.client || "").trim().toLowerCase() === normalizedClient &&
-        String(item?.name || item?.project || "").trim().toLowerCase() === normalizedProject
-    );
-    const targetProjectId = String(targetProject?.id || "").trim();
-    const matchesProject = (item) => {
-      const itemProjectId = String(item?.projectId || item?.project_id || "").trim();
-      if (targetProjectId && itemProjectId && itemProjectId === targetProjectId) return true;
-      const itemClient = String(item?.clientName || item?.client_name || item?.client || "").trim().toLowerCase();
-      const itemProject = String(item?.projectName || item?.project_name || item?.project || "").trim().toLowerCase();
-      return itemClient === normalizedClient && itemProject === normalizedProject;
-    };
-    const managerIdsFromProjectAssignments = (state.assignments?.managerProjects || [])
-      .filter(matchesProject)
-      .map((item) => String(item?.managerId || item?.manager_id || "").trim())
-      .filter(Boolean);
-    const managerIdsFromProjectMembers = (state.assignments?.projectMembers || [])
-      .filter(matchesProject)
-      .map((item) => String(item?.userId || item?.user_id || "").trim())
-      .filter((userId) => {
-        if (!userId) return false;
-        const user = getUserById(userId);
-        return Boolean(user && !isStaff(user));
-      });
-    return uniqueValues([...managerIdsFromProjectAssignments, ...managerIdsFromProjectMembers]);
-  }
-
   function syncBillingContactFromBusiness(form) {
     if (!form) return;
     const sameAsBusiness = field(form, "billing_same_as_business");
@@ -1375,7 +1343,7 @@
       if (raw === null || raw === undefined || `${raw}`.trim() === "") return null;
       return Number.isFinite(Number(raw)) ? Number(raw) : null;
     })();
-    const managerUserIds = projectScopedManagerIdsForProject(normalizedClient, normalizedProject);
+    const managerUserIds = managerIdsForProject(normalizedClient, normalizedProject);
     const staffUserIds = staffIdsForProject(normalizedClient, normalizedProject);
     let savedProjectName = normalizedProject;
     let savedManagerUserIds = [...managerUserIds];
@@ -8864,6 +8832,7 @@
     managerIdsForClient,
     managerIdsForClientScope,
     directManagerIdsForProject,
+    projectTeamAssignments,
     managerIdsForProject,
     staffIdsForProject,
     staffIdsForClient,
@@ -10024,6 +9993,9 @@
           planningRenderer({
             projectId: targetProjectId,
             state,
+            teamAssignments: planningProject
+              ? projectTeamAssignments(planningProject.client, planningProject.name)
+              : [],
             container: refs.mainFrame,
             canEdit: Boolean(canEditPlanning),
             onBack: function () {
@@ -10348,7 +10320,7 @@
               if (!clientName || !projectName) {
                 throw new Error("Project context is unavailable.");
               }
-              if (deleteAction === "manager") {
+              if (deleteAction === "manager" || deleteAction === "both") {
                 await mutatePersistentState(
                   "unassign_manager_project",
                   {
@@ -10367,7 +10339,8 @@
                       )
                   );
                 }
-              } else {
+              }
+              if (deleteAction === "member" || deleteAction === "both") {
                 await mutatePersistentState(
                   "remove_project_member",
                   {
@@ -10607,8 +10580,7 @@
         projectHours,
         formatNameList,
         userNamesForIds,
-        managerIdsForProject,
-        staffIdsForProject,
+        projectTeamAssignments,
         disabledButtonAttrs,
         escapeHtml,
         field,
@@ -14878,6 +14850,7 @@
     projectHours,
     formatNameList,
     userNamesForIds,
+    projectTeamAssignments,
     managerIdsForProject,
     staffIdsForProject,
     managerIdsForClientScope,

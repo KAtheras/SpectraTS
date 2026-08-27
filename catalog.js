@@ -27,8 +27,7 @@
       isProjectActive,
       projectHours,
       userNamesForIds,
-      managerIdsForProject,
-      staffIdsForProject,
+      projectTeamAssignments,
       escapeHtml,
       field,
       ensureCatalogSelection,
@@ -208,11 +207,18 @@
               const showProjectLifecycleActions = canDeleteProject;
               const showAddMemberAction = canManageMembers && Boolean(state.permissions?.assign_project_members);
               const showRemoveMemberAction = canManageMembers && Boolean(state.permissions?.assign_project_members);
-              const projectLeadUserId = String(projectRow?.projectLeadId || projectRow?.project_lead_id || "").trim();
-              const managerIds = managerIdsForProject(selectedClient, project).filter(
-                (id) => String(id || "").trim() !== projectLeadUserId
-              );
-              const projectStaffIds = staffIdsForProject(selectedClient, project);
+              const projectTeam = projectTeamAssignments(selectedClient, project);
+              const managerIds = projectTeam
+                .filter(
+                  (item) =>
+                    item.displayGroup === "manager" &&
+                    !item.isProjectLead &&
+                    (item.isDirectProjectManager || item.isProjectMember)
+                )
+                .map((item) => item.userId);
+              const projectStaffIds = projectTeam
+                .filter((item) => item.displayGroup === "staff" && item.isProjectMember)
+                .map((item) => item.userId);
               const normalizedProjectLeadName = String(projectLeadName || "").trim().toLowerCase();
               const managerNameList = userNamesForIds(managerIds)
                 .map((name) => String(name || "").trim())

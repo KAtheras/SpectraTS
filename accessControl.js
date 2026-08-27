@@ -221,23 +221,61 @@
       );
     }
 
-    function managerIdsForProject(client, project) {
-      const memberManagerIds = projectMemberIdsForProject(client, project).filter((userId) => {
-        const user = getUserById(userId);
-        return user ? !isStaff(user) : false;
-      });
-      return uniqueValues([
-        ...managerIdsForClient(client),
-        ...directManagerIdsForProject(client, project),
-        ...memberManagerIds,
+    function projectTeamAssignments(client, project) {
+      const normalizedClient = normalizeText(client);
+      const normalizedProject = normalizeText(project);
+      const projectRecord = (state.projects || []).find(
+        (item) =>
+          normalizeText(item?.client) === normalizedClient &&
+          normalizeText(item?.name || item?.project) === normalizedProject
+      );
+      const leadUserId = normalizeText(
+        projectRecord?.projectLeadId || projectRecord?.project_lead_id
+      );
+      const directManagerIds = new Set(directManagerIdsForProject(client, project));
+      const memberIds = new Set(projectMemberIdsForProject(client, project));
+      const clientManagerIds = new Set(managerIdsForClient(client));
+      const userIds = uniqueValues([
+        ...(leadUserId ? [leadUserId] : []),
+        ...directManagerIds,
+        ...memberIds,
       ]);
+      return userIds.map((userId) => {
+        const user = getUserById(userId);
+        return {
+          userId,
+          user,
+          isProjectLead: userId === leadUserId,
+          isDirectProjectManager: directManagerIds.has(userId),
+          isProjectMember: memberIds.has(userId),
+          isClientManager: clientManagerIds.has(userId),
+          displayGroup: user && isStaff(user) ? "staff" : "manager",
+          removeAction:
+            directManagerIds.has(userId) && memberIds.has(userId)
+              ? "both"
+              : directManagerIds.has(userId)
+                ? "manager"
+                : memberIds.has(userId)
+                  ? "member"
+                  : null,
+        };
+      });
+    }
+
+    function managerIdsForProject(client, project) {
+      return projectTeamAssignments(client, project)
+        .filter(
+          (item) =>
+            item.displayGroup === "manager" &&
+            (item.isDirectProjectManager || item.isProjectMember)
+        )
+        .map((item) => item.userId);
     }
 
     function staffIdsForProject(client, project) {
-      return projectMemberIdsForProject(client, project).filter((userId) => {
-        const user = getUserById(userId);
-        return user ? isStaff(user) : false;
-      });
+      return projectTeamAssignments(client, project)
+        .filter((item) => item.displayGroup === "staff" && item.isProjectMember)
+        .map((item) => item.userId);
     }
 
     function staffIdsForClient(client) {
@@ -581,6 +619,7 @@
       managerIdsForClient,
       managerIdsForClientScope,
       directManagerIdsForProject,
+      projectTeamAssignments,
       managerIdsForProject,
       staffIdsForProject,
       staffIdsForClient,

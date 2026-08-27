@@ -827,6 +827,7 @@
   function renderProjectPlanningPage({
     projectId,
     state,
+    teamAssignments,
     container,
     onBack,
     onSave,
@@ -917,13 +918,21 @@
     const managerIds = new Set(
       managerAssignments.map((row) => String(row?.managerId || "").trim()).filter(Boolean)
     );
-    const allAssignedUserIds = [];
-    if (leadUserId) allAssignedUserIds.push(leadUserId);
-    managerIds.forEach((id) => allAssignedUserIds.push(id));
-    projectMemberAssignments.forEach((row) => {
-      const id = String(row?.userId || "").trim();
-      if (id) allAssignedUserIds.push(id);
-    });
+    const canonicalTeam = Array.isArray(teamAssignments) ? teamAssignments : [];
+    const canonicalTeamByUserId = new Map(
+      canonicalTeam.map((item) => [String(item?.userId || "").trim(), item])
+    );
+    const allAssignedUserIds = canonicalTeam.length
+      ? canonicalTeam.map((item) => String(item?.userId || "").trim()).filter(Boolean)
+      : [];
+    if (!canonicalTeam.length) {
+      if (leadUserId) allAssignedUserIds.push(leadUserId);
+      managerIds.forEach((id) => allAssignedUserIds.push(id));
+      projectMemberAssignments.forEach((row) => {
+        const id = String(row?.userId || "").trim();
+        if (id) allAssignedUserIds.push(id);
+      });
+    }
     const dedupedUserIds = Array.from(new Set(allAssignedUserIds));
     const managerAssignmentByUser = new Map(
       managerAssignments.map((row) => [String(row?.managerId || "").trim(), row])
@@ -945,6 +954,7 @@
       const budgetRow = budgetByUserId.get(userId);
       const managerAssignment = managerAssignmentByUser.get(userId);
       const memberAssignment = memberAssignmentByUser.get(userId);
+      const canonicalAssignment = canonicalTeamByUserId.get(userId);
       const baseRate = toNullableNumber(member?.baseRate ?? member?.base_rate);
       const costRate = toNullableNumber(member?.costRate ?? member?.cost_rate);
       const managerChargeOverride = toNullableNumber(
@@ -979,7 +989,9 @@
         role: roleLabel,
         seniorityLevel: memberLevel,
         seniorityPermissionGroup,
-        removeAction: managerAssignment ? "manager" : memberAssignment ? "member" : null,
+        removeAction:
+          canonicalAssignment?.removeAction ||
+          (managerAssignment && memberAssignment ? "both" : managerAssignment ? "manager" : memberAssignment ? "member" : null),
         canDelete:
           Boolean(userId) &&
           String(userId || "").trim() !== String(leadUserId || "").trim() &&
