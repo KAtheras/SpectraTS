@@ -189,8 +189,8 @@
         <div class="input-header">
           <h2 id="inputs-view-title" class="sr-only">Inputs</h2>
           <div class="inputs-type-toggle" id="inputs-switch-action" role="group" aria-label="Input type">
-            <button type="button" data-input-type="time" aria-pressed="true">Enter Time</button>
-            <button type="button" data-input-type="expenses" aria-pressed="false">Enter Expenses</button>
+            <button type="button" data-input-type="time" aria-label="Enter Time" aria-pressed="true">Time</button>
+            <button type="button" data-input-type="expenses" aria-label="Enter Expenses" aria-pressed="false">Expenses</button>
           </div>
         </div>
         <p id="inputs-feedback" class="feedback" aria-live="polite"></p>
@@ -295,34 +295,18 @@
               </form>
             </div>
 
-            <section class="inputs-time-summary inputs-expense-summary" id="inputs-expense-summary">
-              <div class="inputs-time-summary-metrics">
-                <div class="inputs-time-summary-metric">
-                  <span class="inputs-time-summary-label">Week total</span>
-                  <strong class="inputs-time-summary-value" id="inputs-expense-summary-total">$0.00</strong>
+            <section class="inputs-month-history" id="inputs-expense-month-history">
+              <div class="inputs-month-history-layout">
+                <div class="inputs-month-calendar-column">
+                  <div class="inputs-month-history-controls">
+                    <button type="button" class="button button-ghost" data-inputs-expense-month-shift="-1" aria-label="Previous month">←</button>
+                    <strong id="inputs-expense-month-label"></strong>
+                    <button type="button" class="button button-ghost" data-inputs-expense-month-shift="1" aria-label="Next month">→</button>
+                  </div>
+                  <div class="inputs-month-calendar" id="inputs-expense-month-calendar"></div>
                 </div>
-                <div class="inputs-time-summary-metric">
-                  <span class="inputs-time-summary-label">Today</span>
-                  <strong class="inputs-time-summary-value" id="inputs-expense-summary-today">$0.00</strong>
-                </div>
-                <div class="inputs-time-summary-signal" id="inputs-expense-summary-signal">Peak: --</div>
+                <aside class="inputs-month-details" id="inputs-expense-month-details"></aside>
               </div>
-              <button class="inputs-time-summary-toggle" id="inputs-expense-summary-toggle" type="button" aria-expanded="false">
-                View week ▼
-              </button>
-            </section>
-
-            <section class="inputs-time-calendar-view inputs-expense-calendar-view" id="inputs-expense-calendar-view" hidden>
-              <div class="inputs-time-calendar-controls">
-                <button class="inputs-time-calendar-shift" id="inputs-expense-calendar-prev" type="button" aria-label="Previous 7 days">
-                  &larr; Previous week
-                </button>
-                <div class="inputs-time-calendar-range" id="inputs-expense-calendar-range"></div>
-                <button class="inputs-time-calendar-shift" id="inputs-expense-calendar-next" type="button" aria-label="Next 7 days">
-                  Next week &rarr;
-                </button>
-              </div>
-              <div class="inputs-time-calendar-grid" id="inputs-expense-calendar-grid"></div>
             </section>
           </section>
         </div>
