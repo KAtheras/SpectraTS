@@ -1180,6 +1180,10 @@
     const initialStaff = normalizeIds(options?.initialStaffUserIds);
     const nextManagers = normalizeIds(options?.nextManagerUserIds);
     const nextStaff = normalizeIds(options?.nextStaffUserIds).filter((id) => !nextManagers.includes(id));
+    const nextRateOverrides =
+      options?.nextRateOverrides && typeof options.nextRateOverrides === "object"
+        ? options.nextRateOverrides
+        : {};
 
     const toAddManagers = nextManagers.filter((id) => !initialManagers.includes(id));
     const toRemoveManagers = initialManagers.filter((id) => !nextManagers.includes(id));
@@ -1216,7 +1220,14 @@
     for (const managerId of toAddManagers) {
       await mutatePersistentState(
         "assign_manager_project",
-        { managerId, clientName, projectName },
+        {
+          managerId,
+          clientName,
+          projectName,
+          chargeRateOverride: Object.prototype.hasOwnProperty.call(nextRateOverrides, managerId)
+            ? nextRateOverrides[managerId]
+            : null,
+        },
         mutationOptions
       );
     }
@@ -1239,7 +1250,14 @@
     for (const userId of toAddStaff) {
       await mutatePersistentState(
         "add_project_member",
-        { userId, clientName, projectName },
+        {
+          userId,
+          clientName,
+          projectName,
+          chargeRateOverride: Object.prototype.hasOwnProperty.call(nextRateOverrides, userId)
+            ? nextRateOverrides[userId]
+            : null,
+        },
         mutationOptions
       );
     }
@@ -1388,6 +1406,7 @@
           initialStaffUserIds: savedStaffUserIds,
           nextManagerUserIds: payload.managerUserIds,
           nextStaffUserIds: payload.staffUserIds,
+          nextRateOverrides: payload.teamRateOverrides,
         });
         await loadPersistentState();
         if (state.filters.client === normalizedClient && state.filters.project === savedProjectName) {
@@ -1458,6 +1477,7 @@
         : [];
       let pendingManagerUserIds = [...initialManagerUserIds];
       let pendingStaffUserIds = [...initialStaffUserIds];
+      const pendingTeamRateOverrides = {};
       const title = mode === "edit" ? "Edit project" : "Add project";
       const finalConfirmText = mode === "edit" ? "Save" : "Add";
       const activeUsers = (state.users || [])
@@ -1937,7 +1957,7 @@
         memberModalState.assigned = [...new Set([...pendingStaffUserIds, ...pendingManagerUserIds])];
         memberModalState.overrides = {};
         memberModalState.searchTerm = "";
-        memberModalState.interceptSelection = ({ selectedIds }) => {
+        memberModalState.interceptSelection = ({ selectedIds, rateOverrides }) => {
           const nextManagers = new Set(pendingManagerUserIds);
           const nextStaff = new Set(pendingStaffUserIds);
           selectedIds.forEach((id) => {
@@ -1957,6 +1977,13 @@
           pendingStaffUserIds = Array.from(nextStaff).filter(
             (id) => id && !nextManagers.has(id)
           );
+          selectedIds.forEach((id) => {
+            const normalizedId = String(id || "").trim();
+            if (!normalizedId) return;
+            if (rateOverrides && Object.prototype.hasOwnProperty.call(rateOverrides, normalizedId)) {
+              pendingTeamRateOverrides[normalizedId] = rateOverrides[normalizedId];
+            }
+          });
           renderTeamEditors();
         };
         openMembersModal();
@@ -2177,6 +2204,7 @@
               : parsedTechAdminFeeOverride.value,
           managerUserIds: [...pendingManagerUserIds],
           staffUserIds: [...pendingStaffUserIds],
+          teamRateOverrides: { ...pendingTeamRateOverrides },
           projectLeadId: String(leadValueInput?.value || "").trim() || null,
           projectDepartmentId: String(departmentSelect?.value || "").trim() || null,
           projectOfficeId: String(officeSelect?.value || "").trim() || null,
@@ -2442,6 +2470,7 @@
           initialStaffUserIds: [],
           nextManagerUserIds: payload.managerUserIds,
           nextStaffUserIds: payload.staffUserIds,
+          nextRateOverrides: payload.teamRateOverrides,
         });
         await loadPersistentState();
       },
@@ -14481,6 +14510,7 @@
             client,
             project,
             selectedIds: selected.map((id) => String(id || "").trim()).filter(Boolean),
+            rateOverrides: { ...overrideInputMap },
           });
         } finally {
           memberModalState.interceptSelection = null;
