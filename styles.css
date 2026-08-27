@@ -156,6 +156,10 @@ body.modal-open {
   backdrop-filter: blur(6px);
 }
 
+.dialog-overlay.dialog-overlay--elevated {
+  z-index: 300;
+}
+
 .dialog-card {
   width: min(520px, calc(100vw - 32px));
   background: var(--panel);

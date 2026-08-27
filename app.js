@@ -6217,6 +6217,7 @@
       }
       refs.dialogConfirm.textContent = confirmText;
       refs.dialogCancel.textContent = cancelText;
+      refs.dialog.classList.add("dialog-overlay--elevated");
       refs.dialog.hidden = false;
       refs.dialogConfirm.hidden = hideConfirm;
       refs.dialogCancel.hidden = false;
@@ -6225,6 +6226,7 @@
 
       const cleanup = () => {
         refs.dialog.hidden = true;
+        refs.dialog.classList.remove("dialog-overlay--elevated");
         if (dialogDateInput && dialogDateInput.parentNode) {
           dialogDateInput.remove();
         }
