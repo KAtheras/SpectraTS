@@ -6705,6 +6705,11 @@
     return `$${amount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
   }
 
+  function formatExpenseCalendarAmount(value) {
+    const amount = Number(value);
+    return Number.isFinite(amount) && amount > 0 ? formatSummaryCurrency(amount) : "—";
+  }
+
   function renderInputsTimeMonthHistory() {
     if (!refs.inputsTimeMonthHistory || !refs.inputsTimeMonthCalendar || !refs.inputsTimeMonthDetails) return;
     const monthKey = clampInputsMonth(state.inputsTimeMonth);
@@ -6867,10 +6872,10 @@
       const total = dayExpenses.reduce((sum, expense) => sum + Number(expense?.amount || 0), 0);
       const selected = selectedIso === iso;
       cells.push(`<button type="button" class="inputs-month-day inputs-month-day-expense${total > 0 ? " has-value" : ""}${selected ? " is-selected" : ""}" data-inputs-expense-month-day="${escapeHtml(iso)}" aria-label="${escapeHtml(
-        `${weekdayNames[cellIndex % 7]} ${dayNumber}, ${formatSummaryCurrency(total)}`
+        `${weekdayNames[cellIndex % 7]} ${dayNumber}, ${total > 0 ? formatSummaryCurrency(total) : "no expenses"}`
       )}">
         <span class="inputs-month-day-date"><span>${weekdayNames[cellIndex % 7]}</span><strong>${dayNumber}</strong></span>
-        <span class="inputs-month-day-load"><span class="inputs-month-day-hours">${escapeHtml(formatSummaryCurrency(total))}</span></span>
+        <span class="inputs-month-day-load"><span class="inputs-month-day-hours">${escapeHtml(formatExpenseCalendarAmount(total))}</span></span>
       </button>`);
     }
     refs.inputsExpenseMonthCalendar.innerHTML = cells.join("");
