@@ -163,6 +163,33 @@
         right: 10px;
         font-size: .7rem;
       }
+      body[data-theme="dark"] .analytics-filters select,
+      body[data-theme="dark"] .analytics-filters input,
+      body[data-theme="dark"] .analytics-util-filters select,
+      body[data-theme="dark"] .analytics-util-filters input,
+      body[data-theme="dark"] .analytics-util-select {
+        background-color: var(--control) !important;
+        border-color: var(--control-border) !important;
+        color: var(--ink) !important;
+        -webkit-text-fill-color: var(--ink);
+        color-scheme: dark;
+      }
+      body[data-theme="dark"] .analytics-filters select:not(.analytics-util-select),
+      body[data-theme="dark"] .analytics-util-filters select:not(.analytics-util-select) {
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='8' viewBox='0 0 14 8'%3E%3Cpath d='M1 1l6 6 6-6' fill='none' stroke='%23d8e2ed' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 12px center;
+        background-size: 12px 7px;
+      }
+      body[data-theme="dark"] .analytics-filters option,
+      body[data-theme="dark"] .analytics-util-filters option,
+      body[data-theme="dark"] .analytics-util-select option {
+        background: var(--surface-strong);
+        color: var(--ink);
+      }
+      body[data-theme="dark"] .analytics-util-select-wrap .analytics-member-title-chevron {
+        color: #d8e2ed;
+      }
       .analytics-util-card {
         border: 1px solid var(--line);
         border-radius: 10px;
