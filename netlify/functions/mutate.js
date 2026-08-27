@@ -919,9 +919,18 @@ const ALLOWED_PERMISSION_GROUPS = new Set([
 
 function permissionGroupForUser(user) {
   if (!user) return "staff";
+  const hasExplicitLevel =
+    typeof user === "object" && user !== null &&
+    user.level !== undefined && user.level !== null && normalizeText(user.level) !== "";
+  const normalizedLevel = hasExplicitLevel ? normalizeLevel(user.level) : null;
+  const mappedGroup =
+    normalizedLevel !== null
+      ? requestLevelLabels?.[normalizedLevel]?.permissionGroup ||
+        requestLevelLabels?.[normalizedLevel]?.permission_group
+      : null;
   const raw =
     typeof user === "object" && user !== null
-      ? user.permissionGroup || user.permission_group || user.role
+      ? mappedGroup || user.permissionGroup || user.permission_group || user.role
       : user;
   const normalized = normalizeText(raw).toLowerCase();
   if (!normalized) {
@@ -2068,6 +2077,36 @@ async function updateLevelLabels(sql, payload, accountId) {
     WHERE account_id = ${accountId}::uuid
   `;
   const keepLevels = cleaned.map((c) => c.level);
+  const assignedRemovedLevels = await sql`
+    SELECT DISTINCT users.level
+    FROM users
+    WHERE users.account_id = ${accountId}::uuid
+      AND users.level <> ALL(${keepLevels})
+    ORDER BY users.level
+  `;
+  if (assignedRemovedLevels.length) {
+    return errorResponse(
+      400,
+      `Cannot remove member levels that are still assigned: ${assignedRemovedLevels.map((row) => row.level).join(", ")}.`
+    );
+  }
+
+  const privilegedLevels = cleaned
+    .filter((item) => item.permissionGroup === "admin" || item.permissionGroup === "superuser")
+    .map((item) => item.level);
+  if (!privilegedLevels.length) {
+    return errorResponse(400, "At least one Admin or Superuser level is required.");
+  }
+  const activePrivilegedUsers = await sql`
+    SELECT COUNT(*)::INT AS count
+    FROM users
+    WHERE account_id = ${accountId}::uuid
+      AND is_active = TRUE
+      AND level = ANY(${privilegedLevels})
+  `;
+  if (Number(activePrivilegedUsers[0]?.count || 0) < 1) {
+    return errorResponse(400, "At least one active member must retain an Admin or Superuser level.");
+  }
 
   // Upsert submitted levels
   const now = new Date().toISOString();
@@ -2089,6 +2128,18 @@ async function updateLevelLabels(sql, payload, accountId) {
         AND level <> ALL(${keepLevels})
     `;
   }
+
+  // Keep the legacy users.role column synchronized for older consumers. The
+  // level-label matrix remains the authoritative mapping.
+  await sql`
+    UPDATE users
+    SET role = level_labels.permission_group
+    FROM level_labels
+    WHERE users.account_id = ${accountId}::uuid
+      AND level_labels.account_id = users.account_id
+      AND level_labels.level = users.level
+      AND users.role IS DISTINCT FROM level_labels.permission_group
+  `;
 
   return null;
 }

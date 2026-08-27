@@ -2014,9 +2014,17 @@ function defaultPermissionGroup(label) {
 function permissionGroupForUser(user, levelLabels) {
   if (!user && user !== 0) return "staff";
 
+  const hasExplicitLevel =
+    typeof user === "object" && user !== null &&
+    user.level !== undefined && user.level !== null && normalizeText(user.level) !== "";
+  const level = hasExplicitLevel ? normalizeLevel(user.level) : null;
+  const mappedGroup =
+    level && levelLabels?.[level]
+      ? levelLabels[level].permissionGroup || levelLabels[level].permission_group
+      : null;
   const raw =
     (typeof user === "object" && user !== null
-      ? user.permissionGroup || user.permission_group || user.role
+      ? mappedGroup || user.permissionGroup || user.permission_group || user.role
       : user) || "";
   const normalized = normalizeText(raw).toLowerCase();
   if (!normalized) {
@@ -2299,6 +2307,7 @@ async function listUsers(sql, accountId, options = {}) {
       users.display_name AS "displayName",
       users.role,
       users.level,
+      level_labels.permission_group AS "permissionGroup",
       users.base_rate AS "baseRate",
       users.cost_rate AS "costRate",
       users.office_id AS "officeId",
@@ -2319,6 +2328,9 @@ async function listUsers(sql, accountId, options = {}) {
     LEFT JOIN departments d
       ON d.id = users.department_id
      AND d.account_id = ${accountId}::uuid
+    LEFT JOIN level_labels
+      ON level_labels.account_id = users.account_id
+     AND level_labels.level = users.level
     LEFT JOIN office_locations offices
       ON offices.id = users.office_id
      AND offices.account_id = ${accountId}::uuid

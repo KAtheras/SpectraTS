@@ -226,16 +226,11 @@
 
     usersToRender.forEach(function (user) {
       const roleValue = String(roleKey(user) || "").toLowerCase();
-      const inferredLevel =
-        roleValue === "staff"
-          ? 1
-          : roleValue === "manager"
-            ? 3
-            : roleValue === "executive"
-              ? 4
-              : roleValue === "admin" || roleValue === "superuser"
-                ? 6
-                : user.level;
+      const configuredRoleLevel = Object.entries(state.levelLabels || {}).find(([, definition]) => {
+        if (!definition || typeof definition !== "object") return false;
+        return String(definition.permissionGroup || definition.permission_group || "").toLowerCase() === roleValue;
+      });
+      const inferredLevel = configuredRoleLevel ? Number(configuredRoleLevel[0]) : levels[0];
       const hasExplicitLevel = user.level !== undefined && user.level !== null && String(user.level).trim() !== "";
       const currentLevel = normalizeLevel(hasExplicitLevel ? user.level : inferredLevel);
       const rawLevelLabel =

@@ -5474,13 +5474,8 @@
   }
 
   function normalizeModalLevel(level) {
-    const { permissionGroupForUser } = deps();
-    const group = permissionGroupForUser({ level });
-    if (group === "superuser") return 6;
-    if (group === "admin") return 5;
-    if (group === "executive") return 4;
-    if (group === "manager") return 3;
-    return 1; // staff
+    const numeric = Number(level);
+    return Number.isInteger(numeric) && numeric > 0 ? numeric : 1;
   }
 
   function openChangePasswordModal() {

@@ -12,21 +12,20 @@
       6: "Admin",
     };
 
-    const DEFAULT_LEVEL_PERMISSION_GROUP = {
-      1: "staff",
-      2: "staff",
-      3: "manager",
-      4: "manager",
-      5: "admin",
-      6: "admin",
-    };
-
     function roleKey(user) {
+      const hasExplicitLevel = user?.level !== undefined && user?.level !== null && `${user.level}`.trim() !== "";
+      const normalizedLevel = hasExplicitLevel ? normalizeLevel(user.level) : null;
+      const configuredLevel = normalizedLevel === null ? null : state.levelLabels?.[normalizedLevel];
+      const configuredGroup =
+        configuredLevel && typeof configuredLevel === "object"
+          ? configuredLevel.permissionGroup || configuredLevel.permission_group
+          : null;
       const raw =
         user?.permission_role_key ||
+        user?.permissionRoleKey ||
+        configuredGroup ||
         user?.permissionGroup ||
         user?.permission_group ||
-        user?.permissionRoleKey ||
         user?.role ||
         null;
       if (!raw) return null;

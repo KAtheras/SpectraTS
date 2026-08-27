@@ -46,4 +46,22 @@ assert.strictEqual(byId.get("dual").removeAction, "both");
 assert.strictEqual(byId.get("staff").displayGroup, "staff");
 assert.strictEqual(byId.has("client-only"), false);
 
+state.levelLabels = {
+  1: { label: "CEO", permissionGroup: "superuser" },
+  2: { label: "Office Managing Partner", permissionGroup: "admin" },
+  5: { label: "Manager", permissionGroup: "manager" },
+  8: { label: "Admin Assistant", permissionGroup: "staff" },
+};
+assert.strictEqual(
+  access.permissionGroupForUser({ level: 2, role: "staff" }),
+  "admin",
+  "configured level mapping must override a stale legacy role"
+);
+assert.strictEqual(access.levelLabel(5), "Manager");
+assert.strictEqual(
+  access.permissionGroupForUser({ role: "staff" }),
+  "staff",
+  "a missing level must not inherit the Level 1 permission group"
+);
+
 console.log("✔ canonical project team preserves assignment sources");
