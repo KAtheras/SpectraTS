@@ -1303,7 +1303,7 @@
     if (billingPhone && businessPhone) billingPhone.value = businessPhone.value || "";
   }
 
-  async function openProjectEditDialogFlow(clientName, projectName) {
+  async function openProjectEditDialogFlow(clientName, projectName, flowOptions = {}) {
     await ensureProjectEditorMetadataLoaded();
     const normalizedClient = String(clientName || "").trim();
     const normalizedProject = String(projectName || "").trim();
@@ -1401,6 +1401,7 @@
       clientOfficeId,
       managerUserIds,
       staffUserIds,
+      startWithCloseAction: flowOptions?.fromProjectPlanning === true,
       allowOpenPlanning: canEditProjectPlanning(normalizedClient, normalizedProject),
       onSubmitEdit: async (payload) => {
         const nextName = String(payload.projectName || "").trim();
@@ -2246,7 +2247,7 @@
         });
       let savedDraftSignature = "";
       let projectSaveInProgress = false;
-      let projectHasBeenSaved = false;
+      let projectHasBeenSaved = options?.startWithCloseAction === true;
       const syncProjectSaveButtonState = () => {
         if (!isProjectEditDialog || !projectSaveButton) return;
         const hasUnsavedChanges = projectDraftSignature() !== savedDraftSignature;
@@ -10073,7 +10074,8 @@
                 window.setTimeout(() => {
                   openProjectEditDialogFlow(
                     String(returnProject.client || returnContext.clientName || "").trim(),
-                    String(returnProject.name || returnProject.project || "").trim()
+                    String(returnProject.name || returnProject.project || "").trim(),
+                    { fromProjectPlanning: true }
                   );
                 }, 0);
               }
