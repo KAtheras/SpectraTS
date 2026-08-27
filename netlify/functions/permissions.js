@@ -189,7 +189,6 @@ function roleKeyFromUser(user) {
     user.permissionGroup ||
     user.permission_group ||
     user.permissionRoleKey ||
-    user.role ||
     null;
   const raw = rawRole;
   if (!raw) return null;

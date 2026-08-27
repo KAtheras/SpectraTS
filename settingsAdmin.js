@@ -5343,7 +5343,7 @@
   }
 
   function sortedLevels() {
-    const { permissionGroupForUser, state, DEFAULT_LEVEL_DEFS } = deps();
+    const { permissionGroupForUser, state } = deps();
     const rank = (level) => {
       const group = permissionGroupForUser({ level }) || "staff";
       if (group === "staff") return 0;
@@ -5352,8 +5352,7 @@
       return 3; // admin or anything higher
     };
     const fromState = Object.keys(state.levelLabels || {}).map((l) => Number(l));
-    const levels = fromState.length ? fromState : Object.keys(DEFAULT_LEVEL_DEFS).map((l) => Number(l));
-    return Array.from(new Set(levels))
+    return Array.from(new Set(fromState))
       .filter((l) => Number.isFinite(l))
       .sort((a, b) => {
         const rankDiff = rank(a) - rank(b);
@@ -5362,7 +5361,7 @@
   }
 
   function getLevelDefinitions() {
-    const { state, DEFAULT_LEVEL_DEFS } = deps();
+    const { state } = deps();
     const levels = sortedLevels();
     return levels.map(function (lvl) {
       const value = state.levelLabels?.[lvl];
@@ -5371,11 +5370,11 @@
           ? value.label
           : typeof value === "string"
             ? value
-            : DEFAULT_LEVEL_DEFS[lvl]?.label || `Level ${lvl}`;
+            : "";
       const permissionGroup =
         value && typeof value === "object"
           ? value.permissionGroup || value.permission_group
-          : DEFAULT_LEVEL_DEFS[lvl]?.permissionGroup || "staff";
+          : "";
       return { level: lvl, label, permissionGroup };
     });
   }

@@ -930,7 +930,7 @@ function permissionGroupForUser(user) {
       : null;
   const raw =
     typeof user === "object" && user !== null
-      ? mappedGroup || user.permissionGroup || user.permission_group || user.role
+      ? mappedGroup
       : user;
   const normalized = normalizeText(raw).toLowerCase();
   if (!normalized) {
@@ -2128,18 +2128,6 @@ async function updateLevelLabels(sql, payload, accountId) {
         AND level <> ALL(${keepLevels})
     `;
   }
-
-  // Keep the legacy users.role column synchronized for older consumers. The
-  // level-label matrix remains the authoritative mapping.
-  await sql`
-    UPDATE users
-    SET role = level_labels.permission_group
-    FROM level_labels
-    WHERE users.account_id = ${accountId}::uuid
-      AND level_labels.account_id = users.account_id
-      AND level_labels.level = users.level
-      AND users.role IS DISTINCT FROM level_labels.permission_group
-  `;
 
   return null;
 }
