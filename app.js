@@ -14375,6 +14375,53 @@
         }
       }
 
+      const isPlannerAddMemberFlow =
+        mode === "project-add-member" &&
+        typeof memberModalState.interceptSelection !== "function";
+      if (isPlannerAddMemberFlow) {
+        const aboveBaseRate = selected
+          .map((userId) => {
+            const user = getUserById(userId);
+            const baseRaw = user?.baseRate ?? user?.base_rate;
+            const baseRate =
+              baseRaw === null || baseRaw === undefined || String(baseRaw).trim() === ""
+                ? null
+                : Number(baseRaw);
+            const projectRate = overrideInputMap[userId];
+            if (
+              projectRate === null ||
+              projectRate === undefined ||
+              !Number.isFinite(baseRate) ||
+              projectRate <= baseRate
+            ) {
+              return null;
+            }
+            return {
+              name: String(user?.displayName || user?.username || "Member").trim(),
+              baseRate,
+              projectRate,
+            };
+          })
+          .filter(Boolean);
+        if (aboveBaseRate.length) {
+          const rateLines = aboveBaseRate
+            .map(
+              (item) =>
+                `${item.name}: project rate $${item.projectRate.toFixed(2)}; base rate $${item.baseRate.toFixed(2)}`
+            )
+            .join("\n");
+          const result = await appDialog({
+            title: "Project Rate Above Base Rate",
+            message: `The following project rate exceeds the member's base rate:\n\n${rateLines}\n\nDo you want to use the higher project rate?`,
+            confirmText: "Use Rate",
+            cancelText: "Modify",
+          });
+          if (!result?.confirmed) {
+            return;
+          }
+        }
+      }
+
       const interceptSelection =
         typeof memberModalState.interceptSelection === "function"
           ? memberModalState.interceptSelection
