@@ -2016,7 +2016,7 @@ function permissionGroupForUser(user, levelLabels) {
 
   const hasExplicitLevel =
     typeof user === "object" && user !== null &&
-    user.level !== undefined && user.level !== null && normalizeText(user.level) !== "";
+    user.level !== undefined && user.level !== null && String(user.level).trim() !== "";
   const level = hasExplicitLevel ? normalizeLevel(user.level) : null;
   const mappedGroup =
     level && levelLabels?.[level]
@@ -6189,6 +6189,7 @@ module.exports = {
   normalizeLevel,
   normalizeText,
   parseBody,
+  permissionGroupForUser,
   requireAdmin,
   requireSuperAdmin,
   requireAuth,

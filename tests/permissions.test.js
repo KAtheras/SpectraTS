@@ -25,6 +25,18 @@ function indexFromRows(rows) {
   return perms.buildIndex({ permissions: rows });
 }
 
+test("database permission resolution requires the configured numeric level mapping", () => {
+  const levelLabels = { 3: { label: "Partner", permissionGroup: "executive" } };
+  assert.strictEqual(
+    db.permissionGroupForUser({ id: "partner", level: 3, role: "stale" }, levelLabels),
+    "executive"
+  );
+  assert.throws(
+    () => db.permissionGroupForUser({ id: "unmapped", level: 6, role: "superuser" }, levelLabels),
+    /Missing permission group/
+  );
+});
+
 // Users used in tests
 const users = {
   superuser: { id: "su", permissionGroup: "superuser", office_id: "A" },

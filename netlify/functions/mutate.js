@@ -921,7 +921,7 @@ function permissionGroupForUser(user) {
   if (!user) return "staff";
   const hasExplicitLevel =
     typeof user === "object" && user !== null &&
-    user.level !== undefined && user.level !== null && normalizeText(user.level) !== "";
+    user.level !== undefined && user.level !== null && String(user.level).trim() !== "";
   const normalizedLevel = hasExplicitLevel ? normalizeLevel(user.level) : null;
   const mappedGroup =
     normalizedLevel !== null
