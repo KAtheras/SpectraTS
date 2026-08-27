@@ -6769,12 +6769,12 @@
     for (let cellIndex = 0; cellIndex < calendarCellCount; cellIndex += 1) {
       const dayNumber = cellIndex - mondayOffset + 1;
       if (dayNumber < 1 || dayNumber > daysInMonth) {
-        cells.push('<div class="inputs-month-day is-outside" aria-hidden="true"></div>');
+        cells.push('<div class="inputs-month-day is-padding" aria-hidden="true"></div>');
         continue;
       }
       const iso = `${monthKey}-${String(dayNumber).padStart(2, "0")}`;
       if (iso < inputsFrom || iso > inputsTo) {
-        cells.push(`<button type="button" class="inputs-month-day is-outside" disabled aria-label="Outside downloaded date range"><span class="inputs-month-day-date"><span>${weekdayNames[cellIndex % 7]}</span><strong>${dayNumber}</strong></span></button>`);
+        cells.push(`<button type="button" class="inputs-month-day is-unavailable" disabled aria-label="Outside downloaded date range"><span class="inputs-month-day-date"><span>${weekdayNames[cellIndex % 7]}</span><strong>${dayNumber}</strong></span></button>`);
         continue;
       }
       const dayEntries = entriesByDate.get(iso) || [];
@@ -6876,12 +6876,12 @@
     for (let cellIndex = 0; cellIndex < calendarCellCount; cellIndex += 1) {
       const dayNumber = cellIndex - mondayOffset + 1;
       if (dayNumber < 1 || dayNumber > daysInMonth) {
-        cells.push('<div class="inputs-month-day is-outside" aria-hidden="true"></div>');
+        cells.push('<div class="inputs-month-day is-padding" aria-hidden="true"></div>');
         continue;
       }
       const iso = `${monthKey}-${String(dayNumber).padStart(2, "0")}`;
       if (iso < inputsFrom || iso > inputsTo) {
-        cells.push(`<button type="button" class="inputs-month-day is-outside" disabled aria-label="Outside downloaded date range"><span class="inputs-month-day-date"><span>${weekdayNames[cellIndex % 7]}</span><strong>${dayNumber}</strong></span></button>`);
+        cells.push(`<button type="button" class="inputs-month-day inputs-month-day-expense is-unavailable" disabled aria-label="Outside downloaded date range"><span class="inputs-month-day-date"><span>${weekdayNames[cellIndex % 7]}</span><strong>${dayNumber}</strong></span></button>`);
         continue;
       }
       const dayExpenses = expensesByDate.get(iso) || [];
