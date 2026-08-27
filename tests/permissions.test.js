@@ -208,6 +208,10 @@ test("department settings are persisted by one database transaction", () => {
     appSource,
     /rows\.forEach\(\(row, index\)[\s\S]*?row\.dataset\.departmentId = savedId/
   );
+  assert.match(
+    appSource,
+    /const canonicalDepartment = \(state\.departments \|\| \[\]\)[\s\S]*?canonicalDepartment\?\.id \|\| rowId/
+  );
   assert.match(mutationSource, /async function updateDepartments[\s\S]*?sql\.transaction\(queries\)/);
 });
 

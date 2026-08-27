@@ -13014,7 +13014,16 @@
         }
         const row = deleteBtn.closest(".department-row");
         if (!row) return;
-        const id = row.dataset.departmentId || "";
+        const rowId = `${row.dataset.departmentId || ""}`.trim();
+        const rowName = `${row.querySelector("[data-department-name]")?.value || ""}`
+          .trim()
+          .toLowerCase();
+        const canonicalDepartment = (state.departments || []).find((department) => {
+          const departmentId = `${department?.id || ""}`.trim();
+          if (rowId && departmentId === rowId) return true;
+          return rowName && `${department?.name || ""}`.trim().toLowerCase() === rowName;
+        });
+        const id = `${canonicalDepartment?.id || rowId}`.trim();
         const assignedMembers = (state.users || []).filter(function (user) {
           return user?.isActive !== false && String(user?.departmentId || "") === String(id || "");
         }).length;
@@ -13027,7 +13036,9 @@
         if (!confirmation.confirmed) {
           return;
         }
-        state.departments = (state.departments || []).filter((d) => String(d.id || "") !== String(id));
+        state.departments = (state.departments || []).filter(
+          (department) => `${department?.id || ""}`.trim() !== id
+        );
         window.settingsAdmin?.renderDepartments();
         window.settingsAdmin?.renderTargetRealizations?.();
         scheduleSettingsFormAutoSubmit("departments-form", 0);
