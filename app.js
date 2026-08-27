@@ -13320,13 +13320,13 @@
   }
 
   if (refs.officeRows) {
-    const scheduleOfficeAutoSave = function () {
-      scheduleSettingsFormAutoSubmit("office-locations-form");
+    const submitOfficeLocations = function () {
+      refs.officeLocationsForm?.requestSubmit();
     };
     refs.officeRows.addEventListener("change", function (event) {
       const input = event.target.closest("[data-office-name], [data-office-overhead]");
       if (!input) return;
-      scheduleOfficeAutoSave();
+      submitOfficeLocations();
     });
     refs.officeRows.addEventListener("change", function (event) {
       const select = event.target.closest("[data-office-lead]");
@@ -13334,7 +13334,7 @@
       select.querySelectorAll("[data-ineligible-current]").forEach((option) => {
         if (option.value !== select.value) option.remove();
       });
-      scheduleSettingsFormAutoSubmit("office-locations-form", 0);
+      submitOfficeLocations();
     });
   }
 
