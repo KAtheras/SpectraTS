@@ -2507,16 +2507,35 @@ async function updateOfficeLocations(sql, payload, accountId) {
   }
 
   const existing = await sql`
-    SELECT id, name
+    SELECT id, name, office_lead_user_id AS "officeLeadUserId"
     FROM office_locations
     WHERE account_id = ${accountId}::uuid
   `;
   const existingByName = new Map(existing.map((row) => [row.name.toLowerCase(), row.id]));
+  const existingById = new Map(existing.map((row) => [row.id, row]));
 
   for (const item of cleaned) {
     const conflictId = existingByName.get(item.name.toLowerCase());
     if (conflictId && conflictId !== item.id) {
       return errorResponse(400, `Location "${item.name}" already exists.`);
+    }
+    if (item.officeLeadUserId) {
+      const previousLeadId = normalizeText(existingById.get(item.id)?.officeLeadUserId);
+      if (item.officeLeadUserId !== previousLeadId) {
+        const eligibleLead = await sql`
+          SELECT id
+          FROM users
+          WHERE account_id = ${accountId}::uuid
+            AND id = ${item.officeLeadUserId}
+            AND is_active = TRUE
+            AND office_id = ${item.id}
+            AND level IN (1, 2)
+          LIMIT 1
+        `;
+        if (!eligibleLead.length) {
+          return errorResponse(400, "Office lead must be an active Level 1 or Level 2 member assigned to that office.");
+        }
+      }
     }
   }
 

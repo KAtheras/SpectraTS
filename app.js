@@ -13332,7 +13332,7 @@
     const scheduleOfficeAutoSave = function () {
       scheduleSettingsFormAutoSubmit("office-locations-form");
     };
-    refs.officeRows.addEventListener("input", function (event) {
+    refs.officeRows.addEventListener("change", function (event) {
       const input = event.target.closest("[data-office-name], [data-office-overhead]");
       if (!input) return;
       scheduleOfficeAutoSave();

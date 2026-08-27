@@ -5274,6 +5274,14 @@
 
     const usersById = new Map((state.users || []).map((u) => [u.id, u]));
 
+    const eligibleOfficeLeads = (officeId) =>
+      (state.users || []).filter((user) => {
+        const active = user?.isActive !== false && `${user?.status || ""}`.trim().toLowerCase() !== "terminated";
+        const assignedToOffice = `${user?.officeId || ""}`.trim() === `${officeId || ""}`.trim();
+        const level = Number(user?.level);
+        return active && assignedToOffice && (level === 1 || level === 2);
+      });
+
     const rowsHtml = (state.officeLocations || [])
       .map(function (item) {
         const leadUserId = item.officeLeadUserId || "";
@@ -5284,13 +5292,13 @@
             : null);
         const leadOptions = [
           `<option value="">No lead</option>`,
-          ...state.users.map((u) =>
+          ...eligibleOfficeLeads(item.id).map((u) =>
             `<option value="${escapeHtml(u.id)}"${u.id === leadUserId ? " selected" : ""}>${escapeHtml(u.displayName)}</option>`
           ),
-          ...(leadUser && !usersById.has(leadUserId)
+          ...(leadUser && !eligibleOfficeLeads(item.id).some((user) => user.id === leadUserId)
             ? [
                 `<option value="${escapeHtml(leadUser.id)}" selected>${escapeHtml(
-                  leadUser.displayName
+                  `${leadUser.displayName} (current)`
                 )}</option>`,
               ]
             : []),
@@ -5329,11 +5337,8 @@
     `;
 
     if (refs.officeAddLead) {
-      const options = [
-        `<option value="">Office Lead (optional)</option>`,
-        ...state.users.map((u) => `<option value="${escapeHtml(u.id)}">${escapeHtml(u.displayName)}</option>`),
-      ];
-      refs.officeAddLead.innerHTML = options.join("");
+      refs.officeAddLead.innerHTML = `<option value="">Assign after creating office</option>`;
+      refs.officeAddLead.disabled = true;
     }
   }
 
