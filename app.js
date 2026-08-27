@@ -13329,9 +13329,12 @@
       scheduleOfficeAutoSave();
     });
     refs.officeRows.addEventListener("change", function (event) {
-      const input = event.target.closest("[data-office-lead]");
-      if (!input) return;
-      scheduleOfficeAutoSave();
+      const select = event.target.closest("[data-office-lead]");
+      if (!select) return;
+      select.querySelectorAll("[data-ineligible-current]").forEach((option) => {
+        if (option.value !== select.value) option.remove();
+      });
+      scheduleSettingsFormAutoSubmit("office-locations-form", 0);
     });
   }
 

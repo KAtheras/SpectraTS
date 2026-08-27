@@ -5297,7 +5297,7 @@
           ),
           ...(leadUser && !eligibleOfficeLeads(item.id).some((user) => user.id === leadUserId)
             ? [
-                `<option value="${escapeHtml(leadUser.id)}" selected>${escapeHtml(
+                `<option value="${escapeHtml(leadUser.id)}" data-ineligible-current selected>${escapeHtml(
                   `${leadUser.displayName} (current)`
                 )}</option>`,
               ]

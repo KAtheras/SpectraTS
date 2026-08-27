@@ -1,4 +1,6 @@
 const assert = require("assert");
+const fs = require("fs");
+const path = require("path");
 
 const forms = new Map();
 global.window = {};
@@ -72,6 +74,13 @@ const waitForTimers = () => new Promise((resolve) => setTimeout(resolve, 10));
   }, 0);
   await waitForTimers();
   assert.equal(controller.snapshot("department-lead:test").status, "error");
+
+  const appSource = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
+  assert.match(
+    appSource,
+    /select\.querySelectorAll\("\[data-ineligible-current\]"\)[\s\S]*scheduleSettingsFormAutoSubmit\("office-locations-form", 0\)/,
+    "office lead changes should remove stale legacy options and save immediately"
+  );
 
   console.log("settings autosave tests passed");
 })().catch((error) => {
