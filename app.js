@@ -1386,6 +1386,7 @@
           nextManagerUserIds: payload.managerUserIds,
           nextStaffUserIds: payload.staffUserIds,
         });
+        await loadPersistentState();
         if (state.filters.client === normalizedClient && state.filters.project === savedProjectName) {
           state.filters.project = nextName;
           syncFilterCatalogsUI(state.filters);
@@ -2439,6 +2440,7 @@
           nextManagerUserIds: payload.managerUserIds,
           nextStaffUserIds: payload.staffUserIds,
         });
+        await loadPersistentState();
       },
     });
     if (!projectDialog) {
