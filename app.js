@@ -2003,6 +2003,7 @@
             }
           });
           renderTeamEditors();
+          syncProjectSaveButtonState();
         };
         openMembersModal();
       };
@@ -2244,10 +2245,16 @@
         });
       let savedDraftSignature = "";
       let projectSaveInProgress = false;
+      let projectHasBeenSaved = false;
       const syncProjectSaveButtonState = () => {
         if (!isProjectEditDialog || !projectSaveButton) return;
-        projectSaveButton.disabled =
-          projectSaveInProgress || projectDraftSignature() === savedDraftSignature;
+        const hasUnsavedChanges = projectDraftSignature() !== savedDraftSignature;
+        projectSaveButton.disabled = projectSaveInProgress || !hasUnsavedChanges;
+        if (projectCancelButton && !projectSaveInProgress) {
+          projectCancelButton.textContent = projectHasBeenSaved && !hasUnsavedChanges
+            ? "Close"
+            : "Cancel";
+        }
       };
 
       const persistEditedProject = async (payload, button, successText = "Saved") => {
@@ -2266,6 +2273,7 @@
           await options.onSubmitEdit(payload);
           savedPayloadSignature = projectPayloadSignature(payload);
           savedDraftSignature = draftSignatureAtSave;
+          projectHasBeenSaved = true;
           if (button) button.textContent = successText;
           if (projectCancelButton) projectCancelButton.textContent = "Close";
           window.setTimeout(() => {
