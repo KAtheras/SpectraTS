@@ -13030,7 +13030,7 @@
         state.departments = (state.departments || []).filter((d) => String(d.id || "") !== String(id));
         window.settingsAdmin?.renderDepartments();
         window.settingsAdmin?.renderTargetRealizations?.();
-        scheduleSettingsFormAutoSubmit("departments-form");
+        scheduleSettingsFormAutoSubmit("departments-form", 0);
         return;
       }
 
@@ -13072,6 +13072,9 @@
       if (departmentsForm) {
         event.preventDefault();
         if (!beginSettingsAutoSave("departments-form")) return;
+        const savingRevision = Number(
+          window.settingsAutosave?.snapshot("departments-form")?.savingRevision || 0
+        );
         let autosaveOk = false;
         try {
           if (!state.permissions?.manage_departments) {
@@ -13131,9 +13134,14 @@
                       : Number(item.techAdminFeePct),
                 }))
               : departments;
-            state.departments = nextDepartments;
-            state.departmentsSnapshot = nextDepartments.slice();
-            window.settingsAdmin?.renderTargetRealizations?.();
+            const latestSaveState = window.settingsAutosave?.snapshot("departments-form");
+            const responseIsCurrent =
+              !latestSaveState || Number(latestSaveState.revision) === savingRevision;
+            if (responseIsCurrent) {
+              state.departments = nextDepartments;
+              state.departmentsSnapshot = nextDepartments.slice();
+              window.settingsAdmin?.renderTargetRealizations?.();
+            }
             feedback("Departments updated.", false);
             autosaveOk = true;
           } catch (error) {

@@ -200,6 +200,10 @@ test("department settings are persisted by one database transaction", () => {
     "utf8"
   );
   assert.match(appSource, /mutatePersistentState\(\s*"update_departments"/);
+  assert.match(
+    appSource,
+    /latestSaveState[\s\S]*?Number\(latestSaveState\.revision\) === savingRevision[\s\S]*?if \(responseIsCurrent\)/
+  );
   assert.match(mutationSource, /async function updateDepartments[\s\S]*?sql\.transaction\(queries\)/);
 });
 
