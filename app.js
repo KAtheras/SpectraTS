@@ -3445,6 +3445,8 @@
     analyticsLoading: {},
     analyticsErrors: {},
     analyticsErrorKeys: {},
+    analyticsProjects: [],
+    analyticsClients: [],
     filters: {
       period: "this_month",
       user: "",
@@ -4129,6 +4131,12 @@
     state.clients = Array.isArray(data?.clients)
       ? data.clients.map(normalizeClient).filter(Boolean)
       : [];
+    state.analyticsClients = Array.isArray(data?.analyticsClients)
+      ? data.analyticsClients.map(normalizeClient).filter(Boolean)
+      : [];
+    state.analyticsProjects = Array.isArray(data?.analyticsProjects)
+      ? data.analyticsProjects.map(normalizeProject).filter(Boolean)
+      : [];
     if (Array.isArray(data?.entries)) {
       state.entries = data.entries.map(normalizeEntry).filter(Boolean);
     }
@@ -4345,6 +4353,8 @@
     state.inputsEntries = [];
     state.inputsExpenses = [];
     state.projects = [];
+    state.analyticsProjects = [];
+    state.analyticsClients = [];
     state.clientEditor = null;
     state.entriesSelectionMode = false;
     state.selectedEntryIds = new Set();
@@ -4919,6 +4929,12 @@
         permissions: payload?.permissions ?? state.permissions,
         delegators: Array.isArray(payload?.delegators) ? payload.delegators : state.delegators,
         projects: Array.isArray(payload?.projects) ? payload.projects : state.projects,
+        analyticsProjects: Array.isArray(payload?.analyticsProjects)
+          ? payload.analyticsProjects
+          : state.analyticsProjects,
+        analyticsClients: Array.isArray(payload?.analyticsClients)
+          ? payload.analyticsClients
+          : state.analyticsClients,
         visibleClientIds: Array.isArray(payload?.visibleClientIds)
           ? payload.visibleClientIds
           : state.visibleClientIds,
@@ -9971,12 +9987,12 @@
       refs.logoutButton.hidden = false;
     }
     if (refs.openAnalytics) {
-      refs.openAnalytics.hidden = false;
+      refs.openAnalytics.hidden = !state.permissions?.view_analytics;
       refs.openAnalytics.classList.toggle("is-active", view === "analytics");
       refs.openAnalytics.setAttribute("aria-current", view === "analytics" ? "page" : "false");
     }
     if (refs.navAnalyticsMobile) {
-      refs.navAnalyticsMobile.hidden = false;
+      refs.navAnalyticsMobile.hidden = !state.permissions?.view_analytics;
       refs.navAnalyticsMobile.classList.toggle("is-active", view === "analytics");
       refs.navAnalyticsMobile.setAttribute("aria-current", view === "analytics" ? "page" : "false");
     }

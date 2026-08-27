@@ -3826,6 +3826,16 @@
           { cap: "edit_project_planning", label: "Can edit project planning", indent: false },
         ],
       },
+      {
+        key: "AnalyticsAccess",
+        label: "Analytics Access",
+        rows: [
+          { cap: "view_company_analytics", label: "View company-wide analytics", indent: false },
+          { cap: "view_office_analytics", label: "View analytics for offices they lead", indent: false },
+          { cap: "view_department_analytics", label: "View analytics for office / departments they lead", indent: false },
+          { cap: "view_project_analytics", label: "View analytics for projects they lead", indent: false },
+        ],
+      },
     ];
     const superuserMatrixEditableCaps = new Set([
       "view_all_entries",
@@ -3839,6 +3849,10 @@
       "edit_clients",
       "edit_projects_all_modal",
       "edit_project_planning",
+      "view_company_analytics",
+      "view_office_analytics",
+      "view_department_analytics",
+      "view_project_analytics",
     ]);
     const superuserHardEnabledCaps = new Set(
       (capabilityGroups.find((group) => group.key === "Settings")?.rows || [])
@@ -3867,7 +3881,10 @@
             const isSuperuserHardEnabled = isSuperuserRole && superuserHardEnabledCaps.has(cap);
             const isSuperuserLocked =
               isSuperuserRole && (isSuperuserHardEnabled || !superuserMatrixEditableCaps.has(cap));
-            const usesAnyScope = cap === "see_all_clients_projects" || cap === "view_all_entries";
+            const usesAnyScope =
+              cap === "see_all_clients_projects" ||
+              cap === "view_all_entries" ||
+              cap.startsWith("view_") && cap.endsWith("_analytics");
             const checked = isSuperuserHardEnabled
               ? true
               : isSuperuserRole
@@ -4008,7 +4025,14 @@
           ? deps().state.rolePermissions
           : [];
         const capScopeKey = (capability) =>
-          ["see_all_clients_projects", "view_all_entries"].includes(`${capability || ""}`.trim())
+          [
+            "see_all_clients_projects",
+            "view_all_entries",
+            "view_company_analytics",
+            "view_office_analytics",
+            "view_department_analytics",
+            "view_project_analytics",
+          ].includes(`${capability || ""}`.trim())
             ? "all_offices"
             : "own_office";
         const currentAllowedSet = new Set(

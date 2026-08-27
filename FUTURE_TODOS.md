@@ -2,6 +2,19 @@
 
 These items are intentionally deferred while product work continues.
 
+## Priority: data-loading and analytics scalability
+
+The ACME synthetic-data exercise exposed an architectural growth limit: account startup currently hydrates an unbounded set of visible time and expense records. Removing the duplicate utilization payload reduced immediate pressure, but customers with hundreds of employees and several years of history will eventually exceed practical database-query, response-size, browser-memory, and rendering limits.
+
+- Keep account bootstrap limited to identity, permissions, settings, and lightweight reference data.
+- Move time and expense history to date-bounded, cursor-paginated endpoints.
+- Compute analytics on the server with permission-aware aggregate SQL; return KPI, trend, and grouped chart data instead of raw entries.
+- Fetch underlying records only for explicit drilldowns and exports.
+- Add composite indexes supporting account/date/user/project filters and verify query plans using production-scale fixtures.
+- Add payload-size, query-duration, row-count, and browser-performance budgets to automated tests and monitoring.
+- Consider cached daily/monthly fact tables or materialized summaries once direct aggregate queries approach those budgets.
+- Validate the design with a repeatable large-tenant dataset representing hundreds of employees and multiple years before onboarding a customer of that scale.
+
 ## Before the next high-risk release
 
 - Run a focused production smoke test:
@@ -36,6 +49,16 @@ These items are intentionally deferred while product work continues.
 
 ## Security
 
+- Perform an end-to-end access and visibility audit across every configured member level and permission role, covering:
+  - member time entries and approval actions
+  - member expenses and approval actions
+  - project details, planning, rates, budgets, and team assignments
+  - client and member profile details, including sensitive rate fields
+  - own-record, own-office, assigned-project, and company-wide scopes
+  - delegated access and cross-office access
+  - archived, inactive, and terminated records
+- Verify that UI visibility, selectable options, API responses, mutations, exports, analytics, and direct endpoint access enforce the same rules.
+- Build a role-by-resource test matrix and add server-side authorization regression tests for every allowed and denied combination.
 - Evaluate moving session authentication from browser storage to Secure, HttpOnly, SameSite cookies.
 - Include CSRF protection and session rotation in that design.
 - Review CSP after any new third-party frontend dependency is introduced.

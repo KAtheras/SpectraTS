@@ -7,7 +7,10 @@ const {
   json,
   loadState,
   loadSettingsMetadata,
+  listClients,
+  listProjects,
   listProjectExpenseCategories,
+  resolveAnalyticsAuthority,
   requireAuth,
 } = require("./_db");
 const { can, buildIndex, loadPermissionsFromDb } = require("./permissions");
@@ -175,6 +178,30 @@ exports.handler = async function handler(event) {
     const canViewEntriesByMatrix = Boolean(
       canViewAllEntries || canViewOfficeEntries || canViewAssignedProjectEntries
     );
+    const analyticsAuthority = await resolveAnalyticsAuthority(
+      sql,
+      currentUser,
+      permissionIndex
+    );
+    const authorityProjectIdSet = new Set(
+      (analyticsAuthority.projectIds || []).map((id) => String(id))
+    );
+    const allAnalyticsProjects = analyticsAuthority.canAccess
+      ? await listProjects(sql, state?.account?.id || null)
+      : [];
+    const analyticsProjects = analyticsAuthority.all
+      ? allAnalyticsProjects
+      : allAnalyticsProjects.filter((project) => authorityProjectIdSet.has(String(project.id)));
+    const analyticsClientIdSet = new Set(
+      analyticsProjects
+        .map((project) => String(project.clientId || project.client_id || ""))
+        .filter(Boolean)
+    );
+    const analyticsClients = analyticsProjects.length
+      ? (await listClients(sql, state?.account?.id || null)).filter((client) =>
+          analyticsClientIdSet.has(String(client.id))
+        )
+      : [];
     const permissions = {
       // existing keys
       edit_user_department: can(currentUser, "edit_user_department", {}, permissionIndex),
@@ -206,7 +233,7 @@ exports.handler = async function handler(event) {
       deactivate_user: can(currentUser, "deactivate_member", {}, permissionIndex),
 
       // analytics & audit
-      view_analytics: can(currentUser, "view_analytics", {}, permissionIndex),
+      view_analytics: analyticsAuthority.canAccess,
       view_audit_logs: can(currentUser, "view_audit_logs", {}, permissionIndex),
 
       // projects
@@ -272,6 +299,9 @@ exports.handler = async function handler(event) {
 
     return json(200, {
       ...state,
+      analyticsAuthority,
+      analyticsProjects,
+      analyticsClients,
       visibleClientIds: Array.isArray(state?.visibleClientIds) ? state.visibleClientIds : [],
       visibleProjectIds: Array.isArray(state?.visibleProjectIds) ? state.visibleProjectIds : [],
       projectMemberBudgets: Array.isArray(projectMemberBudgets) ? projectMemberBudgets : [],

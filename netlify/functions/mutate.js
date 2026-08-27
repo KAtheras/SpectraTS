@@ -63,6 +63,10 @@ const SUPERUSER_MATRIX_EDITABLE_CAPABILITIES = new Set([
   "edit_clients",
   "edit_projects_all_modal",
   "edit_project_planning",
+  "view_company_analytics",
+  "view_office_analytics",
+  "view_department_analytics",
+  "view_project_analytics",
 ]);
 
 function hashSetupToken(token) {
@@ -1676,7 +1680,11 @@ function buildPermissionsPayload(currentUser, permissionIndex) {
     edit_user_profile: can("edit_member_profile"),
     reset_user_password: can("admin_reset_password"),
     deactivate_user: can("deactivate_member"),
-    view_analytics: can("view_analytics"),
+    view_analytics:
+      can("view_company_analytics") ||
+      can("view_office_analytics") ||
+      can("view_department_analytics") ||
+      can("view_project_analytics"),
     view_audit_logs: can("view_audit_logs"),
     create_project: can("create_project"),
     remove_project: can("archive_project"),
@@ -6316,7 +6324,14 @@ exports.handler = async function handler(event) {
         const capIdByKey = new Map(caps.map((c) => [c.key, c.id]));
         const scopeKeyForCapability = (roleKey, capabilityKey) => {
           const cap = normalizeText(capabilityKey);
-          if (cap === "see_all_clients_projects" || cap === "view_all_entries") {
+          if (
+            cap === "see_all_clients_projects" ||
+            cap === "view_all_entries" ||
+            cap === "view_company_analytics" ||
+            cap === "view_office_analytics" ||
+            cap === "view_department_analytics" ||
+            cap === "view_project_analytics"
+          ) {
             return "all_offices";
           }
           if (

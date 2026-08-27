@@ -80,6 +80,23 @@ const waitForTimers = () => new Promise((resolve) => setTimeout(resolve, 10));
     path.join(__dirname, "..", "netlify", "functions", "mutate.js"),
     "utf8"
   );
+  const settingsAdminSource = fs.readFileSync(
+    path.join(__dirname, "..", "settingsAdmin.js"),
+    "utf8"
+  );
+  assert.match(settingsAdminSource, /label: "Analytics Access"/);
+  [
+    "view_company_analytics",
+    "view_office_analytics",
+    "view_department_analytics",
+    "view_project_analytics",
+  ].forEach((capability) => {
+    assert.match(
+      settingsAdminSource,
+      new RegExp(`cap: "${capability}"`),
+      `${capability} should be configurable in Member Access Levels`
+    );
+  });
   assert.match(
     appSource,
     /const submitOfficeLocations = function \(\) \{[\s\S]*refs\.officeLocationsForm\?\.requestSubmit\(\)[\s\S]*select\.querySelectorAll\("\[data-ineligible-current\]"\)[\s\S]*submitOfficeLocations\(\)/,

@@ -513,6 +513,30 @@ test("superuser can access all settings capabilities globally", () => {
   assert.strictEqual(shell && rates && cats && locs, true);
 });
 
+test("analytics capabilities are controlled by the live matrix", () => {
+  const analyticsIndex = indexFromRows([
+    {
+      role_key: "admin",
+      capability_key: "view_office_analytics",
+      scope_key: "all_offices",
+      allowed: true,
+    },
+  ]);
+  assert.strictEqual(
+    perms.can(users.adminA, "view_office_analytics", {}, analyticsIndex),
+    true
+  );
+  assert.strictEqual(
+    perms.can(users.adminA, "view_company_analytics", {}, analyticsIndex),
+    false
+  );
+  assert.strictEqual(
+    perms.can(users.superuser, "view_company_analytics", {}, analyticsIndex),
+    false,
+    "superusers must not bypass analytics matrix controls"
+  );
+});
+
 test("own-record edit blocked once approved for non-admin", () => {
   const beforeApproval = perms.can(
     users.staffA,

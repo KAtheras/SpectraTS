@@ -293,6 +293,39 @@ async function ensureSchema(sql) {
       is_active = EXCLUDED.is_active
   `;
   await sql`
+    INSERT INTO permission_capabilities (key, label, category, is_active)
+    VALUES
+      ('view_company_analytics', 'View company-wide analytics', 'analytics', TRUE),
+      ('view_office_analytics', 'View analytics for offices they lead', 'analytics', TRUE),
+      ('view_department_analytics', 'View analytics for office / departments they lead', 'analytics', TRUE),
+      ('view_project_analytics', 'View analytics for projects they lead', 'analytics', TRUE)
+    ON CONFLICT (key) DO UPDATE SET
+      label = EXCLUDED.label,
+      category = EXCLUDED.category,
+      is_active = EXCLUDED.is_active
+  `;
+  await sql`
+    INSERT INTO role_permissions (role_id, capability_id, scope_id, allowed)
+    SELECT pr.id, pc.id, ps.id, TRUE
+    FROM (VALUES
+      ('superuser', 'view_company_analytics', 'all_offices'),
+      ('admin', 'view_office_analytics', 'all_offices'),
+      ('superuser', 'view_office_analytics', 'all_offices'),
+      ('executive', 'view_department_analytics', 'all_offices'),
+      ('admin', 'view_department_analytics', 'all_offices'),
+      ('superuser', 'view_department_analytics', 'all_offices'),
+      ('staff', 'view_project_analytics', 'all_offices'),
+      ('manager', 'view_project_analytics', 'all_offices'),
+      ('executive', 'view_project_analytics', 'all_offices'),
+      ('admin', 'view_project_analytics', 'all_offices'),
+      ('superuser', 'view_project_analytics', 'all_offices')
+    ) AS defaults(role_key, capability_key, scope_key)
+    JOIN permission_roles pr ON pr.key = defaults.role_key
+    JOIN permission_capabilities pc ON pc.key = defaults.capability_key
+    JOIN permission_scopes ps ON ps.key = defaults.scope_key
+    ON CONFLICT (role_id, capability_id, scope_id) DO NOTHING
+  `;
+  await sql`
     INSERT INTO role_permissions (role_id, capability_id, scope_id, allowed)
     SELECT pr.id, pc.id, ps.id, TRUE
     FROM permission_roles pr
@@ -2144,7 +2177,79 @@ function userMatchesUtilizationScope(user, scope) {
   return Boolean(scope?.userId && scope.userId === userId);
 }
 
-async function loadUtilizationAnalyticsShell(sql, currentUser) {
+async function resolveAnalyticsAuthority(sql, currentUser, permissionIndex) {
+  const accountId = normalizeText(currentUser?.accountId || currentUser?.account_id);
+  const userId = normalizeText(currentUser?.id);
+  if (!accountId || !userId) {
+    return { canAccess: false, all: false, officeIds: [], officeDepartments: [], projectIds: [] };
+  }
+  const allowed = (capability) =>
+    permissions.can(currentUser, capability, {}, permissionIndex);
+  const all = allowed("view_company_analytics");
+  const [officeRows, departmentRows, projectRows] = await Promise.all([
+    allowed("view_office_analytics")
+      ? sql`
+          SELECT id
+          FROM office_locations
+          WHERE account_id = ${accountId}::uuid AND office_lead_user_id = ${userId}
+        `
+      : Promise.resolve([]),
+    allowed("view_department_analytics")
+      ? sql`
+          SELECT office_id AS "officeId", department_id AS "departmentId"
+          FROM department_lead_assignments
+          WHERE account_id = ${accountId}::uuid AND user_id = ${userId}
+        `
+      : Promise.resolve([]),
+    allowed("view_project_analytics")
+      ? sql`
+          SELECT id
+          FROM projects
+          WHERE account_id = ${accountId}::uuid AND project_lead_id = ${userId}
+        `
+      : Promise.resolve([]),
+  ]);
+  const officeIds = Array.from(new Set((officeRows || []).map((row) => normalizeText(row.id)).filter(Boolean)));
+  const officeDepartments = (departmentRows || [])
+    .map((row) => ({
+      officeId: normalizeText(row.officeId || row.office_id),
+      departmentId: normalizeText(row.departmentId || row.department_id),
+    }))
+    .filter((row) => row.officeId && row.departmentId);
+  const directProjectIds = Array.from(
+    new Set((projectRows || []).map((row) => normalizeText(row.id)).filter(Boolean))
+  );
+  let projectIds = directProjectIds;
+  if (!all && (officeIds.length || officeDepartments.length)) {
+    const scopedProjects = await sql`
+      SELECT id
+      FROM projects
+      WHERE account_id = ${accountId}::uuid
+        AND (
+          office_id = ANY(${officeIds.length ? officeIds : ["__none__"]}::text[])
+          OR EXISTS (
+            SELECT 1
+            FROM jsonb_to_recordset(${JSON.stringify(officeDepartments)}::jsonb)
+              AS scope("officeId" text, "departmentId" text)
+            WHERE scope."officeId" = projects.office_id
+              AND scope."departmentId" = projects.project_department_id
+          )
+        )
+    `;
+    projectIds = Array.from(
+      new Set([...directProjectIds, ...(scopedProjects || []).map((row) => normalizeText(row.id))].filter(Boolean))
+    );
+  }
+  return {
+    canAccess: Boolean(all || officeIds.length || officeDepartments.length || directProjectIds.length),
+    all,
+    officeIds,
+    officeDepartments,
+    projectIds,
+  };
+}
+
+async function loadUtilizationAnalyticsShell(sql, currentUser, analyticsAuthority = null) {
   const accountId = normalizeText(currentUser?.accountId || currentUser?.account_id);
   if (!accountId) throw new Error("Account context is required.");
   const [levelLabels, allUsers, departmentLeadAssignments, officeLocations, departments] = await Promise.all([
@@ -2155,7 +2260,38 @@ async function loadUtilizationAnalyticsShell(sql, currentUser) {
     listDepartments(sql, accountId),
   ]);
   const utilizationScope = resolveUtilizationScopeForUser(currentUser, levelLabels, departmentLeadAssignments);
-  const utilizationUsers = allUsers.filter((user) => userMatchesUtilizationScope(user, utilizationScope));
+  let organizationalUsers = allUsers.filter((user) => userMatchesUtilizationScope(user, utilizationScope));
+  let utilizationUsers = organizationalUsers;
+  if (analyticsAuthority) {
+    const officeIds = new Set(analyticsAuthority.officeIds || []);
+    const departmentPairs = new Set(
+      (analyticsAuthority.officeDepartments || []).map(
+        (row) => `${row.officeId}::${row.departmentId}`
+      )
+    );
+    organizationalUsers = analyticsAuthority.all
+      ? allUsers
+      : allUsers.filter((user) => {
+          const officeId = normalizeText(user?.officeId || user?.office_id);
+          const departmentId = normalizeText(user?.departmentId || user?.department_id);
+          return officeIds.has(officeId) || departmentPairs.has(`${officeId}::${departmentId}`);
+        });
+    const projectIds = (analyticsAuthority.projectIds || []).filter(Boolean);
+    const projectUserRows = projectIds.length
+      ? await sql`
+          SELECT DISTINCT user_id AS id
+          FROM entries
+          WHERE account_id = ${accountId}::uuid
+            AND deleted_at IS NULL
+            AND project_id = ANY(${projectIds}::bigint[])
+        `
+      : [];
+    const allowedUserIds = new Set([
+      ...organizationalUsers.map((user) => normalizeText(user.id)),
+      ...(projectUserRows || []).map((row) => normalizeText(row.id)),
+    ]);
+    utilizationUsers = allUsers.filter((user) => allowedUserIds.has(normalizeText(user.id)));
+  }
   return {
     account: { id: accountId },
     levelLabels,
@@ -2163,6 +2299,8 @@ async function loadUtilizationAnalyticsShell(sql, currentUser) {
     departments,
     utilizationScope,
     utilizationUsers,
+    organizationalUserIds: organizationalUsers.map((user) => normalizeText(user.id)).filter(Boolean),
+    analyticsAuthority,
   };
 }
 
@@ -6181,6 +6319,7 @@ module.exports = {
   listLevelLabels,
   listUsers,
   loadUtilizationAnalyticsShell,
+  resolveAnalyticsAuthority,
   loadState,
   loadSettingsMetadata,
   listAuditLogs,

@@ -119,6 +119,10 @@ async function buildUtilizationResult(sql, details) {
   const { accountId, filters, shell } = details;
   const allowedIds = (shell.utilizationUsers || []).map((user) => text(user?.id)).filter(Boolean);
   const safeIds = allowedIds.length ? allowedIds : ["__none__"];
+  const organizationalIds = (shell.organizationalUserIds || []).map(text).filter(Boolean);
+  const safeOrganizationalIds = organizationalIds.length ? organizationalIds : ["__none__"];
+  const authorityProjectIds = (shell.analyticsAuthority?.projectIds || []).map(text).filter(Boolean);
+  const safeAuthorityProjectIds = authorityProjectIds.length ? authorityProjectIds : ["0"];
   const officeId = text(filters.officeId);
   const departmentId = text(filters.departmentId);
   const rows = await sql`
@@ -141,6 +145,10 @@ async function buildUtilizationResult(sql, details) {
     WHERE e.account_id = ${accountId}::uuid AND e.deleted_at IS NULL
       AND e.entry_date BETWEEN ${filters.from}::date AND ${filters.to}::date
       AND u.id = ANY(${safeIds})
+      AND (
+        u.id = ANY(${safeOrganizationalIds})
+        OR e.project_id = ANY(${safeAuthorityProjectIds}::bigint[])
+      )
       AND (${officeId} = '' OR u.office_id = ${officeId})
       AND (${departmentId} = '' OR u.department_id = ${departmentId})
     GROUP BY e.entry_date, u.id

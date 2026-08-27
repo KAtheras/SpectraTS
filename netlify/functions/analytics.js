@@ -5,11 +5,14 @@ const {
   getSessionContext,
   getSql,
   json,
+  listClients,
+  listProjects,
   loadUtilizationAnalyticsShell,
   loadState,
+  resolveAnalyticsAuthority,
   requireAuth,
 } = require("./_db");
-const { can, buildIndex, loadPermissionsFromDb } = require("./permissions");
+const { buildIndex, loadPermissionsFromDb } = require("./permissions");
 const { buildUtilizationResult } = require("./_analyticsUtilization");
 const { buildRealizationResult } = require("./_analyticsRealization");
 
@@ -64,12 +67,17 @@ exports.handler = async function handler(event) {
 
     const permissionRows = await loadPermissionsFromDb(sql);
     const permissionIndex = buildIndex({ permissions: permissionRows });
-    if (!can(context.currentUser, "view_analytics", {}, permissionIndex)) {
+    const analyticsAuthority = await resolveAnalyticsAuthority(
+      sql,
+      context.currentUser,
+      permissionIndex
+    );
+    if (!analyticsAuthority.canAccess) {
       return errorResponse(403, "Access denied.");
     }
 
     if (filters.report === "utilization") {
-      const shell = await loadUtilizationAnalyticsShell(sql, context.currentUser);
+      const shell = await loadUtilizationAnalyticsShell(sql, context.currentUser, analyticsAuthority);
       const accountId = shell.account.id;
       const data = await buildUtilizationResult(sql, { accountId, filters, shell });
       return json(200, { report: filters.report, filters, data }, {
@@ -79,25 +87,39 @@ exports.handler = async function handler(event) {
     }
     const shell = await loadState(sql, context.currentUser, { includeRecords: false });
     const accountId = shell.account.id;
+    const allAnalyticsProjects = await listProjects(sql, accountId);
+    const authorityProjectIdSet = new Set(
+      (analyticsAuthority.projectIds || []).map((id) => String(id))
+    );
+    shell.projects = analyticsAuthority.all
+      ? allAnalyticsProjects
+      : allAnalyticsProjects.filter((project) => authorityProjectIdSet.has(String(project.id)));
+    const analyticsClientIds = new Set(
+      shell.projects.map((project) => String(project.clientId || project.client_id || "")).filter(Boolean)
+    );
+    shell.clients = (await listClients(sql, accountId)).filter((client) =>
+      analyticsClientIds.has(String(client.id))
+    );
     if (filters.report === "realization") {
       const data = await buildRealizationResult(sql, {
         accountId,
         filters,
         shell,
-        visibleProjectIds: shell.visibleProjectIds || [],
+        visibleProjectIds: analyticsAuthority.all
+          ? (shell.projects || []).map((project) => project.id)
+          : analyticsAuthority.projectIds,
       });
       return json(200, { report: filters.report, filters, data }, {
         "Server-Timing": `app;dur=${Date.now() - startedAt}`,
         "X-Result-Count": String(data.rows.length),
       });
     }
-    const actorOfficeId = context.currentUser.officeId ?? context.currentUser.office_id ?? null;
-    const outsideOffice = actorOfficeId ? `__outside_office__${actorOfficeId}` : "__outside_office__";
-    const canViewAll = can(context.currentUser, "view_all_entries", {
-      resourceOfficeId: outsideOffice,
-      actorOfficeId,
-    }, permissionIndex);
-    const visibleProjectIds = shell.visibleProjectIds?.length ? shell.visibleProjectIds : [0];
+    const canViewAll = analyticsAuthority.all;
+    const visibleProjectIds = analyticsAuthority.all
+      ? (shell.projects || []).map((project) => project.id)
+      : analyticsAuthority.projectIds.length
+        ? analyticsAuthority.projectIds
+        : [0];
     const scopeOfficeId = filters.scope === "office" ? filters.scopeId : "";
     const scopeDepartmentId = filters.scope === "department" ? filters.scopeId : "";
     const clientId = /^\d+$/.test(filters.clientId) ? filters.clientId : "0";

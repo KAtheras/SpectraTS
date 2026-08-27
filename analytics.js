@@ -1456,7 +1456,11 @@
       return;
     }
 
-    const profitabilityData = excludeInternalAnalyticsData(appState);
+    const profitabilityData = excludeInternalAnalyticsData({
+      ...appState,
+      projects: Array.isArray(appState?.analyticsProjects) ? appState.analyticsProjects : [],
+      clients: Array.isArray(appState?.analyticsClients) ? appState.analyticsClients : [],
+    });
     const utilizationData = {
       entries: Array.isArray(appState?.utilizationEntries) && appState.utilizationEntries.length
         ? appState.utilizationEntries
@@ -1475,8 +1479,8 @@
           )
         )
         : [],
-      projects: Array.isArray(appState?.projects) ? appState.projects : [],
-      clients: Array.isArray(appState?.clients) ? appState.clients : [],
+      projects: Array.isArray(appState?.analyticsProjects) ? appState.analyticsProjects : [],
+      clients: Array.isArray(appState?.analyticsClients) ? appState.analyticsClients : [],
     };
     const body = container.querySelector(".analytics-body") || container;
     let uiState = stateByContainer.get(container);

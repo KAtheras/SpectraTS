@@ -22,6 +22,10 @@ const SUPERUSER_MATRIX_CONTROLLED_CAPABILITIES = new Set([
   "edit_clients",
   "edit_projects_all_modal",
   "edit_project_planning",
+  "view_company_analytics",
+  "view_office_analytics",
+  "view_department_analytics",
+  "view_project_analytics",
 ]);
 const UNCONDITIONAL_CAPABILITIES = new Set([
   "edit_projects_all_modal",
