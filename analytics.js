@@ -265,6 +265,15 @@
       }
       .analytics-data-table tbody tr:last-child td { border-bottom: 0; }
       .analytics-data-table tbody tr:hover { background: var(--surface-hover); }
+      .analytics-data-table tfoot td {
+        position: sticky;
+        bottom: 0;
+        background: var(--surface-strong);
+        border-top: 2px solid var(--control-border);
+        border-bottom: 0;
+        color: var(--ink);
+        font-weight: 750;
+      }
       .analytics-data-table .analytics-table-primary {
         color: var(--ink);
         font-weight: 700;
@@ -1367,12 +1376,38 @@
         </tr>`;
       })
       .join("");
+    const totals = rows.reduce(
+      (sum, row) => {
+        const client = toNumber(row?.clientHours);
+        const internal = toNumber(row?.internalHours);
+        const pto = toNumber(row?.ptoHours);
+        const idle = toNumber(row?.idleHours);
+        const capacity = toNumber(row?.capacityHours) || client + internal + pto + idle;
+        sum.client += client;
+        sum.internal += internal;
+        sum.pto += pto;
+        sum.idle += idle;
+        sum.capacity += capacity;
+        return sum;
+      },
+      { client: 0, internal: 0, pto: 0, idle: 0, capacity: 0 }
+    );
+    const totalUtilization = totals.capacity > 0 ? (totals.client / totals.capacity) * 100 : null;
     container.innerHTML = `<div class="analytics-table-wrap">
       <table class="analytics-data-table">
         <thead><tr>
           <th>Period</th><th>Utilization</th><th>Client</th><th>Internal</th><th>PTO</th><th>Idle</th><th>Capacity</th>
         </tr></thead>
         <tbody>${body}</tbody>
+        <tfoot><tr>
+          <td>Total</td>
+          <td class="analytics-table-primary">${escapeHtml(formatPercent(totalUtilization))}</td>
+          <td>${escapeHtml(formatHours(totals.client))}</td>
+          <td>${escapeHtml(formatHours(totals.internal))}</td>
+          <td>${escapeHtml(formatHours(totals.pto))}</td>
+          <td>${escapeHtml(formatHours(totals.idle))}</td>
+          <td>${escapeHtml(formatHours(totals.capacity))}</td>
+        </tr></tfoot>
       </table>
     </div>`;
   }
