@@ -12779,15 +12779,40 @@
     });
   }
 
+  function syncOfficeLocationDraftFromRows() {
+    const rows = Array.from(refs.officeRows?.querySelectorAll(".office-row") || []);
+    state.officeLocations = rows.map((row) => {
+      const overheadRaw = String(row.querySelector("[data-office-overhead]")?.value || "").trim();
+      return {
+        id: (row.dataset.officeId || "").trim() || null,
+        name: String(row.querySelector("[data-office-name]")?.value || "").trim(),
+        officeLeadUserId: String(row.querySelector("[data-office-lead]")?.value || "").trim(),
+        overheadPercent: overheadRaw === "" ? null : Number(overheadRaw),
+      };
+    });
+  }
+
   if (refs.addOffice) {
-    refs.addOffice.addEventListener("click", async function () {
+    refs.addOffice.addEventListener("click", function () {
       if (!state.permissions?.manage_office_locations) {
         feedback("Access denied.", true);
         return;
       }
+      syncOfficeLocationDraftFromRows();
+      const name = String(refs.officeAddName?.value || "").trim();
+      if (!name) {
+        feedback("Enter a location name before adding it.", true);
+        refs.officeAddName?.focus();
+        return;
+      }
+      if (state.officeLocations.some((office) => String(office?.name || "").trim().toLowerCase() === name.toLowerCase())) {
+        feedback("Location names must be unique.", true);
+        refs.officeAddName?.focus();
+        return;
+      }
       const newItem = {
         id: `temp-office-${Date.now()}-${Math.random().toString(16).slice(2)}`,
-        name: "",
+        name,
         officeLeadUserId: "",
         overheadPercent: null,
       };
@@ -12796,6 +12821,7 @@
       window.settingsAdmin?.renderTargetRealizations?.();
       if (refs.officeAddName) refs.officeAddName.value = "";
       if (refs.officeAddLead) refs.officeAddLead.value = "";
+      scheduleSettingsFormAutoSubmit("office-locations-form", 0);
     });
   }
 
@@ -13321,7 +13347,7 @@
 
   if (refs.officeRows) {
     const submitOfficeLocations = function () {
-      refs.officeLocationsForm?.requestSubmit();
+      scheduleSettingsFormAutoSubmit("office-locations-form", 0);
     };
     refs.officeRows.addEventListener("change", function (event) {
       const input = event.target.closest("[data-office-name], [data-office-overhead]");

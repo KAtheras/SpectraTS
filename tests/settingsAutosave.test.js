@@ -78,8 +78,8 @@ const waitForTimers = () => new Promise((resolve) => setTimeout(resolve, 10));
   const appSource = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
   assert.match(
     appSource,
-    /const submitOfficeLocations = function \(\) \{[\s\S]*refs\.officeLocationsForm\?\.requestSubmit\(\)[\s\S]*select\.querySelectorAll\("\[data-ineligible-current\]"\)[\s\S]*submitOfficeLocations\(\)/,
-    "office field changes should bypass delayed scheduling and submit immediately"
+    /syncOfficeLocationDraftFromRows\(\)[\s\S]*const name = String\(refs\.officeAddName\?\.value[\s\S]*scheduleSettingsFormAutoSubmit\("office-locations-form", 0\)/,
+    "adding an office should preserve the current form draft and save the entered name"
   );
 
   console.log("settings autosave tests passed");
