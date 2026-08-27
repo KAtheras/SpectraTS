@@ -204,6 +204,10 @@ test("department settings are persisted by one database transaction", () => {
     appSource,
     /latestSaveState[\s\S]*?Number\(latestSaveState\.revision\) === savingRevision[\s\S]*?if \(responseIsCurrent\)/
   );
+  assert.match(
+    appSource,
+    /rows\.forEach\(\(row, index\)[\s\S]*?row\.dataset\.departmentId = savedId/
+  );
   assert.match(mutationSource, /async function updateDepartments[\s\S]*?sql\.transaction\(queries\)/);
 });
 

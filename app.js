@@ -13138,6 +13138,10 @@
             const responseIsCurrent =
               !latestSaveState || Number(latestSaveState.revision) === savingRevision;
             if (responseIsCurrent) {
+              rows.forEach((row, index) => {
+                const savedId = `${nextDepartments[index]?.id || ""}`.trim();
+                if (savedId) row.dataset.departmentId = savedId;
+              });
               state.departments = nextDepartments;
               state.departmentsSnapshot = nextDepartments.slice();
               window.settingsAdmin?.renderTargetRealizations?.();
