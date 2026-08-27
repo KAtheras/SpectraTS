@@ -6358,6 +6358,15 @@ body[data-theme="dark"] #inputs-view .inputs-month-day:not(.is-outside):hover {
   border-color: color-mix(in srgb, var(--ink) 24%, transparent);
 }
 
+body[data-theme="dark"] #inputs-view .inputs-month-day-expense:not(.is-outside) {
+  background: color-mix(in srgb, var(--surface-soft) 82%, var(--surface));
+  border-color: color-mix(in srgb, var(--ink) 22%, transparent);
+}
+
+body[data-theme="dark"] #inputs-view .inputs-month-day-expense:not(.is-outside):hover {
+  border-color: color-mix(in srgb, var(--ink) 32%, transparent);
+}
+
 @media (max-width: 980px) {
   #inputs-view .inputs-month-history-layout {
     grid-template-columns: 1fr;
