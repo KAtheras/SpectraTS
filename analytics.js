@@ -265,6 +265,11 @@
       }
       .analytics-data-table tbody tr:last-child td { border-bottom: 0; }
       .analytics-data-table tbody tr:hover { background: var(--surface-hover); }
+      .analytics-data-table tbody tr[data-analytics-overview-row] { cursor: pointer; }
+      .analytics-data-table tbody tr.is-selected {
+        background: color-mix(in srgb, var(--accent-soft) 72%, transparent);
+        box-shadow: inset 3px 0 0 var(--accent);
+      }
       .analytics-data-table tfoot td {
         position: sticky;
         bottom: 0;
@@ -826,6 +831,7 @@
       utilizationOfficeId: "",
       utilizationDepartmentId: "",
       utilizationSelectedKey: "",
+      utilizationOverviewView: "chart",
       utilizationDetailView: "chart",
       utilizationMemberSort: "high_to_low",
       utilizationMemberTitle: UTILIZATION_MEMBER_TITLE_ALL,
@@ -1410,6 +1416,65 @@
         </tr></tfoot>
       </table>
     </div>`;
+  }
+
+  function renderUtilizationOverviewTable(options) {
+    const container = options?.container;
+    const rows = Array.isArray(options?.rows) ? options.rows : [];
+    const groupByLabel = safeText(options?.groupByLabel) || "Group";
+    const selectedKey = safeText(options?.selectedKey);
+    const onSelect = typeof options?.onSelect === "function" ? options.onSelect : null;
+    if (!container) return;
+    if (!rows.length) {
+      container.innerHTML = '<div class="analytics-chart-empty">No utilization data for the selected filters.</div>';
+      return;
+    }
+    const totals = rows.reduce(
+      (sum, row) => {
+        sum.client += toNumber(row?.clientHours);
+        sum.internal += toNumber(row?.internalHours);
+        sum.pto += toNumber(row?.ptoHours);
+        sum.idle += toNumber(row?.idleHours);
+        sum.capacity += toNumber(row?.capacityHours);
+        return sum;
+      },
+      { client: 0, internal: 0, pto: 0, idle: 0, capacity: 0 }
+    );
+    const totalUtilization = totals.capacity > 0 ? (totals.client / totals.capacity) * 100 : null;
+    const body = rows
+      .map((row) => {
+        const key = safeText(row?.key);
+        return `<tr data-analytics-overview-row="${escapeHtml(key)}" class="${key === selectedKey ? "is-selected" : ""}">
+          <td>${escapeHtml(safeText(row?.name) || "—")}</td>
+          <td class="analytics-table-primary">${escapeHtml(formatPercent(row?.utilizationPct))}</td>
+          <td>${escapeHtml(formatHours(row?.clientHours))}</td>
+          <td>${escapeHtml(formatHours(row?.internalHours))}</td>
+          <td>${escapeHtml(formatHours(row?.ptoHours))}</td>
+          <td>${escapeHtml(formatHours(row?.idleHours))}</td>
+          <td>${escapeHtml(formatHours(row?.capacityHours))}</td>
+        </tr>`;
+      })
+      .join("");
+    container.innerHTML = `<div class="analytics-table-wrap">
+      <table class="analytics-data-table">
+        <thead><tr>
+          <th>${escapeHtml(groupByLabel)}</th><th>Utilization</th><th>Client</th><th>Internal</th><th>PTO</th><th>Idle</th><th>Capacity</th>
+        </tr></thead>
+        <tbody>${body}</tbody>
+        <tfoot><tr>
+          <td>Total</td><td class="analytics-table-primary">${escapeHtml(formatPercent(totalUtilization))}</td>
+          <td>${escapeHtml(formatHours(totals.client))}</td><td>${escapeHtml(formatHours(totals.internal))}</td>
+          <td>${escapeHtml(formatHours(totals.pto))}</td><td>${escapeHtml(formatHours(totals.idle))}</td>
+          <td>${escapeHtml(formatHours(totals.capacity))}</td>
+        </tr></tfoot>
+      </table>
+    </div>`;
+    container.querySelectorAll("[data-analytics-overview-row]").forEach((row) => {
+      row.addEventListener("click", () => {
+        const key = safeText(row.dataset.analyticsOverviewRow);
+        if (key && key !== selectedKey && onSelect) onSelect(key);
+      });
+    });
   }
 
   function renderRealizationPrimaryChart(options) {
@@ -2194,6 +2259,8 @@
         1 +
         (uiState.utilizationPeriod === "custom" ? 1 : 0) +
         (isSelfOnlyScope ? 0 : 3);
+      const utilizationOverviewIsTable = uiState.utilizationOverviewView === "table";
+      const utilizationOverviewToggleLabel = utilizationOverviewIsTable ? "View Chart" : "View Table";
       const utilizationDetailIsTable = uiState.utilizationDetailView === "table";
       const utilizationDetailToggleLabel = utilizationDetailIsTable ? "View Chart" : "View Table";
       const utilizationMainHtml = isSelfOnlyScope
@@ -2223,9 +2290,10 @@
                       </span>`
                     : `<strong>Current Utilization by ${escapeHtml(groupByLabel)}</strong>`
                 }
-                ${
-                  showMemberSortControl
-                    ? `<button
+                <span style="display:inline-flex;align-items:center;gap:8px;">
+                  ${
+                    showMemberSortControl
+                      ? `<button
                         type="button"
                         data-analytics-member-sort-toggle
                         style="border:0;background:transparent;padding:0;font-size:.82rem;font-weight:620;color:var(--muted);cursor:pointer;text-decoration:underline;"
@@ -2234,9 +2302,11 @@
                           UTILIZATION_MEMBER_SORT_OPTIONS.find((item) => item.id === uiState.utilizationMemberSort)?.name ||
                             "High → Low"
                         )}
-                      </button>`
-                    : ""
-                }
+                        </button>`
+                      : ""
+                  }
+                  <button type="button" class="analytics-view-toggle" data-analytics-utilization-overview-toggle>${utilizationOverviewToggleLabel}</button>
+                </span>
               </div>
               <div class="analytics-util-left-scroll">
                 <div data-analytics-utilization-left-host></div>
@@ -2375,16 +2445,35 @@
             renderAnalyticsPage(options);
           });
         }
-        renderUtilizationOverviewChart({
-          container: body.querySelector("[data-analytics-utilization-left-host]"),
-          rows: utilizationRows,
-          groupByLabel,
-          selectedKey: uiState.utilizationSelectedKey,
-          onSelect: (nextKey) => {
-            uiState.utilizationSelectedKey = safeText(nextKey);
+        const selectOverviewRow = (nextKey) => {
+          uiState.utilizationSelectedKey = safeText(nextKey);
+          renderAnalyticsPage(options);
+        };
+        const utilizationOverviewHost = body.querySelector("[data-analytics-utilization-left-host]");
+        if (utilizationOverviewIsTable) {
+          renderUtilizationOverviewTable({
+            container: utilizationOverviewHost,
+            rows: utilizationRows,
+            groupByLabel,
+            selectedKey: uiState.utilizationSelectedKey,
+            onSelect: selectOverviewRow,
+          });
+        } else {
+          renderUtilizationOverviewChart({
+            container: utilizationOverviewHost,
+            rows: utilizationRows,
+            groupByLabel,
+            selectedKey: uiState.utilizationSelectedKey,
+            onSelect: selectOverviewRow,
+          });
+        }
+        const utilizationOverviewToggle = body.querySelector("[data-analytics-utilization-overview-toggle]");
+        if (utilizationOverviewToggle) {
+          utilizationOverviewToggle.addEventListener("click", () => {
+            uiState.utilizationOverviewView = utilizationOverviewIsTable ? "chart" : "table";
             renderAnalyticsPage(options);
-          },
-        });
+          });
+        }
       }
       const utilizationDetailToggle = body.querySelector("[data-analytics-utilization-detail-toggle]");
       if (utilizationDetailToggle) {
