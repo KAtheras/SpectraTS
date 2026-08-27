@@ -460,6 +460,14 @@
         opacity: 0.35;
         cursor: default;
       }
+      .project-planning-row-delete.is-disabled,
+      .project-planning-row-delete.is-disabled:hover,
+      .project-planning-row-delete.is-disabled:focus-visible {
+        color: var(--muted);
+        background: transparent;
+        opacity: 0.35;
+        cursor: not-allowed;
+      }
       .project-planning-table tr.table-row-surface td {
         background: color-mix(in srgb, var(--surface-strong) 72%, var(--surface));
         border-bottom-color: color-mix(in srgb, var(--line) 62%, transparent);
@@ -965,6 +973,7 @@
       return {
         id: userId || `row-${index}`,
         userId: userId || null,
+        isProjectLead: Boolean(userId) && String(userId).trim() === leadUserId,
         memberName: member?.displayName || "Unassigned",
         role: roleLabel,
         seniorityLevel: memberLevel,
@@ -1195,6 +1204,8 @@
                                       ${
                                         canEdit && row.canDelete
                                           ? `<button type="button" class="project-planning-row-delete" data-row-delete="${escapeHtml(row.id)}" aria-label="Delete member">${PROJECT_PLANNING_DELETE_ICON}</button>`
+                                          : canEdit && row.isProjectLead
+                                            ? `<button type="button" class="project-planning-row-delete is-disabled" data-row-delete="${escapeHtml(row.id)}" data-project-lead-protected="true" aria-disabled="true" aria-label="This member is the Project Lead. Assign a new Project Lead before removing this member from the project." title="This member is the Project Lead. Assign a new Project Lead before removing this member from the project.">${PROJECT_PLANNING_DELETE_ICON}</button>`
                                           : `<button type="button" class="project-planning-row-delete" aria-hidden="true" disabled>${PROJECT_PLANNING_DELETE_ICON}</button>`
                                       }
                                     </td>
@@ -2326,6 +2337,17 @@
     container.querySelectorAll("[data-row-delete]").forEach((button) => {
       button.addEventListener("click", async () => {
         if (!canEdit) return;
+        if (button.dataset.projectLeadProtected === "true") {
+          await confirmAction(
+            "This member is the Project Lead. Assign a new Project Lead before removing this member from the project.",
+            {
+              title: "Project Lead Cannot Be Removed",
+              confirmText: "OK",
+              cancelText: "Close",
+            }
+          );
+          return;
+        }
         const rowId = String(button.dataset.rowDelete || "").trim();
         if (!rowId) return;
         const rowIndex = planningRows.findIndex((item) => String(item.id) === rowId);
