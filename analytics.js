@@ -2098,6 +2098,16 @@
           uiState.utilizationDepartmentId = scopedDepartmentId;
         }
       }
+      const selectedUtilizationOfficeName = safeText(
+        (scopeOptions.offices || []).find(
+          (item) => safeText(item?.id) === uiState.utilizationOfficeId
+        )?.name
+      );
+      const selectedUtilizationDepartmentName = safeText(
+        (scopeOptions.departments || []).find(
+          (item) => safeText(item?.id) === uiState.utilizationDepartmentId
+        )?.name
+      );
       const utilizationGroupByOptions = isDepartmentHeadScope
         ? UTILIZATION_GROUP_BY_OPTIONS.filter((item) => {
             const id = safeText(item?.id);
@@ -2263,11 +2273,21 @@
       const utilizationOverviewToggleLabel = utilizationOverviewIsTable ? "View Chart" : "View Table";
       const utilizationDetailIsTable = uiState.utilizationDetailView === "table";
       const utilizationDetailToggleLabel = utilizationDetailIsTable ? "View Chart" : "View Table";
+      const utilizationContextLabel = [
+        selectedUtilizationOfficeName,
+        selectedUtilizationDepartmentName,
+      ].filter(Boolean).join(" / ");
+      const utilizationOverviewTitle = utilizationContextLabel
+        ? `${utilizationContextLabel} Utilization by ${groupByLabel}`
+        : `Current Utilization by ${groupByLabel}`;
+      const utilizationDetailTitle = selectedRow
+        ? `${selectedRow.name}${utilizationContextLabel ? ` — ${utilizationContextLabel}` : ""}`
+        : `${utilizationContextLabel ? `${utilizationContextLabel} ` : ""}Utilization`;
       const utilizationMainHtml = isSelfOnlyScope
         ? `
           <section class="analytics-chart-wrap">
             <div class="analytics-chart-head">
-              <strong>${escapeHtml(selectedRow ? `${selectedRow.name} Utilization Over Time` : "My Utilization Over Time")}</strong>
+              <strong>${escapeHtml(selectedRow ? utilizationDetailTitle : "My Utilization")}</strong>
               <button type="button" class="analytics-view-toggle" data-analytics-utilization-detail-toggle>${utilizationDetailToggleLabel}</button>
             </div>
             <div data-analytics-utilization-right-host></div>
@@ -2288,7 +2308,7 @@
                           <span class="analytics-member-title-chevron" aria-hidden="true">▾</span>
                         </span>
                       </span>`
-                    : `<strong>Current Utilization by ${escapeHtml(groupByLabel)}</strong>`
+                    : `<strong>${escapeHtml(utilizationOverviewTitle)}</strong>`
                 }
                 <span style="display:inline-flex;align-items:center;gap:8px;">
                   ${
@@ -2314,7 +2334,7 @@
             </article>
             <article class="analytics-util-card">
               <div class="analytics-chart-head">
-                <strong>${escapeHtml(selectedRow ? `${selectedRow.name} Over Time` : "Utilization Over Time")}</strong>
+                <strong>${escapeHtml(utilizationDetailTitle)}</strong>
                 <button type="button" class="analytics-view-toggle" data-analytics-utilization-detail-toggle>${utilizationDetailToggleLabel}</button>
               </div>
               <div data-analytics-utilization-right-host></div>

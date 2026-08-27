@@ -47,6 +47,17 @@ The ACME synthetic-data exercise exposed an architectural growth limit: account 
 - Continue splitting `mutate.js` and `_db.js` by domain after frontend boundaries stabilize.
 - Add database integration coverage for atomic entry/expense writes and audit records.
 
+## Advanced features
+
+- Add in-app sharing for Analytics chart tables:
+  - place a Share action on each applicable Analytics card
+  - let the sender select a member, add an optional message, and preview the table
+  - generate the shared table server-side from the active report filters
+  - identify the authenticated sender in the inbox message
+  - warn when the recipient lacks normal access to the shared Analytics scope, with Cancel and Share Anyway choices
+  - record the sender, recipient, report scope, filters, timestamp, and access-warning override in the audit log
+  - send a fixed snapshot rather than a live table whose contents could change later
+
 ## Security
 
 - Perform an end-to-end access and visibility audit across every configured member level and permission role, covering:
