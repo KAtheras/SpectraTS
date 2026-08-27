@@ -1217,7 +1217,22 @@
     );
 
     const mutationOptions = { skipHydrate: true, refreshState: false, returnState: false };
+    const clearStaleMemberBudget = async (userId) => {
+      if (!targetProjectId) return;
+      const hasBudgetRow = (state.projectMemberBudgets || []).some(
+        (row) =>
+          String(row?.projectId || "").trim() === targetProjectId &&
+          String(row?.userId || "").trim() === String(userId || "").trim()
+      );
+      if (!hasBudgetRow) return;
+      await mutatePersistentState(
+        "delete_project_member_budget",
+        { projectId: targetProjectId, userId },
+        mutationOptions
+      );
+    };
     for (const managerId of toAddManagers) {
+      await clearStaleMemberBudget(managerId);
       await mutatePersistentState(
         "assign_manager_project",
         {
@@ -1246,8 +1261,10 @@
           mutationOptions
         );
       }
+      await clearStaleMemberBudget(managerId);
     }
     for (const userId of toAddStaff) {
+      await clearStaleMemberBudget(userId);
       await mutatePersistentState(
         "add_project_member",
         {
@@ -1267,6 +1284,7 @@
         { userId, clientName, projectName },
         mutationOptions
       );
+      await clearStaleMemberBudget(userId);
     }
   }
 
