@@ -225,14 +225,8 @@
     const grouped = new Map();
 
     usersToRender.forEach(function (user) {
-      const roleValue = String(roleKey(user) || "").toLowerCase();
-      const configuredRoleLevel = Object.entries(state.levelLabels || {}).find(([, definition]) => {
-        if (!definition || typeof definition !== "object") return false;
-        return String(definition.permissionGroup || definition.permission_group || "").toLowerCase() === roleValue;
-      });
-      const inferredLevel = configuredRoleLevel ? Number(configuredRoleLevel[0]) : levels[0];
       const hasExplicitLevel = user.level !== undefined && user.level !== null && String(user.level).trim() !== "";
-      const currentLevel = normalizeLevel(hasExplicitLevel ? user.level : inferredLevel);
+      const currentLevel = hasExplicitLevel ? normalizeLevel(user.level) : null;
       const rawLevelLabel =
         typeof user.level === "string" && user.level.trim() && Number.isNaN(Number(user.level))
           ? user.level.trim()
@@ -241,11 +235,11 @@
         rawLevelLabel ||
         (hasExplicitLevel
           ? levelLabel(user.level)
-          : levelLabel(currentLevel));
+          : "Unconfigured level");
       const resolvedLevel =
         (hasExplicitLevel && !Number.isNaN(Number(user.level)))
           ? normalizeLevel(Number(user.level))
-          : (levelFromLabel(currentLevelLabel) ?? currentLevel);
+          : (levelFromLabel(currentLevelLabel) ?? null);
       const isManagerEligible = isManager(user);
       const isAssignedToProject = project
         ? isUserAssignedToProject(user.id, client, project)

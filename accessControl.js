@@ -3,15 +3,6 @@
     const { state, normalizeLevel, projectKey, uniqueValues, catalogProjectNames } = deps;
     const normalizeText = (value) => String(value ?? "").trim();
 
-    const DEFAULT_LEVEL_LABELS = {
-      1: "Staff",
-      2: "Senior",
-      3: "Manager",
-      4: "Director",
-      5: "Partner",
-      6: "Admin",
-    };
-
     function roleKey(user) {
       const hasExplicitLevel = user?.level !== undefined && user?.level !== null && `${user.level}`.trim() !== "";
       const normalizedLevel = hasExplicitLevel ? normalizeLevel(user.level) : null;
@@ -20,14 +11,7 @@
         configuredLevel && typeof configuredLevel === "object"
           ? configuredLevel.permissionGroup || configuredLevel.permission_group
           : null;
-      const raw =
-        user?.permission_role_key ||
-        user?.permissionRoleKey ||
-        configuredGroup ||
-        user?.permissionGroup ||
-        user?.permission_group ||
-        user?.role ||
-        null;
+      const raw = configuredGroup || null;
       if (!raw) return null;
       const val = String(raw).toLowerCase();
       if (val === "global_admin") return "superuser";
@@ -35,7 +19,7 @@
     }
 
     function permissionGroupForUser(user) {
-      return roleKey(user) || "staff";
+      return roleKey(user);
     }
 
     function levelLabel(level) {
@@ -47,10 +31,7 @@
       if (typeof value === "string" && value.trim()) {
         return value;
       }
-      if (DEFAULT_LEVEL_LABELS[normalized]) {
-        return DEFAULT_LEVEL_LABELS[normalized];
-      }
-      return `Level ${normalized}`;
+      return `Unconfigured level ${normalized}`;
     }
 
     function isAdmin(user) {

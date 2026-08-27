@@ -7,10 +7,10 @@ require("../accessControl.js");
 
 const state = {
   users: [
-    { id: "lead", role: "manager" },
-    { id: "dual", role: "manager" },
-    { id: "staff", role: "staff" },
-    { id: "client-only", role: "manager" },
+    { id: "lead", level: 3, role: "manager" },
+    { id: "dual", level: 3, role: "manager" },
+    { id: "staff", level: 1, role: "staff" },
+    { id: "client-only", level: 3, role: "manager" },
   ],
   projects: [
     { id: "project-1", client: "Client", name: "Project", projectLeadId: "lead" },
@@ -23,7 +23,10 @@ const state = {
       { userId: "staff", projectId: "project-1" },
     ],
   },
-  levelLabels: {},
+  levelLabels: {
+    1: { label: "Staff", permissionGroup: "staff" },
+    3: { label: "Manager", permissionGroup: "manager" },
+  },
 };
 
 const access = window.accessControl.createAccessControl({
@@ -60,8 +63,8 @@ assert.strictEqual(
 assert.strictEqual(access.levelLabel(5), "Manager");
 assert.strictEqual(
   access.permissionGroupForUser({ role: "staff" }),
-  "staff",
-  "a missing level must not inherit the Level 1 permission group"
+  null,
+  "a missing level must not inherit a legacy role or the Level 1 permission group"
 );
 
 console.log("✔ canonical project team preserves assignment sources");
