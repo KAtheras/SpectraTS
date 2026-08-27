@@ -6350,6 +6350,14 @@ body[data-theme="dark"] #inputs-view .inputs-month-day {
   color: var(--ink);
 }
 
+body[data-theme="dark"] #inputs-view .inputs-month-day:not(.is-outside) {
+  border-color: color-mix(in srgb, var(--ink) 16%, transparent);
+}
+
+body[data-theme="dark"] #inputs-view .inputs-month-day:not(.is-outside):hover {
+  border-color: color-mix(in srgb, var(--ink) 24%, transparent);
+}
+
 @media (max-width: 980px) {
   #inputs-view .inputs-month-history-layout {
     grid-template-columns: 1fr;
