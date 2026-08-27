@@ -4630,6 +4630,28 @@
   const inputsRecordRequestControllers = { entries: null, expenses: null };
   const inputsRecordRequestKeys = { entries: "", expenses: "" };
 
+  function inputsRecordsDateRange() {
+    const to = today;
+    const fromDate = new Date(`${to}T00:00:00.000Z`);
+    fromDate.setUTCFullYear(fromDate.getUTCFullYear() - 1);
+    const from = fromDate.toISOString().slice(0, 10);
+    return { from, to, minMonth: from.slice(0, 7), maxMonth: to.slice(0, 7) };
+  }
+
+  function clampInputsMonth(monthKey) {
+    const { minMonth, maxMonth } = inputsRecordsDateRange();
+    if (!/^\d{4}-\d{2}$/.test(monthKey || "")) return maxMonth;
+    return monthKey < minMonth ? minMonth : monthKey > maxMonth ? maxMonth : monthKey;
+  }
+
+  function syncInputsMonthNavigation(container, monthKey, shiftAttribute) {
+    const { minMonth, maxMonth } = inputsRecordsDateRange();
+    const previous = container?.querySelector(`[${shiftAttribute}="-1"]`);
+    const next = container?.querySelector(`[${shiftAttribute}="1"]`);
+    if (previous) previous.disabled = monthKey <= minMonth;
+    if (next) next.disabled = monthKey >= maxMonth;
+  }
+
   async function loadVisibleRecords(type, options = {}) {
     if (!state.currentUser || !window.api?.RECORDS_API_PATH) return;
     const recordType = type === "expenses" ? "expenses" : "entries";
@@ -4705,10 +4727,7 @@
     const recordType = type === "expenses" ? "expenses" : "entries";
     const userId = String(state.currentUser.id || "").trim();
     if (!userId) return;
-    const to = today;
-    const fromDate = new Date(`${to}T00:00:00.000Z`);
-    fromDate.setUTCFullYear(fromDate.getUTCFullYear() - 1);
-    const from = fromDate.toISOString().slice(0, 10);
+    const { from, to } = inputsRecordsDateRange();
     const requestKey = `${recordType}:${userId}:${from}:${to}`;
     if (!options.force && inputsRecordRequestKeys[recordType] === requestKey) return;
 
@@ -6688,10 +6707,10 @@
 
   function renderInputsTimeMonthHistory() {
     if (!refs.inputsTimeMonthHistory || !refs.inputsTimeMonthCalendar || !refs.inputsTimeMonthDetails) return;
-    const monthKey = /^\d{4}-\d{2}$/.test(state.inputsTimeMonth || "")
-      ? state.inputsTimeMonth
-      : today.slice(0, 7);
+    const monthKey = clampInputsMonth(state.inputsTimeMonth);
     state.inputsTimeMonth = monthKey;
+    syncInputsMonthNavigation(refs.inputsTimeMonthHistory, monthKey, "data-inputs-month-shift");
+    const { from: inputsFrom, to: inputsTo } = inputsRecordsDateRange();
     const [year, month] = monthKey.split("-").map(Number);
     const firstOfMonth = new Date(Date.UTC(year, month - 1, 1));
     const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
@@ -6719,8 +6738,10 @@
     }
     const selectedIso = isValidDateString(state.inputsTimeSelectedDate)
       && state.inputsTimeSelectedDate.startsWith(monthKey)
+      && state.inputsTimeSelectedDate >= inputsFrom
+      && state.inputsTimeSelectedDate <= inputsTo
       ? state.inputsTimeSelectedDate
-      : `${monthKey}-01`;
+      : monthKey === inputsFrom.slice(0, 7) ? inputsFrom : `${monthKey}-01`;
     state.inputsTimeSelectedDate = selectedIso;
     const weekdayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
     const cells = [];
@@ -6731,6 +6752,10 @@
         continue;
       }
       const iso = `${monthKey}-${String(dayNumber).padStart(2, "0")}`;
+      if (iso < inputsFrom || iso > inputsTo) {
+        cells.push(`<button type="button" class="inputs-month-day is-outside" disabled aria-label="Outside downloaded date range"><span class="inputs-month-day-date"><span>${weekdayNames[cellIndex % 7]}</span><strong>${dayNumber}</strong></span></button>`);
+        continue;
+      }
       const dayEntries = entriesByDate.get(iso) || [];
       const total = dayEntries.reduce((sum, entry) => sum + Number(entry?.hours || 0), 0);
       const ratio = Math.max(0, Math.min(1, total / 8));
@@ -6788,10 +6813,10 @@
 
   function renderInputsExpenseMonthHistory() {
     if (!refs.inputsExpenseMonthHistory || !refs.inputsExpenseMonthCalendar || !refs.inputsExpenseMonthDetails) return;
-    const monthKey = /^\d{4}-\d{2}$/.test(state.inputsExpenseMonth || "")
-      ? state.inputsExpenseMonth
-      : today.slice(0, 7);
+    const monthKey = clampInputsMonth(state.inputsExpenseMonth);
     state.inputsExpenseMonth = monthKey;
+    syncInputsMonthNavigation(refs.inputsExpenseMonthHistory, monthKey, "data-inputs-expense-month-shift");
+    const { from: inputsFrom, to: inputsTo } = inputsRecordsDateRange();
     const [year, month] = monthKey.split("-").map(Number);
     const firstOfMonth = new Date(Date.UTC(year, month - 1, 1));
     const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
@@ -6820,8 +6845,10 @@
     }
     const selectedIso = isValidDateString(state.inputsExpenseSelectedDate)
       && state.inputsExpenseSelectedDate.startsWith(monthKey)
+      && state.inputsExpenseSelectedDate >= inputsFrom
+      && state.inputsExpenseSelectedDate <= inputsTo
       ? state.inputsExpenseSelectedDate
-      : `${monthKey}-01`;
+      : monthKey === inputsFrom.slice(0, 7) ? inputsFrom : `${monthKey}-01`;
     state.inputsExpenseSelectedDate = selectedIso;
     const weekdayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
     const cells = [];
@@ -6832,6 +6859,10 @@
         continue;
       }
       const iso = `${monthKey}-${String(dayNumber).padStart(2, "0")}`;
+      if (iso < inputsFrom || iso > inputsTo) {
+        cells.push(`<button type="button" class="inputs-month-day is-outside" disabled aria-label="Outside downloaded date range"><span class="inputs-month-day-date"><span>${weekdayNames[cellIndex % 7]}</span><strong>${dayNumber}</strong></span></button>`);
+        continue;
+      }
       const dayExpenses = expensesByDate.get(iso) || [];
       const total = dayExpenses.reduce((sum, expense) => sum + Number(expense?.amount || 0), 0);
       const selected = selectedIso === iso;

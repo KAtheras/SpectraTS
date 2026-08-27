@@ -1,6 +1,8 @@
 "use strict";
 
 const assert = require("assert");
+const fs = require("fs");
+const path = require("path");
 const { _test } = require("../netlify/functions/records");
 
 const row = {
@@ -23,5 +25,12 @@ assert.strictEqual(_test.parseRecordsQuery({ type: "unknown", from: "2026-01-01"
 assert.strictEqual(_test.parseRecordsQuery({ type: "entries", from: "2026-01-01", to: "2026-08-25", limit: "999" }).limit, 250);
 assert.strictEqual(_test.parseRecordsQuery({ type: "expenses", from: "2026-01-01", to: "2026-08-25", limit: "0" }).limit, 1);
 assert.strictEqual(_test.parseRecordsQuery({ type: "entries", from: "2026-01-01", to: "2026-08-25", cursor }).cursor.id, row.id);
+
+const appSource = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
+assert.match(appSource, /function inputsRecordsDateRange\(\)/);
+assert.match(appSource, /function clampInputsMonth\(monthKey\)/);
+assert.match(appSource, /previous\.disabled = monthKey <= minMonth/);
+assert.match(appSource, /next\.disabled = monthKey >= maxMonth/);
+assert.match(appSource, /if \(iso < inputsFrom \|\| iso > inputsTo\)/);
 
 console.log("✔ records endpoint validates bounded queries and opaque cursors");
