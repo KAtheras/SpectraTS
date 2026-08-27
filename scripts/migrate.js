@@ -2,7 +2,10 @@
 
 const { getSql } = require("../netlify/functions/_db");
 
-const migrations = [require("../migrations/001_baseline")];
+const migrations = [
+  require("../migrations/001_baseline"),
+  require("../migrations/002_office_overhead_percent"),
+];
 
 async function run() {
   const sql = await getSql();
