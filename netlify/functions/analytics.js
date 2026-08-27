@@ -30,6 +30,11 @@ function parseQuery(query = {}) {
     ? query.scope
     : "company";
   if (!["profitability", "utilization", "realization"].includes(report) || !isIsoDate(from) || !isIsoDate(to) || from > to) return null;
+  const allowedGroupBy = report === "realization"
+    ? ["client", "project", "office", "department"]
+    : ["member", "title", "office", "department"];
+  const defaultGroupBy = report === "realization" ? "client" : "member";
+  const requestedGroupBy = String(query.groupBy || "").trim().toLowerCase();
   return {
     report,
     from,
@@ -39,7 +44,7 @@ function parseQuery(query = {}) {
     clientId: String(query.clientId || "").trim(),
     projectId: String(query.projectId || "").trim(),
     period: String(query.period || "custom").trim().toLowerCase(),
-    groupBy: ["member", "title", "office", "department"].includes(query.groupBy) ? query.groupBy : "member",
+    groupBy: allowedGroupBy.includes(requestedGroupBy) ? requestedGroupBy : defaultGroupBy,
     officeId: String(query.officeId || "").trim(),
     departmentId: String(query.departmentId || "").trim(),
     memberId: String(query.memberId || "").trim(),

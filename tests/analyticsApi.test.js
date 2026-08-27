@@ -35,5 +35,16 @@ assert.deepStrictEqual(
   }
 );
 assert.strictEqual(_test.parseQuery({ report: "realization", from: "2026-01-01", to: "2026-08-25", statusMode: "closed" }).statusMode, "closed");
+for (const groupBy of ["client", "project", "office", "department"]) {
+  assert.strictEqual(
+    _test.parseQuery({ report: "realization", from: "2026-01-01", to: "2026-08-25", groupBy }).groupBy,
+    groupBy,
+    `realization should preserve ${groupBy} grouping`
+  );
+}
+assert.strictEqual(
+  _test.parseQuery({ report: "realization", from: "2026-01-01", to: "2026-08-25", groupBy: "member" }).groupBy,
+  "client"
+);
 
 console.log("✔ analytics API validates report filters and date bounds");
