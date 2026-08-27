@@ -1316,7 +1316,7 @@ async function snapshotProjectExpenseCategories(sql, accountId) {
 
 async function snapshotOfficeLocations(sql, accountId) {
   const rows = await sql`
-    SELECT id, name, office_lead_user_id, is_active
+    SELECT id, name, office_lead_user_id, overhead_percent
     FROM office_locations
     WHERE account_id = ${accountId}::uuid
     ORDER BY LOWER(name), id
@@ -1325,7 +1325,10 @@ async function snapshotOfficeLocations(sql, accountId) {
     id: normalizeText(row.id),
     name: normalizeText(row.name),
     office_lead_user_id: normalizeText(row.office_lead_user_id),
-    is_active: row.is_active !== false,
+    overhead_percent:
+      row.overhead_percent === null || row.overhead_percent === undefined
+        ? null
+        : Number(row.overhead_percent),
   }));
 }
 

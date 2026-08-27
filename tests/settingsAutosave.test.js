@@ -76,11 +76,25 @@ const waitForTimers = () => new Promise((resolve) => setTimeout(resolve, 10));
   assert.equal(controller.snapshot("department-lead:test").status, "error");
 
   const appSource = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
+  const mutateSource = fs.readFileSync(
+    path.join(__dirname, "..", "netlify", "functions", "mutate.js"),
+    "utf8"
+  );
   assert.match(
     appSource,
     /const submitOfficeLocations = function \(\) \{[\s\S]*refs\.officeLocationsForm\?\.requestSubmit\(\)[\s\S]*select\.querySelectorAll\("\[data-ineligible-current\]"\)[\s\S]*submitOfficeLocations\(\)/,
     "office field changes should bypass delayed scheduling and submit immediately"
   );
+  const officeSnapshotSource = mutateSource.match(
+    /async function snapshotOfficeLocations[\s\S]*?\n}\n/
+  )?.[0] || "";
+  assert.ok(officeSnapshotSource, "office snapshot implementation should exist");
+  assert.doesNotMatch(
+    officeSnapshotSource,
+    /\bis_active\b/,
+    "office audit snapshots must only query columns present on office_locations"
+  );
+  assert.match(officeSnapshotSource, /overhead_percent/);
 
   console.log("settings autosave tests passed");
 })().catch((error) => {
