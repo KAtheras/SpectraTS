@@ -4135,7 +4135,7 @@
       ? data.analyticsClients.map(normalizeClient).filter(Boolean)
       : [];
     state.analyticsProjects = Array.isArray(data?.analyticsProjects)
-      ? data.analyticsProjects.map(normalizeProject).filter(Boolean)
+      ? normalizeProjects(data.analyticsProjects)
       : [];
     if (Array.isArray(data?.entries)) {
       state.entries = data.entries.map(normalizeEntry).filter(Boolean);
