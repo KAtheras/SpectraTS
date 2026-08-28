@@ -61,6 +61,15 @@ function groupIdentity(project, groupBy, lookups) {
   return { key: `client::${name.toLowerCase()}`, name };
 }
 
+function projectTargetRealization(project, lookups, targetByOrg) {
+  const explicit = nullableNumber(project?.targetRealizationPct ?? project?.target_realization_pct);
+  if (explicit !== null) return explicit;
+  const client = lookups.clients.get(text(project?.clientId || project?.client_id)) || {};
+  const officeId = text(project?.officeId || project?.office_id || client?.officeId || client?.office_id);
+  const departmentId = text(project?.projectDepartmentId || project?.project_department_id);
+  return targetByOrg.get(`${officeId}::${departmentId}`) ?? null;
+}
+
 async function buildRealizationResult(sql, details) {
   const { accountId, filters, shell, visibleProjectIds } = details;
   const safeVisibleIds = visibleProjectIds.length ? visibleProjectIds : [0];
@@ -124,7 +133,7 @@ async function buildRealizationResult(sql, details) {
   });
   const eligibleIds = projects.map((project) => Number(project.id)).filter(Number.isFinite);
   if (!eligibleIds.length) {
-    return { kpis: { avgRealizationPct: null, actualRevenue: 0, standardRevenue: 0, variance: 0, projectCount: 0, limitedForecastCount: 0 }, rows: [], monthlyByKey: {}, months: [] };
+    return { kpis: { avgRealizationPct: null, targetRealizationPct: null, actualRevenue: 0, standardRevenue: 0, variance: 0, projectCount: 0, belowTargetProjectCount: 0, limitedForecastCount: 0 }, rows: [], monthlyByKey: {}, months: [] };
   }
 
   const metricRows = await sql`
@@ -189,8 +198,17 @@ async function buildRealizationResult(sql, details) {
     departments: new Map((shell.departments || []).map((row) => [text(row.id), text(row.name)])),
     clients: new Map((shell.clients || []).map((row) => [text(row.id), row])),
   };
+  const targetByOrg = new Map(
+    (shell.targetRealizations || []).map((row) => [
+      `${text(row.officeId || row.office_id)}::${text(row.departmentId || row.department_id)}`,
+      nullableNumber(row.targetRealizationPct ?? row.target_realization_pct),
+    ])
+  );
   const grouped = new Map();
   let limitedForecastCount = 0;
+  let belowTargetProjectCount = 0;
+  let targetWeightedValue = 0;
+  let targetWeight = 0;
   const includedMonths = [];
   projects.forEach((project) => {
     const id = text(project.id);
@@ -217,11 +235,21 @@ async function buildRealizationResult(sql, details) {
       actual = forecastActual;
       standard = forecastStandard;
     }
+    const targetPct = projectTargetRealization(project, lookups, targetByOrg);
+    if (targetPct !== null && standard > 0) {
+      targetWeightedValue += targetPct * standard;
+      targetWeight += standard;
+      if ((realization(actual, standard) ?? Infinity) < targetPct) belowTargetProjectCount += 1;
+    }
     const identity = groupIdentity(project, filters.groupBy, lookups);
-    if (!grouped.has(identity.key)) grouped.set(identity.key, { ...identity, actual: 0, standard: 0, months: new Map() });
+    if (!grouped.has(identity.key)) grouped.set(identity.key, { ...identity, actual: 0, standard: 0, targetWeightedValue: 0, targetWeight: 0, months: new Map() });
     const target = grouped.get(identity.key);
     target.actual += actual;
     target.standard += standard;
+    if (targetPct !== null && standard > 0) {
+      target.targetWeightedValue += targetPct * standard;
+      target.targetWeight += standard;
+    }
     samples.forEach((sample) => {
       if (!sample.month) return;
       includedMonths.push(sample.month);
@@ -231,7 +259,15 @@ async function buildRealizationResult(sql, details) {
       target.months.set(sample.month, month);
     });
   });
-  const rows = Array.from(grouped.values()).map((row) => ({ key: row.key, name: row.name, actualRevenue: row.actual, standardRevenue: row.standard, realizationPct: realization(row.actual, row.standard), months: row.months }));
+  const rows = Array.from(grouped.values()).map((row) => ({
+    key: row.key,
+    name: row.name,
+    actualRevenue: row.actual,
+    standardRevenue: row.standard,
+    realizationPct: realization(row.actual, row.standard),
+    targetRealizationPct: row.targetWeight > 0 ? row.targetWeightedValue / row.targetWeight : null,
+    months: row.months,
+  }));
   rows.sort((a, b) => (b.realizationPct ?? -1) - (a.realizationPct ?? -1) || b.actualRevenue - a.actualRevenue || a.name.localeCompare(b.name));
   const monthlyByKey = {};
   rows.forEach((row) => {
@@ -242,17 +278,26 @@ async function buildRealizationResult(sql, details) {
       const sample = row.months.get(month) || { actual: 0, standard: 0 };
       actual += sample.actual;
       standard += sample.standard;
-      return { month, actualRevenue: actual, standardRevenue: standard, realizationPct: realization(actual, standard) };
+      return { month, actualRevenue: actual, standardRevenue: standard, realizationPct: realization(actual, standard), targetRealizationPct: row.targetRealizationPct };
     });
   });
   const actualRevenue = rows.reduce((sum, row) => sum + row.actualRevenue, 0);
   const standardRevenue = rows.reduce((sum, row) => sum + row.standardRevenue, 0);
   return {
-    kpis: { avgRealizationPct: realization(actualRevenue, standardRevenue), actualRevenue, standardRevenue, variance: actualRevenue - standardRevenue, projectCount: projects.length, limitedForecastCount },
+    kpis: {
+      avgRealizationPct: realization(actualRevenue, standardRevenue),
+      targetRealizationPct: targetWeight > 0 ? targetWeightedValue / targetWeight : null,
+      actualRevenue,
+      standardRevenue,
+      variance: actualRevenue - standardRevenue,
+      projectCount: projects.length,
+      belowTargetProjectCount,
+      limitedForecastCount,
+    },
     rows: rows.map(({ months, ...row }) => row),
     monthlyByKey,
     months: Array.from(new Set(includedMonths)).sort(),
   };
 }
 
-module.exports = { buildRealizationResult, isClosed, monthRange, realization };
+module.exports = { buildRealizationResult, isClosed, monthRange, projectTargetRealization, realization };

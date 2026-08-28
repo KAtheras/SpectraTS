@@ -1749,7 +1749,19 @@
     expenses.forEach((expense) => collectEligibleProject(expense, expenseDate(expense)));
     const eligibleProjects = hasActivityInput
       ? projects.filter((project) => eligibleProjectIds.has(safeText(project?.id)))
-      : projects;
+      : projects.filter((project) => {
+          const requestedScope = safeText(filters?.scope).toLowerCase();
+          const scopeId = safeText(filters?.scopeId);
+          if (!scopeId || requestedScope === "company") return true;
+          const client = clientsById.get(safeText(project?.clientId || project?.client_id)) || {};
+          if (requestedScope === "office") {
+            return safeText(project?.officeId || project?.office_id || client?.officeId || client?.office_id) === scopeId;
+          }
+          if (requestedScope === "department") {
+            return safeText(project?.projectDepartmentId || project?.project_department_id) === scopeId;
+          }
+          return true;
+        });
 
     const clientsMap = new Map();
     eligibleProjects.forEach((project) => {

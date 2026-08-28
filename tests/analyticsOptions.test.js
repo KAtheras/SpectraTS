@@ -77,6 +77,22 @@ assert.deepStrictEqual(Array.from(options.projects, (item) => item.id), ["p1"]);
 assert.deepStrictEqual(Array.from(options.projectsByClient.get("c1"), (item) => item.id), ["p1"]);
 assert.strictEqual(options.projectsByClient.has("c2"), false);
 
+const projectMetadataScopedOptions = engineWindow.analyticsEngine.listClientProjectOptions({
+  clients: [
+    { id: "c1", name: "Alpha", officeId: "o1" },
+    { id: "c2", name: "Beta", officeId: "o2" },
+  ],
+  projects: [
+    { id: "p1", clientId: "c1", name: "Advisory", projectDepartmentId: "d1" },
+    { id: "p2", clientId: "c2", name: "Tax", projectDepartmentId: "d2" },
+  ],
+  offices: [{ id: "o1", name: "New York" }, { id: "o2", name: "Boston" }],
+  departments: [{ id: "d1", name: "Advisory" }, { id: "d2", name: "Tax" }],
+  filters: { scope: "office", scopeId: "o1" },
+});
+assert.deepStrictEqual(Array.from(projectMetadataScopedOptions.clients, (item) => item.id), ["c1"]);
+assert.deepStrictEqual(Array.from(projectMetadataScopedOptions.projects, (item) => item.id), ["p1"]);
+
 const memberScopedOptions = engineWindow.analyticsEngine.listClientProjectOptions({
   clients: [{ id: "c1", name: "Alpha" }, { id: "c2", name: "Beta" }],
   projects: [

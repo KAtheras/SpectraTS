@@ -370,6 +370,16 @@
     return `${toNumber(value).toFixed(1)}%`;
   }
 
+  function formatPercentagePoints(value) {
+    if (!Number.isFinite(value)) return "—";
+    const amount = toNumber(value);
+    return `${amount > 0 ? "+" : ""}${amount.toFixed(1)} pp`;
+  }
+
+  function percentagePointVariance(actual, target) {
+    return Number.isFinite(actual) && Number.isFinite(target) ? actual - target : null;
+  }
+
   function formatHours(value) {
     const n = toNumber(value);
     return `${n.toFixed(1)}h`;
@@ -579,7 +589,9 @@
   }
 
   function utilizationPeriodRange(periodId, nowDate) {
-    const now = nowDate instanceof Date ? nowDate : new Date();
+    const now = nowDate && typeof nowDate.getTime === "function" && Number.isFinite(nowDate.getTime())
+      ? nowDate
+      : new Date();
     const todayDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const period = normalizeUtilizationPeriod(periodId);
 
@@ -859,6 +871,8 @@
       realizationGroupByIsManual: false,
       realizationSort: "high_to_low",
       realizationSelectedKey: "",
+      realizationOverviewView: "chart",
+      realizationDetailView: "chart",
     };
   }
 
@@ -1494,6 +1508,9 @@
     const selectedKey = safeText(options?.selectedKey);
     const onSelect = typeof options?.onSelect === "function" ? options.onSelect : null;
     const revenueLabel = safeText(options?.revenueLabel || "Revenue");
+    const targetRealizationPct = Number.isFinite(options?.targetRealizationPct)
+      ? Number(options.targetRealizationPct)
+      : null;
     if (!container) return;
     const echarts = window.echarts;
     if (!echarts || typeof echarts.init !== "function") {
@@ -1529,7 +1546,11 @@
         },
       };
     });
-    const maxValue = Math.max(100, ...rows.map((row) => Number.isFinite(Number(row?.realizationPct)) ? Number(row.realizationPct) : 0));
+    const maxValue = Math.max(
+      100,
+      Number.isFinite(targetRealizationPct) ? targetRealizationPct : 0,
+      ...rows.map((row) => Number.isFinite(Number(row?.realizationPct)) ? Number(row.realizationPct) : 0)
+    );
 
     chart.setOption({
       animation: false,
@@ -1542,6 +1563,8 @@
           return [
             `${escapeHtml(groupByLabel)}: ${escapeHtml(safeText(row?.name))}`,
             `Realization: ${formatPercent(row?.realizationPct)}`,
+            `Target: ${formatPercent(row?.targetRealizationPct)}`,
+            `Variance: ${formatPercentagePoints(percentagePointVariance(row?.realizationPct, row?.targetRealizationPct))}`,
             `${escapeHtml(revenueLabel)}: ${formatMoney(row?.actualRevenue)}`,
             `Standard: ${formatMoney(row?.standardRevenue)}`,
           ].join("<br/>");
@@ -1580,13 +1603,13 @@
             fontWeight: 700,
             formatter: (params) => formatPercent(rows[Number(params?.dataIndex)]?.realizationPct),
           },
-          markLine: {
+          markLine: Number.isFinite(targetRealizationPct) ? {
             silent: true,
             symbol: "none",
             lineStyle: { color: analyticsChartColors().target, width: 1.5, type: "dashed" },
-            label: { show: true, formatter: "100% target", color: analyticsChartColors().target },
-            data: [{ xAxis: 100 }],
-          },
+            label: { show: true, formatter: `${targetRealizationPct.toFixed(1)}% target`, color: analyticsChartColors().target },
+            data: [{ xAxis: targetRealizationPct }],
+          } : undefined,
         },
       ],
     });
@@ -1606,6 +1629,9 @@
     const container = options?.container;
     const seriesRows = Array.isArray(options?.seriesRows) ? options.seriesRows : [];
     const revenueLabel = safeText(options?.revenueLabel || "Modeled Revenue");
+    const targetRealizationPct = Number.isFinite(options?.targetRealizationPct)
+      ? Number(options.targetRealizationPct)
+      : null;
     if (!container) return;
     const echarts = window.echarts;
     if (!echarts || typeof echarts.init !== "function") {
@@ -1636,15 +1662,15 @@
       const date = new Date(Number(year), Number(mm) - 1, 1);
       return date.toLocaleDateString(undefined, { month: "short", year: "numeric" });
     });
-    const actualValues = seriesRows.map((row) => Number(row?.actualRevenue) || 0);
-    const standardValues = seriesRows.map((row) => Number(row?.standardRevenue) || 0);
+    const realizationValues = seriesRows.map((row) => Number.isFinite(Number(row?.realizationPct)) ? Number(row.realizationPct) : null);
+    const maxValue = Math.max(100, Number.isFinite(targetRealizationPct) ? targetRealizationPct : 0, ...realizationValues.filter(Number.isFinite));
 
     chart.setOption({
       animation: false,
       textStyle: { color: analyticsChartColors().text },
       legend: {
         top: 4,
-        data: [revenueLabel, "Standard Value"],
+        data: ["Realization", "Target"],
         textStyle: { color: analyticsChartColors().text, fontSize: 11 },
       },
       grid: { left: 58, right: 20, top: 44, bottom: 52 },
@@ -1658,6 +1684,8 @@
           return [
             safeText(first?.axisValueLabel),
             `Cumulative realization: ${formatPercent(row?.realizationPct)}`,
+            `Target: ${formatPercent(row?.targetRealizationPct ?? targetRealizationPct)}`,
+            `Variance: ${formatPercentagePoints(percentagePointVariance(row?.realizationPct, row?.targetRealizationPct ?? targetRealizationPct))}`,
             `${escapeHtml(revenueLabel)}: ${formatMoney(row?.actualRevenue)}`,
             `Standard value: ${formatMoney(row?.standardRevenue)}`,
           ].join("<br/>");
@@ -1671,29 +1699,108 @@
       },
       yAxis: {
         type: "value",
-        axisLabel: { color: analyticsChartColors().text, formatter: (value) => formatCompactMoney(value) },
+        min: 0,
+        max: Math.ceil(maxValue * 1.1),
+        axisLabel: { color: analyticsChartColors().text, formatter: (value) => `${Math.round(value)}%` },
         splitLine: { lineStyle: { color: analyticsChartColors().grid } },
       },
       series: [
         {
-          name: revenueLabel,
+          name: "Realization",
           type: "line",
-          data: actualValues,
+          data: realizationValues,
           symbol: "circle",
           symbolSize: 6,
           lineStyle: { width: 3, color: "#2f6fed" },
           itemStyle: { color: "#2f6fed" },
           areaStyle: { color: "rgba(47,111,237,.08)" },
         },
-        {
-          name: "Standard Value",
+        ...(Number.isFinite(targetRealizationPct) ? [{
+          name: "Target",
           type: "line",
-          data: standardValues,
+          data: seriesRows.map(() => targetRealizationPct),
           symbol: "none",
           lineStyle: { width: 2, color: analyticsChartColors().target, type: "dashed" },
-        },
+        }] : []),
       ],
     });
+  }
+
+  function renderRealizationOverviewTable(options) {
+    const container = options?.container;
+    const rows = Array.isArray(options?.rows) ? options.rows : [];
+    const groupByLabel = safeText(options?.groupByLabel || "Group");
+    const selectedKey = safeText(options?.selectedKey);
+    const onSelect = typeof options?.onSelect === "function" ? options.onSelect : null;
+    if (!container) return;
+    if (!rows.length) {
+      container.innerHTML = '<div class="analytics-chart-empty">No realization data for the selected filters.</div>';
+      return;
+    }
+    const body = rows.map((row) => {
+      const variancePp = percentagePointVariance(row?.realizationPct, row?.targetRealizationPct);
+      return `<tr data-analytics-realization-row="${escapeHtml(safeText(row?.key))}" class="${safeText(row?.key) === selectedKey ? "is-selected" : ""}">
+        <td>${escapeHtml(safeText(row?.name) || "—")}</td>
+        <td class="analytics-table-primary">${escapeHtml(formatPercent(row?.realizationPct))}</td>
+        <td>${escapeHtml(formatPercent(row?.targetRealizationPct))}</td>
+        <td>${escapeHtml(formatPercentagePoints(variancePp))}</td>
+        <td>${escapeHtml(formatMoney(row?.actualRevenue))}</td>
+        <td>${escapeHtml(formatMoney(row?.standardRevenue))}</td>
+        <td>${escapeHtml(formatMoney(toNumber(row?.actualRevenue) - toNumber(row?.standardRevenue)))}</td>
+      </tr>`;
+    }).join("");
+    const totals = rows.reduce((sum, row) => {
+      const standard = toNumber(row?.standardRevenue);
+      sum.actual += toNumber(row?.actualRevenue);
+      sum.standard += standard;
+      if (Number.isFinite(row?.targetRealizationPct) && standard > 0) {
+        sum.targetWeighted += Number(row.targetRealizationPct) * standard;
+        sum.targetWeight += standard;
+      }
+      return sum;
+    }, { actual: 0, standard: 0, targetWeighted: 0, targetWeight: 0 });
+    const totalRealization = totals.standard > 0 ? (totals.actual / totals.standard) * 100 : null;
+    const totalTarget = totals.targetWeight > 0 ? totals.targetWeighted / totals.targetWeight : null;
+    container.innerHTML = `<div class="analytics-table-wrap"><table class="analytics-data-table">
+      <thead><tr><th>${escapeHtml(groupByLabel)}</th><th>Realization</th><th>Target</th><th>Variance</th><th>Revenue</th><th>Standard Value</th><th>$ Variance</th></tr></thead>
+      <tbody>${body}</tbody>
+      <tfoot><tr><td>Total</td><td class="analytics-table-primary">${escapeHtml(formatPercent(totalRealization))}</td>
+        <td>${escapeHtml(formatPercent(totalTarget))}</td><td>${escapeHtml(formatPercentagePoints(percentagePointVariance(totalRealization, totalTarget)))}</td>
+        <td>${escapeHtml(formatMoney(totals.actual))}</td><td>${escapeHtml(formatMoney(totals.standard))}</td><td>${escapeHtml(formatMoney(totals.actual - totals.standard))}</td></tr></tfoot>
+    </table></div>`;
+    container.querySelectorAll("[data-analytics-realization-row]").forEach((row) => {
+      row.addEventListener("click", () => {
+        const key = safeText(row.dataset.analyticsRealizationRow);
+        if (key && key !== selectedKey && onSelect) onSelect(key);
+      });
+    });
+  }
+
+  function renderRealizationDetailTable(container, seriesRows) {
+    const rows = Array.isArray(seriesRows) ? seriesRows : [];
+    if (!container) return;
+    if (!rows.length) {
+      container.innerHTML = '<div class="analytics-chart-empty">No monthly realization trend for the selected item.</div>';
+      return;
+    }
+    const body = rows.map((row) => {
+      const month = safeText(row?.month);
+      const date = month ? new Date(`${month}T00:00:00`) : null;
+      const label = date && Number.isFinite(date.getTime())
+        ? date.toLocaleDateString(undefined, { month: "short", year: "numeric" })
+        : month;
+      return `<tr><td>${escapeHtml(label)}</td>
+        <td class="analytics-table-primary">${escapeHtml(formatPercent(row?.realizationPct))}</td>
+        <td>${escapeHtml(formatPercent(row?.targetRealizationPct))}</td>
+        <td>${escapeHtml(formatPercentagePoints(percentagePointVariance(row?.realizationPct, row?.targetRealizationPct)))}</td>
+        <td>${escapeHtml(formatMoney(row?.actualRevenue))}</td>
+        <td>${escapeHtml(formatMoney(row?.standardRevenue))}</td>
+      </tr>`;
+    }).join("");
+    container.innerHTML = `<div class="analytics-table-wrap"><table class="analytics-data-table">
+      <thead><tr><th>Period</th><th>Realization</th><th>Target</th><th>Variance</th><th>Revenue</th><th>Standard Value</th></tr></thead>
+      <tbody>${body}</tbody>
+    </table></div>`;
   }
 
   function renderAnalyticsPage(options) {
@@ -1920,11 +2027,6 @@
       const realizationLabel = isOpenRealization ? "Projected Realization" : isCombinedRealization ? "Portfolio Realization" : "Final Modeled Realization";
       const revenueLabel = isOpenRealization ? "Revenue at Completion" : isCombinedRealization ? "Portfolio Revenue" : "Modeled Final Revenue";
       const standardLabel = isOpenRealization ? "Standard Value at Completion" : "Standard Value";
-      const detailComparisonLabel = uiState.realizationStatus === "open"
-        ? "Forecast Revenue vs Standard Value at Completion"
-        : uiState.realizationStatus === "combined"
-          ? "Portfolio Revenue vs Standard Value"
-          : "Modeled Final Revenue vs Standard Value";
       const specificContextLabel = safeText(
         selectedProjectItem?.name || selectedClientItem?.name || selectedScopeItem?.name
       );
@@ -1932,8 +2034,18 @@
         ? ` — ${specificContextLabel}`
         : "";
       const selectedDetailTitle = selectedRow
-        ? `${selectedRow.name}${detailContextSuffix}: ${detailComparisonLabel}`
-        : `Selected Item: ${detailComparisonLabel}`;
+        ? `${selectedRow.name}${detailContextSuffix}: Realization Trend`
+        : "Selected Item: Realization Trend";
+      const targetRealizationPct = Number.isFinite(realizationComputed.kpis.targetRealizationPct)
+        ? Number(realizationComputed.kpis.targetRealizationPct)
+        : null;
+      const hasTargetRealization = targetRealizationPct !== null;
+      const realizationVariancePp = percentagePointVariance(
+        realizationComputed.kpis.avgRealizationPct,
+        hasTargetRealization ? targetRealizationPct : null
+      );
+      const realizationOverviewIsTable = uiState.realizationOverviewView === "table";
+      const realizationDetailIsTable = uiState.realizationDetailView === "table";
 
       body.innerHTML = `
         <div class="analytics-panel" data-analytics-root>
@@ -1978,38 +2090,38 @@
 
           <section class="analytics-kpis">
             <article class="analytics-kpi"><div class="analytics-kpi-label">${escapeHtml(realizationLabel)} %</div><div class="analytics-kpi-value">${escapeHtml(formatPercent(realizationComputed.kpis.avgRealizationPct))}</div></article>
-            <article class="analytics-kpi"><div class="analytics-kpi-label">${escapeHtml(revenueLabel)}</div><div class="analytics-kpi-value">${escapeHtml(formatMoney(realizationComputed.kpis.actualRevenue))}</div></article>
-            <article class="analytics-kpi"><div class="analytics-kpi-label">${escapeHtml(standardLabel)}</div><div class="analytics-kpi-value">${escapeHtml(formatMoney(realizationComputed.kpis.standardRevenue))}</div></article>
-            <article class="analytics-kpi"><div class="analytics-kpi-label">Variance</div><div class="analytics-kpi-value">${escapeHtml(formatMoney(realizationComputed.kpis.variance))}</div></article>
+            <article class="analytics-kpi"><div class="analytics-kpi-label">Target Realization %</div><div class="analytics-kpi-value">${escapeHtml(formatPercent(hasTargetRealization ? targetRealizationPct : null))}</div></article>
+            <article class="analytics-kpi"><div class="analytics-kpi-label">Variance to Target</div><div class="analytics-kpi-value">${escapeHtml(formatPercentagePoints(realizationVariancePp))}</div></article>
+            <article class="analytics-kpi"><div class="analytics-kpi-label">Projects Below Target</div><div class="analytics-kpi-value">${escapeHtml(String(realizationComputed.kpis.belowTargetProjectCount || 0))}</div></article>
             <article class="analytics-kpi"><div class="analytics-kpi-label">${isOpenRealization ? "Open Projects" : isCombinedRealization ? "Portfolio Projects" : "Closed Projects"}</div><div class="analytics-kpi-value">${escapeHtml(String(realizationComputed.kpis.projectCount || 0))}</div></article>
           </section>
 
           <section class="analytics-util-shared-legend" aria-label="Realization legend">
             <span class="analytics-util-legend-item"><span class="analytics-util-legend-swatch" style="background:#2f6fed;"></span>Realization</span>
-            <span class="analytics-util-legend-item"><span class="analytics-util-legend-swatch" style="height:2px;background:#596274;"></span>100% target</span>
+            <span class="analytics-util-legend-item"><span class="analytics-util-legend-swatch" style="height:2px;background:#596274;"></span>${escapeHtml(hasTargetRealization ? `${targetRealizationPct.toFixed(1)}% target` : "Target not configured")}</span>
           </section>
 
           <section class="analytics-util-grid">
             <article class="analytics-util-card">
               <div class="analytics-chart-head"><strong>${escapeHtml(realizationContextLabel)} Realization by ${escapeHtml(groupByLabel)}</strong>
-              <button
-                type="button"
-                data-analytics-realization-sort-toggle
-                style="border:0;background:transparent;padding:0;font-size:.82rem;font-weight:620;color:var(--muted);cursor:pointer;text-decoration:underline;"
-              >
-                Sort: ${escapeHtml(
-                  REALIZATION_SORT_OPTIONS.find((item) => item.id === uiState.realizationSort)?.name || "High → Low"
-                )}
-              </button></div>
+              <span style="display:inline-flex;align-items:center;gap:8px;"><button
+                  type="button"
+                  data-analytics-realization-sort-toggle
+                  style="border:0;background:transparent;padding:0;font-size:.82rem;font-weight:620;color:var(--muted);cursor:pointer;text-decoration:underline;"
+                >Sort: ${escapeHtml(REALIZATION_SORT_OPTIONS.find((item) => item.id === uiState.realizationSort)?.name || "High → Low")}</button>
+                <button type="button" class="analytics-view-toggle" data-analytics-realization-overview-toggle>${realizationOverviewIsTable ? "View Chart" : "View Table"}</button>
+              </span></div>
               <div class="analytics-util-left-scroll"><div data-analytics-realization-primary-host></div></div>
             </article>
             <article class="analytics-util-card">
-              <div class="analytics-chart-head"><strong>${escapeHtml(selectedDetailTitle)}</strong></div>
+              <div class="analytics-chart-head"><strong>${escapeHtml(selectedDetailTitle)}</strong>
+                <button type="button" class="analytics-view-toggle" data-analytics-realization-detail-toggle>${realizationDetailIsTable ? "View Chart" : "View Table"}</button>
+              </div>
               <div data-analytics-realization-trend-host></div>
             </article>
           </section>
 
-          <p class="analytics-footnote">Open forecasts use planned member budgets first, then percent complete, project budget, or actual-to-date as fallbacks. ${escapeHtml(String(realizationComputed.kpis.limitedForecastCount || 0))} project(s) currently use a limited forecast. Closed projects use full-lifetime activity. Revenue is modeled—not invoiced or collected revenue.</p>
+          <p class="analytics-footnote">Targets use each project's configured realization target, with its office/department target as the default, and are weighted by standard value. Open forecasts use planned member budgets first, then percent complete, project budget, or actual-to-date as fallbacks. ${escapeHtml(String(realizationComputed.kpis.limitedForecastCount || 0))} project(s) currently use a limited forecast. Closed projects use full-lifetime activity. Revenue is modeled—not invoiced or collected revenue.</p>
         </div>
       `;
       bindAnalyticsSubTabEvents(body, uiState, options);
@@ -2061,21 +2173,37 @@
           renderAnalyticsPage(options);
         });
       }
-      renderRealizationPrimaryChart({
-          container: body.querySelector("[data-analytics-realization-primary-host]"),
-          rows: realizationRows,
-          groupByLabel,
-          selectedKey: uiState.realizationSelectedKey,
-          revenueLabel,
-          onSelect: (nextKey) => {
-            uiState.realizationSelectedKey = safeText(nextKey);
-            renderAnalyticsPage(options);
-          },
-        });
-      renderRealizationTrendChart({
-          container: body.querySelector("[data-analytics-realization-trend-host]"),
-          seriesRows: selectedSeries,
-          revenueLabel,
+      const selectRealizationRow = (nextKey) => {
+        uiState.realizationSelectedKey = safeText(nextKey);
+        renderAnalyticsPage(options);
+      };
+      const realizationOverviewHost = body.querySelector("[data-analytics-realization-primary-host]");
+      const realizationOverviewOptions = {
+        container: realizationOverviewHost,
+        rows: realizationRows,
+        groupByLabel,
+        selectedKey: uiState.realizationSelectedKey,
+        revenueLabel,
+        targetRealizationPct: hasTargetRealization ? targetRealizationPct : null,
+        onSelect: selectRealizationRow,
+      };
+      if (realizationOverviewIsTable) renderRealizationOverviewTable(realizationOverviewOptions);
+      else renderRealizationPrimaryChart(realizationOverviewOptions);
+      const realizationDetailHost = body.querySelector("[data-analytics-realization-trend-host]");
+      if (realizationDetailIsTable) renderRealizationDetailTable(realizationDetailHost, selectedSeries);
+      else renderRealizationTrendChart({
+        container: realizationDetailHost,
+        seriesRows: selectedSeries,
+        revenueLabel,
+        targetRealizationPct: selectedRow?.targetRealizationPct,
+      });
+      body.querySelector("[data-analytics-realization-overview-toggle]")?.addEventListener("click", () => {
+        uiState.realizationOverviewView = realizationOverviewIsTable ? "chart" : "table";
+        renderAnalyticsPage(options);
+      });
+      body.querySelector("[data-analytics-realization-detail-toggle]")?.addEventListener("click", () => {
+        uiState.realizationDetailView = realizationDetailIsTable ? "chart" : "table";
+        renderAnalyticsPage(options);
       });
       return;
     }

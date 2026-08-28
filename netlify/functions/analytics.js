@@ -7,6 +7,7 @@ const {
   json,
   listClients,
   listProjects,
+  listTargetRealizations,
   loadUtilizationAnalyticsShell,
   loadState,
   resolveAnalyticsAuthority,
@@ -92,6 +93,7 @@ exports.handler = async function handler(event) {
     }
     const shell = await loadState(sql, context.currentUser, { includeRecords: false });
     const accountId = shell.account.id;
+    shell.targetRealizations = await listTargetRealizations(sql, accountId);
     const allAnalyticsProjects = await listProjects(sql, accountId);
     const authorityProjectIdSet = new Set(
       (analyticsAuthority.projectIds || []).map((id) => String(id))
