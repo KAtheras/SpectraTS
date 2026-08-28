@@ -26,7 +26,7 @@ analyticsWindow.localStorage = {
   setItem: (key, value) => analyticsStorage.set(key, value),
 };
 analyticsWindow.analyticsFeature.persistUiState(
-  { activeTab: "realization", realizationScope: "office", realizationScopeId: "o1", realizationCompanyGroupBy: "department" },
+  { activeTab: "realization", realizationScope: "office", realizationScopeId: "o1", realizationCompanyGroupBy: "department", realizationAnalysisMode: "department_across_offices" },
   { id: "user-1" }
 );
 assert.deepStrictEqual(
@@ -34,7 +34,7 @@ assert.deepStrictEqual(
     { activeTab: "profitability", realizationScope: "company", realizationScopeId: "" },
     { id: "user-1" }
   ))),
-  { activeTab: "realization", realizationScope: "office", realizationScopeId: "o1", realizationCompanyGroupBy: "department" }
+  { activeTab: "realization", realizationScope: "office", realizationScopeId: "o1", realizationCompanyGroupBy: "department", realizationAnalysisMode: "department_across_offices" }
 );
 assert.strictEqual(
   analyticsWindow.analyticsFeature.restoreUiState({ activeTab: "profitability" }, { id: "user-2" }).activeTab,

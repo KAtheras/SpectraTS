@@ -19,7 +19,7 @@
     "utilizationOverviewView", "utilizationDetailView", "utilizationMemberSort", "utilizationMemberTitle",
     "realizationStatus", "realizationPeriod", "realizationFromDate", "realizationToDate", "realizationScope",
     "realizationScopeId", "realizationOfficeId", "realizationDepartmentId", "realizationClientId", "realizationProjectId", "realizationGroupBy",
-    "realizationCompanyGroupBy",
+    "realizationCompanyGroupBy", "realizationAnalysisMode",
     "realizationGroupByIsManual", "realizationSort", "realizationSelectedKey", "realizationOverviewView",
     "realizationDetailView",
   ];
@@ -148,6 +148,16 @@
         font-size: .9rem;
         font-weight: 500;
         line-height: 1;
+      }
+      .analytics-realization-question {
+        color: var(--muted);
+        font-size: .82rem;
+        text-transform: none;
+        letter-spacing: 0;
+      }
+      .analytics-realization-question::before {
+        content: "—";
+        margin-right: 10px;
       }
       .analytics-kpis { display: grid; grid-template-columns: repeat(5, minmax(140px, 1fr)); gap: 10px; }
       .analytics-kpi {
@@ -582,6 +592,12 @@
     { id: "client", name: "Client" },
     { id: "project", name: "Project" },
   ];
+  const REALIZATION_ANALYSIS_OPTIONS = [
+    { id: "offices_company", name: "Offices across the company" },
+    { id: "departments_company", name: "Departments across the company" },
+    { id: "department_across_offices", name: "One department across offices" },
+    { id: "departments_within_office", name: "Departments within one office" },
+  ];
   const REALIZATION_SORT_OPTIONS = [
     { id: "high_to_low", name: "High → Low" },
     { id: "low_to_high", name: "Low → High" },
@@ -970,6 +986,7 @@
       realizationDepartmentId: "",
       realizationGroupBy: "office",
       realizationCompanyGroupBy: "office",
+      realizationAnalysisMode: "offices_company",
       realizationGroupByIsManual: false,
       realizationSort: "high_to_low",
       realizationSelectedKey: "",
@@ -1911,67 +1928,21 @@
     </table></div>`;
   }
 
-  function renderRealizationPosition(options) {
+  function renderRealizationFinancialImpact(options) {
     const container = options?.container;
     if (!container) return;
-    const actual = Number.isFinite(options?.actualPct) ? Number(options.actualPct) : null;
-    const target = Number.isFinite(options?.targetPct) ? Number(options.targetPct) : null;
-    const maxValue = Math.max(100, actual || 0, target || 0) * 1.12;
-    container.innerHTML = `<div class="analytics-realization-position" data-analytics-realization-position style="height:250px;"></div>
-      <div class="analytics-kpis" style="grid-template-columns:repeat(3,minmax(0,1fr));padding:0 12px 12px;">
+    const variance = toNumber(options?.actualRevenue) - toNumber(options?.standardRevenue);
+    container.innerHTML = `<div style="display:grid;gap:18px;padding:42px 18px 18px;">
+      <div style="text-align:center;padding:28px 12px;">
+        <div class="analytics-kpi-label">Dollar Variance to Target</div>
+        <div class="analytics-kpi-value" style="font-size:2rem;">${escapeHtml(formatMoney(variance))}</div>
+        <div class="analytics-footnote" style="margin-top:8px;">Revenue compared with target value for the current view</div>
+      </div>
+      <div class="analytics-kpis" style="grid-template-columns:repeat(2,minmax(0,1fr));">
         <article class="analytics-kpi"><div class="analytics-kpi-label">Revenue</div><div class="analytics-kpi-value">${escapeHtml(formatMoney(options?.actualRevenue))}</div></article>
         <article class="analytics-kpi"><div class="analytics-kpi-label">Target</div><div class="analytics-kpi-value">${escapeHtml(formatMoney(options?.standardRevenue))}</div></article>
-        <article class="analytics-kpi"><div class="analytics-kpi-label">Dollar Variance</div><div class="analytics-kpi-value">${escapeHtml(formatMoney(toNumber(options?.actualRevenue) - toNumber(options?.standardRevenue)))}</div></article>
-      </div>`;
-    const chartEl = container.querySelector("[data-analytics-realization-position]");
-    const echarts = window.echarts;
-    if (!chartEl || !echarts || typeof echarts.init !== "function") return;
-    const existing = chartInstanceByContainer.get(container);
-    if (existing?.instance && !existing.instance.isDisposed()) {
-      chartInstances.delete(existing.instance);
-      existing.instance.dispose();
-    }
-    const chart = echarts.init(chartEl);
-    chartInstanceByContainer.set(container, { instance: chart });
-    chartInstances.add(chart);
-    bindChartResize();
-    chart.setOption({
-      animation: false,
-      textStyle: { color: analyticsChartColors().text },
-      grid: { left: 24, right: 34, top: 64, bottom: 42, containLabel: true },
-      tooltip: {
-        trigger: "item",
-        formatter: () => [
-          `Realization: ${formatPercent(actual)}`,
-          `Target: ${formatPercent(target)}`,
-          `Variance: ${formatPercentagePoints(percentagePointVariance(actual, target))}`,
-        ].join("<br/>")
-      },
-      xAxis: {
-        type: "value",
-        min: 0,
-        max: maxValue,
-        axisLabel: { color: analyticsChartColors().text, formatter: (value) => `${Math.round(value)}%` },
-        splitLine: { lineStyle: { color: analyticsChartColors().grid } },
-      },
-      yAxis: { type: "category", data: ["Current"], axisTick: { show: false }, axisLabel: { color: analyticsChartColors().text } },
-      series: [{
-        type: "bar",
-        data: [actual || 0],
-        barWidth: 42,
-        itemStyle: { color: "#2f6fed", borderRadius: [0, 6, 6, 0] },
-        label: { show: true, position: "right", color: analyticsChartColors().strong, fontWeight: 700, formatter: formatPercent(actual) },
-        markLine: {
-          silent: true,
-          symbol: "none",
-          data: [
-            ...(target !== null ? [{ xAxis: target, name: "Target", label: { formatter: `${target.toFixed(1)}% target` } }] : []),
-          ],
-          lineStyle: { color: analyticsChartColors().target, width: 1.5, type: "dashed" },
-          label: { color: analyticsChartColors().target },
-        },
-      }],
-    });
+      </div>
+    </div>`;
   }
 
   function renderAnalyticsPage(options) {
@@ -2054,6 +2025,22 @@
         uiState.realizationClientId = "";
         uiState.realizationProjectId = "";
       }
+      if (!REALIZATION_ANALYSIS_OPTIONS.some((item) => item.id === uiState.realizationAnalysisMode)) {
+        uiState.realizationAnalysisMode = uiState.realizationCompanyGroupBy === "department"
+          ? "departments_company"
+          : "offices_company";
+      }
+      if (uiState.realizationAnalysisMode === "offices_company") {
+        uiState.realizationOfficeId = "";
+        uiState.realizationDepartmentId = "";
+      } else if (uiState.realizationAnalysisMode === "departments_company") {
+        uiState.realizationOfficeId = "";
+        uiState.realizationDepartmentId = "";
+      } else if (uiState.realizationAnalysisMode === "department_across_offices" && !uiState.realizationDepartmentId) {
+        uiState.realizationDepartmentId = safeText(scopeOptions.departments[0]?.id);
+      } else if (uiState.realizationAnalysisMode === "departments_within_office" && !uiState.realizationOfficeId) {
+        uiState.realizationOfficeId = safeText(scopeOptions.offices[0]?.id);
+      }
       if (uiState.realizationPeriod !== "custom") {
         const presetRange = realizationPeriodRange(uiState.realizationPeriod, new Date());
         uiState.realizationFromDate = presetRange.fromDate;
@@ -2093,16 +2080,17 @@
       if (uiState.realizationProjectId && !availableProjectIds.has(uiState.realizationProjectId)) {
         uiState.realizationProjectId = "";
       }
-      uiState.realizationCompanyGroupBy = ["office", "department"].includes(uiState.realizationCompanyGroupBy)
-        ? uiState.realizationCompanyGroupBy
-        : "office";
       uiState.realizationGroupBy = uiState.realizationProjectId || uiState.realizationClientId
         ? "project"
-        : uiState.realizationDepartmentId
+        : uiState.realizationOfficeId && uiState.realizationDepartmentId
           ? "client"
-          : uiState.realizationOfficeId
-            ? "department"
-            : uiState.realizationCompanyGroupBy;
+          : uiState.realizationAnalysisMode === "department_across_offices"
+            ? "office"
+            : uiState.realizationAnalysisMode === "departments_within_office"
+              ? "department"
+              : uiState.realizationAnalysisMode === "departments_company"
+                ? "department"
+                : "office";
       const realizationFilters = {
         fromDate: periodRange.fromDate,
         toDate: periodRange.toDate,
@@ -2155,10 +2143,19 @@
       const selectedProjectItem = realizationProjectItems.find(
         (item) => safeText(item?.id) === safeText(uiState.realizationProjectId)
       );
+      const departmentFirst = uiState.realizationAnalysisMode === "department_across_offices";
+      const organizationPath = departmentFirst
+        ? [
+            ...(selectedDepartmentItem ? [{ level: "department", name: selectedDepartmentItem.name }] : []),
+            ...(selectedOfficeItem ? [{ level: "office", name: selectedOfficeItem.name }] : []),
+          ]
+        : [
+            ...(selectedOfficeItem ? [{ level: "office", name: selectedOfficeItem.name }] : []),
+            ...(selectedDepartmentItem ? [{ level: "department", name: selectedDepartmentItem.name }] : []),
+          ];
       const realizationPath = [
         { level: "company", name: "Company" },
-        ...(selectedOfficeItem ? [{ level: "office", name: selectedOfficeItem.name }] : []),
-        ...(selectedDepartmentItem ? [{ level: "department", name: selectedDepartmentItem.name }] : []),
+        ...organizationPath,
         ...(selectedClientItem ? [{ level: "client", name: selectedClientItem.name }] : []),
         ...(selectedProjectItem ? [{ level: "project", name: selectedProjectItem.name }] : []),
       ];
@@ -2169,9 +2166,20 @@
           ? `<strong>${escapeHtml(item.name)}</strong>`
           : `<button type="button" class="analytics-view-toggle" data-realization-breadcrumb-level="${escapeHtml(item.level)}" title="Return to ${escapeHtml(item.name)} and clear deeper selections">${escapeHtml(item.name)}<span class="analytics-realization-path-clear" aria-hidden="true">×</span></button>`}`;
       }).join("");
-      const isCompanyRealizationContext = !uiState.realizationOfficeId && !uiState.realizationDepartmentId &&
-        !uiState.realizationClientId && !uiState.realizationProjectId;
-      const filterColumnCount = 2 + (isCompanyRealizationContext ? 1 : 0) + (uiState.realizationPeriod === "custom" ? 1 : 0);
+      const analysisSubjectHtml = uiState.realizationAnalysisMode === "department_across_offices"
+        ? `<label><span>Department</span><select name="analysisDepartmentId">${renderOptions(scopeOptions.departments, uiState.realizationDepartmentId)}</select></label>`
+        : uiState.realizationAnalysisMode === "departments_within_office"
+          ? `<label><span>Office</span><select name="analysisOfficeId">${renderOptions(scopeOptions.offices, uiState.realizationOfficeId)}</select></label>`
+          : "";
+      const hasAnalysisSubject = Boolean(analysisSubjectHtml);
+      const filterColumnCount = 3 + (hasAnalysisSubject ? 1 : 0) + (uiState.realizationPeriod === "custom" ? 1 : 0);
+      const realizationQuestion = uiState.realizationAnalysisMode === "department_across_offices"
+        ? `Comparing ${selectedDepartmentItem?.name || "the selected department"} across offices`
+        : uiState.realizationAnalysisMode === "departments_within_office"
+          ? `Comparing departments within ${selectedOfficeItem?.name || "the selected office"}`
+          : uiState.realizationAnalysisMode === "departments_company"
+            ? "Comparing departments across the company"
+            : "Comparing offices across the company";
       const isOpenRealization = uiState.realizationStatus === "open";
       const isCombinedRealization = uiState.realizationStatus === "combined";
       const realizationLabel = isOpenRealization ? "Projected Realization" : isCombinedRealization ? "Portfolio Realization" : "Final Modeled Realization";
@@ -2200,13 +2208,11 @@
               <span>Period</span>
               <select name="period">${renderOptions(REALIZATION_PERIODS, uiState.realizationPeriod)}</select>
             </label>
-            ${isCompanyRealizationContext ? `<label>
-              <span>Compare By</span>
-              <select name="companyGroupBy">${renderOptions([
-                { id: "office", name: "Office" },
-                { id: "department", name: "Department" },
-              ], uiState.realizationCompanyGroupBy)}</select>
-            </label>` : ""}
+            <label>
+              <span>What would you like to compare?</span>
+              <select name="analysisMode">${renderOptions(REALIZATION_ANALYSIS_OPTIONS, uiState.realizationAnalysisMode)}</select>
+            </label>
+            ${analysisSubjectHtml}
             ${uiState.realizationPeriod === "custom" ? `<label class="analytics-filter-range">
               <span>Date range</span><input type="text" name="dateRange" readonly autocomplete="off" />
               <input type="hidden" name="fromDate" value="${escapeHtml(periodRange.fromDate)}" />
@@ -2218,6 +2224,7 @@
           <nav class="analytics-chart-head analytics-realization-path" aria-label="Realization drill path">
             <span>Viewing</span>
             ${realizationBreadcrumbHtml}
+            <span class="analytics-realization-question">${escapeHtml(realizationQuestion)}</span>
           </nav>
 
           <section class="analytics-kpis">
@@ -2246,7 +2253,7 @@
               <div class="analytics-util-left-scroll"><div data-analytics-realization-primary-host></div></div>
             </article>
             <article class="analytics-util-card">
-              <div class="analytics-chart-head"><strong>${escapeHtml(realizationContextLabel)} Realization Position</strong></div>
+              <div class="analytics-chart-head"><strong>${escapeHtml(realizationContextLabel)} Financial Impact</strong></div>
               <div data-analytics-realization-trend-host></div>
             </article>
           </section>
@@ -2273,9 +2280,33 @@
           }
           uiState.realizationPeriod = nextPeriod;
           uiState.realizationStatus = normalizeRealizationStatus(realizationControls.elements.statusMode?.value);
-          if (realizationControls.elements.companyGroupBy) {
-            const nextGroupBy = safeText(realizationControls.elements.companyGroupBy.value).toLowerCase();
-            uiState.realizationCompanyGroupBy = ["office", "department"].includes(nextGroupBy) ? nextGroupBy : "office";
+          const nextAnalysisMode = safeText(realizationControls.elements.analysisMode?.value);
+          if (nextAnalysisMode && nextAnalysisMode !== uiState.realizationAnalysisMode) {
+            uiState.realizationAnalysisMode = REALIZATION_ANALYSIS_OPTIONS.some((item) => item.id === nextAnalysisMode)
+              ? nextAnalysisMode
+              : "offices_company";
+            uiState.realizationOfficeId = uiState.realizationAnalysisMode === "departments_within_office"
+              ? safeText(scopeOptions.offices[0]?.id)
+              : "";
+            uiState.realizationDepartmentId = uiState.realizationAnalysisMode === "department_across_offices"
+              ? safeText(scopeOptions.departments[0]?.id)
+              : "";
+            uiState.realizationClientId = "";
+            uiState.realizationProjectId = "";
+          } else if (safeText(event?.target?.name) === "analysisOfficeId") {
+            if (realizationControls.elements.analysisOfficeId) {
+              uiState.realizationOfficeId = safeText(realizationControls.elements.analysisOfficeId.value);
+              uiState.realizationDepartmentId = "";
+            }
+            uiState.realizationClientId = "";
+            uiState.realizationProjectId = "";
+          } else if (safeText(event?.target?.name) === "analysisDepartmentId") {
+            if (realizationControls.elements.analysisDepartmentId) {
+              uiState.realizationDepartmentId = safeText(realizationControls.elements.analysisDepartmentId.value);
+              uiState.realizationOfficeId = "";
+            }
+            uiState.realizationClientId = "";
+            uiState.realizationProjectId = "";
           }
           renderAnalyticsPage(options);
         });
@@ -2288,11 +2319,13 @@
             uiState.realizationDepartmentId = "";
             uiState.realizationClientId = "";
             uiState.realizationProjectId = "";
+            uiState.realizationAnalysisMode = departmentFirst ? "departments_company" : "offices_company";
           } else if (level === "office") {
-            uiState.realizationDepartmentId = "";
+            if (!departmentFirst) uiState.realizationDepartmentId = "";
             uiState.realizationClientId = "";
             uiState.realizationProjectId = "";
           } else if (level === "department") {
+            if (departmentFirst) uiState.realizationOfficeId = "";
             uiState.realizationClientId = "";
             uiState.realizationProjectId = "";
           } else if (level === "client") {
@@ -2314,11 +2347,18 @@
         if (!id || id === "unassigned") return;
         if (dimension === "office") {
           uiState.realizationOfficeId = id;
-          uiState.realizationDepartmentId = "";
+          if (uiState.realizationAnalysisMode !== "department_across_offices") {
+            uiState.realizationDepartmentId = "";
+            uiState.realizationAnalysisMode = "departments_within_office";
+          }
           uiState.realizationClientId = "";
           uiState.realizationProjectId = "";
         } else if (dimension === "department") {
           uiState.realizationDepartmentId = id;
+          if (uiState.realizationAnalysisMode !== "departments_within_office") {
+            uiState.realizationOfficeId = "";
+            uiState.realizationAnalysisMode = "department_across_offices";
+          }
           uiState.realizationClientId = "";
           uiState.realizationProjectId = "";
         } else if (dimension === "client") {
@@ -2345,7 +2385,7 @@
       if (realizationOverviewIsTable) renderRealizationOverviewTable(realizationOverviewOptions);
       else renderRealizationPrimaryChart(realizationOverviewOptions);
       const realizationDetailHost = body.querySelector("[data-analytics-realization-trend-host]");
-      renderRealizationPosition({
+      renderRealizationFinancialImpact({
         container: realizationDetailHost,
         actualPct: realizationComputed.kpis.avgRealizationPct,
         targetPct: hasTargetRealization ? targetRealizationPct : null,
