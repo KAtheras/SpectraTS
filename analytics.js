@@ -118,6 +118,26 @@
       .analytics-filters label { display: grid; gap: 4px; min-width: 0; font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
       .analytics-filters select, .analytics-filters input { width: 100%; min-width: 0; min-height: 34px; background: #fff; }
       .analytics-filter-range { min-width: 0; }
+      .analytics-realization-filters {
+        grid-template-columns: repeat(auto-fit, minmax(150px, 190px));
+        justify-content: start;
+        column-gap: 10px;
+      }
+      .analytics-realization-filters .analytics-filter-range { min-width: 220px; }
+      .analytics-realization-path {
+        justify-content: flex-start;
+        gap: 10px;
+        min-height: 48px;
+        margin: 2px 0 10px;
+        padding: 6px 2px;
+        font-size: .9rem;
+      }
+      .analytics-realization-path > span:first-child {
+        color: var(--muted);
+        font-size: .78rem;
+        text-transform: uppercase;
+        letter-spacing: .05em;
+      }
       .analytics-kpis { display: grid; grid-template-columns: repeat(5, minmax(140px, 1fr)); gap: 10px; }
       .analytics-kpi {
         border: 1px solid var(--line);
@@ -385,6 +405,8 @@
       @media (max-width: 640px) {
         .analytics-util-filters { grid-template-columns: minmax(0, 1fr); }
         .analytics-realization-controls { grid-template-columns: minmax(0, 1fr); }
+        .analytics-realization-filters { grid-template-columns: minmax(0, 1fr); }
+        .analytics-realization-path { flex-wrap: wrap; }
       }
     `;
     document.head.appendChild(style);
@@ -1881,7 +1903,7 @@
     container.innerHTML = `<div class="analytics-realization-position" data-analytics-realization-position style="height:250px;"></div>
       <div class="analytics-kpis" style="grid-template-columns:repeat(3,minmax(0,1fr));padding:0 12px 12px;">
         <article class="analytics-kpi"><div class="analytics-kpi-label">Revenue</div><div class="analytics-kpi-value">${escapeHtml(formatMoney(options?.actualRevenue))}</div></article>
-        <article class="analytics-kpi"><div class="analytics-kpi-label">Standard Value</div><div class="analytics-kpi-value">${escapeHtml(formatMoney(options?.standardRevenue))}</div></article>
+        <article class="analytics-kpi"><div class="analytics-kpi-label">Target</div><div class="analytics-kpi-value">${escapeHtml(formatMoney(options?.standardRevenue))}</div></article>
         <article class="analytics-kpi"><div class="analytics-kpi-label">Dollar Variance</div><div class="analytics-kpi-value">${escapeHtml(formatMoney(toNumber(options?.actualRevenue) - toNumber(options?.standardRevenue)))}</div></article>
       </div>`;
     const chartEl = container.querySelector("[data-analytics-realization-position]");
@@ -1927,7 +1949,6 @@
           symbol: "none",
           data: [
             ...(target !== null ? [{ xAxis: target, name: "Target", label: { formatter: `${target.toFixed(1)}% target` } }] : []),
-            { xAxis: 100, name: "100%", label: { formatter: "100%" } },
           ],
           lineStyle: { color: analyticsChartColors().target, width: 1.5, type: "dashed" },
           label: { color: analyticsChartColors().target },
@@ -2133,7 +2154,6 @@
       }).join("");
       const isCompanyRealizationContext = !uiState.realizationOfficeId && !uiState.realizationDepartmentId &&
         !uiState.realizationClientId && !uiState.realizationProjectId;
-      const filterColumnCount = 2 + (isCompanyRealizationContext ? 1 : 0) + (uiState.realizationPeriod === "custom" ? 1 : 0);
       const isOpenRealization = uiState.realizationStatus === "open";
       const isCombinedRealization = uiState.realizationStatus === "combined";
       const realizationLabel = isOpenRealization ? "Projected Realization" : isCombinedRealization ? "Portfolio Realization" : "Final Modeled Realization";
@@ -2153,7 +2173,7 @@
           ${subTabsHtml}
           ${appState.analyticsLoading?.realization ? '<p class="analytics-footnote">Refreshing server analytics…</p>' : ""}
           ${appState.analyticsErrors?.realization ? `<p class="feedback error">${escapeHtml(appState.analyticsErrors.realization)}</p>` : ""}
-          <form class="analytics-filters" data-analytics-realization-controls style="grid-template-columns:repeat(${filterColumnCount},minmax(0,1fr));">
+          <form class="analytics-filters analytics-realization-filters" data-analytics-realization-controls>
             <label>
               <span>Project Status</span>
               <select name="statusMode">${renderOptions(REALIZATION_STATUS_OPTIONS, uiState.realizationStatus)}</select>
@@ -2177,8 +2197,8 @@
               <input type="hidden" name="toDate" value="${escapeHtml(periodRange.toDate)}" />`}
           </form>
 
-          <nav class="analytics-chart-head" aria-label="Realization drill path" style="justify-content:flex-start;gap:8px;min-height:36px;">
-            <span style="color:var(--muted);font-size:.78rem;text-transform:uppercase;letter-spacing:.05em;">Viewing</span>
+          <nav class="analytics-chart-head analytics-realization-path" aria-label="Realization drill path">
+            <span>Viewing</span>
             ${realizationBreadcrumbHtml}
           </nav>
 
