@@ -17,7 +17,7 @@
     "profitabilityPeriod", "utilizationPeriod", "utilizationFromDate", "utilizationToDate",
     "utilizationGroupBy", "utilizationOfficeId", "utilizationDepartmentId", "utilizationSelectedKey",
     "utilizationOverviewView", "utilizationDetailView", "utilizationMemberSort", "utilizationMemberTitle",
-    "realizationStatus", "realizationPeriod", "realizationFromDate", "realizationToDate", "realizationScope",
+    "realizationStatus", "realizationScope",
     "realizationScopeId", "realizationOfficeId", "realizationDepartmentId", "realizationClientId", "realizationProjectId", "realizationGroupBy",
     "realizationCompanyGroupBy", "realizationAnalysisMode",
     "realizationGroupByIsManual", "realizationSort", "realizationSelectedKey", "realizationOverviewView",
@@ -124,6 +124,48 @@
         column-gap: 10px;
       }
       .analytics-realization-filters .analytics-filter-range { min-width: 220px; }
+      .analytics-realization-status {
+        display: grid;
+        gap: 4px;
+        min-width: 0;
+        margin: 0;
+        padding: 0;
+        border: 0;
+      }
+      .analytics-realization-status legend {
+        margin: 0 0 4px;
+        padding: 0;
+        color: var(--muted);
+        font-size: .72rem;
+        letter-spacing: .04em;
+        text-transform: uppercase;
+      }
+      .analytics-realization-status-options {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        min-height: 34px;
+        overflow: hidden;
+        border: 1px solid var(--panel-border);
+        border-radius: 9px;
+        background: var(--surface);
+      }
+      .analytics-realization-status-options label {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 34px;
+        padding: 6px 12px;
+        color: var(--muted);
+        font-size: .82rem;
+        font-weight: 620;
+        letter-spacing: 0;
+        text-transform: none;
+        cursor: pointer;
+      }
+      .analytics-realization-status-options label + label { border-left: 1px solid var(--panel-border); }
+      .analytics-realization-status-options label.is-active { background: var(--accent); color: #fff; }
+      .analytics-realization-status-options input { position: absolute; opacity: 0; pointer-events: none; }
+      .analytics-realization-status-options label:focus-within { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent) 55%, transparent); }
       .analytics-realization-path {
         justify-content: flex-start !important;
         gap: 10px;
@@ -579,11 +621,9 @@
     { id: "low_to_high", name: "Low → High" },
   ];
   const UTILIZATION_MEMBER_TITLE_ALL = "__all_titles__";
-  const REALIZATION_PERIODS = UTILIZATION_PERIOD_OPTIONS;
   const REALIZATION_STATUS_OPTIONS = [
-    { id: "open", name: "Open — Forecast" },
-    { id: "closed", name: "Closed — Final Modeled" },
-    { id: "combined", name: "Combined — Portfolio Outlook" },
+    { id: "open", name: "Ongoing" },
+    { id: "closed", name: "Completed" },
   ];
   const REALIZATION_SCOPE_OPTIONS = ["company", "office", "department"];
   const REALIZATION_GROUP_BY_OPTIONS = [
@@ -740,11 +780,6 @@
     return { fromDate: toIsoDate(startOfMonth(todayDate)), toDate: toIsoDate(endOfMonth(todayDate)) };
   }
 
-  function normalizeRealizationPeriod(value) {
-    const key = safeText(value).toLowerCase();
-    return REALIZATION_PERIODS.some((item) => item.id === key) ? key : "this_month";
-  }
-
   function normalizeRealizationScope(value) {
     const key = safeText(value).toLowerCase();
     return REALIZATION_SCOPE_OPTIONS.includes(key) ? key : "company";
@@ -780,10 +815,6 @@
 
   function nextRealizationSort(current) {
     return normalizeRealizationSort(current) === "high_to_low" ? "low_to_high" : "high_to_low";
-  }
-
-  function realizationPeriodRange(periodId, nowDate) {
-    return utilizationPeriodRange(periodId, nowDate);
   }
 
   function sortRealizationRows(rows, sortOrder) {
@@ -978,10 +1009,6 @@
       utilizationMemberSort: "high_to_low",
       utilizationMemberTitle: UTILIZATION_MEMBER_TITLE_ALL,
       realizationStatus: "open",
-      realizationPeriod: "ytd",
-      realizationFromDate: "",
-      realizationToDate: "",
-      realizationOpenCustomPicker: false,
       realizationScope: "company",
       realizationScopeId: "",
       realizationClientId: "",
@@ -2010,7 +2037,6 @@
 
     if (uiState.activeTab === ANALYTICS_SUB_TAB_REALIZATION) {
       uiState.realizationStatus = normalizeRealizationStatus(uiState.realizationStatus);
-      uiState.realizationPeriod = normalizeRealizationPeriod(uiState.realizationPeriod);
       uiState.realizationSort = normalizeRealizationSort(uiState.realizationSort);
       const scopeOptions = engine.listScopeOptions({
         offices: appState.officeLocations,
@@ -2076,14 +2102,9 @@
       } else if (uiState.realizationAnalysisMode === "departments_within_office" && !uiState.realizationOfficeId) {
         uiState.realizationOfficeId = safeText(scopeOptions.offices[0]?.id);
       }
-      if (uiState.realizationPeriod !== "custom") {
-        const presetRange = realizationPeriodRange(uiState.realizationPeriod, new Date());
-        uiState.realizationFromDate = presetRange.fromDate;
-        uiState.realizationToDate = presetRange.toDate;
-      }
       const periodRange = {
-        fromDate: uiState.realizationFromDate,
-        toDate: uiState.realizationToDate,
+        fromDate: "1900-01-01",
+        toDate: toIsoDate(new Date()),
       };
       const clientProjectOptions = engine.listClientProjectOptions({
         clients: profitabilityData.clients,
@@ -2131,7 +2152,7 @@
       const realizationFilters = {
         fromDate: periodRange.fromDate,
         toDate: periodRange.toDate,
-        period: uiState.realizationPeriod,
+        period: "all_time",
         groupBy: uiState.realizationGroupBy,
         officeId: uiState.realizationOfficeId,
         departmentId: uiState.realizationDepartmentId,
@@ -2215,9 +2236,10 @@
       const realizationBreadcrumbHtml = realizationPath.map((item, index) => {
         const current = index === realizationPath.length - 1;
         const locked = index < lockedPathLength;
-        return `${index ? '<span aria-hidden="true">›</span>' : ""}${current || locked
-          ? `<strong>${escapeHtml(item.name)}</strong>`
-          : `<button type="button" class="analytics-view-toggle" data-realization-breadcrumb-level="${escapeHtml(item.level)}" title="Return to ${escapeHtml(item.name)} and clear deeper selections">${escapeHtml(item.name)}<span class="analytics-realization-path-clear" aria-hidden="true">×</span></button>`}`;
+        const removable = !locked && (!current || item.level === "project");
+        return `${index ? '<span aria-hidden="true">›</span>' : ""}${removable
+          ? `<button type="button" class="analytics-view-toggle" data-realization-breadcrumb-level="${escapeHtml(item.level)}" title="${current ? "Clear" : "Return to"} ${escapeHtml(item.name)}${current ? " selection" : " and clear deeper selections"}">${escapeHtml(item.name)}<span class="analytics-realization-path-clear" aria-hidden="true">×</span></button>`
+          : `<strong>${escapeHtml(item.name)}</strong>`}`;
       }).join("");
       const departmentScopeOptions = authorizedDepartmentPairs.map((pair) => {
         const officeName = scopeOptions.offices.find((item) => safeText(item?.id) === pair.officeId)?.name || "Office";
@@ -2239,7 +2261,7 @@
             ? `<label><span>Office / Department</span><select name="analysisDepartmentScope">${renderOptions(departmentScopeOptions, `${uiState.realizationOfficeId}::${uiState.realizationDepartmentId}`)}</select></label>`
           : "";
       const hasAnalysisSubject = Boolean(analysisSubjectHtml);
-      const filterColumnCount = 3 + (hasAnalysisSubject ? 1 : 0) + (uiState.realizationPeriod === "custom" ? 1 : 0);
+      const filterColumnCount = 2 + (hasAnalysisSubject ? 1 : 0);
       const realizationQuestion = uiState.realizationAnalysisMode === "department_across_offices"
         ? `Comparing ${selectedDepartmentItem?.name || "the selected department"} across offices`
         : uiState.realizationAnalysisMode === "departments_within_office"
@@ -2252,9 +2274,8 @@
             ? "Comparing departments across the company"
             : "Comparing offices across the company";
       const isOpenRealization = uiState.realizationStatus === "open";
-      const isCombinedRealization = uiState.realizationStatus === "combined";
-      const realizationLabel = isOpenRealization ? "Projected Realization" : isCombinedRealization ? "Portfolio Realization" : "Final Modeled Realization";
-      const revenueLabel = isOpenRealization ? "Revenue at Completion" : isCombinedRealization ? "Portfolio Revenue" : "Modeled Final Revenue";
+      const realizationLabel = isOpenRealization ? "Projected Realization" : "Final Modeled Realization";
+      const revenueLabel = isOpenRealization ? "Revenue at Completion" : "Modeled Final Revenue";
       const targetRealizationPct = Number.isFinite(realizationComputed.kpis.targetRealizationPct)
         ? Number(realizationComputed.kpis.targetRealizationPct)
         : null;
@@ -2271,25 +2292,17 @@
           ${appState.analyticsLoading?.realization ? '<p class="analytics-footnote">Refreshing server analytics…</p>' : ""}
           ${appState.analyticsErrors?.realization ? `<p class="feedback error">${escapeHtml(appState.analyticsErrors.realization)}</p>` : ""}
           <form class="analytics-filters analytics-realization-filters" data-analytics-realization-controls style="--realization-filter-columns:${filterColumnCount};">
-            <label>
-              <span>Project Status</span>
-              <select name="statusMode">${renderOptions(REALIZATION_STATUS_OPTIONS, uiState.realizationStatus)}</select>
-            </label>
-            <label>
-              <span>Period</span>
-              <select name="period">${renderOptions(REALIZATION_PERIODS, uiState.realizationPeriod)}</select>
-            </label>
+            <fieldset class="analytics-realization-status">
+              <legend>Projects</legend>
+              <div class="analytics-realization-status-options">
+                ${REALIZATION_STATUS_OPTIONS.map((item) => `<label class="${item.id === uiState.realizationStatus ? "is-active" : ""}"><input type="radio" name="statusMode" value="${escapeHtml(item.id)}" ${item.id === uiState.realizationStatus ? "checked" : ""} />${escapeHtml(item.name)}</label>`).join("")}
+              </div>
+            </fieldset>
             <label>
               <span>What would you like to compare?</span>
               <select name="analysisMode" ${hasCompanyAnalytics ? "" : "disabled"}>${renderOptions(availableAnalysisOptions, uiState.realizationAnalysisMode)}</select>
             </label>
             ${analysisSubjectHtml}
-            ${uiState.realizationPeriod === "custom" ? `<label class="analytics-filter-range">
-              <span>Date range</span><input type="text" name="dateRange" readonly autocomplete="off" />
-              <input type="hidden" name="fromDate" value="${escapeHtml(periodRange.fromDate)}" />
-              <input type="hidden" name="toDate" value="${escapeHtml(periodRange.toDate)}" />
-            </label>` : `<input type="hidden" name="fromDate" value="${escapeHtml(periodRange.fromDate)}" />
-              <input type="hidden" name="toDate" value="${escapeHtml(periodRange.toDate)}" />`}
           </form>
 
           <nav class="analytics-chart-head analytics-realization-path" aria-label="Realization drill path">
@@ -2303,7 +2316,7 @@
             <article class="analytics-kpi"><div class="analytics-kpi-label">Target Realization %</div><div class="analytics-kpi-value">${escapeHtml(formatPercent(hasTargetRealization ? targetRealizationPct : null))}</div></article>
             <article class="analytics-kpi"><div class="analytics-kpi-label">Variance to Target</div><div class="analytics-kpi-value">${escapeHtml(formatPercentagePoints(realizationVariancePp))}</div></article>
             <article class="analytics-kpi"><div class="analytics-kpi-label">Projects Below Target</div><div class="analytics-kpi-value">${escapeHtml(String(realizationComputed.kpis.belowTargetProjectCount || 0))}</div></article>
-            <article class="analytics-kpi"><div class="analytics-kpi-label">${isOpenRealization ? "Open Projects" : isCombinedRealization ? "Portfolio Projects" : "Closed Projects"}</div><div class="analytics-kpi-value">${escapeHtml(String(realizationComputed.kpis.projectCount || 0))}</div></article>
+            <article class="analytics-kpi"><div class="analytics-kpi-label">${isOpenRealization ? "Ongoing Projects" : "Completed Projects"}</div><div class="analytics-kpi-value">${escapeHtml(String(realizationComputed.kpis.projectCount || 0))}</div></article>
           </section>
 
           <section class="analytics-util-shared-legend" aria-label="Realization legend">
@@ -2329,27 +2342,13 @@
             </article>
           </section>
 
-          <p class="analytics-footnote">Target weighting: each project uses its project-specific realization target when configured; otherwise it uses the target for that project's office and department. Aggregate company, office, department, and client targets are weighted by each included project's standard value. Target revenue equals standard value × the weighted target percentage. Open forecasts use planned member budgets first, then percent complete, project budget, or actual-to-date as fallbacks. ${escapeHtml(String(realizationComputed.kpis.limitedForecastCount || 0))} project(s) currently use a limited forecast. Closed projects use full-lifetime activity. Revenue is modeled—not invoiced or collected revenue.</p>
+          <p class="analytics-footnote">Target weighting: each project uses its project-specific realization target when configured; otherwise it uses the target for that project's office and department. Aggregate company, office, department, and client targets are weighted by each included project's standard value. Target revenue equals standard value × the weighted target percentage. Ongoing project forecasts use planned member budgets first, then percent complete, project budget, or actual-to-date as fallbacks. ${escapeHtml(String(realizationComputed.kpis.limitedForecastCount || 0))} project(s) currently use a limited forecast. Completed projects use full-lifetime activity. Revenue is modeled—not invoiced or collected revenue.</p>
         </div>
       `;
       bindAnalyticsSubTabEvents(body, uiState, options);
       const realizationControls = body.querySelector("[data-analytics-realization-controls]");
       if (realizationControls) {
-        wireAnalyticsDateRangePicker(realizationControls, uiState.realizationOpenCustomPicker);
-        uiState.realizationOpenCustomPicker = false;
         realizationControls.addEventListener("change", (event) => {
-          const previousPeriod = uiState.realizationPeriod;
-          const nextPeriod = normalizeRealizationPeriod(realizationControls.elements.period?.value);
-          if (nextPeriod === "custom") {
-            const fallback = previousPeriod === "custom" ? periodRange : realizationPeriodRange(previousPeriod, new Date());
-            uiState.realizationFromDate = safeText(realizationControls.elements.fromDate?.dataset?.dpCanonical || realizationControls.elements.fromDate?.value || fallback.fromDate);
-            uiState.realizationToDate = safeText(realizationControls.elements.toDate?.dataset?.dpCanonical || realizationControls.elements.toDate?.value || fallback.toDate);
-          }
-          if (nextPeriod === "custom" && previousPeriod !== "custom") uiState.realizationOpenCustomPicker = true;
-          if (previousPeriod === "custom" && nextPeriod !== "custom" && typeof window.datePicker?.close === "function") {
-            window.datePicker.close();
-          }
-          uiState.realizationPeriod = nextPeriod;
           uiState.realizationStatus = normalizeRealizationStatus(realizationControls.elements.statusMode?.value);
           const nextAnalysisMode = safeText(realizationControls.elements.analysisMode?.value);
           if (nextAnalysisMode && nextAnalysisMode !== uiState.realizationAnalysisMode) {
@@ -2406,6 +2405,8 @@
             uiState.realizationClientId = "";
             uiState.realizationProjectId = "";
           } else if (level === "client") {
+            uiState.realizationProjectId = "";
+          } else if (level === "project") {
             uiState.realizationProjectId = "";
           }
           uiState.realizationSelectedKey = "";

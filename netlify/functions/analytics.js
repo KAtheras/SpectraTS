@@ -50,7 +50,7 @@ function parseQuery(query = {}) {
     departmentId: String(query.departmentId || "").trim(),
     memberId: String(query.memberId || "").trim(),
     memberTitle: String(query.memberTitle || "").trim(),
-    statusMode: ["open", "closed", "combined"].includes(query.statusMode) ? query.statusMode : "open",
+    statusMode: ["open", "closed"].includes(query.statusMode) ? query.statusMode : "open",
     authorityLens: ["company", "office", "department", "projects"].includes(query.authorityLens)
       ? query.authorityLens
       : "company",

@@ -1848,7 +1848,12 @@
         const nextId = String(option.dataset.projectLeadOptionId || "").trim();
         setLeadSelectionById(nextId);
         closeLeadMenu();
-        leadSearchInput?.focus();
+      };
+      const onLeadMenuPointerDown = (event) => {
+        if (!event.target.closest("[data-project-lead-option-id]")) return;
+        // Keep the search input from blurring and restoring the previous lead
+        // before the option's click handler commits the new selection.
+        event.preventDefault();
       };
       const onLeadToggleClick = (event) => {
         event.preventDefault();
@@ -2087,6 +2092,7 @@
       leadSearchInput?.addEventListener("change", onLeadSearchInput);
       leadSearchInput?.addEventListener("focus", onLeadSearchFocus);
       leadSearchInput?.addEventListener("blur", onLeadSearchBlur);
+      leadMenu?.addEventListener("mousedown", onLeadMenuPointerDown);
       leadMenu?.addEventListener("click", onLeadMenuClick);
       leadToggleButton?.addEventListener("click", onLeadToggleClick);
       document.addEventListener("mousedown", onLeadComboboxOutsidePointer);
@@ -2126,6 +2132,7 @@
         leadSearchInput?.removeEventListener("change", onLeadSearchInput);
         leadSearchInput?.removeEventListener("focus", onLeadSearchFocus);
         leadSearchInput?.removeEventListener("blur", onLeadSearchBlur);
+        leadMenu?.removeEventListener("mousedown", onLeadMenuPointerDown);
         leadMenu?.removeEventListener("click", onLeadMenuClick);
         leadToggleButton?.removeEventListener("click", onLeadToggleClick);
         document.removeEventListener("mousedown", onLeadComboboxOutsidePointer);

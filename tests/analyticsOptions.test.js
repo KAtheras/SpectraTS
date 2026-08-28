@@ -187,6 +187,7 @@ const realization = engineWindow.analyticsEngine.computeRealizationAnalytics({
     fromDate: "2026-08-01",
     toDate: "2026-08-31",
     groupBy: "project",
+    statusMode: "closed",
   },
 });
 
@@ -202,18 +203,18 @@ assert.deepStrictEqual(
   [1000, 1000, 2000]
 );
 
-const excludedRealization = engineWindow.analyticsEngine.computeRealizationAnalytics({
+const completedRealization = engineWindow.analyticsEngine.computeRealizationAnalytics({
   clients: [{ id: "c1", name: "Alpha" }],
   projects: [{ id: "p1", clientId: "c1", name: "Fixed Project", isActive: false, contractAmount: 1500 }],
   users: [{ id: "u1", baseRate: 100 }],
   entries: [{ projectId: "p1", userId: "u1", date: "2026-07-31", hours: 10 }],
   expenses: [],
-  filters: { fromDate: "2026-08-01", toDate: "2026-08-31", groupBy: "project" },
+  filters: { fromDate: "2026-08-01", toDate: "2026-08-31", groupBy: "project", statusMode: "closed" },
 });
-assert.strictEqual(excludedRealization.kpis.projectCount, 0);
-assert.strictEqual(excludedRealization.rows.length, 0);
+assert.strictEqual(completedRealization.kpis.projectCount, 1);
+assert.strictEqual(completedRealization.rows.length, 1);
 
-console.log("✔ realization uses completion-period cohorts with lifetime project economics");
+console.log("✔ realization includes completed projects regardless of activity period");
 
 const openForecast = engineWindow.analyticsEngine.computeRealizationAnalytics({
   clients: [{ id: "c1", name: "Alpha" }],
@@ -228,7 +229,7 @@ const openForecast = engineWindow.analyticsEngine.computeRealizationAnalytics({
     planningStatus: "approved",
   }],
   users: [{ id: "u1", baseRate: 100 }],
-  entries: [{ projectId: "p-open", userId: "u1", date: "2026-08-10", hours: 5 }],
+  entries: [{ projectId: "p-open", userId: "u1", date: "2025-08-10", hours: 5 }],
   expenses: [],
   projectMemberBudgets: [{ projectId: "p-open", userId: "u1", budgetHours: 10 }],
   filters: {
@@ -244,4 +245,4 @@ assert.strictEqual(openForecast.kpis.avgRealizationPct, 100);
 assert.strictEqual(openForecast.kpis.projectCount, 1);
 assert.strictEqual(openForecast.kpis.limitedForecastCount, 0);
 
-console.log("✔ open realization forecasts completion economics from project plans");
+console.log("✔ ongoing realization includes every open project and forecasts completion economics");

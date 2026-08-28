@@ -20,6 +20,10 @@ function isClosed(project) {
   return ["completed", "inactive", "deactivated"].includes(text(project?.status || project?.projectStatus).toLowerCase());
 }
 
+function matchesProjectStatus(project, statusMode) {
+  return statusMode === "closed" ? isClosed(project) : !isClosed(project);
+}
+
 function realization(actual, standard) {
   return standard > 0 ? (actual / standard) * 100 : null;
 }
@@ -90,6 +94,7 @@ async function buildRealizationResult(sql, details) {
   const safeTitleUserIds = titleUserIds.length ? titleUserIds : ["__none__"];
   const clientId = /^\d+$/.test(filters.clientId) ? filters.clientId : "0";
   const projectId = /^\d+$/.test(filters.projectId) ? filters.projectId : "0";
+  const clientsById = new Map((shell.clients || []).map((client) => [text(client.id), client]));
 
   const activityRows = await sql`
     WITH activity AS (
@@ -121,21 +126,21 @@ async function buildRealizationResult(sql, details) {
         AND (${filters.clientId} = '' OR c.id = ${clientId}::bigint)
         AND (${filters.projectId} = '' OR p.id = ${projectId}::bigint)
     )
-    SELECT project_id AS "projectId", TO_CHAR(MAX(activity_date), 'YYYY-MM-DD') AS "lastActivity",
-      BOOL_OR(activity_date BETWEEN ${filters.from}::date AND ${filters.to}::date) AS "hasPeriodActivity"
+    SELECT project_id AS "projectId", TO_CHAR(MAX(activity_date), 'YYYY-MM-DD') AS "lastActivity"
     FROM activity GROUP BY project_id
   `;
   const activityByProject = new Map(activityRows.map((row) => [text(row.projectId), row]));
   const projects = (shell.projects || []).filter((project) => {
     const id = text(project.id);
-    const activity = activityByProject.get(id);
-    if (!activity) return false;
-    const closed = isClosed(project);
-    const closedEligible = closed && activity.lastActivity >= filters.from && activity.lastActivity <= filters.to;
-    const openEligible = !closed && activity.hasPeriodActivity === true;
-    if (filters.statusMode === "closed") return closedEligible;
-    if (filters.statusMode === "open") return openEligible;
-    return closedEligible || openEligible;
+    if (!matchesProjectStatus(project, filters.statusMode)) return false;
+    if (filters.projectId && id !== text(filters.projectId)) return false;
+    if (filters.clientId && text(project.clientId || project.client_id) !== text(filters.clientId)) return false;
+    const client = clientsById.get(text(project.clientId || project.client_id)) || {};
+    const projectOfficeId = text(project.officeId || project.office_id || client.officeId || client.office_id);
+    if (officeId && projectOfficeId !== officeId) return false;
+    const projectDepartmentId = text(project.projectDepartmentId || project.project_department_id);
+    if (departmentId && projectDepartmentId !== departmentId) return false;
+    return true;
   });
   const eligibleIds = projects.map((project) => Number(project.id)).filter(Number.isFinite);
   if (!eligibleIds.length) {
@@ -221,7 +226,8 @@ async function buildRealizationResult(sql, details) {
     const samples = metricsByProject.get(id) || [];
     let actual = samples.reduce((sum, row) => sum + row.actual, 0);
     let standard = samples.reduce((sum, row) => sum + row.standard, 0);
-    const lastMonth = samples.at(-1)?.month || `${activityByProject.get(id)?.lastActivity?.slice(0, 7)}-01`;
+    const lastActivity = text(activityByProject.get(id)?.lastActivity);
+    const lastMonth = samples.at(-1)?.month || (lastActivity ? `${lastActivity.slice(0, 7)}-01` : `${filters.to.slice(0, 7)}-01`);
     if (text(project.pricingModel || project.pricing_model).toLowerCase() !== "time_and_materials") {
       actual += number(project.contractAmount ?? project.contract_amount);
       if (actual) samples.push({ month: lastMonth, actual: number(project.contractAmount ?? project.contract_amount), standard: 0 });
@@ -306,4 +312,4 @@ async function buildRealizationResult(sql, details) {
   };
 }
 
-module.exports = { buildRealizationResult, isClosed, monthRange, projectTargetRealization, realization };
+module.exports = { buildRealizationResult, isClosed, matchesProjectStatus, monthRange, projectTargetRealization, realization };

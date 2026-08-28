@@ -1006,9 +1006,9 @@
     const projectFilterId = safeText(filters?.projectId);
     const memberFilterId = safeText(filters?.memberId);
     const titleFilter = safeText(filters?.memberTitle).toLowerCase();
-    const statusMode = ["open", "closed", "combined"].includes(safeText(filters?.statusMode).toLowerCase())
+    const statusMode = ["open", "closed"].includes(safeText(filters?.statusMode).toLowerCase())
       ? safeText(filters.statusMode).toLowerCase()
-      : "closed";
+      : "open";
 
     const usersById = buildUserIndex(users);
     const usersByUniqueName = buildUniqueUserNameIndex(users);
@@ -1032,24 +1032,8 @@
     const totals = { actualRevenue: 0, standardRevenue: 0 };
     const fixedProjectActivity = new Map();
     const includedProjectIds = new Set();
-    const lastActivityByProject = new Map();
-    const activityInPeriodProjectIds = new Set();
     const projectActuals = new Map();
     const forecastQualityByProject = new Map();
-
-    // Projects do not currently store a completion date. Treat their final recorded
-    // activity as the completion-period proxy, then calculate the selected cohort
-    // using full-lifetime economics rather than partial-period economics.
-    [...entries, ...expenses].forEach((record) => {
-      if (!record || isDeletedRecord(record)) return;
-      const project = resolveProjectForRecord(record, projectIndex);
-      const projectId = safeText(project?.id || record?.projectId || record?.project_id);
-      const date = entryDate(record) || expenseDate(record);
-      if (!projectId || !date) return;
-      if (inDateRange(date, fromDate, toDate)) activityInPeriodProjectIds.add(projectId);
-      const previous = lastActivityByProject.get(projectId) || "";
-      if (!previous || date > previous) lastActivityByProject.set(projectId, date);
-    });
 
     const projectIsInCohort = (project) => {
       const projectId = safeText(project?.id);
@@ -1057,11 +1041,7 @@
       if (projectFilterId && projectId !== projectFilterId) return false;
       if (clientFilterId && safeText(project?.clientId || project?.client_id) !== clientFilterId) return false;
       const closed = isCompletedProject(project);
-      const closedEligible = closed && inDateRange(lastActivityByProject.get(projectId), fromDate, toDate);
-      const openEligible = !closed && activityInPeriodProjectIds.has(projectId);
-      if (statusMode === "closed") return closedEligible;
-      if (statusMode === "open") return openEligible;
-      return closedEligible || openEligible;
+      return statusMode === "closed" ? closed : !closed;
     };
 
     const trackProjectMetric = (rowContext, monthKey, actualRevenue, standardRevenue) => {
