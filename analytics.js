@@ -598,6 +598,10 @@
     { id: "department_across_offices", name: "One department across offices" },
     { id: "departments_within_office", name: "Departments within one office" },
   ];
+  const REALIZATION_RESTRICTED_ANALYSIS = {
+    department: { id: "clients_within_department", name: "Clients within your department" },
+    projects: { id: "projects_led", name: "Projects you lead" },
+  };
   const REALIZATION_SORT_OPTIONS = [
     { id: "high_to_low", name: "High → Low" },
     { id: "low_to_high", name: "Low → High" },
@@ -1931,16 +1935,22 @@
   function renderRealizationFinancialImpact(options) {
     const container = options?.container;
     if (!container) return;
-    const variance = toNumber(options?.actualRevenue) - toNumber(options?.standardRevenue);
+    const targetPct = Number.isFinite(options?.targetPct) ? Number(options.targetPct) : null;
+    const targetRevenue = targetPct === null
+      ? null
+      : toNumber(options?.standardRevenue) * (targetPct / 100);
+    const variance = targetRevenue === null
+      ? null
+      : toNumber(options?.actualRevenue) - targetRevenue;
     container.innerHTML = `<div style="display:grid;gap:18px;padding:42px 18px 18px;">
       <div style="text-align:center;padding:28px 12px;">
         <div class="analytics-kpi-label">Dollar Variance to Target</div>
-        <div class="analytics-kpi-value" style="font-size:2rem;">${escapeHtml(formatMoney(variance))}</div>
+        <div class="analytics-kpi-value" style="font-size:2rem;">${escapeHtml(variance === null ? "—" : formatMoney(variance))}</div>
         <div class="analytics-footnote" style="margin-top:8px;">Revenue compared with target value for the current view</div>
       </div>
       <div class="analytics-kpis" style="grid-template-columns:repeat(2,minmax(0,1fr));">
         <article class="analytics-kpi"><div class="analytics-kpi-label">Revenue</div><div class="analytics-kpi-value">${escapeHtml(formatMoney(options?.actualRevenue))}</div></article>
-        <article class="analytics-kpi"><div class="analytics-kpi-label">Target</div><div class="analytics-kpi-value">${escapeHtml(formatMoney(options?.standardRevenue))}</div></article>
+        <article class="analytics-kpi"><div class="analytics-kpi-label">Target Revenue</div><div class="analytics-kpi-value">${escapeHtml(targetRevenue === null ? "—" : formatMoney(targetRevenue))}</div></article>
       </div>
     </div>`;
   }
@@ -2006,6 +2016,15 @@
         offices: appState.officeLocations,
         departments: appState.departments,
       });
+      const analyticsAuthority = appState.analyticsAuthority || {};
+      const hasCompanyAnalytics = analyticsAuthority.all === true;
+      const authorizedOfficeIds = new Set((analyticsAuthority.officeIds || []).map(safeText).filter(Boolean));
+      const authorizedDepartmentPairs = (analyticsAuthority.officeDepartments || [])
+        .map((item) => ({ officeId: safeText(item?.officeId), departmentId: safeText(item?.departmentId) }))
+        .filter((item) => item.officeId && item.departmentId);
+      const authorizedOfficeOptions = hasCompanyAnalytics
+        ? scopeOptions.offices
+        : scopeOptions.offices.filter((item) => authorizedOfficeIds.has(safeText(item?.id)));
       if (!uiState.realizationOfficeId && uiState.realizationScope === "office") {
         uiState.realizationOfficeId = safeText(uiState.realizationScopeId);
       }
@@ -2025,7 +2044,23 @@
         uiState.realizationClientId = "";
         uiState.realizationProjectId = "";
       }
-      if (!REALIZATION_ANALYSIS_OPTIONS.some((item) => item.id === uiState.realizationAnalysisMode)) {
+      if (!hasCompanyAnalytics && authorizedOfficeOptions.length) {
+        uiState.realizationAnalysisMode = "departments_within_office";
+        if (!authorizedOfficeIds.has(safeText(uiState.realizationOfficeId))) {
+          uiState.realizationOfficeId = safeText(authorizedOfficeOptions[0]?.id);
+        }
+      } else if (!hasCompanyAnalytics && authorizedDepartmentPairs.length) {
+        uiState.realizationAnalysisMode = REALIZATION_RESTRICTED_ANALYSIS.department.id;
+        const currentPair = authorizedDepartmentPairs.find((item) =>
+          item.officeId === safeText(uiState.realizationOfficeId) && item.departmentId === safeText(uiState.realizationDepartmentId)
+        ) || authorizedDepartmentPairs[0];
+        uiState.realizationOfficeId = currentPair.officeId;
+        uiState.realizationDepartmentId = currentPair.departmentId;
+      } else if (!hasCompanyAnalytics) {
+        uiState.realizationAnalysisMode = REALIZATION_RESTRICTED_ANALYSIS.projects.id;
+        uiState.realizationOfficeId = "";
+        uiState.realizationDepartmentId = "";
+      } else if (!REALIZATION_ANALYSIS_OPTIONS.some((item) => item.id === uiState.realizationAnalysisMode)) {
         uiState.realizationAnalysisMode = uiState.realizationCompanyGroupBy === "department"
           ? "departments_company"
           : "offices_company";
@@ -2082,7 +2117,9 @@
       }
       uiState.realizationGroupBy = uiState.realizationProjectId || uiState.realizationClientId
         ? "project"
-        : uiState.realizationOfficeId && uiState.realizationDepartmentId
+        : uiState.realizationAnalysisMode === REALIZATION_RESTRICTED_ANALYSIS.projects.id
+          ? "project"
+          : uiState.realizationOfficeId && uiState.realizationDepartmentId
           ? "client"
           : uiState.realizationAnalysisMode === "department_across_offices"
             ? "office"
@@ -2103,6 +2140,13 @@
         clientId: uiState.realizationClientId,
         projectId: uiState.realizationProjectId,
         statusMode: uiState.realizationStatus,
+        authorityLens: hasCompanyAnalytics
+          ? "company"
+          : uiState.realizationAnalysisMode === REALIZATION_RESTRICTED_ANALYSIS.department.id
+            ? "department"
+            : uiState.realizationAnalysisMode === REALIZATION_RESTRICTED_ANALYSIS.projects.id
+              ? "projects"
+              : "office",
       };
       if (typeof options?.loadAnalyticsReport === "function") {
         options.loadAnalyticsReport("realization", realizationFilters);
@@ -2154,22 +2198,45 @@
             ...(selectedDepartmentItem ? [{ level: "department", name: selectedDepartmentItem.name }] : []),
           ];
       const realizationPath = [
-        { level: "company", name: "Company" },
+        ...(hasCompanyAnalytics ? [{ level: "company", name: "Company" }] : []),
+        ...(!hasCompanyAnalytics && uiState.realizationAnalysisMode === REALIZATION_RESTRICTED_ANALYSIS.projects.id
+          ? [{ level: "projects", name: "Projects you lead" }]
+          : []),
         ...organizationPath,
         ...(selectedClientItem ? [{ level: "client", name: selectedClientItem.name }] : []),
         ...(selectedProjectItem ? [{ level: "project", name: selectedProjectItem.name }] : []),
       ];
+      const lockedPathLength = hasCompanyAnalytics
+        ? 0
+        : uiState.realizationAnalysisMode === REALIZATION_RESTRICTED_ANALYSIS.department.id
+          ? 2
+          : 1;
       const realizationContextLabel = realizationPath.at(-1)?.name || "Company";
       const realizationBreadcrumbHtml = realizationPath.map((item, index) => {
         const current = index === realizationPath.length - 1;
-        return `${index ? '<span aria-hidden="true">›</span>' : ""}${current
+        const locked = index < lockedPathLength;
+        return `${index ? '<span aria-hidden="true">›</span>' : ""}${current || locked
           ? `<strong>${escapeHtml(item.name)}</strong>`
           : `<button type="button" class="analytics-view-toggle" data-realization-breadcrumb-level="${escapeHtml(item.level)}" title="Return to ${escapeHtml(item.name)} and clear deeper selections">${escapeHtml(item.name)}<span class="analytics-realization-path-clear" aria-hidden="true">×</span></button>`}`;
       }).join("");
+      const departmentScopeOptions = authorizedDepartmentPairs.map((pair) => {
+        const officeName = scopeOptions.offices.find((item) => safeText(item?.id) === pair.officeId)?.name || "Office";
+        const departmentName = scopeOptions.departments.find((item) => safeText(item?.id) === pair.departmentId)?.name || "Department";
+        return { id: `${pair.officeId}::${pair.departmentId}`, name: `${officeName} — ${departmentName}` };
+      });
+      const availableAnalysisOptions = hasCompanyAnalytics
+        ? REALIZATION_ANALYSIS_OPTIONS
+        : uiState.realizationAnalysisMode === REALIZATION_RESTRICTED_ANALYSIS.department.id
+          ? [REALIZATION_RESTRICTED_ANALYSIS.department]
+          : uiState.realizationAnalysisMode === REALIZATION_RESTRICTED_ANALYSIS.projects.id
+            ? [REALIZATION_RESTRICTED_ANALYSIS.projects]
+            : [{ id: "departments_within_office", name: "Departments within your office" }];
       const analysisSubjectHtml = uiState.realizationAnalysisMode === "department_across_offices"
         ? `<label><span>Department</span><select name="analysisDepartmentId">${renderOptions(scopeOptions.departments, uiState.realizationDepartmentId)}</select></label>`
         : uiState.realizationAnalysisMode === "departments_within_office"
-          ? `<label><span>Office</span><select name="analysisOfficeId">${renderOptions(scopeOptions.offices, uiState.realizationOfficeId)}</select></label>`
+          ? `<label><span>Office</span><select name="analysisOfficeId">${renderOptions(authorizedOfficeOptions, uiState.realizationOfficeId)}</select></label>`
+          : uiState.realizationAnalysisMode === REALIZATION_RESTRICTED_ANALYSIS.department.id && departmentScopeOptions.length > 1
+            ? `<label><span>Office / Department</span><select name="analysisDepartmentScope">${renderOptions(departmentScopeOptions, `${uiState.realizationOfficeId}::${uiState.realizationDepartmentId}`)}</select></label>`
           : "";
       const hasAnalysisSubject = Boolean(analysisSubjectHtml);
       const filterColumnCount = 3 + (hasAnalysisSubject ? 1 : 0) + (uiState.realizationPeriod === "custom" ? 1 : 0);
@@ -2177,6 +2244,10 @@
         ? `Comparing ${selectedDepartmentItem?.name || "the selected department"} across offices`
         : uiState.realizationAnalysisMode === "departments_within_office"
           ? `Comparing departments within ${selectedOfficeItem?.name || "the selected office"}`
+          : uiState.realizationAnalysisMode === REALIZATION_RESTRICTED_ANALYSIS.department.id
+            ? `Viewing clients within ${selectedOfficeItem?.name || "your office"} — ${selectedDepartmentItem?.name || "your department"}`
+            : uiState.realizationAnalysisMode === REALIZATION_RESTRICTED_ANALYSIS.projects.id
+              ? "Viewing projects you lead"
           : uiState.realizationAnalysisMode === "departments_company"
             ? "Comparing departments across the company"
             : "Comparing offices across the company";
@@ -2210,7 +2281,7 @@
             </label>
             <label>
               <span>What would you like to compare?</span>
-              <select name="analysisMode">${renderOptions(REALIZATION_ANALYSIS_OPTIONS, uiState.realizationAnalysisMode)}</select>
+              <select name="analysisMode" ${hasCompanyAnalytics ? "" : "disabled"}>${renderOptions(availableAnalysisOptions, uiState.realizationAnalysisMode)}</select>
             </label>
             ${analysisSubjectHtml}
             ${uiState.realizationPeriod === "custom" ? `<label class="analytics-filter-range">
@@ -2258,7 +2329,7 @@
             </article>
           </section>
 
-          <p class="analytics-footnote">Targets use each project's configured realization target, with its office/department target as the default, and are weighted by standard value. Open forecasts use planned member budgets first, then percent complete, project budget, or actual-to-date as fallbacks. ${escapeHtml(String(realizationComputed.kpis.limitedForecastCount || 0))} project(s) currently use a limited forecast. Closed projects use full-lifetime activity. Revenue is modeled—not invoiced or collected revenue.</p>
+          <p class="analytics-footnote">Target weighting: each project uses its project-specific realization target when configured; otherwise it uses the target for that project's office and department. Aggregate company, office, department, and client targets are weighted by each included project's standard value. Target revenue equals standard value × the weighted target percentage. Open forecasts use planned member budgets first, then percent complete, project budget, or actual-to-date as fallbacks. ${escapeHtml(String(realizationComputed.kpis.limitedForecastCount || 0))} project(s) currently use a limited forecast. Closed projects use full-lifetime activity. Revenue is modeled—not invoiced or collected revenue.</p>
         </div>
       `;
       bindAnalyticsSubTabEvents(body, uiState, options);
@@ -2305,6 +2376,12 @@
               uiState.realizationDepartmentId = safeText(realizationControls.elements.analysisDepartmentId.value);
               uiState.realizationOfficeId = "";
             }
+            uiState.realizationClientId = "";
+            uiState.realizationProjectId = "";
+          } else if (safeText(event?.target?.name) === "analysisDepartmentScope") {
+            const [officeId, departmentId] = safeText(realizationControls.elements.analysisDepartmentScope?.value).split("::");
+            uiState.realizationOfficeId = officeId || "";
+            uiState.realizationDepartmentId = departmentId || "";
             uiState.realizationClientId = "";
             uiState.realizationProjectId = "";
           }

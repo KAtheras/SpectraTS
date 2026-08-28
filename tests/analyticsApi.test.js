@@ -32,9 +32,11 @@ assert.deepStrictEqual(
     memberId: "",
     memberTitle: "",
     statusMode: "open",
+    authorityLens: "company",
   }
 );
 assert.strictEqual(_test.parseQuery({ report: "realization", from: "2026-01-01", to: "2026-08-25", statusMode: "closed" }).statusMode, "closed");
+assert.strictEqual(_test.parseQuery({ report: "realization", from: "2026-01-01", to: "2026-08-25", authorityLens: "department" }).authorityLens, "department");
 for (const groupBy of ["client", "project", "office", "department"]) {
   assert.strictEqual(
     _test.parseQuery({ report: "realization", from: "2026-01-01", to: "2026-08-25", groupBy }).groupBy,

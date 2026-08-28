@@ -51,6 +51,9 @@ function parseQuery(query = {}) {
     memberId: String(query.memberId || "").trim(),
     memberTitle: String(query.memberTitle || "").trim(),
     statusMode: ["open", "closed", "combined"].includes(query.statusMode) ? query.statusMode : "open",
+    authorityLens: ["company", "office", "department", "projects"].includes(query.authorityLens)
+      ? query.authorityLens
+      : "company",
   };
 }
 
@@ -95,12 +98,30 @@ exports.handler = async function handler(event) {
     const accountId = shell.account.id;
     shell.targetRealizations = await listTargetRealizations(sql, accountId);
     const allAnalyticsProjects = await listProjects(sql, accountId);
-    const authorityProjectIdSet = new Set(
-      (analyticsAuthority.projectIds || []).map((id) => String(id))
-    );
-    shell.projects = analyticsAuthority.all
-      ? allAnalyticsProjects
-      : allAnalyticsProjects.filter((project) => authorityProjectIdSet.has(String(project.id)));
+    let authorizedProjectIds = analyticsAuthority.all
+      ? allAnalyticsProjects.map((project) => String(project.id))
+      : (analyticsAuthority.projectIds || []).map(String);
+    if (filters.report === "realization" && !analyticsAuthority.all) {
+      if (filters.authorityLens === "office") {
+        if (!filters.officeId || !(analyticsAuthority.officeIds || []).map(String).includes(filters.officeId)) {
+          return errorResponse(403, "The selected office analytics scope is not authorized.");
+        }
+      } else if (filters.authorityLens === "department") {
+        const allowedPair = (analyticsAuthority.officeDepartments || []).some((item) =>
+          String(item.officeId) === filters.officeId && String(item.departmentId) === filters.departmentId
+        );
+        if (!allowedPair) return errorResponse(403, "The selected department analytics scope is not authorized.");
+      } else if (filters.authorityLens === "projects") {
+        authorizedProjectIds = (analyticsAuthority.directProjectIds || []).map(String);
+        if (filters.projectId && !authorizedProjectIds.includes(filters.projectId)) {
+          return errorResponse(403, "The selected project analytics scope is not authorized.");
+        }
+      } else {
+        return errorResponse(403, "Company-wide analytics access is required.");
+      }
+    }
+    const authorityProjectIdSet = new Set(authorizedProjectIds);
+    shell.projects = allAnalyticsProjects.filter((project) => authorityProjectIdSet.has(String(project.id)));
     const analyticsClientIds = new Set(
       shell.projects.map((project) => String(project.clientId || project.client_id || "")).filter(Boolean)
     );
@@ -112,9 +133,7 @@ exports.handler = async function handler(event) {
         accountId,
         filters,
         shell,
-        visibleProjectIds: analyticsAuthority.all
-          ? (shell.projects || []).map((project) => project.id)
-          : analyticsAuthority.projectIds,
+        visibleProjectIds: (shell.projects || []).map((project) => project.id),
       });
       return json(200, { report: filters.report, filters, data }, {
         "Server-Timing": `app;dur=${Date.now() - startedAt}`,

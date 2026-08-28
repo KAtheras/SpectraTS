@@ -2181,7 +2181,7 @@ async function resolveAnalyticsAuthority(sql, currentUser, permissionIndex) {
   const accountId = normalizeText(currentUser?.accountId || currentUser?.account_id);
   const userId = normalizeText(currentUser?.id);
   if (!accountId || !userId) {
-    return { canAccess: false, all: false, officeIds: [], officeDepartments: [], projectIds: [] };
+    return { canAccess: false, all: false, officeIds: [], officeDepartments: [], directProjectIds: [], projectIds: [] };
   }
   const allowed = (capability) =>
     permissions.can(currentUser, capability, {}, permissionIndex);
@@ -2245,6 +2245,7 @@ async function resolveAnalyticsAuthority(sql, currentUser, permissionIndex) {
     all,
     officeIds,
     officeDepartments,
+    directProjectIds,
     projectIds,
   };
 }

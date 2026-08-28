@@ -3447,6 +3447,7 @@
     analyticsErrorKeys: {},
     analyticsProjects: [],
     analyticsClients: [],
+    analyticsAuthority: null,
     filters: {
       period: "this_month",
       user: "",
@@ -4137,6 +4138,9 @@
     state.analyticsProjects = Array.isArray(data?.analyticsProjects)
       ? normalizeProjects(data.analyticsProjects)
       : [];
+    state.analyticsAuthority = data?.analyticsAuthority && typeof data.analyticsAuthority === "object"
+      ? { ...data.analyticsAuthority }
+      : null;
     if (Array.isArray(data?.entries)) {
       state.entries = data.entries.map(normalizeEntry).filter(Boolean);
     }
@@ -4355,6 +4359,7 @@
     state.projects = [];
     state.analyticsProjects = [];
     state.analyticsClients = [];
+    state.analyticsAuthority = null;
     state.clientEditor = null;
     state.entriesSelectionMode = false;
     state.selectedEntryIds = new Set();
@@ -4808,7 +4813,7 @@
       to: String(filters.toDate || ""),
       scope: String(filters.scope || "company"),
     });
-    ["scopeId", "clientId", "projectId", "period", "groupBy", "officeId", "departmentId", "memberId", "memberTitle", "statusMode"].forEach((key) => {
+    ["scopeId", "clientId", "projectId", "period", "groupBy", "officeId", "departmentId", "memberId", "memberTitle", "statusMode", "authorityLens"].forEach((key) => {
       const value = String(filters[key] || "").trim();
       if (value) params.set(key, value);
     });
@@ -4935,6 +4940,7 @@
         analyticsClients: Array.isArray(payload?.analyticsClients)
           ? payload.analyticsClients
           : state.analyticsClients,
+        analyticsAuthority: payload?.analyticsAuthority ?? state.analyticsAuthority,
         visibleClientIds: Array.isArray(payload?.visibleClientIds)
           ? payload.visibleClientIds
           : state.visibleClientIds,
