@@ -18,7 +18,7 @@
     "utilizationGroupBy", "utilizationOfficeId", "utilizationDepartmentId", "utilizationSelectedKey",
     "utilizationOverviewView", "utilizationDetailView", "utilizationMemberSort", "utilizationMemberTitle",
     "realizationStatus", "realizationPeriod", "realizationFromDate", "realizationToDate", "realizationScope",
-    "realizationScopeId", "realizationClientId", "realizationProjectId", "realizationGroupBy",
+    "realizationScopeId", "realizationOfficeId", "realizationDepartmentId", "realizationClientId", "realizationProjectId", "realizationGroupBy",
     "realizationGroupByIsManual", "realizationSort", "realizationSelectedKey", "realizationOverviewView",
     "realizationDetailView",
   ];
@@ -1870,6 +1870,70 @@
     </table></div>`;
   }
 
+  function renderRealizationPosition(options) {
+    const container = options?.container;
+    if (!container) return;
+    const actual = Number.isFinite(options?.actualPct) ? Number(options.actualPct) : null;
+    const target = Number.isFinite(options?.targetPct) ? Number(options.targetPct) : null;
+    const maxValue = Math.max(100, actual || 0, target || 0) * 1.12;
+    container.innerHTML = `<div class="analytics-realization-position" data-analytics-realization-position style="height:250px;"></div>
+      <div class="analytics-kpis" style="grid-template-columns:repeat(3,minmax(0,1fr));padding:0 12px 12px;">
+        <article class="analytics-kpi"><div class="analytics-kpi-label">Revenue</div><div class="analytics-kpi-value">${escapeHtml(formatMoney(options?.actualRevenue))}</div></article>
+        <article class="analytics-kpi"><div class="analytics-kpi-label">Standard Value</div><div class="analytics-kpi-value">${escapeHtml(formatMoney(options?.standardRevenue))}</div></article>
+        <article class="analytics-kpi"><div class="analytics-kpi-label">Dollar Variance</div><div class="analytics-kpi-value">${escapeHtml(formatMoney(toNumber(options?.actualRevenue) - toNumber(options?.standardRevenue)))}</div></article>
+      </div>`;
+    const chartEl = container.querySelector("[data-analytics-realization-position]");
+    const echarts = window.echarts;
+    if (!chartEl || !echarts || typeof echarts.init !== "function") return;
+    const existing = chartInstanceByContainer.get(container);
+    if (existing?.instance && !existing.instance.isDisposed()) {
+      chartInstances.delete(existing.instance);
+      existing.instance.dispose();
+    }
+    const chart = echarts.init(chartEl);
+    chartInstanceByContainer.set(container, { instance: chart });
+    chartInstances.add(chart);
+    bindChartResize();
+    chart.setOption({
+      animation: false,
+      textStyle: { color: analyticsChartColors().text },
+      grid: { left: 34, right: 34, top: 64, bottom: 42 },
+      tooltip: {
+        trigger: "item",
+        formatter: () => [
+          `Realization: ${formatPercent(actual)}`,
+          `Target: ${formatPercent(target)}`,
+          `Variance: ${formatPercentagePoints(percentagePointVariance(actual, target))}`,
+        ].join("<br/>")
+      },
+      xAxis: {
+        type: "value",
+        min: 0,
+        max: maxValue,
+        axisLabel: { color: analyticsChartColors().text, formatter: (value) => `${Math.round(value)}%` },
+        splitLine: { lineStyle: { color: analyticsChartColors().grid } },
+      },
+      yAxis: { type: "category", data: ["Current"], axisTick: { show: false }, axisLabel: { color: analyticsChartColors().text } },
+      series: [{
+        type: "bar",
+        data: [actual || 0],
+        barWidth: 42,
+        itemStyle: { color: "#2f6fed", borderRadius: [0, 6, 6, 0] },
+        label: { show: true, position: "right", color: analyticsChartColors().strong, fontWeight: 700, formatter: formatPercent(actual) },
+        markLine: {
+          silent: true,
+          symbol: "none",
+          data: [
+            ...(target !== null ? [{ xAxis: target, name: "Target", label: { formatter: `${target.toFixed(1)}% target` } }] : []),
+            { xAxis: 100, name: "100%", label: { formatter: "100%" } },
+          ],
+          lineStyle: { color: analyticsChartColors().target, width: 1.5, type: "dashed" },
+          label: { color: analyticsChartColors().target },
+        },
+      }],
+    });
+  }
+
   function renderAnalyticsPage(options) {
     ensureStyles();
 
@@ -1926,43 +1990,27 @@
     if (uiState.activeTab === ANALYTICS_SUB_TAB_REALIZATION) {
       uiState.realizationStatus = normalizeRealizationStatus(uiState.realizationStatus);
       uiState.realizationPeriod = normalizeRealizationPeriod(uiState.realizationPeriod);
-      uiState.realizationScope = normalizeRealizationScope(uiState.realizationScope);
-      uiState.realizationGroupBy = normalizeRealizationGroupBy(uiState.realizationGroupBy);
       uiState.realizationSort = normalizeRealizationSort(uiState.realizationSort);
       const scopeOptions = engine.listScopeOptions({
         offices: appState.officeLocations,
         departments: appState.departments,
       });
-      const memberScopeOptions = (Array.isArray(appState.users) ? appState.users : [])
-        .map((user) => ({
-          id: safeText(user?.id || user?.userId || user?.user_id),
-          name: safeText(user?.displayName || user?.display_name || user?.username || user?.name),
-        }))
-        .filter((item) => item.id && item.name)
-        .sort((a, b) => a.name.localeCompare(b.name));
-      const titleScopeMap = new Map();
-      (Array.isArray(appState.users) ? appState.users : []).forEach((user) => {
-        const explicitTitle = safeText(user?.profileTitle || user?.member_profile_title || user?.memberProfileTitle || user?.title || user?.jobTitle || user?.job_title || user?.memberTitle || user?.member_title);
-        const level = Number(user?.level);
-        const title = explicitTitle || safeText(appState.levelLabels?.[level]?.label) || "Unassigned";
-        titleScopeMap.set(title.toLowerCase(), { id: title, name: title });
-      });
-      const titleScopeOptions = Array.from(titleScopeMap.values()).sort((a, b) => a.name.localeCompare(b.name));
-      const currentScopeItems = uiState.realizationScope === "office"
-        ? scopeOptions.offices
-        : uiState.realizationScope === "department"
-          ? scopeOptions.departments
-          : uiState.realizationScope === "member"
-            ? memberScopeOptions
-            : uiState.realizationScope === "title"
-              ? titleScopeOptions
-              : [];
-      if (
-        uiState.realizationScope !== "company" &&
-        uiState.realizationScopeId &&
-        !currentScopeItems.some((item) => safeText(item?.id) === safeText(uiState.realizationScopeId))
-      ) {
-        uiState.realizationScopeId = "";
+      if (!uiState.realizationOfficeId && uiState.realizationScope === "office") {
+        uiState.realizationOfficeId = safeText(uiState.realizationScopeId);
+      }
+      if (!uiState.realizationDepartmentId && uiState.realizationScope === "department") {
+        uiState.realizationDepartmentId = safeText(uiState.realizationScopeId);
+      }
+      uiState.realizationScope = "company";
+      uiState.realizationScopeId = "";
+      if (uiState.realizationOfficeId && !scopeOptions.offices.some((item) => safeText(item?.id) === safeText(uiState.realizationOfficeId))) {
+        uiState.realizationOfficeId = "";
+        uiState.realizationDepartmentId = "";
+        uiState.realizationClientId = "";
+        uiState.realizationProjectId = "";
+      }
+      if (uiState.realizationDepartmentId && !scopeOptions.departments.some((item) => safeText(item?.id) === safeText(uiState.realizationDepartmentId))) {
+        uiState.realizationDepartmentId = "";
         uiState.realizationClientId = "";
         uiState.realizationProjectId = "";
       }
@@ -1986,8 +2034,10 @@
         filters: {
           fromDate: periodRange.fromDate,
           toDate: periodRange.toDate,
-          scope: uiState.realizationScope,
-          scopeId: uiState.realizationScopeId,
+          scope: uiState.realizationDepartmentId ? "department" : uiState.realizationOfficeId ? "office" : "company",
+          scopeId: uiState.realizationDepartmentId || uiState.realizationOfficeId,
+          officeId: uiState.realizationOfficeId,
+          departmentId: uiState.realizationDepartmentId,
         },
         levelLabels: appState.levelLabels,
       });
@@ -2003,35 +2053,22 @@
       if (uiState.realizationProjectId && !availableProjectIds.has(uiState.realizationProjectId)) {
         uiState.realizationProjectId = "";
       }
-      if (!uiState.realizationGroupByIsManual && typeof engine.defaultRealizationGroupBy === "function") {
-        const automaticGroupBy = engine.defaultRealizationGroupBy({
-          scope: uiState.realizationScope,
-          clientId: uiState.realizationClientId,
-          projectId: uiState.realizationProjectId,
-        });
-        if (automaticGroupBy !== uiState.realizationGroupBy) {
-          uiState.realizationGroupBy = automaticGroupBy;
-          uiState.realizationSelectedKey = "";
-        }
-      }
-      const realizationCompareOptions = realizationCompareByOptions(
-        uiState.realizationScope,
-        uiState.realizationClientId,
-        uiState.realizationProjectId
-      );
-      if (!realizationCompareOptions.some((item) => item.id === uiState.realizationGroupBy)) {
-        uiState.realizationGroupBy = realizationCompareOptions[0]?.id || "project";
-        uiState.realizationSelectedKey = "";
-      }
+      uiState.realizationGroupBy = uiState.realizationProjectId || uiState.realizationClientId
+        ? "project"
+        : uiState.realizationDepartmentId
+          ? "client"
+          : uiState.realizationOfficeId
+            ? "department"
+            : "office";
       const realizationFilters = {
         fromDate: periodRange.fromDate,
         toDate: periodRange.toDate,
         period: uiState.realizationPeriod,
         groupBy: uiState.realizationGroupBy,
-        officeId: uiState.realizationScope === "office" ? uiState.realizationScopeId : "",
-        departmentId: uiState.realizationScope === "department" ? uiState.realizationScopeId : "",
-        memberId: uiState.realizationScope === "member" ? uiState.realizationScopeId : "",
-        memberTitle: uiState.realizationScope === "title" ? uiState.realizationScopeId : "",
+        officeId: uiState.realizationOfficeId,
+        departmentId: uiState.realizationDepartmentId,
+        memberId: "",
+        memberTitle: "",
         clientId: uiState.realizationClientId,
         projectId: uiState.realizationProjectId,
         statusMode: uiState.realizationStatus,
@@ -2065,70 +2102,35 @@
             })
           : { kpis: {}, rows: [], monthlyByKey: {} });
       const realizationRows = sortRealizationRows(realizationComputed.rows, uiState.realizationSort);
-      const availableKeys = new Set(realizationRows.map((row) => safeText(row?.key)).filter(Boolean));
-      const selectedKey = safeText(uiState.realizationSelectedKey);
-      if (!selectedKey || !availableKeys.has(selectedKey)) {
-        uiState.realizationSelectedKey = safeText(realizationRows[0]?.key);
-      }
-      const selectedRow =
-        realizationRows.find((row) => safeText(row?.key) === safeText(uiState.realizationSelectedKey)) || null;
-      const selectedSeries =
-        selectedRow && realizationComputed.monthlyByKey
-          ? Array.isArray(realizationComputed.monthlyByKey[selectedRow.key])
-            ? realizationComputed.monthlyByKey[selectedRow.key]
-            : []
-          : [];
       const groupByLabel =
         REALIZATION_GROUP_BY_OPTIONS.find((item) => item.id === uiState.realizationGroupBy)?.name || "Client";
-      const scopeItems = uiState.realizationScope === "office"
-        ? scopeOptions.offices
-        : uiState.realizationScope === "department"
-          ? scopeOptions.departments
-          : uiState.realizationScope === "member"
-            ? memberScopeOptions
-            : titleScopeOptions;
-      const scopeLabel = uiState.realizationScope === "office"
-        ? "Office"
-        : uiState.realizationScope === "department"
-          ? "Department"
-          : uiState.realizationScope === "member"
-            ? "Member"
-            : "Title";
-      const selectedScopeItem = scopeItems.find(
-        (item) => safeText(item?.id) === safeText(uiState.realizationScopeId)
-      );
+      const selectedOfficeItem = scopeOptions.offices.find((item) => safeText(item?.id) === safeText(uiState.realizationOfficeId));
+      const selectedDepartmentItem = scopeOptions.departments.find((item) => safeText(item?.id) === safeText(uiState.realizationDepartmentId));
       const selectedClientItem = clientProjectOptions.clients.find(
         (item) => safeText(item?.id) === safeText(uiState.realizationClientId)
       );
       const selectedProjectItem = realizationProjectItems.find(
         (item) => safeText(item?.id) === safeText(uiState.realizationProjectId)
       );
-      const realizationContextLabel = safeText(
-        selectedProjectItem?.name ||
-        selectedClientItem?.name ||
-        selectedScopeItem?.name ||
-        (uiState.realizationScope === "company" ? "Company" : scopeLabel)
-      );
-      const scopeSelectorHtml = uiState.realizationScope === "company" ? "" : `<label>
-        <span>${escapeHtml(scopeLabel)}</span>
-        <select name="scopeId">${renderOptions(scopeItems, uiState.realizationScopeId, "All")}</select>
-      </label>`;
-      const filterColumnCount = 6 + (uiState.realizationPeriod === "custom" ? 1 : 0) +
-        (uiState.realizationScope === "company" ? 0 : 1);
+      const realizationPath = [
+        { level: "company", name: "Company" },
+        ...(selectedOfficeItem ? [{ level: "office", name: selectedOfficeItem.name }] : []),
+        ...(selectedDepartmentItem ? [{ level: "department", name: selectedDepartmentItem.name }] : []),
+        ...(selectedClientItem ? [{ level: "client", name: selectedClientItem.name }] : []),
+        ...(selectedProjectItem ? [{ level: "project", name: selectedProjectItem.name }] : []),
+      ];
+      const realizationContextLabel = realizationPath.at(-1)?.name || "Company";
+      const realizationBreadcrumbHtml = realizationPath.map((item, index) => {
+        const current = index === realizationPath.length - 1;
+        return `${index ? '<span aria-hidden="true">›</span>' : ""}${current
+          ? `<strong>${escapeHtml(item.name)}</strong>`
+          : `<button type="button" class="analytics-view-toggle" data-realization-breadcrumb-level="${escapeHtml(item.level)}">${escapeHtml(item.name)}</button>`}`;
+      }).join("");
+      const filterColumnCount = 2 + (uiState.realizationPeriod === "custom" ? 1 : 0);
       const isOpenRealization = uiState.realizationStatus === "open";
       const isCombinedRealization = uiState.realizationStatus === "combined";
       const realizationLabel = isOpenRealization ? "Projected Realization" : isCombinedRealization ? "Portfolio Realization" : "Final Modeled Realization";
       const revenueLabel = isOpenRealization ? "Revenue at Completion" : isCombinedRealization ? "Portfolio Revenue" : "Modeled Final Revenue";
-      const standardLabel = isOpenRealization ? "Standard Value at Completion" : "Standard Value";
-      const specificContextLabel = safeText(
-        selectedProjectItem?.name || selectedClientItem?.name || selectedScopeItem?.name
-      );
-      const detailContextSuffix = specificContextLabel && specificContextLabel !== safeText(selectedRow?.name)
-        ? ` — ${specificContextLabel}`
-        : "";
-      const selectedDetailTitle = selectedRow
-        ? `${selectedRow.name}${detailContextSuffix}: Realization Trend`
-        : "Selected Item: Realization Trend";
       const targetRealizationPct = Number.isFinite(realizationComputed.kpis.targetRealizationPct)
         ? Number(realizationComputed.kpis.targetRealizationPct)
         : null;
@@ -2138,7 +2140,6 @@
         hasTargetRealization ? targetRealizationPct : null
       );
       const realizationOverviewIsTable = uiState.realizationOverviewView === "table";
-      const realizationDetailIsTable = uiState.realizationDetailView === "table";
 
       body.innerHTML = `
         <div class="analytics-panel" data-analytics-root>
@@ -2160,24 +2161,12 @@
               <input type="hidden" name="toDate" value="${escapeHtml(periodRange.toDate)}" />
             </label>` : `<input type="hidden" name="fromDate" value="${escapeHtml(periodRange.fromDate)}" />
               <input type="hidden" name="toDate" value="${escapeHtml(periodRange.toDate)}" />`}
-            <label>
-              <span>Scope</span><select name="scope">
-                <option value="company" ${uiState.realizationScope === "company" ? "selected" : ""}>Company</option>
-                <option value="office" ${uiState.realizationScope === "office" ? "selected" : ""}>Office</option>
-                <option value="department" ${uiState.realizationScope === "department" ? "selected" : ""}>Department</option>
-              </select>
-            </label>
-            ${scopeSelectorHtml}
-            <label>
-              <span>Client</span><select name="clientId">${renderOptions(clientProjectOptions.clients, uiState.realizationClientId, "All")}</select>
-            </label>
-            <label>
-              <span>Project</span><select name="projectId">${renderOptions(realizationProjectItems, uiState.realizationProjectId, "All")}</select>
-            </label>
-            <label>
-              <span>Compare By</span><select name="groupBy">${renderOptions(realizationCompareOptions, uiState.realizationGroupBy)}</select>
-            </label>
           </form>
+
+          <nav class="analytics-chart-head" aria-label="Realization drill path" style="justify-content:flex-start;gap:8px;min-height:36px;">
+            <span style="color:var(--muted);font-size:.78rem;text-transform:uppercase;letter-spacing:.05em;">Viewing</span>
+            ${realizationBreadcrumbHtml}
+          </nav>
 
           <section class="analytics-kpis">
             <article class="analytics-kpi"><div class="analytics-kpi-label">${escapeHtml(realizationLabel)} %</div><div class="analytics-kpi-value">${escapeHtml(formatPercent(realizationComputed.kpis.avgRealizationPct))}</div></article>
@@ -2194,7 +2183,7 @@
 
           <section class="analytics-util-grid">
             <article class="analytics-util-card">
-              <div class="analytics-chart-head"><strong>${escapeHtml(realizationContextLabel)} Realization by ${escapeHtml(groupByLabel)}</strong>
+              <div class="analytics-chart-head"><strong>${escapeHtml(realizationContextLabel)} Breakdown by ${escapeHtml(groupByLabel)}</strong>
               <span style="display:inline-flex;align-items:center;gap:8px;"><button
                   type="button"
                   data-analytics-realization-sort-toggle
@@ -2205,9 +2194,7 @@
               <div class="analytics-util-left-scroll"><div data-analytics-realization-primary-host></div></div>
             </article>
             <article class="analytics-util-card">
-              <div class="analytics-chart-head"><strong>${escapeHtml(selectedDetailTitle)}</strong>
-                <button type="button" class="analytics-view-toggle" data-analytics-realization-detail-toggle>${realizationDetailIsTable ? "View Chart" : "View Table"}</button>
-              </div>
+              <div class="analytics-chart-head"><strong>${escapeHtml(realizationContextLabel)} Realization Position</strong></div>
               <div data-analytics-realization-trend-host></div>
             </article>
           </section>
@@ -2233,30 +2220,32 @@
             window.datePicker.close();
           }
           uiState.realizationPeriod = nextPeriod;
-          const nextStatus = normalizeRealizationStatus(realizationControls.elements.statusMode?.value);
-          if (nextStatus !== uiState.realizationStatus) {
-            uiState.realizationClientId = "";
-            uiState.realizationProjectId = "";
-            uiState.realizationSelectedKey = "";
-          }
-          uiState.realizationStatus = nextStatus;
-          const nextScope = normalizeRealizationScope(realizationControls.elements.scope?.value);
-          if (safeText(event?.target?.name) === "scope" && nextScope !== uiState.realizationScope) {
-            uiState.realizationScopeId = "";
-          } else {
-            uiState.realizationScopeId = safeText(realizationControls.elements.scopeId?.value);
-          }
-          uiState.realizationScope = nextScope;
-          uiState.realizationClientId = safeText(realizationControls.elements.clientId?.value);
-          uiState.realizationProjectId = safeText(realizationControls.elements.projectId?.value);
-          if (safeText(event?.target?.name) === "groupBy") {
-            uiState.realizationGroupBy = normalizeRealizationGroupBy(realizationControls.elements.groupBy?.value);
-            uiState.realizationGroupByIsManual = true;
-            uiState.realizationSelectedKey = "";
-          }
+          uiState.realizationStatus = normalizeRealizationStatus(realizationControls.elements.statusMode?.value);
           renderAnalyticsPage(options);
         });
       }
+      body.querySelectorAll("[data-realization-breadcrumb-level]").forEach((button) => {
+        button.addEventListener("click", () => {
+          const level = safeText(button.dataset.realizationBreadcrumbLevel);
+          if (level === "company") {
+            uiState.realizationOfficeId = "";
+            uiState.realizationDepartmentId = "";
+            uiState.realizationClientId = "";
+            uiState.realizationProjectId = "";
+          } else if (level === "office") {
+            uiState.realizationDepartmentId = "";
+            uiState.realizationClientId = "";
+            uiState.realizationProjectId = "";
+          } else if (level === "department") {
+            uiState.realizationClientId = "";
+            uiState.realizationProjectId = "";
+          } else if (level === "client") {
+            uiState.realizationProjectId = "";
+          }
+          uiState.realizationSelectedKey = "";
+          renderAnalyticsPage(options);
+        });
+      });
       const realizationSortToggle = body.querySelector("[data-analytics-realization-sort-toggle]");
       if (realizationSortToggle) {
         realizationSortToggle.addEventListener("click", () => {
@@ -2265,7 +2254,26 @@
         });
       }
       const selectRealizationRow = (nextKey) => {
-        uiState.realizationSelectedKey = safeText(nextKey);
+        const [dimension, id] = safeText(nextKey).split("::");
+        if (!id || id === "unassigned") return;
+        if (dimension === "office") {
+          uiState.realizationOfficeId = id;
+          uiState.realizationDepartmentId = "";
+          uiState.realizationClientId = "";
+          uiState.realizationProjectId = "";
+        } else if (dimension === "department") {
+          uiState.realizationDepartmentId = id;
+          uiState.realizationClientId = "";
+          uiState.realizationProjectId = "";
+        } else if (dimension === "client") {
+          uiState.realizationClientId = id;
+          uiState.realizationProjectId = "";
+        } else if (dimension === "project") {
+          uiState.realizationProjectId = id;
+        } else {
+          return;
+        }
+        uiState.realizationSelectedKey = "";
         renderAnalyticsPage(options);
       };
       const realizationOverviewHost = body.querySelector("[data-analytics-realization-primary-host]");
@@ -2273,7 +2281,7 @@
         container: realizationOverviewHost,
         rows: realizationRows,
         groupByLabel,
-        selectedKey: uiState.realizationSelectedKey,
+        selectedKey: "",
         revenueLabel,
         targetRealizationPct: hasTargetRealization ? targetRealizationPct : null,
         onSelect: selectRealizationRow,
@@ -2281,19 +2289,15 @@
       if (realizationOverviewIsTable) renderRealizationOverviewTable(realizationOverviewOptions);
       else renderRealizationPrimaryChart(realizationOverviewOptions);
       const realizationDetailHost = body.querySelector("[data-analytics-realization-trend-host]");
-      if (realizationDetailIsTable) renderRealizationDetailTable(realizationDetailHost, selectedSeries);
-      else renderRealizationTrendChart({
+      renderRealizationPosition({
         container: realizationDetailHost,
-        seriesRows: selectedSeries,
-        revenueLabel,
-        targetRealizationPct: selectedRow?.targetRealizationPct,
+        actualPct: realizationComputed.kpis.avgRealizationPct,
+        targetPct: hasTargetRealization ? targetRealizationPct : null,
+        actualRevenue: realizationComputed.kpis.actualRevenue,
+        standardRevenue: realizationComputed.kpis.standardRevenue,
       });
       body.querySelector("[data-analytics-realization-overview-toggle]")?.addEventListener("click", () => {
         uiState.realizationOverviewView = realizationOverviewIsTable ? "chart" : "table";
-        renderAnalyticsPage(options);
-      });
-      body.querySelector("[data-analytics-realization-detail-toggle]")?.addEventListener("click", () => {
-        uiState.realizationDetailView = realizationDetailIsTable ? "chart" : "table";
         renderAnalyticsPage(options);
       });
       return;

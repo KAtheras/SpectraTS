@@ -938,19 +938,19 @@
   function groupKeyForDimension(dimension, row, levelLabels) {
     if (dimension === "client") {
       const name = safeText(row?.clientName) || "Unassigned";
-      return { key: `client::${name.toLowerCase()}`, label: name };
+      return { key: `client::${safeText(row?.clientId) || "unassigned"}`, label: name };
     }
     if (dimension === "project") {
       const name = safeText(row?.projectName) || "Unassigned";
-      return { key: `project::${name.toLowerCase()}`, label: name };
+      return { key: `project::${safeText(row?.projectId) || "unassigned"}`, label: name };
     }
     if (dimension === "office") {
       const name = safeText(row?.officeName) || "Unassigned";
-      return { key: `office::${name.toLowerCase()}`, label: name };
+      return { key: `office::${safeText(row?.officeId) || "unassigned"}`, label: name };
     }
     if (dimension === "department") {
       const name = safeText(row?.departmentName) || "Unassigned";
-      return { key: `department::${name.toLowerCase()}`, label: name };
+      return { key: `department::${safeText(row?.departmentId) || "unassigned"}`, label: name };
     }
     if (dimension === "member") {
       const name = safeText(row?.memberName) || "Unassigned";
@@ -1741,6 +1741,8 @@
         const memberTitle = resolveMemberTitle(scopeMeta.user || {}, levelLabels).toLowerCase();
         if (safeText(filters?.scopeId) && memberTitle !== safeText(filters.scopeId).toLowerCase()) return;
       }
+      if (safeText(filters?.officeId) && safeText(scopeMeta.officeId) !== safeText(filters.officeId)) return;
+      if (safeText(filters?.departmentId) && safeText(scopeMeta.departmentId) !== safeText(filters.departmentId)) return;
       if (!applyScopeFilter(scopeMeta, filters)) return;
       eligibleProjectIds.add(projectId);
     };
@@ -1752,13 +1754,17 @@
       : projects.filter((project) => {
           const requestedScope = safeText(filters?.scope).toLowerCase();
           const scopeId = safeText(filters?.scopeId);
-          if (!scopeId || requestedScope === "company") return true;
           const client = clientsById.get(safeText(project?.clientId || project?.client_id)) || {};
+          const projectOfficeId = safeText(project?.officeId || project?.office_id || client?.officeId || client?.office_id);
+          const projectDepartmentId = safeText(project?.projectDepartmentId || project?.project_department_id);
+          if (safeText(filters?.officeId) && projectOfficeId !== safeText(filters.officeId)) return false;
+          if (safeText(filters?.departmentId) && projectDepartmentId !== safeText(filters.departmentId)) return false;
+          if (!scopeId || requestedScope === "company") return true;
           if (requestedScope === "office") {
-            return safeText(project?.officeId || project?.office_id || client?.officeId || client?.office_id) === scopeId;
+            return projectOfficeId === scopeId;
           }
           if (requestedScope === "department") {
-            return safeText(project?.projectDepartmentId || project?.project_department_id) === scopeId;
+            return projectDepartmentId === scopeId;
           }
           return true;
         });

@@ -47,18 +47,24 @@ function monthRange(first, last) {
 }
 
 function groupIdentity(project, groupBy, lookups) {
-  if (groupBy === "project") return { key: `project::${text(project.name).toLowerCase()}`, name: text(project.name) || "Unassigned" };
+  if (groupBy === "project") {
+    const id = text(project.id);
+    return { key: `project::${id || "unassigned"}`, name: text(project.name) || "Unassigned" };
+  }
   if (groupBy === "office") {
     const client = lookups.clients.get(text(project.clientId || project.client_id)) || {};
-    const name = lookups.offices.get(text(project.officeId || project.office_id || client.officeId || client.office_id)) || "Unassigned";
-    return { key: `office::${name.toLowerCase()}`, name };
+    const id = text(project.officeId || project.office_id || client.officeId || client.office_id);
+    const name = lookups.offices.get(id) || "Unassigned";
+    return { key: `office::${id || "unassigned"}`, name };
   }
   if (groupBy === "department") {
-    const name = lookups.departments.get(text(project.projectDepartmentId || project.project_department_id)) || "Unassigned";
-    return { key: `department::${name.toLowerCase()}`, name };
+    const id = text(project.projectDepartmentId || project.project_department_id);
+    const name = lookups.departments.get(id) || "Unassigned";
+    return { key: `department::${id || "unassigned"}`, name };
   }
-  const name = text(project.client) || "Unassigned";
-  return { key: `client::${name.toLowerCase()}`, name };
+  const id = text(project.clientId || project.client_id);
+  const name = text(project.client) || text(lookups.clients.get(id)?.name) || "Unassigned";
+  return { key: `client::${id || "unassigned"}`, name };
 }
 
 function projectTargetRealization(project, lookups, targetByOrg) {

@@ -196,6 +196,7 @@ assert.strictEqual(realization.kpis.variance, -500);
 assert.strictEqual(realization.kpis.projectCount, 1);
 assert.strictEqual(realization.kpis.avgRealizationPct, 75);
 const realizationRowKey = realization.rows[0].key;
+assert.strictEqual(realizationRowKey, "project::p1", "realization drill rows must expose stable entity IDs");
 assert.deepStrictEqual(
   Array.from(realization.monthlyByKey[realizationRowKey], (row) => row.standardRevenue),
   [1000, 1000, 2000]
