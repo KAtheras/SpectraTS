@@ -19,6 +19,7 @@
     "utilizationOverviewView", "utilizationDetailView", "utilizationMemberSort", "utilizationMemberTitle",
     "realizationStatus", "realizationPeriod", "realizationFromDate", "realizationToDate", "realizationScope",
     "realizationScopeId", "realizationOfficeId", "realizationDepartmentId", "realizationClientId", "realizationProjectId", "realizationGroupBy",
+    "realizationCompanyGroupBy",
     "realizationGroupByIsManual", "realizationSort", "realizationSelectedKey", "realizationOverviewView",
     "realizationDetailView",
   ];
@@ -935,6 +936,7 @@
       realizationOfficeId: "",
       realizationDepartmentId: "",
       realizationGroupBy: "office",
+      realizationCompanyGroupBy: "office",
       realizationGroupByIsManual: false,
       realizationSort: "high_to_low",
       realizationSelectedKey: "",
@@ -2053,13 +2055,16 @@
       if (uiState.realizationProjectId && !availableProjectIds.has(uiState.realizationProjectId)) {
         uiState.realizationProjectId = "";
       }
+      uiState.realizationCompanyGroupBy = ["office", "department"].includes(uiState.realizationCompanyGroupBy)
+        ? uiState.realizationCompanyGroupBy
+        : "office";
       uiState.realizationGroupBy = uiState.realizationProjectId || uiState.realizationClientId
         ? "project"
         : uiState.realizationDepartmentId
           ? "client"
           : uiState.realizationOfficeId
             ? "department"
-            : "office";
+            : uiState.realizationCompanyGroupBy;
       const realizationFilters = {
         fromDate: periodRange.fromDate,
         toDate: periodRange.toDate,
@@ -2126,7 +2131,9 @@
           ? `<strong>${escapeHtml(item.name)}</strong>`
           : `<button type="button" class="analytics-view-toggle" data-realization-breadcrumb-level="${escapeHtml(item.level)}">${escapeHtml(item.name)}</button>`}`;
       }).join("");
-      const filterColumnCount = 2 + (uiState.realizationPeriod === "custom" ? 1 : 0);
+      const isCompanyRealizationContext = !uiState.realizationOfficeId && !uiState.realizationDepartmentId &&
+        !uiState.realizationClientId && !uiState.realizationProjectId;
+      const filterColumnCount = 2 + (isCompanyRealizationContext ? 1 : 0) + (uiState.realizationPeriod === "custom" ? 1 : 0);
       const isOpenRealization = uiState.realizationStatus === "open";
       const isCombinedRealization = uiState.realizationStatus === "combined";
       const realizationLabel = isOpenRealization ? "Projected Realization" : isCombinedRealization ? "Portfolio Realization" : "Final Modeled Realization";
@@ -2155,6 +2162,13 @@
               <span>Period</span>
               <select name="period">${renderOptions(REALIZATION_PERIODS, uiState.realizationPeriod)}</select>
             </label>
+            ${isCompanyRealizationContext ? `<label>
+              <span>Compare By</span>
+              <select name="companyGroupBy">${renderOptions([
+                { id: "office", name: "Office" },
+                { id: "department", name: "Department" },
+              ], uiState.realizationCompanyGroupBy)}</select>
+            </label>` : ""}
             ${uiState.realizationPeriod === "custom" ? `<label class="analytics-filter-range">
               <span>Date range</span><input type="text" name="dateRange" readonly autocomplete="off" />
               <input type="hidden" name="fromDate" value="${escapeHtml(periodRange.fromDate)}" />
@@ -2221,6 +2235,10 @@
           }
           uiState.realizationPeriod = nextPeriod;
           uiState.realizationStatus = normalizeRealizationStatus(realizationControls.elements.statusMode?.value);
+          if (realizationControls.elements.companyGroupBy) {
+            const nextGroupBy = safeText(realizationControls.elements.companyGroupBy.value).toLowerCase();
+            uiState.realizationCompanyGroupBy = ["office", "department"].includes(nextGroupBy) ? nextGroupBy : "office";
+          }
           renderAnalyticsPage(options);
         });
       }
