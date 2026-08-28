@@ -2270,28 +2270,21 @@ async function loadUtilizationAnalyticsShell(sql, currentUser, analyticsAuthorit
         (row) => `${row.officeId}::${row.departmentId}`
       )
     );
+    const hasOrganizationalAuthority = Boolean(
+      analyticsAuthority.all || officeIds.size || departmentPairs.size
+    );
     organizationalUsers = analyticsAuthority.all
       ? allUsers
-      : allUsers.filter((user) => {
+      : hasOrganizationalAuthority
+        ? allUsers.filter((user) => {
           const officeId = normalizeText(user?.officeId || user?.office_id);
           const departmentId = normalizeText(user?.departmentId || user?.department_id);
           return officeIds.has(officeId) || departmentPairs.has(`${officeId}::${departmentId}`);
-        });
-    const projectIds = (analyticsAuthority.projectIds || []).filter(Boolean);
-    const projectUserRows = projectIds.length
-      ? await sql`
-          SELECT DISTINCT user_id AS id
-          FROM entries
-          WHERE account_id = ${accountId}::uuid
-            AND deleted_at IS NULL
-            AND project_id = ANY(${projectIds}::bigint[])
-        `
-      : [];
-    const allowedUserIds = new Set([
-      ...organizationalUsers.map((user) => normalizeText(user.id)),
-      ...(projectUserRows || []).map((row) => normalizeText(row.id)),
-    ]);
-    utilizationUsers = allUsers.filter((user) => allowedUserIds.has(normalizeText(user.id)));
+        })
+        : allUsers.filter((user) => normalizeText(user.id) === normalizeText(currentUser?.id));
+    // Project leadership grants project economics access, not visibility into the
+    // utilization or full capacity of members who happen to charge that project.
+    utilizationUsers = organizationalUsers;
   }
   return {
     account: { id: accountId },

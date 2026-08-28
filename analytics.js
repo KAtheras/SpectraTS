@@ -164,6 +164,7 @@
       }
       .analytics-realization-status-options label + label { border-left: 1px solid var(--panel-border); }
       .analytics-realization-status-options label.is-active { background: var(--accent); color: #fff; }
+      .analytics-realization-status-options label.is-disabled { opacity: .42; cursor: not-allowed; }
       .analytics-realization-status-options input { position: absolute; opacity: 0; pointer-events: none; }
       .analytics-realization-status-options label:focus-within { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent) 55%, transparent); }
       .analytics-realization-path {
@@ -801,6 +802,13 @@
   function normalizeRealizationStatus(value) {
     const key = safeText(value).toLowerCase();
     return REALIZATION_STATUS_OPTIONS.some((item) => item.id === key) ? key : "open";
+  }
+
+  function isCompletedRealizationProject(project) {
+    if (project?.isActive === false || project?.is_active === false) return true;
+    return ["completed", "inactive", "deactivated"].includes(
+      safeText(project?.status || project?.projectStatus || project?.project_status).toLowerCase()
+    );
   }
 
   function normalizeRealizationGroupBy(value) {
@@ -2136,6 +2144,30 @@
       if (uiState.realizationProjectId && !availableProjectIds.has(uiState.realizationProjectId)) {
         uiState.realizationProjectId = "";
       }
+      const statusScopedProjects = profitabilityData.projects.filter((project) =>
+        availableProjectIds.has(safeText(project?.id))
+      );
+      const realizationStatusCounts = statusScopedProjects.reduce((counts, project) => {
+        counts[isCompletedRealizationProject(project) ? "closed" : "open"] += 1;
+        return counts;
+      }, { open: 0, closed: 0 });
+      const alternateRealizationStatus = uiState.realizationStatus === "open" ? "closed" : "open";
+      if (
+        realizationStatusCounts[uiState.realizationStatus] === 0 &&
+        realizationStatusCounts[alternateRealizationStatus] > 0
+      ) {
+        uiState.realizationStatus = alternateRealizationStatus;
+      }
+      const selectedStatusProject = profitabilityData.projects.find(
+        (project) => safeText(project?.id) === safeText(uiState.realizationProjectId)
+      );
+      if (
+        selectedStatusProject &&
+        (isCompletedRealizationProject(selectedStatusProject) ? "closed" : "open") !== uiState.realizationStatus
+      ) {
+        uiState.realizationProjectId = "";
+        uiState.realizationSelectedKey = "";
+      }
       uiState.realizationGroupBy = uiState.realizationProjectId || uiState.realizationClientId
         ? "project"
         : uiState.realizationAnalysisMode === REALIZATION_RESTRICTED_ANALYSIS.projects.id
@@ -2295,7 +2327,10 @@
             <fieldset class="analytics-realization-status">
               <legend>Projects</legend>
               <div class="analytics-realization-status-options">
-                ${REALIZATION_STATUS_OPTIONS.map((item) => `<label class="${item.id === uiState.realizationStatus ? "is-active" : ""}"><input type="radio" name="statusMode" value="${escapeHtml(item.id)}" ${item.id === uiState.realizationStatus ? "checked" : ""} />${escapeHtml(item.name)}</label>`).join("")}
+                ${REALIZATION_STATUS_OPTIONS.map((item) => {
+                  const disabled = realizationStatusCounts[item.id] === 0;
+                  return `<label class="${item.id === uiState.realizationStatus ? "is-active" : ""}${disabled ? " is-disabled" : ""}" title="${disabled ? `No ${item.name.toLowerCase()} projects in this view` : `${item.name} projects`}"><input type="radio" name="statusMode" value="${escapeHtml(item.id)}" ${item.id === uiState.realizationStatus ? "checked" : ""} ${disabled ? "disabled" : ""} />${escapeHtml(item.name)}</label>`;
+                }).join("")}
               </div>
             </fieldset>
             <label>
@@ -2349,7 +2384,12 @@
       const realizationControls = body.querySelector("[data-analytics-realization-controls]");
       if (realizationControls) {
         realizationControls.addEventListener("change", (event) => {
+          const previousStatus = uiState.realizationStatus;
           uiState.realizationStatus = normalizeRealizationStatus(realizationControls.elements.statusMode?.value);
+          if (uiState.realizationStatus !== previousStatus) {
+            uiState.realizationProjectId = "";
+            uiState.realizationSelectedKey = "";
+          }
           const nextAnalysisMode = safeText(realizationControls.elements.analysisMode?.value);
           if (nextAnalysisMode && nextAnalysisMode !== uiState.realizationAnalysisMode) {
             uiState.realizationAnalysisMode = REALIZATION_ANALYSIS_OPTIONS.some((item) => item.id === nextAnalysisMode)
