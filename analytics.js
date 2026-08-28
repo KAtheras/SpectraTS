@@ -119,13 +119,13 @@
       .analytics-filters select, .analytics-filters input { width: 100%; min-width: 0; min-height: 34px; background: #fff; }
       .analytics-filter-range { min-width: 0; }
       .analytics-realization-filters {
-        grid-template-columns: repeat(auto-fit, minmax(150px, 190px));
-        justify-content: start;
+        grid-template-columns: repeat(var(--realization-filter-columns, 3), minmax(0, 1fr));
+        justify-content: stretch;
         column-gap: 10px;
       }
       .analytics-realization-filters .analytics-filter-range { min-width: 220px; }
       .analytics-realization-path {
-        justify-content: flex-start;
+        justify-content: flex-start !important;
         gap: 10px;
         min-height: 48px;
         margin: 2px 0 10px;
@@ -137,6 +137,17 @@
         font-size: .78rem;
         text-transform: uppercase;
         letter-spacing: .05em;
+      }
+      .analytics-realization-path .analytics-view-toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .analytics-realization-path-clear {
+        color: var(--muted);
+        font-size: .9rem;
+        font-weight: 500;
+        line-height: 1;
       }
       .analytics-kpis { display: grid; grid-template-columns: repeat(5, minmax(140px, 1fr)); gap: 10px; }
       .analytics-kpi {
@@ -1698,7 +1709,13 @@
             silent: true,
             symbol: "none",
             lineStyle: { color: analyticsChartColors().target, width: 1.5, type: "dashed" },
-            label: { show: true, formatter: `${targetRealizationPct.toFixed(1)}% target`, color: analyticsChartColors().target },
+            label: {
+              show: true,
+              position: "insideEndTop",
+              distance: 6,
+              formatter: `${targetRealizationPct.toFixed(1)}% target`,
+              color: analyticsChartColors().target,
+            },
             data: [{ xAxis: targetRealizationPct }],
           } : undefined,
         },
@@ -1921,7 +1938,7 @@
     chart.setOption({
       animation: false,
       textStyle: { color: analyticsChartColors().text },
-      grid: { left: 34, right: 34, top: 64, bottom: 42 },
+      grid: { left: 24, right: 34, top: 64, bottom: 42, containLabel: true },
       tooltip: {
         trigger: "item",
         formatter: () => [
@@ -2150,10 +2167,11 @@
         const current = index === realizationPath.length - 1;
         return `${index ? '<span aria-hidden="true">›</span>' : ""}${current
           ? `<strong>${escapeHtml(item.name)}</strong>`
-          : `<button type="button" class="analytics-view-toggle" data-realization-breadcrumb-level="${escapeHtml(item.level)}">${escapeHtml(item.name)}</button>`}`;
+          : `<button type="button" class="analytics-view-toggle" data-realization-breadcrumb-level="${escapeHtml(item.level)}" title="Return to ${escapeHtml(item.name)} and clear deeper selections">${escapeHtml(item.name)}<span class="analytics-realization-path-clear" aria-hidden="true">×</span></button>`}`;
       }).join("");
       const isCompanyRealizationContext = !uiState.realizationOfficeId && !uiState.realizationDepartmentId &&
         !uiState.realizationClientId && !uiState.realizationProjectId;
+      const filterColumnCount = 2 + (isCompanyRealizationContext ? 1 : 0) + (uiState.realizationPeriod === "custom" ? 1 : 0);
       const isOpenRealization = uiState.realizationStatus === "open";
       const isCombinedRealization = uiState.realizationStatus === "combined";
       const realizationLabel = isOpenRealization ? "Projected Realization" : isCombinedRealization ? "Portfolio Realization" : "Final Modeled Realization";
@@ -2173,7 +2191,7 @@
           ${subTabsHtml}
           ${appState.analyticsLoading?.realization ? '<p class="analytics-footnote">Refreshing server analytics…</p>' : ""}
           ${appState.analyticsErrors?.realization ? `<p class="feedback error">${escapeHtml(appState.analyticsErrors.realization)}</p>` : ""}
-          <form class="analytics-filters analytics-realization-filters" data-analytics-realization-controls>
+          <form class="analytics-filters analytics-realization-filters" data-analytics-realization-controls style="--realization-filter-columns:${filterColumnCount};">
             <label>
               <span>Project Status</span>
               <select name="statusMode">${renderOptions(REALIZATION_STATUS_OPTIONS, uiState.realizationStatus)}</select>
