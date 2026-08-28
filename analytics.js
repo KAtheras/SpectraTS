@@ -11,6 +11,54 @@
     { key: ANALYTICS_SUB_TAB_REALIZATION, label: "Realization" },
     { key: ANALYTICS_SUB_TAB_PROFITABILITY, label: "Profitability" },
   ];
+  const ANALYTICS_UI_STORAGE_PREFIX = "timesheet-studio.analytics-ui.v1";
+  const ANALYTICS_UI_PERSISTED_FIELDS = [
+    "activeTab", "fromDate", "toDate", "scope", "scopeId", "clientId", "projectId", "trendMetric",
+    "profitabilityPeriod", "utilizationPeriod", "utilizationFromDate", "utilizationToDate",
+    "utilizationGroupBy", "utilizationOfficeId", "utilizationDepartmentId", "utilizationSelectedKey",
+    "utilizationOverviewView", "utilizationDetailView", "utilizationMemberSort", "utilizationMemberTitle",
+    "realizationStatus", "realizationPeriod", "realizationFromDate", "realizationToDate", "realizationScope",
+    "realizationScopeId", "realizationClientId", "realizationProjectId", "realizationGroupBy",
+    "realizationGroupByIsManual", "realizationSort", "realizationSelectedKey", "realizationOverviewView",
+    "realizationDetailView",
+  ];
+
+  function analyticsUiStorageKey(currentUser) {
+    const userId = safeText(currentUser?.id || currentUser?.userId || currentUser?.user_id);
+    return userId ? `${ANALYTICS_UI_STORAGE_PREFIX}:${userId}` : "";
+  }
+
+  function restoreAnalyticsUiState(defaultState, currentUser) {
+    const state = { ...defaultState };
+    const key = analyticsUiStorageKey(currentUser);
+    if (!key) return state;
+    try {
+      if (!window.localStorage) return state;
+      const saved = JSON.parse(window.localStorage.getItem(key) || "null");
+      if (!saved || typeof saved !== "object" || Array.isArray(saved)) return state;
+      ANALYTICS_UI_PERSISTED_FIELDS.forEach((field) => {
+        if (Object.prototype.hasOwnProperty.call(saved, field)) state[field] = saved[field];
+      });
+    } catch (_error) {
+      // Storage can be unavailable or contain an obsolete value; defaults remain valid.
+    }
+    return state;
+  }
+
+  function persistAnalyticsUiState(uiState, currentUser) {
+    const key = analyticsUiStorageKey(currentUser);
+    if (!key) return;
+    const saved = {};
+    ANALYTICS_UI_PERSISTED_FIELDS.forEach((field) => {
+      saved[field] = uiState?.[field];
+    });
+    try {
+      if (!window.localStorage) return;
+      window.localStorage.setItem(key, JSON.stringify(saved));
+    } catch (_error) {
+      // Analytics remains usable when browser storage is unavailable.
+    }
+  }
 
   function ensureStyles() {
     if (document.getElementById("analytics-phase1-style")) return;
@@ -493,11 +541,12 @@
     { id: "closed", name: "Closed — Final Modeled" },
     { id: "combined", name: "Combined — Portfolio Outlook" },
   ];
+  const REALIZATION_SCOPE_OPTIONS = ["company", "office", "department"];
   const REALIZATION_GROUP_BY_OPTIONS = [
+    { id: "office", name: "Office" },
+    { id: "department", name: "Department" },
     { id: "client", name: "Client" },
     { id: "project", name: "Project" },
-    { id: "department", name: "Department" },
-    { id: "office", name: "Office" },
   ];
   const REALIZATION_SORT_OPTIONS = [
     { id: "high_to_low", name: "High → Low" },
@@ -640,6 +689,24 @@
   function normalizeRealizationPeriod(value) {
     const key = safeText(value).toLowerCase();
     return REALIZATION_PERIODS.some((item) => item.id === key) ? key : "this_month";
+  }
+
+  function normalizeRealizationScope(value) {
+    const key = safeText(value).toLowerCase();
+    return REALIZATION_SCOPE_OPTIONS.includes(key) ? key : "company";
+  }
+
+  function realizationCompareByOptions(scope, clientId, projectId) {
+    if (safeText(projectId) || safeText(clientId)) {
+      return REALIZATION_GROUP_BY_OPTIONS.filter((item) => item.id === "project");
+    }
+    const normalizedScope = normalizeRealizationScope(scope);
+    const allowed = normalizedScope === "office"
+      ? ["department", "client", "project"]
+      : normalizedScope === "department"
+        ? ["client", "project"]
+        : ["office", "department", "client", "project"];
+    return REALIZATION_GROUP_BY_OPTIONS.filter((item) => allowed.includes(item.id));
   }
 
   function normalizeRealizationStatus(value) {
@@ -1843,18 +1910,23 @@
     const body = container.querySelector(".analytics-body") || container;
     let uiState = stateByContainer.get(container);
     if (!uiState) {
-      uiState = initialUiState({
-        entries: profitabilityData.entries,
-        expenses: profitabilityData.expenses,
-      });
+      uiState = restoreAnalyticsUiState(
+        initialUiState({
+          entries: profitabilityData.entries,
+          expenses: profitabilityData.expenses,
+        }),
+        appState.currentUser
+      );
       stateByContainer.set(container, uiState);
     }
     uiState.activeTab = normalizeAnalyticsSubTab(uiState.activeTab);
+    persistAnalyticsUiState(uiState, appState.currentUser);
     const subTabsHtml = renderAnalyticsSubTabHtml(uiState.activeTab);
 
     if (uiState.activeTab === ANALYTICS_SUB_TAB_REALIZATION) {
       uiState.realizationStatus = normalizeRealizationStatus(uiState.realizationStatus);
       uiState.realizationPeriod = normalizeRealizationPeriod(uiState.realizationPeriod);
+      uiState.realizationScope = normalizeRealizationScope(uiState.realizationScope);
       uiState.realizationGroupBy = normalizeRealizationGroupBy(uiState.realizationGroupBy);
       uiState.realizationSort = normalizeRealizationSort(uiState.realizationSort);
       const scopeOptions = engine.listScopeOptions({
@@ -1876,6 +1948,24 @@
         titleScopeMap.set(title.toLowerCase(), { id: title, name: title });
       });
       const titleScopeOptions = Array.from(titleScopeMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+      const currentScopeItems = uiState.realizationScope === "office"
+        ? scopeOptions.offices
+        : uiState.realizationScope === "department"
+          ? scopeOptions.departments
+          : uiState.realizationScope === "member"
+            ? memberScopeOptions
+            : uiState.realizationScope === "title"
+              ? titleScopeOptions
+              : [];
+      if (
+        uiState.realizationScope !== "company" &&
+        uiState.realizationScopeId &&
+        !currentScopeItems.some((item) => safeText(item?.id) === safeText(uiState.realizationScopeId))
+      ) {
+        uiState.realizationScopeId = "";
+        uiState.realizationClientId = "";
+        uiState.realizationProjectId = "";
+      }
       if (uiState.realizationPeriod !== "custom") {
         const presetRange = realizationPeriodRange(uiState.realizationPeriod, new Date());
         uiState.realizationFromDate = presetRange.fromDate;
@@ -1885,15 +1975,9 @@
         fromDate: uiState.realizationFromDate,
         toDate: uiState.realizationToDate,
       };
-      const realizationProjects = profitabilityData.projects.filter((project) => {
-        const status = safeText(project?.status || project?.projectStatus || project?.project_status).toLowerCase();
-        const closed = project?.isActive === false || project?.is_active === false || status === "completed" || status === "inactive" || status === "deactivated";
-        if (uiState.realizationStatus === "combined") return true;
-        return uiState.realizationStatus === "closed" ? closed : !closed;
-      });
       const clientProjectOptions = engine.listClientProjectOptions({
         clients: profitabilityData.clients,
-        projects: realizationProjects,
+        projects: profitabilityData.projects,
         entries: typeof options?.loadAnalyticsReport === "function" ? undefined : profitabilityData.entries,
         expenses: typeof options?.loadAnalyticsReport === "function" ? undefined : profitabilityData.expenses,
         users: appState.users,
@@ -1929,6 +2013,15 @@
           uiState.realizationGroupBy = automaticGroupBy;
           uiState.realizationSelectedKey = "";
         }
+      }
+      const realizationCompareOptions = realizationCompareByOptions(
+        uiState.realizationScope,
+        uiState.realizationClientId,
+        uiState.realizationProjectId
+      );
+      if (!realizationCompareOptions.some((item) => item.id === uiState.realizationGroupBy)) {
+        uiState.realizationGroupBy = realizationCompareOptions[0]?.id || "project";
+        uiState.realizationSelectedKey = "";
       }
       const realizationFilters = {
         fromDate: periodRange.fromDate,
@@ -2072,8 +2165,6 @@
                 <option value="company" ${uiState.realizationScope === "company" ? "selected" : ""}>Company</option>
                 <option value="office" ${uiState.realizationScope === "office" ? "selected" : ""}>Office</option>
                 <option value="department" ${uiState.realizationScope === "department" ? "selected" : ""}>Department</option>
-                <option value="member" ${uiState.realizationScope === "member" ? "selected" : ""}>Member</option>
-                <option value="title" ${uiState.realizationScope === "title" ? "selected" : ""}>Title</option>
               </select>
             </label>
             ${scopeSelectorHtml}
@@ -2084,7 +2175,7 @@
               <span>Project</span><select name="projectId">${renderOptions(realizationProjectItems, uiState.realizationProjectId, "All")}</select>
             </label>
             <label>
-              <span>Group By</span><select name="groupBy">${renderOptions(REALIZATION_GROUP_BY_OPTIONS, uiState.realizationGroupBy)}</select>
+              <span>Compare By</span><select name="groupBy">${renderOptions(realizationCompareOptions, uiState.realizationGroupBy)}</select>
             </label>
           </form>
 
@@ -2149,7 +2240,7 @@
             uiState.realizationSelectedKey = "";
           }
           uiState.realizationStatus = nextStatus;
-          const nextScope = safeText(realizationControls.elements.scope?.value || "company");
+          const nextScope = normalizeRealizationScope(realizationControls.elements.scope?.value);
           if (safeText(event?.target?.name) === "scope" && nextScope !== uiState.realizationScope) {
             uiState.realizationScopeId = "";
           } else {
@@ -2904,8 +2995,11 @@
   }
 
   window.analyticsFeature = {
+    persistUiState: persistAnalyticsUiState,
     periodOptions: UTILIZATION_PERIOD_OPTIONS,
     periodRange: utilizationPeriodRange,
+    realizationCompareByOptions,
+    restoreUiState: restoreAnalyticsUiState,
     renderAnalyticsPage,
   };
 })();

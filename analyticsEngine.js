@@ -1793,7 +1793,7 @@
         const clientName = safeText(project?.client || clientsById.get(clientId)?.name);
         return {
           id,
-          name: clientName ? `${clientName} — ${name}` : name,
+          name: clientName ? `${name} — ${clientName}` : name,
         };
       })
       .filter((item) => item.id && item.name)

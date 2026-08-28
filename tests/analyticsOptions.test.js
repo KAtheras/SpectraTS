@@ -20,6 +20,43 @@ assert.strictEqual(normalizedProjects[0].clientId, "c1");
 assert.strictEqual(normalizedProjects[0].client_id, "c1");
 
 const analyticsWindow = loadBrowserScript("analytics.js");
+const analyticsStorage = new Map();
+analyticsWindow.localStorage = {
+  getItem: (key) => analyticsStorage.get(key) || null,
+  setItem: (key, value) => analyticsStorage.set(key, value),
+};
+analyticsWindow.analyticsFeature.persistUiState(
+  { activeTab: "realization", realizationScope: "office", realizationScopeId: "o1" },
+  { id: "user-1" }
+);
+assert.deepStrictEqual(
+  JSON.parse(JSON.stringify(analyticsWindow.analyticsFeature.restoreUiState(
+    { activeTab: "profitability", realizationScope: "company", realizationScopeId: "" },
+    { id: "user-1" }
+  ))),
+  { activeTab: "realization", realizationScope: "office", realizationScopeId: "o1" }
+);
+assert.strictEqual(
+  analyticsWindow.analyticsFeature.restoreUiState({ activeTab: "profitability" }, { id: "user-2" }).activeTab,
+  "profitability",
+  "analytics preferences must be isolated by user"
+);
+assert.deepStrictEqual(
+  Array.from(analyticsWindow.analyticsFeature.realizationCompareByOptions("company", "", ""), (item) => item.id),
+  ["office", "department", "client", "project"]
+);
+assert.deepStrictEqual(
+  Array.from(analyticsWindow.analyticsFeature.realizationCompareByOptions("office", "", ""), (item) => item.id),
+  ["department", "client", "project"]
+);
+assert.deepStrictEqual(
+  Array.from(analyticsWindow.analyticsFeature.realizationCompareByOptions("department", "", ""), (item) => item.id),
+  ["client", "project"]
+);
+assert.deepStrictEqual(
+  Array.from(analyticsWindow.analyticsFeature.realizationCompareByOptions("company", "c1", ""), (item) => item.id),
+  ["project"]
+);
 assert.ok(
   analyticsWindow.analyticsFeature.periodOptions.some((item) => item.id === "last_12_months"),
   "analytics period dropdowns should include Last 12 Months"
@@ -74,6 +111,7 @@ const options = engineWindow.analyticsEngine.listClientProjectOptions({
 
 assert.deepStrictEqual(Array.from(options.clients, (item) => item.id), ["c1"]);
 assert.deepStrictEqual(Array.from(options.projects, (item) => item.id), ["p1"]);
+assert.strictEqual(options.projects[0].name, "Advisory — Alpha");
 assert.deepStrictEqual(Array.from(options.projectsByClient.get("c1"), (item) => item.id), ["p1"]);
 assert.strictEqual(options.projectsByClient.has("c2"), false);
 
