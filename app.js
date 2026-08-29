@@ -389,6 +389,10 @@
     inputsView: document.getElementById("inputs-view"),
     inputsViewTitle: document.getElementById("inputs-view-title"),
     inputsSwitchAction: document.getElementById("inputs-switch-action"),
+    weeklyWorkflowCard: document.getElementById("weekly-workflow-card"),
+    weeklyReviewCard: document.getElementById("weekly-review-card"),
+    weeklyReviewQueue: document.getElementById("weekly-review-queue"),
+    weeklyReviewRefresh: document.getElementById("weekly-review-refresh"),
     inputsPanelTime: document.getElementById("inputs-panel-time"),
     inputsPanelExpenses: document.getElementById("inputs-panel-expenses"),
     inputsTimeMonthHistory: document.getElementById("inputs-time-month-history"),
@@ -4084,6 +4088,10 @@
     mobileClientsView: "list", // "list" | "detail"
     mobileMembersView: "list", // "list" | "detail"
     inputSubtab: "time", // "time" | "expenses"
+    weeklyWorkflow: null,
+    weeklyWorkflowLoading: false,
+    weeklyWorkflowError: "",
+    weeklyWeekStart: "",
     inputsTimeMonth: today.slice(0, 7),
     inputsTimeSelectedDate: today,
     inputsTimeSelectedCorporateCategoryId: "",
@@ -5683,6 +5691,8 @@
       const recordType = state.inputSubtab === "expenses" ? "expenses" : "entries";
       inputsRecordRequestKeys[recordType] = "";
       await loadInputsRecords(recordType, { force: true });
+      state.weeklyWorkflow = null;
+      loadWeeklyWorkflow(true);
     }
     logSaveTrace(action, "completed", startedAt);
     return result;
@@ -6574,6 +6584,204 @@
       .join("");
   }
 
+  function weeklyMonday(value = today) {
+    const date = new Date(`${isValidDateString(value) ? value : today}T12:00:00Z`);
+    const offset = (date.getUTCDay() + 6) % 7;
+    date.setUTCDate(date.getUTCDate() - offset);
+    return date.toISOString().slice(0, 10);
+  }
+
+  function shiftWeeklyMonday(weekStart, deltaWeeks) {
+    const date = new Date(`${weeklyMonday(weekStart)}T12:00:00Z`);
+    date.setUTCDate(date.getUTCDate() + Number(deltaWeeks || 0) * 7);
+    return date.toISOString().slice(0, 10);
+  }
+
+  function weeklyRangeLabel(weekStart, weekEnd) {
+    const start = new Date(`${weekStart}T12:00:00Z`);
+    const end = new Date(`${weekEnd}T12:00:00Z`);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return "Selected week";
+    const startLabel = start.toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" });
+    const endLabel = end.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+    return `${startLabel} – ${endLabel}`;
+  }
+
+  function weeklyStatusLabel(status) {
+    const labels = {
+      open: "Open",
+      submitted: "Submitted",
+      partially_approved: "Partially approved",
+      changes_requested: "Changes requested",
+      approved: "Approved",
+      locked: "Locked",
+    };
+    return labels[String(status || "open")] || "Open";
+  }
+
+  async function loadWeeklyWorkflow(force = false) {
+    if (!state.currentUser || state.weeklyWorkflowLoading) return;
+    const weekStart = state.weeklyWeekStart || weeklyMonday(today);
+    if (!force && state.weeklyWorkflow?.weekStart === weekStart) {
+      renderWeeklyWorkflow();
+      return;
+    }
+    state.weeklyWorkflowLoading = true;
+    state.weeklyWorkflowError = "";
+    renderWeeklyWorkflow();
+    try {
+      const result = await mutatePersistentState(
+        "get_weekly_workflow",
+        { weekStart },
+        { skipHydrate: true, returnState: false, skipSettingsMetadataReload: true }
+      );
+      state.weeklyWorkflow = result;
+      state.weeklyWeekStart = result?.weekStart || weekStart;
+    } catch (error) {
+      state.weeklyWorkflowError = error.message || "Unable to load weekly approval status.";
+    } finally {
+      state.weeklyWorkflowLoading = false;
+      renderWeeklyWorkflow();
+      postHeight();
+    }
+  }
+
+  function renderWeeklyWorkflow() {
+    const workflow = state.weeklyWorkflow;
+    if (refs.weeklyWorkflowCard) {
+      if (state.weeklyWorkflowLoading && !workflow) {
+        refs.weeklyWorkflowCard.innerHTML = '<div class="weekly-workflow-loading">Loading weekly status…</div>';
+      } else if (state.weeklyWorkflowError) {
+        refs.weeklyWorkflowCard.innerHTML = `<div class="weekly-workflow-error">${escapeHtml(state.weeklyWorkflowError)} <button type="button" class="text-button" data-weekly-action="refresh">Try again</button></div>`;
+      } else if (workflow) {
+        const submission = workflow.ownSubmission;
+        const status = submission?.status || "open";
+        const totals = workflow.ownTotals || {};
+        const canSubmit = status === "open" || status === "changes_requested";
+        const packages = Array.isArray(submission?.packages) ? submission.packages : [];
+        const packageMarkup = packages.length
+          ? `<div class="weekly-package-statuses">${packages.map((item) => `<span class="weekly-package-pill is-${escapeHtml(item.status || "submitted")}"${item.requestNote ? ` title="${escapeHtml(item.requestNote)}"` : ""}>${escapeHtml(item.projectName || "Non-project")} · ${escapeHtml(weeklyStatusLabel(item.status))}</span>`).join("")}</div>`
+          : "";
+        refs.weeklyWorkflowCard.innerHTML = `
+          <div class="weekly-workflow-main">
+            <div class="weekly-week-navigation">
+              <button type="button" class="button button-ghost" data-weekly-action="previous" aria-label="Previous week">←</button>
+              <div><span class="weekly-eyebrow">Weekly submission</span><strong>${escapeHtml(weeklyRangeLabel(workflow.weekStart, workflow.weekEnd))}</strong></div>
+              <button type="button" class="button button-ghost" data-weekly-action="next" aria-label="Next week"${workflow.weekStart >= weeklyMonday(today) ? " disabled" : ""}>→</button>
+            </div>
+            <div class="weekly-workflow-metrics">
+              <div><strong>${Number(totals.timeHours || 0).toFixed(1)}h</strong><span>Time entered</span></div>
+              <div><strong>${formatSummaryCurrency(Number(totals.expenseAmount || 0))}</strong><span>Expenses</span></div>
+              <div><strong>${Number(totals.recordCount || 0)}</strong><span>Records</span></div>
+            </div>
+            <div class="weekly-workflow-submit">
+              <span class="weekly-status-pill is-${escapeHtml(status)}">${escapeHtml(weeklyStatusLabel(status))}</span>
+              <button type="button" class="button button-primary" data-weekly-action="submit"${canSubmit && Number(totals.recordCount || 0) > 0 ? "" : " disabled"}>${status === "changes_requested" ? "Resubmit Week" : "Submit Week"}</button>
+            </div>
+          </div>
+          ${packageMarkup}
+        `;
+      }
+    }
+    if (refs.weeklyReviewCard) {
+      refs.weeklyReviewCard.hidden = state.currentView !== "entries";
+    }
+    if (refs.weeklyReviewQueue) {
+      if (state.weeklyWorkflowLoading && !workflow) {
+        refs.weeklyReviewQueue.innerHTML = '<div class="weekly-workflow-loading">Loading approval queue…</div>';
+      } else if (state.weeklyWorkflowError) {
+        refs.weeklyReviewQueue.innerHTML = `<div class="weekly-workflow-error">${escapeHtml(state.weeklyWorkflowError)}</div>`;
+      } else {
+        const queue = Array.isArray(workflow?.reviewQueue) ? workflow.reviewQueue : [];
+        const overview = workflow?.teamOverview;
+        const overviewMarkup = overview ? `<div class="weekly-team-overview">
+          <div><strong>${Number(overview.counts?.complete || 0)}</strong><span>Complete</span></div>
+          <div><strong>${Number(overview.counts?.pending || 0)}</strong><span>Pending approval</span></div>
+          <div><strong>${Number(overview.counts?.missing || 0)}</strong><span>Not submitted</span></div>
+          <div><strong>${Number(overview.counts?.changesRequested || 0)}</strong><span>Changes requested</span></div>
+        </div>${Array.isArray(overview.exceptions) && overview.exceptions.length ? `<details class="weekly-team-exceptions"><summary>View ${overview.exceptions.length} exceptions</summary><div class="weekly-exception-list">${overview.exceptions.map((item) => `<div><strong>${escapeHtml(item.memberName || "Member")}</strong><span>${escapeHtml(weeklyStatusLabel(item.status))}</span><span>${Number(item.enteredHours || 0).toFixed(1)}h entered</span></div>`).join("")}</div></details>` : ""}` : "";
+        const queueMarkup = queue.length ? queue.map((item) => `
+          <article class="weekly-review-item">
+            <div class="weekly-review-identity">
+              <span>${escapeHtml(weeklyRangeLabel(item.weekStart, item.weekEnd))}</span>
+              <strong>${escapeHtml(item.memberName || "Member")}</strong>
+              <small>${escapeHtml(item.projectName || "Non-project time and expenses")}</small>
+            </div>
+            <div class="weekly-review-counts">
+              <span>${Number(item.timeCount || 0)} time · ${Number(item.timeHours || 0).toFixed(1)}h</span>
+              <span>${Number(item.expenseCount || 0)} expenses · ${formatSummaryCurrency(Number(item.expenseAmount || 0))}</span>
+            </div>
+            <details class="weekly-review-details">
+              <summary>View records</summary>
+              <div class="weekly-review-records">${(Array.isArray(item.items) ? item.items : []).map((record) => `<div>
+                <span>${escapeHtml(record.date || "")}</span>
+                <strong>${escapeHtml(record.recordType === "expense" ? formatSummaryCurrency(Number(record.amount || 0)) : `${Number(record.hours || 0).toFixed(1)}h`)}</strong>
+                <span>${escapeHtml(record.task || record.notes || record.projectName || "No description")}</span>
+              </div>`).join("")}</div>
+            </details>
+            <div class="weekly-review-actions">
+              <button type="button" class="button button-ghost" data-weekly-package="${escapeHtml(item.id)}" data-weekly-decision="request_changes">Request Changes</button>
+              <button type="button" class="button button-primary" data-weekly-package="${escapeHtml(item.id)}" data-weekly-decision="approve">Approve</button>
+            </div>
+          </article>`).join("") : '<div class="weekly-review-empty"><strong>No weekly submissions need your review.</strong><span>New submissions will appear here automatically.</span></div>';
+        refs.weeklyReviewQueue.innerHTML = `${overviewMarkup}${queueMarkup}`;
+      }
+    }
+  }
+
+  async function submitSelectedWeek() {
+    const workflow = state.weeklyWorkflow;
+    if (!workflow || state.weeklyWorkflowLoading) return;
+    const dialog = await appDialog({
+      title: "Submit this week?",
+      message: `Your ${Number(workflow.ownTotals?.recordCount || 0)} time and expense records will be routed to the responsible Project Leads.`,
+      confirmText: workflow.ownSubmission?.status === "changes_requested" ? "Resubmit Week" : "Submit Week",
+      cancelText: "Cancel",
+      textarea: true,
+      defaultValue: "",
+    });
+    if (!dialog.confirmed) return;
+    try {
+      state.weeklyWorkflowLoading = true;
+      renderWeeklyWorkflow();
+      await mutatePersistentState("submit_week", { weekStart: workflow.weekStart, note: dialog.value }, { skipHydrate: true, returnState: false, skipSettingsMetadataReload: true });
+      state.weeklyWorkflow = null;
+      await loadWeeklyWorkflow(true);
+      feedback("Week submitted for approval.", false);
+    } catch (error) {
+      state.weeklyWorkflowLoading = false;
+      renderWeeklyWorkflow();
+      feedback(error.message || "Unable to submit week.", true);
+    }
+  }
+
+  async function reviewWeeklyPackage(packageId, decision) {
+    let note = "";
+    if (decision === "request_changes") {
+      const dialog = await appDialog({ title: "Request changes", message: "Explain what the member needs to correct.", confirmText: "Request Changes", cancelText: "Cancel", textarea: true });
+      if (!dialog.confirmed) return;
+      note = dialog.value;
+      if (!note) {
+        feedback("A change-request explanation is required.", true);
+        return;
+      }
+    } else {
+      const dialog = await appDialog({ title: "Approve this package?", message: "All time and expense records in this package will be approved.", confirmText: "Approve", cancelText: "Cancel" });
+      if (!dialog.confirmed) return;
+    }
+    try {
+      state.weeklyWorkflowLoading = true;
+      renderWeeklyWorkflow();
+      await mutatePersistentState("review_weekly_package", { packageId, decision, note }, { skipHydrate: true, returnState: false, skipSettingsMetadataReload: true });
+      state.weeklyWorkflow = null;
+      await loadWeeklyWorkflow(true);
+      feedback(decision === "approve" ? "Weekly package approved." : "Changes requested.", false);
+    } catch (error) {
+      state.weeklyWorkflowLoading = false;
+      renderWeeklyWorkflow();
+      feedback(error.message || "Unable to review weekly package.", true);
+    }
+  }
+
   function setView(view) {
     if (!isViewAllowed(view)) {
       view = "inputs";
@@ -6600,6 +6808,10 @@
     persistCurrentView(view);
     if (view === "inputs") {
       loadInputsRecords(state.inputSubtab === "expenses" ? "expenses" : "entries");
+      loadWeeklyWorkflow();
+    }
+    if (view === "entries") {
+      loadWeeklyWorkflow();
     }
     if ((view === "settings" || view === "members") && previousView !== view && !state.settingsMetadataLoaded) {
       loadSettingsMetadata(true, { deferRender: true });
@@ -11482,6 +11694,7 @@
         syncInputsExpenseRow();
         renderInputsExpenseMonthHistory();
       }
+      renderWeeklyWorkflow();
       postHeight();
       return;
     }
@@ -11504,6 +11717,7 @@
     }
 
     if (view === "entries") {
+      renderWeeklyWorkflow();
       if (entriesSubtab === "expenses") {
         if (refs.expensesResults) refs.expensesResults.hidden = !state.resultsApplied.expenses;
         if (refs.expensesResultsActions) refs.expensesResultsActions.hidden = !state.resultsApplied.expenses;
@@ -15964,6 +16178,40 @@
     }
   });
 
+  refs.weeklyWorkflowCard?.addEventListener("click", function (event) {
+    const button = event.target.closest("[data-weekly-action]");
+    if (!button || button.disabled) return;
+    const action = button.dataset.weeklyAction;
+    if (action === "submit") {
+      submitSelectedWeek();
+      return;
+    }
+    if (action === "refresh") {
+      state.weeklyWorkflow = null;
+      loadWeeklyWorkflow(true);
+      return;
+    }
+    if (action === "previous" || action === "next") {
+      state.weeklyWeekStart = shiftWeeklyMonday(
+        state.weeklyWorkflow?.weekStart || state.weeklyWeekStart || today,
+        action === "previous" ? -1 : 1
+      );
+      state.weeklyWorkflow = null;
+      loadWeeklyWorkflow(true);
+    }
+  });
+
+  refs.weeklyReviewQueue?.addEventListener("click", function (event) {
+    const button = event.target.closest("[data-weekly-package][data-weekly-decision]");
+    if (!button || button.disabled) return;
+    reviewWeeklyPackage(button.dataset.weeklyPackage, button.dataset.weeklyDecision);
+  });
+
+  refs.weeklyReviewRefresh?.addEventListener("click", function () {
+    state.weeklyWorkflow = null;
+    loadWeeklyWorkflow(true);
+  });
+
   async function initApp() {
     await loadPersistentState();
     resetFilters();
@@ -15996,6 +16244,9 @@
     render();
     if (state.currentView === "inputs") {
       loadInputsRecords(state.inputSubtab === "expenses" ? "expenses" : "entries");
+    }
+    if (state.currentView === "inputs" || state.currentView === "entries") {
+      loadWeeklyWorkflow(true);
     }
   }
 

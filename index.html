@@ -195,6 +195,10 @@
           <p id="inputs-feedback" class="feedback inputs-header-feedback" aria-live="polite"></p>
         </div>
 
+        <section class="weekly-workflow-card" id="weekly-workflow-card" aria-live="polite">
+          <div class="weekly-workflow-loading">Loading weekly status…</div>
+        </section>
+
         <section class="input-panel" id="inputs-panel-time">
             <div class="input-grid">
               <div class="input-row input-row-head" aria-hidden="true">
@@ -315,6 +319,19 @@
       <section class="page-view entries-view" id="entries-view" hidden aria-labelledby="entries-view-title">
         <div class="input-shell">
           <h2 id="entries-view-title" class="sr-only">Entries</h2>
+
+          <section class="weekly-review-card" id="weekly-review-card" aria-labelledby="weekly-review-title">
+            <div class="weekly-review-head">
+              <div>
+                <span class="weekly-eyebrow">Weekly approvals</span>
+                <h3 id="weekly-review-title">Review queue</h3>
+              </div>
+              <button type="button" class="button button-ghost" id="weekly-review-refresh">Refresh</button>
+            </div>
+            <div id="weekly-review-queue" class="weekly-review-queue">
+              <div class="weekly-workflow-loading">Loading approval queue…</div>
+            </div>
+          </section>
 
           <section class="input-panel entries-panel" id="entries-panel-time">
             <section class="panel" id="time-entries-review-panel">

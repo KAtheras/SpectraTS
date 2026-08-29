@@ -57,6 +57,13 @@ const {
   createSystemInboxItems,
   dispatchNotificationEvent,
 } = require("./_inbox");
+const {
+  assertRecordEditable: assertWeeklyRecordEditable,
+  assertStandaloneApprovalAllowed,
+  listWorkflow: listWeeklyWorkflow,
+  reviewPackage: reviewWeeklyPackage,
+  submitWeek: submitWeeklyWeek,
+} = require("./weeklyApprovalService");
 
 function projectPlanChangeSummary(changeTypes) {
   const labels = {
@@ -3719,6 +3726,14 @@ async function createExpense(sql, payload, currentUser, accountId) {
   if (!targetUser) {
     return errorResponse(404, "Team member not found.");
   }
+  await assertWeeklyRecordEditable(sql, {
+    accountId,
+    memberUserId: targetUser.id,
+    recordType: "expense",
+    recordId: expense.id,
+    recordDate: expense.expenseDate,
+    projectId: project?.id || null,
+  });
   const targetGroup = permissionGroupForUser(targetUser);
   const isActorEditingOwnExpense =
     !canActOnBehalf && normalizeText(targetUser?.id) === normalizeText(currentUser?.id);
@@ -3949,6 +3964,14 @@ async function updateExpense(sql, payload, currentUser, accountId) {
   if (!targetUser) {
     return errorResponse(404, "Team member not found.");
   }
+  await assertWeeklyRecordEditable(sql, {
+    accountId,
+    memberUserId: targetUser.id,
+    recordType: "expense",
+    recordId: id,
+    recordDate: safeExpense.expenseDate,
+    projectId: project?.id || null,
+  });
   const targetGroup = permissionGroupForUser(targetUser);
   const isActorEditingOwnExpense = !canActOnBehalf && normalizeText(existing.user_id) === normalizeText(currentUser?.id);
 
@@ -4103,7 +4126,7 @@ async function deleteExpense(sql, payload, currentUser, accountId) {
   }
 
   const rows = await sql`
-    SELECT *
+    SELECT id, user_id, expense_date, client_name, project_name
     FROM expenses
     WHERE id = ${id}
       AND account_id = ${accountId}::uuid
@@ -4114,6 +4137,15 @@ async function deleteExpense(sql, payload, currentUser, accountId) {
   if (!expense) {
     return errorResponse(404, "Expense not found.");
   }
+
+  await assertWeeklyRecordEditable(sql, {
+    accountId,
+    memberUserId: expense.user_id,
+    recordType: "expense",
+    recordId: id,
+    recordDate: expense.expense_date,
+    projectId: null,
+  });
 
   const project = await findProject(sql, expense.client_name, expense.project_name, accountId);
   const targetUser = await findUserById(sql, expense.user_id, accountId);
@@ -4304,6 +4336,22 @@ async function restoreExpenses(sql, payload, currentUser, accountId) {
   const allowedIds = [];
   for (const row of rows) {
     if (await canDeleteExpenseRecord(sql, row, currentUser, accountId)) {
+      const projectRows = await sql`
+        SELECT p.id FROM projects p
+        JOIN clients c ON c.id = p.client_id AND c.account_id = p.account_id
+        WHERE p.account_id = ${accountId}::uuid
+          AND LOWER(c.name) = LOWER(${normalizeText(row.client_name)})
+          AND LOWER(p.name) = LOWER(${normalizeText(row.project_name)})
+        LIMIT 1
+      `;
+      await assertWeeklyRecordEditable(sql, {
+        accountId,
+        memberUserId: normalizeText(row.user_id),
+        recordType: "expense",
+        recordId: normalizeText(row.id),
+        recordDate: normalizeText(row.expense_date),
+        projectId: projectRows[0]?.id || null,
+      });
       allowedIds.push(normalizeText(row.id));
     }
   }
@@ -4356,6 +4404,7 @@ async function toggleExpenseStatus(sql, payload, currentUser, accountId) {
   if (!expense) {
     return errorResponse(404, "Expense not found.");
   }
+  await assertStandaloneApprovalAllowed(sql, { accountId, recordType: "expense", recordId: id });
 
   const targetUser = await findUserById(sql, expense.user_id, accountId);
   if (!targetUser) {
@@ -5368,6 +5417,14 @@ async function saveEntry(sql, payload, currentUser, accountId) {
   if (!targetUser) {
     return errorResponse(404, "Team member not found.");
   }
+  await assertWeeklyRecordEditable(sql, {
+    accountId,
+    memberUserId: targetUser.id,
+    recordType: "time",
+    recordId: entry.id,
+    recordDate: entry.date,
+    projectId: entry.projectId || null,
+  });
   entry.user =
     normalizeText(targetUser.display_name) ||
     normalizeText(targetUser.displayName) ||
@@ -5753,6 +5810,7 @@ async function approveEntry(sql, payload, currentUser, accountId) {
   if (!entry) {
     return errorResponse(404, "Entry not found.");
   }
+  await assertStandaloneApprovalAllowed(sql, { accountId, recordType: "time", recordId: id });
   if (normalizeStatus(entry.status) === "approved") {
     return { message: "Entry already approved." };
   }
@@ -5909,6 +5967,7 @@ async function unapproveEntry(sql, payload, currentUser, accountId) {
   if (!entry) {
     return errorResponse(404, "Entry not found.");
   }
+  await assertStandaloneApprovalAllowed(sql, { accountId, recordType: "time", recordId: id });
   if (normalizeStatus(entry.status) !== "approved") {
     return { message: "Entry is already pending." };
   }
@@ -6038,6 +6097,14 @@ async function deleteEntry(sql, payload, currentUser, accountId) {
   if (!entry) {
     return errorResponse(404, "Entry not found.");
   }
+  await assertWeeklyRecordEditable(sql, {
+    accountId,
+    memberUserId: entry.user_id,
+    recordType: "time",
+    recordId: id,
+    recordDate: entry.entry_date,
+    projectId: null,
+  });
   const entryOwnerUserId = normalizeText(entry.user_id);
   const entryOwnerUserName = normalizeText(entry.user).toLowerCase();
   const currentUserId = normalizeText(currentUser?.id);
@@ -6256,9 +6323,12 @@ async function restoreEntries(sql, payload, currentUser, accountId) {
   const rows = await sql`
     SELECT
       id,
+      user_id,
       user_name,
       client_name,
-      project_name
+      project_name,
+      entry_date,
+      project_id
     FROM entries
     WHERE id = ANY(${entryIds}::uuid[])
       AND account_id = ${accountId}::uuid
@@ -6267,6 +6337,14 @@ async function restoreEntries(sql, payload, currentUser, accountId) {
   const allowedIds = [];
   for (const row of rows) {
     if (await canDeleteEntryRecord(sql, row, currentUser, accountId)) {
+      await assertWeeklyRecordEditable(sql, {
+        accountId,
+        memberUserId: normalizeText(row.user_id),
+        recordType: "time",
+        recordId: normalizeText(row.id),
+        recordDate: row.entry_date,
+        projectId: row.project_id,
+      });
       allowedIds.push(normalizeText(row.id));
     }
   }
@@ -8380,6 +8458,30 @@ exports.handler = async function handler(event) {
           },
         });
       }
+      case "get_weekly_workflow": {
+        const result = await listWeeklyWorkflow(sql, {
+          accountId,
+          currentUser: context.currentUser,
+          payload: request.payload || {},
+        });
+        return json(200, { ok: true, ...result });
+      }
+      case "submit_week": {
+        mutationResult = await submitWeeklyWeek(sql, {
+          accountId,
+          currentUser: context.currentUser,
+          payload: request.payload || {},
+        });
+        break;
+      }
+      case "review_weekly_package": {
+        mutationResult = await reviewWeeklyPackage(sql, {
+          accountId,
+          currentUser: context.currentUser,
+          payload: request.payload || {},
+        });
+        break;
+      }
       default:
         return errorResponse(400, "Unknown mutation action.");
     }
@@ -8415,6 +8517,6 @@ exports.handler = async function handler(event) {
       message: mutationResult?.message || "",
     });
   } catch (error) {
-    return errorResponse(500, error.message || "Unable to apply database mutation.");
+    return errorResponse(Number(error?.statusCode) || 500, error.message || "Unable to apply database mutation.");
   }
 };

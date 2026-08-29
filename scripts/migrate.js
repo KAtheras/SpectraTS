@@ -8,6 +8,7 @@ const migrations = [
   require("../migrations/003_analytics_permissions"),
   require("../migrations/004_project_closeout"),
   require("../migrations/005_project_plan_approval"),
+  require("../migrations/006_weekly_approval_workflow"),
 ];
 
 async function run() {
