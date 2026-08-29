@@ -2627,7 +2627,7 @@
           <header class="project-closeout-header">
             <div>
               <p class="project-closeout-eyebrow">Project close-out</p>
-              <h2 id="project-closeout-title">${escapeHtml(projectName)}</h2>
+              <h2 id="project-closeout-title" tabindex="-1">${escapeHtml(projectName)}</h2>
               <p>${escapeHtml(clientName)}</p>
             </div>
           </header>
@@ -2729,7 +2729,7 @@
       });
       document.addEventListener("keydown", onKeydown);
       syncConfirm();
-      form.querySelector('input[name="completed_at"]')?.focus();
+      overlay.querySelector("#project-closeout-title")?.focus();
     });
   }
 
