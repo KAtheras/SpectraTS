@@ -3038,7 +3038,7 @@
     header.style.display = "flex";
     header.style.alignItems = "center";
     header.style.gap = "10px";
-    header.style.flexWrap = "nowrap";
+    header.style.flexWrap = "wrap";
 
     if (!addProjectHeaderButton) {
       addProjectHeaderButton = document.createElement("button");
@@ -3091,6 +3091,7 @@
     if (!addProjectHeaderButton.isConnected) {
       header.appendChild(addProjectHeaderButton);
     }
+    addProjectHeaderButton.hidden = !state.permissions?.create_project;
     if (!projectLifecycleToggleWrap.isConnected) {
       header.appendChild(projectLifecycleToggleWrap);
     }
