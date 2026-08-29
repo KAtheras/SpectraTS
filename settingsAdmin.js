@@ -3820,10 +3820,14 @@
           },
           { cap: "see_assigned_clients_projects", label: "Can see assigned clients/projects", indent: false },
           { cap: "manage_clients_lifecycle", label: "Can add/remove/activate/deactivate clients", indent: false },
-          { cap: "manage_projects_lifecycle", label: "Can add/remove/activate/deactivate projects", indent: false },
+          { cap: "create_project", label: "Can create projects", indent: false },
+          { cap: "manage_project_activation", label: "Can deactivate or reactivate projects", indent: false },
+          { cap: "remove_project", label: "Can permanently remove projects", indent: false },
           { cap: "edit_clients", label: "Can edit clients", indent: false },
           { cap: "edit_projects_all_modal", label: "Can edit all projects (modal only)", indent: false },
           { cap: "edit_project_planning", label: "Can edit project planning", indent: false },
+          { cap: "submit_project_plan", label: "Can submit project plans for approval", indent: false },
+          { cap: "approve_project_plan", label: "Can serve as Project Executive and review project plans", indent: false },
           { cap: "close_project", label: "Can close out or reopen projects within assigned leadership scope", indent: false },
         ],
       },
@@ -3846,10 +3850,14 @@
       "see_office_clients_projects",
       "see_assigned_clients_projects",
       "manage_clients_lifecycle",
-      "manage_projects_lifecycle",
+      "create_project",
+      "manage_project_activation",
+      "remove_project",
       "edit_clients",
       "edit_projects_all_modal",
       "edit_project_planning",
+      "submit_project_plan",
+      "approve_project_plan",
       "close_project",
       "view_company_analytics",
       "view_office_analytics",
@@ -3887,6 +3895,8 @@
               cap === "see_all_clients_projects" ||
               cap === "view_all_entries" ||
               cap === "close_project" ||
+              cap === "submit_project_plan" ||
+              cap === "approve_project_plan" ||
               cap.startsWith("view_") && cap.endsWith("_analytics");
             const checked = isSuperuserHardEnabled
               ? true
@@ -3994,10 +4004,14 @@
       ];
       const actionCaps = [
         "manage_clients_lifecycle",
-        "manage_projects_lifecycle",
+        "create_project",
+        "manage_project_activation",
+        "remove_project",
         "edit_clients",
         "edit_projects_all_modal",
         "edit_project_planning",
+        "submit_project_plan",
+        "approve_project_plan",
       ];
       const warningRoles = Array.from(allowedCapabilitiesByRole.entries())
         .filter(([_, caps]) => {
@@ -4036,6 +4050,8 @@
             "view_department_analytics",
             "view_project_analytics",
             "close_project",
+            "submit_project_plan",
+            "approve_project_plan",
           ].includes(`${capability || ""}`.trim())
             ? "all_offices"
             : "own_office";

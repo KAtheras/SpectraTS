@@ -47,6 +47,16 @@
         gap: 10px;
         align-items: center;
       }
+      .project-planning-status {
+        padding: 7px 10px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        color: var(--muted);
+        font-size: 0.78rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
       .project-planning-kpi-row {
         width: 100%;
         margin-bottom: 14px;
@@ -831,6 +841,8 @@
     container,
     onBack,
     onSave,
+    onApprove,
+    onRequestChanges,
     onAddMember,
     onPersistField,
     onDeleteMember,
@@ -842,6 +854,7 @@
     onConfirmDialog,
     onNotice,
     canEdit = true,
+    canSubmit = false,
   }) {
     ensurePlanningStyles();
     if (!container) return;
@@ -874,6 +887,13 @@
       });
       return;
     }
+    const planningStatus = String(project?.planningStatus || project?.planning_status || "draft").trim().toLowerCase();
+    const currentUserId = String(state?.currentUser?.id || "").trim();
+    const isProjectExecutive = currentUserId && currentUserId === String(project?.projectExecutiveId || project?.project_executive_id || "").trim();
+    const canReview = planningStatus === "submitted" && isProjectExecutive && state?.permissions?.approve_project_plan === true;
+    const statusLabel = planningStatus === "changes_requested"
+      ? "Changes Requested"
+      : planningStatus.charAt(0).toUpperCase() + planningStatus.slice(1);
     const projectMemberAssignments = Array.isArray(state?.assignments?.projectMembers)
       ? state.assignments.projectMembers.filter(
           (row) => String(row?.projectId || "").trim() === projectIdKey
@@ -1094,8 +1114,11 @@
             </div>
           </div>
           <div class="project-planning-actions">
+            <span class="project-planning-status">${escapeHtml(statusLabel)}</span>
             <button type="button" class="button button-ghost" data-project-planning-back>Back</button>
-            <button type="button" class="button" data-project-planning-save ${canEdit ? "" : "hidden disabled"}>Submit</button>
+            <button type="button" class="button" data-project-planning-save ${canEdit && canSubmit ? "" : "hidden disabled"}>Submit for Approval</button>
+            <button type="button" class="button button-ghost" data-project-planning-request ${canReview ? "" : "hidden disabled"}>Request Changes</button>
+            <button type="button" class="button" data-project-planning-approve ${canReview ? "" : "hidden disabled"}>Approve Plan</button>
           </div>
         </header>
         <section class="project-planning-kpi-row">
@@ -1377,9 +1400,25 @@
           projectId: String(project?.id || "").trim(),
           members,
         });
+      } catch (error) {
+        if (typeof onNotice === "function") {
+          onNotice(error?.message || "Unable to submit project plan.", true);
+        }
       } finally {
         saveButton.disabled = false;
       }
+    });
+    container.querySelector("[data-project-planning-approve]")?.addEventListener("click", async () => {
+      if (typeof onApprove === "function") await onApprove({ projectId: projectIdKey });
+    });
+    container.querySelector("[data-project-planning-request]")?.addEventListener("click", async () => {
+      const notes = window.prompt("Describe the changes requested:", "");
+      if (notes === null) return;
+      if (!String(notes).trim()) {
+        if (typeof onNotice === "function") onNotice("Describe the changes requested.", true);
+        return;
+      }
+      if (typeof onRequestChanges === "function") await onRequestChanges({ projectId: projectIdKey, notes: String(notes).trim() });
     });
 
     const persistedRowFields = new Map(

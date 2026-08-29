@@ -49,8 +49,70 @@ const {
 const permissions = require("./permissions");
 const {
   buildInboxMessage,
+  createSystemInboxItems,
   dispatchNotificationEvent,
 } = require("./_inbox");
+
+async function transitionProjectPlan(sql, { action, projectId, notes, currentUser, accountId, can }) {
+  const project = await findProjectById(sql, projectId, accountId);
+  if (!project) return errorResponse(404, "Project not found.");
+  if (project.isActive === false) return errorResponse(400, "Reactivate this project before changing its plan status.");
+  const status = normalizePlanningStatus(project.planning_status, "draft");
+  const actorId = normalizeText(currentUser?.id);
+  const leadId = normalizeText(project.project_lead_id);
+  const executiveId = normalizeText(project.project_executive_id);
+  const projectLabel = normalizeText(project.name) || "project";
+
+  if (action === "submit_project_plan") {
+    if (!can("submit_project_plan", { projectId: String(project.id), actorProjectIds: [String(project.id)] }) || actorId !== leadId) {
+      return errorResponse(403, "Only the assigned Project Lead may submit this plan.");
+    }
+    if (!executiveId) return errorResponse(400, "Assign a Project Executive before submitting the plan.");
+    if (executiveId === leadId) return errorResponse(400, "Project Executive and Project Lead must be different people.");
+    if (status !== "draft" && status !== "changes_requested") {
+      return errorResponse(400, "Only a draft or changes-requested plan can be submitted.");
+    }
+    await sql`
+      UPDATE projects SET planning_status = 'submitted', planning_submitted_at = NOW(),
+        planning_submitted_by = ${actorId}, planning_reviewed_at = NULL,
+        planning_reviewed_by = NULL, planning_review_notes = NULL, updated_at = NOW()
+      WHERE id = ${project.id} AND account_id = ${accountId}::uuid
+    `;
+    await createSystemInboxItems(sql, {
+      accountId, type: "project_plan_submitted", recipientUserIds: [executiveId], actorUserId: actorId,
+      subjectType: "project_plan", subjectId: String(project.id), projectName: projectLabel,
+      message: `${currentUser?.displayName || "The Project Lead"} submitted the ${projectLabel} project plan for your approval.`,
+      deepLink: { view: "project_planning", projectId: String(project.id) },
+    });
+    return { planningStatus: "submitted", message: "Project plan submitted for approval." };
+  }
+
+  if (!can("approve_project_plan", { projectId: String(project.id) }) || actorId !== executiveId) {
+    return errorResponse(403, "Only the assigned Project Executive may review this plan.");
+  }
+  if (status !== "submitted") return errorResponse(400, "Only a submitted plan can be reviewed.");
+  const requestingChanges = action === "request_project_plan_changes";
+  const reviewNotes = normalizeText(notes);
+  if (requestingChanges && !reviewNotes) return errorResponse(400, "Describe the changes requested.");
+  const nextStatus = requestingChanges ? "changes_requested" : "approved";
+  await sql`
+    UPDATE projects SET planning_status = ${nextStatus}, planning_reviewed_at = NOW(),
+      planning_reviewed_by = ${actorId}, planning_review_notes = ${reviewNotes || null}, updated_at = NOW()
+    WHERE id = ${project.id} AND account_id = ${accountId}::uuid
+  `;
+  if (leadId) {
+    await createSystemInboxItems(sql, {
+      accountId, type: requestingChanges ? "project_plan_changes_requested" : "project_plan_approved",
+      recipientUserIds: [leadId], actorUserId: actorId, subjectType: "project_plan",
+      subjectId: String(project.id), projectName: projectLabel, noteSnippet: reviewNotes,
+      message: requestingChanges
+        ? `${currentUser?.displayName || "The Project Executive"} requested changes to the ${projectLabel} project plan.`
+        : `${currentUser?.displayName || "The Project Executive"} approved the ${projectLabel} project plan.`,
+      deepLink: { view: "project_planning", projectId: String(project.id) },
+    });
+  }
+  return { planningStatus: nextStatus, message: requestingChanges ? "Changes requested." : "Project plan approved." };
+}
 const SUPERUSER_MATRIX_EDITABLE_CAPABILITIES = new Set([
   "view_all_entries",
   "view_office_entries",
@@ -60,6 +122,11 @@ const SUPERUSER_MATRIX_EDITABLE_CAPABILITIES = new Set([
   "see_assigned_clients_projects",
   "manage_clients_lifecycle",
   "manage_projects_lifecycle",
+  "create_project",
+  "manage_project_activation",
+  "remove_project",
+  "submit_project_plan",
+  "approve_project_plan",
   "edit_clients",
   "edit_projects_all_modal",
   "edit_project_planning",
@@ -88,7 +155,7 @@ function normalizeNullableNumber(value) {
 
 function normalizePlanningStatus(value, fallback = "draft") {
   const normalized = normalizeText(value).toLowerCase();
-  if (normalized === "submitted" || normalized === "approved" || normalized === "draft") {
+  if (normalized === "submitted" || normalized === "approved" || normalized === "changes_requested" || normalized === "draft") {
     return normalized;
   }
   return fallback;
@@ -1444,6 +1511,12 @@ async function snapshotProjectById(sql, projectId, accountId) {
       p.office_id,
       p.project_department_id,
       p.project_lead_id,
+      p.project_executive_id,
+      p.planning_submitted_at,
+      p.planning_submitted_by,
+      p.planning_reviewed_at,
+      p.planning_reviewed_by,
+      p.planning_review_notes,
       p.budget_amount,
       p.contract_amount,
       p.pricing_model,
@@ -1501,6 +1574,12 @@ async function snapshotProjectById(sql, projectId, accountId) {
     closeout_billing_note: normalizeText(row.closeout_billing_note) || null,
     percent_complete_updated_at: row.percent_complete_updated_at || null,
     planning_status: normalizePlanningStatus(row.planning_status, "draft"),
+    project_executive_id: normalizeText(row.project_executive_id) || null,
+    planning_submitted_at: row.planning_submitted_at || null,
+    planning_submitted_by: normalizeText(row.planning_submitted_by) || null,
+    planning_reviewed_at: row.planning_reviewed_at || null,
+    planning_reviewed_by: normalizeText(row.planning_reviewed_by) || null,
+    planning_review_notes: normalizeText(row.planning_review_notes) || null,
     is_active: row.is_active !== false,
   };
 }
@@ -1705,7 +1784,10 @@ function buildPermissionsPayload(currentUser, permissionIndex) {
       can("view_project_analytics"),
     view_audit_logs: can("view_audit_logs"),
     create_project: can("create_project"),
-    remove_project: can("archive_project"),
+    remove_project: can("remove_project"),
+    manage_project_activation: can("manage_project_activation"),
+    submit_project_plan: can("submit_project_plan"),
+    approve_project_plan: can("approve_project_plan"),
     manage_projects_lifecycle: canManageProjectsLifecycle,
     edit_projects_all_modal: canEditProjectsAllModal,
     edit_project_planning: canEditProjectPlanning,
@@ -1783,6 +1865,7 @@ function canManageClientsLifecycleForOffice({ can, currentUser, targetOfficeId }
 function canManageProjectsLifecycleForTarget({
   can,
   currentUser,
+  capability = "manage_projects_lifecycle",
   targetOfficeId,
   targetDepartmentId,
   projectId = null,
@@ -1790,7 +1873,7 @@ function canManageProjectsLifecycleForTarget({
 }) {
   const role = actorRoleKey(currentUser);
   if (role === "superuser") return true;
-  const hasCapability = can("manage_projects_lifecycle", {
+  const hasCapability = can(capability, {
     resourceOfficeId: targetOfficeId || null,
     projectId,
     actorProjectIds,
@@ -2052,6 +2135,9 @@ async function findProjectById(sql, projectId, accountId) {
       projects.client_id,
       projects.office_id,
       projects.project_lead_id,
+      projects.project_executive_id,
+      projects.project_department_id,
+      projects.planning_status,
       projects.is_active AS "isActive",
       clients.name AS client,
       clients.is_active AS "clientIsActive"
@@ -2944,6 +3030,7 @@ async function addProject(sql, payload, currentUser, accountId) {
     return errorResponse(409, "That project already exists for this client.");
   }
   const projectLeadId = normalizeText(payload.projectLeadId ?? payload.project_lead_id) || null;
+  const projectExecutiveId = normalizeText(payload.projectExecutiveId ?? payload.project_executive_id) || null;
   const projectDepartmentId =
     normalizeText(payload.projectDepartmentId ?? payload.project_department_id) || null;
   const projectOfficeId = normalizeText(payload.officeId ?? payload.office_id) || null;
@@ -2952,6 +3039,15 @@ async function addProject(sql, payload, currentUser, accountId) {
     if (!lead) {
       return errorResponse(400, "Project lead not found.");
     }
+  }
+  if (!projectExecutiveId) {
+    return errorResponse(400, "Select a Project Executive.");
+  }
+  if (projectExecutiveId === projectLeadId) {
+    return errorResponse(400, "Project Executive and Project Lead must be different people.");
+  }
+  if (!(await findUserById(sql, projectExecutiveId, accountId))) {
+    return errorResponse(400, "Project Executive not found.");
   }
   if (projectDepartmentId) {
     const departmentRows = await sql`
@@ -2985,6 +3081,7 @@ async function addProject(sql, payload, currentUser, accountId) {
       office_id,
       project_department_id,
       project_lead_id,
+      project_executive_id,
       name,
       created_by,
       contract_amount,
@@ -2999,6 +3096,7 @@ async function addProject(sql, payload, currentUser, accountId) {
       ${projectOfficeId || client.office_id || null},
       ${projectDepartmentId},
       ${projectLeadId},
+      ${projectExecutiveId},
       ${projectName},
       ${currentUser?.id || null},
       ${hasContract && !Number.isNaN(contractAmount) && contractAmount >= 0 ? contractAmount : null},
@@ -4286,6 +4384,9 @@ async function updateProject(sql, payload, currentUser, accountId) {
   const hasProjectLeadField =
     Object.prototype.hasOwnProperty.call(payload || {}, "projectLeadId") ||
     Object.prototype.hasOwnProperty.call(payload || {}, "project_lead_id");
+  const hasProjectExecutiveField =
+    Object.prototype.hasOwnProperty.call(payload || {}, "projectExecutiveId") ||
+    Object.prototype.hasOwnProperty.call(payload || {}, "project_executive_id");
   const hasProjectDepartmentField =
     Object.prototype.hasOwnProperty.call(payload || {}, "projectDepartmentId") ||
     Object.prototype.hasOwnProperty.call(payload || {}, "project_department_id");
@@ -4347,6 +4448,9 @@ async function updateProject(sql, payload, currentUser, accountId) {
   const nextProjectLeadId = hasProjectLeadField
     ? normalizeText(payload.projectLeadId ?? payload.project_lead_id) || null
     : project.project_lead_id || null;
+  const nextProjectExecutiveId = hasProjectExecutiveField
+    ? normalizeText(payload.projectExecutiveId ?? payload.project_executive_id) || null
+    : project.project_executive_id || null;
   const nextProjectDepartmentId = hasProjectDepartmentField
     ? normalizeText(payload.projectDepartmentId ?? payload.project_department_id) || null
     : project.project_department_id || null;
@@ -4393,6 +4497,15 @@ async function updateProject(sql, payload, currentUser, accountId) {
       return errorResponse(400, "Project lead not found.");
     }
   }
+  if (hasProjectExecutiveField && !nextProjectExecutiveId) {
+    return errorResponse(400, "Select a Project Executive.");
+  }
+  if (nextProjectExecutiveId && nextProjectExecutiveId === nextProjectLeadId) {
+    return errorResponse(400, "Project Executive and Project Lead must be different people.");
+  }
+  if (nextProjectExecutiveId && !(await findUserById(sql, nextProjectExecutiveId, accountId))) {
+    return errorResponse(400, "Project Executive not found.");
+  }
   if (nextProjectDepartmentId) {
     const departmentRows = await sql`
       SELECT id
@@ -4437,6 +4550,7 @@ async function updateProject(sql, payload, currentUser, accountId) {
         office_id = ${nextProjectOfficeId},
         project_department_id = ${nextProjectDepartmentId},
         project_lead_id = ${nextProjectLeadId},
+        project_executive_id = ${nextProjectExecutiveId},
         updated_at = NOW()
     WHERE id = ${project.id}
       AND account_id = ${accountId}::uuid
@@ -6075,11 +6189,30 @@ exports.handler = async function handler(event) {
           !canManageProjectsLifecycleForTarget({
             can,
             currentUser: context.currentUser,
+            capability: "create_project",
             targetOfficeId,
             targetDepartmentId,
           })
         ) {
           return errorResponse(403, "Access denied.");
+        }
+        const executiveId = normalizeText(
+          request.payload?.projectExecutiveId ?? request.payload?.project_executive_id
+        );
+        const executiveUser = executiveId ? await findUserById(sql, executiveId, accountId) : null;
+        if (
+          !executiveUser ||
+          !permissions.can(
+            executiveUser,
+            "approve_project_plan",
+            {
+              permissionIndex,
+              actorOfficeId: executiveUser?.officeId ?? executiveUser?.office_id ?? null,
+              resourceOfficeId: targetOfficeId,
+            }
+          )
+        ) {
+          return errorResponse(400, "Select a Project Executive who has plan approval permission.");
         }
         const projectName = normalizeText(request.payload?.projectName);
         mutationResult = await addProject(
@@ -6249,6 +6382,25 @@ exports.handler = async function handler(event) {
         const canEditProjectLeadBypass = isSuperuserActor && hasProjectLeadField;
         if (!canEditProject && !canEditProjectLeadBypass) {
           return errorResponse(403, "Access denied.");
+        }
+        if (
+          Object.prototype.hasOwnProperty.call(request.payload || {}, "projectExecutiveId") ||
+          Object.prototype.hasOwnProperty.call(request.payload || {}, "project_executive_id")
+        ) {
+          const executiveId = normalizeText(
+            request.payload?.projectExecutiveId ?? request.payload?.project_executive_id
+          );
+          const executiveUser = executiveId ? await findUserById(sql, executiveId, accountId) : null;
+          if (
+            !executiveUser ||
+            !permissions.can(executiveUser, "approve_project_plan", {
+              permissionIndex,
+              actorOfficeId: executiveUser?.officeId ?? executiveUser?.office_id ?? null,
+              resourceOfficeId: existingProject.office_id || null,
+            })
+          ) {
+            return errorResponse(400, "Select a Project Executive who has plan approval permission.");
+          }
         }
         if (!canEditProject && canEditProjectLeadBypass) {
           const disallowedChanges = collectDisallowedProjectLeadBypassChanges(request.payload || {}, existingProject);
@@ -6535,7 +6687,9 @@ exports.handler = async function handler(event) {
             cap === "view_office_analytics" ||
             cap === "view_department_analytics" ||
             cap === "view_project_analytics" ||
-            cap === "close_project"
+            cap === "close_project" ||
+            cap === "submit_project_plan" ||
+            cap === "approve_project_plan"
           ) {
             return "all_offices";
           }
@@ -6543,6 +6697,9 @@ exports.handler = async function handler(event) {
             roleKey === "superuser" &&
             (cap === "manage_clients_lifecycle" ||
               cap === "manage_projects_lifecycle" ||
+              cap === "create_project" ||
+              cap === "manage_project_activation" ||
+              cap === "remove_project" ||
               cap === "edit_clients" ||
               cap === "edit_projects_all_modal" ||
               cap === "edit_project_planning")
@@ -6764,6 +6921,7 @@ exports.handler = async function handler(event) {
         const canArchiveProject = canManageProjectsLifecycleForTarget({
           can,
           currentUser: context.currentUser,
+          capability: "remove_project",
           targetOfficeId: normalizeText(targetProject.office_id || targetProject.officeId) || null,
           targetDepartmentId:
             normalizeText(targetProject.project_department_id || targetProject.projectDepartmentId) || null,
@@ -6803,6 +6961,7 @@ exports.handler = async function handler(event) {
         const canArchiveProject = canManageProjectsLifecycleForTarget({
           can,
           currentUser: context.currentUser,
+          capability: "manage_project_activation",
           targetOfficeId: normalizeText(targetProject.office_id || targetProject.officeId) || null,
           targetDepartmentId:
             normalizeText(targetProject.project_department_id || targetProject.projectDepartmentId) || null,
@@ -6897,6 +7056,7 @@ exports.handler = async function handler(event) {
         const canArchiveProject = canManageProjectsLifecycleForTarget({
           can,
           currentUser: context.currentUser,
+          capability: "manage_project_activation",
           targetOfficeId: normalizeText(targetProject.office_id || targetProject.officeId) || null,
           targetDepartmentId:
             normalizeText(targetProject.project_department_id || targetProject.projectDepartmentId) || null,
@@ -7196,6 +7356,9 @@ exports.handler = async function handler(event) {
         if (!canEditPlanning) {
           return errorResponse(403, "Access denied.");
         }
+        if (["submitted", "approved"].includes(normalizePlanningStatus(targetProject.planning_status, "draft"))) {
+          return errorResponse(400, "This plan is locked while submitted or approved.");
+        }
         const existing = await getProjectMemberBudgets(sql, projectId, accountId);
         for (const row of existing) {
           await deleteProjectMemberBudget(sql, projectId, row?.userId, accountId);
@@ -7239,6 +7402,22 @@ exports.handler = async function handler(event) {
             AND account_id = ${accountId}::uuid
         `;
         mutationResult = { ok: true };
+        break;
+      }
+      case "submit_project_plan":
+      case "approve_project_plan":
+      case "request_project_plan_changes": {
+        const projectId = normalizeText(request.payload?.projectId);
+        if (!projectId) return errorResponse(400, "Project id is required.");
+        mutationResult = await transitionProjectPlan(sql, {
+          action: request.action,
+          projectId,
+          notes: request.payload?.notes,
+          currentUser: context.currentUser,
+          accountId,
+          can,
+        });
+        if (mutationResult?.statusCode) return mutationResult;
         break;
       }
       case "delete_project_member_budget": {

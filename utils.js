@@ -131,6 +131,7 @@
       officeId: officeId !== null && officeId !== undefined ? String(officeId) : "",
       departmentId: departmentId !== null && departmentId !== undefined ? String(departmentId) : "",
       departmentName: departmentName || "",
+      canApproveProjectPlans: user.canApproveProjectPlans === true,
     };
   }
 
@@ -238,7 +239,7 @@
               ? String(project.planning_status).trim().toLowerCase()
               : "draft";
         const planningStatus =
-          planningStatusRaw === "submitted" || planningStatusRaw === "approved" || planningStatusRaw === "draft"
+          planningStatusRaw === "submitted" || planningStatusRaw === "approved" || planningStatusRaw === "changes_requested" || planningStatusRaw === "draft"
             ? planningStatusRaw
             : "draft";
         const lifecycleStatusRaw = String(
@@ -276,6 +277,13 @@
           projectLeadId: projectLeadId || null,
           project_lead_id: projectLeadId || null,
           projectLeadName,
+          projectExecutiveId: String(project.projectExecutiveId ?? project.project_executive_id ?? "").trim() || null,
+          project_executive_id: String(project.projectExecutiveId ?? project.project_executive_id ?? "").trim() || null,
+          planningSubmittedAt: project.planningSubmittedAt ?? project.planning_submitted_at ?? null,
+          planningSubmittedBy: project.planningSubmittedBy ?? project.planning_submitted_by ?? null,
+          planningReviewedAt: project.planningReviewedAt ?? project.planning_reviewed_at ?? null,
+          planningReviewedBy: project.planningReviewedBy ?? project.planning_reviewed_by ?? null,
+          planningReviewNotes: project.planningReviewNotes ?? project.planning_review_notes ?? "",
           percentComplete: Number.isFinite(percentCompleteRaw) ? percentCompleteRaw : null,
           percent_complete: Number.isFinite(percentCompleteRaw) ? percentCompleteRaw : null,
           percentCompleteUpdatedAt,

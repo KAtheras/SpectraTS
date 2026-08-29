@@ -105,7 +105,9 @@
 
     refs.clientEditor.hidden = false;
     const values = editor.values || {};
-    const isEditable = Boolean(state.permissions?.edit_clients);
+    const isActive = values?.isActive ?? values?.is_active ?? true;
+    const canManageLifecycle = Boolean(state.permissions?.manage_clients_lifecycle);
+    const isEditable = Boolean(state.permissions?.edit_clients) && isActive;
     const saveLabel = editor.mode === "edit" ? "Save client" : "Create client";
     const title = editor.mode === "edit" ? "Edit client" : "New client";
     const disabledAttr = isEditable ? "" : "disabled";
@@ -207,8 +209,18 @@
             </div>
           </div>
           <div class="client-editor-actions">
-            <button type="button" class="button button-ghost" data-cancel-client>Cancel</button>
-            <button type="submit" class="button" ${disabledAttr}>${escapeHtml(saveLabel)}</button>
+            <div class="client-editor-actions-left">
+              ${editor.mode === "edit" && canManageLifecycle
+                ? `<button type="button" class="button button-ghost" data-client-lifecycle-action>${isActive ? "Deactivate Client" : "Reactivate Client"}</button>`
+                : ""}
+              ${editor.mode === "edit" && canManageLifecycle && !isActive
+                ? '<button type="button" class="button button-ghost project-remove-action" data-client-remove-action>Permanently Remove Client</button>'
+                : ""}
+            </div>
+            <div class="client-editor-actions-right">
+              <button type="button" class="button button-ghost" data-cancel-client>Close</button>
+              <button type="submit" class="button" ${disabledAttr}>${escapeHtml(saveLabel)}</button>
+            </div>
           </div>
         </form>
       </div>

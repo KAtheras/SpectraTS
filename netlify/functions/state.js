@@ -34,6 +34,15 @@ exports.handler = async function handler(event) {
     const settingsMetaOnly = String(event.queryStringParameters?.settings_meta || "").trim() === "1";
     if (settingsMetaOnly) {
       const settingsMeta = await loadSettingsMetadata(sql, context.currentUser);
+      if (Array.isArray(settingsMeta.users)) {
+        settingsMeta.users = settingsMeta.users.map((user) => ({
+          ...user,
+          canApproveProjectPlans: can(user, "approve_project_plan", {
+            resourceOfficeId: user?.officeId ?? user?.office_id ?? null,
+            actorOfficeId: user?.officeId ?? user?.office_id ?? null,
+          }, permissionIndex),
+        }));
+      }
       return json(200, settingsMeta);
     }
     const state = await loadState(sql, context.currentUser, { includeRecords: false });
@@ -70,6 +79,13 @@ exports.handler = async function handler(event) {
         projectLeadId: project?.projectLeadId ?? project?.project_lead_id ?? null,
         project_lead_id: project?.projectLeadId ?? project?.project_lead_id ?? null,
         projectLeadName: project?.projectLeadName ?? null,
+        projectExecutiveId: project?.projectExecutiveId ?? project?.project_executive_id ?? null,
+        project_executive_id: project?.projectExecutiveId ?? project?.project_executive_id ?? null,
+        planningSubmittedAt: project?.planningSubmittedAt ?? project?.planning_submitted_at ?? null,
+        planningSubmittedBy: project?.planningSubmittedBy ?? project?.planning_submitted_by ?? null,
+        planningReviewedAt: project?.planningReviewedAt ?? project?.planning_reviewed_at ?? null,
+        planningReviewedBy: project?.planningReviewedBy ?? project?.planning_reviewed_by ?? null,
+        planningReviewNotes: project?.planningReviewNotes ?? project?.planning_review_notes ?? "",
         projectDepartmentId: project?.projectDepartmentId ?? project?.project_department_id ?? null,
         project_department_id: project?.projectDepartmentId ?? project?.project_department_id ?? null,
         projectDepartmentName: project?.projectDepartmentName ?? null,
@@ -91,6 +107,20 @@ exports.handler = async function handler(event) {
       }));
     }
     const currentUser = state.currentUser;
+    if (Array.isArray(state.users)) {
+      state.users = state.users.map((user) => ({
+        ...user,
+        canApproveProjectPlans: can(
+          user,
+          "approve_project_plan",
+          {
+            resourceOfficeId: user?.officeId ?? user?.office_id ?? null,
+            actorOfficeId: user?.officeId ?? user?.office_id ?? null,
+          },
+          permissionIndex
+        ),
+      }));
+    }
     const canManageSettingsAccess = can(currentUser, "manage_settings_access", {}, permissionIndex);
     const canViewCostRates =
       can(currentUser, "view_cost_rates", {}, permissionIndex) ||
@@ -257,7 +287,10 @@ exports.handler = async function handler(event) {
 
       // projects
       create_project: can(currentUser, "create_project", {}, permissionIndex),
-      remove_project: can(currentUser, "archive_project", {}, permissionIndex),
+      remove_project: can(currentUser, "remove_project", {}, permissionIndex),
+      manage_project_activation: can(currentUser, "manage_project_activation", {}, permissionIndex),
+      submit_project_plan: can(currentUser, "submit_project_plan", {}, permissionIndex),
+      approve_project_plan: can(currentUser, "approve_project_plan", {}, permissionIndex),
       manage_projects_lifecycle: canManageProjectsLifecycle,
       edit_projects_all_modal: canEditProjectsAllModal,
       edit_project_planning: canEditProjectPlanning,

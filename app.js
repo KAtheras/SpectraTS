@@ -1365,6 +1365,7 @@
           ? Number(projectTechAdminFeeRaw)
           : null;
     const projectLeadId = String(projectRow?.projectLeadId || projectRow?.project_lead_id || "").trim() || null;
+    const projectExecutiveId = String(projectRow?.projectExecutiveId || projectRow?.project_executive_id || "").trim() || null;
     const projectDepartmentId =
       String(projectRow?.projectDepartmentId || projectRow?.project_department_id || "").trim() || null;
     const clientRow =
@@ -1401,6 +1402,7 @@
       techAdminFeePctOverride: currentTechAdminFeePctOverride,
       defaultTargetRealizationPct,
       projectLeadId,
+      projectExecutiveId,
       projectDepartmentId,
       projectOfficeId,
       clientOfficeId,
@@ -1412,7 +1414,8 @@
       closeoutBillingNote: projectRow?.closeoutBillingNote || projectRow?.closeout_billing_note || null,
       projectIsActive: isProjectActive(projectRow),
       canCloseProject: canCloseProject(projectRow),
-      canManageProjectLifecycle: canManageProjectsLifecycle(),
+      canManageProjectLifecycle: Boolean(state.permissions?.manage_project_activation),
+      canRemoveProject: Boolean(state.permissions?.remove_project),
       canEditProject: canEditProjectModal(normalizedClient, normalizedProject),
       startWithCloseAction: flowOptions?.fromProjectPlanning === true,
       allowOpenPlanning:
@@ -1430,6 +1433,7 @@
           targetRealizationPct: payload.targetRealizationPct,
           techAdminFeePctOverride: payload.techAdminFeePctOverride,
           project_lead_id: payload.projectLeadId,
+          project_executive_id: payload.projectExecutiveId,
           project_department_id: payload.projectDepartmentId,
           office_id: payload.projectOfficeId,
         });
@@ -1522,6 +1526,7 @@
       const isDeactivatedProject = isProjectEditDialog && options?.projectIsActive === false && !isClosedOutProject;
       const canManageProjectLifecycleFromDialog =
         isProjectEditDialog && options?.canManageProjectLifecycle === true;
+      const canRemoveProjectFromDialog = isProjectEditDialog && options?.canRemoveProject === true;
       const isReadOnlyProjectDialog =
         isProjectEditDialog && (options?.canEditProject === false || isDeactivatedProject);
       const canUseCloseoutAction =
@@ -1535,6 +1540,7 @@
         ? Number(options.contractAmount)
         : null;
       const currentLeadId = String(options?.projectLeadId || "").trim();
+      const currentExecutiveId = String(options?.projectExecutiveId || "").trim();
       const currentProjectDepartmentId = String(options?.projectDepartmentId || "").trim();
       const currentProjectOfficeId =
         String(options?.projectOfficeId || "").trim() || String(options?.clientOfficeId || "").trim();
@@ -1592,6 +1598,15 @@
         activeUsers.map((user) => [String(user.id || "").trim(), String(user.displayName || "").trim()])
       );
       const managerEligibleUsers = activeUsers.filter((user) => isManager(user));
+      const executiveEligibleUsers = activeUsers.filter((user) => user?.canApproveProjectPlans === true);
+      const defaultExecutiveId = currentExecutiveId || (
+        executiveEligibleUsers.some((user) => String(user?.id || "") === String(state.currentUser?.id || ""))
+          ? String(state.currentUser?.id || "")
+          : ""
+      );
+      const executiveOptions = ['<option value="">Select Project Executive</option>']
+        .concat(executiveEligibleUsers.map((user) => `<option value="${escapeHtml(String(user.id || ""))}">${escapeHtml(String(user.displayName || ""))}</option>`))
+        .join("");
       const currentLeadName =
         leadNameById.get(currentLeadId) ||
         String(options?.projectLeadName || "").trim() ||
@@ -1678,7 +1693,7 @@
                 ? `<div class="project-lifecycle-banner"><strong>Deactivated</strong><span>This project is unavailable for new activity and excluded from operational analytics.</span></div>`
               : ""
           }
-          <div class="project-dialog-core-row" style="grid-template-columns: repeat(4, minmax(0, 1fr));">
+          <div class="project-dialog-core-row" style="grid-template-columns: repeat(5, minmax(0, 1fr));">
             <label class="project-dialog-field">
               <span>Project name</span>
               <input type="text" name="project_name" required />
@@ -1699,6 +1714,10 @@
                 <div data-project-lead-menu role="listbox" hidden style="position:absolute;left:0;right:0;top:calc(100% + 4px);max-height:220px;overflow:auto;z-index:50;background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 10px 24px rgba(15,23,42,.12);"></div>
               </div>
               <input type="hidden" name="project_lead_id" value="" />
+            </label>
+            <label class="project-dialog-field">
+              <span>Project Executive</span>
+              <select name="project_executive_id" required>${executiveOptions}</select>
             </label>
           </div>
           <div class="project-dialog-core-row project-dialog-econ-row" style="grid-template-columns: repeat(4, minmax(0, 1fr));">
@@ -1793,7 +1812,7 @@
                   : ""
               }
               ${
-                canManageProjectLifecycleFromDialog && isDeactivatedProject
+                canRemoveProjectFromDialog && isDeactivatedProject
                   ? '<button type="button" class="button button-ghost project-remove-action" data-project-remove-action>Permanently Remove Project</button>'
                   : ""
               }
@@ -1822,6 +1841,7 @@
       const leadToggleButton = form.querySelector("[data-project-lead-toggle]");
       const departmentSelect = form.querySelector('select[name="project_department_id"]');
       const officeSelect = form.querySelector('select[name="project_office_id"]');
+      const executiveSelect = form.querySelector('select[name="project_executive_id"]');
       const pricingModelInput = form.querySelector('[name="pricing_model"]');
       const pricingModelToggleButtons = Array.from(
         form.querySelectorAll("[data-pricing-model-value]")
@@ -2212,6 +2232,7 @@
           currentTechAdminFeePctOverride !== null ? String(currentTechAdminFeePctOverride) : "";
       }
       setLeadSelectionById(currentLeadId);
+      if (executiveSelect) executiveSelect.value = defaultExecutiveId;
       if (departmentSelect) {
         departmentSelect.value = currentProjectDepartmentId;
       }
@@ -2369,6 +2390,17 @@
           leadValueInput.value = resolvedLead.id;
         }
         setLeadSelectionById(resolvedLead.id);
+        const projectExecutiveId = String(executiveSelect?.value || "").trim();
+        if (!projectExecutiveId) {
+          setError("Select a Project Executive.");
+          executiveSelect?.focus();
+          return null;
+        }
+        if (projectExecutiveId === resolvedLead.id) {
+          setError("Project Executive and Project Lead must be different people.");
+          executiveSelect?.focus();
+          return null;
+        }
         return {
           projectName: nextName,
           budgetAmount: currentBudget,
@@ -2386,6 +2418,7 @@
           staffUserIds: [...pendingStaffUserIds],
           teamRateOverrides: { ...pendingTeamRateOverrides },
           projectLeadId: String(leadValueInput?.value || "").trim() || null,
+          projectExecutiveId,
           projectDepartmentId: String(departmentSelect?.value || "").trim() || null,
           projectOfficeId: String(officeSelect?.value || "").trim() || null,
         };
@@ -2531,6 +2564,7 @@
           managerUserIds: payload.managerUserIds,
           staffUserIds: payload.staffUserIds,
           projectLeadId: payload.projectLeadId,
+          projectExecutiveId: payload.projectExecutiveId,
           projectDepartmentId: payload.projectDepartmentId,
           projectOfficeId: payload.projectOfficeId,
         });
@@ -2773,7 +2807,7 @@
   }
 
   async function deactivateProjectFromEditor(clientName, projectName) {
-    if (!canManageProjectsLifecycle()) {
+    if (!canManageProjectActivation()) {
       feedback("Access denied.", true);
       return false;
     }
@@ -2826,7 +2860,7 @@
   }
 
   async function reactivateProjectFromEditor(clientName, projectName) {
-    if (!canManageProjectsLifecycle()) {
+    if (!canManageProjectActivation()) {
       feedback("Access denied.", true);
       return false;
     }
@@ -2867,7 +2901,7 @@
   }
 
   async function removeProjectFromEditor(clientName, projectName) {
-    if (!canManageProjectsLifecycle()) {
+    if (!canRemoveProjects()) {
       feedback("Access denied.", true);
       return false;
     }
@@ -2924,7 +2958,7 @@
 
   async function openAddProjectDialog() {
     await ensureProjectEditorMetadataLoaded();
-    const canCreateProject = canManageProjectsLifecycle();
+    const canCreateProject = Boolean(state.permissions?.create_project);
     if (!canCreateProject) {
       feedback("Access denied.", true);
       return;
@@ -2949,6 +2983,7 @@
       managerUserIds: [],
       staffUserIds: [],
       projectLeadId: null,
+      projectExecutiveId: null,
       clientOfficeId: String(selectedClientRow?.officeId || selectedClientRow?.office_id || "").trim() || null,
       onSubmitAdd: async (payload) => {
         await mutatePersistentState("add_project", {
@@ -2960,6 +2995,7 @@
           targetRealizationPct: payload.targetRealizationPct,
           techAdminFeePctOverride: payload.techAdminFeePctOverride,
           project_lead_id: payload.projectLeadId,
+          project_executive_id: payload.projectExecutiveId,
           project_department_id: payload.projectDepartmentId,
           office_id: payload.projectOfficeId,
         });
@@ -4242,6 +4278,14 @@
 
   function canManageProjectsLifecycle() {
     return Boolean(state.permissions?.manage_projects_lifecycle);
+  }
+
+  function canManageProjectActivation() {
+    return Boolean(state.permissions?.manage_project_activation);
+  }
+
+  function canRemoveProjects() {
+    return Boolean(state.permissions?.remove_project);
   }
 
   function canEditClientsGlobal() {
@@ -10613,6 +10657,9 @@
             canEditProjectPlanning(
               String(planningProject?.client || "").trim(),
               String(planningProject?.name || "").trim()
+            ) &&
+            !["submitted", "approved"].includes(
+              String(planningProject?.planningStatus || planningProject?.planning_status || "draft").toLowerCase()
             );
           planningRenderer({
             projectId: targetProjectId,
@@ -10622,6 +10669,12 @@
               : [],
             container: refs.mainFrame,
             canEdit: Boolean(canEditPlanning),
+            canSubmit: Boolean(
+              canEditPlanning &&
+              state.permissions?.submit_project_plan === true &&
+              String(planningProject?.projectLeadId || planningProject?.project_lead_id || "").trim() ===
+                String(state.currentUser?.id || "").trim()
+            ),
             onBack: function () {
               const returnContext = state.projectPlanningReturnContext;
               state.projectPlanningReturnContext = null;
@@ -10697,11 +10750,39 @@
                   rateOverride: member.rateOverride,
                 }))
               );
-              feedback("Project plan saved.", false);
+              await mutatePersistentState(
+                "submit_project_plan",
+                { projectId: saveProjectId },
+                { skipHydrate: true, refreshState: false, returnState: false }
+              );
+              await loadPersistentState();
+              feedback("Project plan submitted for approval.", false);
               if (state.currentView === "project_planning") {
                 render();
               }
-              loadPersistentStateInBackground();
+            },
+            onApprove: async function (payload) {
+              try {
+                await mutatePersistentState("approve_project_plan", payload, { skipHydrate: true, refreshState: false, returnState: false });
+                await loadPersistentState();
+                feedback("Project plan approved.", false);
+                render();
+              } catch (error) {
+                feedback(error?.message || "Unable to approve project plan.", true);
+              }
+            },
+            onRequestChanges: async function (payload) {
+              try {
+                await mutatePersistentState("request_project_plan_changes", payload, { skipHydrate: true, refreshState: false, returnState: false });
+                await loadPersistentState();
+                feedback("Changes requested.", false);
+                render();
+              } catch (error) {
+                feedback(error?.message || "Unable to request changes.", true);
+              }
+            },
+            onNotice: function (message, isError) {
+              feedback(message, isError);
             },
             onPersistField: async function (payload) {
               if (!canEditPlanning) {
@@ -11891,6 +11972,16 @@
     const subjectType = `${item.subjectType || deepLink?.subjectType || ""}`.trim();
     const deepLinkFilters =
       deepLink?.filters && typeof deepLink.filters === "object" ? deepLink.filters : null;
+
+    if (view === "project_planning") {
+      const projectId = String(deepLink?.projectId || subjectId || "").trim();
+      if (projectId) {
+        state.currentProjectPlanningId = projectId;
+        persistProjectPlanningId(projectId);
+        setView("project_planning");
+        return;
+      }
+    }
 
     if (view === "entries") {
       state.entriesSubtab = subtab === "expenses" ? "expenses" : "time";
@@ -13974,11 +14065,108 @@
     });
   }
 
+  async function changeClientLifecycleFromEditor(clientName, reactivate) {
+    if (!canManageClientsLifecycle()) {
+      feedback("Access denied.", true);
+      return false;
+    }
+    if (!reactivate) {
+      const activeProjectCount = (state.projects || []).filter(
+        (project) => project.client === clientName && isProjectActive(project)
+      ).length;
+      if (activeProjectCount > 0) {
+        await appDialog({
+          title: "Cannot Deactivate Client",
+          message: `Deactivate or close out all active projects before deactivating this client.\n\n${activeProjectCount} active project${activeProjectCount === 1 ? "" : "s"}`,
+          cancelText: "Close",
+          hideConfirm: true,
+        });
+        return false;
+      }
+    }
+    const confirmation = await appDialog({
+      title: reactivate ? "Reactivate Client?" : "Deactivate Client?",
+      message: reactivate
+        ? "The client will return to active use."
+        : "Deactivation removes the client from active use while preserving its history.",
+      confirmText: reactivate ? "Reactivate" : "Deactivate",
+      cancelText: "Cancel",
+    });
+    if (!confirmation.confirmed) return false;
+    try {
+      await mutatePersistentState(
+        reactivate ? "reactivate_client" : "deactivate_client",
+        { clientName },
+        { skipHydrate: true, refreshState: false, returnState: false }
+      );
+      await loadPersistentState();
+      state.selectedCatalogClient = clientName;
+      state.catalogClientLifecycleView = reactivate ? "active" : "inactive";
+      state.catalogProjectLifecycleView = reactivate ? "active" : "inactive";
+      render();
+      openClientEditor({ mode: "edit", clientName });
+      syncClientEditorLeadField();
+      feedback(reactivate ? "Client reactivated." : "Client deactivated.", false);
+      return true;
+    } catch (error) {
+      feedback(error?.message || `Unable to ${reactivate ? "reactivate" : "deactivate"} client.`, true);
+      return false;
+    }
+  }
+
+  async function removeClientFromEditor(clientName) {
+    if (!canManageClientsLifecycle()) {
+      feedback("Access denied.", true);
+      return false;
+    }
+    const projectCount = (state.projects || []).filter((project) => project.client === clientName).length;
+    if (projectCount > 0) {
+      await appDialog({
+        title: "Cannot Remove Client",
+        message: `Permanently remove or reassign every project before removing this client.\n\n${projectCount} project${projectCount === 1 ? "" : "s"}`,
+        cancelText: "Close",
+        hideConfirm: true,
+      });
+      return false;
+    }
+    const confirmation = await appDialog({
+      title: "Permanently Remove Client?",
+      message: "Use permanent removal only for a client created by mistake. This cannot be undone.",
+      confirmText: "Permanently Remove",
+      cancelText: "Cancel",
+    });
+    if (!confirmation.confirmed) return false;
+    try {
+      await mutatePersistentState("remove_client", { clientName }, { skipHydrate: true, refreshState: false, returnState: false });
+      closeClientEditor();
+      await loadPersistentState();
+      ensureCatalogSelection();
+      render();
+      feedback("Client permanently removed.", false);
+      return true;
+    } catch (error) {
+      feedback(error?.message || "Unable to remove client.", true);
+      return false;
+    }
+  }
+
   if (refs.clientEditor) {
-    refs.clientEditor.addEventListener("click", function (event) {
+    refs.clientEditor.addEventListener("click", async function (event) {
       if (event.target.closest("[data-cancel-client]")) {
         closeClientEditor();
         render();
+        return;
+      }
+      const editor = state.clientEditor;
+      if (editor?.mode !== "edit") return;
+      const clientName = String(editor.originalName || "").trim();
+      if (event.target.closest("[data-client-lifecycle-action]")) {
+        const client = (state.clients || []).find((item) => String(item?.name || "").trim() === clientName);
+        await changeClientLifecycleFromEditor(clientName, !isClientActive(client));
+        return;
+      }
+      if (event.target.closest("[data-client-remove-action]")) {
+        await removeClientFromEditor(clientName);
       }
     });
 
@@ -14149,7 +14337,7 @@
   refs.clientList.addEventListener("click", async function (event) {
     const editButton = event.target.closest("[data-edit-client]");
     if (editButton) {
-      if (!canEditClientsGlobal()) {
+      if (!canEditClientsGlobal() && !canManageClientsLifecycle()) {
         feedback("Access denied.", true);
         return;
       }
@@ -14512,7 +14700,8 @@
       if (
         !canEditProjectModal(state.selectedCatalogClient, projectName) &&
         !canCloseProject(projectRow) &&
-        !canManageProjectsLifecycle()
+        !canManageProjectActivation() &&
+        !canRemoveProjects()
       ) {
         feedback("Access denied.", true);
         return;
@@ -14525,7 +14714,7 @@
     const reactivateButton = event.target.closest("[data-reactivate-project]");
     if (deactivateButton || reactivateButton) {
       const projectName = deactivateButton?.dataset.deactivateProject || reactivateButton?.dataset.reactivateProject;
-      const canManageProjectLifecycle = canManageProjectsLifecycle();
+      const canManageProjectLifecycle = canManageProjectActivation();
       if (!canManageProjectLifecycle) {
         feedback("Access denied.", true);
         return;
@@ -14650,7 +14839,7 @@
     const deleteButton = event.target.closest("[data-delete-project]");
     if (deleteButton) {
       const projectName = deleteButton.dataset.deleteProject;
-      const canDeleteProject = canManageProjectsLifecycle();
+      const canDeleteProject = canRemoveProjects();
       if (!canDeleteProject) {
         feedback("Access denied.", true);
         return;

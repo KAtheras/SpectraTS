@@ -238,7 +238,20 @@ async function ensureSchema(sql) {
   `;
   await sql`
     INSERT INTO permission_capabilities (key, label, category, is_active)
-    VALUES ('manage_projects_lifecycle', 'Can add/remove/activate/deactivate projects', 'clients', TRUE)
+    VALUES ('manage_projects_lifecycle', 'Can add/remove/activate/deactivate projects', 'clients', FALSE)
+    ON CONFLICT (key) DO UPDATE SET
+      label = EXCLUDED.label,
+      category = EXCLUDED.category,
+      is_active = EXCLUDED.is_active
+  `;
+  await sql`
+    INSERT INTO permission_capabilities (key, label, category, is_active)
+    VALUES
+      ('create_project', 'Can create projects', 'clients_projects', TRUE),
+      ('manage_project_activation', 'Can deactivate or reactivate projects', 'clients_projects', TRUE),
+      ('remove_project', 'Can permanently remove projects', 'clients_projects', TRUE),
+      ('submit_project_plan', 'Can submit project plans for approval', 'clients_projects', TRUE),
+      ('approve_project_plan', 'Can serve as Project Executive and review project plans', 'clients_projects', TRUE)
     ON CONFLICT (key) DO UPDATE SET
       label = EXCLUDED.label,
       category = EXCLUDED.category,
@@ -324,7 +337,14 @@ async function ensureSchema(sql) {
       ('manager', 'close_project', 'all_offices'),
       ('executive', 'close_project', 'all_offices'),
       ('admin', 'close_project', 'all_offices'),
-      ('superuser', 'close_project', 'all_offices')
+      ('superuser', 'close_project', 'all_offices'),
+      ('staff', 'submit_project_plan', 'all_offices'),
+      ('manager', 'submit_project_plan', 'all_offices'),
+      ('executive', 'submit_project_plan', 'all_offices'),
+      ('admin', 'submit_project_plan', 'all_offices'),
+      ('superuser', 'submit_project_plan', 'all_offices'),
+      ('admin', 'approve_project_plan', 'all_offices'),
+      ('superuser', 'approve_project_plan', 'all_offices')
     ) AS defaults(role_key, capability_key, scope_key)
     JOIN permission_roles pr ON pr.key = defaults.role_key
     JOIN permission_capabilities pc ON pc.key = defaults.capability_key
@@ -909,6 +929,7 @@ async function ensureSchema(sql) {
       office_id TEXT NULL REFERENCES office_locations(id) ON DELETE SET NULL,
       project_department_id TEXT NULL REFERENCES departments(id) ON DELETE SET NULL,
       project_lead_id TEXT NULL REFERENCES users(id) ON DELETE SET NULL,
+      project_executive_id TEXT NULL REFERENCES users(id) ON DELETE SET NULL,
       name TEXT NOT NULL,
       created_by TEXT REFERENCES users(id),
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -916,6 +937,11 @@ async function ensureSchema(sql) {
       percent_complete NUMERIC(5,2),
       percent_complete_updated_at TIMESTAMPTZ,
       planning_status TEXT NOT NULL DEFAULT 'draft',
+      planning_submitted_at TIMESTAMPTZ,
+      planning_submitted_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+      planning_reviewed_at TIMESTAMPTZ,
+      planning_reviewed_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+      planning_review_notes TEXT,
       lifecycle_status TEXT NOT NULL DEFAULT 'ongoing',
       closed_out_at DATE,
       closed_out_by TEXT REFERENCES users(id),
@@ -949,6 +975,7 @@ async function ensureSchema(sql) {
     ALTER TABLE projects
     ADD COLUMN IF NOT EXISTS project_lead_id TEXT NULL REFERENCES users(id) ON DELETE SET NULL
   `;
+  await sql`ALTER TABLE projects ADD COLUMN IF NOT EXISTS project_executive_id TEXT REFERENCES users(id) ON DELETE SET NULL`;
   await sql`UPDATE projects SET account_id = ${accountUuid}::uuid WHERE account_id IS NULL`;
   await sql`
     ALTER TABLE projects
@@ -990,6 +1017,11 @@ async function ensureSchema(sql) {
     ALTER TABLE projects
     ADD COLUMN IF NOT EXISTS planning_status TEXT NOT NULL DEFAULT 'draft'
   `;
+  await sql`ALTER TABLE projects ADD COLUMN IF NOT EXISTS planning_submitted_at TIMESTAMPTZ`;
+  await sql`ALTER TABLE projects ADD COLUMN IF NOT EXISTS planning_submitted_by TEXT REFERENCES users(id) ON DELETE SET NULL`;
+  await sql`ALTER TABLE projects ADD COLUMN IF NOT EXISTS planning_reviewed_at TIMESTAMPTZ`;
+  await sql`ALTER TABLE projects ADD COLUMN IF NOT EXISTS planning_reviewed_by TEXT REFERENCES users(id) ON DELETE SET NULL`;
+  await sql`ALTER TABLE projects ADD COLUMN IF NOT EXISTS planning_review_notes TEXT`;
   await sql`
     UPDATE projects
     SET planning_status = 'draft'
@@ -3510,6 +3542,13 @@ async function findProject(sql, clientName, projectName, accountId) {
       projects.project_department_id AS "projectDepartmentId",
       projects.project_department_id AS project_department_id,
       projects.project_lead_id AS project_lead_id,
+      projects.project_executive_id AS "projectExecutiveId",
+      projects.project_executive_id AS project_executive_id,
+      projects.planning_submitted_at AS "planningSubmittedAt",
+      projects.planning_submitted_by AS "planningSubmittedBy",
+      projects.planning_reviewed_at AS "planningReviewedAt",
+      projects.planning_reviewed_by AS "planningReviewedBy",
+      projects.planning_review_notes AS "planningReviewNotes",
       projects.lifecycle_status AS "lifecycleStatus",
       projects.closed_out_at AS "closedOutAt",
       projects.closed_out_by AS "closedOutBy",
@@ -3559,6 +3598,13 @@ async function listProjects(sql, accountId) {
       projects.project_department_id AS project_department_id,
       dept.name AS "projectDepartmentName",
       projects.project_lead_id AS "projectLeadId",
+      projects.project_executive_id AS "projectExecutiveId",
+      projects.project_executive_id AS project_executive_id,
+      projects.planning_submitted_at AS "planningSubmittedAt",
+      projects.planning_submitted_by AS "planningSubmittedBy",
+      projects.planning_reviewed_at AS "planningReviewedAt",
+      projects.planning_reviewed_by AS "planningReviewedBy",
+      projects.planning_review_notes AS "planningReviewNotes",
       projects.lifecycle_status AS "lifecycleStatus",
       projects.closed_out_at AS "closedOutAt",
       projects.closed_out_by AS "closedOutBy",

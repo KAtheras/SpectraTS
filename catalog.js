@@ -72,9 +72,7 @@
               ""
           ).trim();
           const clientIsActive = isClientActive(clientRow);
-          const canEditClientCard = canEditClient && clientIsActive;
-          const showClientLifecycleAction = canManageClientsLifecycle;
-          const showClientRemoveAction = canManageClientsLifecycle;
+          const canEditClientCard = canEditClient || canManageClientsLifecycle;
           const visibleProjectCount = visibleCatalogProjectNames(client, { forCatalogView: true }).length;
           const secondaryBits = [
             `${visibleProjectCount} ${visibleProjectCount === 1 ? "project" : "projects"}`,
@@ -106,34 +104,6 @@
               <small class="catalog-item-secondary">${escapeHtml(secondaryBits.join(" · "))}</small>
               <span class="catalog-client-footer-row">
                 <small class="catalog-item-secondary" data-client-lead-line="1">Client Lead: ${escapeHtml(clientLeadName || "—")}</small>
-                <span class="catalog-item-actions catalog-item-actions-bottom">
-                  <span class="catalog-item-secondary-actions">
-	                    ${
-                        showClientLifecycleAction
-                          ? `<button
-	                      type="button"
-	                      class="catalog-edit"
-	                      aria-label="${clientIsActive ? "Deactivate" : "Reactivate"} ${escapeHtml(client)}"
-	                      data-${clientIsActive ? "deactivate-client" : "reactivate-client"}="${escapeHtml(client)}"
-	                    >
-	                      ${clientIsActive ? "Deactivate" : "Reactivate"}
-	                    </button>`
-                          : ""
-                      }
-	                    ${
-                        showClientRemoveAction
-                          ? `<button
-	                      type="button"
-	                      class="catalog-delete"
-	                      aria-label="Delete ${escapeHtml(client)}"
-	                      data-delete-client="${escapeHtml(client)}"
-	                    >
-	                      Remove
-	                    </button>`
-                          : ""
-                      }
-                  </span>
-                </span>
               </span>
             </span>
           </article>
