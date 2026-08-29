@@ -10,6 +10,7 @@ const {
   reactivateUser,
   ensureNotificationRulesForAccount,
   ensureProjectCloseoutApprovalSchema,
+  ensureProjectPlanRevisionSchema,
   errorResponse,
   findClient,
   findProject,
@@ -53,6 +54,79 @@ const {
   createSystemInboxItems,
   dispatchNotificationEvent,
 } = require("./_inbox");
+
+async function recordProjectPlanEdit(sql, { projectId, editSessionId, changeType, currentUser, accountId, can }) {
+  const project = await findProjectById(sql, projectId, accountId);
+  if (!project) return errorResponse(404, "Project not found.");
+  const actorId = normalizeText(currentUser?.id);
+  const leadId = normalizeText(project.project_lead_id);
+  const executiveId = normalizeText(project.project_executive_id);
+  const isLead = actorId && actorId === leadId;
+  const isExecutive = actorId && actorId === executiveId;
+  const isSuperuser = actorRoleKey(currentUser) === "superuser";
+  if (!canEditProjectPlanningForTarget({ can, currentUser, targetProject: project, actorProjectIds: [String(project.id)] })) {
+    return errorResponse(403, "Access denied.");
+  }
+  const sessionId = normalizeText(editSessionId);
+  if (!sessionId) return errorResponse(400, "Planner edit session is required.");
+  const statusBefore = normalizePlanningStatus(project.planning_status, "draft");
+  const requiresReapproval =
+    ["submitted", "approved"].includes(statusBefore) && !isExecutive && !isSuperuser;
+  const statusAfter = requiresReapproval ? "draft" : statusBefore;
+  const budgets = statusBefore === "approved" ? await getProjectMemberBudgets(sql, projectId, accountId) : null;
+  const expenses = statusBefore === "approved" ? await sql`
+    SELECT id, category_id, description, units, unit_cost, markup_pct, billable, sort_order
+    FROM project_planned_expenses WHERE project_id = ${projectId} AND account_id = ${accountId}::uuid
+    ORDER BY sort_order, created_at
+  ` : null;
+  const snapshot = statusBefore === "approved" ? {
+    project: {
+      id: String(project.id), name: project.name, planningStatus: statusBefore,
+      pricingModel: project.pricing_model, contractAmount: project.contract_amount,
+      budgetAmount: project.budget_amount, reviewedAt: project.planning_reviewed_at,
+      reviewedBy: project.planning_reviewed_by,
+    },
+    memberBudgets: budgets || [], plannedExpenses: expenses || [],
+  } : null;
+  const inserted = await sql`
+    INSERT INTO project_plan_edit_sessions (
+      id, account_id, project_id, actor_user_id, status_before, status_after, change_type, approved_snapshot
+    ) VALUES (
+      ${sessionId}, ${accountId}::uuid, ${projectId}, ${actorId || null}, ${statusBefore}, ${statusAfter},
+      ${normalizeText(changeType) || null}, ${snapshot ? JSON.stringify(snapshot) : null}::jsonb
+    )
+    ON CONFLICT (account_id, project_id, id) DO NOTHING
+    RETURNING id
+  `;
+  if (!inserted.length) return { planningStatus: statusAfter, firstEditInSession: false };
+
+  if (statusAfter !== statusBefore) {
+    await sql`
+      UPDATE projects SET planning_status = ${statusAfter}, planning_submitted_at = NULL,
+        planning_submitted_by = NULL, planning_reviewed_at = NULL, planning_reviewed_by = NULL,
+        planning_review_notes = NULL, updated_at = NOW()
+      WHERE id = ${projectId} AND account_id = ${accountId}::uuid
+    `;
+  } else if (statusBefore === "approved" && (isExecutive || isSuperuser)) {
+    await sql`
+      UPDATE projects SET planning_reviewed_at = NOW(), planning_reviewed_by = ${actorId}, updated_at = NOW()
+      WHERE id = ${projectId} AND account_id = ${accountId}::uuid
+    `;
+  }
+  const recipients = isLead ? [executiveId] : isExecutive ? [leadId] : [leadId, executiveId];
+  const recipientUserIds = [...new Set(recipients.filter((id) => id && id !== actorId))];
+  if (recipientUserIds.length) {
+    const actorName = normalizeText(currentUser?.displayName || currentUser?.display_name) || "A project team member";
+    const invalidated = statusAfter !== statusBefore ? " The prior approval was cleared and the plan must be resubmitted." : "";
+    await createSystemInboxItems(sql, {
+      accountId, type: "project_plan_edited", recipientUserIds, actorUserId: actorId,
+      subjectType: "project_plan", subjectId: String(project.id), projectName: project.name,
+      message: `${actorName} edited the ${project.name} project plan.${invalidated}`,
+      deepLink: { view: "project_planning", projectId: String(project.id) },
+    });
+  }
+  return { planningStatus: statusAfter, firstEditInSession: true, preservedApprovedRevision: Boolean(snapshot) };
+}
 
 async function transitionProjectPlan(sql, { action, projectId, notes, currentUser, accountId, can }) {
   const project = await findProjectById(sql, projectId, accountId);
@@ -1958,6 +2032,11 @@ function canEditClientsForOffice({ can, currentUser, targetOfficeId }) {
 
 function canEditProjectModalForTarget({ can, currentUser, targetProject, actorProjectIds = [] }) {
   if (!targetProject) return false;
+  const currentUserId = normalizeText(currentUser?.id);
+  const projectExecutiveId = normalizeText(
+    targetProject.project_executive_id || targetProject.projectExecutiveId
+  );
+  if (currentUserId && projectExecutiveId && currentUserId === projectExecutiveId) return true;
   const projectId = targetProject.id ? String(targetProject.id) : null;
   const targetOfficeId = normalizeText(targetProject.office_id || targetProject.officeId) || null;
   const targetDepartmentId =
@@ -1991,6 +2070,11 @@ function canEditProjectModalForTarget({ can, currentUser, targetProject, actorPr
 
 function canEditProjectPlanningForTarget({ can, currentUser, targetProject, actorProjectIds = [] }) {
   if (!targetProject) return false;
+  const currentUserId = normalizeText(currentUser?.id);
+  const projectExecutiveId = normalizeText(
+    targetProject.project_executive_id || targetProject.projectExecutiveId
+  );
+  if (currentUserId && projectExecutiveId && currentUserId === projectExecutiveId) return true;
   const projectId = targetProject.id ? String(targetProject.id) : null;
   const targetOfficeId = normalizeText(targetProject.office_id || targetProject.officeId) || null;
   const targetDepartmentId =
@@ -2152,6 +2236,11 @@ async function findProjectById(sql, projectId, accountId) {
       projects.project_executive_id,
       projects.project_department_id,
       projects.planning_status,
+      projects.pricing_model,
+      projects.contract_amount,
+      projects.budget_amount,
+      projects.planning_reviewed_at,
+      projects.planning_reviewed_by,
       projects.is_active AS "isActive",
       clients.name AS client,
       clients.is_active AS "clientIsActive"
@@ -6180,6 +6269,7 @@ exports.handler = async function handler(event) {
   try {
     const sql = await getSql();
     await ensureProjectCloseoutApprovalSchema(sql);
+    await ensureProjectPlanRevisionSchema(sql);
     if (request.action === "validate_setup_token") {
       const result = await validateSetupToken(sql, request.payload || {});
       return json(200, result);
@@ -7382,7 +7472,11 @@ exports.handler = async function handler(event) {
           resourceOfficeId: targetProject?.office_id || null,
           projectId: targetProject?.id ? String(targetProject.id) : null,
         });
-        if (!canAssignManagers) {
+        const canEditPlan = canEditProjectPlanningForTarget({
+          can, currentUser: context.currentUser, targetProject,
+          actorProjectIds: targetProject?.id ? [String(targetProject.id)] : [],
+        });
+        if (!canAssignManagers && !canEditPlan) {
           return errorResponse(403, "Access denied.");
         }
         mutationResult = await assignManagerToProject(
@@ -7402,7 +7496,11 @@ exports.handler = async function handler(event) {
           resourceOfficeId: targetProject?.office_id || null,
           projectId: targetProject?.id ? String(targetProject.id) : null,
         });
-        if (!canAssignManagers) {
+        const canEditPlan = canEditProjectPlanningForTarget({
+          can, currentUser: context.currentUser, targetProject,
+          actorProjectIds: targetProject?.id ? [String(targetProject.id)] : [],
+        });
+        if (!canAssignManagers && !canEditPlan) {
           return errorResponse(403, "Access denied.");
         }
         mutationResult = await unassignManagerFromProject(
@@ -7430,7 +7528,11 @@ exports.handler = async function handler(event) {
           resourceOfficeId: targetProject?.office_id || null,
           projectId: targetProject?.id ? String(targetProject.id) : null,
         });
-        if (!canAssignMembers) {
+        const canEditPlan = canEditProjectPlanningForTarget({
+          can, currentUser: context.currentUser, targetProject,
+          actorProjectIds: targetProject?.id ? [String(targetProject.id)] : [],
+        });
+        if (!canAssignMembers && !canEditPlan) {
           return errorResponse(403, "Access denied.");
         }
         mutationResult = await addProjectMember(
@@ -7450,7 +7552,11 @@ exports.handler = async function handler(event) {
           resourceOfficeId: targetProject?.office_id || null,
           projectId: targetProject?.id ? String(targetProject.id) : null,
         });
-        if (!canAssignMembers) {
+        const canEditPlan = canEditProjectPlanningForTarget({
+          can, currentUser: context.currentUser, targetProject,
+          actorProjectIds: targetProject?.id ? [String(targetProject.id)] : [],
+        });
+        if (!canAssignMembers && !canEditPlan) {
           return errorResponse(403, "Access denied.");
         }
         mutationResult = await removeProjectMember(
@@ -7488,9 +7594,6 @@ exports.handler = async function handler(event) {
         });
         if (!canEditPlanning) {
           return errorResponse(403, "Access denied.");
-        }
-        if (["submitted", "approved"].includes(normalizePlanningStatus(targetProject.planning_status, "draft"))) {
-          return errorResponse(400, "This plan is locked while submitted or approved.");
         }
         const existing = await getProjectMemberBudgets(sql, projectId, accountId);
         for (const row of existing) {
@@ -7535,6 +7638,20 @@ exports.handler = async function handler(event) {
             AND account_id = ${accountId}::uuid
         `;
         mutationResult = { ok: true };
+        break;
+      }
+      case "record_project_plan_edit": {
+        const projectId = normalizeText(request.payload?.projectId);
+        if (!projectId) return errorResponse(400, "Project id is required.");
+        mutationResult = await recordProjectPlanEdit(sql, {
+          projectId,
+          editSessionId: request.payload?.editSessionId,
+          changeType: request.payload?.changeType,
+          currentUser: context.currentUser,
+          accountId,
+          can,
+        });
+        if (mutationResult?.statusCode) return mutationResult;
         break;
       }
       case "submit_project_plan":

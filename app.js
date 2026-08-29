@@ -4423,7 +4423,7 @@
   function canEditProjectPlanningForProject(project) {
     if (!project) return false;
     if (canEditProjectPlanningCapability()) return true;
-    return isCurrentUserProjectLead(project);
+    return isCurrentUserProjectLead(project) || isCurrentUserProjectExecutive(project);
   }
 
   function isViewAllowed(view) {
@@ -10717,12 +10717,41 @@
             (state.projects || []).find(
               (item) => String(item?.id || "").trim() === targetProjectId
             ) || null;
-          const canEditPlanning =
-            planningProject &&
-            canEditProjectPlanningForProject(planningProject) &&
-            !["submitted", "approved"].includes(
-              String(planningProject?.planningStatus || planningProject?.planning_status || "draft").toLowerCase()
+          const canEditPlanning = planningProject && canEditProjectPlanningForProject(planningProject);
+          if (String(state.projectPlannerEditSessionProjectId || "") !== targetProjectId) {
+            state.projectPlannerEditSessionProjectId = targetProjectId;
+            state.projectPlannerEditSessionId =
+              typeof window.crypto?.randomUUID === "function"
+                ? window.crypto.randomUUID()
+                : `planner-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+          }
+          const plannerEditSessionId = state.projectPlannerEditSessionId;
+          const preparePlannerEdit = async (projectId, changeType) => {
+            const result = await mutatePersistentState(
+              "record_project_plan_edit",
+              { projectId, editSessionId: plannerEditSessionId, changeType },
+              { skipHydrate: true, refreshState: false, returnState: false }
             );
+            const project = (state.projects || []).find((item) => String(item?.id || "") === String(projectId));
+            if (project && result?.planningStatus) {
+              const previousStatus = String(project.planningStatus || project.planning_status || "draft").toLowerCase();
+              project.planningStatus = result.planningStatus;
+              project.planning_status = result.planningStatus;
+              if (previousStatus !== result.planningStatus) {
+                const statusNode = refs.mainFrame?.querySelector(".project-planning-status");
+                if (statusNode) statusNode.textContent = "Draft";
+                const submitButton = refs.mainFrame?.querySelector("[data-project-planning-save]");
+                const isLead =
+                  String(project.projectLeadId || project.project_lead_id || "").trim() ===
+                  String(state.currentUser?.id || "").trim();
+                if (submitButton && isLead && state.permissions?.submit_project_plan === true) {
+                  submitButton.hidden = false;
+                  submitButton.disabled = false;
+                }
+              }
+            }
+            return result;
+          };
           planningRenderer({
             projectId: targetProjectId,
             state,
@@ -10734,6 +10763,9 @@
             canSubmit: Boolean(
               canEditPlanning &&
               state.permissions?.submit_project_plan === true &&
+              ["draft", "changes_requested"].includes(
+                String(planningProject?.planningStatus || planningProject?.planning_status || "draft").toLowerCase()
+              ) &&
               String(planningProject?.projectLeadId || planningProject?.project_lead_id || "").trim() ===
                 String(state.currentUser?.id || "").trim()
             ),
@@ -10772,6 +10804,7 @@
                 return;
               }
               state.currentProjectPlanningId = saveProjectId;
+              await preparePlannerEdit(saveProjectId, "member budget");
               persistProjectPlanningId(saveProjectId);
               const planningProject =
                 (state.projects || []).find(
@@ -10867,6 +10900,7 @@
               if (field !== "chargeRate" && field !== "hours") {
                 throw new Error("Unsupported field.");
               }
+              await preparePlannerEdit(persistProjectId, "member budget");
 
               const existingRows = Array.isArray(state.projectMemberBudgets)
                 ? state.projectMemberBudgets.filter(
@@ -10947,6 +10981,7 @@
               if (!persistProjectId) {
                 throw new Error("Project context is unavailable.");
               }
+              await preparePlannerEdit(persistProjectId, "planned expenses");
               const result = await mutatePersistentState(
                 "create_project_planned_expense",
                 {
@@ -10997,6 +11032,7 @@
               if (!persistProjectId || !expenseId || !field) {
                 throw new Error("Project context is unavailable.");
               }
+              await preparePlannerEdit(persistProjectId, "planned expenses");
               const result = await mutatePersistentState(
                 "update_project_planned_expense",
                 {
@@ -11039,6 +11075,7 @@
               if (!persistProjectId || !expenseId) {
                 throw new Error("Project context is unavailable.");
               }
+              await preparePlannerEdit(persistProjectId, "planned expenses");
               await mutatePersistentState(
                 "delete_project_planned_expense",
                 {
@@ -11079,6 +11116,7 @@
               if (!deleteProjectId || !deleteUserId) {
                 throw new Error("Project context is unavailable.");
               }
+              await preparePlannerEdit(deleteProjectId, "project team");
               const planningProject =
                 (state.projects || []).find(
                   (item) => String(item?.id || "").trim() === deleteProjectId
@@ -11155,6 +11193,7 @@
               if (!persistProjectId || (contractType !== "fixed" && contractType !== "tm")) {
                 throw new Error("Project context is unavailable.");
               }
+              await preparePlannerEdit(persistProjectId, "contract settings");
               const planningProject =
                 (state.projects || []).find(
                   (item) => String(item?.id || "").trim() === persistProjectId
@@ -11193,6 +11232,7 @@
               if (contractAmount !== null && !Number.isFinite(contractAmount)) {
                 throw new Error("Invalid contract amount.");
               }
+              await preparePlannerEdit(persistProjectId, "contract settings");
               const planningProject =
                 (state.projects || []).find(
                   (item) => String(item?.id || "").trim() === persistProjectId
@@ -15339,6 +15379,21 @@
       mode === "project-add-member" ||
       mode === "project-remove-member" ||
       mode === "project-remove";
+
+    if (mode === "project-add-member" && state.currentView === "project_planning") {
+      const planningProjectId = findProjectIdByClientProject(client, project);
+      if (planningProjectId && state.projectPlannerEditSessionId) {
+        await mutatePersistentState(
+          "record_project_plan_edit",
+          {
+            projectId: planningProjectId,
+            editSessionId: state.projectPlannerEditSessionId,
+            changeType: "project team",
+          },
+          { skipHydrate: true, refreshState: false, returnState: false }
+        );
+      }
+    }
 
     if (shouldOptimisticClose && client && project) {
       if (!state.assignments || typeof state.assignments !== "object") {

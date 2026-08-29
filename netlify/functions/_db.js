@@ -66,6 +66,23 @@ async function ensureProjectCloseoutApprovalSchema(sql) {
   await sql`ALTER TABLE projects ADD COLUMN IF NOT EXISTS closeout_submitted_by TEXT REFERENCES users(id) ON DELETE SET NULL`;
 }
 
+async function ensureProjectPlanRevisionSchema(sql) {
+  await sql`
+    CREATE TABLE IF NOT EXISTS project_plan_edit_sessions (
+      id TEXT NOT NULL,
+      account_id UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      project_id BIGINT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      actor_user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+      status_before TEXT NOT NULL,
+      status_after TEXT NOT NULL,
+      change_type TEXT,
+      approved_snapshot JSONB,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (account_id, project_id, id)
+    )
+  `;
+}
+
 async function ensureDefaultAccount(sql) {
   await sql`
     CREATE TABLE IF NOT EXISTS accounts (
@@ -6473,6 +6490,7 @@ module.exports = {
   ensureSchema,
   ensureNotificationRulesForAccount,
   ensureProjectCloseoutApprovalSchema,
+  ensureProjectPlanRevisionSchema,
   errorResponse,
   findClient,
   findProject,
