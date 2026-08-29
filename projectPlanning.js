@@ -57,6 +57,12 @@
         letter-spacing: 0.04em;
         text-transform: uppercase;
       }
+      .project-planning-status.is-changes-requested {
+        border-color: color-mix(in srgb, #f59e0b 72%, var(--line));
+        background: color-mix(in srgb, #f59e0b 18%, var(--panel));
+        color: color-mix(in srgb, #f59e0b 82%, var(--text));
+        box-shadow: inset 0 0 0 1px color-mix(in srgb, #f59e0b 16%, transparent);
+      }
       .project-planning-kpi-row {
         width: 100%;
         margin-bottom: 14px;
@@ -1120,7 +1126,7 @@
             </div>
           </div>
           <div class="project-planning-actions">
-            <span class="project-planning-status">${escapeHtml(statusLabel)}</span>
+            <span class="project-planning-status${planningStatus === "changes_requested" ? " is-changes-requested" : ""}">${escapeHtml(statusLabel)}</span>
             <button type="button" class="button button-ghost" data-project-planning-back>Back</button>
             <button type="button" class="button" data-project-planning-save ${canEdit && canSubmit ? "" : "hidden disabled"}>Submit for Approval</button>
             <button type="button" class="button button-ghost" data-project-planning-request ${canRequestChanges ? "" : "hidden disabled"}>Request Changes</button>

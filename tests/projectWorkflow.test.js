@@ -65,6 +65,8 @@ assert.match(mutateSource, /case "add_project_member":[\s\S]*?canEditProjectPlan
 
 assert.match(plannerSource, /const canApprove = planningStatus === "submitted" && isProjectExecutive/);
 assert.match(plannerSource, /const canRequestChanges = planningStatus !== "changes_requested" && isProjectExecutive/);
+assert.match(plannerSource, /project-planning-status\.is-changes-requested/);
+assert.match(plannerSource, /planningStatus === "changes_requested" \? " is-changes-requested"/);
 assert.match(plannerSource, /data-project-planning-request/);
 assert.doesNotMatch(plannerSource, /window\.prompt\(/);
 assert.match(plannerSource, /await onPromptDialog/);
