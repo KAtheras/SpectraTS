@@ -3329,10 +3329,6 @@ async function assignManagerToProject(sql, payload, currentUser, accountId) {
     return errorResponse(400, "Override rate must be non-negative.");
   }
 
-  if (!isExecutive(currentUser) && !isAdmin(currentUser)) {
-    return errorResponse(403, "Executive or Admin access required.");
-  }
-
   const manager = await findUserById(sql, managerId, accountId);
   if (!manager || (!isManager(manager) && !isExecutive(manager) && !isAdmin(manager))) {
     return errorResponse(404, "Manager not found.");
@@ -3399,18 +3395,6 @@ async function addProjectMember(sql, payload, currentUser, accountId) {
     return errorResponse(404, "Project not found.");
   }
 
-  if (isManager(currentUser) && !isAdmin(currentUser)) {
-    const hasAccess = await managerHasProjectAccess(
-      sql,
-      currentUser.id,
-      project.id,
-      accountId
-    );
-    if (!hasAccess) {
-      return errorResponse(403, "You are not assigned to this project.");
-    }
-  }
-
   const existingMemberRows = await sql`
     SELECT id
     FROM project_members
@@ -3471,18 +3455,6 @@ async function removeProjectMember(sql, payload, currentUser, accountId) {
   const project = await findProject(sql, clientName, projectName, accountId);
   if (!project) {
     return errorResponse(404, "Project not found.");
-  }
-
-  if (isManager(currentUser) && !isAdmin(currentUser)) {
-    const hasAccess = await managerHasProjectAccess(
-      sql,
-      currentUser.id,
-      project.id,
-      accountId
-    );
-    if (!hasAccess) {
-      return errorResponse(403, "You are not assigned to this project.");
-    }
   }
 
   const deletedRows = await sql`

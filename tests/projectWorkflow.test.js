@@ -47,6 +47,15 @@ assert.match(reopening, /lifecycle_status = 'ongoing'/);
 assert.match(reopening, /project_reopened/);
 assert.match(reopening, /\[leadId, executiveId\]/);
 
+const managerAssignment = functionBody(mutateSource, "assignManagerToProject", "async function unassignManagerFromProject");
+assert.doesNotMatch(managerAssignment, /Executive or Admin access required/);
+const memberAssignment = functionBody(mutateSource, "addProjectMember", "async function removeProjectMember");
+assert.doesNotMatch(memberAssignment, /managerHasProjectAccess/);
+const memberRemoval = functionBody(mutateSource, "removeProjectMember", "async function updateProjectMemberRate");
+assert.doesNotMatch(memberRemoval, /managerHasProjectAccess/);
+assert.match(mutateSource, /case "assign_manager_project":[\s\S]*?canEditProjectPlanningForTarget[\s\S]*?assignManagerToProject/);
+assert.match(mutateSource, /case "add_project_member":[\s\S]*?canEditProjectPlanningForTarget[\s\S]*?addProjectMember/);
+
 assert.match(plannerSource, /planningStatus === "submitted" && isProjectExecutive/);
 assert.match(plannerSource, /data-project-planning-request/);
 assert.match(plannerSource, /data-project-planning-approve/);
