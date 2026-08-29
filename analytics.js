@@ -2211,11 +2211,11 @@
         statusMode: uiState.realizationStatus,
         authorityLens: hasCompanyAnalytics
           ? "company"
-          : uiState.realizationAnalysisMode === REALIZATION_RESTRICTED_ANALYSIS.department.id
+          : authorizedOfficeOptions.length
+            ? "office"
+            : authorizedDepartmentPairs.length
             ? "department"
-            : uiState.realizationAnalysisMode === REALIZATION_RESTRICTED_ANALYSIS.projects.id
-              ? "projects"
-              : "office",
+            : "projects",
       };
       if (typeof options?.loadAnalyticsReport === "function") {
         options.loadAnalyticsReport("realization", realizationFilters);
@@ -3043,10 +3043,56 @@
       return;
     }
 
-    const scopeOptions = engine.listScopeOptions({
+    const allScopeOptions = engine.listScopeOptions({
       offices: appState.officeLocations,
       departments: appState.departments,
     });
+    const profitabilityAuthority = appState.analyticsAuthority || {};
+    const isDirectProjectOnlyAuthority =
+      profitabilityAuthority.all !== true &&
+      !(profitabilityAuthority.officeIds || []).length &&
+      !(profitabilityAuthority.officeDepartments || []).length;
+    const directProfitabilityProjectIds = new Set(
+      (profitabilityAuthority.directProjectIds || []).map(safeText).filter(Boolean)
+    );
+    const profitabilityClientsById = new Map(
+      (profitabilityData.clients || []).map((client) => [safeText(client?.id), client])
+    );
+    const directProjects = isDirectProjectOnlyAuthority
+      ? (profitabilityData.projects || []).filter((project) =>
+          directProfitabilityProjectIds.has(safeText(project?.id))
+        )
+      : [];
+    const profitabilityVisibleProjects = isDirectProjectOnlyAuthority
+      ? directProjects
+      : profitabilityData.projects;
+    const directOfficeIds = new Set(
+      directProjects.map((project) => {
+        const client = profitabilityClientsById.get(safeText(project?.clientId || project?.client_id));
+        return safeText(project?.officeId || project?.office_id || client?.officeId || client?.office_id);
+      }).filter(Boolean)
+    );
+    const directDepartmentIds = new Set(
+      directProjects
+        .map((project) => safeText(project?.projectDepartmentId || project?.project_department_id))
+        .filter(Boolean)
+    );
+    const scopeOptions = isDirectProjectOnlyAuthority
+      ? {
+          offices: (allScopeOptions.offices || []).filter((office) => directOfficeIds.has(safeText(office?.id))),
+          departments: (allScopeOptions.departments || []).filter((department) => directDepartmentIds.has(safeText(department?.id))),
+        }
+      : allScopeOptions;
+    const activeScopeItems = uiState.scope === "office" ? scopeOptions.offices : scopeOptions.departments;
+    if (
+      uiState.scope !== "company" &&
+      uiState.scopeId &&
+      !activeScopeItems.some((item) => safeText(item?.id) === safeText(uiState.scopeId))
+    ) {
+      uiState.scopeId = "";
+      uiState.clientId = "";
+      uiState.projectId = "";
+    }
     uiState.profitabilityPeriod = normalizeProfitabilityPeriod(uiState.profitabilityPeriod);
     if (uiState.profitabilityPeriod !== "custom") {
       const profitabilityRange = utilizationPeriodRange(uiState.profitabilityPeriod, new Date());
@@ -3055,7 +3101,7 @@
     }
     const clientProjectOptions = engine.listClientProjectOptions({
       clients: profitabilityData.clients,
-      projects: profitabilityData.projects,
+      projects: profitabilityVisibleProjects,
       entries: typeof options?.loadAnalyticsReport === "function" ? undefined : profitabilityData.entries,
       expenses: typeof options?.loadAnalyticsReport === "function" ? undefined : profitabilityData.expenses,
       users: appState.users,
@@ -3108,7 +3154,7 @@
       entries: profitabilityData.entries,
       expenses: profitabilityData.expenses,
       users: appState.users,
-      projects: profitabilityData.projects,
+      projects: profitabilityVisibleProjects,
       clients: profitabilityData.clients,
       offices: appState.officeLocations,
       departments: appState.departments,

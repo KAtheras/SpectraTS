@@ -2285,13 +2285,11 @@ async function resolveAnalyticsAuthority(sql, currentUser, permissionIndex) {
           WHERE account_id = ${accountId}::uuid AND user_id = ${userId}
         `
       : Promise.resolve([]),
-    allowed("view_project_analytics")
-      ? sql`
-          SELECT id
-          FROM projects
-          WHERE account_id = ${accountId}::uuid AND project_lead_id = ${userId}
-        `
-      : Promise.resolve([]),
+    sql`
+      SELECT id
+      FROM projects
+      WHERE account_id = ${accountId}::uuid AND project_lead_id = ${userId}
+    `,
   ]);
   const officeIds = Array.from(new Set((officeRows || []).map((row) => normalizeText(row.id)).filter(Boolean)));
   const officeDepartments = (departmentRows || [])
