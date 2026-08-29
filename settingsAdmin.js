@@ -5159,6 +5159,9 @@
         });
         projectExpenseCategoriesDraftDirty = true;
         renderExpenseCategories();
+        refs.expenseCategoriesForm
+          .querySelector(`[data-project-expense-id="${projectExpenseCategoriesDraft.at(-1)?.id}"] [data-project-expense-name]`)
+          ?.focus();
         return;
       }
 
@@ -5193,7 +5196,41 @@
         projectExpenseCategoriesDraft.push({ id: rowId, name: nextName });
       }
       projectExpenseCategoriesDraftDirty = true;
-      scheduleSettingsFormSubmit("expense-categories-form");
+      if (!rowId.startsWith("temp-project-expense-")) {
+        scheduleSettingsFormSubmit("expense-categories-form");
+      }
+    });
+
+    refs.expenseCategoriesForm.addEventListener("focusout", function (event) {
+      const input = event.target.closest("[data-project-expense-name]");
+      const row = input?.closest("[data-project-expense-row]");
+      const rowId = `${row?.dataset.projectExpenseId || ""}`.trim();
+      if (!input || !rowId.startsWith("temp-project-expense-")) return;
+      if (!`${input.value || ""}`.trim()) {
+        projectExpenseCategoriesDraft = normalizeProjectExpenseDraftFromDom().filter(
+          (item) => `${item.id || ""}`.trim() !== rowId
+        );
+        renderExpenseCategories();
+        return;
+      }
+      scheduleSettingsFormSubmit("expense-categories-form", 0);
+    });
+
+    refs.expenseCategoriesForm.addEventListener("keydown", function (event) {
+      const input = event.target.closest("[data-project-expense-name]");
+      const row = input?.closest("[data-project-expense-row]");
+      const rowId = `${row?.dataset.projectExpenseId || ""}`.trim();
+      if (!input || !rowId.startsWith("temp-project-expense-")) return;
+      if (event.key === "Enter") {
+        event.preventDefault();
+        input.blur();
+      } else if (event.key === "Escape") {
+        event.preventDefault();
+        projectExpenseCategoriesDraft = normalizeProjectExpenseDraftFromDom().filter(
+          (item) => `${item.id || ""}`.trim() !== rowId
+        );
+        renderExpenseCategories();
+      }
     });
 
     refs.expenseCategoriesForm.addEventListener(

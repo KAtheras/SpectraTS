@@ -14131,6 +14131,9 @@
         },
       ];
       renderExpenseCategories();
+      refs.expenseRows
+        ?.querySelector('.expense-row:last-child [data-expense-name]')
+        ?.focus();
     });
   }
 
@@ -14140,7 +14143,40 @@
       if (!input) return;
       const trimmed = `${input.value || ""}`.trim();
       if (!trimmed) return;
+      const rowId = `${input.closest("[data-expense-id]")?.dataset.expenseId || ""}`.trim();
+      if (rowId.startsWith("temp-")) return;
       scheduleSettingsFormAutoSubmit("expense-categories-form");
+    });
+    refs.expenseRows.addEventListener("focusout", function (event) {
+      const input = event.target.closest("[data-expense-name]");
+      const row = input?.closest("[data-expense-id]");
+      const rowId = `${row?.dataset.expenseId || ""}`.trim();
+      if (!input || !rowId.startsWith("temp-")) return;
+      const name = `${input.value || ""}`.trim();
+      if (!name) {
+        state.expenseCategories = (state.expenseCategories || []).filter(
+          (item) => `${item?.id || ""}`.trim() !== rowId
+        );
+        renderExpenseCategories();
+        return;
+      }
+      scheduleSettingsFormAutoSubmit("expense-categories-form", 0);
+    });
+    refs.expenseRows.addEventListener("keydown", function (event) {
+      const input = event.target.closest("[data-expense-name]");
+      const row = input?.closest("[data-expense-id]");
+      const rowId = `${row?.dataset.expenseId || ""}`.trim();
+      if (!input || !rowId.startsWith("temp-")) return;
+      if (event.key === "Enter") {
+        event.preventDefault();
+        input.blur();
+      } else if (event.key === "Escape") {
+        event.preventDefault();
+        state.expenseCategories = (state.expenseCategories || []).filter(
+          (item) => `${item?.id || ""}`.trim() !== rowId
+        );
+        renderExpenseCategories();
+      }
     });
   }
 
@@ -14166,6 +14202,9 @@
   if (refs.settingsPage) {
     refs.settingsPage.addEventListener("input", function (event) {
       if (event.target.closest("[data-corporate-group-name], [data-corporate-function-name]")) {
+        const row = event.target.closest("[data-corporate-group-row], [data-corporate-function-id]");
+        const rowId = `${row?.dataset.corporateGroupId || row?.dataset.corporateFunctionId || ""}`.trim();
+        if (rowId.startsWith("temp-corp-")) return;
         scheduleSettingsFormAutoSubmit("corporate-functions-form");
         return;
       }
@@ -14177,6 +14216,46 @@
       }
       if (event.target.closest("[data-target-realization-input]")) {
         scheduleSettingsFormAutoSubmit("target-realizations-form");
+      }
+    });
+    refs.settingsPage.addEventListener("focusout", function (event) {
+      const input = event.target.closest("[data-corporate-group-name], [data-corporate-function-name]");
+      if (!input) return;
+      const groupRow = input.closest("[data-corporate-group-row]");
+      const categoryRow = input.closest("[data-corporate-function-id]");
+      const rowId = `${categoryRow?.dataset.corporateFunctionId || groupRow?.dataset.corporateGroupId || ""}`.trim();
+      if (!rowId.startsWith("temp-corp-")) return;
+      if (!`${input.value || ""}`.trim()) {
+        if (categoryRow) {
+          state.corporateFunctionCategories = (state.corporateFunctionCategories || []).filter(
+            (item) => `${item?.id || ""}`.trim() !== rowId
+          );
+        } else {
+          state.corporateFunctionGroups = (state.corporateFunctionGroups || []).filter(
+            (item) => `${item?.id || ""}`.trim() !== rowId
+          );
+          state.corporateFunctionCategories = (state.corporateFunctionCategories || []).filter(
+            (item) => `${item?.groupId || ""}`.trim() !== rowId
+          );
+        }
+        renderCorporateFunctionCategories?.();
+        return;
+      }
+      scheduleSettingsFormAutoSubmit("corporate-functions-form", 0);
+    });
+    refs.settingsPage.addEventListener("keydown", function (event) {
+      const input = event.target.closest("[data-corporate-group-name], [data-corporate-function-name]");
+      if (!input) return;
+      const row = input.closest("[data-corporate-group-row], [data-corporate-function-id]");
+      const rowId = `${row?.dataset.corporateGroupId || row?.dataset.corporateFunctionId || ""}`.trim();
+      if (!rowId.startsWith("temp-corp-")) return;
+      if (event.key === "Enter") {
+        event.preventDefault();
+        input.blur();
+      } else if (event.key === "Escape") {
+        event.preventDefault();
+        input.value = "";
+        input.blur();
       }
     });
   }

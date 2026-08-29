@@ -80,9 +80,13 @@ exports.handler = async function handler(event) {
       resourceOfficeId: outsideOffice,
       actorOfficeId,
     }, permissions);
+    const canViewOffice = can(context.currentUser, "view_office_entries", {
+      resourceOfficeId: actorOfficeId,
+      actorOfficeId,
+    }, permissions);
     const isAdmin = ["admin", "superuser"].includes(String(shell.currentUser.permissionGroup || "").toLowerCase());
-    const visibleProjectIds = Array.isArray(shell.visibleProjectIds) && shell.visibleProjectIds.length
-      ? shell.visibleProjectIds
+    const entryVisibleProjectIds = Array.isArray(shell.entryVisibleProjectIds) && shell.entryVisibleProjectIds.length
+      ? shell.entryVisibleProjectIds
       : [0];
     const cursorDate = cursor?.date || "9999-12-31";
     const cursorCreatedAt = cursor?.createdAt || "9999-12-31T23:59:59.999Z";
@@ -110,7 +114,13 @@ exports.handler = async function handler(event) {
         LEFT JOIN corporate_function_categories cfc ON cfc.id = entries.charge_center_id AND cfc.account_id = entries.account_id
         WHERE entries.account_id = ${accountId}::uuid AND entries.deleted_at IS NULL
           AND entries.entry_date BETWEEN ${from}::date AND ${to}::date
-          AND (${canViewAll} OR entries.user_id = ${userId} OR LOWER(entries.user_name) = LOWER(${userName}) OR projects.id = ANY(${visibleProjectIds}::bigint[]))
+          AND (
+            ${canViewAll}
+            OR entries.user_id = ${userId}
+            OR LOWER(entries.user_name) = LOWER(${userName})
+            OR projects.id = ANY(${entryVisibleProjectIds}::bigint[])
+            OR (${canViewOffice} AND COALESCE(projects.office_id, clients.office_id, u.office_id) = ${actorOfficeId})
+          )
           AND (${isAdmin} OR entries.charge_center_id IS NULL OR entries.user_id = ${userId} OR LOWER(entries.user_name) = LOWER(${userName}))
           AND (${userFilter} = '' OR entries.user_id::text = ${userFilter} OR LOWER(entries.user_name) = LOWER(${userFilter}))
           AND (${clientFilter} = '' OR LOWER(COALESCE(clients.name, entries.client_name, 'Internal')) = LOWER(${clientFilter}))
@@ -131,9 +141,15 @@ exports.handler = async function handler(event) {
         FROM expenses
         LEFT JOIN clients ON LOWER(clients.name) = LOWER(expenses.client_name) AND clients.account_id = expenses.account_id
         LEFT JOIN projects ON projects.client_id = clients.id AND LOWER(projects.name) = LOWER(expenses.project_name)
+        LEFT JOIN users u ON u.id = expenses.user_id AND u.account_id = expenses.account_id
         WHERE expenses.account_id = ${accountId}::uuid AND expenses.deleted_at IS NULL
           AND expenses.expense_date BETWEEN ${from} AND ${to}
-          AND (${canViewAll} OR expenses.user_id = ${userId} OR projects.id = ANY(${visibleProjectIds}::bigint[]))
+          AND (
+            ${canViewAll}
+            OR expenses.user_id = ${userId}
+            OR projects.id = ANY(${entryVisibleProjectIds}::bigint[])
+            OR (${canViewOffice} AND COALESCE(projects.office_id, clients.office_id, u.office_id) = ${actorOfficeId})
+          )
           AND (${isAdmin} OR LOWER(expenses.client_name) <> 'internal' OR expenses.user_id = ${userId})
           AND (${userFilter} = '' OR expenses.user_id::text = ${userFilter})
           AND (${clientFilter} = '' OR LOWER(expenses.client_name) = LOWER(${clientFilter}))

@@ -5366,12 +5366,19 @@ async function loadState(sql, currentUser, options = {}) {
     .filter((project) => normalizeText(project?.projectLeadId ?? project?.project_lead_id) === currentUserId)
     .map((project) => normalizeText(project?.id))
     .filter(Boolean);
-  const entryVisibilityProjectIds = new Set([
-    ...actorDirectAssignedProjectIds,
+  const actorProjectExecutiveProjectIds = allProjects
+    .filter((project) => normalizeText(project?.projectExecutiveId ?? project?.project_executive_id) === currentUserId)
+    .map((project) => normalizeText(project?.id))
+    .filter(Boolean);
+  const roleEntryVisibilityProjectIds = [
     ...actorProjectLeadProjectIds,
+    ...actorProjectExecutiveProjectIds,
+  ];
+  const entryVisibilityProjectIds = new Set([
+    ...(canViewAssignedProjectEntries ? actorDirectAssignedProjectIds : []),
+    ...roleEntryVisibilityProjectIds,
   ]);
-  const hasProjectLeadVisibility = actorProjectLeadProjectIds.length > 0;
-  const hasAssignedProjectEntryVisibility = canViewAssignedProjectEntries || hasProjectLeadVisibility;
+  const hasAssignedProjectEntryVisibility = entryVisibilityProjectIds.size > 0;
   const resolveRecordProjectId = (projectIdValue, clientNameValue, projectNameValue) => {
     const explicitProjectId = normalizeText(projectIdValue);
     if (explicitProjectId && allProjectsById.has(explicitProjectId)) {
@@ -6350,6 +6357,7 @@ async function loadState(sql, currentUser, options = {}) {
     delegators,
     visibleClientIds: visibilitySnapshot.visibleClientIds,
     visibleProjectIds: visibilitySnapshot.visibleProjectIds,
+    entryVisibleProjectIds: Array.from(entryVisibilityProjectIds),
   };
 }
 

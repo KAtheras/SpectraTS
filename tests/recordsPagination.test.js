@@ -27,10 +27,16 @@ assert.strictEqual(_test.parseRecordsQuery({ type: "expenses", from: "2026-01-01
 assert.strictEqual(_test.parseRecordsQuery({ type: "entries", from: "2026-01-01", to: "2026-08-25", cursor }).cursor.id, row.id);
 
 const appSource = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
+const dbSource = fs.readFileSync(path.join(__dirname, "..", "netlify", "functions", "_db.js"), "utf8");
+const recordsSource = fs.readFileSync(path.join(__dirname, "..", "netlify", "functions", "records.js"), "utf8");
 assert.match(appSource, /function inputsRecordsDateRange\(\)/);
 assert.match(appSource, /function clampInputsMonth\(monthKey\)/);
 assert.match(appSource, /previous\.disabled = monthKey <= minMonth/);
 assert.match(appSource, /next\.disabled = monthKey >= maxMonth/);
 assert.match(appSource, /if \(iso < inputsFrom \|\| iso > inputsTo\)/);
+assert.match(dbSource, /entryVisibleProjectIds: Array\.from\(entryVisibilityProjectIds\)/);
+assert.match(recordsSource, /projects\.id = ANY\(\$\{entryVisibleProjectIds\}::bigint\[\]\)/);
+assert.match(recordsSource, /COALESCE\(projects\.office_id, clients\.office_id, u\.office_id\) = \$\{actorOfficeId\}/);
+assert.doesNotMatch(recordsSource, /projects\.id = ANY\(\$\{visibleProjectIds\}::bigint\[\]\)/);
 
 console.log("✔ records endpoint validates bounded queries and opaque cursors");
