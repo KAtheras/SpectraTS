@@ -4123,7 +4123,6 @@
     inboxItems: [],
     inboxFilter: "all",
     inboxSelectedIds: [],
-    inboxVisitReadIds: [],
     auditLogs: [],
     auditFilters: {
       entity: "",
@@ -4937,7 +4936,6 @@
       ? data.inboxItems.map(normalizeInboxItem).filter(Boolean)
       : [];
     state.inboxSelectedIds = [];
-    state.inboxVisitReadIds = [];
     state.permissions = data?.permissions || {};
     state.delegators = Array.isArray(data?.delegators)
       ? data.delegators
@@ -5062,7 +5060,6 @@
     state.inboxItems = [];
     state.inboxFilter = "all";
     state.inboxSelectedIds = [];
-    state.inboxVisitReadIds = [];
     state.delegators = [];
     state.myDelegations = [];
     state.delegationCandidates = [];
@@ -5266,7 +5263,6 @@
         state.inboxItems = [];
         state.inboxFilter = "all";
         state.inboxSelectedIds = [];
-        state.inboxVisitReadIds = [];
         state.delegators = [];
         state.myDelegations = [];
         state.delegationCandidates = [];
@@ -5730,29 +5726,6 @@
     refs.appShell.hidden = true;
     refs.authShell.style.display = "none";
     refs.appShell.style.display = "none";
-  }
-
-  function beginInboxVisit() {
-    state.inboxVisitReadIds = (state.inboxItems || [])
-      .filter((item) => item && !item.isRead)
-      .map((item) => `${item.id || ""}`.trim())
-      .filter(Boolean);
-  }
-
-  function commitInboxVisitRead() {
-    const unreadIds = Array.from(
-      new Set((state.inboxVisitReadIds || []).map((id) => `${id || ""}`.trim()).filter(Boolean))
-    );
-    state.inboxVisitReadIds = [];
-    if (!unreadIds.length) return;
-
-    const unreadSet = new Set(unreadIds);
-    state.inboxItems = (state.inboxItems || []).map((item) => {
-      if (!item || !unreadSet.has(`${item.id || ""}`.trim())) return item;
-      return { ...item, isRead: true };
-    });
-
-    mutatePersistentState("mark_inbox_items_read", { ids: unreadIds }, { skipHydrate: true, returnState: false }).catch(() => {});
   }
 
   function clearEntrySelection() {
@@ -6615,12 +6588,6 @@
     if (previousView === "entries" && view !== "entries" && state.deletedSelectionMode) {
       state.deletedSelectionMode = false;
       state.selectedDeletedKeys = new Set();
-    }
-    if (view === "inbox" && previousView !== "inbox") {
-      beginInboxVisit();
-    }
-    if (previousView === "inbox" && view !== "inbox") {
-      commitInboxVisitRead();
     }
     if (previousView !== "clients" && view === "clients") {
       state.mobileClientsView = "list";
@@ -13437,7 +13404,10 @@
   async function refreshInboxItems() {
     if (!state.currentUser || !loadSessionToken()) return false;
     if (inboxRefreshPromise) return inboxRefreshPromise;
-    inboxRefreshPromise = requestJson(`${STATE_API_PATH}?inbox_only=1`, { method: "GET" })
+    inboxRefreshPromise = requestJson(`${STATE_API_PATH}?inbox_only=1&refresh=${Date.now()}`, {
+      method: "GET",
+      cacheTtlMs: 0,
+    })
       .then((payload) => {
         state.inboxItems = Array.isArray(payload?.inboxItems)
           ? payload.inboxItems.map(normalizeInboxItem).filter(Boolean)
@@ -15998,9 +15968,6 @@
       state.currentView = restoredView;
       if (restoredView === "project_planning") {
         state.currentProjectPlanningId = loadPersistedProjectPlanningId();
-      }
-      if (restoredView === "inbox") {
-        beginInboxVisit();
       }
       if (restoredView === "settings" || restoredView === "members") {
         await loadSettingsMetadata(true, { deferRender: true });
