@@ -4887,6 +4887,7 @@ async function loadState(sql, currentUser, options = {}) {
     actorOfficeId: normalizedUser?.officeId ?? null,
   });
   const canUseDepartmentsForMembers =
+    actorLeadProjectIds.length > 0 ||
     manageDepartments ||
     canCap("edit_member_profile", {
       resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
@@ -4918,6 +4919,7 @@ async function loadState(sql, currentUser, options = {}) {
     }) ||
     canViewDepartmentLeadsSettings;
   const canUseOfficeLocationsForMembers =
+    actorLeadProjectIds.length > 0 ||
     manageLocations ||
     canCap("view_members", {
       resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
@@ -6000,6 +6002,36 @@ async function loadState(sql, currentUser, options = {}) {
     });
   }
 
+  const ledProjectReferenceUserIds = new Set();
+  if (actorLeadProjectIds.length) {
+    const numericLeadProjectIds = actorLeadProjectIds
+      .map((id) => Number(id))
+      .filter((id) => Number.isFinite(id));
+    const [ledProjectMembers, ledProjectManagers] = await Promise.all([
+      listProjectMembersForProjects(sql, numericLeadProjectIds, accountUuid),
+      listManagerProjectAssignmentsForProjects(sql, numericLeadProjectIds, accountUuid),
+    ]);
+    visibleProjects.forEach((project) => {
+      const projectId = normalizeText(project?.id);
+      if (!actorLeadProjectIds.includes(projectId)) return;
+      [
+        project?.projectLeadId ?? project?.project_lead_id,
+        project?.projectExecutiveId ?? project?.project_executive_id,
+      ].forEach((id) => {
+        const normalizedId = normalizeText(id);
+        if (normalizedId) ledProjectReferenceUserIds.add(normalizedId);
+      });
+    });
+    ledProjectMembers.forEach((row) => {
+      const id = normalizeText(row?.userId ?? row?.user_id);
+      if (id) ledProjectReferenceUserIds.add(id);
+    });
+    ledProjectManagers.forEach((row) => {
+      const id = normalizeText(row?.managerId ?? row?.manager_id);
+      if (id) ledProjectReferenceUserIds.add(id);
+    });
+  }
+
   let users = [];
   let inactiveUsers = [];
   if (normalizedUser) {
@@ -6031,6 +6063,7 @@ async function loadState(sql, currentUser, options = {}) {
         visibleUserIds.add(normalizedId);
       }
     });
+    ledProjectReferenceUserIds.forEach((id) => visibleUserIds.add(id));
 
     const visibleUsers = allUsers
       .filter((user) => visibleUserIds.has(normalizeText(user?.id)))

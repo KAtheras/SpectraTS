@@ -6235,6 +6235,24 @@ exports.handler = async function handler(event) {
           contextClientId: createdProject?.client_id || null,
           contextProjectId: createdProject?.id || null,
         });
+        const projectLeadId = normalizeText(
+          request.payload?.projectLeadId ?? request.payload?.project_lead_id
+        );
+        const creatorId = normalizeText(context.currentUser?.id);
+        if (createdProject?.id && projectLeadId && projectLeadId !== creatorId) {
+          const actorName = normalizeText(context.currentUser?.displayName) || "A team member";
+          await createSystemInboxItems(sql, {
+            accountId,
+            type: "project_lead_assigned",
+            recipientUserIds: [projectLeadId],
+            actorUserId: creatorId || null,
+            subjectType: "project",
+            subjectId: String(createdProject.id),
+            projectName,
+            message: `${actorName} assigned you as Project Lead for ${projectName}.`,
+            deepLink: { view: "project_planning", projectId: String(createdProject.id) },
+          });
+        }
         break;
       }
       case "rename_client": {
