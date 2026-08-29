@@ -1752,22 +1752,9 @@
         `
             : ""
         }
-        ${
-          isProjectEditDialog && (canUseCloseoutAction || canManageProjectLifecycleFromDialog)
-            ? `
-        <section class="project-dialog-section project-status-section">
-          <div class="project-status-heading">
-            <div>
-              <h3 class="panel-subheading">Project status</h3>
-              <p>${
-                isClosedOutProject
-                  ? "Closed out and retained in completed-project analytics."
-                  : isDeactivatedProject
-                    ? "Administratively inactive and excluded from operational analytics."
-                    : "Ongoing and available for new time and expense entries."
-              }</p>
-            </div>
-            <div class="project-status-actions">
+        <section class="project-dialog-section">
+          <div class="project-dialog-actions project-dialog-footer-actions">
+            <div class="project-dialog-footer-left">
               ${
                 canUseCloseoutAction
                   ? `<button type="button" class="button button-ghost project-lifecycle-action${
@@ -1784,23 +1771,13 @@
                     }</button>`
                   : ""
               }
+              ${
+                canManageProjectLifecycleFromDialog && isDeactivatedProject
+                  ? '<button type="button" class="button button-ghost project-remove-action" data-project-remove-action>Permanently Remove Project</button>'
+                  : ""
+              }
             </div>
-          </div>
-          ${
-            canManageProjectLifecycleFromDialog && isDeactivatedProject
-              ? `<div class="project-status-danger">
-                  <div><strong>Permanent removal</strong><span>Use only for a project created by mistake. Recorded history or assignments may prevent removal.</span></div>
-                  <button type="button" class="button button-ghost project-remove-action" data-project-remove-action>Permanently Remove Project</button>
-                </div>`
-              : ""
-          }
-        </section>
-        `
-            : ""
-        }
-        <section class="project-dialog-section">
-          <div class="project-dialog-actions" style="justify-content:flex-end;align-items:center;">
-            <div style="display:flex;gap:10px;align-items:center;">
+            <div class="project-dialog-footer-right">
               <button type="button" class="button button-ghost" data-project-cancel>Cancel</button>
               <button type="submit" class="button" data-project-save${isProjectEditDialog ? " disabled" : ""}>${escapeHtml(finalConfirmText)}</button>
               ${

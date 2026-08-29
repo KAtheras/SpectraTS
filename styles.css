@@ -479,53 +479,23 @@ body.modal-open {
   border-color: var(--accent, #326496);
 }
 
-.project-status-section {
-  display: grid;
-  gap: 14px;
-}
-
-.project-status-heading {
+.project-dialog-footer-actions {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 20px;
+  gap: 16px;
 }
 
-.project-status-heading h3,
-.project-status-heading p {
-  margin: 0;
-}
-
-.project-status-heading p {
-  margin-top: 4px;
-  color: var(--muted);
-  font-size: 0.88rem;
-}
-
-.project-status-actions {
+.project-dialog-footer-left,
+.project-dialog-footer-right {
   display: flex;
+  align-items: center;
   flex-wrap: wrap;
+  gap: 10px;
+}
+
+.project-dialog-footer-right {
   justify-content: flex-end;
-  gap: 8px;
-}
-
-.project-status-danger {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-  padding-top: 14px;
-  border-top: 1px solid var(--line);
-}
-
-.project-status-danger > div {
-  display: grid;
-  gap: 3px;
-}
-
-.project-status-danger span {
-  color: var(--muted);
-  font-size: 0.82rem;
 }
 
 .project-remove-action {
@@ -781,14 +751,14 @@ body[data-theme="dark"] .project-lifecycle-action--closeout:focus-visible {
     gap: 4px;
   }
 
-  .project-status-heading,
-  .project-status-danger {
+  .project-dialog-footer-actions {
     align-items: stretch;
     flex-direction: column;
   }
 
-  .project-status-actions {
-    justify-content: flex-start;
+  .project-dialog-footer-left,
+  .project-dialog-footer-right {
+    width: 100%;
   }
 
   .project-remove-action {
