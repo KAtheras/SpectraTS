@@ -60,7 +60,8 @@ assert.doesNotMatch(memberRemoval, /managerHasProjectAccess/);
 assert.match(mutateSource, /case "assign_manager_project":[\s\S]*?canEditProjectPlanningForTarget[\s\S]*?assignManagerToProject/);
 assert.match(mutateSource, /case "add_project_member":[\s\S]*?canEditProjectPlanningForTarget[\s\S]*?addProjectMember/);
 
-assert.match(plannerSource, /planningStatus === "submitted" && isProjectExecutive/);
+assert.match(plannerSource, /const canApprove = planningStatus === "submitted" && isProjectExecutive/);
+assert.match(plannerSource, /const canRequestChanges = planningStatus !== "changes_requested" && isProjectExecutive/);
 assert.match(plannerSource, /data-project-planning-request/);
 assert.doesNotMatch(plannerSource, /window\.prompt\(/);
 assert.match(plannerSource, /await onPromptDialog/);

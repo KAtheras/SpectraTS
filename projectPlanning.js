@@ -891,7 +891,8 @@
     const planningStatus = String(project?.planningStatus || project?.planning_status || "draft").trim().toLowerCase();
     const currentUserId = String(state?.currentUser?.id || "").trim();
     const isProjectExecutive = currentUserId && currentUserId === String(project?.projectExecutiveId || project?.project_executive_id || "").trim();
-    const canReview = planningStatus === "submitted" && isProjectExecutive && state?.permissions?.approve_project_plan === true;
+    const canApprove = planningStatus === "submitted" && isProjectExecutive && state?.permissions?.approve_project_plan === true;
+    const canRequestChanges = planningStatus !== "changes_requested" && isProjectExecutive && state?.permissions?.approve_project_plan === true;
     const statusLabel = planningStatus === "changes_requested"
       ? "Changes Requested"
       : planningStatus.charAt(0).toUpperCase() + planningStatus.slice(1);
@@ -1122,8 +1123,8 @@
             <span class="project-planning-status">${escapeHtml(statusLabel)}</span>
             <button type="button" class="button button-ghost" data-project-planning-back>Back</button>
             <button type="button" class="button" data-project-planning-save ${canEdit && canSubmit ? "" : "hidden disabled"}>Submit for Approval</button>
-            <button type="button" class="button button-ghost" data-project-planning-request ${canReview ? "" : "hidden disabled"}>Request Changes</button>
-            <button type="button" class="button" data-project-planning-approve ${canReview ? "" : "hidden disabled"}>Approve Plan</button>
+            <button type="button" class="button button-ghost" data-project-planning-request ${canRequestChanges ? "" : "hidden disabled"}>Request Changes</button>
+            <button type="button" class="button" data-project-planning-approve ${canApprove ? "" : "hidden disabled"}>Approve Plan</button>
           </div>
         </header>
         <section class="project-planning-kpi-row">

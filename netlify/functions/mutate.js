@@ -235,10 +235,15 @@ async function transitionProjectPlan(sql, { action, projectId, notes, currentUse
   if (!can("approve_project_plan", { projectId: String(project.id) }) || actorId !== executiveId) {
     return errorResponse(403, "Only the assigned Project Executive may review this plan.");
   }
-  if (status !== "submitted") return errorResponse(400, "Only a submitted plan can be reviewed.");
   const requestingChanges = action === "request_project_plan_changes";
   const reviewNotes = normalizeText(notes);
   if (requestingChanges && !reviewNotes) return errorResponse(400, "Describe the changes requested.");
+  if (requestingChanges && status === "changes_requested") {
+    return errorResponse(400, "Changes have already been requested for this plan.");
+  }
+  if (!requestingChanges && status !== "submitted") {
+    return errorResponse(400, "Only a submitted plan can be approved.");
+  }
   const nextStatus = requestingChanges ? "changes_requested" : "approved";
   await sql`
     UPDATE projects SET planning_status = ${nextStatus}, planning_reviewed_at = NOW(),
