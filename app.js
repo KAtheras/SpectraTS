@@ -2438,6 +2438,23 @@
         });
       let savedDraftSignature = "";
       let projectSaveInProgress = false;
+      let confirmedRateAccessLeadId = currentLeadId;
+      const confirmProjectLeadRateAccess = async (payload) => {
+        const nextLeadId = String(payload?.projectLeadId || "").trim();
+        if (!nextLeadId || nextLeadId === confirmedRateAccessLeadId) return true;
+        const leadName = leadNameById.get(nextLeadId) || "The selected Project Lead";
+        const result = await showChoiceDialog({
+          title: "Project Lead Rate Access",
+          message: `${leadName} will be able to view the billing and cost rates of every member assigned to this project. This access will remain limited to projects they lead and will be removed if they are no longer the Project Lead.`,
+          confirmText: "Confirm Project Lead",
+          cancelText: "Go Back",
+        });
+        if (result?.confirmed === true) {
+          confirmedRateAccessLeadId = nextLeadId;
+          return true;
+        }
+        return false;
+      };
       const syncProjectSaveButtonState = () => {
         if (!isProjectEditDialog || !projectSaveButton) return;
         const hasUnsavedChanges = projectDraftSignature() !== savedDraftSignature;
@@ -2449,6 +2466,7 @@
 
       const persistEditedProject = async (payload, button, successText = "Saved") => {
         if (typeof options?.onSubmitEdit !== "function") return false;
+        if (!(await confirmProjectLeadRateAccess(payload))) return false;
         const originalText = button?.textContent || "Save";
         const draftSignatureAtSave = projectDraftSignature();
         projectSaveInProgress = true;
@@ -2529,6 +2547,7 @@
           return;
         }
         if (typeof options?.onSubmitAdd === "function") {
+          if (!(await confirmProjectLeadRateAccess(payload))) return;
           setError("");
           const originalSaveText = projectSaveButton?.textContent || finalConfirmText;
           if (projectSaveButton) {

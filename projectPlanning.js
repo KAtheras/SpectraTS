@@ -989,8 +989,12 @@
       const managerAssignment = managerAssignmentByUser.get(userId);
       const memberAssignment = memberAssignmentByUser.get(userId);
       const canonicalAssignment = canonicalTeamByUserId.get(userId);
-      const baseRate = toNullableNumber(member?.baseRate ?? member?.base_rate);
-      const costRate = toNullableNumber(member?.costRate ?? member?.cost_rate);
+      const baseRate = toNullableNumber(
+        member?.projectPlanningBaseRate ?? member?.baseRate ?? member?.base_rate
+      );
+      const costRate = toNullableNumber(
+        member?.projectPlanningCostRate ?? member?.costRate ?? member?.cost_rate
+      );
       const managerChargeOverride = toNullableNumber(
         managerAssignment?.chargeRateOverride ?? managerAssignment?.charge_rate_override
       );

@@ -6003,6 +6003,7 @@ async function loadState(sql, currentUser, options = {}) {
   }
 
   const ledProjectReferenceUserIds = new Set();
+  const ledProjectRateUserIds = new Set();
   if (actorLeadProjectIds.length) {
     const numericLeadProjectIds = actorLeadProjectIds
       .map((id) => Number(id))
@@ -6021,14 +6022,22 @@ async function loadState(sql, currentUser, options = {}) {
         const normalizedId = normalizeText(id);
         if (normalizedId) ledProjectReferenceUserIds.add(normalizedId);
       });
+      const leadId = normalizeText(project?.projectLeadId ?? project?.project_lead_id);
+      if (leadId) ledProjectRateUserIds.add(leadId);
     });
     ledProjectMembers.forEach((row) => {
       const id = normalizeText(row?.userId ?? row?.user_id);
-      if (id) ledProjectReferenceUserIds.add(id);
+      if (id) {
+        ledProjectReferenceUserIds.add(id);
+        ledProjectRateUserIds.add(id);
+      }
     });
     ledProjectManagers.forEach((row) => {
       const id = normalizeText(row?.managerId ?? row?.manager_id);
-      if (id) ledProjectReferenceUserIds.add(id);
+      if (id) {
+        ledProjectReferenceUserIds.add(id);
+        ledProjectRateUserIds.add(id);
+      }
     });
   }
 
@@ -6088,10 +6097,13 @@ async function loadState(sql, currentUser, options = {}) {
         });
         const allowBaseRate = roleAllowed && (canViewBaseRate || canEditRates);
         const allowCostRate = roleAllowed && canViewCostRates;
+        const isAssignedToLedProject = ledProjectRateUserIds.has(normalizeText(user?.id));
         return {
           ...user,
           baseRate: allowBaseRate ? user.baseRate : null,
           costRate: allowCostRate ? user.costRate : null,
+          projectPlanningBaseRate: isAssignedToLedProject ? user.baseRate : null,
+          projectPlanningCostRate: isAssignedToLedProject ? user.costRate : null,
         };
       });
     users = visibleUsers.filter((user) => user?.isActive !== false && `${user?.status || ""}`.trim().toLowerCase() !== "terminated");
