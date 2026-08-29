@@ -638,6 +638,8 @@
     { id: "departments_company", name: "Departments across the company" },
     { id: "department_across_offices", name: "One department across offices" },
     { id: "departments_within_office", name: "Departments within one office" },
+    { id: "view_client", name: "View client" },
+    { id: "view_project", name: "View project" },
   ];
   const REALIZATION_RESTRICTED_ANALYSIS = {
     department: { id: "clients_within_department", name: "Clients within your department" },
@@ -2083,19 +2085,25 @@
         uiState.realizationProjectId = "";
       }
       if (!hasCompanyAnalytics && authorizedOfficeOptions.length) {
-        uiState.realizationAnalysisMode = "departments_within_office";
+        if (!["departments_within_office", "view_client", "view_project"].includes(uiState.realizationAnalysisMode)) {
+          uiState.realizationAnalysisMode = "departments_within_office";
+        }
         if (!authorizedOfficeIds.has(safeText(uiState.realizationOfficeId))) {
           uiState.realizationOfficeId = safeText(authorizedOfficeOptions[0]?.id);
         }
       } else if (!hasCompanyAnalytics && authorizedDepartmentPairs.length) {
-        uiState.realizationAnalysisMode = REALIZATION_RESTRICTED_ANALYSIS.department.id;
+        if (![REALIZATION_RESTRICTED_ANALYSIS.department.id, "view_client", "view_project"].includes(uiState.realizationAnalysisMode)) {
+          uiState.realizationAnalysisMode = REALIZATION_RESTRICTED_ANALYSIS.department.id;
+        }
         const currentPair = authorizedDepartmentPairs.find((item) =>
           item.officeId === safeText(uiState.realizationOfficeId) && item.departmentId === safeText(uiState.realizationDepartmentId)
         ) || authorizedDepartmentPairs[0];
         uiState.realizationOfficeId = currentPair.officeId;
         uiState.realizationDepartmentId = currentPair.departmentId;
       } else if (!hasCompanyAnalytics) {
-        uiState.realizationAnalysisMode = REALIZATION_RESTRICTED_ANALYSIS.projects.id;
+        if (![REALIZATION_RESTRICTED_ANALYSIS.projects.id, "view_project"].includes(uiState.realizationAnalysisMode)) {
+          uiState.realizationAnalysisMode = REALIZATION_RESTRICTED_ANALYSIS.projects.id;
+        }
         uiState.realizationOfficeId = "";
         uiState.realizationDepartmentId = "";
       } else if (!REALIZATION_ANALYSIS_OPTIONS.some((item) => item.id === uiState.realizationAnalysisMode)) {
@@ -2106,9 +2114,13 @@
       if (uiState.realizationAnalysisMode === "offices_company") {
         uiState.realizationOfficeId = "";
         uiState.realizationDepartmentId = "";
+        uiState.realizationClientId = "";
+        uiState.realizationProjectId = "";
       } else if (uiState.realizationAnalysisMode === "departments_company") {
         uiState.realizationOfficeId = "";
         uiState.realizationDepartmentId = "";
+        uiState.realizationClientId = "";
+        uiState.realizationProjectId = "";
       } else if (uiState.realizationAnalysisMode === "department_across_offices" && !uiState.realizationDepartmentId) {
         uiState.realizationDepartmentId = safeText(scopeOptions.departments[0]?.id);
       } else if (uiState.realizationAnalysisMode === "departments_within_office" && !uiState.realizationOfficeId) {
@@ -2284,17 +2296,29 @@
       });
       const availableAnalysisOptions = hasCompanyAnalytics
         ? REALIZATION_ANALYSIS_OPTIONS
-        : uiState.realizationAnalysisMode === REALIZATION_RESTRICTED_ANALYSIS.department.id
-          ? [REALIZATION_RESTRICTED_ANALYSIS.department]
-          : uiState.realizationAnalysisMode === REALIZATION_RESTRICTED_ANALYSIS.projects.id
-            ? [REALIZATION_RESTRICTED_ANALYSIS.projects]
-            : [{ id: "departments_within_office", name: "Departments within your office" }];
+        : authorizedOfficeOptions.length
+          ? [
+                { id: "departments_within_office", name: "Departments within your office" },
+                { id: "view_client", name: "View client" },
+                { id: "view_project", name: "View project" },
+              ]
+          : authorizedDepartmentPairs.length
+            ? [
+                REALIZATION_RESTRICTED_ANALYSIS.department,
+                { id: "view_client", name: "View client" },
+                { id: "view_project", name: "View project" },
+              ]
+            : [REALIZATION_RESTRICTED_ANALYSIS.projects, { id: "view_project", name: "View project" }];
       const analysisSubjectHtml = uiState.realizationAnalysisMode === "department_across_offices"
         ? `<label><span>Department</span><select name="analysisDepartmentId">${renderOptions(scopeOptions.departments, uiState.realizationDepartmentId)}</select></label>`
         : uiState.realizationAnalysisMode === "departments_within_office"
           ? `<label><span>Office</span><select name="analysisOfficeId">${renderOptions(authorizedOfficeOptions, uiState.realizationOfficeId)}</select></label>`
           : uiState.realizationAnalysisMode === REALIZATION_RESTRICTED_ANALYSIS.department.id && departmentScopeOptions.length > 1
             ? `<label><span>Office / Department</span><select name="analysisDepartmentScope">${renderOptions(departmentScopeOptions, `${uiState.realizationOfficeId}::${uiState.realizationDepartmentId}`)}</select></label>`
+          : uiState.realizationAnalysisMode === "view_client"
+            ? `<label><span>Client</span><select name="analysisClientId">${renderOptions(clientProjectOptions.clients, uiState.realizationClientId, "Select client")}</select></label>`
+          : uiState.realizationAnalysisMode === "view_project"
+            ? `<label><span>Project</span><select name="analysisProjectId">${renderOptions(realizationProjectItems, uiState.realizationProjectId, "Select project")}</select></label>`
           : "";
       const hasAnalysisSubject = Boolean(analysisSubjectHtml);
       const filterColumnCount = 2 + (hasAnalysisSubject ? 1 : 0);
@@ -2306,6 +2330,10 @@
             ? `Viewing clients within ${selectedOfficeItem?.name || "your office"} — ${selectedDepartmentItem?.name || "your department"}`
             : uiState.realizationAnalysisMode === REALIZATION_RESTRICTED_ANALYSIS.projects.id
               ? "Viewing projects you lead"
+          : uiState.realizationAnalysisMode === "view_client"
+            ? `Viewing ${selectedClientItem?.name || "a selected client"}`
+          : uiState.realizationAnalysisMode === "view_project"
+            ? `Viewing ${selectedProjectItem?.name || "a selected project"}`
           : uiState.realizationAnalysisMode === "departments_company"
             ? "Comparing departments across the company"
             : "Comparing offices across the company";
@@ -2338,8 +2366,8 @@
               </div>
             </fieldset>
             <label>
-              <span>What would you like to compare?</span>
-              <select name="analysisMode" ${hasCompanyAnalytics ? "" : "disabled"}>${renderOptions(availableAnalysisOptions, uiState.realizationAnalysisMode)}</select>
+              <span>What would you like to see?</span>
+              <select name="analysisMode">${renderOptions(availableAnalysisOptions, uiState.realizationAnalysisMode)}</select>
             </label>
             ${analysisSubjectHtml}
           </form>
@@ -2399,12 +2427,14 @@
             uiState.realizationAnalysisMode = REALIZATION_ANALYSIS_OPTIONS.some((item) => item.id === nextAnalysisMode)
               ? nextAnalysisMode
               : "offices_company";
-            uiState.realizationOfficeId = uiState.realizationAnalysisMode === "departments_within_office"
-              ? safeText(scopeOptions.offices[0]?.id)
-              : "";
-            uiState.realizationDepartmentId = uiState.realizationAnalysisMode === "department_across_offices"
-              ? safeText(scopeOptions.departments[0]?.id)
-              : "";
+            if (hasCompanyAnalytics) {
+              uiState.realizationOfficeId = uiState.realizationAnalysisMode === "departments_within_office"
+                ? safeText(scopeOptions.offices[0]?.id)
+                : "";
+              uiState.realizationDepartmentId = uiState.realizationAnalysisMode === "department_across_offices"
+                ? safeText(scopeOptions.departments[0]?.id)
+                : "";
+            }
             uiState.realizationClientId = "";
             uiState.realizationProjectId = "";
           } else if (safeText(event?.target?.name) === "analysisOfficeId") {
@@ -2427,6 +2457,12 @@
             uiState.realizationDepartmentId = departmentId || "";
             uiState.realizationClientId = "";
             uiState.realizationProjectId = "";
+          } else if (safeText(event?.target?.name) === "analysisClientId") {
+            uiState.realizationClientId = safeText(realizationControls.elements.analysisClientId?.value);
+            uiState.realizationProjectId = "";
+          } else if (safeText(event?.target?.name) === "analysisProjectId") {
+            uiState.realizationProjectId = safeText(realizationControls.elements.analysisProjectId?.value);
+            uiState.realizationClientId = "";
           }
           renderAnalyticsPage(options);
         });
@@ -2551,6 +2587,8 @@
         uiState.utilizationOfficeId = "";
         uiState.utilizationDepartmentId = "";
       }
+      if (uiState.utilizationGroupBy === "office") uiState.utilizationOfficeId = "";
+      if (uiState.utilizationGroupBy === "department") uiState.utilizationDepartmentId = "";
 
       const defaultUtilizationRange = utilizationPeriodRange("this_month", new Date());
       const periodRange = uiState.utilizationPeriod === "custom"
@@ -2712,7 +2750,7 @@
       const departmentHeadDepartmentName = isDepartmentHeadScope
         ? safeText((scopeOptions.departments || [])[0]?.name || utilizationScope?.departmentName || "")
         : "";
-      const officeControlHtml = isSelfOnlyScope
+      const officeControlHtml = isSelfOnlyScope || uiState.utilizationGroupBy === "office"
         ? ""
         : (isAdminOfficeScope || isDepartmentHeadScope)
           ? `<label>
@@ -2732,7 +2770,7 @@
                 <span class="analytics-member-title-chevron" aria-hidden="true">▾</span>
               </span>
             </label>`;
-      const departmentControlHtml = isSelfOnlyScope
+      const departmentControlHtml = isSelfOnlyScope || uiState.utilizationGroupBy === "department"
         ? ""
         : isDepartmentHeadScope
           ? `<label>
@@ -2755,7 +2793,9 @@
       const utilizationFilterColumnCount =
         1 +
         (uiState.utilizationPeriod === "custom" ? 1 : 0) +
-        (isSelfOnlyScope ? 0 : 3);
+        (isSelfOnlyScope ? 0 : 1) +
+        (officeControlHtml ? 1 : 0) +
+        (departmentControlHtml ? 1 : 0);
       const utilizationOverviewIsTable = uiState.utilizationOverviewView === "table";
       const utilizationOverviewToggleLabel = utilizationOverviewIsTable ? "View Chart" : "View Table";
       const utilizationDetailIsTable = uiState.utilizationDetailView === "table";
@@ -2923,6 +2963,8 @@
           uiState.utilizationPeriod = nextPeriod;
           if (!isSelfOnlyScope) {
             uiState.utilizationGroupBy = normalizeUtilizationGroupBy(utilizationFilterForm.elements.groupBy?.value);
+            if (uiState.utilizationGroupBy === "office") uiState.utilizationOfficeId = "";
+            if (uiState.utilizationGroupBy === "department") uiState.utilizationDepartmentId = "";
             if (utilizationFilterForm.elements.officeId) {
               uiState.utilizationOfficeId = safeText(utilizationFilterForm.elements.officeId?.value);
             } else if (isAdminOfficeScope || isDepartmentHeadScope) {
