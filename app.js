@@ -1481,7 +1481,10 @@
       return;
     }
     if (projectDialog.deactivateProject) {
-      await deactivateProjectFromEditor(normalizedClient, savedProjectName);
+      const deactivated = await deactivateProjectFromEditor(normalizedClient, savedProjectName);
+      if (!deactivated) {
+        await openProjectEditDialogFlow(normalizedClient, savedProjectName);
+      }
       return;
     }
     if (projectDialog.reactivateProject) {
@@ -2745,7 +2748,7 @@
   async function deactivateProjectFromEditor(clientName, projectName) {
     if (!canManageProjectsLifecycle()) {
       feedback("Access denied.", true);
-      return;
+      return false;
     }
     const assignedActiveMembers = assignedActiveMembersCountForProject(clientName, projectName);
     if (assignedActiveMembers > 0) {
@@ -2758,7 +2761,7 @@
         cancelText: "Close",
         hideConfirm: true,
       });
-      return;
+      return false;
     }
     const confirmation = await appDialog({
       title: "Deactivate Project?",
@@ -2767,7 +2770,7 @@
       confirmText: "Deactivate",
       cancelText: "Cancel",
     });
-    if (!confirmation.confirmed) return;
+    if (!confirmation.confirmed) return false;
     try {
       await mutatePersistentState(
         "deactivate_project",
@@ -2778,6 +2781,7 @@
       if (state.currentView === "clients") state.catalogProjectLifecycleView = "inactive";
       render();
       feedback("Project deactivated.", false);
+      return true;
     } catch (error) {
       const message = error?.message || "Unable to deactivate project.";
       if (message.includes("Cannot Deactivate Project")) {
@@ -2787,9 +2791,10 @@
           cancelText: "Close",
           hideConfirm: true,
         });
-        return;
+        return false;
       }
       feedback(message, true);
+      return false;
     }
   }
 

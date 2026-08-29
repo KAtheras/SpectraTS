@@ -241,6 +241,14 @@
           planningStatusRaw === "submitted" || planningStatusRaw === "approved" || planningStatusRaw === "draft"
             ? planningStatusRaw
             : "draft";
+        const lifecycleStatusRaw = String(
+          project.lifecycleStatus ?? project.lifecycle_status ?? "ongoing"
+        ).trim().toLowerCase();
+        const lifecycleStatus = lifecycleStatusRaw === "closed_out" ? "closed_out" : "ongoing";
+        const closedOutAt = project.closedOutAt ?? project.closed_out_at ?? null;
+        const closedOutBy = project.closedOutBy ?? project.closed_out_by ?? null;
+        const closeoutNotes = project.closeoutNotes ?? project.closeout_notes ?? null;
+        const closeoutBillingNote = project.closeoutBillingNote ?? project.closeout_billing_note ?? null;
         return {
           id: project.id || "",
           client,
@@ -273,6 +281,16 @@
           percent_complete_updated_at: percentCompleteUpdatedAt,
           planningStatus,
           planning_status: planningStatus,
+          lifecycleStatus,
+          lifecycle_status: lifecycleStatus,
+          closedOutAt,
+          closed_out_at: closedOutAt,
+          closedOutBy,
+          closed_out_by: closedOutBy,
+          closeoutNotes,
+          closeout_notes: closeoutNotes,
+          closeoutBillingNote,
+          closeout_billing_note: closeoutBillingNote,
         };
       })
       .filter(Boolean);
