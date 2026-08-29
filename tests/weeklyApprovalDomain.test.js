@@ -75,4 +75,15 @@ const officeFallback = buildApprovalPackages({
 });
 assert.strictEqual(officeFallback[0].reviewerUserId, "office-lead");
 
+const seniorNonProjectPackages = buildApprovalPackages({
+  member: { id: "senior-member", officeId: "bur", departmentId: "audit" },
+  projects: [],
+  departmentLeadAssignments: [],
+  officeLocations: [],
+  autoApproveNonProject: true,
+  records: [{ id: "senior-internal", recordType: "time", projectId: null }],
+});
+assert.strictEqual(seniorNonProjectPackages[0].autoApproved, true);
+assert.strictEqual(seniorNonProjectPackages[0].reviewerUserId, "senior-member");
+
 process.stdout.write("weekly approval domain tests passed\n");

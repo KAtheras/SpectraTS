@@ -6733,7 +6733,7 @@
     if (!workflow || state.weeklyWorkflowLoading) return;
     const dialog = await appDialog({
       title: "Submit this week?",
-      message: `Your ${Number(workflow.ownTotals?.recordCount || 0)} time and expense records will be routed to the responsible Project Leads.`,
+      message: `Your ${Number(workflow.ownTotals?.recordCount || 0)} time and expense records will be submitted. Project records will be routed to the responsible Project Leads; eligible senior non-project records are approved automatically.`,
       confirmText: workflow.ownSubmission?.status === "changes_requested" ? "Resubmit Week" : "Submit Week",
       cancelText: "Cancel",
       textarea: true,

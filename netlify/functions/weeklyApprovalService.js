@@ -154,8 +154,11 @@ async function submitWeek(sql, { accountId, currentUser, payload }) {
   }
   const { weekStart, weekEnd } = weekBounds(payload?.weekStart || new Date());
   const members = await sql`
-    SELECT id, display_name AS "displayName", office_id AS "officeId", department_id AS "departmentId"
-    FROM users WHERE account_id = ${accountId}::uuid AND id = ${memberUserId} AND is_active = TRUE LIMIT 1
+    SELECT u.id, u.display_name AS "displayName", u.office_id AS "officeId", u.department_id AS "departmentId",
+      ll.permission_group AS "permissionGroup"
+    FROM users u
+    LEFT JOIN level_labels ll ON ll.account_id = u.account_id AND ll.level = u.level
+    WHERE u.account_id = ${accountId}::uuid AND u.id = ${memberUserId} AND u.is_active = TRUE LIMIT 1
   `;
   const member = members[0];
   if (!member) throw Object.assign(new Error("Member not found."), { statusCode: 404 });
@@ -174,8 +177,9 @@ async function submitWeek(sql, { accountId, currentUser, payload }) {
     sql`SELECT office_id AS "officeId", department_id AS "departmentId", user_id AS "userId" FROM department_lead_assignments WHERE account_id = ${accountId}::uuid`,
     sql`SELECT id, office_lead_user_id AS "officeLeadUserId" FROM office_locations WHERE account_id = ${accountId}::uuid`,
   ]);
-  const packages = buildApprovalPackages({ records, projects, member, departmentLeadAssignments, officeLocations });
-  if (packages.some((item) => item.reviewerUserId === memberUserId)) {
+  const autoApproveNonProject = ["superuser", "admin", "executive"].includes(text(member.permissionGroup).toLowerCase());
+  const packages = buildApprovalPackages({ records, projects, member, departmentLeadAssignments, officeLocations, autoApproveNonProject });
+  if (packages.some((item) => !item.autoApproved && item.reviewerUserId === memberUserId)) {
     throw Object.assign(new Error("A member cannot approve their own weekly submission. Assign another lead."), { statusCode: 400 });
   }
   const submissionId = text(existingRows[0]?.id) || id();
@@ -191,15 +195,19 @@ async function submitWeek(sql, { accountId, currentUser, payload }) {
   const retainedStatuses = existingPackages
     .filter((item) => item.status !== "changes_requested")
     .map((item) => item.status);
-  const submissionStatus = deriveSubmissionStatus([...retainedStatuses, ...packagesToCreate.map(() => "submitted")]);
+  const derivedSubmissionStatus = deriveSubmissionStatus([
+    ...retainedStatuses,
+    ...packagesToCreate.map((item) => item.autoApproved ? "approved" : "submitted"),
+  ]);
+  const submissionStatus = derivedSubmissionStatus === "approved" ? "locked" : derivedSubmissionStatus;
   const queries = [
     sql`
-      INSERT INTO weekly_submissions (id, account_id, member_user_id, week_start, week_end, status, member_note, submitted_at, submitted_by_user_id)
-      VALUES (${submissionId}, ${accountId}::uuid, ${memberUserId}, ${weekStart}::date, ${weekEnd}::date, ${submissionStatus}, ${text(payload?.note) || null}, NOW(), ${text(currentUser?.id)})
+      INSERT INTO weekly_submissions (id, account_id, member_user_id, week_start, week_end, status, member_note, submitted_at, submitted_by_user_id, approved_at, locked_at)
+      VALUES (${submissionId}, ${accountId}::uuid, ${memberUserId}, ${weekStart}::date, ${weekEnd}::date, ${submissionStatus}, ${text(payload?.note) || null}, NOW(), ${text(currentUser?.id)}, ${submissionStatus === "locked" ? new Date().toISOString() : null}, ${submissionStatus === "locked" ? new Date().toISOString() : null})
       ON CONFLICT (account_id, member_user_id, week_start) DO UPDATE SET
         week_end = EXCLUDED.week_end, status = EXCLUDED.status, member_note = EXCLUDED.member_note,
         submitted_at = NOW(), submitted_by_user_id = EXCLUDED.submitted_by_user_id,
-        approved_at = NULL, locked_at = NULL, updated_at = NOW()
+        approved_at = EXCLUDED.approved_at, locked_at = EXCLUDED.locked_at, updated_at = NOW()
     `,
   ];
   for (const existingPackage of existingPackages.filter((item) => item.status === "changes_requested")) {
@@ -208,15 +216,22 @@ async function submitWeek(sql, { accountId, currentUser, payload }) {
   }
   for (const approvalPackage of packagesToCreate) {
     const packageId = id();
+    const packageStatus = approvalPackage.autoApproved ? "approved" : "submitted";
     queries.push(sql`
-      INSERT INTO weekly_approval_packages (id, account_id, submission_id, package_key, package_type, project_id, reviewer_user_id, status)
-      VALUES (${packageId}, ${accountId}::uuid, ${submissionId}, ${approvalPackage.packageKey}, ${approvalPackage.packageType}, ${approvalPackage.projectId ? Number(approvalPackage.projectId) : null}, ${approvalPackage.reviewerUserId}, 'submitted')
+      INSERT INTO weekly_approval_packages (id, account_id, submission_id, package_key, package_type, project_id, reviewer_user_id, status, reviewed_at)
+      VALUES (${packageId}, ${accountId}::uuid, ${submissionId}, ${approvalPackage.packageKey}, ${approvalPackage.packageType}, ${approvalPackage.projectId ? Number(approvalPackage.projectId) : null}, ${approvalPackage.reviewerUserId}, ${packageStatus}, ${approvalPackage.autoApproved ? new Date().toISOString() : null})
     `);
     for (const item of approvalPackage.items) {
       queries.push(sql`
         INSERT INTO weekly_approval_items (id, account_id, submission_id, package_id, record_type, record_id)
         VALUES (${id()}, ${accountId}::uuid, ${submissionId}, ${packageId}, ${item.recordType}, ${item.recordId})
       `);
+      if (approvalPackage.autoApproved && item.recordType === "time") {
+        queries.push(sql`UPDATE entries SET status = 'approved', approved_at = NOW(), approved_by_user_id = NULL, updated_at = NOW() WHERE account_id = ${accountId}::uuid AND id::text = ${item.recordId}`);
+      }
+      if (approvalPackage.autoApproved && item.recordType === "expense") {
+        queries.push(sql`UPDATE expenses SET status = 'approved', approved_at = ${new Date().toISOString()}, updated_at = ${new Date().toISOString()} WHERE account_id = ${accountId}::uuid AND id::text = ${item.recordId}`);
+      }
     }
   }
   await sql.transaction(queries);
@@ -227,7 +242,7 @@ async function submitWeek(sql, { accountId, currentUser, payload }) {
     afterJson: { status: submissionStatus, weekStart, weekEnd, packageCount: packages.length },
     changedFieldsJson: ["status", "submittedAt", "packages"],
   });
-  for (const approvalPackage of packagesToCreate) {
+  for (const approvalPackage of packagesToCreate.filter((item) => !item.autoApproved)) {
     await createSystemInboxItems(sql, {
       accountId, recipientUserIds: [approvalPackage.reviewerUserId], type: "weekly_submission_received",
       actorUserId: currentUser.id, subjectType: "weekly_submission", subjectId: submissionId,

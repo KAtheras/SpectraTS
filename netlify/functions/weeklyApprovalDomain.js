@@ -35,7 +35,7 @@ function resolveNonProjectReviewer({ member, departmentLeadAssignments, officeLo
   return officeLeadId !== memberUserId ? officeLeadId : "";
 }
 
-function buildApprovalPackages({ records, projects, member, departmentLeadAssignments, officeLocations }) {
+function buildApprovalPackages({ records, projects, member, departmentLeadAssignments, officeLocations, autoApproveNonProject = false }) {
   const projectById = new Map((projects || []).map((project) => [String(project?.id ?? ""), project]));
   const packages = new Map();
   for (const record of records || []) {
@@ -54,6 +54,15 @@ function buildApprovalPackages({ records, projects, member, departmentLeadAssign
       const packageKey = `project:${projectId}`;
       if (!packages.has(packageKey)) {
         packages.set(packageKey, { packageKey, packageType: "project", projectId, reviewerUserId, items: [] });
+      }
+      packages.get(packageKey).items.push({ recordType, recordId });
+      continue;
+    }
+    const memberUserId = String(member?.id ?? member?.userId ?? member?.user_id ?? "").trim();
+    if (autoApproveNonProject) {
+      const packageKey = `non_project:auto`;
+      if (!packages.has(packageKey)) {
+        packages.set(packageKey, { packageKey, packageType: "non_project", projectId: null, reviewerUserId: memberUserId, autoApproved: true, items: [] });
       }
       packages.get(packageKey).items.push({ recordType, recordId });
       continue;

@@ -9,6 +9,7 @@ Weekly submission is the operational control for time and expense records. A mem
 - Project time and expenses go to the Project Lead.
 - If the member is the Project Lead, the package goes to the Project Executive so no one approves their own records.
 - Non-project, internal, and PTO records go to the member's Department Lead.
+- Non-project records for effective `superuser`, `admin`, and `executive` permission groups are auto-approved; their project records still follow normal Project Lead routing.
 - If the member is that Department Lead, or no Department Lead is assigned, routing falls back to the Office Lead.
 - Project Executives can review project packages as an override.
 - Superusers can intervene globally, but they are not routine reviewers.
