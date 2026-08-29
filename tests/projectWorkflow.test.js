@@ -10,6 +10,7 @@ const plannerSource = fs.readFileSync(path.join(root, "projectPlanning.js"), "ut
 const appSource = fs.readFileSync(path.join(root, "app.js"), "utf8");
 const membersModalSource = fs.readFileSync(path.join(root, "membersModal.js"), "utf8");
 const stylesSource = fs.readFileSync(path.join(root, "styles.css"), "utf8");
+const stateSource = fs.readFileSync(path.join(root, "netlify/functions/state.js"), "utf8");
 
 function functionBody(source, name, nextMarker) {
   const start = source.indexOf(`async function ${name}`);
@@ -68,6 +69,10 @@ assert.match(plannerSource, /await onPromptDialog/);
 assert.match(plannerSource, /data-project-planning-approve/);
 assert.match(appSource, /onRequestChanges: async function/);
 assert.match(appSource, /onApprove: async function/);
+assert.match(appSource, /async function refreshInboxItems\(\)/);
+assert.match(appSource, /inbox_only=1/);
+assert.match(stateSource, /const inboxOnly = .*inbox_only/);
+assert.match(stateSource, /await listInboxItems\(sql, context\.currentUser\.accountId, context\.currentUser\.id\)/);
 assert.match(appSource, /onPromptDialog: async function/);
 assert.match(appSource, /const hasUnsavedChanges = projectDraftSignature\(\) !== savedDraftSignature;\s*if \(hasUnsavedChanges\) \{\s*const payload = buildProjectDialogPayload\(\)/);
 assert.match(appSource, /if \(projectDialog\.openProjectPlanning\) \{[\s\S]*?setView\("project_planning"\);[\s\S]*?return;/);

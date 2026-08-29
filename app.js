@@ -12282,6 +12282,7 @@
   if (refs.inboxOpen) {
     refs.inboxOpen.addEventListener("click", function () {
       setView("inbox");
+      refreshInboxItems();
     });
   }
   if (refs.inputsSwitchAction) {
@@ -13430,6 +13431,28 @@
       .catch((error) => {
         feedback(error?.message || "Unable to refresh data.", true);
       });
+  }
+
+  let inboxRefreshPromise = null;
+  async function refreshInboxItems() {
+    if (!state.currentUser || !loadSessionToken()) return false;
+    if (inboxRefreshPromise) return inboxRefreshPromise;
+    inboxRefreshPromise = requestJson(`${STATE_API_PATH}?inbox_only=1`, { method: "GET" })
+      .then((payload) => {
+        state.inboxItems = Array.isArray(payload?.inboxItems)
+          ? payload.inboxItems.map(normalizeInboxItem).filter(Boolean)
+          : [];
+        refreshInboxUi();
+        return true;
+      })
+      .catch((error) => {
+        if (error?.status !== 401) console.warn("Unable to refresh inbox.", error);
+        return false;
+      })
+      .finally(() => {
+        inboxRefreshPromise = null;
+      });
+    return inboxRefreshPromise;
   }
 
   function beginSettingsAutoSave(formId) {
@@ -15940,6 +15963,12 @@
   }
 
   registerServiceWorker();
+  window.setInterval(() => {
+    if (!document.hidden) refreshInboxItems();
+  }, 30000);
+  document.addEventListener("visibilitychange", function () {
+    if (!document.hidden) refreshInboxItems();
+  });
   window.addEventListener("keydown", function (event) {
     if (event.key !== "Escape") {
       return;

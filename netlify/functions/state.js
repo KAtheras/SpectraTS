@@ -8,6 +8,7 @@ const {
   json,
   loadState,
   loadSettingsMetadata,
+  listInboxItems,
   listClients,
   listProjects,
   listProjectExpenseCategories,
@@ -33,6 +34,12 @@ exports.handler = async function handler(event) {
 
     const permissionRows = await loadPermissionsFromDb(sql);
     const permissionIndex = buildIndex({ permissions: permissionRows });
+    const inboxOnly = String(event.queryStringParameters?.inbox_only || "").trim() === "1";
+    if (inboxOnly) {
+      return json(200, {
+        inboxItems: await listInboxItems(sql, context.currentUser.accountId, context.currentUser.id),
+      });
+    }
     const settingsMetaOnly = String(event.queryStringParameters?.settings_meta || "").trim() === "1";
     if (settingsMetaOnly) {
       const settingsMeta = await loadSettingsMetadata(sql, context.currentUser);
