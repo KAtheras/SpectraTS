@@ -479,6 +479,69 @@ body.modal-open {
   border-color: var(--accent, #326496);
 }
 
+.project-status-section {
+  display: grid;
+  gap: 14px;
+}
+
+.project-status-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.project-status-heading h3,
+.project-status-heading p {
+  margin: 0;
+}
+
+.project-status-heading p {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.project-status-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.project-status-danger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.project-status-danger > div {
+  display: grid;
+  gap: 3px;
+}
+
+.project-status-danger span {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.project-remove-action {
+  flex: 0 0 auto;
+  border-color: color-mix(in srgb, var(--danger) 72%, var(--line));
+  color: var(--danger);
+  font-weight: 700;
+}
+
+.project-remove-action:hover,
+.project-remove-action:focus-visible {
+  border-color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+  color: var(--danger);
+}
+
 .project-lifecycle-action--closeout {
   border-color: #b42318;
   background: rgba(180, 35, 24, 0.1);
@@ -716,6 +779,20 @@ body[data-theme="dark"] .project-lifecycle-action--closeout:focus-visible {
     align-items: flex-start;
     flex-direction: column;
     gap: 4px;
+  }
+
+  .project-status-heading,
+  .project-status-danger {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .project-status-actions {
+    justify-content: flex-start;
+  }
+
+  .project-remove-action {
+    align-self: flex-start;
   }
 }
 

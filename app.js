@@ -1410,11 +1410,14 @@
       closedOutAt: projectRow?.closedOutAt || projectRow?.closed_out_at || null,
       closeoutNotes: projectRow?.closeoutNotes || projectRow?.closeout_notes || null,
       closeoutBillingNote: projectRow?.closeoutBillingNote || projectRow?.closeout_billing_note || null,
+      projectIsActive: isProjectActive(projectRow),
       canCloseProject: canCloseProject(projectRow),
+      canManageProjectLifecycle: canManageProjectsLifecycle(),
       canEditProject: canEditProjectModal(normalizedClient, normalizedProject),
       startWithCloseAction: flowOptions?.fromProjectPlanning === true,
       allowOpenPlanning:
         String(projectRow?.lifecycleStatus || projectRow?.lifecycle_status || "ongoing").toLowerCase() !== "closed_out" &&
+        isProjectActive(projectRow) &&
         canEditProjectPlanning(normalizedClient, normalizedProject),
       onSubmitEdit: async (payload) => {
         const nextName = String(payload.projectName || "").trim();
@@ -1475,6 +1478,18 @@
       } catch (error) {
         feedback(error?.message || "Unable to reopen project.", true);
       }
+      return;
+    }
+    if (projectDialog.deactivateProject) {
+      await deactivateProjectFromEditor(normalizedClient, savedProjectName);
+      return;
+    }
+    if (projectDialog.reactivateProject) {
+      await reactivateProjectFromEditor(normalizedClient, savedProjectName);
+      return;
+    }
+    if (projectDialog.removeProject) {
+      await removeProjectFromEditor(normalizedClient, savedProjectName);
     }
   }
 
@@ -1484,7 +1499,11 @@
       const isProjectEditDialog = mode === "edit";
       const lifecycleStatus = String(options?.lifecycleStatus || "ongoing").trim().toLowerCase();
       const isClosedOutProject = lifecycleStatus === "closed_out";
-      const isReadOnlyProjectDialog = isProjectEditDialog && options?.canEditProject === false;
+      const isDeactivatedProject = isProjectEditDialog && options?.projectIsActive === false && !isClosedOutProject;
+      const canManageProjectLifecycleFromDialog =
+        isProjectEditDialog && options?.canManageProjectLifecycle === true;
+      const isReadOnlyProjectDialog =
+        isProjectEditDialog && (options?.canEditProject === false || isDeactivatedProject);
       const canUseCloseoutAction = isProjectEditDialog && options?.canCloseProject === true;
       const canOpenPlanningFromDialog =
         isProjectEditDialog && !isClosedOutProject && options?.allowOpenPlanning !== false;
@@ -1537,7 +1556,13 @@
       let pendingManagerUserIds = [...initialManagerUserIds];
       let pendingStaffUserIds = [...initialStaffUserIds];
       const pendingTeamRateOverrides = {};
-      const title = mode === "edit" ? (isClosedOutProject ? "Closed project" : "Edit project") : "Add project";
+      const title = mode === "edit"
+        ? isClosedOutProject
+          ? "Closed project"
+          : isDeactivatedProject
+            ? "Deactivated project"
+            : "Edit project"
+        : "Add project";
       const finalConfirmText = mode === "edit" ? "Save" : "Add";
       const activeUsers = (state.users || [])
         .filter((user) => user && user.isActive !== false && user.displayName)
@@ -1628,6 +1653,8 @@
               ? `<div class="project-lifecycle-banner"><strong>Closed out</strong><span>Completed ${escapeHtml(
                   String(options?.closedOutAt || "date not recorded")
                 )}. Reopen the project to make changes or accept new entries.</span></div>`
+              : isDeactivatedProject
+                ? `<div class="project-lifecycle-banner"><strong>Deactivated</strong><span>This project is unavailable for new activity and excluded from operational analytics.</span></div>`
               : ""
           }
           <div class="project-dialog-core-row" style="grid-template-columns: repeat(4, minmax(0, 1fr));">
@@ -1725,9 +1752,22 @@
         `
             : ""
         }
-        <section class="project-dialog-section">
-          <div class="project-dialog-actions" style="justify-content:space-between;align-items:center;">
-            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        ${
+          isProjectEditDialog && (canUseCloseoutAction || canManageProjectLifecycleFromDialog)
+            ? `
+        <section class="project-dialog-section project-status-section">
+          <div class="project-status-heading">
+            <div>
+              <h3 class="panel-subheading">Project status</h3>
+              <p>${
+                isClosedOutProject
+                  ? "Closed out and retained in completed-project analytics."
+                  : isDeactivatedProject
+                    ? "Administratively inactive and excluded from operational analytics."
+                    : "Ongoing and available for new time and expense entries."
+              }</p>
+            </div>
+            <div class="project-status-actions">
               ${
                 canUseCloseoutAction
                   ? `<button type="button" class="button button-ghost project-lifecycle-action${
@@ -1737,7 +1777,29 @@
                     }</button>`
                   : ""
               }
+              ${
+                canManageProjectLifecycleFromDialog && !isClosedOutProject
+                  ? `<button type="button" class="button button-ghost" data-project-archive-action>${
+                      isDeactivatedProject ? "Reactivate Project" : "Deactivate Project"
+                    }</button>`
+                  : ""
+              }
             </div>
+          </div>
+          ${
+            canManageProjectLifecycleFromDialog
+              ? `<div class="project-status-danger">
+                  <div><strong>Permanent removal</strong><span>Use only for a project created by mistake. Recorded history or assignments may prevent removal.</span></div>
+                  <button type="button" class="button button-ghost project-remove-action" data-project-remove-action>Permanently Remove Project</button>
+                </div>`
+              : ""
+          }
+        </section>
+        `
+            : ""
+        }
+        <section class="project-dialog-section">
+          <div class="project-dialog-actions" style="justify-content:flex-end;align-items:center;">
             <div style="display:flex;gap:10px;align-items:center;">
               <button type="button" class="button button-ghost" data-project-cancel>Cancel</button>
               <button type="submit" class="button" data-project-save${isProjectEditDialog ? " disabled" : ""}>${escapeHtml(finalConfirmText)}</button>
@@ -1772,6 +1834,8 @@
       const projectSaveButton = form.querySelector("[data-project-save]");
       const projectCancelButton = form.querySelector("[data-project-cancel]");
       const projectLifecycleButton = form.querySelector("[data-project-lifecycle-action]");
+      const projectArchiveButton = form.querySelector("[data-project-archive-action]");
+      const projectRemoveButton = form.querySelector("[data-project-remove-action]");
       const teamManagersList = form.querySelector('[data-project-team-list="managers"]');
       const teamStaffList = form.querySelector('[data-project-team-list="staff"]');
       const addMemberButton = form.querySelector("[data-project-team-add-member]");
@@ -2189,7 +2253,12 @@
 
       if (isClosedOutProject || isReadOnlyProjectDialog) {
         Array.from(form.querySelectorAll("input, select, textarea, button")).forEach((control) => {
-          if (control === projectCancelButton || control === projectLifecycleButton) return;
+          if (
+            control === projectCancelButton ||
+            control === projectLifecycleButton ||
+            control === projectArchiveButton ||
+            control === projectRemoveButton
+          ) return;
           control.disabled = true;
         });
         if (projectCancelButton) projectCancelButton.textContent = "Close";
@@ -2229,6 +2298,8 @@
         }
         openPlanningButton?.removeEventListener("click", onOpenProjectPlanning);
         projectLifecycleButton?.removeEventListener("click", onProjectLifecycleAction);
+        projectArchiveButton?.removeEventListener("click", onProjectArchiveAction);
+        projectRemoveButton?.removeEventListener("click", onProjectRemoveAction);
         projectCancelButton?.removeEventListener("click", onCancel);
         form.remove();
         dialogCard?.classList.remove("dialog-card--project");
@@ -2253,6 +2324,16 @@
         resolve(isClosedOutProject ? { reopenProject: true } : { closeOutProject: true });
       };
       projectLifecycleButton?.addEventListener("click", onProjectLifecycleAction);
+      const onProjectArchiveAction = () => {
+        cleanup();
+        resolve(isDeactivatedProject ? { reactivateProject: true } : { deactivateProject: true });
+      };
+      const onProjectRemoveAction = () => {
+        cleanup();
+        resolve({ removeProject: true });
+      };
+      projectArchiveButton?.addEventListener("click", onProjectArchiveAction);
+      projectRemoveButton?.addEventListener("click", onProjectRemoveAction);
 
       const buildProjectDialogPayload = () => {
         const nextName = String(nameInput?.value || "").trim();
@@ -2669,6 +2750,150 @@
       feedback("Project closed out.", false);
     } catch (error) {
       feedback(error?.message || "Unable to close out project.", true);
+    }
+  }
+
+  async function deactivateProjectFromEditor(clientName, projectName) {
+    if (!canManageProjectsLifecycle()) {
+      feedback("Access denied.", true);
+      return;
+    }
+    const assignedActiveMembers = assignedActiveMembersCountForProject(clientName, projectName);
+    if (assignedActiveMembers > 0) {
+      await appDialog({
+        title: "Cannot Deactivate Project",
+        message:
+          "This project still has assigned active members.\n\n" +
+          "Remove or reassign all active members before deactivating it.\n\n" +
+          `${assignedActiveMembers} assigned active members`,
+        cancelText: "Close",
+        hideConfirm: true,
+      });
+      return;
+    }
+    const confirmation = await appDialog({
+      title: "Deactivate Project?",
+      message:
+        "Deactivation is for administrative removal, not completed work. The project will be unavailable for new activity and excluded from operational analytics. Its history will be preserved.",
+      confirmText: "Deactivate",
+      cancelText: "Cancel",
+    });
+    if (!confirmation.confirmed) return;
+    try {
+      await mutatePersistentState(
+        "deactivate_project",
+        { clientName, projectName },
+        { skipHydrate: true, refreshState: false, returnState: false }
+      );
+      await loadPersistentState();
+      if (state.currentView === "clients") state.catalogProjectLifecycleView = "inactive";
+      render();
+      feedback("Project deactivated.", false);
+    } catch (error) {
+      const message = error?.message || "Unable to deactivate project.";
+      if (message.includes("Cannot Deactivate Project")) {
+        await appDialog({
+          title: "Cannot Deactivate Project",
+          message: message.replace(/^Cannot Deactivate Project\s*\n?/, "").trim(),
+          cancelText: "Close",
+          hideConfirm: true,
+        });
+        return;
+      }
+      feedback(message, true);
+    }
+  }
+
+  async function reactivateProjectFromEditor(clientName, projectName) {
+    if (!canManageProjectsLifecycle()) {
+      feedback("Access denied.", true);
+      return;
+    }
+    const client = (state.clients || []).find(
+      (item) => String(item?.name || "").trim() === String(clientName || "").trim()
+    );
+    if (!isClientActive(client)) {
+      await appDialog({
+        title: "Cannot Reactivate Project",
+        message: "Reactivate the client before reactivating this project.",
+        cancelText: "Close",
+        hideConfirm: true,
+      });
+      return;
+    }
+    const confirmation = await appDialog({
+      title: "Reactivate Project?",
+      message: "The project will return to ongoing use and can accept new time and expense entries.",
+      confirmText: "Reactivate",
+      cancelText: "Cancel",
+    });
+    if (!confirmation.confirmed) return;
+    try {
+      await mutatePersistentState(
+        "reactivate_project",
+        { clientName, projectName },
+        { skipHydrate: true, refreshState: false, returnState: false }
+      );
+      await loadPersistentState();
+      if (state.currentView === "clients") state.catalogProjectLifecycleView = "active";
+      render();
+      feedback("Project reactivated.", false);
+    } catch (error) {
+      feedback(error?.message || "Unable to reactivate project.", true);
+    }
+  }
+
+  async function removeProjectFromEditor(clientName, projectName) {
+    if (!canManageProjectsLifecycle()) {
+      feedback("Access denied.", true);
+      return;
+    }
+    const assignedActiveMembers = assignedActiveMembersCountForProject(clientName, projectName);
+    if (assignedActiveMembers > 0) {
+      await appDialog({
+        title: "Cannot Remove Project",
+        message:
+          "This project still has assigned active members.\n\n" +
+          "Remove or reassign all active members before permanently removing it.\n\n" +
+          `${assignedActiveMembers} assigned active members`,
+        cancelText: "Close",
+        hideConfirm: true,
+      });
+      return;
+    }
+    const confirmation = await appDialog({
+      title: "Permanently Remove Project?",
+      message:
+        "Use permanent removal only for a project created by mistake. This cannot be undone, and the system will refuse removal if the project has recorded activity or other dependencies.",
+      confirmText: "Permanently Remove",
+      cancelText: "Cancel",
+    });
+    if (!confirmation.confirmed) return;
+    try {
+      const result = await mutatePersistentState(
+        "remove_project",
+        { clientName, projectName },
+        { skipHydrate: true, refreshState: false, returnState: false }
+      );
+      await loadPersistentState();
+      if (state.filters.client === clientName && state.filters.project === projectName) {
+        state.filters.project = "";
+      }
+      if (state.currentView === "clients") state.catalogProjectLifecycleView = "active";
+      render();
+      feedback(result?.message || "Project permanently removed.", false);
+    } catch (error) {
+      const message = error?.message || "Unable to remove project.";
+      if (message.includes("Cannot Remove Project")) {
+        await appDialog({
+          title: "Cannot Remove Project",
+          message: message.replace(/^Cannot Remove Project\s*\n?/, "").trim(),
+          cancelText: "Close",
+          hideConfirm: true,
+        });
+        return;
+      }
+      feedback(message, true);
     }
   }
 
@@ -14196,6 +14421,7 @@
     if (viewTimeButton) {
       const projectName = viewTimeButton.dataset.viewTimeProject;
       state.filters.period = "all";
+      state.filters.user = "";
       state.filters.from = "1900-01-01";
       state.filters.to = today;
       state.filters.client = state.selectedCatalogClient;
@@ -14211,6 +14437,7 @@
     if (viewExpensesButton) {
       const projectName = viewExpensesButton.dataset.viewExpensesProject;
       state.expenseFilters.period = "all";
+      state.expenseFilters.user = "";
       state.expenseFilters.from = "1900-01-01";
       state.expenseFilters.to = today;
       state.expenseFilters.client = state.selectedCatalogClient;
@@ -14252,7 +14479,11 @@
     if (editButton) {
       const projectName = editButton.dataset.editProject;
       const projectRow = findProjectRow(state.selectedCatalogClient, projectName);
-      if (!canEditProjectModal(state.selectedCatalogClient, projectName) && !canCloseProject(projectRow)) {
+      if (
+        !canEditProjectModal(state.selectedCatalogClient, projectName) &&
+        !canCloseProject(projectRow) &&
+        !canManageProjectsLifecycle()
+      ) {
         feedback("Access denied.", true);
         return;
       }

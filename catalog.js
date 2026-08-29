@@ -210,8 +210,8 @@
 	                projectIsActive &&
 	                (Boolean(state.permissions?.assign_project_members) ||
 	                  Boolean(state.permissions?.assign_project_managers));
-              const showEditProjectAction = canEditProjectCard || canUseCloseoutAction || canReopenProject;
-              const showProjectLifecycleActions = canDeleteProject && !projectIsClosedOut;
+              const showEditProjectAction =
+                canEditProjectCard || canUseCloseoutAction || canReopenProject || canDeleteProject;
               const showAddMemberAction = canManageMembers && Boolean(state.permissions?.assign_project_members);
               const showRemoveMemberAction = canManageMembers && Boolean(state.permissions?.assign_project_members);
               const projectTeam = projectTeamAssignments(selectedClient, project);
@@ -354,26 +354,6 @@
                     </span>
                     <span class="catalog-item-actions catalog-item-actions-bottom catalog-project-footer-right">
                       <span class="catalog-item-secondary-actions">
-	                        ${
-                            showProjectLifecycleActions
-                              ? `<button
-	                          type="button"
-	                          class="catalog-edit"
-	                          aria-label="${projectIsActive ? "Deactivate" : "Reactivate"} ${escapeHtml(project)}"
-	                          data-${projectIsActive ? "deactivate-project" : "reactivate-project"}="${escapeHtml(project)}"
-	                        >
-	                          ${projectIsActive ? "Deactivate" : "Reactivate"}
-	                        </button>
-	                        <button
-	                          type="button"
-	                          class="catalog-delete"
-	                          aria-label="Delete ${escapeHtml(project)}"
-	                          data-delete-project="${escapeHtml(project)}"
-	                        >
-	                          Remove
-	                        </button>`
-                              : ""
-                          }
 	                        ${
                             showAddMemberAction
                               ? `<button
