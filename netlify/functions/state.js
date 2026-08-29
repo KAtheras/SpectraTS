@@ -2,6 +2,7 @@
 
 const {
   errorResponse,
+  ensureProjectCloseoutApprovalSchema,
   getSessionContext,
   getSql,
   json,
@@ -23,6 +24,7 @@ exports.handler = async function handler(event) {
   try {
     const startedAt = Date.now();
     const sql = await getSql();
+    await ensureProjectCloseoutApprovalSchema(sql);
     const context = await getSessionContext(sql, event);
     const authError = requireAuth(context);
     if (authError) {

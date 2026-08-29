@@ -61,6 +61,11 @@ async function getSql() {
   return neon();
 }
 
+async function ensureProjectCloseoutApprovalSchema(sql) {
+  await sql`ALTER TABLE projects ADD COLUMN IF NOT EXISTS closeout_submitted_at TIMESTAMPTZ`;
+  await sql`ALTER TABLE projects ADD COLUMN IF NOT EXISTS closeout_submitted_by TEXT REFERENCES users(id) ON DELETE SET NULL`;
+}
+
 async function ensureDefaultAccount(sql) {
   await sql`
     CREATE TABLE IF NOT EXISTS accounts (
@@ -6467,6 +6472,7 @@ module.exports = {
   ensureDefaultAccount,
   ensureSchema,
   ensureNotificationRulesForAccount,
+  ensureProjectCloseoutApprovalSchema,
   errorResponse,
   findClient,
   findProject,

@@ -9,6 +9,7 @@ const {
   terminateUser,
   reactivateUser,
   ensureNotificationRulesForAccount,
+  ensureProjectCloseoutApprovalSchema,
   errorResponse,
   findClient,
   findProject,
@@ -6178,6 +6179,7 @@ exports.handler = async function handler(event) {
 
   try {
     const sql = await getSql();
+    await ensureProjectCloseoutApprovalSchema(sql);
     if (request.action === "validate_setup_token") {
       const result = await validateSetupToken(sql, request.payload || {});
       return json(200, result);
