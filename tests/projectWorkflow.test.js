@@ -29,7 +29,9 @@ assert.match(planTransition, /planning_status = \$\{nextStatus\}/);
 assert.match(planTransition, /recipientUserIds: \[leadId\]/);
 
 const planEdit = functionBody(mutateSource, "recordProjectPlanEdit", "async function transitionProjectPlan");
-assert.match(planEdit, /\["submitted", "approved"\]\.includes\(statusBefore\) && !isExecutive && !isSuperuser/);
+assert.match(planEdit, /statusBefore === "approved" && !isExecutive && !isSuperuser/);
+assert.match(planEdit, /const statusAfter = requiresReapproval \? "submitted" : statusBefore/);
+assert.match(planEdit, /revised plan is pending your approval/);
 assert.match(planEdit, /approved_snapshot/);
 assert.match(planEdit, /\[leadId, executiveId\]/);
 assert.match(planEdit, /project_plan_edited/);

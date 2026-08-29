@@ -85,8 +85,8 @@ async function recordProjectPlanEdit(sql, { projectId, editSessionId, changeType
   if (!sessionId) return errorResponse(400, "Planner edit session is required.");
   const statusBefore = normalizePlanningStatus(project.planning_status, "draft");
   const requiresReapproval =
-    ["submitted", "approved"].includes(statusBefore) && !isExecutive && !isSuperuser;
-  const statusAfter = requiresReapproval ? "draft" : statusBefore;
+    statusBefore === "approved" && !isExecutive && !isSuperuser;
+  const statusAfter = requiresReapproval ? "submitted" : statusBefore;
   const normalizedChangeType = normalizeText(changeType);
   const existingSessions = await sql`
     SELECT change_type, status_before, status_after
@@ -116,7 +116,7 @@ async function recordProjectPlanEdit(sql, { projectId, editSessionId, changeType
       const recipientUserIds = [...new Set(recipients.filter((id) => id && id !== actorId))];
       const actorName = normalizeText(currentUser?.displayName || currentUser?.display_name) || "A project team member";
       const invalidated = existing.status_after !== existing.status_before
-        ? " The prior approval was cleared and the plan must be resubmitted."
+        ? " The prior approval was cleared and the revised plan is pending your approval."
         : "";
       const message = `${actorName} updated ${projectPlanChangeSummary(changeTypes)} in the ${project.name} project plan.${invalidated}`;
       for (const recipientUserId of recipientUserIds) {
@@ -171,8 +171,8 @@ async function recordProjectPlanEdit(sql, { projectId, editSessionId, changeType
 
   if (statusAfter !== statusBefore) {
     await sql`
-      UPDATE projects SET planning_status = ${statusAfter}, planning_submitted_at = NULL,
-        planning_submitted_by = NULL, planning_reviewed_at = NULL, planning_reviewed_by = NULL,
+      UPDATE projects SET planning_status = ${statusAfter}, planning_submitted_at = NOW(),
+        planning_submitted_by = ${actorId || null}, planning_reviewed_at = NULL, planning_reviewed_by = NULL,
         planning_review_notes = NULL, updated_at = NOW()
       WHERE id = ${projectId} AND account_id = ${accountId}::uuid
     `;
@@ -186,7 +186,9 @@ async function recordProjectPlanEdit(sql, { projectId, editSessionId, changeType
   const recipientUserIds = [...new Set(recipients.filter((id) => id && id !== actorId))];
   if (recipientUserIds.length) {
     const actorName = normalizeText(currentUser?.displayName || currentUser?.display_name) || "A project team member";
-    const invalidated = statusAfter !== statusBefore ? " The prior approval was cleared and the plan must be resubmitted." : "";
+    const invalidated = statusAfter !== statusBefore
+      ? " The prior approval was cleared and the revised plan is pending your approval."
+      : "";
     const summary = projectPlanChangeSummary([normalizedChangeType]) || "the plan";
     await createSystemInboxItems(sql, {
       accountId, type: "project_plan_edited", recipientUserIds, actorUserId: actorId,
