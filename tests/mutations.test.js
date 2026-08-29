@@ -268,6 +268,10 @@ test("clients and projects add/update/remove with assignments", async () => {
     const mcGone = (await sql`SELECT 1 FROM manager_clients WHERE manager_id = ${manager.id} AND client_id = ${client.id}`)[0];
     assert.ok(!mcGone);
 
+    // Permanent removal is reserved for administratively deactivated projects.
+    res = await callMutation("deactivate_project", { clientName: updatedName, projectName: renamedProject }, token);
+    assert.strictEqual(res.statusCode, 200, `deactivate_project: ${JSON.stringify(res.body)}`);
+
     // remove project/client
     res = await callMutation("remove_project", { clientName: updatedName, projectName: renamedProject }, token);
     assert.strictEqual(res.statusCode, 200, `remove_project: ${JSON.stringify(res.body)}`);

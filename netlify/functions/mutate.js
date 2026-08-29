@@ -4595,6 +4595,20 @@ async function removeProject(sql, payload, accountId) {
     return errorResponse(404, "Project not found.");
   }
 
+  const lifecycleStatus = normalizeText(project.lifecycleStatus || project.lifecycle_status).toLowerCase();
+  if (lifecycleStatus === "closed_out") {
+    return errorResponse(
+      400,
+      "Cannot Remove Project\nA properly closed project must be retained for historical reporting."
+    );
+  }
+  if (project.isActive !== false && project.is_active !== false) {
+    return errorResponse(
+      400,
+      "Cannot Remove Project\nDeactivate this project before permanently removing it."
+    );
+  }
+
   const assignedMembersRows = await sql`
     SELECT COUNT(DISTINCT member_id)::INT AS total
     FROM (

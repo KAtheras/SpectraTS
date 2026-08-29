@@ -1787,7 +1787,7 @@
             </div>
           </div>
           ${
-            canManageProjectLifecycleFromDialog
+            canManageProjectLifecycleFromDialog && isDeactivatedProject
               ? `<div class="project-status-danger">
                   <div><strong>Permanent removal</strong><span>Use only for a project created by mistake. Recorded history or assignments may prevent removal.</span></div>
                   <button type="button" class="button button-ghost project-remove-action" data-project-remove-action>Permanently Remove Project</button>
