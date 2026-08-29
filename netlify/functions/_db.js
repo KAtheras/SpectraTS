@@ -6118,6 +6118,15 @@ async function loadState(sql, currentUser, options = {}) {
       }
     });
     ledProjectReferenceUserIds.forEach((id) => visibleUserIds.add(id));
+    // Leads and executives need a candidate pool to build their project team.
+    // Full profiles remain governed by view_members; the mapping below emits a
+    // planning-safe shape for users they otherwise could not inspect.
+    if (actorPlanningRoleProjectIds.length) {
+      allUsers.forEach((user) => {
+        const id = normalizeText(user?.id);
+        if (id) visibleUserIds.add(id);
+      });
+    }
 
     const visibleUsers = allUsers
       .filter((user) => visibleUserIds.has(normalizeText(user?.id)))
@@ -6146,7 +6155,8 @@ async function loadState(sql, currentUser, options = {}) {
         });
         const allowBaseRate = roleAllowed && (canViewBaseRate || canEditRates);
         const allowCostRate = roleAllowed && canViewCostRates;
-        const isAssignedToLedProject = ledProjectRateUserIds.has(normalizeText(user?.id));
+        const canUseProjectPlanningRates =
+          actorPlanningRoleProjectIds.length > 0 || ledProjectRateUserIds.has(normalizeText(user?.id));
         const visibleUser = canViewProfile
           ? user
           : {
@@ -6166,8 +6176,8 @@ async function loadState(sql, currentUser, options = {}) {
           ...visibleUser,
           baseRate: allowBaseRate ? user.baseRate : null,
           costRate: allowCostRate ? user.costRate : null,
-          projectPlanningBaseRate: isAssignedToLedProject ? user.baseRate : null,
-          projectPlanningCostRate: isAssignedToLedProject ? user.costRate : null,
+          projectPlanningBaseRate: canUseProjectPlanningRates ? user.baseRate : null,
+          projectPlanningCostRate: canUseProjectPlanningRates ? user.costRate : null,
         };
       });
     users = visibleUsers.filter((user) => user?.isActive !== false && `${user?.status || ""}`.trim().toLowerCase() !== "terminated");

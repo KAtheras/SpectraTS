@@ -2613,11 +2613,11 @@
           setError("Save project first to open Project Planning.");
           return;
         }
-        const payload = buildProjectDialogPayload();
-        if (!payload) return;
         setError("");
         const hasUnsavedChanges = projectDraftSignature() !== savedDraftSignature;
         if (hasUnsavedChanges) {
+          const payload = buildProjectDialogPayload();
+          if (!payload) return;
           const saved = await persistEditedProject(payload, openPlanningButton, "Opening...");
           if (!saved) return;
         } else if (openPlanningButton) {
@@ -15362,7 +15362,11 @@
         const aboveBaseRate = selected
           .map((userId) => {
             const user = getUserById(userId);
-            const baseRaw = user?.baseRate ?? user?.base_rate;
+            const baseRaw =
+              user?.projectPlanningBaseRate ??
+              user?.project_planning_base_rate ??
+              user?.baseRate ??
+              user?.base_rate;
             const baseRate =
               baseRaw === null || baseRaw === undefined || String(baseRaw).trim() === ""
                 ? null

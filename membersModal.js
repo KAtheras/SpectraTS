@@ -339,11 +339,15 @@
         : `<span class="member-role-label">${escapeHtml(levelLabel(user.level))}</span>`;
 
       const baseRate =
-        user.baseRate !== undefined && user.baseRate !== null
-          ? Number(user.baseRate)
-          : user.base_rate !== undefined && user.base_rate !== null
-            ? Number(user.base_rate)
-            : null;
+        user.projectPlanningBaseRate !== undefined && user.projectPlanningBaseRate !== null
+          ? Number(user.projectPlanningBaseRate)
+          : user.project_planning_base_rate !== undefined && user.project_planning_base_rate !== null
+            ? Number(user.project_planning_base_rate)
+            : user.baseRate !== undefined && user.baseRate !== null
+              ? Number(user.baseRate)
+              : user.base_rate !== undefined && user.base_rate !== null
+                ? Number(user.base_rate)
+                : null;
       const overrideRate =
         overrideMap[user.id] !== undefined && overrideMap[user.id] !== null
           ? Number(overrideMap[user.id])

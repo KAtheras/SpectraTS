@@ -541,6 +541,13 @@ test("project-reference users do not expose full member profiles", () => {
   assert.doesNotMatch(minimalShape, /memberProfile:/);
 });
 
+test("project planning roles receive a safe candidate pool with planning rates", () => {
+  const dbSource = fs.readFileSync(path.join(__dirname, "..", "netlify", "functions", "_db.js"), "utf8");
+  assert.match(dbSource, /if \(actorPlanningRoleProjectIds\.length\) \{[\s\S]*?allUsers\.forEach/);
+  assert.match(dbSource, /projectPlanningBaseRate: canUseProjectPlanningRates \? user\.baseRate : null/);
+  assert.match(dbSource, /projectPlanningCostRate: canUseProjectPlanningRates \? user\.costRate : null/);
+});
+
 test("analytics capabilities are controlled by the live matrix", () => {
   const analyticsIndex = indexFromRows([
     {

@@ -8,6 +8,7 @@ const root = path.resolve(__dirname, "..");
 const mutateSource = fs.readFileSync(path.join(root, "netlify/functions/mutate.js"), "utf8");
 const plannerSource = fs.readFileSync(path.join(root, "projectPlanning.js"), "utf8");
 const appSource = fs.readFileSync(path.join(root, "app.js"), "utf8");
+const membersModalSource = fs.readFileSync(path.join(root, "membersModal.js"), "utf8");
 
 function functionBody(source, name, nextMarker) {
   const start = source.indexOf(`async function ${name}`);
@@ -51,5 +52,7 @@ assert.match(plannerSource, /data-project-planning-request/);
 assert.match(plannerSource, /data-project-planning-approve/);
 assert.match(appSource, /onRequestChanges: async function/);
 assert.match(appSource, /onApprove: async function/);
+assert.match(appSource, /const hasUnsavedChanges = projectDraftSignature\(\) !== savedDraftSignature;\s*if \(hasUnsavedChanges\) \{\s*const payload = buildProjectDialogPayload\(\)/);
+assert.match(membersModalSource, /user\.projectPlanningBaseRate/);
 
 console.log("Project workflow regression tests passed.");
