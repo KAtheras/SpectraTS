@@ -486,6 +486,11 @@ body.modal-open {
   gap: 16px;
 }
 
+.project-dialog-footer-section {
+  padding-top: var(--space-12);
+  border-top: 1px solid color-mix(in srgb, var(--panel-border) 70%, transparent);
+}
+
 .project-dialog-footer-left,
 .project-dialog-footer-right {
   display: flex;
@@ -567,6 +572,10 @@ body[data-theme="dark"] .project-lifecycle-action--closeout:focus-visible {
   overflow: auto;
   background: rgba(15, 23, 42, 0.62);
   backdrop-filter: blur(2px);
+}
+
+body.project-closeout-modal-open .dp-popover {
+  z-index: 12010;
 }
 
 .project-closeout-card {

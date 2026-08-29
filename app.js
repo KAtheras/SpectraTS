@@ -1504,7 +1504,8 @@
         isProjectEditDialog && options?.canManageProjectLifecycle === true;
       const isReadOnlyProjectDialog =
         isProjectEditDialog && (options?.canEditProject === false || isDeactivatedProject);
-      const canUseCloseoutAction = isProjectEditDialog && options?.canCloseProject === true;
+      const canUseCloseoutAction =
+        isProjectEditDialog && !isDeactivatedProject && options?.canCloseProject === true;
       const canOpenPlanningFromDialog =
         isProjectEditDialog && !isClosedOutProject && options?.allowOpenPlanning !== false;
       const currentProjectId = String(options?.projectId || "").trim() || null;
@@ -1752,7 +1753,7 @@
         `
             : ""
         }
-        <section class="project-dialog-section">
+        <section class="project-dialog-section project-dialog-footer-section">
           <div class="project-dialog-actions project-dialog-footer-actions">
             <div class="project-dialog-footer-left">
               ${
@@ -2627,7 +2628,7 @@
           <section class="project-closeout-fields">
             <label class="project-dialog-field project-closeout-date">
               <span>Completion date</span>
-              <input type="date" name="completed_at" max="${new Date().toISOString().slice(0, 10)}" value="${new Date().toISOString().slice(0, 10)}" required />
+              <input type="date" name="completed_at" max="${today}" value="${today}" required />
             </label>
             <fieldset class="project-closeout-checklist">
               <legend>Confirm before closing</legend>
@@ -2656,9 +2657,17 @@
         </form>`;
       document.body.appendChild(overlay);
       document.body.classList.add("modal-open");
+      document.body.classList.add("project-closeout-modal-open");
       const form = overlay.querySelector("form");
       const cancelButton = overlay.querySelector("[data-closeout-cancel]");
       const confirmButton = overlay.querySelector("[data-closeout-confirm]");
+      const completionDateInput = form.querySelector('input[name="completed_at"]');
+      bindCustomDateInput(completionDateInput, today);
+      const onCompletionDateChange = () => {
+        const selectedDate = getDateInputIsoValue(completionDateInput);
+        if (selectedDate) setDateInputIsoValue(completionDateInput, selectedDate);
+      };
+      completionDateInput?.addEventListener("change", onCompletionDateChange);
       const requiredInputs = Array.from(form.querySelectorAll("input[required]"));
       const syncConfirm = () => {
         confirmButton.disabled = !requiredInputs.every((input) =>
@@ -2667,7 +2676,10 @@
       };
       const cleanup = () => {
         document.removeEventListener("keydown", onKeydown);
+        completionDateInput?.removeEventListener("change", onCompletionDateChange);
+        window.datePicker?.close?.();
         overlay.remove();
+        document.body.classList.remove("project-closeout-modal-open");
         if (refs.dialog?.hidden !== false && refs.catalogModal?.hidden !== false) {
           document.body.classList.remove("modal-open");
         }
@@ -2689,7 +2701,7 @@
         if (confirmButton.disabled) return;
         const data = new FormData(form);
         finish({
-          completedAt: String(data.get("completed_at") || ""),
+          completedAt: getDateInputIsoValue(completionDateInput),
           deliverablesConfirmed: data.get("deliverables") === "on",
           recordsConfirmed: data.get("records") === "on",
           planningConfirmed: data.get("planning") === "on",
