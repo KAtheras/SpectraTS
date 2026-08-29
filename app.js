@@ -1459,7 +1459,22 @@
         savedStaffUserIds = [...payload.staffUserIds];
       },
     });
-    if (!projectDialog || projectDialog.openProjectPlanning) return;
+    if (!projectDialog) return;
+    if (projectDialog.openProjectPlanning) {
+      const planningProjectId = String(projectDialog.projectId || projectRow?.id || "").trim();
+      if (!planningProjectId) {
+        feedback("Project context is unavailable.", true);
+        return;
+      }
+      state.currentProjectPlanningId = planningProjectId;
+      state.projectPlanningReturnContext = {
+        projectId: planningProjectId,
+        clientName: normalizedClient,
+      };
+      persistProjectPlanningId(planningProjectId);
+      setView("project_planning");
+      return;
+    }
     if (projectDialog.closeOutProject) {
       await openProjectCloseoutFlow(normalizedClient, savedProjectName);
       await openProjectEditDialogFlow(normalizedClient, savedProjectName);
@@ -2624,18 +2639,11 @@
           openPlanningButton.disabled = true;
           openPlanningButton.textContent = "Opening...";
         }
-        state.currentProjectPlanningId = projectIdForPlanning;
-        state.projectPlanningReturnContext = {
-          projectId: projectIdForPlanning,
-          clientName: String(options?.clientName || "").trim(),
-        };
-        persistProjectPlanningId(projectIdForPlanning);
         cleanup();
         resolve({
           openProjectPlanning: true,
           projectId: projectIdForPlanning,
         });
-        setView("project_planning");
         return;
       };
       openPlanningButton?.addEventListener("click", onOpenProjectPlanning);

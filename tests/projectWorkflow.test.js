@@ -53,6 +53,9 @@ assert.match(plannerSource, /data-project-planning-approve/);
 assert.match(appSource, /onRequestChanges: async function/);
 assert.match(appSource, /onApprove: async function/);
 assert.match(appSource, /const hasUnsavedChanges = projectDraftSignature\(\) !== savedDraftSignature;\s*if \(hasUnsavedChanges\) \{\s*const payload = buildProjectDialogPayload\(\)/);
+assert.match(appSource, /if \(projectDialog\.openProjectPlanning\) \{[\s\S]*?setView\("project_planning"\);[\s\S]*?return;/);
+const openPlannerHandler = appSource.match(/const onOpenProjectPlanning = async \(event\) => \{[\s\S]*?openPlanningButton\?\.addEventListener/)?.[0] || "";
+assert.doesNotMatch(openPlannerHandler, /setView\("project_planning"\)/);
 assert.match(membersModalSource, /user\.projectPlanningBaseRate/);
 
 console.log("Project workflow regression tests passed.");
