@@ -62,6 +62,12 @@ function number(value) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function isAnalyticsProject(project) {
+  const lifecycle = String(project?.lifecycleStatus || project?.lifecycle_status || "ongoing").trim().toLowerCase();
+  return lifecycle === "closed_out" || lifecycle === "completed" ||
+    (project?.isActive !== false && project?.is_active !== false);
+}
+
 exports.handler = async function handler(event) {
   if (event.httpMethod !== "GET") return errorResponse(405, "Method not allowed.");
   const startedAt = Date.now();
@@ -97,7 +103,7 @@ exports.handler = async function handler(event) {
     const shell = await loadState(sql, context.currentUser, { includeRecords: false });
     const accountId = shell.account.id;
     shell.targetRealizations = await listTargetRealizations(sql, accountId);
-    const allAnalyticsProjects = await listProjects(sql, accountId);
+    const allAnalyticsProjects = (await listProjects(sql, accountId)).filter(isAnalyticsProject);
     let authorizedProjectIds = analyticsAuthority.all
       ? allAnalyticsProjects.map((project) => String(project.id))
       : (analyticsAuthority.projectIds || []).map(String);

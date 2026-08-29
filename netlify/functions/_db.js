@@ -298,7 +298,8 @@ async function ensureSchema(sql) {
       ('view_company_analytics', 'View company-wide analytics', 'analytics', TRUE),
       ('view_office_analytics', 'View analytics for offices they lead', 'analytics', TRUE),
       ('view_department_analytics', 'View analytics for office / departments they lead', 'analytics', TRUE),
-      ('view_project_analytics', 'View analytics for projects they lead', 'analytics', TRUE)
+      ('view_project_analytics', 'View analytics for projects they lead', 'analytics', TRUE),
+      ('close_project', 'Close out or reopen projects within assigned leadership scope', 'clients_projects', TRUE)
     ON CONFLICT (key) DO UPDATE SET
       label = EXCLUDED.label,
       category = EXCLUDED.category,
@@ -318,7 +319,12 @@ async function ensureSchema(sql) {
       ('manager', 'view_project_analytics', 'all_offices'),
       ('executive', 'view_project_analytics', 'all_offices'),
       ('admin', 'view_project_analytics', 'all_offices'),
-      ('superuser', 'view_project_analytics', 'all_offices')
+      ('superuser', 'view_project_analytics', 'all_offices'),
+      ('staff', 'close_project', 'all_offices'),
+      ('manager', 'close_project', 'all_offices'),
+      ('executive', 'close_project', 'all_offices'),
+      ('admin', 'close_project', 'all_offices'),
+      ('superuser', 'close_project', 'all_offices')
     ) AS defaults(role_key, capability_key, scope_key)
     JOIN permission_roles pr ON pr.key = defaults.role_key
     JOIN permission_capabilities pc ON pc.key = defaults.capability_key
@@ -909,7 +915,17 @@ async function ensureSchema(sql) {
       budget_amount NUMERIC(12,2),
       percent_complete NUMERIC(5,2),
       percent_complete_updated_at TIMESTAMPTZ,
-      planning_status TEXT NOT NULL DEFAULT 'draft'
+      planning_status TEXT NOT NULL DEFAULT 'draft',
+      lifecycle_status TEXT NOT NULL DEFAULT 'ongoing',
+      closed_out_at DATE,
+      closed_out_by TEXT REFERENCES users(id),
+      closeout_notes TEXT,
+      closeout_billing_note TEXT,
+      closeout_deliverables_confirmed BOOLEAN NOT NULL DEFAULT FALSE,
+      closeout_records_confirmed BOOLEAN NOT NULL DEFAULT FALSE,
+      closeout_planning_confirmed BOOLEAN NOT NULL DEFAULT FALSE,
+      closeout_billing_reviewed BOOLEAN NOT NULL DEFAULT FALSE,
+      pre_close_percent_complete NUMERIC(5,2)
     )
   `;
 
@@ -980,6 +996,16 @@ async function ensureSchema(sql) {
     WHERE planning_status IS NULL OR TRIM(planning_status) = ''
   `;
   await sql`ALTER TABLE projects ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE`;
+  await sql`ALTER TABLE projects ADD COLUMN IF NOT EXISTS lifecycle_status TEXT NOT NULL DEFAULT 'ongoing'`;
+  await sql`ALTER TABLE projects ADD COLUMN IF NOT EXISTS closed_out_at DATE`;
+  await sql`ALTER TABLE projects ADD COLUMN IF NOT EXISTS closed_out_by TEXT REFERENCES users(id)`;
+  await sql`ALTER TABLE projects ADD COLUMN IF NOT EXISTS closeout_notes TEXT`;
+  await sql`ALTER TABLE projects ADD COLUMN IF NOT EXISTS closeout_billing_note TEXT`;
+  await sql`ALTER TABLE projects ADD COLUMN IF NOT EXISTS closeout_deliverables_confirmed BOOLEAN NOT NULL DEFAULT FALSE`;
+  await sql`ALTER TABLE projects ADD COLUMN IF NOT EXISTS closeout_records_confirmed BOOLEAN NOT NULL DEFAULT FALSE`;
+  await sql`ALTER TABLE projects ADD COLUMN IF NOT EXISTS closeout_planning_confirmed BOOLEAN NOT NULL DEFAULT FALSE`;
+  await sql`ALTER TABLE projects ADD COLUMN IF NOT EXISTS closeout_billing_reviewed BOOLEAN NOT NULL DEFAULT FALSE`;
+  await sql`ALTER TABLE projects ADD COLUMN IF NOT EXISTS pre_close_percent_complete NUMERIC(5,2)`;
 
   await sql`
     CREATE UNIQUE INDEX IF NOT EXISTS projects_client_name_ci_idx
@@ -3479,11 +3505,16 @@ async function findProject(sql, clientName, projectName, accountId) {
       projects.percent_complete_updated_at AS percent_complete_updated_at,
       projects.planning_status AS "planningStatus",
       projects.planning_status AS planning_status,
-      projects.office_id AS "officeId",
-      projects.office_id AS office_id,
+      COALESCE(projects.office_id, clients.office_id) AS "officeId",
+      COALESCE(projects.office_id, clients.office_id) AS office_id,
       projects.project_department_id AS "projectDepartmentId",
       projects.project_department_id AS project_department_id,
       projects.project_lead_id AS project_lead_id,
+      projects.lifecycle_status AS "lifecycleStatus",
+      projects.closed_out_at AS "closedOutAt",
+      projects.closed_out_by AS "closedOutBy",
+      projects.closeout_notes AS "closeoutNotes",
+      projects.closeout_billing_note AS "closeoutBillingNote",
       projects.is_active AS "isActive",
       clients.is_active AS "clientIsActive"
     FROM projects
@@ -3523,11 +3554,16 @@ async function listProjects(sql, accountId) {
       projects.percent_complete_updated_at AS percent_complete_updated_at,
       projects.planning_status AS "planningStatus",
       projects.planning_status AS planning_status,
-      projects.office_id AS "officeId",
+      COALESCE(projects.office_id, clients.office_id) AS "officeId",
       projects.project_department_id AS "projectDepartmentId",
       projects.project_department_id AS project_department_id,
       dept.name AS "projectDepartmentName",
       projects.project_lead_id AS "projectLeadId",
+      projects.lifecycle_status AS "lifecycleStatus",
+      projects.closed_out_at AS "closedOutAt",
+      projects.closed_out_by AS "closedOutBy",
+      projects.closeout_notes AS "closeoutNotes",
+      projects.closeout_billing_note AS "closeoutBillingNote",
       projects.is_active AS "isActive",
       lead.display_name AS "projectLeadName"
     FROM projects

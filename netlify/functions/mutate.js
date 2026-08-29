@@ -67,6 +67,7 @@ const SUPERUSER_MATRIX_EDITABLE_CAPABILITIES = new Set([
   "view_office_analytics",
   "view_department_analytics",
   "view_project_analytics",
+  "close_project",
 ]);
 
 function hashSetupToken(token) {
@@ -1453,6 +1454,11 @@ async function snapshotProjectById(sql, projectId, accountId) {
       p.percent_complete_updated_at,
       p.planning_status,
       p.is_active,
+      p.lifecycle_status,
+      p.closed_out_at,
+      p.closed_out_by,
+      p.closeout_notes,
+      p.closeout_billing_note,
       c.name AS client_name
     FROM projects p
     JOIN clients c ON c.id = p.client_id
@@ -1488,6 +1494,11 @@ async function snapshotProjectById(sql, projectId, accountId) {
       row.percent_complete !== null && row.percent_complete !== undefined
         ? Number(row.percent_complete)
         : null,
+    lifecycle_status: normalizeText(row.lifecycle_status) || "ongoing",
+    closed_out_at: row.closed_out_at || null,
+    closed_out_by: normalizeText(row.closed_out_by) || null,
+    closeout_notes: normalizeText(row.closeout_notes) || null,
+    closeout_billing_note: normalizeText(row.closeout_billing_note) || null,
     percent_complete_updated_at: row.percent_complete_updated_at || null,
     planning_status: normalizePlanningStatus(row.planning_status, "draft"),
     is_active: row.is_active !== false,
@@ -1639,6 +1650,13 @@ function buildPermissionsPayload(currentUser, permissionIndex) {
   });
   const canEditProjectsAllModal = can("edit_projects_all_modal");
   const canEditProjectPlanning = can("edit_project_planning");
+  const canCloseProject =
+    can("close_project") ||
+    can("close_project", {
+      resourceOfficeId: actorOfficeId,
+      projectId: "__assigned_project_probe__",
+      actorProjectIds: ["__assigned_project_probe__"],
+    });
   const canAccessClientsTab = Boolean(
     canSeeAllClientsProjects || canSeeOfficeClientsProjects || canSeeAssignedClientsProjects
   );
@@ -1691,6 +1709,7 @@ function buildPermissionsPayload(currentUser, permissionIndex) {
     manage_projects_lifecycle: canManageProjectsLifecycle,
     edit_projects_all_modal: canEditProjectsAllModal,
     edit_project_planning: canEditProjectPlanning,
+    close_project: canCloseProject,
     create_client: can("create_client"),
     edit_client: can("edit_client"),
     archive_client: can("archive_client"),
@@ -1789,6 +1808,44 @@ function canManageProjectsLifecycleForTarget({
     return !actorDept || Boolean(targetDepartmentId && actorDept === targetDepartmentId);
   }
   return true;
+}
+
+async function canCloseProjectForTarget({ sql, can, currentUser, targetProject, accountId }) {
+  if (!targetProject) return false;
+  const userId = normalizeText(currentUser?.id);
+  if (!userId) return false;
+  const officeId = normalizeText(targetProject.office_id || targetProject.officeId);
+  const departmentId = normalizeText(targetProject.project_department_id || targetProject.projectDepartmentId);
+  const actorProjectIds = await collectUserProjectIdsForClient(
+    sql,
+    currentUser,
+    targetProject.client_id,
+    accountId
+  );
+  if (!can("close_project", {
+    resourceOfficeId: officeId || null,
+    projectId: normalizeText(targetProject.id),
+    actorProjectIds,
+  })) return false;
+  if (actorRoleKey(currentUser) === "superuser") return true;
+  if (normalizeText(targetProject.project_lead_id || targetProject.projectLeadId) === userId) return true;
+  const rows = await sql`
+    SELECT (
+      EXISTS (
+        SELECT 1 FROM office_locations
+        WHERE account_id = ${accountId}::uuid
+          AND id = ${officeId}
+          AND office_lead_user_id = ${userId}
+      ) OR EXISTS (
+        SELECT 1 FROM department_lead_assignments
+        WHERE account_id = ${accountId}::uuid
+          AND office_id = ${officeId}
+          AND department_id = ${departmentId}
+          AND user_id = ${userId}
+      )
+    ) AS allowed
+  `;
+  return rows[0]?.allowed === true;
 }
 
 function canEditClientsForOffice({ can, currentUser, targetOfficeId }) {
@@ -4624,12 +4681,130 @@ async function reactivateClient(sql, payload, accountId) {
   return { message: "" };
 }
 
+async function getProjectCloseoutCheck(sql, project, accountId) {
+  const [entryRows, expenseRows, planRows] = await Promise.all([
+    sql`
+      SELECT COUNT(*)::INT AS total
+      FROM entries
+      WHERE account_id = ${accountId}::uuid
+        AND deleted_at IS NULL
+        AND (project_id = ${project.id} OR (LOWER(client_name) = LOWER(${project.client}) AND LOWER(project_name) = LOWER(${project.name})))
+        AND LOWER(COALESCE(status, 'pending')) <> 'approved'
+    `,
+    sql`
+      SELECT COUNT(*)::INT AS total
+      FROM expenses
+      WHERE account_id = ${accountId}::uuid
+        AND deleted_at IS NULL
+        AND LOWER(client_name) = LOWER(${project.client})
+        AND LOWER(project_name) = LOWER(${project.name})
+        AND LOWER(COALESCE(status, 'pending')) <> 'approved'
+    `,
+    sql`
+      SELECT COUNT(*)::INT AS "memberCount", COALESCE(SUM(budget_hours), 0)::FLOAT8 AS "plannedHours"
+      FROM project_member_budgets
+      WHERE account_id = ${accountId}::uuid
+        AND project_id = ${project.id}
+    `,
+  ]);
+  return {
+    unapprovedTimeCount: Number(entryRows[0]?.total || 0),
+    unapprovedExpenseCount: Number(expenseRows[0]?.total || 0),
+    plannedMemberCount: Number(planRows[0]?.memberCount || 0),
+    plannedHours: Number(planRows[0]?.plannedHours || 0),
+  };
+}
+
+async function closeOutProject(sql, payload, currentUser, project, accountId) {
+  if (normalizeText(project.lifecycleStatus || project.lifecycle_status).toLowerCase() === "closed_out") {
+    return errorResponse(400, "Project is already closed out.");
+  }
+  if (project.isActive === false || project.is_active === false) {
+    return errorResponse(400, "Reactivate this deactivated project before closing it out.");
+  }
+  if (project.clientIsActive === false || project.client_is_active === false) {
+    return errorResponse(400, "Reactivate this project's client before closing out the project.");
+  }
+  const completedAt = normalizeText(payload?.completedAt || payload?.completed_at);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(completedAt) || Number.isNaN(new Date(`${completedAt}T00:00:00.000Z`).getTime())) {
+    return errorResponse(400, "A valid completion date is required.");
+  }
+  if (completedAt > new Date().toISOString().slice(0, 10)) {
+    return errorResponse(400, "Completion date cannot be in the future.");
+  }
+  const confirmations = [
+    payload?.deliverablesConfirmed,
+    payload?.recordsConfirmed,
+    payload?.planningConfirmed,
+    payload?.billingReviewed,
+  ];
+  if (confirmations.some((value) => value !== true)) {
+    return errorResponse(400, "Complete every close-out confirmation before closing the project.");
+  }
+  const checks = await getProjectCloseoutCheck(sql, project, accountId);
+  if ((checks.unapprovedTimeCount || checks.unapprovedExpenseCount) && payload?.acknowledgeOutstanding !== true) {
+    return errorResponse(400, "Outstanding time or expenses require explicit acknowledgement.");
+  }
+  await sql`
+    UPDATE projects
+    SET lifecycle_status = 'closed_out',
+        closed_out_at = ${completedAt}::date,
+        closed_out_by = ${currentUser.id},
+        closeout_notes = ${normalizeNullableText(payload?.closeoutNotes)},
+        closeout_billing_note = ${normalizeNullableText(payload?.billingNote)},
+        closeout_deliverables_confirmed = TRUE,
+        closeout_records_confirmed = TRUE,
+        closeout_planning_confirmed = TRUE,
+        closeout_billing_reviewed = TRUE,
+        pre_close_percent_complete = percent_complete,
+        percent_complete = 100,
+        percent_complete_updated_at = NOW(),
+        is_active = FALSE,
+        updated_at = NOW()
+    WHERE id = ${project.id}
+      AND account_id = ${accountId}::uuid
+  `;
+  return { message: "Project closed out.", checks };
+}
+
+async function reopenClosedProject(sql, project, accountId) {
+  if (normalizeText(project.lifecycleStatus || project.lifecycle_status).toLowerCase() !== "closed_out") {
+    return errorResponse(400, "Only closed-out projects can be reopened.");
+  }
+  if (project.clientIsActive === false || project.client_is_active === false) {
+    return errorResponse(400, "Reactivate this project's client before reopening the project.");
+  }
+  await sql`
+    UPDATE projects
+    SET lifecycle_status = 'ongoing',
+        closed_out_at = NULL,
+        closed_out_by = NULL,
+        closeout_notes = NULL,
+        closeout_billing_note = NULL,
+        closeout_deliverables_confirmed = FALSE,
+        closeout_records_confirmed = FALSE,
+        closeout_planning_confirmed = FALSE,
+        closeout_billing_reviewed = FALSE,
+        percent_complete = pre_close_percent_complete,
+        percent_complete_updated_at = NOW(),
+        pre_close_percent_complete = NULL,
+        is_active = TRUE,
+        updated_at = NOW()
+    WHERE id = ${project.id}
+      AND account_id = ${accountId}::uuid
+  `;
+  return { message: "Project reopened." };
+}
+
 async function deactivateProject(sql, payload, accountId) {
   const clientName = normalizeText(payload.clientName);
   const projectName = normalizeText(payload.projectName);
   const project = await findProject(sql, clientName, projectName, accountId);
   if (!project) {
     return errorResponse(404, "Project not found.");
+  }
+  if (normalizeText(project.lifecycleStatus || project.lifecycle_status).toLowerCase() === "closed_out") {
+    return errorResponse(400, "Closed-out projects are managed through the Reopen Project action.");
   }
 
   const assignedMembersRows = await sql`
@@ -4679,6 +4854,9 @@ async function reactivateProject(sql, payload, accountId) {
   const project = await findProject(sql, clientName, projectName, accountId);
   if (!project) {
     return errorResponse(404, "Project not found.");
+  }
+  if (normalizeText(project.lifecycleStatus || project.lifecycle_status).toLowerCase() === "closed_out") {
+    return errorResponse(400, "Use Reopen Project to restore a closed-out project.");
   }
 
   const clientRows = await sql`
@@ -5990,6 +6168,9 @@ exports.handler = async function handler(event) {
         if (!targetProject) {
           return errorResponse(404, "Project not found.");
         }
+        if (normalizeText(targetProject.lifecycleStatus || targetProject.lifecycle_status).toLowerCase() === "closed_out") {
+          return errorResponse(400, "Reopen this project before editing it.");
+        }
         const actorProjectIds = await collectUserProjectIdsForClient(
           sql,
           context.currentUser,
@@ -6028,6 +6209,9 @@ exports.handler = async function handler(event) {
         const existingProject = await findProject(sql, clientName, projectName, accountId);
         if (!existingProject) {
           return errorResponse(404, "Project not found.");
+        }
+        if (normalizeText(existingProject.lifecycleStatus || existingProject.lifecycle_status).toLowerCase() === "closed_out") {
+          return errorResponse(400, "Reopen this project before editing it.");
         }
         const isSuperuserActor = permissions.roleKeyFromUser(context.currentUser) === "superuser";
         const hasProjectLeadField =
@@ -6083,6 +6267,9 @@ exports.handler = async function handler(event) {
         const existingProject = await findProject(sql, clientName, projectName, accountId);
         if (!existingProject) {
           return errorResponse(404, "Project not found.");
+        }
+        if (normalizeText(existingProject.lifecycleStatus || existingProject.lifecycle_status).toLowerCase() === "closed_out") {
+          return errorResponse(400, "Reopen this project before updating its progress.");
         }
         const actorProjectIds = await collectUserProjectIdsForClient(
           sql,
@@ -6330,7 +6517,8 @@ exports.handler = async function handler(event) {
             cap === "view_company_analytics" ||
             cap === "view_office_analytics" ||
             cap === "view_department_analytics" ||
-            cap === "view_project_analytics"
+            cap === "view_project_analytics" ||
+            cap === "close_project"
           ) {
             return "all_offices";
           }
@@ -6615,6 +6803,61 @@ exports.handler = async function handler(event) {
           entityId: targetProject.id,
           action: "update",
           runMutation: () => deactivateProject(sql, request.payload || {}, accountId),
+          getSnapshot: () => snapshotProjectById(sql, targetProject.id, accountId),
+          contextClientId: targetProject.client_id || null,
+          contextProjectId: targetProject.id,
+        });
+        break;
+      }
+      case "get_project_closeout_check": {
+        const clientName = normalizeText(request.payload?.clientName);
+        const projectName = normalizeText(request.payload?.projectName);
+        const targetProject = await findProject(sql, clientName, projectName, accountId);
+        if (!targetProject) return errorResponse(404, "Project not found.");
+        if (!await canCloseProjectForTarget({ sql, can, currentUser: context.currentUser, targetProject, accountId })) {
+          return errorResponse(403, "Access denied.");
+        }
+        mutationResult = await getProjectCloseoutCheck(sql, targetProject, accountId);
+        break;
+      }
+      case "close_project": {
+        const clientName = normalizeText(request.payload?.clientName);
+        const projectName = normalizeText(request.payload?.projectName);
+        const targetProject = await findProject(sql, clientName, projectName, accountId);
+        if (!targetProject) return errorResponse(404, "Project not found.");
+        if (!await canCloseProjectForTarget({ sql, can, currentUser: context.currentUser, targetProject, accountId })) {
+          return errorResponse(403, "Access denied.");
+        }
+        mutationResult = await runMutationWithAudit({
+          sql,
+          accountId,
+          context,
+          entityType: "project",
+          entityId: targetProject.id,
+          action: "close_out",
+          runMutation: () => closeOutProject(sql, request.payload || {}, context.currentUser, targetProject, accountId),
+          getSnapshot: () => snapshotProjectById(sql, targetProject.id, accountId),
+          contextClientId: targetProject.client_id || null,
+          contextProjectId: targetProject.id,
+        });
+        break;
+      }
+      case "reopen_project": {
+        const clientName = normalizeText(request.payload?.clientName);
+        const projectName = normalizeText(request.payload?.projectName);
+        const targetProject = await findProject(sql, clientName, projectName, accountId);
+        if (!targetProject) return errorResponse(404, "Project not found.");
+        if (!await canCloseProjectForTarget({ sql, can, currentUser: context.currentUser, targetProject, accountId })) {
+          return errorResponse(403, "Access denied.");
+        }
+        mutationResult = await runMutationWithAudit({
+          sql,
+          accountId,
+          context,
+          entityType: "project",
+          entityId: targetProject.id,
+          action: "reopen",
+          runMutation: () => reopenClosedProject(sql, targetProject, accountId),
           getSnapshot: () => snapshotProjectById(sql, targetProject.id, accountId),
           contextClientId: targetProject.client_id || null,
           contextProjectId: targetProject.id,

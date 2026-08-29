@@ -805,10 +805,14 @@
   }
 
   function isCompletedRealizationProject(project) {
-    if (project?.isActive === false || project?.is_active === false) return true;
-    return ["completed", "inactive", "deactivated"].includes(
-      safeText(project?.status || project?.projectStatus || project?.project_status).toLowerCase()
+    return ["closed_out", "completed"].includes(
+      safeText(project?.lifecycleStatus || project?.lifecycle_status).toLowerCase()
     );
+  }
+
+  function isAnalyticsProject(project) {
+    return isCompletedRealizationProject(project) ||
+      (project?.isActive !== false && project?.is_active !== false);
   }
 
   function normalizeRealizationGroupBy(value) {
@@ -2003,7 +2007,7 @@
 
     const profitabilityData = excludeInternalAnalyticsData({
       ...appState,
-      projects: Array.isArray(appState?.analyticsProjects) ? appState.analyticsProjects : [],
+      projects: Array.isArray(appState?.analyticsProjects) ? appState.analyticsProjects.filter(isAnalyticsProject) : [],
       clients: Array.isArray(appState?.analyticsClients) ? appState.analyticsClients : [],
     });
     const utilizationData = {

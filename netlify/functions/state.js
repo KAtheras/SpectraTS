@@ -81,6 +81,13 @@ exports.handler = async function handler(event) {
           project?.percentCompleteUpdatedAt ?? project?.percent_complete_updated_at ?? null,
         planningStatus: project?.planningStatus ?? project?.planning_status ?? "draft",
         planning_status: project?.planningStatus ?? project?.planning_status ?? "draft",
+        lifecycleStatus: project?.lifecycleStatus ?? project?.lifecycle_status ?? "ongoing",
+        lifecycle_status: project?.lifecycleStatus ?? project?.lifecycle_status ?? "ongoing",
+        closedOutAt: project?.closedOutAt ?? project?.closed_out_at ?? null,
+        closed_out_at: project?.closedOutAt ?? project?.closed_out_at ?? null,
+        closedOutBy: project?.closedOutBy ?? project?.closed_out_by ?? null,
+        closeoutNotes: project?.closeoutNotes ?? project?.closeout_notes ?? "",
+        closeoutBillingNote: project?.closeoutBillingNote ?? project?.closeout_billing_note ?? "",
       }));
     }
     const currentUser = state.currentUser;
@@ -154,6 +161,18 @@ exports.handler = async function handler(event) {
     );
     const canEditProjectsAllModal = can(currentUser, "edit_projects_all_modal", {}, permissionIndex);
     const canEditProjectPlanning = can(currentUser, "edit_project_planning", {}, permissionIndex);
+    const canCloseProject =
+      can(currentUser, "close_project", {}, permissionIndex) ||
+      can(
+        currentUser,
+        "close_project",
+        {
+          resourceOfficeId: currentUser?.officeId ?? currentUser?.office_id ?? null,
+          projectId: "__assigned_project_probe__",
+          actorProjectIds: ["__assigned_project_probe__"],
+        },
+        permissionIndex
+      );
     const canAccessClientsTab = Boolean(
       canSeeAllClientsProjects || canSeeOfficeClientsProjects || canSeeAssignedClientsProjects
     );
@@ -242,6 +261,7 @@ exports.handler = async function handler(event) {
       manage_projects_lifecycle: canManageProjectsLifecycle,
       edit_projects_all_modal: canEditProjectsAllModal,
       edit_project_planning: canEditProjectPlanning,
+      close_project: canCloseProject,
 
       // clients
       create_client: can(currentUser, "create_client", {}, permissionIndex),

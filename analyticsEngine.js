@@ -220,9 +220,8 @@
 
   function isCompletedProject(project) {
     if (!project || typeof project !== "object") return false;
-    if (project?.isActive === false || project?.is_active === false) return true;
-    const status = safeText(project?.status || project?.projectStatus || project?.project_status).toLowerCase();
-    return status === "deactivated" || status === "inactive" || status === "completed";
+    const status = safeText(project?.lifecycleStatus || project?.lifecycle_status).toLowerCase();
+    return status === "closed_out" || status === "completed";
   }
 
   function applyScopeFilter(row, filters) {
@@ -1041,7 +1040,9 @@
       if (projectFilterId && projectId !== projectFilterId) return false;
       if (clientFilterId && safeText(project?.clientId || project?.client_id) !== clientFilterId) return false;
       const closed = isCompletedProject(project);
-      return statusMode === "closed" ? closed : !closed;
+      return statusMode === "closed"
+        ? closed
+        : !closed && project?.isActive !== false && project?.is_active !== false;
     };
 
     const trackProjectMetric = (rowContext, monthKey, actualRevenue, standardRevenue) => {

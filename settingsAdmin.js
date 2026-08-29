@@ -3824,6 +3824,7 @@
           { cap: "edit_clients", label: "Can edit clients", indent: false },
           { cap: "edit_projects_all_modal", label: "Can edit all projects (modal only)", indent: false },
           { cap: "edit_project_planning", label: "Can edit project planning", indent: false },
+          { cap: "close_project", label: "Can close out or reopen projects within assigned leadership scope", indent: false },
         ],
       },
       {
@@ -3849,6 +3850,7 @@
       "edit_clients",
       "edit_projects_all_modal",
       "edit_project_planning",
+      "close_project",
       "view_company_analytics",
       "view_office_analytics",
       "view_department_analytics",
@@ -3884,6 +3886,7 @@
             const usesAnyScope =
               cap === "see_all_clients_projects" ||
               cap === "view_all_entries" ||
+              cap === "close_project" ||
               cap.startsWith("view_") && cap.endsWith("_analytics");
             const checked = isSuperuserHardEnabled
               ? true
@@ -4032,6 +4035,7 @@
             "view_office_analytics",
             "view_department_analytics",
             "view_project_analytics",
+            "close_project",
           ].includes(`${capability || ""}`.trim())
             ? "all_offices"
             : "own_office";

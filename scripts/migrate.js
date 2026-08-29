@@ -6,6 +6,7 @@ const migrations = [
   require("../migrations/001_baseline"),
   require("../migrations/002_office_overhead_percent"),
   require("../migrations/003_analytics_permissions"),
+  require("../migrations/004_project_closeout"),
 ];
 
 async function run() {

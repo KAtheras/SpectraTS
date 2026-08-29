@@ -16,12 +16,14 @@ function nullableNumber(value) {
 }
 
 function isClosed(project) {
-  if (project?.isActive === false || project?.is_active === false) return true;
-  return ["completed", "inactive", "deactivated"].includes(text(project?.status || project?.projectStatus).toLowerCase());
+  return ["closed_out", "completed"].includes(
+    text(project?.lifecycleStatus || project?.lifecycle_status).toLowerCase()
+  );
 }
 
 function matchesProjectStatus(project, statusMode) {
-  return statusMode === "closed" ? isClosed(project) : !isClosed(project);
+  if (statusMode === "closed") return isClosed(project);
+  return !isClosed(project) && project?.isActive !== false && project?.is_active !== false;
 }
 
 function realization(actual, standard) {

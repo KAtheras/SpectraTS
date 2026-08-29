@@ -174,6 +174,7 @@ const realization = engineWindow.analyticsEngine.computeRealizationAnalytics({
     client: "Alpha",
     name: "Fixed Project",
     isActive: false,
+    lifecycleStatus: "closed_out",
     pricingModel: "fixed_fee",
     contractAmount: 1500,
   }],
@@ -205,7 +206,7 @@ assert.deepStrictEqual(
 
 const completedRealization = engineWindow.analyticsEngine.computeRealizationAnalytics({
   clients: [{ id: "c1", name: "Alpha" }],
-  projects: [{ id: "p1", clientId: "c1", name: "Fixed Project", isActive: false, contractAmount: 1500 }],
+  projects: [{ id: "p1", clientId: "c1", name: "Fixed Project", isActive: false, lifecycleStatus: "closed_out", contractAmount: 1500 }],
   users: [{ id: "u1", baseRate: 100 }],
   entries: [{ projectId: "p1", userId: "u1", date: "2026-07-31", hours: 10 }],
   expenses: [],

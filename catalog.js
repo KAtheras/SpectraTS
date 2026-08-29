@@ -25,6 +25,7 @@
       visibleCatalogProjectNames,
       isClientActive,
       isProjectActive,
+      canCloseProject,
       projectHours,
       userNamesForIds,
       projectTeamAssignments,
@@ -198,13 +199,19 @@
                   ""
               ).trim();
               const projectIsActive = isProjectActive(projectRow);
+              const projectLifecycleStatus = String(
+                projectRow?.lifecycleStatus || projectRow?.lifecycle_status || "ongoing"
+              ).toLowerCase();
+              const projectIsClosedOut = projectLifecycleStatus === "closed_out";
+              const canUseCloseoutAction = Boolean(canCloseProject?.(projectRow));
+              const canReopenProject = projectIsClosedOut && canUseCloseoutAction;
               const canEditProjectCard = canEditProject && projectIsActive;
 	              const canManageMembers =
 	                projectIsActive &&
 	                (Boolean(state.permissions?.assign_project_members) ||
 	                  Boolean(state.permissions?.assign_project_managers));
-              const showEditProjectAction = canEditProjectCard;
-              const showProjectLifecycleActions = canDeleteProject;
+              const showEditProjectAction = canEditProjectCard || canUseCloseoutAction || canReopenProject;
+              const showProjectLifecycleActions = canDeleteProject && !projectIsClosedOut;
               const showAddMemberAction = canManageMembers && Boolean(state.permissions?.assign_project_members);
               const showRemoveMemberAction = canManageMembers && Boolean(state.permissions?.assign_project_members);
               const projectTeam = projectTeamAssignments(selectedClient, project);
@@ -271,6 +278,7 @@
                     <span class="catalog-card-head">
                       <span class="catalog-project-title-wrap">
                         <span class="catalog-item-title">${escapeHtml(project)}</span>
+                        ${projectIsClosedOut ? '<small class="catalog-item-title-meta">Closed out</small>' : ""}
                         <small class="catalog-item-title-meta">${escapeHtml(
                           `${projectHours(selectedClient, project).toFixed(2)}h logged`
                         )}</small>
@@ -400,8 +408,10 @@
           )
           .join("")
       : `<p class="empty-state">${
-          state.catalogProjectLifecycleView === "inactive"
-            ? "No inactive projects for this client"
+          state.catalogProjectLifecycleView === "closed"
+            ? "No closed projects for this client"
+            : state.catalogProjectLifecycleView === "inactive"
+              ? "No deactivated projects for this client"
             : "No projects configured for this client yet."
         }</p>`;
   }

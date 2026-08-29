@@ -731,6 +731,7 @@
   let addProjectHeaderButton = null;
   let projectLifecycleToggleWrap = null;
   let projectLifecycleToggleActive = null;
+  let projectLifecycleToggleClosed = null;
   let projectLifecycleToggleInactive = null;
   let memberEditorModal = null;
   let memberEditorForm = null;
@@ -783,8 +784,10 @@
   }
 
   function syncProjectLifecycleToggleUi() {
-    if (!projectLifecycleToggleActive || !projectLifecycleToggleInactive) return;
-    const activeSelected = state.catalogProjectLifecycleView !== "inactive";
+    if (!projectLifecycleToggleActive || !projectLifecycleToggleClosed || !projectLifecycleToggleInactive) return;
+    const selectedView = ["active", "closed", "inactive"].includes(state.catalogProjectLifecycleView)
+      ? state.catalogProjectLifecycleView
+      : "active";
     const selectedClient = String(state.selectedCatalogClient || "").trim();
     const visibleProjectIdSet = state.visibilitySnapshotReady
       ? new Set((state.visibleProjectIds || []).map((id) => String(id || "").trim()))
@@ -794,17 +797,24 @@
       const matchingProjects = (state.projects || []).filter((project) => {
         if (!project || String(project.client || "").trim() !== selectedClient) return false;
         if (visibleProjectIdSet && !visibleProjectIdSet.has(String(project?.id || "").trim())) return false;
-        return view === "inactive" ? !isProjectActive(project) : isProjectActive(project);
+        const lifecycle = String(project?.lifecycleStatus || project?.lifecycle_status || "ongoing").toLowerCase();
+        if (view === "closed") return lifecycle === "closed_out";
+        if (view === "inactive") return !isProjectActive(project) && lifecycle !== "closed_out";
+        return isProjectActive(project) && lifecycle !== "closed_out";
       });
       return uniqueValues(matchingProjects.map((project) => String(project?.name || "").trim()).filter(Boolean)).length;
     };
     const activeProjectCount = countVisibleProjectsForLifecycle("active");
+    const closedProjectCount = countVisibleProjectsForLifecycle("closed");
     const inactiveProjectCount = countVisibleProjectsForLifecycle("inactive");
-    projectLifecycleToggleActive.className = activeSelected ? "button" : "button button-ghost";
-    projectLifecycleToggleInactive.className = activeSelected ? "button button-ghost" : "button";
-    projectLifecycleToggleActive.setAttribute("aria-pressed", activeSelected ? "true" : "false");
-    projectLifecycleToggleInactive.setAttribute("aria-pressed", activeSelected ? "false" : "true");
+    projectLifecycleToggleActive.className = selectedView === "active" ? "button" : "button button-ghost";
+    projectLifecycleToggleClosed.className = selectedView === "closed" ? "button" : "button button-ghost";
+    projectLifecycleToggleInactive.className = selectedView === "inactive" ? "button" : "button button-ghost";
+    projectLifecycleToggleActive.setAttribute("aria-pressed", selectedView === "active" ? "true" : "false");
+    projectLifecycleToggleClosed.setAttribute("aria-pressed", selectedView === "closed" ? "true" : "false");
+    projectLifecycleToggleInactive.setAttribute("aria-pressed", selectedView === "inactive" ? "true" : "false");
     projectLifecycleToggleActive.disabled = activeProjectCount === 0;
+    projectLifecycleToggleClosed.disabled = closedProjectCount === 0;
     projectLifecycleToggleInactive.disabled = inactiveProjectCount === 0;
   }
 
@@ -1396,8 +1406,16 @@
       clientOfficeId,
       managerUserIds,
       staffUserIds,
+      lifecycleStatus: projectRow?.lifecycleStatus || projectRow?.lifecycle_status || "ongoing",
+      closedOutAt: projectRow?.closedOutAt || projectRow?.closed_out_at || null,
+      closeoutNotes: projectRow?.closeoutNotes || projectRow?.closeout_notes || null,
+      closeoutBillingNote: projectRow?.closeoutBillingNote || projectRow?.closeout_billing_note || null,
+      canCloseProject: canCloseProject(projectRow),
+      canEditProject: canEditProjectModal(normalizedClient, normalizedProject),
       startWithCloseAction: flowOptions?.fromProjectPlanning === true,
-      allowOpenPlanning: canEditProjectPlanning(normalizedClient, normalizedProject),
+      allowOpenPlanning:
+        String(projectRow?.lifecycleStatus || projectRow?.lifecycle_status || "ongoing").toLowerCase() !== "closed_out" &&
+        canEditProjectPlanning(normalizedClient, normalizedProject),
       onSubmitEdit: async (payload) => {
         const nextName = String(payload.projectName || "").trim();
         await mutatePersistentState("update_project", {
@@ -1433,13 +1451,43 @@
       },
     });
     if (!projectDialog || projectDialog.openProjectPlanning) return;
+    if (projectDialog.closeOutProject) {
+      await openProjectCloseoutFlow(normalizedClient, savedProjectName);
+      return;
+    }
+    if (projectDialog.reopenProject) {
+      const confirmation = await appDialog({
+        title: "Reopen Project?",
+        message: "Reopening this project will allow new time and expense entries and return it to ongoing analytics.",
+        confirmText: "Reopen",
+        cancelText: "Cancel",
+      });
+      if (!confirmation.confirmed) return;
+      try {
+        await mutatePersistentState(
+          "reopen_project",
+          { clientName: normalizedClient, projectName: savedProjectName },
+          { skipHydrate: true, refreshState: false, returnState: false }
+        );
+        await loadPersistentState();
+        render();
+        feedback("Project reopened.", false);
+      } catch (error) {
+        feedback(error?.message || "Unable to reopen project.", true);
+      }
+    }
   }
 
   async function openProjectDialog(options) {
     return new Promise((resolve) => {
       const mode = options?.mode === "edit" ? "edit" : "add";
       const isProjectEditDialog = mode === "edit";
-      const canOpenPlanningFromDialog = isProjectEditDialog && options?.allowOpenPlanning !== false;
+      const lifecycleStatus = String(options?.lifecycleStatus || "ongoing").trim().toLowerCase();
+      const isClosedOutProject = lifecycleStatus === "closed_out";
+      const isReadOnlyProjectDialog = isProjectEditDialog && options?.canEditProject === false;
+      const canUseCloseoutAction = isProjectEditDialog && options?.canCloseProject === true;
+      const canOpenPlanningFromDialog =
+        isProjectEditDialog && !isClosedOutProject && options?.allowOpenPlanning !== false;
       const currentProjectId = String(options?.projectId || "").trim() || null;
       const currentName = String(options?.projectName || "");
       const currentBudget = Number.isFinite(options?.budgetAmount) ? Number(options.budgetAmount) : null;
@@ -1489,7 +1537,7 @@
       let pendingManagerUserIds = [...initialManagerUserIds];
       let pendingStaffUserIds = [...initialStaffUserIds];
       const pendingTeamRateOverrides = {};
-      const title = mode === "edit" ? "Edit project" : "Add project";
+      const title = mode === "edit" ? (isClosedOutProject ? "Closed project" : "Edit project") : "Add project";
       const finalConfirmText = mode === "edit" ? "Save" : "Add";
       const activeUsers = (state.users || [])
         .filter((user) => user && user.isActive !== false && user.displayName)
@@ -1575,6 +1623,13 @@
       form.className = "project-dialog-form";
       form.innerHTML = `
         <section class="project-dialog-section">
+          ${
+            isClosedOutProject
+              ? `<div class="project-lifecycle-banner"><strong>Closed out</strong><span>Completed ${escapeHtml(
+                  String(options?.closedOutAt || "date not recorded")
+                )}. Reopen the project to make changes or accept new entries.</span></div>`
+              : ""
+          }
           <div class="project-dialog-core-row" style="grid-template-columns: repeat(4, minmax(0, 1fr));">
             <label class="project-dialog-field">
               <span>Project name</span>
@@ -1637,6 +1692,14 @@
               </label>
             </div>
           </div>
+          ${
+            isClosedOutProject && (options?.closeoutNotes || options?.closeoutBillingNote)
+              ? `<div class="project-closeout-readonly-notes">
+                  ${options?.closeoutNotes ? `<div><strong>Close-out notes</strong><p>${escapeHtml(String(options.closeoutNotes))}</p></div>` : ""}
+                  ${options?.closeoutBillingNote ? `<div><strong>Billing note</strong><p>${escapeHtml(String(options.closeoutBillingNote))}</p></div>` : ""}
+                </div>`
+              : ""
+          }
         </section>
         ${
           showTeamSection
@@ -1664,7 +1727,15 @@
         }
         <section class="project-dialog-section">
           <div class="project-dialog-actions" style="justify-content:space-between;align-items:center;">
-            <div style="display:flex;gap:8px;flex-wrap:wrap;"></div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              ${
+                canUseCloseoutAction
+                  ? `<button type="button" class="button button-ghost project-lifecycle-action" data-project-lifecycle-action>${
+                      isClosedOutProject ? "Reopen Project" : "Close Out Project"
+                    }</button>`
+                  : ""
+              }
+            </div>
             <div style="display:flex;gap:10px;align-items:center;">
               <button type="button" class="button button-ghost" data-project-cancel>Cancel</button>
               <button type="submit" class="button" data-project-save${isProjectEditDialog ? " disabled" : ""}>${escapeHtml(finalConfirmText)}</button>
@@ -1698,6 +1769,7 @@
       const openPlanningButton = form.querySelector("[data-project-open-planning]");
       const projectSaveButton = form.querySelector("[data-project-save]");
       const projectCancelButton = form.querySelector("[data-project-cancel]");
+      const projectLifecycleButton = form.querySelector("[data-project-lifecycle-action]");
       const teamManagersList = form.querySelector('[data-project-team-list="managers"]');
       const teamStaffList = form.querySelector('[data-project-team-list="staff"]');
       const addMemberButton = form.querySelector("[data-project-team-add-member]");
@@ -2113,6 +2185,14 @@
       refs.dialogConfirm.hidden = true;
       refs.dialogCancel.hidden = true;
 
+      if (isClosedOutProject || isReadOnlyProjectDialog) {
+        Array.from(form.querySelectorAll("input, select, textarea, button")).forEach((control) => {
+          if (control === projectCancelButton || control === projectLifecycleButton) return;
+          control.disabled = true;
+        });
+        if (projectCancelButton) projectCancelButton.textContent = "Close";
+      }
+
       const setError = (message) => {
         if (!errorNode) return;
         errorNode.textContent = message || "";
@@ -2146,6 +2226,7 @@
           memberModalState.interceptSelection = null;
         }
         openPlanningButton?.removeEventListener("click", onOpenProjectPlanning);
+        projectLifecycleButton?.removeEventListener("click", onProjectLifecycleAction);
         projectCancelButton?.removeEventListener("click", onCancel);
         form.remove();
         dialogCard?.classList.remove("dialog-card--project");
@@ -2155,6 +2236,21 @@
         refs.dialogInput.hidden = false;
         refs.dialogMessage.textContent = "";
       };
+
+      const onProjectLifecycleAction = async () => {
+        if (!canUseCloseoutAction) return;
+        if (!isClosedOutProject && !isReadOnlyProjectDialog) {
+          const payload = buildProjectDialogPayload();
+          if (!payload) return;
+          if (projectDraftSignature() !== savedDraftSignature) {
+            const saved = await persistEditedProject(payload, projectLifecycleButton, "Saved");
+            if (!saved) return;
+          }
+        }
+        cleanup();
+        resolve(isClosedOutProject ? { reopenProject: true } : { closeOutProject: true });
+      };
+      projectLifecycleButton?.addEventListener("click", onProjectLifecycleAction);
 
       const buildProjectDialogPayload = () => {
         const nextName = String(nameInput?.value || "").trim();
@@ -2429,6 +2525,139 @@
     });
   }
 
+  function openProjectCloseoutDialog({ clientName, projectName, checks }) {
+    return new Promise((resolve) => {
+      const unapprovedTimeCount = Number(checks?.unapprovedTimeCount || 0);
+      const unapprovedExpenseCount = Number(checks?.unapprovedExpenseCount || 0);
+      const hasOutstandingRecords = unapprovedTimeCount > 0 || unapprovedExpenseCount > 0;
+      const overlay = document.createElement("div");
+      overlay.className = "project-closeout-overlay";
+      overlay.setAttribute("role", "dialog");
+      overlay.setAttribute("aria-modal", "true");
+      overlay.setAttribute("aria-labelledby", "project-closeout-title");
+      overlay.innerHTML = `
+        <form class="project-closeout-card">
+          <header class="project-closeout-header">
+            <div>
+              <p class="project-closeout-eyebrow">Project close-out</p>
+              <h2 id="project-closeout-title">${escapeHtml(projectName)}</h2>
+              <p>${escapeHtml(clientName)}</p>
+            </div>
+          </header>
+          <section class="project-closeout-review" aria-label="TrakMetric review">
+            <h3>TrakMetric review</h3>
+            <div class="project-closeout-review-grid">
+              <div><strong>${unapprovedTimeCount}</strong><span>Unapproved time entries</span></div>
+              <div><strong>${unapprovedExpenseCount}</strong><span>Unapproved expenses</span></div>
+              <div><strong>${Number(checks?.plannedMemberCount || 0)}</strong><span>Members in project plan</span></div>
+              <div><strong>${Number(checks?.plannedHours || 0).toFixed(1)}h</strong><span>Total planned hours</span></div>
+            </div>
+            <p class="project-closeout-note">Project planning is an aggregate budget, so confirm manually that no future work remains.</p>
+          </section>
+          <section class="project-closeout-fields">
+            <label class="project-dialog-field project-closeout-date">
+              <span>Completion date</span>
+              <input type="date" name="completed_at" max="${new Date().toISOString().slice(0, 10)}" value="${new Date().toISOString().slice(0, 10)}" required />
+            </label>
+            <fieldset class="project-closeout-checklist">
+              <legend>Confirm before closing</legend>
+              <label><input type="checkbox" name="deliverables" required /><span>All project deliverables have been completed or accepted.</span></label>
+              <label><input type="checkbox" name="records" required /><span>All time and expenses recorded in TrakMetric have been reviewed.</span></label>
+              <label><input type="checkbox" name="planning" required /><span>The project plan has been reviewed and no future work remains.</span></label>
+              <label><input type="checkbox" name="billing" required /><span>Billing and collection status has been reviewed outside TrakMetric.</span></label>
+              ${
+                hasOutstandingRecords
+                  ? `<label class="project-closeout-warning"><input type="checkbox" name="outstanding" required /><span>I acknowledge that ${unapprovedTimeCount} time entr${unapprovedTimeCount === 1 ? "y is" : "ies are"} and ${unapprovedExpenseCount} expense${unapprovedExpenseCount === 1 ? " is" : "s are"} not approved, and want to close the project anyway.</span></label>`
+                  : ""
+              }
+            </fieldset>
+            <div class="project-closeout-text-grid">
+              <label class="project-dialog-field"><span>Close-out notes <small>(optional)</small></span><textarea name="closeout_notes" rows="3" placeholder="Final outcome, handoff, or archive notes"></textarea></label>
+              <label class="project-dialog-field"><span>Billing note <small>(optional)</small></span><textarea name="billing_note" rows="3" placeholder="Informational only; TrakMetric does not verify billing or collection"></textarea></label>
+            </div>
+          </section>
+          <p class="project-closeout-consequence">Closing sets the project to 100% complete, blocks new time and expenses, and preserves its history for completed-project analytics.</p>
+          <footer class="project-closeout-actions">
+            <button type="button" class="button button-ghost" data-closeout-cancel>Cancel</button>
+            <button type="submit" class="button" data-closeout-confirm disabled>Close Out Project</button>
+          </footer>
+        </form>`;
+      document.body.appendChild(overlay);
+      document.body.classList.add("modal-open");
+      const form = overlay.querySelector("form");
+      const cancelButton = overlay.querySelector("[data-closeout-cancel]");
+      const confirmButton = overlay.querySelector("[data-closeout-confirm]");
+      const requiredInputs = Array.from(form.querySelectorAll("input[required]"));
+      const syncConfirm = () => {
+        confirmButton.disabled = !requiredInputs.every((input) =>
+          input.type === "checkbox" ? input.checked : Boolean(input.value)
+        );
+      };
+      const cleanup = () => {
+        document.removeEventListener("keydown", onKeydown);
+        overlay.remove();
+        if (refs.dialog?.hidden !== false && refs.catalogModal?.hidden !== false) {
+          document.body.classList.remove("modal-open");
+        }
+      };
+      const finish = (value) => {
+        cleanup();
+        resolve(value);
+      };
+      const onKeydown = (event) => {
+        if (event.key === "Escape") finish(null);
+      };
+      requiredInputs.forEach((input) => input.addEventListener("change", syncConfirm));
+      cancelButton.addEventListener("click", () => finish(null));
+      overlay.addEventListener("mousedown", (event) => {
+        if (event.target === overlay) finish(null);
+      });
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        if (confirmButton.disabled) return;
+        const data = new FormData(form);
+        finish({
+          completedAt: String(data.get("completed_at") || ""),
+          deliverablesConfirmed: data.get("deliverables") === "on",
+          recordsConfirmed: data.get("records") === "on",
+          planningConfirmed: data.get("planning") === "on",
+          billingReviewed: data.get("billing") === "on",
+          acknowledgeOutstanding: !hasOutstandingRecords || data.get("outstanding") === "on",
+          closeoutNotes: String(data.get("closeout_notes") || "").trim() || null,
+          billingNote: String(data.get("billing_note") || "").trim() || null,
+        });
+      });
+      document.addEventListener("keydown", onKeydown);
+      syncConfirm();
+      form.querySelector('input[name="completed_at"]')?.focus();
+    });
+  }
+
+  async function openProjectCloseoutFlow(clientName, projectName) {
+    try {
+      const checks = await mutatePersistentState(
+        "get_project_closeout_check",
+        { clientName, projectName },
+        { skipHydrate: true, refreshState: false, returnState: false }
+      );
+      const payload = await openProjectCloseoutDialog({ clientName, projectName, checks });
+      if (!payload) return;
+      await mutatePersistentState(
+        "close_project",
+        { clientName, projectName, ...payload },
+        { skipHydrate: true, refreshState: false, returnState: false }
+      );
+      await loadPersistentState();
+      if (state.currentView === "clients") {
+        state.catalogProjectLifecycleView = "closed";
+      }
+      render();
+      feedback("Project closed out.", false);
+    } catch (error) {
+      feedback(error?.message || "Unable to close out project.", true);
+    }
+  }
+
   async function openAddProjectDialog() {
     await ensureProjectEditorMetadataLoaded();
     const canCreateProject = canManageProjectsLifecycle();
@@ -2529,16 +2758,25 @@
       projectLifecycleToggleWrap.style.marginLeft = "auto";
       projectLifecycleToggleActive = document.createElement("button");
       projectLifecycleToggleActive.type = "button";
-      projectLifecycleToggleActive.textContent = "Active";
+      projectLifecycleToggleActive.textContent = "Ongoing";
       projectLifecycleToggleActive.addEventListener("click", function () {
         state.catalogProjectLifecycleView = "active";
         syncProjectLifecycleToggleUi();
         renderCatalogAside();
         syncProjectCardsUx();
       });
+      projectLifecycleToggleClosed = document.createElement("button");
+      projectLifecycleToggleClosed.type = "button";
+      projectLifecycleToggleClosed.textContent = "Closed";
+      projectLifecycleToggleClosed.addEventListener("click", function () {
+        state.catalogProjectLifecycleView = "closed";
+        syncProjectLifecycleToggleUi();
+        renderCatalogAside();
+        syncProjectCardsUx();
+      });
       projectLifecycleToggleInactive = document.createElement("button");
       projectLifecycleToggleInactive.type = "button";
-      projectLifecycleToggleInactive.textContent = "Inactive";
+      projectLifecycleToggleInactive.textContent = "Deactivated";
       projectLifecycleToggleInactive.addEventListener("click", function () {
         state.catalogProjectLifecycleView = "inactive";
         syncProjectLifecycleToggleUi();
@@ -2546,6 +2784,7 @@
         syncProjectCardsUx();
       });
       projectLifecycleToggleWrap.appendChild(projectLifecycleToggleActive);
+      projectLifecycleToggleWrap.appendChild(projectLifecycleToggleClosed);
       projectLifecycleToggleWrap.appendChild(projectLifecycleToggleInactive);
     }
 
@@ -3751,6 +3990,26 @@
 
   function canEditProjectPlanningCapability() {
     return Boolean(state.permissions?.edit_project_planning);
+  }
+
+  function canCloseProject(project) {
+    if (!state.permissions?.close_project || !project) return false;
+    const currentUserId = String(state.currentUser?.id || "").trim();
+    const permissionGroup = String(
+      state.currentUser?.permissionGroup || state.currentUser?.permission_group || state.currentUser?.role || ""
+    ).trim().toLowerCase();
+    if (permissionGroup === "superuser" || permissionGroup === "global_admin") return true;
+    if (currentUserId && String(project?.projectLeadId || project?.project_lead_id || "").trim() === currentUserId) return true;
+    const officeId = String(project?.officeId || project?.office_id || "").trim();
+    if ((state.officeLocations || []).some(
+      (item) => String(item?.id || "") === officeId && String(item?.officeLeadUserId || item?.office_lead_user_id || "") === currentUserId
+    )) return true;
+    const departmentId = String(project?.projectDepartmentId || project?.project_department_id || "").trim();
+    return (state.departmentLeadAssignments || []).some(
+      (item) => String(item?.officeId || item?.office_id || "") === officeId &&
+        String(item?.departmentId || item?.department_id || "") === departmentId &&
+        String(item?.userId || item?.user_id || "") === currentUserId
+    );
   }
 
   function hasClientsTabAccess() {
@@ -8777,7 +9036,9 @@
         return state.catalogClientLifecycleView === "inactive" ? "inactive" : "active";
       }
       if (entity === "project") {
-        return state.catalogProjectLifecycleView === "inactive" ? "inactive" : "active";
+        return ["closed", "inactive"].includes(state.catalogProjectLifecycleView)
+          ? state.catalogProjectLifecycleView
+          : "active";
       }
     }
     return "active";
@@ -8824,7 +9085,10 @@
     const targetView = lifecycleTargetView("project", options);
     const filtered = (state.projects || []).filter((p) => {
       if (client && p.client !== client) return false;
-      return targetView === "inactive" ? !isProjectActive(p) : isProjectActive(p);
+      const lifecycle = String(p?.lifecycleStatus || p?.lifecycle_status || "ongoing").toLowerCase();
+      if (targetView === "closed") return lifecycle === "closed_out";
+      if (targetView === "inactive") return !isProjectActive(p) && lifecycle !== "closed_out";
+      return isProjectActive(p) && lifecycle !== "closed_out";
     });
     return uniqueValues(filtered.map((p) => p.name)).sort((a, b) => a.localeCompare(b));
   }
@@ -10669,6 +10933,7 @@
         visibleCatalogProjectNames,
         isClientActive,
         isProjectActive,
+        canCloseProject,
         projectHours,
         formatNameList,
         userNamesForIds,
@@ -13814,12 +14079,12 @@
     }
 
     state.selectedCatalogClient = button.dataset.client;
-    if (state.catalogProjectLifecycleView === "inactive") {
+    if (["inactive", "closed"].includes(state.catalogProjectLifecycleView)) {
       const nextClient = String(state.selectedCatalogClient || "").trim();
-      const inactiveProjectsForClient = nextClient
+      const lifecycleProjectsForClient = nextClient
         ? visibleCatalogProjectNames(nextClient, { forCatalogView: true })
         : [];
-      if (!inactiveProjectsForClient.length) {
+      if (!lifecycleProjectsForClient.length) {
         state.catalogProjectLifecycleView = "active";
       }
     }
@@ -13972,7 +14237,8 @@
     const editButton = event.target.closest("[data-edit-project]");
     if (editButton) {
       const projectName = editButton.dataset.editProject;
-      if (!canEditProjectModal(state.selectedCatalogClient, projectName)) {
+      const projectRow = findProjectRow(state.selectedCatalogClient, projectName);
+      if (!canEditProjectModal(state.selectedCatalogClient, projectName) && !canCloseProject(projectRow)) {
         feedback("Access denied.", true);
         return;
       }
