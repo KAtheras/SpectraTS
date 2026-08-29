@@ -1730,7 +1730,9 @@
             <div style="display:flex;gap:8px;flex-wrap:wrap;">
               ${
                 canUseCloseoutAction
-                  ? `<button type="button" class="button button-ghost project-lifecycle-action" data-project-lifecycle-action>${
+                  ? `<button type="button" class="button button-ghost project-lifecycle-action${
+                      isClosedOutProject ? "" : " project-lifecycle-action--closeout"
+                    }" data-project-lifecycle-action>${
                       isClosedOutProject ? "Reopen Project" : "Close Out Project"
                     }</button>`
                   : ""
@@ -2530,6 +2532,16 @@
       const unapprovedTimeCount = Number(checks?.unapprovedTimeCount || 0);
       const unapprovedExpenseCount = Number(checks?.unapprovedExpenseCount || 0);
       const hasOutstandingRecords = unapprovedTimeCount > 0 || unapprovedExpenseCount > 0;
+      const outstandingRecordDescription = [
+        unapprovedTimeCount > 0
+          ? `${unapprovedTimeCount} unapproved time ${unapprovedTimeCount === 1 ? "entry" : "entries"}`
+          : "",
+        unapprovedExpenseCount > 0
+          ? `${unapprovedExpenseCount} unapproved ${unapprovedExpenseCount === 1 ? "expense" : "expenses"}`
+          : "",
+      ]
+        .filter(Boolean)
+        .join(" and ");
       const overlay = document.createElement("div");
       overlay.className = "project-closeout-overlay";
       overlay.setAttribute("role", "dialog");
@@ -2544,8 +2556,8 @@
               <p>${escapeHtml(clientName)}</p>
             </div>
           </header>
-          <section class="project-closeout-review" aria-label="TrakMetric review">
-            <h3>TrakMetric review</h3>
+          <section class="project-closeout-review" aria-label="System review">
+            <h3>System review</h3>
             <div class="project-closeout-review-grid">
               <div><strong>${unapprovedTimeCount}</strong><span>Unapproved time entries</span></div>
               <div><strong>${unapprovedExpenseCount}</strong><span>Unapproved expenses</span></div>
@@ -2562,18 +2574,20 @@
             <fieldset class="project-closeout-checklist">
               <legend>Confirm before closing</legend>
               <label><input type="checkbox" name="deliverables" required /><span>All project deliverables have been completed or accepted.</span></label>
-              <label><input type="checkbox" name="records" required /><span>All time and expenses recorded in TrakMetric have been reviewed.</span></label>
+              <label><input type="checkbox" name="records" required /><span>All time and expenses recorded in the system have been reviewed.</span></label>
               <label><input type="checkbox" name="planning" required /><span>The project plan has been reviewed and no future work remains.</span></label>
-              <label><input type="checkbox" name="billing" required /><span>Billing and collection status has been reviewed outside TrakMetric.</span></label>
+              <label><input type="checkbox" name="billing" required /><span>Billing and collection status has been reviewed outside the system.</span></label>
               ${
                 hasOutstandingRecords
-                  ? `<label class="project-closeout-warning"><input type="checkbox" name="outstanding" required /><span>I acknowledge that ${unapprovedTimeCount} time entr${unapprovedTimeCount === 1 ? "y is" : "ies are"} and ${unapprovedExpenseCount} expense${unapprovedExpenseCount === 1 ? " is" : "s are"} not approved, and want to close the project anyway.</span></label>`
+                  ? `<label class="project-closeout-warning"><input type="checkbox" name="outstanding" required /><span>I understand that ${escapeHtml(
+                      outstandingRecordDescription
+                    )} will remain unapproved after this project is closed, and I want to close it anyway.</span></label>`
                   : ""
               }
             </fieldset>
             <div class="project-closeout-text-grid">
               <label class="project-dialog-field"><span>Close-out notes <small>(optional)</small></span><textarea name="closeout_notes" rows="3" placeholder="Final outcome, handoff, or archive notes"></textarea></label>
-              <label class="project-dialog-field"><span>Billing note <small>(optional)</small></span><textarea name="billing_note" rows="3" placeholder="Informational only; TrakMetric does not verify billing or collection"></textarea></label>
+              <label class="project-dialog-field"><span>Billing note <small>(optional)</small></span><textarea name="billing_note" rows="3" placeholder="Informational only; the system does not verify billing or collection"></textarea></label>
             </div>
           </section>
           <p class="project-closeout-consequence">Closing sets the project to 100% complete, blocks new time and expenses, and preserves its history for completed-project analytics.</p>
