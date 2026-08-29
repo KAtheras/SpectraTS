@@ -3091,11 +3091,6 @@ body[data-theme="dark"] .audit-detail-col {
   letter-spacing: 0.04em;
 }
 
-#add-project-header-button {
-  flex: 0 0 auto;
-  white-space: nowrap;
-}
-
 .catalog-column-head .catalog-lifecycle-toggle {
   display: inline-flex;
   justify-content: flex-start;
@@ -4243,8 +4238,10 @@ body[data-theme="dark"] .audit-detail-col {
 }
 
 #clients-page .catalog-item-project .catalog-project-title-wrap {
-  display: grid;
-  gap: 4px;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
   min-width: 0;
 }
 

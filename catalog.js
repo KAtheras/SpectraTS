@@ -46,6 +46,7 @@
     const clients = visibleCatalogClientNames({ forCatalogView: true });
     const canManageClientsLifecycle = Boolean(state.permissions?.manage_clients_lifecycle);
     const canEditClient = Boolean(state.permissions?.edit_clients);
+    const canCreateProject = Boolean(state.permissions?.create_project);
     const canManageProjectsLifecycle = Boolean(state.permissions?.manage_projects_lifecycle);
     const canEditProjectsAllModal = Boolean(state.permissions?.edit_projects_all_modal);
 
@@ -104,6 +105,9 @@
               <small class="catalog-item-secondary">${escapeHtml(secondaryBits.join(" · "))}</small>
               <span class="catalog-client-footer-row">
                 <small class="catalog-item-secondary" data-client-lead-line="1">Client Lead: ${escapeHtml(clientLeadName || "—")}</small>
+                ${clientIsActive && canCreateProject
+                  ? `<button type="button" class="catalog-edit catalog-edit-inline" data-add-project-client="${escapeHtml(client)}">Add Project</button>`
+                  : ""}
               </span>
             </span>
           </article>
@@ -125,17 +129,6 @@
 	      clientNameField.title = canAddClient ? "" : reason;
 	      addClientButton.title = canAddClient ? "" : reason;
 	    }
-	    const canCreateProject =
-	      Boolean(selectedClient) &&
-	      isClientActive(state.clients.find((c) => c.name === selectedClient)) &&
-	      canManageProjectsLifecycle;
-	    const projectButton = document.getElementById("add-project-header-button");
-	    if (projectButton) {
-	      projectButton.hidden = !canCreateProject;
-	      projectButton.disabled = false;
-	      projectButton.title = "";
-	    }
-
     refs.projectList.innerHTML = projects.length
       ? projects
           .map(
@@ -248,10 +241,10 @@
                     <span class="catalog-card-head">
                       <span class="catalog-project-title-wrap">
                         <span class="catalog-item-title">${escapeHtml(project)}</span>
-                        ${projectIsClosedOut ? '<small class="catalog-item-title-meta">Closed out</small>' : ""}
                         <small class="catalog-item-title-meta">${escapeHtml(
                           `${projectHours(selectedClient, project).toFixed(2)}h logged`
                         )}</small>
+                        ${projectIsClosedOut ? '<small class="catalog-item-title-meta">Closed out</small>' : ""}
                       </span>
                     </span>
                   </span>

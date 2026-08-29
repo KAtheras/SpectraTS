@@ -728,7 +728,6 @@
   let clientLifecycleToggleWrap = null;
   let clientLifecycleToggleActive = null;
   let clientLifecycleToggleInactive = null;
-  let addProjectHeaderButton = null;
   let projectLifecycleToggleWrap = null;
   let projectLifecycleToggleActive = null;
   let projectLifecycleToggleClosed = null;
@@ -3040,18 +3039,6 @@
     header.style.gap = "10px";
     header.style.flexWrap = "wrap";
 
-    if (!addProjectHeaderButton) {
-      addProjectHeaderButton = document.createElement("button");
-      addProjectHeaderButton.type = "button";
-      addProjectHeaderButton.id = "add-project-header-button";
-      addProjectHeaderButton.className = "button button-ghost";
-      addProjectHeaderButton.textContent = "Add Project";
-      addProjectHeaderButton.style.marginLeft = "0";
-      addProjectHeaderButton.addEventListener("click", function () {
-        openAddProjectDialog();
-      });
-    }
-
     if (!projectLifecycleToggleWrap) {
       projectLifecycleToggleWrap = document.createElement("div");
       projectLifecycleToggleWrap.className = "catalog-lifecycle-toggle";
@@ -3088,10 +3075,6 @@
       projectLifecycleToggleWrap.appendChild(projectLifecycleToggleInactive);
     }
 
-    if (!addProjectHeaderButton.isConnected) {
-      header.appendChild(addProjectHeaderButton);
-    }
-    addProjectHeaderButton.hidden = !state.permissions?.create_project;
     if (!projectLifecycleToggleWrap.isConnected) {
       header.appendChild(projectLifecycleToggleWrap);
     }
@@ -14345,6 +14328,18 @@
   }
 
   refs.clientList.addEventListener("click", async function (event) {
+    const addProjectButton = event.target.closest("[data-add-project-client]");
+    if (addProjectButton) {
+      const clientName = String(addProjectButton.dataset.addProjectClient || "").trim();
+      if (!clientName || !state.permissions?.create_project) {
+        feedback("Access denied.", true);
+        return;
+      }
+      state.selectedCatalogClient = clientName;
+      await openAddProjectDialog();
+      return;
+    }
+
     const editButton = event.target.closest("[data-edit-client]");
     if (editButton) {
       if (!canEditClientsGlobal() && !canManageClientsLifecycle()) {
