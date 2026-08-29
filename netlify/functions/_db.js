@@ -5076,17 +5076,28 @@ async function loadState(sql, currentUser, options = {}) {
     resourceOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
     actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
   });
-  const canAccessClientsShell = Boolean(
-    canSeeAllClientsProjects || canSeeOfficeClientsProjects || canSeeAssignedClientsProjects
-  );
   const hasGlobalClientsProjectsScope = Boolean(canSeeAllClientsProjects);
   const hasOfficeClientsProjectsScope = Boolean(canSeeOfficeClientsProjects);
   const hasAssignedVisibilityScope = Boolean(canSeeAssignedClientsProjects);
   const allClients = await listClients(sql, accountUuid);
   const allProjects = await listProjects(sql, accountUuid);
+  const actorUserId = normalizeText(normalizedUser?.id);
+  const actorLeadProjectIds = allProjects
+    .filter(
+      (project) =>
+        actorUserId &&
+        normalizeText(project?.projectLeadId ?? project?.project_lead_id) === actorUserId
+    )
+    .map((project) => normalizeText(project?.id))
+    .filter(Boolean);
+  const canAccessClientsShell = Boolean(
+    canSeeAllClientsProjects ||
+      canSeeOfficeClientsProjects ||
+      canSeeAssignedClientsProjects ||
+      actorLeadProjectIds.length
+  );
   let actorProjectIds = [...actorDirectAssignedProjectIds];
   if (hasAssignedVisibilityScope) {
-    const actorUserId = normalizeText(normalizedUser?.id);
     const actorClientLeadIds = [];
     if (hasAssignedVisibilityScope && actorUserId) {
       allClients.forEach((client) => {
@@ -5121,6 +5132,7 @@ async function loadState(sql, currentUser, options = {}) {
     }
     actorProjectIds = [...new Set(actorProjectIds)];
   }
+  actorProjectIds = [...new Set([...actorProjectIds, ...actorLeadProjectIds])];
   const actorClientIdsFromProjects = new Set();
   if (hasAssignedVisibilityScope) {
     actorManagerClientAssignments.forEach((row) => {
@@ -5147,6 +5159,7 @@ async function loadState(sql, currentUser, options = {}) {
           const projectId = normalizeText(project?.id);
           const inAssignedScope =
             hasAssignedVisibilityScope && Boolean(projectId) && actorProjectIds.includes(projectId);
+          const inProjectLeadScope = Boolean(projectId) && actorLeadProjectIds.includes(projectId);
           let inOfficeScope = false;
           if (hasOfficeClientsProjectsScope) {
             const projectOfficeId = normalizeText(project?.officeId ?? project?.office_id);
@@ -5161,12 +5174,12 @@ async function loadState(sql, currentUser, options = {}) {
               }
             }
           }
-          return inAssignedScope || inOfficeScope;
+          return inAssignedScope || inProjectLeadScope || inOfficeScope;
         })
       : normalizedUser
         ? allProjects.filter((project) => {
             const projectId = normalizeText(project?.id);
-            return Boolean(projectId) && actorDirectAssignedProjectIds.includes(projectId);
+            return Boolean(projectId) && actorLeadProjectIds.includes(projectId);
           })
       : [];
   const visibleClientIdSet = new Set(

@@ -4321,10 +4321,19 @@
   }
 
   function hasClientsTabAccess() {
+    const currentUserId = String(state.currentUser?.id || "").trim();
+    const leadsVisibleProject = Boolean(
+      currentUserId &&
+        (state.projects || []).some(
+          (project) =>
+            String(project?.projectLeadId || project?.project_lead_id || "").trim() === currentUserId
+        )
+    );
     return Boolean(
       canSeeAllClientsProjects() ||
       canSeeOfficeClientsProjects() ||
-      canSeeAssignedClientsProjects()
+      canSeeAssignedClientsProjects() ||
+      leadsVisibleProject
     );
   }
 
