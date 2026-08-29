@@ -4857,6 +4857,17 @@ async function loadState(sql, currentUser, options = {}) {
       actorUserId: normalizedUser?.id ?? null,
       ...ctx,
     });
+  const allClients = await listClients(sql, accountUuid);
+  const allProjects = await listProjects(sql, accountUuid);
+  const actorUserId = normalizeText(normalizedUser?.id);
+  const actorLeadProjectIds = allProjects
+    .filter(
+      (project) =>
+        actorUserId &&
+        normalizeText(project?.projectLeadId ?? project?.project_lead_id) === actorUserId
+    )
+    .map((project) => normalizeText(project?.id))
+    .filter(Boolean);
   const manageCategories = canCap("manage_expense_categories", {
     resourceOfficeId: normalizedUser?.officeId ?? null,
     actorOfficeId: normalizedUser?.officeId ?? null,
@@ -5091,17 +5102,6 @@ async function loadState(sql, currentUser, options = {}) {
   const hasGlobalClientsProjectsScope = Boolean(canSeeAllClientsProjects);
   const hasOfficeClientsProjectsScope = Boolean(canSeeOfficeClientsProjects);
   const hasAssignedVisibilityScope = Boolean(canSeeAssignedClientsProjects);
-  const allClients = await listClients(sql, accountUuid);
-  const allProjects = await listProjects(sql, accountUuid);
-  const actorUserId = normalizeText(normalizedUser?.id);
-  const actorLeadProjectIds = allProjects
-    .filter(
-      (project) =>
-        actorUserId &&
-        normalizeText(project?.projectLeadId ?? project?.project_lead_id) === actorUserId
-    )
-    .map((project) => normalizeText(project?.id))
-    .filter(Boolean);
   const canAccessClientsShell = Boolean(
     canSeeAllClientsProjects ||
       canSeeOfficeClientsProjects ||
