@@ -1455,7 +1455,10 @@
     });
     if (!projectDialog || projectDialog.openProjectPlanning) return;
     if (projectDialog.closeOutProject) {
-      await openProjectCloseoutFlow(normalizedClient, savedProjectName);
+      const closedOut = await openProjectCloseoutFlow(normalizedClient, savedProjectName);
+      if (!closedOut) {
+        await openProjectEditDialogFlow(normalizedClient, savedProjectName);
+      }
       return;
     }
     if (projectDialog.reopenProject) {
@@ -1465,7 +1468,11 @@
         confirmText: "Reopen",
         cancelText: "Cancel",
       });
-      if (!confirmation.confirmed) return;
+      if (!confirmation.confirmed) {
+        await openProjectEditDialogFlow(normalizedClient, savedProjectName);
+        return;
+      }
+      let reopened = false;
       try {
         await mutatePersistentState(
           "reopen_project",
@@ -1475,8 +1482,12 @@
         await loadPersistentState();
         render();
         feedback("Project reopened.", false);
+        reopened = true;
       } catch (error) {
         feedback(error?.message || "Unable to reopen project.", true);
+      }
+      if (!reopened) {
+        await openProjectEditDialogFlow(normalizedClient, savedProjectName);
       }
       return;
     }
@@ -1488,11 +1499,17 @@
       return;
     }
     if (projectDialog.reactivateProject) {
-      await reactivateProjectFromEditor(normalizedClient, savedProjectName);
+      const reactivated = await reactivateProjectFromEditor(normalizedClient, savedProjectName);
+      if (!reactivated) {
+        await openProjectEditDialogFlow(normalizedClient, savedProjectName);
+      }
       return;
     }
     if (projectDialog.removeProject) {
-      await removeProjectFromEditor(normalizedClient, savedProjectName);
+      const removed = await removeProjectFromEditor(normalizedClient, savedProjectName);
+      if (!removed) {
+        await openProjectEditDialogFlow(normalizedClient, savedProjectName);
+      }
     }
   }
 
@@ -2728,7 +2745,7 @@
         { skipHydrate: true, refreshState: false, returnState: false }
       );
       const payload = await openProjectCloseoutDialog({ clientName, projectName, checks });
-      if (!payload) return;
+      if (!payload) return false;
       await mutatePersistentState(
         "close_project",
         { clientName, projectName, ...payload },
@@ -2740,8 +2757,10 @@
       }
       render();
       feedback("Project closed out.", false);
+      return true;
     } catch (error) {
       feedback(error?.message || "Unable to close out project.", true);
+      return false;
     }
   }
 
@@ -2801,7 +2820,7 @@
   async function reactivateProjectFromEditor(clientName, projectName) {
     if (!canManageProjectsLifecycle()) {
       feedback("Access denied.", true);
-      return;
+      return false;
     }
     const client = (state.clients || []).find(
       (item) => String(item?.name || "").trim() === String(clientName || "").trim()
@@ -2813,7 +2832,7 @@
         cancelText: "Close",
         hideConfirm: true,
       });
-      return;
+      return false;
     }
     const confirmation = await appDialog({
       title: "Reactivate Project?",
@@ -2821,7 +2840,7 @@
       confirmText: "Reactivate",
       cancelText: "Cancel",
     });
-    if (!confirmation.confirmed) return;
+    if (!confirmation.confirmed) return false;
     try {
       await mutatePersistentState(
         "reactivate_project",
@@ -2832,15 +2851,17 @@
       if (state.currentView === "clients") state.catalogProjectLifecycleView = "active";
       render();
       feedback("Project reactivated.", false);
+      return true;
     } catch (error) {
       feedback(error?.message || "Unable to reactivate project.", true);
+      return false;
     }
   }
 
   async function removeProjectFromEditor(clientName, projectName) {
     if (!canManageProjectsLifecycle()) {
       feedback("Access denied.", true);
-      return;
+      return false;
     }
     const assignedActiveMembers = assignedActiveMembersCountForProject(clientName, projectName);
     if (assignedActiveMembers > 0) {
@@ -2853,7 +2874,7 @@
         cancelText: "Close",
         hideConfirm: true,
       });
-      return;
+      return false;
     }
     const confirmation = await appDialog({
       title: "Permanently Remove Project?",
@@ -2862,7 +2883,7 @@
       confirmText: "Permanently Remove",
       cancelText: "Cancel",
     });
-    if (!confirmation.confirmed) return;
+    if (!confirmation.confirmed) return false;
     try {
       const result = await mutatePersistentState(
         "remove_project",
@@ -2876,6 +2897,7 @@
       if (state.currentView === "clients") state.catalogProjectLifecycleView = "active";
       render();
       feedback(result?.message || "Project permanently removed.", false);
+      return true;
     } catch (error) {
       const message = error?.message || "Unable to remove project.";
       if (message.includes("Cannot Remove Project")) {
@@ -2885,9 +2907,10 @@
           cancelText: "Close",
           hideConfirm: true,
         });
-        return;
+        return false;
       }
       feedback(message, true);
+      return false;
     }
   }
 
