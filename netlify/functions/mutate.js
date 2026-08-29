@@ -5008,6 +5008,23 @@ async function closeOutProject(sql, payload, currentUser, project, accountId) {
     WHERE id = ${project.id}
       AND account_id = ${accountId}::uuid
   `;
+  const actorId = normalizeText(currentUser?.id);
+  const leadId = normalizeText(project.projectLeadId || project.project_lead_id);
+  const executiveId = normalizeText(project.projectExecutiveId || project.project_executive_id);
+  const recipientUserIds = [...new Set([leadId, executiveId].filter((id) => id && id !== actorId))];
+  if (recipientUserIds.length) {
+    await createSystemInboxItems(sql, {
+      accountId,
+      type: "project_closeout_approved",
+      recipientUserIds,
+      actorUserId: actorId,
+      subjectType: "project",
+      subjectId: String(project.id),
+      projectName: normalizeText(project.name) || "project",
+      message: `${currentUser?.displayName || "The Project Executive"} approved close-out for ${normalizeText(project.name) || "the project"}.`,
+      deepLink: { view: "clients", projectId: String(project.id) },
+    });
+  }
   return { message: "Project closed out.", checks };
 }
 
@@ -5066,7 +5083,7 @@ async function submitProjectCloseout(sql, payload, currentUser, project, account
   return { message: "Project close-out submitted for approval.", checks, closeoutPending: true };
 }
 
-async function reopenClosedProject(sql, project, accountId) {
+async function reopenClosedProject(sql, project, currentUser, accountId) {
   if (normalizeText(project.lifecycleStatus || project.lifecycle_status).toLowerCase() !== "closed_out") {
     return errorResponse(400, "Only closed-out projects can be reopened.");
   }
@@ -5094,6 +5111,23 @@ async function reopenClosedProject(sql, project, accountId) {
     WHERE id = ${project.id}
       AND account_id = ${accountId}::uuid
   `;
+  const actorId = normalizeText(currentUser?.id);
+  const leadId = normalizeText(project.projectLeadId || project.project_lead_id);
+  const executiveId = normalizeText(project.projectExecutiveId || project.project_executive_id);
+  const recipientUserIds = [...new Set([leadId, executiveId].filter((id) => id && id !== actorId))];
+  if (recipientUserIds.length) {
+    await createSystemInboxItems(sql, {
+      accountId,
+      type: "project_reopened",
+      recipientUserIds,
+      actorUserId: actorId,
+      subjectType: "project",
+      subjectId: String(project.id),
+      projectName: normalizeText(project.name) || "project",
+      message: `${currentUser?.displayName || "The Project Executive"} reopened ${normalizeText(project.name) || "the project"}.`,
+      deepLink: { view: "clients", projectId: String(project.id) },
+    });
+  }
   return { message: "Project reopened." };
 }
 
@@ -7264,7 +7298,7 @@ exports.handler = async function handler(event) {
           entityType: "project",
           entityId: targetProject.id,
           action: "reopen",
-          runMutation: () => reopenClosedProject(sql, targetProject, accountId),
+          runMutation: () => reopenClosedProject(sql, targetProject, context.currentUser, accountId),
           getSnapshot: () => snapshotProjectById(sql, targetProject.id, accountId),
           contextClientId: targetProject.client_id || null,
           contextProjectId: targetProject.id,
