@@ -32,6 +32,9 @@ assert.match(planEdit, /\["submitted", "approved"\]\.includes\(statusBefore\) &&
 assert.match(planEdit, /approved_snapshot/);
 assert.match(planEdit, /\[leadId, executiveId\]/);
 assert.match(planEdit, /project_plan_edited/);
+assert.match(planEdit, /projectPlanChangeSummary/);
+assert.match(planEdit, /UPDATE inbox_items/);
+assert.match(planEdit, /recipientUserIds = \[\.\.\.new Set\(recipients\.filter/);
 
 const closeout = functionBody(mutateSource, "closeOutProject", "async function submitProjectCloseout");
 assert.match(closeout, /lifecycle_status = 'closed_out'/);

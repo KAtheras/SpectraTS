@@ -58,6 +58,17 @@ const {
   dispatchNotificationEvent,
 } = require("./_inbox");
 
+function projectPlanChangeSummary(changeTypes) {
+  const labels = {
+    "project team": "team assignments",
+    "member budget": "member hours and rates",
+    "planned expenses": "planned expenses",
+    "contract settings": "contract settings",
+  };
+  const distinct = [...new Set((changeTypes || []).map((value) => normalizeText(value)).filter(Boolean))];
+  return distinct.map((value) => labels[value] || value).join(", ");
+}
+
 async function recordProjectPlanEdit(sql, { projectId, editSessionId, changeType, currentUser, accountId, can }) {
   const project = await findProjectById(sql, projectId, accountId);
   if (!project) return errorResponse(404, "Project not found.");
@@ -76,6 +87,61 @@ async function recordProjectPlanEdit(sql, { projectId, editSessionId, changeType
   const requiresReapproval =
     ["submitted", "approved"].includes(statusBefore) && !isExecutive && !isSuperuser;
   const statusAfter = requiresReapproval ? "draft" : statusBefore;
+  const normalizedChangeType = normalizeText(changeType);
+  const existingSessions = await sql`
+    SELECT change_type, status_before, status_after
+    FROM project_plan_edit_sessions
+    WHERE account_id = ${accountId}::uuid
+      AND project_id = ${projectId}
+      AND id = ${sessionId}
+    LIMIT 1
+  `;
+  if (existingSessions.length) {
+    const existing = existingSessions[0];
+    const changeTypes = String(existing.change_type || "")
+      .split(",")
+      .map((value) => normalizeText(value))
+      .filter(Boolean);
+    const hasNewCategory = normalizedChangeType && !changeTypes.includes(normalizedChangeType);
+    if (hasNewCategory) {
+      changeTypes.push(normalizedChangeType);
+      await sql`
+        UPDATE project_plan_edit_sessions
+        SET change_type = ${changeTypes.join(",")}
+        WHERE account_id = ${accountId}::uuid
+          AND project_id = ${projectId}
+          AND id = ${sessionId}
+      `;
+      const recipients = isLead ? [executiveId] : isExecutive ? [leadId] : [leadId, executiveId];
+      const recipientUserIds = [...new Set(recipients.filter((id) => id && id !== actorId))];
+      const actorName = normalizeText(currentUser?.displayName || currentUser?.display_name) || "A project team member";
+      const invalidated = existing.status_after !== existing.status_before
+        ? " The prior approval was cleared and the plan must be resubmitted."
+        : "";
+      const message = `${actorName} updated ${projectPlanChangeSummary(changeTypes)} in the ${project.name} project plan.${invalidated}`;
+      for (const recipientUserId of recipientUserIds) {
+        await sql`
+          UPDATE inbox_items
+          SET message = ${message}
+          WHERE id = (
+            SELECT id FROM inbox_items
+            WHERE account_id = ${accountId}::uuid
+              AND type = 'project_plan_edited'
+              AND recipient_user_id = ${recipientUserId}
+              AND actor_user_id = ${actorId || null}
+              AND subject_type = 'project_plan'
+              AND subject_id = ${String(project.id)}
+            ORDER BY created_at DESC
+            LIMIT 1
+          )
+        `;
+      }
+    }
+    return {
+      planningStatus: normalizePlanningStatus(existing.status_after, statusAfter),
+      firstEditInSession: false,
+    };
+  }
   const budgets = statusBefore === "approved" ? await getProjectMemberBudgets(sql, projectId, accountId) : null;
   const expenses = statusBefore === "approved" ? await sql`
     SELECT id, category_id, description, units, unit_cost, markup_pct, billable, sort_order
@@ -96,7 +162,7 @@ async function recordProjectPlanEdit(sql, { projectId, editSessionId, changeType
       id, account_id, project_id, actor_user_id, status_before, status_after, change_type, approved_snapshot
     ) VALUES (
       ${sessionId}, ${accountId}::uuid, ${projectId}, ${actorId || null}, ${statusBefore}, ${statusAfter},
-      ${normalizeText(changeType) || null}, ${snapshot ? JSON.stringify(snapshot) : null}::jsonb
+      ${normalizedChangeType || null}, ${snapshot ? JSON.stringify(snapshot) : null}::jsonb
     )
     ON CONFLICT (account_id, project_id, id) DO NOTHING
     RETURNING id
@@ -121,10 +187,11 @@ async function recordProjectPlanEdit(sql, { projectId, editSessionId, changeType
   if (recipientUserIds.length) {
     const actorName = normalizeText(currentUser?.displayName || currentUser?.display_name) || "A project team member";
     const invalidated = statusAfter !== statusBefore ? " The prior approval was cleared and the plan must be resubmitted." : "";
+    const summary = projectPlanChangeSummary([normalizedChangeType]) || "the plan";
     await createSystemInboxItems(sql, {
       accountId, type: "project_plan_edited", recipientUserIds, actorUserId: actorId,
       subjectType: "project_plan", subjectId: String(project.id), projectName: project.name,
-      message: `${actorName} edited the ${project.name} project plan.${invalidated}`,
+      message: `${actorName} updated ${summary} in the ${project.name} project plan.${invalidated}`,
       deepLink: { view: "project_planning", projectId: String(project.id) },
     });
   }
