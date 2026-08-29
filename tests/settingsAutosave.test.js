@@ -117,6 +117,26 @@ const waitForTimers = () => new Promise((resolve) => setTimeout(resolve, 10));
     /users\.is_active = TRUE[\s\S]*users\.level IN \(1, 2\)/,
     "office lead validation should allow active Level 1/2 members"
   );
+  assert.match(
+    mutateSource,
+    /return \{ expenseCategories: await listExpenseCategories\(sql, accountId\) \};/,
+    "expense category saves should return canonical database rows"
+  );
+  assert.match(
+    settingsAdminSource,
+    /state\.projectExpenseCategories = Array\.isArray\(projectResult\?\.projectExpenseCategories\)/,
+    "project expense categories should reconcile temporary IDs after save"
+  );
+  assert.match(
+    mutateSource,
+    /corporateFunctionGroups: await listCorporateFunctionGroups\(sql, accountId\)/,
+    "corporate function saves should return canonical database groups"
+  );
+  assert.match(
+    appSource,
+    /state\.corporateFunctionCategories = Array\.isArray\(result\?\.corporateFunctionCategories\)/,
+    "corporate function UI state should reconcile after save"
+  );
 
   console.log("settings autosave tests passed");
 })().catch((error) => {

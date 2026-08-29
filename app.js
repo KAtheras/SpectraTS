@@ -13863,11 +13863,27 @@
             return;
           }
           try {
-            await mutatePersistentState(
+            const result = await mutatePersistentState(
               "update_corporate_function_categories",
               { groups },
               settingsSaveFastOptions()
             );
+            state.corporateFunctionGroups = Array.isArray(result?.corporateFunctionGroups)
+              ? result.corporateFunctionGroups.map((item) => ({
+                  id: `${item?.id || ""}`.trim(),
+                  name: `${item?.name || ""}`.trim(),
+                  sortOrder: Number(item?.sortOrder) || 0,
+                }))
+              : state.corporateFunctionGroups;
+            state.corporateFunctionCategories = Array.isArray(result?.corporateFunctionCategories)
+              ? result.corporateFunctionCategories.map((item) => ({
+                  id: `${item?.id || ""}`.trim(),
+                  groupId: `${item?.groupId || ""}`.trim(),
+                  name: `${item?.name || ""}`.trim(),
+                  sortOrder: Number(item?.sortOrder) || 0,
+                }))
+              : state.corporateFunctionCategories;
+            renderCorporateFunctionCategories?.();
             feedback("Corporate functions updated.", false);
             autosaveOk = true;
           } catch (error) {

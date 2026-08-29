@@ -5255,7 +5255,7 @@
         }
 
         try {
-          await mutatePersistentState(
+          const corporateResult = await mutatePersistentState(
             "update_expense_categories",
             { categories: corporateCategories },
             {
@@ -5264,7 +5264,7 @@
               skipSettingsMetadataReload: true,
             }
           );
-          await mutatePersistentState(
+          const projectResult = await mutatePersistentState(
             "update_project_expense_categories",
             { categories: normalizedRows },
             {
@@ -5273,7 +5273,21 @@
               skipSettingsMetadataReload: true,
             }
           );
-          projectExpenseCategoriesDraft = normalizedRows.map((item) => ({
+          state.expenseCategories = Array.isArray(corporateResult?.expenseCategories)
+            ? corporateResult.expenseCategories.map((item) => ({
+                id: `${item?.id || ""}`.trim(),
+                name: `${item?.name || ""}`.trim(),
+              }))
+            : corporateCategories;
+          state.projectExpenseCategories = Array.isArray(projectResult?.projectExpenseCategories)
+            ? projectResult.projectExpenseCategories.map((item) => ({
+                id: `${item?.id || ""}`.trim(),
+                name: `${item?.name || ""}`.trim(),
+                isActive: item?.isActive !== false,
+                sortOrder: Number(item?.sortOrder) || 0,
+              }))
+            : normalizedRows;
+          projectExpenseCategoriesDraft = state.projectExpenseCategories.map((item) => ({
             id: item.id,
             name: item.name,
           }));

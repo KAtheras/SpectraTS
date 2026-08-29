@@ -23,9 +23,12 @@ const {
   json,
   loadState,
   listLevelLabels,
+  listExpenseCategories,
   listProjectExpenseCategories,
   listTargetRealizations,
   listDepartmentLeadAssignments,
+  listCorporateFunctionGroups,
+  listCorporateFunctionCategories,
   createProjectExpenseCategory,
   createProjectPlannedExpense,
   updateProjectPlannedExpense,
@@ -2456,7 +2459,7 @@ async function updateExpenseCategories(sql, payload, accountId) {
     }
   }
 
-  return null;
+  return { expenseCategories: await listExpenseCategories(sql, accountId) };
 }
 
 async function updateProjectExpenseCategories(sql, payload, accountId) {
@@ -2560,7 +2563,9 @@ async function updateProjectExpenseCategories(sql, payload, accountId) {
     `;
   }
 
-  return null;
+  return {
+    projectExpenseCategories: await listProjectExpenseCategories(sql, accountId),
+  };
 }
 
 async function updateCorporateFunctionCategories(sql, payload, accountId) {
@@ -2763,7 +2768,10 @@ async function updateCorporateFunctionCategories(sql, payload, accountId) {
     }
   }
 
-  return null;
+  return {
+    corporateFunctionGroups: await listCorporateFunctionGroups(sql, accountId),
+    corporateFunctionCategories: await listCorporateFunctionCategories(sql, accountId),
+  };
 }
 
 async function updateOfficeLocations(sql, payload, accountId) {
