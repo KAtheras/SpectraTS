@@ -2606,6 +2606,10 @@
     return new Promise((resolve) => {
       const unapprovedTimeCount = Number(checks?.unapprovedTimeCount || 0);
       const unapprovedExpenseCount = Number(checks?.unapprovedExpenseCount || 0);
+      const rawPercentComplete = Number(checks?.percentComplete || 0);
+      const percentComplete = Number.isFinite(rawPercentComplete)
+        ? Math.min(100, Math.max(0, rawPercentComplete))
+        : 0;
       const hasOutstandingRecords = unapprovedTimeCount > 0 || unapprovedExpenseCount > 0;
       const outstandingRecordDescription = [
         unapprovedTimeCount > 0
@@ -2636,9 +2640,17 @@
             <div class="project-closeout-review-grid">
               <div><strong>${unapprovedTimeCount}</strong><span>Unapproved time entries</span></div>
               <div><strong>${unapprovedExpenseCount}</strong><span>Unapproved expenses</span></div>
-              <div><strong>${Number(checks?.plannedMemberCount || 0)}</strong><span>Members in project plan</span></div>
+              <div><strong>${Number(checks?.actualHours || 0).toFixed(1)}h</strong><span>Actual charged hours</span></div>
               <div><strong>${Number(checks?.plannedHours || 0).toFixed(1)}h</strong><span>Total planned hours</span></div>
+              <div><strong>${percentComplete.toFixed(1).replace(/\.0$/, "")}%</strong><span>Current completion</span></div>
             </div>
+            ${
+              percentComplete < 100
+                ? `<p class="project-closeout-completion-warning">Currently ${percentComplete
+                    .toFixed(1)
+                    .replace(/\.0$/, "")}%. Closing this project will set it to 100%.</p>`
+                : ""
+            }
             <p class="project-closeout-note">Project planning is an aggregate budget, so confirm manually that no future work remains.</p>
           </section>
           <section class="project-closeout-fields">

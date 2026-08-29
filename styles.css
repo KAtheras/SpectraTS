@@ -621,7 +621,7 @@ body.project-closeout-modal-open .dp-popover {
 
 .project-closeout-review-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 10px;
   margin-top: 12px;
 }
@@ -642,6 +642,17 @@ body.project-closeout-modal-open .dp-popover {
 
 .project-closeout-note {
   margin: 12px 0 0;
+}
+
+.project-closeout-completion-warning {
+  margin: 12px 0 0;
+  color: #b54708;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+body[data-theme="dark"] .project-closeout-completion-warning {
+  color: #fdb022;
 }
 
 .project-closeout-fields {

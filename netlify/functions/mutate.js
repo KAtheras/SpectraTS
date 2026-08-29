@@ -4698,12 +4698,13 @@ async function reactivateClient(sql, payload, accountId) {
 async function getProjectCloseoutCheck(sql, project, accountId) {
   const [entryRows, expenseRows, planRows] = await Promise.all([
     sql`
-      SELECT COUNT(*)::INT AS total
+      SELECT
+        COUNT(*) FILTER (WHERE LOWER(COALESCE(status, 'pending')) <> 'approved')::INT AS total,
+        COALESCE(SUM(hours), 0)::FLOAT8 AS "actualHours"
       FROM entries
       WHERE account_id = ${accountId}::uuid
         AND deleted_at IS NULL
         AND (project_id = ${project.id} OR (LOWER(client_name) = LOWER(${project.client}) AND LOWER(project_name) = LOWER(${project.name})))
-        AND LOWER(COALESCE(status, 'pending')) <> 'approved'
     `,
     sql`
       SELECT COUNT(*)::INT AS total
@@ -4715,17 +4716,19 @@ async function getProjectCloseoutCheck(sql, project, accountId) {
         AND LOWER(COALESCE(status, 'pending')) <> 'approved'
     `,
     sql`
-      SELECT COUNT(*)::INT AS "memberCount", COALESCE(SUM(budget_hours), 0)::FLOAT8 AS "plannedHours"
+      SELECT COALESCE(SUM(budget_hours), 0)::FLOAT8 AS "plannedHours"
       FROM project_member_budgets
       WHERE account_id = ${accountId}::uuid
         AND project_id = ${project.id}
     `,
   ]);
+  const percentComplete = Number(project.percentComplete ?? project.percent_complete ?? 0);
   return {
     unapprovedTimeCount: Number(entryRows[0]?.total || 0),
     unapprovedExpenseCount: Number(expenseRows[0]?.total || 0),
-    plannedMemberCount: Number(planRows[0]?.memberCount || 0),
+    actualHours: Number(entryRows[0]?.actualHours || 0),
     plannedHours: Number(planRows[0]?.plannedHours || 0),
+    percentComplete: Number.isFinite(percentComplete) ? percentComplete : 0,
   };
 }
 
