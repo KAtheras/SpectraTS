@@ -82,6 +82,14 @@
         : user.cost_rate !== undefined && user.cost_rate !== null
           ? Number(user.cost_rate)
           : null;
+    const projectPlanningBaseRate =
+      user.projectPlanningBaseRate !== undefined && user.projectPlanningBaseRate !== null
+        ? Number(user.projectPlanningBaseRate)
+        : null;
+    const projectPlanningCostRate =
+      user.projectPlanningCostRate !== undefined && user.projectPlanningCostRate !== null
+        ? Number(user.projectPlanningCostRate)
+        : null;
     const officeId =
       user.officeId !== undefined && user.officeId !== null
         ? user.officeId
@@ -125,6 +133,12 @@
       password,
       baseRate: Number.isFinite(baseRate) ? baseRate : null,
       costRate: Number.isFinite(costRate) ? costRate : null,
+      projectPlanningBaseRate: Number.isFinite(projectPlanningBaseRate)
+        ? projectPlanningBaseRate
+        : null,
+      projectPlanningCostRate: Number.isFinite(projectPlanningCostRate)
+        ? projectPlanningCostRate
+        : null,
       mustChangePassword,
       isExempt,
       accountId: user.accountId || "",

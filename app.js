@@ -1420,7 +1420,7 @@
       allowOpenPlanning:
         String(projectRow?.lifecycleStatus || projectRow?.lifecycle_status || "ongoing").toLowerCase() !== "closed_out" &&
         isProjectActive(projectRow) &&
-        canEditProjectPlanning(normalizedClient, normalizedProject),
+        canEditProjectPlanningForProject(projectRow),
       onSubmitEdit: async (payload) => {
         const nextName = String(payload.projectName || "").trim();
         await mutatePersistentState("update_project", {
@@ -4368,6 +4368,11 @@
 
   function canEditProjectPlanning(clientName, projectName) {
     const project = findProjectRow(clientName, projectName);
+    if (!project) return false;
+    return canEditProjectPlanningForProject(project);
+  }
+
+  function canEditProjectPlanningForProject(project) {
     if (!project) return false;
     if (canEditProjectPlanningCapability()) return true;
     return isCurrentUserProjectLead(project);
@@ -10666,10 +10671,7 @@
             ) || null;
           const canEditPlanning =
             planningProject &&
-            canEditProjectPlanning(
-              String(planningProject?.client || "").trim(),
-              String(planningProject?.name || "").trim()
-            ) &&
+            canEditProjectPlanningForProject(planningProject) &&
             !["submitted", "approved"].includes(
               String(planningProject?.planningStatus || planningProject?.planning_status || "draft").toLowerCase()
             );
