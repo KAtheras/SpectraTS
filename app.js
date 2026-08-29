@@ -6932,10 +6932,11 @@
       };
 
       const onConfirm = () => {
+        const value = showInput ? dialogResolveValue() : undefined;
         cleanup();
         resolve({
           confirmed: true,
-          value: showInput ? dialogResolveValue() : undefined,
+          value,
         });
       };
       const onCancel = () => {

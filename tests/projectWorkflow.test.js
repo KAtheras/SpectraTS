@@ -78,6 +78,7 @@ assert.doesNotMatch(appSource, /if \(view === "inbox" && previousView !== "inbox
 assert.match(stateSource, /const inboxOnly = .*inbox_only/);
 assert.match(stateSource, /await listInboxItems\(sql, context\.currentUser\.accountId, context\.currentUser\.id\)/);
 assert.match(appSource, /onPromptDialog: async function/);
+assert.match(appSource, /const onConfirm = \(\) => \{\s*const value = showInput \? dialogResolveValue\(\) : undefined;\s*cleanup\(\);/);
 assert.match(appSource, /const hasUnsavedChanges = projectDraftSignature\(\) !== savedDraftSignature;\s*if \(hasUnsavedChanges\) \{\s*const payload = buildProjectDialogPayload\(\)/);
 assert.match(appSource, /if \(projectDialog\.openProjectPlanning\) \{[\s\S]*?setView\("project_planning"\);[\s\S]*?return;/);
 const openPlannerHandler = appSource.match(/const onOpenProjectPlanning = async \(event\) => \{[\s\S]*?openPlanningButton\?\.addEventListener/)?.[0] || "";
