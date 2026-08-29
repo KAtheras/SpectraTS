@@ -104,6 +104,12 @@ exports.handler = async function handler(event) {
         closedOutBy: project?.closedOutBy ?? project?.closed_out_by ?? null,
         closeoutNotes: project?.closeoutNotes ?? project?.closeout_notes ?? "",
         closeoutBillingNote: project?.closeoutBillingNote ?? project?.closeout_billing_note ?? "",
+        closeoutDeliverablesConfirmed: project?.closeoutDeliverablesConfirmed === true,
+        closeoutRecordsConfirmed: project?.closeoutRecordsConfirmed === true,
+        closeoutPlanningConfirmed: project?.closeoutPlanningConfirmed === true,
+        closeoutBillingReviewed: project?.closeoutBillingReviewed === true,
+        closeoutSubmittedAt: project?.closeoutSubmittedAt ?? project?.closeout_submitted_at ?? null,
+        closeoutSubmittedBy: project?.closeoutSubmittedBy ?? project?.closeout_submitted_by ?? null,
       }));
     }
     const currentUser = state.currentUser;

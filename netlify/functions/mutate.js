@@ -1532,6 +1532,12 @@ async function snapshotProjectById(sql, projectId, accountId) {
       p.closed_out_by,
       p.closeout_notes,
       p.closeout_billing_note,
+      p.closeout_deliverables_confirmed,
+      p.closeout_records_confirmed,
+      p.closeout_planning_confirmed,
+      p.closeout_billing_reviewed,
+      p.closeout_submitted_at,
+      p.closeout_submitted_by,
       c.name AS client_name
     FROM projects p
     JOIN clients c ON c.id = p.client_id
@@ -1572,6 +1578,12 @@ async function snapshotProjectById(sql, projectId, accountId) {
     closed_out_by: normalizeText(row.closed_out_by) || null,
     closeout_notes: normalizeText(row.closeout_notes) || null,
     closeout_billing_note: normalizeText(row.closeout_billing_note) || null,
+    closeout_deliverables_confirmed: row.closeout_deliverables_confirmed === true,
+    closeout_records_confirmed: row.closeout_records_confirmed === true,
+    closeout_planning_confirmed: row.closeout_planning_confirmed === true,
+    closeout_billing_reviewed: row.closeout_billing_reviewed === true,
+    closeout_submitted_at: row.closeout_submitted_at || null,
+    closeout_submitted_by: normalizeText(row.closeout_submitted_by) || null,
     percent_complete_updated_at: row.percent_complete_updated_at || null,
     planning_status: normalizePlanningStatus(row.planning_status, "draft"),
     project_executive_id: normalizeText(row.project_executive_id) || null,
@@ -1905,13 +1917,14 @@ async function canCloseProjectForTarget({ sql, can, currentUser, targetProject, 
     targetProject.client_id,
     accountId
   );
+  if (actorRoleKey(currentUser) === "superuser") return true;
+  if (normalizeText(targetProject.project_executive_id || targetProject.projectExecutiveId) === userId) return true;
+  if (normalizeText(targetProject.project_lead_id || targetProject.projectLeadId) === userId) return true;
   if (!can("close_project", {
     resourceOfficeId: officeId || null,
     projectId: normalizeText(targetProject.id),
     actorProjectIds,
   })) return false;
-  if (actorRoleKey(currentUser) === "superuser") return true;
-  if (normalizeText(targetProject.project_lead_id || targetProject.projectLeadId) === userId) return true;
   const rows = await sql`
     SELECT (
       EXISTS (
@@ -4887,6 +4900,8 @@ async function closeOutProject(sql, payload, currentUser, project, accountId) {
         closeout_records_confirmed = TRUE,
         closeout_planning_confirmed = TRUE,
         closeout_billing_reviewed = TRUE,
+        closeout_submitted_at = COALESCE(closeout_submitted_at, NOW()),
+        closeout_submitted_by = COALESCE(closeout_submitted_by, ${currentUser.id}),
         pre_close_percent_complete = percent_complete,
         percent_complete = 100,
         percent_complete_updated_at = NOW(),
@@ -4896,6 +4911,61 @@ async function closeOutProject(sql, payload, currentUser, project, accountId) {
       AND account_id = ${accountId}::uuid
   `;
   return { message: "Project closed out.", checks };
+}
+
+async function submitProjectCloseout(sql, payload, currentUser, project, accountId) {
+  if (normalizeText(project.lifecycleStatus || project.lifecycle_status).toLowerCase() === "closed_out") {
+    return errorResponse(400, "Project is already closed out.");
+  }
+  if (project.isActive === false || project.is_active === false) {
+    return errorResponse(400, "Reactivate this deactivated project before submitting close-out.");
+  }
+  const completedAt = normalizeText(payload?.completedAt || payload?.completed_at);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(completedAt) || Number.isNaN(new Date(`${completedAt}T00:00:00.000Z`).getTime())) {
+    return errorResponse(400, "A valid completion date is required.");
+  }
+  if (completedAt > new Date().toISOString().slice(0, 10)) {
+    return errorResponse(400, "Completion date cannot be in the future.");
+  }
+  if ([payload?.deliverablesConfirmed, payload?.recordsConfirmed, payload?.planningConfirmed, payload?.billingReviewed]
+    .some((value) => value !== true)) {
+    return errorResponse(400, "Complete every close-out confirmation before submitting the project.");
+  }
+  const checks = await getProjectCloseoutCheck(sql, project, accountId);
+  if ((checks.unapprovedTimeCount || checks.unapprovedExpenseCount) && payload?.acknowledgeOutstanding !== true) {
+    return errorResponse(400, "Outstanding time or expenses require explicit acknowledgement.");
+  }
+  await sql`
+    UPDATE projects
+    SET lifecycle_status = 'closeout_pending',
+        closed_out_at = ${completedAt}::date,
+        closeout_notes = ${normalizeNullableText(payload?.closeoutNotes)},
+        closeout_billing_note = ${normalizeNullableText(payload?.billingNote)},
+        closeout_deliverables_confirmed = TRUE,
+        closeout_records_confirmed = TRUE,
+        closeout_planning_confirmed = TRUE,
+        closeout_billing_reviewed = TRUE,
+        closeout_submitted_at = NOW(),
+        closeout_submitted_by = ${currentUser.id},
+        updated_at = NOW()
+    WHERE id = ${project.id}
+      AND account_id = ${accountId}::uuid
+  `;
+  const executiveId = normalizeText(project.projectExecutiveId || project.project_executive_id);
+  if (executiveId) {
+    await createSystemInboxItems(sql, {
+      accountId,
+      type: "project_closeout_submitted",
+      recipientUserIds: [executiveId],
+      actorUserId: currentUser.id,
+      subjectType: "project",
+      subjectId: String(project.id),
+      projectName: normalizeText(project.name) || "project",
+      message: `${currentUser?.displayName || "The Project Lead"} submitted ${normalizeText(project.name) || "the project"} for close-out approval.`,
+      deepLink: { view: "clients", projectId: String(project.id) },
+    });
+  }
+  return { message: "Project close-out submitted for approval.", checks, closeoutPending: true };
 }
 
 async function reopenClosedProject(sql, project, accountId) {
@@ -4916,6 +4986,8 @@ async function reopenClosedProject(sql, project, accountId) {
         closeout_records_confirmed = FALSE,
         closeout_planning_confirmed = FALSE,
         closeout_billing_reviewed = FALSE,
+        closeout_submitted_at = NULL,
+        closeout_submitted_by = NULL,
         percent_complete = pre_close_percent_complete,
         percent_complete_updated_at = NOW(),
         pre_close_percent_complete = NULL,
@@ -7026,6 +7098,11 @@ exports.handler = async function handler(event) {
         if (!await canCloseProjectForTarget({ sql, can, currentUser: context.currentUser, targetProject, accountId })) {
           return errorResponse(403, "Access denied.");
         }
+        const actorId = normalizeText(context.currentUser?.id);
+        const executiveId = normalizeText(targetProject.projectExecutiveId || targetProject.project_executive_id);
+        if (actorRoleKey(context.currentUser) !== "superuser" && actorId !== executiveId) {
+          return errorResponse(403, "Only the assigned Project Executive or a Superuser may finalize close-out.");
+        }
         mutationResult = await runMutationWithAudit({
           sql,
           accountId,
@@ -7040,6 +7117,33 @@ exports.handler = async function handler(event) {
         });
         break;
       }
+      case "submit_project_closeout": {
+        const clientName = normalizeText(request.payload?.clientName);
+        const projectName = normalizeText(request.payload?.projectName);
+        const targetProject = await findProject(sql, clientName, projectName, accountId);
+        if (!targetProject) return errorResponse(404, "Project not found.");
+        const actorId = normalizeText(context.currentUser?.id);
+        const leadId = normalizeText(targetProject.projectLeadId || targetProject.project_lead_id);
+        if (actorId !== leadId) {
+          return errorResponse(403, "Only the assigned Project Lead may submit close-out for approval.");
+        }
+        if (!normalizeText(targetProject.projectExecutiveId || targetProject.project_executive_id)) {
+          return errorResponse(400, "Assign a Project Executive before submitting close-out.");
+        }
+        mutationResult = await runMutationWithAudit({
+          sql,
+          accountId,
+          context,
+          entityType: "project",
+          entityId: targetProject.id,
+          action: "submit_closeout",
+          runMutation: () => submitProjectCloseout(sql, request.payload || {}, context.currentUser, targetProject, accountId),
+          getSnapshot: () => snapshotProjectById(sql, targetProject.id, accountId),
+          contextClientId: targetProject.client_id || null,
+          contextProjectId: targetProject.id,
+        });
+        break;
+      }
       case "reopen_project": {
         const clientName = normalizeText(request.payload?.clientName);
         const projectName = normalizeText(request.payload?.projectName);
@@ -7047,6 +7151,11 @@ exports.handler = async function handler(event) {
         if (!targetProject) return errorResponse(404, "Project not found.");
         if (!await canCloseProjectForTarget({ sql, can, currentUser: context.currentUser, targetProject, accountId })) {
           return errorResponse(403, "Access denied.");
+        }
+        const actorId = normalizeText(context.currentUser?.id);
+        const executiveId = normalizeText(targetProject.projectExecutiveId || targetProject.project_executive_id);
+        if (actorRoleKey(context.currentUser) !== "superuser" && actorId !== executiveId) {
+          return errorResponse(403, "Only the assigned Project Executive or a Superuser may reopen this project.");
         }
         mutationResult = await runMutationWithAudit({
           sql,

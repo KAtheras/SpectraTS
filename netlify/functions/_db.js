@@ -951,6 +951,8 @@ async function ensureSchema(sql) {
       closeout_records_confirmed BOOLEAN NOT NULL DEFAULT FALSE,
       closeout_planning_confirmed BOOLEAN NOT NULL DEFAULT FALSE,
       closeout_billing_reviewed BOOLEAN NOT NULL DEFAULT FALSE,
+      closeout_submitted_at TIMESTAMPTZ,
+      closeout_submitted_by TEXT REFERENCES users(id) ON DELETE SET NULL,
       pre_close_percent_complete NUMERIC(5,2)
     )
   `;
@@ -1037,6 +1039,8 @@ async function ensureSchema(sql) {
   await sql`ALTER TABLE projects ADD COLUMN IF NOT EXISTS closeout_records_confirmed BOOLEAN NOT NULL DEFAULT FALSE`;
   await sql`ALTER TABLE projects ADD COLUMN IF NOT EXISTS closeout_planning_confirmed BOOLEAN NOT NULL DEFAULT FALSE`;
   await sql`ALTER TABLE projects ADD COLUMN IF NOT EXISTS closeout_billing_reviewed BOOLEAN NOT NULL DEFAULT FALSE`;
+  await sql`ALTER TABLE projects ADD COLUMN IF NOT EXISTS closeout_submitted_at TIMESTAMPTZ`;
+  await sql`ALTER TABLE projects ADD COLUMN IF NOT EXISTS closeout_submitted_by TEXT REFERENCES users(id) ON DELETE SET NULL`;
   await sql`ALTER TABLE projects ADD COLUMN IF NOT EXISTS pre_close_percent_complete NUMERIC(5,2)`;
 
   await sql`
@@ -3564,6 +3568,12 @@ async function findProject(sql, clientName, projectName, accountId) {
       projects.closed_out_by AS "closedOutBy",
       projects.closeout_notes AS "closeoutNotes",
       projects.closeout_billing_note AS "closeoutBillingNote",
+      projects.closeout_deliverables_confirmed AS "closeoutDeliverablesConfirmed",
+      projects.closeout_records_confirmed AS "closeoutRecordsConfirmed",
+      projects.closeout_planning_confirmed AS "closeoutPlanningConfirmed",
+      projects.closeout_billing_reviewed AS "closeoutBillingReviewed",
+      projects.closeout_submitted_at AS "closeoutSubmittedAt",
+      projects.closeout_submitted_by AS "closeoutSubmittedBy",
       projects.is_active AS "isActive",
       clients.is_active AS "clientIsActive"
     FROM projects
@@ -3620,6 +3630,12 @@ async function listProjects(sql, accountId) {
       projects.closed_out_by AS "closedOutBy",
       projects.closeout_notes AS "closeoutNotes",
       projects.closeout_billing_note AS "closeoutBillingNote",
+      projects.closeout_deliverables_confirmed AS "closeoutDeliverablesConfirmed",
+      projects.closeout_records_confirmed AS "closeoutRecordsConfirmed",
+      projects.closeout_planning_confirmed AS "closeoutPlanningConfirmed",
+      projects.closeout_billing_reviewed AS "closeoutBillingReviewed",
+      projects.closeout_submitted_at AS "closeoutSubmittedAt",
+      projects.closeout_submitted_by AS "closeoutSubmittedBy",
       projects.is_active AS "isActive",
       COALESCE((
         SELECT SUM(e.hours)
@@ -4868,6 +4884,14 @@ async function loadState(sql, currentUser, options = {}) {
     )
     .map((project) => normalizeText(project?.id))
     .filter(Boolean);
+  const actorExecutiveProjectIds = allProjects
+    .filter(
+      (project) =>
+        actorUserId &&
+        normalizeText(project?.projectExecutiveId ?? project?.project_executive_id) === actorUserId
+    )
+    .map((project) => normalizeText(project?.id))
+    .filter(Boolean);
   const manageCategories = canCap("manage_expense_categories", {
     resourceOfficeId: normalizedUser?.officeId ?? null,
     actorOfficeId: normalizedUser?.officeId ?? null,
@@ -5106,7 +5130,8 @@ async function loadState(sql, currentUser, options = {}) {
     canSeeAllClientsProjects ||
       canSeeOfficeClientsProjects ||
       canSeeAssignedClientsProjects ||
-      actorLeadProjectIds.length
+      actorLeadProjectIds.length ||
+      actorExecutiveProjectIds.length
   );
   let actorProjectIds = [...actorDirectAssignedProjectIds];
   if (hasAssignedVisibilityScope) {
@@ -5144,7 +5169,7 @@ async function loadState(sql, currentUser, options = {}) {
     }
     actorProjectIds = [...new Set(actorProjectIds)];
   }
-  actorProjectIds = [...new Set([...actorProjectIds, ...actorLeadProjectIds])];
+  actorProjectIds = [...new Set([...actorProjectIds, ...actorLeadProjectIds, ...actorExecutiveProjectIds])];
   const actorClientIdsFromProjects = new Set();
   if (hasAssignedVisibilityScope) {
     actorManagerClientAssignments.forEach((row) => {
@@ -5172,6 +5197,7 @@ async function loadState(sql, currentUser, options = {}) {
           const inAssignedScope =
             hasAssignedVisibilityScope && Boolean(projectId) && actorProjectIds.includes(projectId);
           const inProjectLeadScope = Boolean(projectId) && actorLeadProjectIds.includes(projectId);
+          const inProjectExecutiveScope = Boolean(projectId) && actorExecutiveProjectIds.includes(projectId);
           let inOfficeScope = false;
           if (hasOfficeClientsProjectsScope) {
             const projectOfficeId = normalizeText(project?.officeId ?? project?.office_id);
@@ -5186,12 +5212,13 @@ async function loadState(sql, currentUser, options = {}) {
               }
             }
           }
-          return inAssignedScope || inProjectLeadScope || inOfficeScope;
+          return inAssignedScope || inProjectLeadScope || inProjectExecutiveScope || inOfficeScope;
         })
       : normalizedUser
         ? allProjects.filter((project) => {
             const projectId = normalizeText(project?.id);
-            return Boolean(projectId) && actorLeadProjectIds.includes(projectId);
+            return Boolean(projectId) &&
+              (actorLeadProjectIds.includes(projectId) || actorExecutiveProjectIds.includes(projectId));
           })
       : [];
   const visibleClientIdSet = new Set(

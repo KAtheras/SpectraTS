@@ -1320,7 +1320,7 @@
     if (!normalizedClient || !normalizedProject) {
       return;
     }
-    if (!canEditProjectModal(normalizedClient, normalizedProject)) {
+    if (!canOpenProjectModal(normalizedClient, normalizedProject)) {
       feedback("Access denied.", true);
       return;
     }
@@ -1411,8 +1411,11 @@
       closedOutAt: projectRow?.closedOutAt || projectRow?.closed_out_at || null,
       closeoutNotes: projectRow?.closeoutNotes || projectRow?.closeout_notes || null,
       closeoutBillingNote: projectRow?.closeoutBillingNote || projectRow?.closeout_billing_note || null,
+      closeoutSubmittedAt: projectRow?.closeoutSubmittedAt || projectRow?.closeout_submitted_at || null,
+      closeoutSubmittedBy: projectRow?.closeoutSubmittedBy || projectRow?.closeout_submitted_by || null,
       projectIsActive: isProjectActive(projectRow),
       canCloseProject: canCloseProject(projectRow),
+      canFinalizeCloseout: canFinalizeProjectCloseout(projectRow),
       canManageProjectLifecycle: Boolean(state.permissions?.manage_project_activation),
       canRemoveProject: Boolean(state.permissions?.remove_project),
       canEditProject: canEditProjectModal(normalizedClient, normalizedProject),
@@ -1458,10 +1461,8 @@
     });
     if (!projectDialog || projectDialog.openProjectPlanning) return;
     if (projectDialog.closeOutProject) {
-      const closedOut = await openProjectCloseoutFlow(normalizedClient, savedProjectName);
-      if (!closedOut) {
-        await openProjectEditDialogFlow(normalizedClient, savedProjectName);
-      }
+      await openProjectCloseoutFlow(normalizedClient, savedProjectName);
+      await openProjectEditDialogFlow(normalizedClient, savedProjectName);
       return;
     }
     if (projectDialog.reopenProject) {
@@ -1522,6 +1523,7 @@
       const isProjectEditDialog = mode === "edit";
       const lifecycleStatus = String(options?.lifecycleStatus || "ongoing").trim().toLowerCase();
       const isClosedOutProject = lifecycleStatus === "closed_out";
+      const isCloseoutPending = lifecycleStatus === "closeout_pending";
       const isDeactivatedProject = isProjectEditDialog && options?.projectIsActive === false && !isClosedOutProject;
       const canManageProjectLifecycleFromDialog =
         isProjectEditDialog && options?.canManageProjectLifecycle === true;
@@ -1688,6 +1690,8 @@
               ? `<div class="project-lifecycle-banner"><strong>Closed out</strong><span>Completed ${escapeHtml(
                   String(options?.closedOutAt || "date not recorded")
                 )}. Reopen the project to make changes or accept new entries.</span></div>`
+              : isCloseoutPending
+                ? `<div class="project-lifecycle-banner"><strong>Close-out pending</strong><span>The Project Lead submitted this project for executive approval.</span></div>`
               : isDeactivatedProject
                 ? `<div class="project-lifecycle-banner"><strong>Deactivated</strong><span>This project is unavailable for new activity and excluded from operational analytics.</span></div>`
               : ""
@@ -1799,7 +1803,15 @@
                   ? `<button type="button" class="button button-ghost project-lifecycle-action${
                       isClosedOutProject ? "" : " project-lifecycle-action--closeout"
                     }" data-project-lifecycle-action>${
-                      isClosedOutProject ? "Reopen Project" : "Close Out Project"
+                      isClosedOutProject
+                        ? "Reopen Project"
+                        : isCloseoutPending && options?.canFinalizeCloseout === true
+                          ? "Review Close-out"
+                          : isCloseoutPending
+                            ? "Edit Close-out Request"
+                            : options?.canFinalizeCloseout === true
+                              ? "Close Out Project"
+                              : "Submit Close-out"
                     }</button>`
                   : ""
               }
@@ -2654,7 +2666,7 @@
     });
   }
 
-  function openProjectCloseoutDialog({ clientName, projectName, checks }) {
+  function openProjectCloseoutDialog({ clientName, projectName, checks, project, canFinalize }) {
     return new Promise((resolve) => {
       const unapprovedTimeCount = Number(checks?.unapprovedTimeCount || 0);
       const unapprovedExpenseCount = Number(checks?.unapprovedExpenseCount || 0);
@@ -2663,6 +2675,9 @@
         ? Math.min(100, Math.max(0, rawPercentComplete))
         : 0;
       const hasOutstandingRecords = unapprovedTimeCount > 0 || unapprovedExpenseCount > 0;
+      const isPending = String(project?.lifecycleStatus || project?.lifecycle_status || "").toLowerCase() === "closeout_pending";
+      const completionDate = String(project?.closedOutAt || project?.closed_out_at || today).slice(0, 10);
+      const checked = (value) => value === true ? " checked" : "";
       const outstandingRecordDescription = [
         unapprovedTimeCount > 0
           ? `${unapprovedTimeCount} unapproved time ${unapprovedTimeCount === 1 ? "entry" : "entries"}`
@@ -2682,7 +2697,7 @@
         <form class="project-closeout-card">
           <header class="project-closeout-header">
             <div>
-              <p class="project-closeout-eyebrow">Project close-out</p>
+              <p class="project-closeout-eyebrow">${canFinalize ? (isPending ? "Close-out approval" : "Project close-out") : "Close-out request"}</p>
               <h2 id="project-closeout-title" tabindex="-1">${escapeHtml(projectName)}</h2>
               <p>${escapeHtml(clientName)}</p>
             </div>
@@ -2708,14 +2723,14 @@
           <section class="project-closeout-fields">
             <label class="project-dialog-field project-closeout-date">
               <span>Completion date</span>
-              <input type="date" name="completed_at" max="${today}" value="${today}" required />
+              <input type="date" name="completed_at" max="${today}" value="${escapeHtml(completionDate)}" required />
             </label>
             <fieldset class="project-closeout-checklist">
               <legend>Confirm before closing</legend>
-              <label><input type="checkbox" name="deliverables" required /><span>All project deliverables have been completed or accepted.</span></label>
-              <label><input type="checkbox" name="records" required /><span>All time and expenses recorded in the system have been reviewed.</span></label>
-              <label><input type="checkbox" name="planning" required /><span>The project plan has been reviewed and no future work remains.</span></label>
-              <label><input type="checkbox" name="billing" required /><span>Billing and collection status has been reviewed outside the system.</span></label>
+              <label><input type="checkbox" name="deliverables" required${checked(project?.closeoutDeliverablesConfirmed)} /><span>All project deliverables have been completed or accepted.</span></label>
+              <label><input type="checkbox" name="records" required${checked(project?.closeoutRecordsConfirmed)} /><span>All time and expenses recorded in the system have been reviewed.</span></label>
+              <label><input type="checkbox" name="planning" required${checked(project?.closeoutPlanningConfirmed)} /><span>The project plan has been reviewed and no future work remains.</span></label>
+              <label><input type="checkbox" name="billing" required${checked(project?.closeoutBillingReviewed)} /><span>Billing and collection status has been reviewed outside the system.</span></label>
               ${
                 hasOutstandingRecords
                   ? `<label class="project-closeout-warning"><input type="checkbox" name="outstanding" required /><span>I understand that ${escapeHtml(
@@ -2725,14 +2740,14 @@
               }
             </fieldset>
             <div class="project-closeout-text-grid">
-              <label class="project-dialog-field"><span>Close-out notes <small>(optional)</small></span><textarea name="closeout_notes" rows="3" placeholder="Final outcome, handoff, or archive notes"></textarea></label>
-              <label class="project-dialog-field"><span>Billing note <small>(optional)</small></span><textarea name="billing_note" rows="3" placeholder="Informational only; the system does not verify billing or collection"></textarea></label>
+              <label class="project-dialog-field"><span>Close-out notes <small>(optional)</small></span><textarea name="closeout_notes" rows="3" placeholder="Final outcome, handoff, or archive notes">${escapeHtml(String(project?.closeoutNotes || project?.closeout_notes || ""))}</textarea></label>
+              <label class="project-dialog-field"><span>Billing note <small>(optional)</small></span><textarea name="billing_note" rows="3" placeholder="Informational only; the system does not verify billing or collection">${escapeHtml(String(project?.closeoutBillingNote || project?.closeout_billing_note || ""))}</textarea></label>
             </div>
           </section>
-          <p class="project-closeout-consequence">Closing sets the project to 100% complete, blocks new time and expenses, and preserves its history for completed-project analytics.</p>
+          <p class="project-closeout-consequence">${canFinalize ? "Approval closes the project, sets it to 100% complete, and blocks new time and expenses." : "Submission sends this close-out package to the Project Executive for approval. The project remains open until approved."}</p>
           <footer class="project-closeout-actions">
             <button type="button" class="button button-ghost" data-closeout-cancel>Cancel</button>
-            <button type="submit" class="button" data-closeout-confirm disabled>Close Out Project</button>
+            <button type="submit" class="button" data-closeout-confirm disabled>${canFinalize ? "Approve & Close Project" : "Submit for Approval"}</button>
           </footer>
         </form>`;
       document.body.appendChild(overlay);
@@ -2742,7 +2757,7 @@
       const cancelButton = overlay.querySelector("[data-closeout-cancel]");
       const confirmButton = overlay.querySelector("[data-closeout-confirm]");
       const completionDateInput = form.querySelector('input[name="completed_at"]');
-      bindCustomDateInput(completionDateInput, today);
+      bindCustomDateInput(completionDateInput, completionDate);
       const onCompletionDateChange = () => {
         const selectedDate = getDateInputIsoValue(completionDateInput);
         if (selectedDate) setDateInputIsoValue(completionDateInput, selectedDate);
@@ -2799,24 +2814,27 @@
 
   async function openProjectCloseoutFlow(clientName, projectName) {
     try {
+      const project = findProjectRow(clientName, projectName);
+      if (!project) throw new Error("Project not found.");
+      const canFinalize = canFinalizeProjectCloseout(project);
       const checks = await mutatePersistentState(
         "get_project_closeout_check",
         { clientName, projectName },
         { skipHydrate: true, refreshState: false, returnState: false }
       );
-      const payload = await openProjectCloseoutDialog({ clientName, projectName, checks });
+      const payload = await openProjectCloseoutDialog({ clientName, projectName, checks, project, canFinalize });
       if (!payload) return false;
       await mutatePersistentState(
-        "close_project",
+        canFinalize ? "close_project" : "submit_project_closeout",
         { clientName, projectName, ...payload },
         { skipHydrate: true, refreshState: false, returnState: false }
       );
       await loadPersistentState();
-      if (state.currentView === "clients") {
+      if (canFinalize && state.currentView === "clients") {
         state.catalogProjectLifecycleView = "closed";
       }
       render();
-      feedback("Project closed out.", false);
+      feedback(canFinalize ? "Project closed out." : "Project close-out submitted for approval.", false);
       return true;
     } catch (error) {
       feedback(error?.message || "Unable to close out project.", true);
@@ -4304,22 +4322,32 @@
   }
 
   function canCloseProject(project) {
-    if (!state.permissions?.close_project || !project) return false;
+    if (!project) return false;
     const currentUserId = String(state.currentUser?.id || "").trim();
     const permissionGroup = String(
       state.currentUser?.permissionGroup || state.currentUser?.permission_group || state.currentUser?.role || ""
     ).trim().toLowerCase();
     if (permissionGroup === "superuser" || permissionGroup === "global_admin") return true;
-    if (currentUserId && String(project?.projectLeadId || project?.project_lead_id || "").trim() === currentUserId) return true;
-    const officeId = String(project?.officeId || project?.office_id || "").trim();
-    if ((state.officeLocations || []).some(
-      (item) => String(item?.id || "") === officeId && String(item?.officeLeadUserId || item?.office_lead_user_id || "") === currentUserId
-    )) return true;
-    const departmentId = String(project?.projectDepartmentId || project?.project_department_id || "").trim();
-    return (state.departmentLeadAssignments || []).some(
-      (item) => String(item?.officeId || item?.office_id || "") === officeId &&
-        String(item?.departmentId || item?.department_id || "") === departmentId &&
-        String(item?.userId || item?.user_id || "") === currentUserId
+    if (currentUserId && String(project?.projectExecutiveId || project?.project_executive_id || "").trim() === currentUserId) return true;
+    const isClosedOut = String(project?.lifecycleStatus || project?.lifecycle_status || "").toLowerCase() === "closed_out";
+    if (isClosedOut) return false;
+    return Boolean(
+      currentUserId &&
+      String(project?.projectLeadId || project?.project_lead_id || "").trim() === currentUserId
+    );
+  }
+
+  function canFinalizeProjectCloseout(project) {
+    if (!project) return false;
+    const currentUserId = String(state.currentUser?.id || "").trim();
+    const permissionGroup = String(
+      state.currentUser?.permissionGroup || state.currentUser?.permission_group || state.currentUser?.role || ""
+    ).trim().toLowerCase();
+    return Boolean(
+      permissionGroup === "superuser" ||
+      permissionGroup === "global_admin" ||
+      (currentUserId &&
+        String(project?.projectExecutiveId || project?.project_executive_id || "").trim() === currentUserId)
     );
   }
 
@@ -4332,11 +4360,19 @@
             String(project?.projectLeadId || project?.project_lead_id || "").trim() === currentUserId
         )
     );
+    const executesVisibleProject = Boolean(
+      currentUserId &&
+        (state.projects || []).some(
+          (project) =>
+            String(project?.projectExecutiveId || project?.project_executive_id || "").trim() === currentUserId
+        )
+    );
     return Boolean(
       canSeeAllClientsProjects() ||
       canSeeOfficeClientsProjects() ||
       canSeeAssignedClientsProjects() ||
-      leadsVisibleProject
+      leadsVisibleProject ||
+      executesVisibleProject
     );
   }
 
@@ -4357,6 +4393,18 @@
     const projectLeadId = String(project?.projectLeadId || project?.project_lead_id || "").trim();
     const currentUserId = String(state.currentUser?.id || "").trim();
     return Boolean(projectLeadId && currentUserId && projectLeadId === currentUserId);
+  }
+
+  function isCurrentUserProjectExecutive(project) {
+    if (!project) return false;
+    const executiveId = String(project?.projectExecutiveId || project?.project_executive_id || "").trim();
+    const currentUserId = String(state.currentUser?.id || "").trim();
+    return Boolean(executiveId && currentUserId && executiveId === currentUserId);
+  }
+
+  function canOpenProjectModal(clientName, projectName) {
+    const project = findProjectRow(clientName, projectName);
+    return Boolean(project && (canEditProjectModal(clientName, projectName) || isCurrentUserProjectExecutive(project)));
   }
 
   function canEditProjectModal(clientName, projectName) {
@@ -11386,6 +11434,23 @@
         renderInputsExpenseMonthHistory();
       }
       postHeight();
+      return;
+    }
+
+    if (view === "clients") {
+      const projectId = String(deepLink?.projectId || (subjectType === "project" ? subjectId : "")).trim();
+      const project = (state.projects || []).find(
+        (item) => String(item?.id || "").trim() === projectId
+      );
+      if (project) {
+        const clientName = String(project?.client || "").trim();
+        const projectName = String(project?.name || project?.project || "").trim();
+        state.selectedCatalogClient = clientName;
+        setView("clients");
+        window.setTimeout(() => openProjectEditDialogFlow(clientName, projectName), 0);
+        return;
+      }
+      setView("clients");
       return;
     }
 
