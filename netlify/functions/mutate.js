@@ -6206,10 +6206,10 @@ exports.handler = async function handler(event) {
             executiveUser,
             "approve_project_plan",
             {
-              permissionIndex,
               actorOfficeId: executiveUser?.officeId ?? executiveUser?.office_id ?? null,
               resourceOfficeId: targetOfficeId,
-            }
+            },
+            permissionIndex
           )
         ) {
           return errorResponse(400, "Select a Project Executive who has plan approval permission.");
@@ -6393,11 +6393,15 @@ exports.handler = async function handler(event) {
           const executiveUser = executiveId ? await findUserById(sql, executiveId, accountId) : null;
           if (
             !executiveUser ||
-            !permissions.can(executiveUser, "approve_project_plan", {
-              permissionIndex,
-              actorOfficeId: executiveUser?.officeId ?? executiveUser?.office_id ?? null,
-              resourceOfficeId: existingProject.office_id || null,
-            })
+            !permissions.can(
+              executiveUser,
+              "approve_project_plan",
+              {
+                actorOfficeId: executiveUser?.officeId ?? executiveUser?.office_id ?? null,
+                resourceOfficeId: existingProject.office_id || null,
+              },
+              permissionIndex
+            )
           ) {
             return errorResponse(400, "Select a Project Executive who has plan approval permission.");
           }
