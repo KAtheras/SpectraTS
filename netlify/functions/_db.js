@@ -2443,16 +2443,26 @@ async function findUserById(sql, id, accountId) {
 
   const rows = accountId
     ? await sql`
-        SELECT *
+        SELECT
+          users.*,
+          level_labels.permission_group AS "permissionGroup"
         FROM users
-        WHERE id = ${normalized}
-          AND account_id = ${accountId}::uuid
+        LEFT JOIN level_labels
+          ON level_labels.account_id = users.account_id
+         AND level_labels.level = users.level
+        WHERE users.id = ${normalized}
+          AND users.account_id = ${accountId}::uuid
         LIMIT 1
       `
     : await sql`
-        SELECT *
+        SELECT
+          users.*,
+          level_labels.permission_group AS "permissionGroup"
         FROM users
-        WHERE id = ${normalized}
+        LEFT JOIN level_labels
+          ON level_labels.account_id = users.account_id
+         AND level_labels.level = users.level
+        WHERE users.id = ${normalized}
         LIMIT 1
       `;
 
