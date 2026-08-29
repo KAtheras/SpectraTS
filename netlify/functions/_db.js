@@ -5067,19 +5067,6 @@ async function loadState(sql, currentUser, options = {}) {
     )
   );
 
-  const catalogRows = await sql`
-    SELECT
-      clients.name AS client,
-      projects.name AS project
-    FROM clients
-    LEFT JOIN projects
-      ON projects.client_id = clients.id
-     AND projects.is_active = TRUE
-    WHERE clients.account_id = ${accountUuid}::uuid
-      AND clients.is_active = TRUE
-    ORDER BY LOWER(clients.name), LOWER(projects.name)
-  `;
-
   const actorMemberProjectAssignments = normalizedUser
     ? await listProjectMembersForUser(sql, normalizedUser.id, accountUuid)
     : [];
@@ -6058,8 +6045,12 @@ async function loadState(sql, currentUser, options = {}) {
 
   const ledProjectReferenceUserIds = new Set();
   const ledProjectRateUserIds = new Set();
-  if (actorLeadProjectIds.length) {
-    const numericLeadProjectIds = actorLeadProjectIds
+  const actorPlanningRoleProjectIds = Array.from(new Set([
+    ...actorLeadProjectIds,
+    ...actorExecutiveProjectIds,
+  ]));
+  if (actorPlanningRoleProjectIds.length) {
+    const numericLeadProjectIds = actorPlanningRoleProjectIds
       .map((id) => Number(id))
       .filter((id) => Number.isFinite(id));
     const [ledProjectMembers, ledProjectManagers] = await Promise.all([
@@ -6068,7 +6059,7 @@ async function loadState(sql, currentUser, options = {}) {
     ]);
     visibleProjects.forEach((project) => {
       const projectId = normalizeText(project?.id);
-      if (!actorLeadProjectIds.includes(projectId)) return;
+      if (!actorPlanningRoleProjectIds.includes(projectId)) return;
       [
         project?.projectLeadId ?? project?.project_lead_id,
         project?.projectExecutiveId ?? project?.project_executive_id,
@@ -6131,6 +6122,10 @@ async function loadState(sql, currentUser, options = {}) {
     const visibleUsers = allUsers
       .filter((user) => visibleUserIds.has(normalizeText(user?.id)))
       .map((user) => {
+        const canViewProfile = canCap("view_members", {
+          resourceOfficeId: user.officeId ?? user.office_id ?? null,
+          actorOfficeId: normalizedUser?.officeId ?? normalizedUser?.office_id ?? null,
+        });
         const roleAllowed = canViewRatesForTarget(normalizedUser, user, levelLabels);
         const canViewBaseRate = canCap("view_member_rates", {
           resourceOfficeId: user.officeId ?? user.office_id ?? null,
@@ -6152,8 +6147,23 @@ async function loadState(sql, currentUser, options = {}) {
         const allowBaseRate = roleAllowed && (canViewBaseRate || canEditRates);
         const allowCostRate = roleAllowed && canViewCostRates;
         const isAssignedToLedProject = ledProjectRateUserIds.has(normalizeText(user?.id));
+        const visibleUser = canViewProfile
+          ? user
+          : {
+              id: user?.id || null,
+              displayName: user?.displayName || user?.display_name || null,
+              role: user?.role || null,
+              level: user?.level ?? null,
+              permissionGroup: user?.permissionGroup || user?.permission_group || null,
+              officeId: user?.officeId ?? user?.office_id ?? null,
+              officeName: user?.officeName ?? user?.office_name ?? null,
+              departmentId: user?.departmentId ?? user?.department_id ?? null,
+              departmentName: user?.departmentName ?? user?.department_name ?? null,
+              isActive: user?.isActive !== false,
+              status: user?.status || null,
+            };
         return {
-          ...user,
+          ...visibleUser,
           baseRate: allowBaseRate ? user.baseRate : null,
           costRate: allowCostRate ? user.costRate : null,
           projectPlanningBaseRate: isAssignedToLedProject ? user.baseRate : null,
@@ -6169,7 +6179,17 @@ async function loadState(sql, currentUser, options = {}) {
         if (!id || !delegatorUserIds.includes(id) || existing.has(id)) return;
         if (user?.isActive === false || `${user?.status || ""}`.trim().toLowerCase() === "terminated") return;
         users.push({
-          ...user,
+          id: user?.id || null,
+          displayName: user?.displayName || user?.display_name || null,
+          role: user?.role || null,
+          level: user?.level ?? null,
+          permissionGroup: user?.permissionGroup || user?.permission_group || null,
+          officeId: user?.officeId ?? user?.office_id ?? null,
+          officeName: user?.officeName ?? user?.office_name ?? null,
+          departmentId: user?.departmentId ?? user?.department_id ?? null,
+          departmentName: user?.departmentName ?? user?.department_name ?? null,
+          isActive: user?.isActive !== false,
+          status: user?.status || null,
           baseRate: null,
           costRate: null,
         });
@@ -6198,7 +6218,11 @@ async function loadState(sql, currentUser, options = {}) {
   // Settings UI is still gated by settingsAccess.manageCategories.
   const expenseCategories = await listExpenseCategories(sql, accountUuid);
   const projectExpenseCategories = await listProjectExpenseCategories(sql, accountUuid);
-  const projectPlannedExpenses = await listProjectPlannedExpenses(sql, accountUuid);
+  const allProjectPlannedExpenses = await listProjectPlannedExpenses(sql, accountUuid);
+  const visibleProjectIdSet = new Set(visibleProjectIds.map(String));
+  const projectPlannedExpenses = allProjectPlannedExpenses.filter((expense) =>
+    visibleProjectIdSet.has(String(expense?.projectId ?? expense?.project_id ?? ""))
+  );
   let targetRealizations = [];
   if (
     canCap("manage_target_realizations", {
@@ -6227,7 +6251,7 @@ async function loadState(sql, currentUser, options = {}) {
   const scopedClientIds = visibleClientIds;
   const scopedProjectIds = visibleProjectIds;
 
-  if (isAdminFlag) {
+  if (currentGroup === "superuser") {
     assignments.managerClients = await listManagerClientAssignments(sql, accountUuid);
     assignments.managerProjects = await listManagerProjectAssignments(sql, accountUuid);
     assignments.projectMembers = await listProjectMembers(sql, accountUuid);
@@ -6300,15 +6324,34 @@ async function loadState(sql, currentUser, options = {}) {
     });
   }
 
+  const catalogProjectIdSet = new Set([
+    ...visibleProjectIds.map(String),
+    ...actorDirectAssignedProjectIds.map(String),
+    ...actorLeadProjectIds.map(String),
+    ...actorExecutiveProjectIds.map(String),
+  ]);
+  const catalogClientsById = new Map(
+    allClients
+      .filter((client) => client?.isActive !== false && client?.is_active !== false)
+      .map((client) => [normalizeText(client?.id), client])
+      .filter(([id]) => Boolean(id))
+  );
   const catalog = {};
-  for (const row of catalogRows) {
-    if (!catalog[row.client]) {
-      catalog[row.client] = [];
-    }
-    if (row.project) {
-      catalog[row.client].push(row.project);
-    }
-  }
+  allProjects
+    .filter((project) => {
+      const projectId = normalizeText(project?.id);
+      return projectId && catalogProjectIdSet.has(projectId) &&
+        project?.isActive !== false && project?.is_active !== false;
+    })
+    .sort((left, right) => normalizeText(left?.name).localeCompare(normalizeText(right?.name)))
+    .forEach((project) => {
+      const client = catalogClientsById.get(normalizeText(project?.clientId ?? project?.client_id));
+      const clientName = normalizeText(client?.name);
+      const projectName = normalizeText(project?.name);
+      if (!clientName || !projectName) return;
+      if (!catalog[clientName]) catalog[clientName] = [];
+      catalog[clientName].push(projectName);
+    });
 
   const inboxItems = normalizedUser
     ? await listInboxItems(sql, accountUuid, normalizedUser.id)

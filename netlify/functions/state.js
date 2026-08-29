@@ -52,6 +52,24 @@ exports.handler = async function handler(event) {
       sql,
       state?.account?.id || null
     );
+    const currentUserId = String(context.currentUser?.id || "").trim();
+    const visibleProjectIds = Array.isArray(state?.visibleProjectIds)
+      ? state.visibleProjectIds.map(String)
+      : [];
+    const planningProjectIds = (state.projects || [])
+      .filter((project) => {
+        const projectId = String(project?.id || "").trim();
+        if (!projectId) return false;
+        const isLead = String(project?.projectLeadId ?? project?.project_lead_id ?? "").trim() === currentUserId;
+        const isExecutive = String(project?.projectExecutiveId ?? project?.project_executive_id ?? "").trim() === currentUserId;
+        return isLead || isExecutive || can(context.currentUser, "edit_project_planning", {
+          resourceOfficeId: project?.officeId ?? project?.office_id ?? null,
+          projectId,
+          actorProjectIds: visibleProjectIds,
+        }, permissionIndex);
+      })
+      .map((project) => Number(project.id))
+      .filter(Number.isFinite);
     const projectMemberBudgets = await sql`
       SELECT
         project_id AS "projectId",
@@ -61,8 +79,13 @@ exports.handler = async function handler(event) {
         rate_override AS "rateOverride"
       FROM project_member_budgets
       WHERE account_id = ${state?.account?.id || null}::uuid
+        AND project_id = ANY(${planningProjectIds.length ? planningProjectIds : [0]}::bigint[])
       ORDER BY project_id, user_id
     `;
+    const planningProjectIdSet = new Set(planningProjectIds.map(String));
+    state.projectPlannedExpenses = (state.projectPlannedExpenses || []).filter((expense) =>
+      planningProjectIdSet.has(String(expense?.projectId ?? expense?.project_id ?? ""))
+    );
     if (Array.isArray(state.clients)) {
       state.clients = state.clients.map((client) => ({
         ...client,

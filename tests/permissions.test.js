@@ -513,6 +513,34 @@ test("superuser can access all settings capabilities globally", () => {
   assert.strictEqual(shell && rates && cats && locs, true);
 });
 
+test("planning budgets are restricted to projects the actor can plan", () => {
+  const stateSource = fs.readFileSync(path.join(__dirname, "..", "netlify", "functions", "state.js"), "utf8");
+  assert.match(stateSource, /project_id = ANY\(\$\{planningProjectIds\.length \? planningProjectIds : \[0\]\}::bigint\[\]\)/);
+  assert.match(stateSource, /isLead \|\| isExecutive \|\| can\(context\.currentUser, "edit_project_planning"/);
+});
+
+test("ordinary admins receive only scoped project assignments", () => {
+  const dbSource = fs.readFileSync(path.join(__dirname, "..", "netlify", "functions", "_db.js"), "utf8");
+  assert.match(dbSource, /if \(currentGroup === "superuser"\) \{[\s\S]*?listManagerClientAssignments\(sql, accountUuid\)/);
+  assert.match(dbSource, /actorPlanningRoleProjectIds = Array\.from\(new Set\(\[[\s\S]*?actorExecutiveProjectIds/);
+});
+
+test("entry catalog excludes unrelated account projects", () => {
+  const dbSource = fs.readFileSync(path.join(__dirname, "..", "netlify", "functions", "_db.js"), "utf8");
+  assert.match(dbSource, /catalogProjectIdSet = new Set\(\[[\s\S]*?actorDirectAssignedProjectIds/);
+  assert.match(dbSource, /catalogProjectIdSet\.has\(projectId\)/);
+  assert.doesNotMatch(dbSource, /const catalogRows = await sql/);
+});
+
+test("project-reference users do not expose full member profiles", () => {
+  const dbSource = fs.readFileSync(path.join(__dirname, "..", "netlify", "functions", "_db.js"), "utf8");
+  assert.match(dbSource, /const visibleUser = canViewProfile[\s\S]*?displayName:[\s\S]*?departmentName:/);
+  const minimalShape = dbSource.match(/const visibleUser = canViewProfile[\s\S]*?return \{\s*\.\.\.visibleUser,/i)?.[0] || "";
+  assert.doesNotMatch(minimalShape, /email:/);
+  assert.doesNotMatch(minimalShape, /employeeId:/);
+  assert.doesNotMatch(minimalShape, /memberProfile:/);
+});
+
 test("analytics capabilities are controlled by the live matrix", () => {
   const analyticsIndex = indexFromRows([
     {
