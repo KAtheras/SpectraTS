@@ -249,6 +249,7 @@
         const closedOutBy = project.closedOutBy ?? project.closed_out_by ?? null;
         const closeoutNotes = project.closeoutNotes ?? project.closeout_notes ?? null;
         const closeoutBillingNote = project.closeoutBillingNote ?? project.closeout_billing_note ?? null;
+        const loggedHoursRaw = Number(project.loggedHours ?? project.logged_hours);
         return {
           id: project.id || "",
           client,
@@ -291,6 +292,8 @@
           closeout_notes: closeoutNotes,
           closeoutBillingNote,
           closeout_billing_note: closeoutBillingNote,
+          loggedHours: Number.isFinite(loggedHoursRaw) ? loggedHoursRaw : null,
+          logged_hours: Number.isFinite(loggedHoursRaw) ? loggedHoursRaw : null,
         };
       })
       .filter(Boolean);

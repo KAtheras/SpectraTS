@@ -2406,15 +2406,12 @@
         });
       let savedDraftSignature = "";
       let projectSaveInProgress = false;
-      let projectHasBeenSaved = options?.startWithCloseAction === true;
       const syncProjectSaveButtonState = () => {
         if (!isProjectEditDialog || !projectSaveButton) return;
         const hasUnsavedChanges = projectDraftSignature() !== savedDraftSignature;
         projectSaveButton.disabled = projectSaveInProgress || !hasUnsavedChanges;
         if (projectCancelButton && !projectSaveInProgress) {
-          projectCancelButton.textContent = projectHasBeenSaved && !hasUnsavedChanges
-            ? "Close"
-            : "Cancel";
+          projectCancelButton.textContent = hasUnsavedChanges ? "Cancel" : "Close";
         }
       };
 
@@ -2434,7 +2431,6 @@
           await options.onSubmitEdit(payload);
           savedPayloadSignature = projectPayloadSignature(payload);
           savedDraftSignature = draftSignatureAtSave;
-          projectHasBeenSaved = true;
           if (button) button.textContent = successText;
           if (projectCancelButton) projectCancelButton.textContent = "Close";
           window.setTimeout(() => {
@@ -9469,6 +9465,11 @@
   }
 
   function projectHours(client, project) {
+    const projectRow = (state.projects || []).find(
+      (item) => item?.client === client && item?.name === project
+    );
+    const persistedHours = Number(projectRow?.loggedHours ?? projectRow?.logged_hours);
+    if (Number.isFinite(persistedHours)) return persistedHours;
     return state.entries
       .filter((entry) => entry.client === client && entry.project === project)
       .reduce((sum, entry) => sum + entry.hours, 0);

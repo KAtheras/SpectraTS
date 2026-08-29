@@ -3565,6 +3565,20 @@ async function listProjects(sql, accountId) {
       projects.closeout_notes AS "closeoutNotes",
       projects.closeout_billing_note AS "closeoutBillingNote",
       projects.is_active AS "isActive",
+      COALESCE((
+        SELECT SUM(e.hours)
+        FROM entries e
+        WHERE e.account_id = projects.account_id
+          AND e.deleted_at IS NULL
+          AND (
+            e.project_id = projects.id
+            OR (
+              e.project_id IS NULL
+              AND LOWER(e.client_name) = LOWER(clients.name)
+              AND LOWER(e.project_name) = LOWER(projects.name)
+            )
+          )
+      ), 0)::FLOAT8 AS "loggedHours",
       lead.display_name AS "projectLeadName"
     FROM projects
     JOIN clients ON clients.id = projects.client_id
