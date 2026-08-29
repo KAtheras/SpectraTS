@@ -63,6 +63,16 @@
         color: color-mix(in srgb, #f59e0b 82%, var(--text));
         box-shadow: inset 0 0 0 1px color-mix(in srgb, #f59e0b 16%, transparent);
       }
+      .project-planning-status-button {
+        font-family: inherit;
+        cursor: pointer;
+      }
+      .project-planning-status-button:hover,
+      .project-planning-status-button:focus-visible {
+        border-color: #f59e0b;
+        background: color-mix(in srgb, #f59e0b 28%, var(--panel));
+        outline: none;
+      }
       .project-planning-kpi-row {
         width: 100%;
         margin-bottom: 14px;
@@ -849,6 +859,7 @@
     onSave,
     onApprove,
     onRequestChanges,
+    onShowRequestDetails,
     onAddMember,
     onPersistField,
     onDeleteMember,
@@ -913,6 +924,12 @@
         )
       : [];
     const usersById = new Map((state?.users || []).map((u) => [String(u?.id || "").trim(), u]));
+    const executiveId = String(project?.projectExecutiveId || project?.project_executive_id || "").trim();
+    const executiveName = String(
+      project?.projectExecutiveName || usersById.get(executiveId)?.displayName || "Project Executive"
+    ).trim();
+    const requestNotes = String(project?.planningReviewNotes || project?.planning_review_notes || "").trim();
+    const requestDate = project?.planningReviewedAt || project?.planning_reviewed_at || null;
 
     const clientName = String(project?.client || "Unknown client");
     const projectName = String(project?.name || "Select a project");
@@ -1126,7 +1143,9 @@
             </div>
           </div>
           <div class="project-planning-actions">
-            <span class="project-planning-status${planningStatus === "changes_requested" ? " is-changes-requested" : ""}">${escapeHtml(statusLabel)}</span>
+            ${planningStatus === "changes_requested"
+              ? `<button type="button" class="project-planning-status is-changes-requested project-planning-status-button" data-project-planning-request-details title="Click to view requested changes">${escapeHtml(statusLabel)}</button>`
+              : `<span class="project-planning-status">${escapeHtml(statusLabel)}</span>`}
             <button type="button" class="button button-ghost" data-project-planning-back>Back</button>
             <button type="button" class="button" data-project-planning-save ${canEdit && canSubmit ? "" : "hidden disabled"}>Submit for Approval</button>
             <button type="button" class="button button-ghost" data-project-planning-request ${canRequestChanges ? "" : "hidden disabled"}>Request Changes</button>
@@ -1438,6 +1457,11 @@
         return;
       }
       if (typeof onRequestChanges === "function") await onRequestChanges({ projectId: projectIdKey, notes: String(notes).trim() });
+    });
+    container.querySelector("[data-project-planning-request-details]")?.addEventListener("click", async () => {
+      if (typeof onShowRequestDetails === "function") {
+        await onShowRequestDetails({ executiveName, notes: requestNotes, requestedAt: requestDate });
+      }
     });
 
     const persistedRowFields = new Map(

@@ -10863,6 +10863,20 @@
                 feedback(error?.message || "Unable to request changes.", true);
               }
             },
+            onShowRequestDetails: async function (payload) {
+              const requestedAt = payload?.requestedAt ? formatDateTimeLocal(payload.requestedAt) : "";
+              const requestedBy = String(payload?.executiveName || "Project Executive").trim();
+              const notes = String(payload?.notes || "No request details were provided.").trim();
+              const context = requestedAt
+                ? `Requested by ${requestedBy} on ${requestedAt}.`
+                : `Requested by ${requestedBy}.`;
+              await appDialog({
+                title: "Requested Changes",
+                message: `${context}\n\n${notes}`,
+                hideConfirm: true,
+                cancelText: "Close",
+              });
+            },
             onNotice: function (message, isError) {
               feedback(message, isError);
             },

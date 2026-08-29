@@ -66,12 +66,14 @@ assert.match(mutateSource, /case "add_project_member":[\s\S]*?canEditProjectPlan
 assert.match(plannerSource, /const canApprove = planningStatus === "submitted" && isProjectExecutive/);
 assert.match(plannerSource, /const canRequestChanges = planningStatus !== "changes_requested" && isProjectExecutive/);
 assert.match(plannerSource, /project-planning-status\.is-changes-requested/);
-assert.match(plannerSource, /planningStatus === "changes_requested" \? " is-changes-requested"/);
+assert.match(plannerSource, /data-project-planning-request-details/);
+assert.match(plannerSource, /onShowRequestDetails/);
 assert.match(plannerSource, /data-project-planning-request/);
 assert.doesNotMatch(plannerSource, /window\.prompt\(/);
 assert.match(plannerSource, /await onPromptDialog/);
 assert.match(plannerSource, /data-project-planning-approve/);
 assert.match(appSource, /onRequestChanges: async function/);
+assert.match(appSource, /onShowRequestDetails: async function/);
 assert.match(appSource, /onApprove: async function/);
 assert.match(appSource, /async function refreshInboxItems\(\)/);
 assert.match(appSource, /inbox_only=1&refresh=\$\{Date\.now\(\)\}/);

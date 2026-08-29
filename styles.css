@@ -193,6 +193,7 @@ body.modal-open {
 }
 
 #dialog-message {
+  white-space: pre-wrap;
   white-space: pre-line;
 }
 
