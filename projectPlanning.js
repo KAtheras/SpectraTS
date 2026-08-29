@@ -852,6 +852,7 @@
     onPersistExpenseField,
     onDeleteExpenseRow,
     onConfirmDialog,
+    onPromptDialog,
     onNotice,
     canEdit = true,
     canSubmit = false,
@@ -1416,8 +1417,15 @@
       if (typeof onApprove === "function") await onApprove({ projectId: projectIdKey });
     });
     container.querySelector("[data-project-planning-request]")?.addEventListener("click", async () => {
-      const notes = window.prompt("Describe the changes requested:", "");
-      if (notes === null) return;
+      const notes = typeof onPromptDialog === "function"
+        ? await onPromptDialog({
+            title: "Request Plan Changes",
+            message: "Describe what the Project Lead should revise.",
+            confirmText: "Request Changes",
+            cancelText: "Cancel",
+          })
+        : null;
+      if (notes === null || notes === undefined) return;
       if (!String(notes).trim()) {
         if (typeof onNotice === "function") onNotice("Describe the changes requested.", true);
         return;

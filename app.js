@@ -905,10 +905,10 @@
       leadField.setAttribute("data-client-lead-field", "1");
       leadField.innerHTML = `
         <span>Client Lead</span>
-        <div data-client-lead-combobox style="position:relative;display:flex;align-items:center;">
+        <div class="lead-combobox" data-client-lead-combobox>
           <input type="text" name="client_lead_search" autocomplete="off" placeholder="Search client lead" aria-autocomplete="list" aria-expanded="false" aria-haspopup="listbox" />
-          <button type="button" data-client-lead-toggle aria-label="Show client lead options" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);border:0;background:transparent;color:var(--muted);font-size:12px;cursor:pointer;padding:4px;">▾</button>
-          <div data-client-lead-menu role="listbox" hidden style="position:absolute;left:0;right:0;top:calc(100% + 4px);max-height:220px;overflow:auto;z-index:50;background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 10px 24px rgba(15,23,42,.12);"></div>
+          <button type="button" class="lead-combobox-toggle" data-client-lead-toggle aria-label="Show client lead options">▾</button>
+          <div class="lead-combobox-menu" data-client-lead-menu role="listbox" hidden></div>
         </div>
         <input type="hidden" name="client_lead_id" value="" />
       `;
@@ -1061,13 +1061,13 @@
         return label.includes(query) || name.includes(query);
       });
       if (!filtered.length) {
-        leadMenu.innerHTML = '<div style="padding:8px 10px;color:var(--muted);font-size:.86rem;">No matches</div>';
+        leadMenu.innerHTML = '<div class="lead-combobox-empty">No matches</div>';
         return;
       }
       const selectedId = String(leadValueInput.value || "").trim();
       const heading = query
-        ? '<div style="padding:6px 10px;color:var(--muted);font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.03em;">Company matches</div>'
-        : '<div style="padding:6px 10px;color:var(--muted);font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.03em;">Scoped defaults</div>';
+        ? '<div class="lead-combobox-heading">Company matches</div>'
+        : '<div class="lead-combobox-heading">Scoped defaults</div>';
       leadMenu.innerHTML =
         heading +
         filtered
@@ -1075,7 +1075,7 @@
             const itemId = String(item?.id || "").trim();
             const itemLabel = String(item?.label || "").trim();
             const isSelected = itemId === selectedId;
-            return `<button type="button" data-client-lead-option-id="${escapeHtml(itemId)}" style="display:block;width:100%;text-align:left;border:0;background:${isSelected ? "rgba(47,111,237,.08)" : "transparent"};padding:8px 10px;cursor:pointer;font:inherit;">${escapeHtml(itemLabel)}</button>`;
+            return `<button type="button" class="lead-combobox-option${isSelected ? " is-selected" : ""}" data-client-lead-option-id="${escapeHtml(itemId)}">${escapeHtml(itemLabel)}</button>`;
           })
           .join("");
     };
@@ -1726,10 +1726,10 @@
             </label>
             <label class="project-dialog-field">
               <span>Project Lead</span>
-              <div data-project-lead-combobox style="position:relative;display:flex;align-items:center;">
+              <div class="lead-combobox" data-project-lead-combobox>
                 <input type="text" name="project_lead_search" autocomplete="off" placeholder="Search project lead" aria-autocomplete="list" aria-expanded="false" aria-haspopup="listbox" />
-                <button type="button" data-project-lead-toggle aria-label="Show project lead options" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);border:0;background:transparent;color:var(--muted);font-size:12px;cursor:pointer;padding:4px;">▾</button>
-                <div data-project-lead-menu role="listbox" hidden style="position:absolute;left:0;right:0;top:calc(100% + 4px);max-height:220px;overflow:auto;z-index:50;background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 10px 24px rgba(15,23,42,.12);"></div>
+                <button type="button" class="lead-combobox-toggle" data-project-lead-toggle aria-label="Show project lead options">▾</button>
+                <div class="lead-combobox-menu" data-project-lead-menu role="listbox" hidden></div>
               </div>
               <input type="hidden" name="project_lead_id" value="" />
             </label>
@@ -1992,12 +1992,12 @@
         });
         const selectedId = String(leadValueInput?.value || "").trim();
         if (!filtered.length) {
-          leadMenu.innerHTML = '<div style="padding:8px 10px;color:var(--muted);font-size:.86rem;">No matches</div>';
+          leadMenu.innerHTML = '<div class="lead-combobox-empty">No matches</div>';
           return;
         }
         const heading = query
-          ? '<div style="padding:6px 10px;color:var(--muted);font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.03em;">Company matches</div>'
-          : '<div style="padding:6px 10px;color:var(--muted);font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.03em;">Scoped defaults</div>';
+          ? '<div class="lead-combobox-heading">Company matches</div>'
+          : '<div class="lead-combobox-heading">Scoped defaults</div>';
         leadMenu.innerHTML =
           heading +
           filtered
@@ -2005,7 +2005,7 @@
             const itemId = String(item?.id || "").trim();
             const itemLabel = String(item?.label || "").trim();
             const isSelected = itemId === selectedId;
-            return `<button type="button" data-project-lead-option-id="${escapeHtml(itemId)}" style="display:block;width:100%;text-align:left;border:0;background:${isSelected ? "rgba(47,111,237,.08)" : "transparent"};padding:8px 10px;cursor:pointer;font:inherit;">${escapeHtml(itemLabel)}</button>`;
+            return `<button type="button" class="lead-combobox-option${isSelected ? " is-selected" : ""}" data-project-lead-option-id="${escapeHtml(itemId)}">${escapeHtml(itemLabel)}</button>`;
             })
             .join("");
       };
@@ -6910,7 +6910,8 @@
       const confirmText = options?.confirmText || "OK";
       const cancelText = options?.cancelText || "Cancel";
       const hideConfirm = Boolean(options?.hideConfirm);
-      const showInput = Boolean(options?.input);
+      const showTextarea = Boolean(options?.textarea);
+      const showInput = Boolean(options?.input || showTextarea);
       const defaultValue = options?.defaultValue || "";
       const inputType = String(options?.inputType || "text").trim() || "text";
       const isDateInput = inputType === "date";
@@ -6920,12 +6921,16 @@
       refs.dialogTitle.textContent = title;
       refs.dialogMessage.textContent = message;
       refs.dialogInputRow.hidden = !showInput;
-      refs.dialogInput.hidden = isDateInput;
+      refs.dialogInput.hidden = isDateInput || showTextarea;
       refs.dialogInput.type = isDateInput ? "text" : inputType;
       if (refs.dialogTextarea) {
-        refs.dialogTextarea.hidden = true;
+        refs.dialogTextarea.hidden = !showTextarea;
+        refs.dialogTextarea.value = showTextarea ? defaultValue : "";
       }
       refs.dialogInput.value = defaultValue;
+      if (showTextarea && refs.dialogTextarea) {
+        dialogResolveValue = () => refs.dialogTextarea.value.trim();
+      }
       if (showInput && isDateInput) {
         dialogDateInput = document.createElement("input");
         dialogDateInput.type = "date";
@@ -6951,6 +6956,10 @@
         }
         refs.dialogInput.hidden = false;
         refs.dialogInput.type = "text";
+        if (refs.dialogTextarea) {
+          refs.dialogTextarea.hidden = true;
+          refs.dialogTextarea.value = "";
+        }
         refs.dialogConfirm.removeEventListener("click", onConfirm);
         refs.dialogCancel.removeEventListener("click", onCancel);
       };
@@ -6971,7 +6980,9 @@
       refs.dialogCancel.addEventListener("click", onCancel);
 
       if (showInput) {
-        if (dialogDateInput) {
+        if (showTextarea && refs.dialogTextarea) {
+          refs.dialogTextarea.focus();
+        } else if (dialogDateInput) {
           dialogDateInput.focus();
         } else {
           refs.dialogInput.focus();
@@ -11111,8 +11122,16 @@
               });
               return result?.confirmed === true;
             },
-            onNotice: function (payload) {
-              return showNoticeDialog(payload?.message, payload?.title);
+            onPromptDialog: async function (payload) {
+              const result = await appDialog({
+                title: String(payload?.title || "Enter Details"),
+                message: String(payload?.message || ""),
+                confirmText: String(payload?.confirmText || "Continue"),
+                cancelText: String(payload?.cancelText || "Cancel"),
+                textarea: true,
+                defaultValue: String(payload?.defaultValue || ""),
+              });
+              return result?.confirmed === true ? String(result.value || "").trim() : null;
             },
             onDeleteMember: async function (payload) {
               if (!canEditPlanning) {

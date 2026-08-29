@@ -9,6 +9,7 @@ const mutateSource = fs.readFileSync(path.join(root, "netlify/functions/mutate.j
 const plannerSource = fs.readFileSync(path.join(root, "projectPlanning.js"), "utf8");
 const appSource = fs.readFileSync(path.join(root, "app.js"), "utf8");
 const membersModalSource = fs.readFileSync(path.join(root, "membersModal.js"), "utf8");
+const stylesSource = fs.readFileSync(path.join(root, "styles.css"), "utf8");
 
 function functionBody(source, name, nextMarker) {
   const start = source.indexOf(`async function ${name}`);
@@ -58,13 +59,19 @@ assert.match(mutateSource, /case "add_project_member":[\s\S]*?canEditProjectPlan
 
 assert.match(plannerSource, /planningStatus === "submitted" && isProjectExecutive/);
 assert.match(plannerSource, /data-project-planning-request/);
+assert.doesNotMatch(plannerSource, /window\.prompt\(/);
+assert.match(plannerSource, /await onPromptDialog/);
 assert.match(plannerSource, /data-project-planning-approve/);
 assert.match(appSource, /onRequestChanges: async function/);
 assert.match(appSource, /onApprove: async function/);
+assert.match(appSource, /onPromptDialog: async function/);
 assert.match(appSource, /const hasUnsavedChanges = projectDraftSignature\(\) !== savedDraftSignature;\s*if \(hasUnsavedChanges\) \{\s*const payload = buildProjectDialogPayload\(\)/);
 assert.match(appSource, /if \(projectDialog\.openProjectPlanning\) \{[\s\S]*?setView\("project_planning"\);[\s\S]*?return;/);
 const openPlannerHandler = appSource.match(/const onOpenProjectPlanning = async \(event\) => \{[\s\S]*?openPlanningButton\?\.addEventListener/)?.[0] || "";
 assert.doesNotMatch(openPlannerHandler, /setView\("project_planning"\)/);
 assert.match(membersModalSource, /user\.projectPlanningBaseRate/);
+assert.match(appSource, /class="lead-combobox-menu" data-project-lead-menu/);
+assert.doesNotMatch(appSource, /data-project-lead-menu[^>]*background:#fff/);
+assert.match(stylesSource, /\.lead-combobox-menu \{[\s\S]*?background: var\(--panel\);[\s\S]*?color: var\(--ink\);/);
 
 console.log("Project workflow regression tests passed.");
